@@ -361,7 +361,7 @@ export const WithGroupByFunctionality = () => {
                 },
                 rowExpandable: () => true,
                 expandIconPosition: 'end',
-                expandedRowKeys,
+                expandedGroupIds: expandedRowKeys,
             }}
             onExpand={onExapand}
         />

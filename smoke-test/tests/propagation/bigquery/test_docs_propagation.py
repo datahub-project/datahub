@@ -23,7 +23,7 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryCredential
+from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
 from datahub.metadata.com.linkedin.pegasus2avro.schema import EditableSchemaFieldInfo
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -91,7 +91,7 @@ pytestmark = pytest.mark.integration("integration")
 pytest.skip("bigquery sync tests are disabled", allow_module_level=True)
 
 
-def generate_bigquery_credentials() -> BigQueryCredential:
+def generate_bigquery_credentials() -> GCPCredential:
     project_id = os.getenv("BIGQUERY_PROJECT_ID")
     client_email = os.getenv("BIGQUERY_CLIENT_EMAIL")
     private_key = os.getenv("BIGQUERY_PRIVATE_KEY")
@@ -104,7 +104,7 @@ def generate_bigquery_credentials() -> BigQueryCredential:
     assert private_key_id
     assert client_id
 
-    return BigQueryCredential(
+    return GCPCredential(
         project_id=project_id,
         client_email=client_email,
         private_key=private_key,

@@ -388,6 +388,11 @@ input ScrollAcrossEntitiesInput {
   Optional - Convert the provided filter from scroll inputs into a predicate to do a predicate search
   """
   convertToPredicate: Boolean
+
+  """
+  Optional - Information on how to sort this search result
+  """
+  sortInput: SearchSortInput
 }
 
 

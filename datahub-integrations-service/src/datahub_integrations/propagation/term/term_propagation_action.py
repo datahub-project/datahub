@@ -19,7 +19,7 @@ from typing import Dict, Iterable, List, Optional, Set, TypeVar
 
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.graph.client import SearchFilterRule
+from datahub.ingestion.graph.filters import RawSearchFilterRule
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     EditableSchemaFieldInfoClass,
@@ -330,8 +330,8 @@ class TermPropagationAction(ExtendedAction[SelectedAsset], ComposablePropagator)
         ):
             self.process_directive(directive)
 
-    def asset_filters(self) -> Dict[str, Dict[str, List[SearchFilterRule]]]:
-        asset_filters: Dict[str, Dict[str, List[SearchFilterRule]]] = {}
+    def asset_filters(self) -> Dict[str, Dict[str, List[RawSearchFilterRule]]]:
+        asset_filters: Dict[str, Dict[str, List[RawSearchFilterRule]]] = {}
 
         entity_index_field_map = {
             "schemaField": {
@@ -358,7 +358,7 @@ class TermPropagationAction(ExtendedAction[SelectedAsset], ComposablePropagator)
             index_field_map = entity_index_field_map.get(entity_type, {})
             asset_filters[entity_type] = {}
             for index, index_fields in index_field_map.items():
-                or_filters: List[SearchFilterRule] = []
+                or_filters: List[RawSearchFilterRule] = []
                 for index_field in index_fields:
                     or_filters.extend(
                         [

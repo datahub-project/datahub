@@ -140,6 +140,7 @@ entities:
       - ownership
       - status
       - testResults
+      - subTypes
   - name: dataProcessInstance
     doc: DataProcessInstance represents an instance of a datajob/jobflow run
     keyAspect: dataProcessInstanceKey
@@ -262,6 +263,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
       # SaaS Only
       - share
       - slackUserInfo
@@ -279,6 +281,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
       # SaaS Only
       - corpGroupSettings
       - share
@@ -293,8 +296,8 @@ entities:
       - structuredProperties
       - forms
       - testResults
-      # SaaS Only
       - displayProperties
+      # SaaS Only
       - share
       - origin
   - name: container
@@ -353,6 +356,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
       # SaaS Only
       - share
       - origin
@@ -367,8 +371,9 @@ entities:
       - structuredProperties
       - forms
       - testResults
-      # SaaS Only
+      - subTypes
       - displayProperties
+      # SaaS Only
       - share
       - origin
   - name: dataHubIngestionSource
@@ -451,6 +456,8 @@ entities:
       - forms
       - testResults
       - versionProperties
+      - subTypes
+      - container
       # SaaS Only
       - proposals
       - share
@@ -476,6 +483,8 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
+      - container
       - institutionalMemory
       # SaaS Only
       - proposals
@@ -494,6 +503,7 @@ entities:
       - globalTags
       - dataPlatformInstance
       - testResults
+      - container
   - name: mlFeatureTable
     category: core
     keyAspect: mlFeatureTableKey
@@ -513,6 +523,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
       # SaaS Only
       - proposals
       - share
@@ -538,6 +549,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
       # SaaS Only
       - proposals
       - share
@@ -562,6 +574,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
       # SaaS Only
       - proposals
       - share
@@ -610,6 +623,7 @@ entities:
       - documentation
       - testResults
       - deprecation
+      - subTypes
       # SaaS Only
       - schemaFieldProfile
       - lineageFeatures
@@ -644,6 +658,7 @@ entities:
     keyAspect: postKey
     aspects:
       - postInfo
+      - subTypes
       # SaaS Only
       - status
   - name: dataHubStepState
@@ -696,6 +711,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
       # SaaS Only
       - share
       - origin
@@ -866,9 +882,9 @@ events:
   - name: notificationRequest
 plugins:
   aspectPayloadValidators:
-    - className: 'com.linkedin.metadata.structuredproperties.validation.PropertyDefinitionValidator'
+    - className: "com.linkedin.metadata.structuredproperties.validation.PropertyDefinitionValidator"
       packageScan:
-        - 'com.linkedin.metadata.structuredproperties.validation'
+        - "com.linkedin.metadata.structuredproperties.validation"
       enabled: true
       supportedOperations:
         - CREATE
@@ -879,26 +895,26 @@ plugins:
           aspectName: propertyDefinition
         - entityName: structuredProperty
           aspectName: structuredPropertyKey
-    - className: 'com.linkedin.metadata.structuredproperties.validation.StructuredPropertiesValidator'
+    - className: "com.linkedin.metadata.structuredproperties.validation.StructuredPropertiesValidator"
       packageScan:
-        - 'com.linkedin.metadata.structuredproperties.validation'
+        - "com.linkedin.metadata.structuredproperties.validation"
       enabled: true
       supportedOperations:
         - CREATE
         - UPSERT
         - DELETE
       supportedEntityAspectNames:
-        - entityName: '*'
+        - entityName: "*"
           aspectName: structuredProperties
-    - className: 'com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator'
+    - className: "com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator"
       enabled: true
       supportedOperations:
         - CREATE
         - CREATE_ENTITY
       supportedEntityAspectNames:
-        - entityName: '*'
-          aspectName: '*'
-    - className: 'com.linkedin.metadata.aspect.validation.ConditionalWriteValidator'
+        - entityName: "*"
+          aspectName: "*"
+    - className: "com.linkedin.metadata.aspect.validation.ConditionalWriteValidator"
       enabled: true
       supportedOperations:
         - CREATE
@@ -908,18 +924,18 @@ plugins:
         - UPDATE
         - PATCH
       supportedEntityAspectNames:
-        - entityName: '*'
-          aspectName: '*'
-    - className: 'com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator'
+        - entityName: "*"
+          aspectName: "*"
+    - className: "com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator"
       enabled: true
       spring:
         enabled: true
       packageScan:
         - com.linkedin.gms.factory.plugins
   mcpSideEffects:
-    - className: 'com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffect'
+    - className: "com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffect"
       packageScan:
-        - 'com.linkedin.metadata.structuredproperties.hooks'
+        - "com.linkedin.metadata.structuredproperties.hooks"
       enabled: true
       supportedOperations:
         - DELETE
@@ -928,21 +944,21 @@ plugins:
           aspectName: propertyDefinition
         - entityName: structuredProperty
           aspectName: structuredPropertyKey
-    - className: 'com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect'
+    - className: "com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect"
       enabled: true
       spring:
         enabled: true
       packageScan:
         - com.linkedin.gms.factory.plugins
   mutationHooks:
-    - className: 'com.linkedin.metadata.structuredproperties.hooks.StructuredPropertiesSoftDelete'
+    - className: "com.linkedin.metadata.structuredproperties.hooks.StructuredPropertiesSoftDelete"
       packageScan:
-        - 'com.linkedin.metadata.structuredproperties.hooks'
+        - "com.linkedin.metadata.structuredproperties.hooks"
       enabled: true
       supportedEntityAspectNames:
-        - entityName: '*'
+        - entityName: "*"
           aspectName: structuredProperties
-    - className: 'com.linkedin.metadata.aspect.hooks.FieldPathMutator'
+    - className: "com.linkedin.metadata.aspect.hooks.FieldPathMutator"
       enabled: true
       supportedOperations:
         - CREATE
@@ -951,45 +967,45 @@ plugins:
         - RESTATE
         - PATCH
       supportedEntityAspectNames:
-        - entityName: '*'
-          aspectName: 'schemaMetadata'
-        - entityName: '*'
-          aspectName: 'editableSchemaMetadata'
-    - className: 'com.linkedin.metadata.aspect.plugins.hooks.MutationHook'
+        - entityName: "*"
+          aspectName: "schemaMetadata"
+        - entityName: "*"
+          aspectName: "editableSchemaMetadata"
+    - className: "com.linkedin.metadata.aspect.plugins.hooks.MutationHook"
       enabled: true
       spring:
         enabled: true
       packageScan:
         - com.linkedin.gms.factory.plugins
     # SaaS Only Mutation Hooks
-    - className: 'com.linkedin.metadata.aspect.hooks.OwnerTypeMap'
+    - className: "com.linkedin.metadata.aspect.hooks.OwnerTypeMap"
       enabled: true
       supportedOperations:
         - UPSERT
         - CREATE
         - RESTATE
       supportedEntityAspectNames:
-        - entityName: '*'
+        - entityName: "*"
           aspectName: ownership
     # Calculates md5 hash on test definitions on read/write
-    - className: 'com.linkedin.metadata.test.hooks.MetadataTestHash'
+    - className: "com.linkedin.metadata.test.hooks.MetadataTestHash"
       enabled: true
       supportedOperations:
         - UPSERT
         - CREATE
         - RESTATE
       supportedEntityAspectNames:
-        - entityName: 'test'
+        - entityName: "test"
           aspectName: testInfo
-    - className: 'com.linkedin.metadata.aspect.hooks.CorpUserEditableInfoMutator'
+    - className: "com.linkedin.metadata.aspect.hooks.CorpUserEditableInfoMutator"
       enabled: true
       supportedOperations:
         - UPSERT
         - UPDATE
       supportedEntityAspectNames:
-        - entityName: '*'
-          aspectName: 'corpUserEditableInfo'
-    - className: 'com.linkedin.metadata.aspect.plugins.hooks.MutationHook'
+        - entityName: "*"
+          aspectName: "corpUserEditableInfo"
+    - className: "com.linkedin.metadata.aspect.plugins.hooks.MutationHook"
       enabled: true
       spring:
         enabled: true

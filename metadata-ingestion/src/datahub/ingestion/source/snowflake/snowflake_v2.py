@@ -439,7 +439,7 @@ class SnowflakeV2Source(
                     failure_reason=failure_message,
                 )
 
-            if c in _report.keys():
+            if c in _report:
                 continue
 
             # If some capabilities are missing, then mark them as not capable

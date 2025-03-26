@@ -9,6 +9,10 @@ const StyledEmpty = styled(Empty)<{ $hideImage?: boolean }>`
     ${({ $hideImage }) => ($hideImage ? '.ant-empty-image { margin: 0; }' : '.ant-empty-image { height: 86px; }')}
 
     .ant-empty-footer {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        justify-content: center;
         .ant-btn:not(:last-child) {
             margin-right: 8px;
         }

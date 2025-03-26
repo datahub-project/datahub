@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Button, message, Space, Typography } from 'antd';
+import { Alert, message, Space, Typography } from 'antd';
 import styled from 'styled-components';
+import { Button } from '@src/alchemy-components';
 import { StepProps } from './types';
 import { getPlaceholderRecipe, getSourceConfigs, jsonToYaml } from '../utils';
 import { YamlEditor } from './YamlEditor';
@@ -140,7 +141,7 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSour
                                 known problem the DataHub team is working to solve!
                                 <br />
                                 <Space direction="horizontal" style={{ width: '100%', justifyContent: 'center' }}>
-                                    <Button type="ghost" size="small" onClick={() => setShowLookerBanner(false)}>
+                                    <Button variant="text" onClick={() => setShowLookerBanner(false)}>
                                         I have set up LookML ingestion!
                                     </Button>
                                 </Space>
@@ -161,10 +162,10 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSour
                 <YamlEditor initialText={displayRecipe} onChange={setStagedRecipeYml} />
             </BorderedSection>
             <ControlsContainer>
-                <Button disabled={isEditing} onClick={prev}>
+                <Button variant="outline" color="gray" disabled={isEditing} onClick={prev}>
                     Previous
                 </Button>
-                <Button type="primary" disabled={!stepComplete} onClick={onClickNext}>
+                <Button disabled={!stepComplete} onClick={onClickNext}>
                     Next
                 </Button>
             </ControlsContainer>

@@ -1,6 +1,8 @@
-import { Typography, Modal, Button, Form } from 'antd';
+import { Typography, Modal, Form } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import { Button } from '@src/alchemy-components';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import { Editor } from '../../tabs/Documentation/components/editor/Editor';
 import { ANTD_GRAY } from '../../constants';
 import InferDocsPanel from '../inferredDocs/InferDocsPanel';
@@ -68,22 +70,28 @@ export default function UpdateDescriptionModal({
             onCancel={onClose}
             okText={isAddDesc ? 'Submit' : 'Update'}
             footer={
-                <>
-                    <Button onClick={onClose}>Cancel</Button>
+                <ModalButtonContainer>
+                    <Button type="button" variant="text" color="gray" onClick={onClose}>
+                        Cancel
+                    </Button>
                     {showPropose && onPropose && (
-                        <Button onClick={() => onPropose(updatedDesc)} disabled={updatedDesc === description}>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => onPropose(updatedDesc)}
+                            disabled={updatedDesc === description}
+                        >
                             Propose
                         </Button>
                     )}
                     <Button
-                        type="primary"
                         onClick={() => onSubmit(updatedDesc)}
                         disabled={updatedDesc === description}
                         data-testid="description-modal-update-button"
                     >
                         Publish
                     </Button>
-                </>
+                </ModalButtonContainer>
             }
         >
             <Form layout="vertical">

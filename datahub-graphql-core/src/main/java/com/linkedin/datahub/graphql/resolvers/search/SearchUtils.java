@@ -461,8 +461,8 @@ public class SearchUtils {
                     finalFilters,
                     scrollId,
                     keepAlive,
-                    count,
-                    null);
+                    null,
+                    count);
             return UrnScrollResultsMapper.map(inputContext, scrollResult);
           } catch (Exception e) {
             log.warn(

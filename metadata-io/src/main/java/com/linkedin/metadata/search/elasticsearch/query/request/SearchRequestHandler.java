@@ -254,7 +254,8 @@ public class SearchRequestHandler extends BaseRequestHandler {
       List<SortCriterion> sortCriteria,
       int from,
       int size,
-      @Nullable List<String> facets) {
+      @Nonnull List<String> facets) {
+
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
     SearchSourceBuilder searchSourceBuilder = constructSearchSourceBuilder(from, size);
@@ -287,7 +288,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
       final String input,
       final SearchFlags searchFlags,
       final BoolQueryBuilder filterQuery,
-      final List<String> facets,
+      @Nonnull final List<String> facets,
       final List<SortCriterion> sortCriteria) {
     searchSourceBuilder.query(
         QueryBuilders.boolQuery()
@@ -341,7 +342,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nullable String pitId,
       @Nullable String keepAlive,
       int size,
-      @Nullable List<String> facets,
+      @Nonnull List<String> facets,
       @Nullable SearchDocFieldFetchConfig fieldFetchConfig) {
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
@@ -849,7 +850,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nullable List<SortCriterion> sortCriteria,
       int from,
       int size,
-      @Nullable List<String> facets) {
+      @Nonnull List<String> facets) {
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     BoolQueryBuilder filterQuery = getFilterQuery(opContext, predicate);
     SearchSourceBuilder searchSourceBuilder = constructSearchSourceBuilder(from, size);
@@ -953,7 +954,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nullable String pitId,
       @Nullable String keepAlive,
       int size,
-      @Nullable List<String> facets,
+      @Nonnull List<String> facets,
       @Nullable SearchDocFieldFetchConfig fieldFetchConfig) {
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     BoolQueryBuilder filterQuery = getFilterQuery(opContext, predicate);

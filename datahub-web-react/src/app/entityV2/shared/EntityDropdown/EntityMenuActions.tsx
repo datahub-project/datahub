@@ -1,6 +1,7 @@
 import { MoreOutlined } from '@ant-design/icons';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
+import { useAppConfig } from '@src/app/useAppConfig';
 import { useEntityData, useRefetch } from '../../../entity/shared/EntityContext';
 import ShareMenuAction from '../../../shared/share/v2/ShareMenuAction';
 import { SubscribeMenuAction } from '../../../shared/subscribe/v2/SubscribeMenuAction';
@@ -69,6 +70,8 @@ function EntityMenuActions(props: Props) {
 
     const shouldFillAllAvailableSpace = shouldExternalLinksFillAllAvailableSpace;
 
+    const { entityVersioningEnabled } = useAppConfig().config.featureFlags;
+
     const hasVersioningActions = !!(menuItems.has(EntityMenuItems.LINK_VERSION) || entityData?.versionProperties);
 
     return (
@@ -85,7 +88,7 @@ function EntityMenuActions(props: Props) {
                     )}
                     {/** acryl-main only */}
                     {menuItems.has(EntityMenuItems.RAISE_INCIDENT) && <RaiseIncidentMenuAction />}
-                    {hasVersioningActions && (
+                    {entityVersioningEnabled && hasVersioningActions && (
                         <MoreOptionsContainer>
                             <MoreOptionsMenuAction
                                 menuItems={

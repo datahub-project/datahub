@@ -197,9 +197,7 @@ class DataProduct(ConfigModel):
                         DataProductAssociationClass(
                             destinationUrn=asset,
                             created=self._mint_auditstamp("yaml"),
-                            outputPort=True
-                            if asset in (self.output_ports or [])
-                            else False,
+                            outputPort=asset in (self.output_ports or []),
                         )
                         for asset in self.assets
                     ]
@@ -223,9 +221,7 @@ class DataProduct(ConfigModel):
                         DataProductAssociationClass(
                             destinationUrn=asset,
                             created=self._mint_auditstamp("yaml"),
-                            outputPort=True
-                            if asset in (self.output_ports or [])
-                            else False,
+                            outputPort=asset in (self.output_ports or []),
                         )
                         for asset in self.assets or []
                     ],

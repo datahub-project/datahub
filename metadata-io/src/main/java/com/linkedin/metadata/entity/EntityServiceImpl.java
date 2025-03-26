@@ -193,6 +193,23 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       final boolean alwaysEmitChangeLog,
       final PreProcessHooks preProcessHooks,
       @Nullable final Integer retry,
+      final boolean enableBrowsePathV2) {
+    this(
+        aspectDao,
+        producer,
+        alwaysEmitChangeLog,
+        preProcessHooks,
+        retry,
+        enableBrowsePathV2,
+        EntityServiceConfiguration.EMPTY);
+  }
+
+  public EntityServiceImpl(
+      @Nonnull final AspectDao aspectDao,
+      @Nonnull final EventProducer producer,
+      final boolean alwaysEmitChangeLog,
+      final PreProcessHooks preProcessHooks,
+      @Nullable final Integer retry,
       final boolean enableBrowseV2,
       @Nonnull final EntityServiceConfiguration entityServiceConfiguration) {
 
@@ -1373,7 +1390,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    * @param aspectsBatch timeseries upserts batch
    * @return returns ingest proposal result, however was never in the MCP topic
    */
-  private Stream<IngestResult> ingestTimeseriesProposal(
+  @VisibleForTesting
+  Stream<IngestResult> ingestTimeseriesProposal(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch, final boolean async) {
 
     List<? extends BatchItem> unsupported =
@@ -1393,33 +1411,40 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return opContext.withSpan(
         "ingestTimeseriesProposal",
         () -> {
-          if (!async) {
-            // Handle throttling
-            APIThrottle.evaluate(opContext, new HashSet<>(throttleEvents.values()), true);
+          // Handle throttling
+          APIThrottle.evaluate(opContext, new HashSet<>(throttleEvents.values()), true);
 
-            // Create default non-timeseries aspects for timeseries aspects
-            // TODO: Assuming custom unvalidated aspects are non-timeseries.
-            //  Might need better handling with mutator occurring before this
-            List<MCPItem> timeseriesKeyAspects =
-                aspectsBatch.getMCPItems().stream()
-                    .filter(
-                        item -> item.getAspectSpec() != null && item.getAspectSpec().isTimeseries())
-                    .map(
-                        item ->
-                            ChangeItemImpl.builder()
-                                .urn(item.getUrn())
-                                .aspectName(item.getEntitySpec().getKeyAspectName())
-                                .changeType(ChangeType.UPSERT)
-                                .entitySpec(item.getEntitySpec())
-                                .aspectSpec(item.getEntitySpec().getKeyAspectSpec())
-                                .auditStamp(item.getAuditStamp())
-                                .systemMetadata(item.getSystemMetadata())
-                                .recordTemplate(
-                                    EntityApiUtils.buildKeyAspect(
-                                        opContext.getEntityRegistry(), item.getUrn()))
-                                .build(opContext.getAspectRetriever()))
-                    .collect(Collectors.toList());
+          // Create default non-timeseries aspects for timeseries aspects
+          // TODO: Assuming custom unvalidated aspects are non-timeseries.
+          //  Might need better handling with mutator occurring before this
+          List<MCPItem> timeseriesKeyAspects =
+              aspectsBatch.getMCPItems().stream()
+                  .filter(
+                      item -> item.getAspectSpec() != null && item.getAspectSpec().isTimeseries())
+                  .map(
+                      item ->
+                          ChangeItemImpl.builder()
+                              .urn(item.getUrn())
+                              .aspectName(item.getEntitySpec().getKeyAspectName())
+                              .changeType(ChangeType.UPSERT)
+                              .entitySpec(item.getEntitySpec())
+                              .aspectSpec(item.getEntitySpec().getKeyAspectSpec())
+                              .auditStamp(item.getAuditStamp())
+                              .systemMetadata(item.getSystemMetadata())
+                              .recordTemplate(
+                                  EntityApiUtils.buildKeyAspect(
+                                      opContext.getEntityRegistry(), item.getUrn()))
+                              .build(opContext.getAspectRetriever()))
+                  .collect(Collectors.toList());
 
+          if (async) {
+            ingestProposalAsync(
+                opContext,
+                AspectsBatchImpl.builder()
+                    .retrieverContext(aspectsBatch.getRetrieverContext())
+                    .items(timeseriesKeyAspects)
+                    .build());
+          } else {
             ingestProposalSync(
                 opContext,
                 AspectsBatchImpl.builder()
@@ -1495,8 +1520,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    * @param aspectsBatch non-timeseries ingest aspects
    * @return produced items to the MCP topic
    */
-  private Stream<IngestResult> ingestProposalAsync(
-      OperationContext opContext, AspectsBatch aspectsBatch) {
+  @VisibleForTesting
+  Stream<IngestResult> ingestProposalAsync(OperationContext opContext, AspectsBatch aspectsBatch) {
     return opContext.withSpan(
         "ingestProposalAsync",
         () -> {
@@ -1543,6 +1568,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         String.valueOf(aspectsBatch.getItems().size()));
   }
 
+  @VisibleForTesting
   Stream<IngestResult> ingestProposalSync(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch) {
 

@@ -34,7 +34,7 @@ const INCIDENT_STAGE = {
     },
 };
 
-export const IncidentStagePill = ({ stage }: { stage: string }) => {
+export const IncidentStagePill = ({ stage, showLabel = false }: { stage: string; showLabel?: boolean }) => {
     if (!stage) return <Pill label="None" size="md" />;
 
     const { icon, color, bgColor } = INCIDENT_STAGE[stage] || {};
@@ -44,14 +44,17 @@ export const IncidentStagePill = ({ stage }: { stage: string }) => {
     }
 
     return (
-        <Pill
-            label={IncidentStageLabel[stage] || 'None'}
-            size="md"
-            customIconRenderer={iconRenderer}
-            customStyle={{
-                backgroundColor: bgColor,
-                color,
-            }}
-        />
+        <div title={IncidentStageLabel[stage] || 'None'}>
+            <Pill
+                label={IncidentStageLabel[stage] || 'None'}
+                size="md"
+                customIconRenderer={iconRenderer}
+                customStyle={{
+                    backgroundColor: bgColor,
+                    color,
+                }}
+                showLabel={showLabel}
+            />
+        </div>
     );
 };

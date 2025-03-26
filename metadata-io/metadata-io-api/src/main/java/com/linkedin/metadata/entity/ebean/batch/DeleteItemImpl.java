@@ -94,10 +94,12 @@ public class DeleteItemImpl implements ChangeMCP {
       ValidationApiUtils.validateUrn(aspectRetriever.getEntityRegistry(), this.urn);
       log.debug("entity type = {}", this.urn.getEntityType());
 
-      entitySpec(aspectRetriever.getEntityRegistry().getEntitySpec(this.urn.getEntityType()));
+      entitySpec(
+          ValidationApiUtils.validateEntity(
+              aspectRetriever.getEntityRegistry(), this.urn.getEntityType()));
       log.debug("entity spec = {}", this.entitySpec);
 
-      aspectSpec(ValidationApiUtils.validate(this.entitySpec, this.aspectName));
+      aspectSpec(ValidationApiUtils.validateAspect(this.entitySpec, this.aspectName));
       log.debug("aspect spec = {}", this.aspectSpec);
 
       return new DeleteItemImpl(

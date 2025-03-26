@@ -22,6 +22,24 @@ import {
 
 const PER_HOP_LIMIT = 2;
 
+export const DEFAULT_IGNORE_AS_HOPS = [
+    {
+        entityType: EntityType.Dataset,
+        platforms: [DBT_URN],
+    },
+    {
+        entityType: EntityType.SchemaField,
+        platforms: [DBT_URN],
+    },
+    { entityType: EntityType.DataJob },
+    { entityType: EntityType.DataProcessInstance },
+];
+
+export const DEFAULT_SEARCH_FLAGS = {
+    groupingSpec: { groupingCriteria: [] },
+    filterNonLatestVersions: false,
+};
+
 /**
  * Fetches the lineage structure for a given urn and direction, and updates the nodes map with the results.
  * @param urn Urn for which to fetch lineage
@@ -68,22 +86,11 @@ export default function useSearchAcrossLineage(
             startTimeMillis,
             endTimeMillis,
             entitiesExploredPerHopLimit: PER_HOP_LIMIT,
-            ignoreAsHops: [
-                {
-                    entityType: EntityType.Dataset,
-                    platforms: [DBT_URN],
-                },
-                {
-                    entityType: EntityType.SchemaField,
-                    platforms: [DBT_URN],
-                },
-                { entityType: EntityType.DataJob },
-                { entityType: EntityType.DataProcessInstance },
-            ],
+            ignoreAsHops: DEFAULT_IGNORE_AS_HOPS,
         },
         searchFlags: {
+            ...DEFAULT_SEARCH_FLAGS,
             skipCache: !!skipCache,
-            groupingSpec: { groupingCriteria: [] },
         },
     };
 

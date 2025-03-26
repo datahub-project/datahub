@@ -523,6 +523,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                   scrollId,
                   keepAlive,
                   count,
+                  null,
                   predicateJson);
           if (!isAPIAuthorizedResult(
                   opContext,

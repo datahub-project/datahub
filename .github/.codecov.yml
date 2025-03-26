@@ -51,12 +51,6 @@ flag_management:
     - name: ingestion-prefect
       paths:
         - "metadata-ingestion-modules/prefect-plugin/**"
-    - name: datahub-executor
-      paths:
-        - "datahub-executor/**"
-    - name: integrations-service
-      paths:
-        - "datahub-integrations-service/**"
 coverage:
   status:
     project: false

@@ -36,7 +36,7 @@ export const AcrylAssertionList = () => {
         ...ASSERTION_DEFAULT_RAW_DATA,
     });
     // TODO we need to create setter function to set the filter as per the filter component
-    const [filter, setFilters] = useState<AssertionListFilter>(ASSERTION_DEFAULT_FILTERS);
+    const [selectedFilters, setSelectedFilters] = useState<AssertionListFilter>(ASSERTION_DEFAULT_FILTERS);
 
     const [assertionMonitorData, setAssertionMonitorData] = useState<AssertionWithMonitorDetails[]>([]);
 
@@ -53,7 +53,7 @@ export const AcrylAssertionList = () => {
 
     // get filtered Assertion as per the filter object
     const getFilteredAssertions = (assertions: AssertionWithMonitorDetails[]) => {
-        const filteredAssertionData: AssertionTable = getFilteredTransformedAssertionData(assertions, filter);
+        const filteredAssertionData: AssertionTable = getFilteredTransformedAssertionData(assertions, selectedFilters);
         setVisibleAssertions(filteredAssertionData);
     };
 
@@ -72,7 +72,11 @@ export const AcrylAssertionList = () => {
             getFilteredAssertions(assertionMonitorData);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [filter]);
+    }, [selectedFilters]);
+
+    const handleFilterChange = (filter: any) => {
+        setSelectedFilters(filter);
+    };
 
     const { privileges } = data?.dataset || {};
     const canEditMonitors = privileges?.canEditMonitors || false;
@@ -88,7 +92,7 @@ export const AcrylAssertionList = () => {
                 <AcrylAssertionListTable
                     contract={contract}
                     assertionData={visibleAssertions}
-                    filter={filter}
+                    filter={selectedFilters}
                     refetch={() => {
                         refetch();
                         contractRefetch();
@@ -129,9 +133,10 @@ export const AcrylAssertionList = () => {
                     <AcrylAssertionListFilters
                         filterOptions={visibleAssertions?.filterOptions}
                         originalFilterOptions={visibleAssertions?.originalFilterOptions}
-                        setFilters={setFilters}
-                        filter={filter}
                         filteredAssertions={visibleAssertions}
+                        selectedFilters={selectedFilters}
+                        setSelectedFilters={setSelectedFilters}
+                        handleFilterChange={handleFilterChange}
                     />
                 )}
                 {renderListTable()}

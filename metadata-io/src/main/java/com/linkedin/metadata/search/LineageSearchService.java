@@ -840,6 +840,7 @@ public class LineageSearchService {
                   scrollId,
                   keepAlive,
                   querySize,
+                  List.of(),
                   null),
               urnToRelationship);
       querySize = Math.max(0, size - resultForBatch.getEntities().size());

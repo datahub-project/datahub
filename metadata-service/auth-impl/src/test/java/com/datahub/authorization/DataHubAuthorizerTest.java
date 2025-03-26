@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.authorization.PoliciesConfig.ACTIVE_POLICY_STATE;
 import static com.linkedin.metadata.authorization.PoliciesConfig.INACTIVE_POLICY_STATE;
 import static com.linkedin.metadata.authorization.PoliciesConfig.METADATA_POLICY_TYPE;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.nullable;
@@ -173,6 +174,7 @@ public class DataHubAuthorizerTest {
             nullable(Filter.class),
             isNull(),
             isNull(),
+            anyList(),
             anyInt(),
             eq(null)))
         .thenReturn(policySearchResult1);
@@ -183,6 +185,7 @@ public class DataHubAuthorizerTest {
             nullable(Filter.class),
             eq("1"),
             isNull(),
+            anyList(),
             anyInt(),
             eq(null)))
         .thenReturn(policySearchResult2);
@@ -193,6 +196,7 @@ public class DataHubAuthorizerTest {
             nullable(Filter.class),
             eq("2"),
             isNull(),
+            anyList(),
             anyInt(),
             eq(null)))
         .thenReturn(policySearchResult3);
@@ -203,6 +207,7 @@ public class DataHubAuthorizerTest {
             nullable(Filter.class),
             eq("3"),
             isNull(),
+            anyList(),
             anyInt(),
             eq(null)))
         .thenReturn(policySearchResult4);
@@ -213,6 +218,7 @@ public class DataHubAuthorizerTest {
             nullable(Filter.class),
             eq("4"),
             isNull(),
+            anyList(),
             anyInt(),
             eq(null)))
         .thenReturn(policySearchResult5);
@@ -424,6 +430,7 @@ public class DataHubAuthorizerTest {
             isNull(),
             any(),
             any(),
+            anyList(),
             anyInt(),
             eq(null)))
         .thenReturn(emptyResult);

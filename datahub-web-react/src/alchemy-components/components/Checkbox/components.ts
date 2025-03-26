@@ -1,5 +1,5 @@
-import { borders, colors, spacing, transform, zIndices, radius } from '@components/theme';
 import styled from 'styled-components';
+import { borders, colors, spacing, transform, zIndices, radius } from '@components/theme';
 import { SizeOptions } from '@src/alchemy-components/theme/config';
 import { getCheckboxColor, getCheckboxHoverBackgroundColor, getCheckboxSize } from './utils';
 import { formLabelTextStyles } from '../commonStyles';

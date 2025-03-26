@@ -1,10 +1,10 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Button, Dropdown, Menu } from 'antd';
-import { MoreOutlined } from '@ant-design/icons';
-
+import { Dropdown, Menu } from 'antd';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { useAppConfig } from '@src/app/useAppConfig';
+import { Button, colors } from '@src/alchemy-components';
+import { DotsThreeVertical } from 'phosphor-react';
 
 import { StartStopAction } from './StartStopAction';
 import {
@@ -27,7 +27,7 @@ import { useConnectionWithRunAssertionCapabilitiesForEntityExists } from '../../
 const ActionList = styled.div<{ $shouldRightAlign?: boolean }>`
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: end;
     padding: ${(props) => (props.$shouldRightAlign ? '0px' : '0px 10px')};
     margin-left: ${(props) => (props.$shouldRightAlign ? 'auto' : undefined)};
 `;
@@ -118,7 +118,9 @@ export const AssertionListItemActions = ({
             <SubscribeAction assertion={assertion} refetch={refetch} />
 
             <Dropdown overlay={menu} trigger={['click']}>
-                <Button type="text" icon={<MoreOutlined />} />
+                <Button variant="text">
+                    <DotsThreeVertical size={20} color={colors.gray[500]} weight="bold" />
+                </Button>
             </Dropdown>
         </ActionList>
     );

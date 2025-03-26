@@ -92,8 +92,7 @@ public class ExtendedModelStructuredPropertyMutatorTest {
     List<MCPItem> testItems =
         List.of(
             ProposedItem.builder()
-                .entitySpec(TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME))
-                .metadataChangeProposal(
+                .build(
                     new MetadataChangeProposal()
                         .setEntityUrn(TEST_DATASET_URN)
                         .setAspectName(GLOBAL_TAGS_ASPECT_NAME)
@@ -106,9 +105,9 @@ public class ExtendedModelStructuredPropertyMutatorTest {
                                     ByteString.copyString(
                                         "{\"tags\":[{\"tag\":\"urn:li:tag:Legacy\",\"foo\":\"bar\"}]}",
                                         StandardCharsets.UTF_8)))
-                        .setSystemMetadata(new SystemMetadata()))
-                .auditStamp(AuditStampUtils.createDefaultAuditStamp())
-                .build());
+                        .setSystemMetadata(new SystemMetadata()),
+                    AuditStampUtils.createDefaultAuditStamp(),
+                    TEST_REGISTRY));
 
     List<MCPItem> result = test.proposalMutation(testItems, retrieverContext).toList();
 
@@ -138,8 +137,7 @@ public class ExtendedModelStructuredPropertyMutatorTest {
     List<MCPItem> testItems =
         List.of(
             ProposedItem.builder()
-                .entitySpec(TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME))
-                .metadataChangeProposal(
+                .build(
                     new MetadataChangeProposal()
                         .setEntityUrn(TEST_DATASET_URN)
                         .setAspectName(DATASET_PROPERTIES_ASPECT_NAME)
@@ -152,9 +150,9 @@ public class ExtendedModelStructuredPropertyMutatorTest {
                                     ByteString.copyString(
                                         "{\"foo\":\"bar\",\"customProperties\":{\"prop2\":\"pikachu\",\"prop1\":\"fakeprop\"}}",
                                         StandardCharsets.UTF_8)))
-                        .setSystemMetadata(new SystemMetadata()))
-                .auditStamp(AuditStampUtils.createDefaultAuditStamp())
-                .build());
+                        .setSystemMetadata(new SystemMetadata()),
+                    AuditStampUtils.createDefaultAuditStamp(),
+                    TEST_REGISTRY));
 
     List<MCPItem> result = test.proposalMutation(testItems, retrieverContext).toList();
     boolean shouldApply =
@@ -185,8 +183,7 @@ public class ExtendedModelStructuredPropertyMutatorTest {
     List<MCPItem> testItems =
         List.of(
             ProposedItem.builder()
-                .entitySpec(TEST_REGISTRY.getEntitySpec(CORP_USER_ENTITY_NAME))
-                .metadataChangeProposal(
+                .build(
                     new MetadataChangeProposal()
                         .setEntityUrn(TEST_CORP_USER_URN)
                         .setAspectName(CORP_USER_INFO_ASPECT_NAME)
@@ -199,9 +196,9 @@ public class ExtendedModelStructuredPropertyMutatorTest {
                                     ByteString.copyString(
                                         "{\"internalId\":\"1234\",\"active\":true}",
                                         StandardCharsets.UTF_8)))
-                        .setSystemMetadata(new SystemMetadata()))
-                .auditStamp(AuditStampUtils.createDefaultAuditStamp())
-                .build());
+                        .setSystemMetadata(new SystemMetadata()),
+                    AuditStampUtils.createDefaultAuditStamp(),
+                    TEST_REGISTRY));
 
     List<MCPItem> result = test.proposalMutation(testItems, retrieverContext).toList();
 
@@ -228,8 +225,7 @@ public class ExtendedModelStructuredPropertyMutatorTest {
     List<MCPItem> testItems =
         List.of(
             ProposedItem.builder()
-                .entitySpec(TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME))
-                .metadataChangeProposal(
+                .build(
                     new MetadataChangeProposal()
                         .setEntityUrn(TEST_DATASET_URN)
                         .setAspectName(EDITABLE_SCHEMA_METADATA_ASPECT_NAME)
@@ -242,9 +238,9 @@ public class ExtendedModelStructuredPropertyMutatorTest {
                                     ByteString.copyString(
                                         "{ \"editableSchemaFieldInfo\":[{\"fieldPath\":\"foo\",\"label\":\"myLabel\"},{\"fieldPath\":\"bar\",\"label\":\"myLabel\"},{\"fieldPath\":\"foobar\",\"label\":\"myLabel\"}]}",
                                         StandardCharsets.UTF_8)))
-                        .setSystemMetadata(new SystemMetadata()))
-                .auditStamp(AuditStampUtils.createDefaultAuditStamp())
-                .build());
+                        .setSystemMetadata(new SystemMetadata()),
+                    AuditStampUtils.createDefaultAuditStamp(),
+                    TEST_REGISTRY));
 
     List<MCPItem> result = test.proposalMutation(testItems, retrieverContext).toList();
 
@@ -292,8 +288,7 @@ public class ExtendedModelStructuredPropertyMutatorTest {
     List<MCPItem> testItems =
         List.of(
             ProposedItem.builder()
-                .entitySpec(TEST_REGISTRY.getEntitySpec(CORP_USER_ENTITY_NAME))
-                .metadataChangeProposal(
+                .build(
                     new MetadataChangeProposal()
                         .setEntityUrn(TEST_CORP_USER_URN)
                         .setAspectName(CORP_USER_INFO_ASPECT_NAME)
@@ -306,9 +301,9 @@ public class ExtendedModelStructuredPropertyMutatorTest {
                                     ByteString.copyString(
                                         "{\"employeeNumber\":\"1234\",\"active\":true}",
                                         StandardCharsets.UTF_8)))
-                        .setSystemMetadata(new SystemMetadata()))
-                .auditStamp(AuditStampUtils.createDefaultAuditStamp())
-                .build());
+                        .setSystemMetadata(new SystemMetadata()),
+                    AuditStampUtils.createDefaultAuditStamp(),
+                    TEST_REGISTRY));
 
     List<MCPItem> result = test.proposalMutation(testItems, retrieverContext).toList();
 
@@ -335,8 +330,7 @@ public class ExtendedModelStructuredPropertyMutatorTest {
     List<MCPItem> testItems =
         List.of(
             ProposedItem.builder()
-                .entitySpec(TEST_REGISTRY.getEntitySpec(CORP_USER_ENTITY_NAME))
-                .metadataChangeProposal(
+                .build(
                     new MetadataChangeProposal()
                         .setEntityUrn(TEST_CORP_USER_URN)
                         .setAspectName(CORP_USER_INFO_ASPECT_NAME)
@@ -349,9 +343,9 @@ public class ExtendedModelStructuredPropertyMutatorTest {
                                     ByteString.copyString(
                                         "{\"employeeNumber\":\"notANumber\",\"active\":true}",
                                         StandardCharsets.UTF_8)))
-                        .setSystemMetadata(new SystemMetadata()))
-                .auditStamp(AuditStampUtils.createDefaultAuditStamp())
-                .build());
+                        .setSystemMetadata(new SystemMetadata()),
+                    AuditStampUtils.createDefaultAuditStamp(),
+                    TEST_REGISTRY));
 
     assertThrows(
         NumberFormatException.class, () -> test.proposalMutation(testItems, retrieverContext));
@@ -372,8 +366,7 @@ public class ExtendedModelStructuredPropertyMutatorTest {
     List<MCPItem> testItems =
         List.of(
             ProposedItem.builder()
-                .entitySpec(TEST_REGISTRY.getEntitySpec(CORP_USER_ENTITY_NAME))
-                .metadataChangeProposal(
+                .build(
                     new MetadataChangeProposal()
                         .setEntityUrn(TEST_CORP_USER_URN)
                         .setAspectName(CORP_USER_INFO_ASPECT_NAME)
@@ -386,9 +379,9 @@ public class ExtendedModelStructuredPropertyMutatorTest {
                                     ByteString.copyString(
                                         "{\"directReport\":[\"urn:li:corpuser:someguy\",\"urn:li:corpuser:someotherguy\"],\"active\":true}",
                                         StandardCharsets.UTF_8)))
-                        .setSystemMetadata(new SystemMetadata()))
-                .auditStamp(AuditStampUtils.createDefaultAuditStamp())
-                .build());
+                        .setSystemMetadata(new SystemMetadata()),
+                    AuditStampUtils.createDefaultAuditStamp(),
+                    TEST_REGISTRY));
 
     List<MCPItem> result = test.proposalMutation(testItems, retrieverContext).toList();
 
@@ -415,8 +408,7 @@ public class ExtendedModelStructuredPropertyMutatorTest {
     List<MCPItem> testItems =
         List.of(
             ProposedItem.builder()
-                .entitySpec(TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME))
-                .metadataChangeProposal(
+                .build(
                     new MetadataChangeProposal()
                         .setEntityUrn(TEST_DATASET_URN)
                         .setAspectName(GLOBAL_TAGS_ASPECT_NAME)
@@ -429,9 +421,9 @@ public class ExtendedModelStructuredPropertyMutatorTest {
                                     ByteString.copyString(
                                         "{ \"tags\":[{\"tag\":\"urn:li:tag:foo\",\"additionalInfo\":[{\"applier\": \"1234\",\"otherProp\":\"ignored\"},{\"applier\":1092}]},{\"tag\":\"urn:li:tag:bar\",\"additionalInfo\":[{\"applier\": \"4567\",\"otherProp\":\"ignored\"}]},{\"tag\":\"urn:li:tag:foobar\",\"additionalInfo\":[{\"applier\": \"7890\",\"otherProp\":\"ignored\"}]}]}",
                                         StandardCharsets.UTF_8)))
-                        .setSystemMetadata(new SystemMetadata()))
-                .auditStamp(AuditStampUtils.createDefaultAuditStamp())
-                .build());
+                        .setSystemMetadata(new SystemMetadata()),
+                    AuditStampUtils.createDefaultAuditStamp(),
+                    TEST_REGISTRY));
 
     List<MCPItem> result = test.proposalMutation(testItems, retrieverContext).toList();
 

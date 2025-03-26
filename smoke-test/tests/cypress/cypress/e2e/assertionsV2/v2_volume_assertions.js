@@ -69,11 +69,11 @@ describe("create and manage volume assertion", () => {
     cy.get(".acryl-assertions-table-row").find("button").first().click();
     cy.waitTextVisible("Stopped!");
     cy.ensureTextNotPresent("Stopped!");
-    cy.get(".ant-tooltip-inner").contains("Start").should("be.visible");
+    cy.get(".ant-popover-inner-content").contains("Start").should("be.visible");
 
     // restart the monitor, verify that assertion restarted successfully
     cy.waitTextVisible("Table has at most 1,000 rows");
-    clickElement('[aria-label="caret-right"]');
+    clickElement('[data-testid="assertion-start-icon"]');
     cy.waitTextVisible("Start Monitoring");
     cy.get("button").contains("Yes").click();
     cy.waitTextVisible("Started!");
@@ -82,8 +82,8 @@ describe("create and manage volume assertion", () => {
       .find("button")
       .first()
       .trigger("mouseover");
-    cy.get(".ant-tooltip-inner").contains("Stop").should("be.visible");
-    cy.get(".ant-tooltip-inner").contains("Start").should("not.exist");
+    cy.get(".ant-popover-inner-content").contains("Stop").should("be.visible");
+    cy.get(".ant-popover-inner-content").contains("Start").should("not.exist");
 
     // manage the assertion and save result
     cy.get(".acryl-assertions-table-row").last().click();

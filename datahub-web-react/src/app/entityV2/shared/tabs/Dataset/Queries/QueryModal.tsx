@@ -1,6 +1,8 @@
 import React from 'react';
-import { Button, Modal, Typography, message } from 'antd';
+import { Modal, Typography, message } from 'antd';
 import styled from 'styled-components';
+import { Button } from '@src/alchemy-components';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import CopyQuery from './CopyQuery';
 import { ANTD_GRAY } from '../../../constants';
 import { Editor as MarkdownEditor } from '../../Documentation/components/editor/Editor';
@@ -143,9 +145,11 @@ export default function QueryModal({
             bodyStyle={MODAL_BODY_STYLE}
             data-testid="query-modal"
             footer={
-                <Button onClick={onClose} type="text" data-testid="query-modal-close-button">
-                    Close
-                </Button>
+                <ModalButtonContainer>
+                    <Button variant="text" onClick={onClose} data-testid="query-modal-close-button">
+                        Close
+                    </Button>
+                </ModalButtonContainer>
             }
         >
             <QueryActions>

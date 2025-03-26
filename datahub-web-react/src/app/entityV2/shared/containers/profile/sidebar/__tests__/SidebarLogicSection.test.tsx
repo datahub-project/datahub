@@ -327,8 +327,8 @@ describe('Sidebar Logic Components', () => {
             fireEvent.click(seeFullButton);
             expect(queryByRole('dialog')).toBeInTheDocument();
 
-            const dismissButton = getByText('Dismiss');
-            fireEvent.click(dismissButton);
+            const closeButton = getByText('Close');
+            fireEvent.click(closeButton);
             expect(queryByRole('dialog')).not.toBeInTheDocument();
         });
 

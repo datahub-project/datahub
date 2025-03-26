@@ -1,9 +1,11 @@
 import analytics, { EventType } from '@src/app/analytics';
 import { getFieldPathFromSchemaFieldUrn, getSourceUrnFromSchemaFieldUrn } from '@src/app/entityV2/schemaField/utils';
-import { Button, Modal, message } from 'antd';
+import { Modal, message } from 'antd';
 import React, { useEffect, useMemo } from 'react';
 import styled from 'styled-components';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { Button } from '@src/alchemy-components';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import {
     // Saas-only mutation
     useProposeStructuredPropetiesMutation,
@@ -185,12 +187,13 @@ export default function EditStructuredPropertyModal({
             open={isOpen}
             width={650}
             footer={
-                <>
-                    <Button onClick={closeModal} type="text">
+                <ModalButtonContainer>
+                    <Button variant="text" type="button" onClick={closeModal} color="gray">
                         Cancel
                     </Button>
                     <Button
-                        type="default"
+                        variant="outline"
+                        type="button"
                         onClick={proposeProperties}
                         disabled={!selectedValues.length}
                         data-testid="propose-update-structured-prop-on-entity-button"
@@ -198,14 +201,13 @@ export default function EditStructuredPropertyModal({
                         Propose
                     </Button>
                     <Button
-                        type="primary"
                         onClick={upsertProperties}
                         disabled={!selectedValues.length}
                         data-testid="add-update-structured-prop-on-entity-button"
                     >
                         {isAddMode ? 'Add' : 'Update'}
                     </Button>
-                </>
+                </ModalButtonContainer>
             }
             destroyOnClose
         >

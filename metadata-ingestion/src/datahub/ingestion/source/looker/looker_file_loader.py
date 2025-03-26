@@ -33,14 +33,14 @@ class LookerViewFileLoader:
         base_projects_folder: Dict[str, pathlib.Path],
         reporter: LookMLSourceReport,
         source_config: LookMLSourceConfig,
-        manifest_constants: Dict[str, LookerConstant] = {},
+        manifest_constants: Optional[Dict[str, LookerConstant]] = None,
     ) -> None:
         self.viewfile_cache: Dict[str, Optional[LookerViewFile]] = {}
         self._root_project_name = root_project_name
         self._base_projects_folder = base_projects_folder
         self.reporter = reporter
         self.source_config = source_config
-        self.manifest_constants = manifest_constants
+        self.manifest_constants = manifest_constants or {}
 
     def _load_viewfile(
         self, project_name: str, path: str, reporter: LookMLSourceReport

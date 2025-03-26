@@ -19,7 +19,7 @@ from typing import Any, Dict, Iterable, List, Optional
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import make_tag_urn
-from datahub.ingestion.graph.client import SearchFilterRule
+from datahub.ingestion.graph.filters import RawSearchFilterRule
 from datahub.metadata.com.linkedin.pegasus2avro.common import GlobalTags
 from datahub_actions.action.action import Action
 from datahub_actions.api.action_graph import AcrylDataHubGraph
@@ -191,8 +191,8 @@ class TagPropagationAction(Action):
                     )
         return None
 
-    def asset_filters(self) -> Dict[str, Dict[str, List[SearchFilterRule]]]:
-        asset_filters: Dict[str, Dict[str, List[SearchFilterRule]]] = {}
+    def asset_filters(self) -> Dict[str, Dict[str, List[RawSearchFilterRule]]]:
+        asset_filters: Dict[str, Dict[str, List[RawSearchFilterRule]]] = {}
 
         entity_index_field_map = {
             "schemaField": {
@@ -219,7 +219,7 @@ class TagPropagationAction(Action):
         asset_filters[entity_type] = {}
         for index, _index_fields in index_field_map.items():
             asset_filters[entity_type] = {}
-            or_filters: List[SearchFilterRule] = []
+            or_filters: List[RawSearchFilterRule] = []
             asset_filters[entity_type][index] = or_filters
         return asset_filters
 

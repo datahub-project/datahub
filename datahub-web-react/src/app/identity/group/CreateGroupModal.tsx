@@ -1,6 +1,8 @@
 import React, { useRef, useState } from 'react';
-import { message, Button, Input, Modal, Typography, Form, Collapse } from 'antd';
+import { message, Input, Modal, Typography, Form, Collapse } from 'antd';
 import styled from 'styled-components';
+import { Button } from '@src/alchemy-components';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import { useCreateGroupMutation } from '../../../graphql/group.generated';
 import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 import { validateCustomUrnId } from '../../shared/textUtil';
@@ -93,12 +95,11 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
             open
             onCancel={onClose}
             footer={
-                <>
-                    <Button onClick={onClose} type="text">
+                <ModalButtonContainer>
+                    <Button onClick={onClose} variant="text" color="gray">
                         Cancel
                     </Button>
                     <Button
-                        type="primary"
                         id="createGroupButton"
                         data-testid="modal-create-group-button"
                         onClick={onCreateGroup}
@@ -106,7 +107,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                     >
                         Create
                     </Button>
-                </>
+                </ModalButtonContainer>
             }
         >
             <Form

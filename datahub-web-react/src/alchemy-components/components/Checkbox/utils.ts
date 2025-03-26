@@ -33,6 +33,7 @@ const sizeMap: Record<SizeOptions, string> = {
     md: '20px',
     lg: '22px',
     xl: '24px',
+    inherit: 'inherit',
 };
 
 export function getCheckboxSize(size: SizeOptions) {

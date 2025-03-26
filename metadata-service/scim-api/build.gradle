@@ -80,6 +80,8 @@ dependencies {
 
     testImplementation externalDependency.junit
 
+    testImplementation testFixtures(project(':metadata-io'))
+
 }
 
 tasks.withType(Test) {

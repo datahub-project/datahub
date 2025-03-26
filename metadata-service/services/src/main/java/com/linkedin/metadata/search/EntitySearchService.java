@@ -129,7 +129,7 @@ public interface EntitySearchService {
       List<SortCriterion> sortCriteria,
       int from,
       int size,
-      @Nullable List<String> facets);
+      @Nonnull List<String> facets);
 
   /**
    * Gets a list of documents after applying the input filters.
@@ -301,6 +301,7 @@ public interface EntitySearchService {
    * @param sortCriteria list of {@link SortCriterion} to be applied to search results
    * @param scrollId opaque scroll identifier to pass to search service
    * @param size the number of search hits to return
+   * @param facets list of facets we want aggregations for
    * @return a {@link ScrollResult} that contains a list of matched documents and related search
    *     result metadata
    */
@@ -313,7 +314,30 @@ public interface EntitySearchService {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size);
+      int size,
+      @Nonnull List<String> facets);
+
+  @Nonnull
+  default ScrollResult fullTextScroll(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entities,
+      @Nonnull String input,
+      @Nullable Filter postFilters,
+      List<SortCriterion> sortCriteria,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      int size) {
+    return fullTextScroll(
+        opContext,
+        entities,
+        input,
+        postFilters,
+        sortCriteria,
+        scrollId,
+        keepAlive,
+        size,
+        List.of());
+  }
 
   /**
    * Gets a list of documents that match given search request. The results are aggregated and
@@ -326,6 +350,7 @@ public interface EntitySearchService {
    * @param sortCriteria list of {@link SortCriterion} to be applied to search results
    * @param scrollId opaque scroll identifier to pass to search service
    * @param size the number of search hits to return
+   * @param facets list of facets we want aggregations for
    * @return a {@link ScrollResult} that contains a list of matched documents and related search
    *     result metadata
    */
@@ -338,10 +363,55 @@ public interface EntitySearchService {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size);
+      int size,
+      @Nonnull List<String> facets);
+
+  default ScrollResult structuredScroll(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entities,
+      @Nonnull String input,
+      @Nullable Filter postFilters,
+      List<SortCriterion> sortCriteria,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      int size) {
+    return structuredScroll(
+        opContext,
+        entities,
+        input,
+        postFilters,
+        sortCriteria,
+        scrollId,
+        keepAlive,
+        size,
+        List.of());
+  }
 
   /** Max result size returned by the underlying search backend */
   int maxResultSize();
+
+  default ExplainResponse explain(
+      @Nonnull OperationContext opContext,
+      @Nonnull String query,
+      @Nonnull String documentId,
+      @Nonnull String entityName,
+      @Nullable Filter postFilters,
+      List<SortCriterion> sortCriteria,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      int size) {
+    return explain(
+        opContext,
+        query,
+        documentId,
+        entityName,
+        postFilters,
+        sortCriteria,
+        scrollId,
+        keepAlive,
+        size,
+        List.of());
+  }
 
   ExplainResponse explain(
       @Nonnull OperationContext opContext,
@@ -353,7 +423,7 @@ public interface EntitySearchService {
       @Nullable String scrollId,
       @Nullable String keepAlive,
       int size,
-      @Nullable List<String> facets);
+      @Nonnull List<String> facets);
 
   /**
    * Fetch raw entity documents
@@ -440,7 +510,7 @@ public interface EntitySearchService {
       @Nullable List<SortCriterion> sortCriteria,
       int from,
       int size,
-      @Nullable List<String> facets);
+      @Nonnull List<String> facets);
 
   @Nonnull
   ScrollResult predicateScroll(

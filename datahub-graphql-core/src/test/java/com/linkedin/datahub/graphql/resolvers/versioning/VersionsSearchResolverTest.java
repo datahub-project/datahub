@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.utils.CriterionUtils.*;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 
@@ -39,6 +40,7 @@ import com.linkedin.view.DataHubViewDefinition;
 import com.linkedin.view.DataHubViewInfo;
 import com.linkedin.view.DataHubViewType;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
@@ -150,7 +152,7 @@ public class VersionsSearchResolverTest {
                     new com.linkedin.metadata.query.filter.SortCriterion()
                         .setField(VERSION_SORT_ID_FIELD_NAME)
                         .setOrder(com.linkedin.metadata.query.filter.SortOrder.DESCENDING))),
-            any());
+            nullable(String.class));
   }
 
   @Test
@@ -246,7 +248,7 @@ public class VersionsSearchResolverTest {
                     new com.linkedin.metadata.query.filter.SortCriterion()
                         .setField(VERSION_SORT_ID_FIELD_NAME)
                         .setOrder(com.linkedin.metadata.query.filter.SortOrder.DESCENDING))),
-            any());
+            nullable(String.class));
   }
 
   @Test
@@ -256,7 +258,14 @@ public class VersionsSearchResolverTest {
 
     Mockito.when(
             mockEntityClient.searchAcrossEntities(
-                any(), any(), any(), any(), Mockito.anyInt(), Mockito.anyInt(), any(), any()))
+                any(OperationContext.class),
+                anyList(),
+                anyString(),
+                nullable(Filter.class),
+                anyInt(),
+                anyInt(),
+                anyList(),
+                nullable(String.class)))
         .thenThrow(new RemoteInvocationException());
 
     VersionsSearchResolver resolver = new VersionsSearchResolver(mockEntityClient, mockViewService);
@@ -276,23 +285,49 @@ public class VersionsSearchResolverTest {
   private EntityClient initMockEntityClient() throws Exception {
     EntityClient client = Mockito.mock(EntityClient.class);
 
+    SearchResult result =
+        new SearchResult()
+            .setEntities(new SearchEntityArray())
+            .setNumEntities(0)
+            .setFrom(0)
+            .setPageSize(0)
+            .setMetadata(new SearchResultMetadata());
+
     Mockito.when(
             client.searchAcrossEntities(
-                any(),
+                any(OperationContext.class),
                 any(),
                 Mockito.anyString(),
-                any(),
+                nullable(Filter.class),
                 Mockito.anyInt(),
                 Mockito.anyInt(),
+                anyList(),
+                anyList(),
+                nullable(String.class)))
+        .thenReturn(result);
+
+    Mockito.when(
+            client.searchAcrossEntities(
+                any(OperationContext.class),
                 any(),
-                Mockito.eq(null)))
-        .thenReturn(
-            new SearchResult()
-                .setEntities(new SearchEntityArray())
-                .setNumEntities(0)
-                .setFrom(0)
-                .setPageSize(0)
-                .setMetadata(new SearchResultMetadata()));
+                anyString(),
+                nullable(Filter.class),
+                anyInt(),
+                anyInt(),
+                anyList()))
+        .thenReturn(result);
+
+    Mockito.when(
+            client.searchAcrossEntities(
+                any(OperationContext.class),
+                anyList(),
+                anyString(),
+                nullable(Filter.class),
+                anyInt(),
+                anyInt(),
+                nullable(List.class),
+                nullable(String.class)))
+        .thenReturn(result);
 
     return client;
   }

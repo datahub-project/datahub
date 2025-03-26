@@ -49,7 +49,7 @@ def _abort_if_non_existent_urn(graph: DataHubGraph, urn: str, operation: str) ->
         entity_type = parsed_urn.get_type()
     except Exception:
         click.secho(f"Provided urn {urn} does not seem valid", fg="red")
-        raise click.Abort()
+        raise click.Abort() from None
     else:
         if not graph.exists(urn):
             click.secho(

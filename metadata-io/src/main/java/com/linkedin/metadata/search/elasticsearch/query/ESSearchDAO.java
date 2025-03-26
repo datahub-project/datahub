@@ -374,7 +374,7 @@ public class ESSearchDAO {
       List<SortCriterion> sortCriteria,
       int from,
       int size,
-      @Nullable List<String> facets) {
+      @Nonnull List<String> facets) {
     final String finalInput = input.isEmpty() ? "*" : input;
     List<EntitySpec> entitySpecs =
         entityNames.stream()
@@ -696,7 +696,7 @@ public class ESSearchDAO {
                       entitySpecs,
                       finalInput,
                       sortCriteria,
-                      null);
+                      List.of());
 
               // PIT specifies indices in creation so it doesn't support specifying indices on the
               // request, so
@@ -727,7 +727,7 @@ public class ESSearchDAO {
       List<EntitySpec> entitySpecs,
       String finalInput,
       List<SortCriterion> sortCriteria,
-      @Nullable List<String> facets) {
+      @Nonnull List<String> facets) {
     String pitId = null;
     Object[] sort = null;
     if (scrollId != null) {
@@ -861,7 +861,7 @@ public class ESSearchDAO {
       @Nullable String scrollId,
       @Nullable String keepAlive,
       int size,
-      @Nullable List<String> facets) {
+      @Nonnull List<String> facets) {
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
     EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
     Filter transformedFilters = transformFilterForEntities(postFilters, indexConvention);
@@ -936,7 +936,7 @@ public class ESSearchDAO {
       @Nullable List<SortCriterion> sortCriteria,
       int from,
       int size,
-      @Nullable List<String> facets) {
+      @Nonnull List<String> facets) {
     final String finalInput = input.isEmpty() ? "*" : input;
 
     List<EntitySpec> entitySpecs =
@@ -1038,7 +1038,7 @@ public class ESSearchDAO {
             entitySpecs,
             finalInput,
             sortCriteria,
-            null);
+            Collections.emptyList());
 
     // PIT specifies indices in creation so it doesn't support specifying indices on the request, so
     // we only specify if not using PIT
@@ -1060,7 +1060,7 @@ public class ESSearchDAO {
       List<EntitySpec> entitySpecs,
       String finalInput,
       List<SortCriterion> sortCriteria,
-      @Nullable List<String> facets) {
+      @Nonnull List<String> facets) {
     String pitId = null;
     Object[] sort = null;
     if (scrollId != null) {

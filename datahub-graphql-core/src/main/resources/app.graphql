@@ -336,6 +336,11 @@ type VisualConfig {
   Configuration for search results
   """
   searchResult: SearchResultsVisualConfig
+
+  """
+  Show full title in lineage view by default
+  """
+  showFullTitleInLineage: Boolean
 }
 
 """
@@ -1343,6 +1348,11 @@ type FeatureFlagsConfig {
   If enabled, show remote executor pools across the UI
   """
   displayExecutorPools: Boolean!
+
+  """
+  If turned on, show the redesigned search bar's autocomplete
+  """
+  showSearchBarAutocompleteRedesign: Boolean!
 
   """
   If enabled, allow on-demand creation of smart assertions.

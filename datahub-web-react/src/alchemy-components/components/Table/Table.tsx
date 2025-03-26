@@ -16,6 +16,7 @@ import {
 } from './components';
 import { SortingState, TableProps } from './types';
 import { getSortedData, handleActiveSort, renderCell } from './utils';
+import { Tooltip2 } from '../Tooltip2';
 import { useGetSelectionColumn } from './useGetSelectionColumn';
 
 export const tableDefaults: TableProps<any> = {
@@ -45,6 +46,7 @@ export const Table = <T,>({
     rowSelection,
     rowRefs,
     headerRef,
+    rowDataTestId,
     ...props
 }: TableProps<T>) => {
     const [sortColumn, setSortColumn] = useState<string | null>(null);
@@ -92,41 +94,81 @@ export const Table = <T,>({
                                     maxWidth={column.maxWidth}
                                     shouldAddRightBorder={index !== columns.length - 1} // Add border unless last column
                                 >
-                                    <HeaderContainer alignment={column.alignment}>
-                                        {column.title}
-                                        {column.sorter && ( // Render sort icons if the column is sortable
-                                            <SortIconsContainer
-                                                onClick={() =>
-                                                    handleActiveSort(
-                                                        column.key,
-                                                        sortColumn,
-                                                        setSortColumn,
-                                                        setSortOrder,
-                                                    )
-                                                }
-                                            >
-                                                {/* Sort icons for ascending and descending */}
-                                                <SortIcon
-                                                    icon="ChevronLeft"
-                                                    size="md"
-                                                    rotate="90"
-                                                    isActive={
-                                                        column.key === sortColumn &&
-                                                        sortOrder === SortingState.ASCENDING
+                                    {column?.tooltipTitle ? (
+                                        <Tooltip2 title={column.tooltipTitle}>
+                                            <HeaderContainer alignment={column.alignment}>
+                                                {column.title}
+                                                {column.sorter && ( // Render sort icons if the column is sortable
+                                                    <SortIconsContainer
+                                                        onClick={() =>
+                                                            handleActiveSort(
+                                                                column.key,
+                                                                sortColumn,
+                                                                setSortColumn,
+                                                                setSortOrder,
+                                                            )
+                                                        }
+                                                    >
+                                                        {/* Sort icons for ascending and descending */}
+                                                        <SortIcon
+                                                            icon="ChevronLeft"
+                                                            size="md"
+                                                            rotate="90"
+                                                            isActive={
+                                                                column.key === sortColumn &&
+                                                                sortOrder === SortingState.ASCENDING
+                                                            }
+                                                        />
+                                                        <SortIcon
+                                                            icon="ChevronRight"
+                                                            size="md"
+                                                            rotate="90"
+                                                            isActive={
+                                                                column.key === sortColumn &&
+                                                                sortOrder === SortingState.DESCENDING
+                                                            }
+                                                        />
+                                                    </SortIconsContainer>
+                                                )}
+                                            </HeaderContainer>
+                                        </Tooltip2>
+                                    ) : (
+                                        <HeaderContainer alignment={column.alignment}>
+                                            {column.title}
+                                            {column.sorter && ( // Render sort icons if the column is sortable
+                                                <SortIconsContainer
+                                                    onClick={() =>
+                                                        handleActiveSort(
+                                                            column.key,
+                                                            sortColumn,
+                                                            setSortColumn,
+                                                            setSortOrder,
+                                                        )
                                                     }
-                                                />
-                                                <SortIcon
-                                                    icon="ChevronRight"
-                                                    size="md"
-                                                    rotate="90"
-                                                    isActive={
-                                                        column.key === sortColumn &&
-                                                        sortOrder === SortingState.DESCENDING
-                                                    }
-                                                />
-                                            </SortIconsContainer>
-                                        )}
-                                    </HeaderContainer>
+                                                >
+                                                    {/* Sort icons for ascending and descending */}
+                                                    <SortIcon
+                                                        icon="ChevronLeft"
+                                                        size="md"
+                                                        rotate="90"
+                                                        isActive={
+                                                            column.key === sortColumn &&
+                                                            sortOrder === SortingState.ASCENDING
+                                                        }
+                                                    />
+                                                    <SortIcon
+                                                        icon="ChevronRight"
+                                                        size="md"
+                                                        rotate="90"
+                                                        isActive={
+                                                            column.key === sortColumn &&
+                                                            sortOrder === SortingState.DESCENDING
+                                                        }
+                                                    />
+                                                </SortIconsContainer>
+                                            )}
+                                        </HeaderContainer>
+                                    )}
                                 </TableHeaderCell>
                             ))}
                             {/* Placeholder for expandable icon if enabled */}
@@ -136,7 +178,7 @@ export const Table = <T,>({
                 {/* Render table body with rows and cells */}
                 <tbody>
                     {sortedData.map((row: any, index) => {
-                        const isExpanded = expandable?.expandedRowKeys?.includes(row?.name); // Check if row is expanded
+                        const isExpanded = expandable?.expandedGroupIds?.includes(row?.name); // Check if row is expanded
                         const canExpand = expandable?.rowExpandable?.(row); // Check if row is expandable
                         const key = `row-${index}-${sortColumn ?? 'none'}-${sortOrder ?? 'none'}`;
                         return (
@@ -161,6 +203,7 @@ export const Table = <T,>({
                                         }
                                     }}
                                     isRowClickable={isRowClickable}
+                                    data-testId={rowDataTestId?.(row)}
                                 >
                                     {/* Render each cell in the row */}
 
@@ -185,9 +228,17 @@ export const Table = <T,>({
                                                         }}
                                                     >
                                                         {isExpanded ? (
-                                                            <CaretDown size={16} weight="bold" /> // Expanded icon
+                                                            <CaretDown
+                                                                size={16}
+                                                                weight="bold"
+                                                                data-testId="group-header-expanded-icon"
+                                                            /> // Expanded icon
                                                         ) : (
-                                                            <CaretUp size={16} weight="bold" /> // Collapsed icon
+                                                            <CaretUp
+                                                                size={16}
+                                                                weight="bold"
+                                                                data-testId="group-header-collapsed-icon"
+                                                            /> // Collapsed icon
                                                         )}
                                                     </div>
                                                 ) : (

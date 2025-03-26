@@ -325,7 +325,7 @@ public class ElasticsearchController {
             scrollId,
             keepAlive,
             size,
-            null);
+            List.of());
 
     return ResponseEntity.ok(response);
   }
@@ -434,8 +434,7 @@ public class ElasticsearchController {
             sortCriteria,
             scrollId,
             keepAlive,
-            size,
-            null);
+            size);
 
     ExplainResponse responseB =
         searchService.explain(
@@ -447,8 +446,7 @@ public class ElasticsearchController {
             sortCriteria,
             scrollId,
             keepAlive,
-            size,
-            null);
+            size);
 
     String a = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(responseA);
     String b = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(responseB);

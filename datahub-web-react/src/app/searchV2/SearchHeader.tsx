@@ -54,7 +54,7 @@ const Header = styled(Layout)<{ $isNavBarCollapsed?: boolean; $isShowNavBarRedes
         margin-top: 8px;
         gap: 16px;
         flex-direction: row;
-        
+
         // preventing of NavBar's overlapping
         position: relative;
         padding-left: ${props.$isNavBarCollapsed ? '224px' : '540px'};

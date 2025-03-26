@@ -35,6 +35,11 @@ const ShowMoreButton = styled.div`
     }
 `;
 
+const EntityListContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+`;
+
 type Props = {
     loading: boolean;
     title?: string;
@@ -75,7 +80,7 @@ export const EntityLinkList = ({
     }
 
     return (
-        <>
+        <EntityListContainer>
             {title && (
                 <Title hasAction={onClickTitle !== undefined} onClick={onClickTitle}>
                     <Tooltip title={tip} showArrow={false} placement="right">
@@ -106,6 +111,6 @@ export const EntityLinkList = ({
                     {showMoreComponent || (showMoreCount && <>show {showMoreCount} more</>) || <>show more</>}
                 </ShowMoreButton>
             )}
-        </>
+        </EntityListContainer>
     );
 };

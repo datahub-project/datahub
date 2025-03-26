@@ -102,6 +102,7 @@ avro==1.11.3
     #   -r requirements.txt
     #   acryl-datahub
     #   avro-gen3
+    #   confluent-kafka
 avro-gen3==0.7.16
     # via
     #   -r requirements.txt
@@ -368,6 +369,7 @@ fastavro==1.9.7
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   confluent-kafka
 fastjsonschema==2.21.1
     # via
     #   -r requirements.txt

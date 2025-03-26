@@ -61,6 +61,7 @@ authorization:
   # Enables authorization of reads, writes, and deletes on REST APIs.
   restApiAuthorization: ${REST_API_AUTHORIZATION_ENABLED:true}
   view:
+    # Controls whether entity pages can limit access based on policies. If disabled, all entity pages are visible. Does not control if entities show up in search or browse.
     enabled: ${VIEW_AUTHORIZATION_ENABLED:false}
     recommendations:
       # Currently limited to the actor only, see TODO: DataHubAuthorizer
@@ -77,13 +78,13 @@ telemetry:
   enabledIngestion: ${INGESTION_REPORTING_ENABLED:false}
   enableThirdPartyLogging: ${ENABLE_THIRD_PARTY_LOGGING:false} # whether mixpanel tracking is enabled.
   enabledServer: ${DATAHUB_TELEMETRY_ENABLED:true}
-  userTrackingEnabled: ${USER_TRACKING_ENABLED:false}  # whether our user tracking tool is enabled or not (hotjar)
+  userTrackingEnabled: ${USER_TRACKING_ENABLED:false} # whether our user tracking tool is enabled or not (hotjar)
   mixpanel: # Add custom mixpanel tracking token. This is in addition to default mixpanel tracking we do from within frontend.
-      enabled: ${MIXPANEL_ENABLED:false}
-      token: ${MIXPANEL_TOKEN:7cee38380de7a8469069c040a1fee320}
+    enabled: ${MIXPANEL_ENABLED:false}
+    token: ${MIXPANEL_TOKEN:7cee38380de7a8469069c040a1fee320}
   googleAnalytics: # Add custom GA4 measurement id (tracking token).
-      enabled: ${GOOGLE_ANALYTICS_ENABLED:false}
-      measurementId: ${GOOGLE_ANALYTICS_MEASUREMENT_ID:}
+    enabled: ${GOOGLE_ANALYTICS_ENABLED:false}
+    measurementId: ${GOOGLE_ANALYTICS_MEASUREMENT_ID:}
 
 secretService:
   encryptionKey: "#{systemEnvironment['SECRET_SERVICE_ENCRYPTION_KEY'] ?: 'ENCRYPTION_KEY'}"
@@ -181,6 +182,7 @@ visualConfig:
     faviconUrl: ${REACT_APP_FAVICON_URL:/assets/icons/favicon.ico}
   appTitle: ${REACT_APP_TITLE:}
   hideGlossary: ${REACT_APP_HIDE_GLOSSARY:false}
+  showFullTitleInLineage: ${REACT_APP_SHOW_FULL_TITLE_IN_LINEAGE:false}
   entityProfile:
     # we only support default tab for domains right now. In order to implement for other entities, update React code
     domainDefaultTab: ${DOMAIN_DEFAULT_TAB:} # set to DOCUMENTATION_TAB to show documentation tab first
@@ -629,12 +631,6 @@ featureFlags:
   showBrowseV2: ${SHOW_BROWSE_V2:true} # Enables showing the browse v2 sidebar experience.
   platformBrowseV2: ${PLATFORM_BROWSE_V2:true} # Enables the platform browse experience, instead of the entity-oriented browse default.
   lineageGraphV2: ${LINEAGE_GRAPH_V2:true} # Enables the new lineage visualization.
-  assertionMonitorsEnabled: ${ASSERTION_MONITORS_ENABLED:false} # Enables the ability to create native assertions inside the UI.
-  runAssertionsEnabled: ${RUN_ASSERTIONS_ENABLED:false} # Enables the ability to run native assertions inside the UI.
-  schemaAssertionMonitorsEnabled: ${SCHEMA_ASSERTION_MONITORS_ENABLED:false} # Enables the ability to create native schema assertions inside the UI.
-  subscriptionsEnabled: ${SUBSCRIPTIONS_ENABLED:true} # Enables the ability to subscribe to notifications
-  datasetHealthDashboardEnabled: ${DATASET_HEALTH_DASHBOARD_ENABLED:false} # Enables the Dataset Health dashboard in the application
-  documentationAiEnabled: ${DOCUMENTATION_AI_ENABLED:false} # Enables the AI-powered documentation feature in the UI
   preProcessHooks:
     uiEnabled: ${PRE_PROCESS_HOOKS_UI_ENABLED:true} # Circumvents Kafka for processing index updates for UI changes sourced from GraphQL to avoid processing delays
     reprocessEnabled: ${PRE_PROCESS_HOOKS_UI_ENABLED:false} # If enabled, will reprocess UI sourced events asynchronously when reading from Kafka after pre-processing them synchronously
@@ -648,6 +644,24 @@ featureFlags:
   themeV2Enabled: ${THEME_V2_ENABLED:true} # Acryl only! Allows theme v2 to be turned on. One of themeV2Default and themeV2Toggleable must be true for this to have any effect.
   themeV2Default: ${THEME_V2_DEFAULT:true} # Sets the default theme for users. The default is the only available theme if theme is not toggleable.
   themeV2Toggleable: ${THEME_V2_TOGGLEABLE:true} # Acryl only! Allows theme v2 to be toggled on / off by users.
+  schemaFieldCLLEnabled: ${SCHEMA_FIELD_CLL_ENABLED:false} # Enables links to schema field-level lineage on lineage explorer and columns tab
+  schemaFieldLineageIgnoreStatus: ${SCHEMA_FIELD_LINEAGE_IGNORE_STATUS:true} # If turned on, schema field lineage will always fetch ghost entities
+  showSeparateSiblings: ${SHOW_SEPARATE_SIBLINGS:false} # If turned on, all siblings will be separated with no way to get to a "combined" sibling view
+  editableDatasetNameEnabled: ${EDITABLE_DATASET_NAME_ENABLED:false} # Enables the ability to edit the dataset name in the UI
+  showManageStructuredProperties: ${SHOW_MANAGE_STRUCTURED_PROPERTIES:true} # If turned on, show the manage structured properties button on the govern dropdown
+  entityVersioning: ${ENTITY_VERSIONING_ENABLED:false} # Enables entity versioning APIs, validators, and side effects
+  hideDbtSourceInLineage: ${HIDE_DBT_SOURCE_IN_LINEAGE:false} # If turned on, dbt sources will not be shown in lineage
+  showNavBarRedesign: ${SHOW_NAV_BAR_REDESIGN:true} # If turned on, show the newly designed nav bar in the V2 experience
+  showAutoCompleteResults: ${SHOW_AUTO_COMPLETE_RESULTS:true} # If turned on, show the auto complete results in the search bar
+  # SaaS-only features
+  showBulkFormByDefault: ${SHOW_BULK_FORM_BY_DEFAULT:false} # If turned on, the bulk form by question view will be shown by default from the task center
+  showDatasetFeaturesSearchSortOptions: ${SHOW_DATASET_FEATURES_SEARCH_SORT_OPTIONS:false} # Enables showing sort by row count, query count, update count, size in bytes.
+  assertionMonitorsEnabled: ${ASSERTION_MONITORS_ENABLED:false} # Enables the ability to create native assertions inside the UI.
+  runAssertionsEnabled: ${RUN_ASSERTIONS_ENABLED:false} # Enables the ability to run native assertions inside the UI.
+  schemaAssertionMonitorsEnabled: ${SCHEMA_ASSERTION_MONITORS_ENABLED:false} # Enables the ability to create native schema assertions inside the UI.
+  subscriptionsEnabled: ${SUBSCRIPTIONS_ENABLED:true} # Enables the ability to subscribe to notifications
+  datasetHealthDashboardEnabled: ${DATASET_HEALTH_DASHBOARD_ENABLED:false} # Enables the Dataset Health dashboard in the application
+  documentationAiEnabled: ${DOCUMENTATION_AI_ENABLED:false} # Enables the AI-powered documentation feature in the UI
   metadataShareEnabled: ${METADATA_SHARE_ENABLED:false} # Enables the metadata sharing feature to share entities between instances
   documentationFormsEnabled: ${FEATURE_DOCUMENTATION_FORMS_ENABLED:true} # Enables the documentation forms feature and shows/hides everything for it in the UI
   emailNotificationsEnabled: ${EMAIL_NOTIFICATIONS_ENABLED:false} # Enables the email notifications feature.
@@ -656,17 +670,7 @@ featureFlags:
   broadcastNewIncidentUpdatesEnabled: ${BROADCAST_NEW_INCIDENT_UPDATES_ENABLED:true} # Enables stateful updating of active incidents in 3rd party destinations.
   separateSiblingsLineageByDefault: ${SEPARATE_SIBLINGS_LINEAGE_BY_DEFAULT:false} # Whether siblings lineage should be separate from each other or not
   formCreationEnabled: ${FORM_CREATION_ENABLED:true} # Enables the form creation workflow feature on the documentation page
-  schemaFieldCLLEnabled: ${SCHEMA_FIELD_CLL_ENABLED:false} # Enables links to schema field-level lineage on lineage explorer and columns tab
-  schemaFieldLineageIgnoreStatus: ${SCHEMA_FIELD_LINEAGE_IGNORE_STATUS:true} # If turned on, schema field lineage will always fetch ghost entities
-  showSeparateSiblings: ${SHOW_SEPARATE_SIBLINGS:false} # If turned on, all siblings will be separated with no way to get to a "combined" sibling view
-  editableDatasetNameEnabled: ${EDITABLE_DATASET_NAME_ENABLED:false} # Enables the ability to edit the dataset name in the UI
-  showManageStructuredProperties: ${SHOW_MANAGE_STRUCTURED_PROPERTIES:true} # If turned on, show the manage structured properties button on the govern dropdown
-  entityVersioning: ${ENTITY_VERSIONING_ENABLED:false} # Enables entity versioning APIs, validators, and side effects
-  hideDbtSourceInLineage: ${HIDE_DBT_SOURCE_IN_LINEAGE:false} # If turned on, dbt sources will not be shown in lineage
-  showBulkFormByDefault: ${SHOW_BULK_FORM_BY_DEFAULT:false} # If turned on, the bulk form by question view will be shown by default from the task center
-  showDatasetFeaturesSearchSortOptions: ${SHOW_DATASET_FEATURES_SEARCH_SORT_OPTIONS:false} # Enables showing sort by row count, query count, update count, size in bytes.
-  showNavBarRedesign: ${SHOW_NAV_BAR_REDESIGN:true} # If turned on, show the newly designed nav bar in the V2 experience
-  showAutoCompleteResults: ${SHOW_AUTO_COMPLETE_RESULTS:true} # If turned on, show the auto complete results in the search bar
+  showSearchBarAutocompleteRedesign: ${SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN:false} # If turned on, show the redesigned search bar's autocomplete
   showFormAnalytics: ${SHOW_FORM_ANALYTICS:true} # If turned on, show the tab in the Compliance Form center to get to forms analytics
   showStatsTabRedesign: ${SHOW_STATS_TAB_REDESIGN:true} # If turned on, show the re-designed Stats tab on the entity page
   requestMinimalSlackPermissions: ${REQUEST_MINIMAL_SLACK_PERMISSIONS:false} # If turned on, request minimal required slack permissions
@@ -909,11 +913,11 @@ metadataChangeProposal:
       maxAttempts: ${MCP_TIMESERIES_MAX_ATTEMPTS:1000}
       initialIntervalMs: ${MCP_TIMESERIES_INITIAL_INTERVAL_MS:100}
       multiplier: ${MCP_TIMESERIES_MULTIPLIER:10}
-      maxIntervalMs:  ${MCP_TIMESERIES_MAX_INTERVAL_MS:30000}
+      maxIntervalMs: ${MCP_TIMESERIES_MAX_INTERVAL_MS:30000}
 
 icebergCatalog:
-      enablePublicRead: ${ENABLE_PUBLIC_READ:false}
-      publiclyReadableTag: ${PUBLICLY_READABLE_TAG:PUBLICLY_READABLE}
+  enablePublicRead: ${ENABLE_PUBLIC_READ:false}
+  publiclyReadableTag: ${PUBLICLY_READABLE_TAG:PUBLICLY_READABLE}
 
 eventsApi:
   enabled: ${EVENTS_API_ENABLED:true}

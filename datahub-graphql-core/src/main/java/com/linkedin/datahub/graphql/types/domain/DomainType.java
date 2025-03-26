@@ -41,8 +41,9 @@ public class DomainType
           Constants.OWNERSHIP_ASPECT_NAME,
           Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
           Constants.STRUCTURED_PROPERTIES_ASPECT_NAME,
-          Constants.FORMS_ASPECT_NAME,
           Constants.DISPLAY_PROPERTIES_ASPECT_NAME,
+          // SaaS Only
+          Constants.FORMS_ASPECT_NAME,
           Constants.SHARE_ASPECT_NAME,
           Constants.ORIGIN_ASPECT_NAME);
   private final EntityClient _entityClient;

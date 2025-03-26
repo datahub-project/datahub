@@ -12,11 +12,17 @@ from freezegun import freeze_time
 import datahub.metadata.schema_classes as models
 from datahub.cli.json_file import check_mce_file
 from datahub.emitter import mce_builder
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.serialization_helper import post_json_transform, pre_json_transform
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.file import FileSourceConfig, GenericFileSource
+from datahub.ingestion.source.file import (
+    FileSourceConfig,
+    GenericFileSource,
+    read_metadata_file,
+)
 from datahub.metadata.schema_classes import MetadataChangeEventClass
 from datahub.metadata.schemas import getMetadataChangeEventSchema
+from datahub.testing.pytest_hooks import get_golden_settings
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 
@@ -112,7 +118,7 @@ def test_serde_to_avro(
     [
         # Normal test.
         "tests/unit/serde/test_serde_large.json",
-        # Check for backwards compatability with specifying all union types.
+        # Check for backwards compatibility with specifying all union types.
         "tests/unit/serde/test_serde_backwards_compat.json",
         # Usage stats.
         "tests/unit/serde/test_serde_usage.json",
@@ -129,6 +135,43 @@ def test_check_metadata_schema(pytestconfig: pytest.Config, json_filename: str) 
     json_file_path = pytestconfig.rootpath / json_filename
 
     run_datahub_cmd(["check", "metadata-file", f"{json_file_path}"])
+
+
+def test_serde_paired(pytestconfig: pytest.Config) -> None:
+    # Test with a pair of python object + json file.
+    # Validates both deserialization and serialization.
+
+    python_metadata = [
+        MetadataChangeProposalWrapper(
+            entityUrn="urn:li:domain:marketing",
+            aspect=models.DomainPropertiesClass(
+                name="Marketing",
+                description="Description of the marketing domain",
+                parentDomain="urn:li:domain:gtm",
+            ),
+        )
+    ]
+    for metadata in python_metadata:
+        assert metadata.validate()
+
+    json_file_path = (
+        pytestconfig.rootpath / "tests/unit/serde/test_domain_properties.json"
+    )
+    if not get_golden_settings().update_golden:
+        json_metadata = list(read_metadata_file(json_file_path))
+        assert python_metadata == json_metadata
+
+    mce_helpers.check_goldens_stream(
+        outputs=python_metadata,
+        golden_path=json_file_path,
+        ignore_order=False,
+    )
+
+
+def test_unknown_object_deser_error(pytestconfig: pytest.Config) -> None:
+    json_file_path = pytestconfig.rootpath / "tests/unit/serde/test_invalid_object.json"
+    with pytest.raises(ValueError, match="Unknown object type"):
+        list(read_metadata_file(json_file_path))
 
 
 def test_check_metadata_rewrite(
@@ -356,7 +399,7 @@ def test_json_transforms(model, ref_server_obj):
     assert recovered == model
 
 
-def test_unions_with_aliases_assumptions():
+def test_unions_with_aliases_assumptions() -> None:
     # We have special handling for unions with aliases in our json serialization helpers.
     # Specifically, we assume that cost is the only instance of a union with alias.
     # This test validates that assumption.

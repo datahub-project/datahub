@@ -9,6 +9,7 @@ import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
@@ -19,7 +20,6 @@ import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
-import io.datahubproject.test.util.EbeanTestUtils;
 import io.ebean.Database;
 import io.ebean.test.LoggedSql;
 import jakarta.annotation.Nonnull;
@@ -232,22 +232,25 @@ public class EbeanEntityServiceOptimizationTest {
 
     try {
       entityService.ingestProposal(opContext, batch, false);
-      List<String> txnLog =
+      // First collect all SQL statements that start with "txn[]"
+      List<String> allSqlStatements =
           LoggedSql.collect().stream()
               .filter(sql -> sql.startsWith("txn[]"))
-              .collect(
-                  ArrayList::new,
-                  (ArrayList<String> list, String sql) -> {
-                    // fold into previous line
-                    if (sql.startsWith("txn[]  -- ")) {
-                      String current = list.get(list.size() - 1);
-                      list.set(list.size() - 1, current + "\n" + sql);
-                    } else {
-                      list.add(sql);
-                    }
-                  },
-                  ArrayList::addAll);
+              .collect(Collectors.toList());
 
+      // Then process them to fold comments into previous lines
+      List<String> txnLog = new ArrayList<>();
+      for (String sql : allSqlStatements) {
+        if (sql.startsWith("txn[]  -- ") && !txnLog.isEmpty()) {
+          // Append this comment to the previous statement
+          int lastIndex = txnLog.size() - 1;
+          String current = txnLog.get(lastIndex);
+          txnLog.set(lastIndex, current + "\n" + sql);
+        } else {
+          // Add as a new statement
+          txnLog.add(sql);
+        }
+      }
       // Get the captured SQL statements
       Map<String, List<String>> statementMap =
           txnLog.stream()

@@ -1,5 +1,4 @@
 import { Input, Modal } from 'antd';
-import { debounce } from 'lodash';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -53,13 +52,6 @@ const IconColorPicker: React.FC<IconColorPickerProps> = ({
     const [stagedColor, setStagedColor] = React.useState<string>(color || '#000000');
     const [stagedIcon, setStagedIcon] = React.useState<string>(icon || 'account_circle');
 
-    // a debounced version of updateDisplayProperties that takes in the same arguments
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    const debouncedUpdateDisplayProperties = React.useCallback(
-        debounce((...args) => updateDisplayProperties(...args).then(() => setTimeout(() => refetch(), 1000)), 500),
-        [],
-    );
-
     return (
         <Modal
             open={open}
@@ -77,7 +69,7 @@ const IconColorPicker: React.FC<IconColorPickerProps> = ({
                             },
                         },
                     },
-                });
+                }).then(() => refetch());
                 onChangeColor?.(stagedColor);
                 onChangeIcon?.(stagedIcon);
                 onClose();
@@ -93,44 +85,10 @@ const IconColorPicker: React.FC<IconColorPickerProps> = ({
                     marginBottom: 30,
                     marginTop: 15,
                 }}
-                onChange={(e) => {
-                    setStagedColor(e.target.value);
-                    debouncedUpdateDisplayProperties?.({
-                        variables: {
-                            urn,
-                            input: {
-                                colorHex: e.target.value,
-                                icon: {
-                                    iconLibrary: IconLibrary.Material,
-                                    name: stagedIcon,
-                                    style: 'Outlined',
-                                },
-                            },
-                        },
-                    });
-                }}
+                onChange={(e) => setStagedColor(e.target.value)}
             />
             <Title>Choose an icon for {name || 'Domain'}</Title>
-            <ChatIconPicker
-                color={stagedColor}
-                onIconPick={(i) => {
-                    console.log('picking icon', i);
-                    debouncedUpdateDisplayProperties?.({
-                        variables: {
-                            urn,
-                            input: {
-                                colorHex: stagedColor,
-                                icon: {
-                                    iconLibrary: IconLibrary.Material,
-                                    name: capitalize(snakeToCamel(i)),
-                                    style: 'Outlined',
-                                },
-                            },
-                        },
-                    });
-                    setStagedIcon(i);
-                }}
-            />
+            <ChatIconPicker color={stagedColor} onIconPick={(i) => setStagedIcon(i)} />
         </Modal>
     );
 };

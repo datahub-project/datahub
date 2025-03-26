@@ -1234,11 +1234,14 @@ class NifiSource(StatefulIngestionSourceBase):
         job_type: str,
         description: Optional[str],
         job_properties: Optional[Dict[str, str]] = None,
-        inlets: List[str] = [],
-        outlets: List[str] = [],
-        inputJobs: List[str] = [],
+        inlets: Optional[List[str]] = None,
+        outlets: Optional[List[str]] = None,
+        inputJobs: Optional[List[str]] = None,
         status: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
+        inlets = inlets or []
+        outlets = outlets or []
+        inputJobs = inputJobs or []
         logger.debug(f"Begining construction of job workunit for {job_urn}")
         if job_properties:
             job_properties = {k: v for k, v in job_properties.items() if v is not None}

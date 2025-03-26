@@ -117,7 +117,6 @@ public class UpdateIncidentResolver implements DataFetcher<CompletableFuture<Boo
     if (input.getDescription() != null) {
       info.setDescription(input.getDescription());
     }
-
     if (input.getStatus() != null) {
       info.setStatus(IncidentUtils.mapIncidentStatus(input.getStatus(), actorStamp));
     }

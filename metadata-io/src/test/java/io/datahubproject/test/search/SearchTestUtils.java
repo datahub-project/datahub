@@ -109,7 +109,7 @@ public class SearchTestUtils {
         null,
         0,
         100,
-        null,
+        List.of(),
         null);
   }
 
@@ -158,6 +158,30 @@ public class SearchTestUtils {
       @Nullable String scrollId) {
     return entitySearchService.scroll(
         opContext, SEARCHABLE_ENTITIES, null, null, batchSize, scrollId, "3m", null);
+  }
+
+  public static ScrollResult scrollAcrossEntities(
+      OperationContext opContext, SearchService searchService, String query) {
+    return scrollAcrossEntities(opContext, searchService, SEARCHABLE_ENTITIES, query, null);
+  }
+
+  public static ScrollResult scrollAcrossEntities(
+      OperationContext opContext,
+      SearchService searchService,
+      List<String> entityNames,
+      String query,
+      Filter filter) {
+    return searchService.scrollAcrossEntities(
+        opContext.withSearchFlags(
+            flags -> flags.setFulltext(true).setSkipCache(true).setSkipHighlighting(false)),
+        entityNames,
+        query,
+        filter,
+        null,
+        null,
+        "3m",
+        100,
+        null);
   }
 
   public static SearchResult searchStructured(
@@ -299,7 +323,7 @@ public class SearchTestUtils {
         null,
         0,
         100,
-        null,
+        List.of(),
         predicateJson);
   }
 

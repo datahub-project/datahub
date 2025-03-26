@@ -155,7 +155,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             null,
             0,
             10,
-            null);
+            List.of());
     SearchSourceBuilder sourceBuilder = searchRequest.source();
     assertNotNull(sourceBuilder.highlighter());
     assertEquals(4, sourceBuilder.highlighter().fields().size());
@@ -184,7 +184,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             null,
             0,
             10,
-            null);
+            List.of());
     SearchSourceBuilder sourceBuilder = searchRequest.source();
     assertEquals(sourceBuilder.from(), 0);
     assertEquals(sourceBuilder.size(), 10);
@@ -232,7 +232,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             null,
             0,
             10,
-            null);
+            List.of());
     SearchSourceBuilder sourceBuilder = searchRequest.source();
     assertEquals(sourceBuilder.from(), 0);
     assertEquals(sourceBuilder.size(), 10);
@@ -414,7 +414,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                       null,
                       "5m",
                       10,
-                      null,
+                      List.of(),
                       null)
                   .source()
                   .query();
@@ -429,7 +429,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                       null,
                       0,
                       10,
-                      null)
+                      List.of())
                   .source()
                   .query();
     }
@@ -485,7 +485,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                       null,
                       "5m",
                       10,
-                      null,
+                      List.of(),
                       null)
                   .source()
                   .query();
@@ -500,7 +500,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                       null,
                       0,
                       10,
-                      null)
+                      List.of())
                   .source()
                   .query();
     }
@@ -1047,7 +1047,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 null,
                 0,
                 10,
-                null)
+                List.of())
             .source()
             .query();
   }

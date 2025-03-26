@@ -36,7 +36,7 @@ public class FeatureFlags {
   private boolean showAutoCompleteResults = false;
   private boolean dataProcessInstanceEntityEnabled = true;
   private boolean entityVersioning = false;
-  private boolean showDefaultExternalLinks = true;
+  private boolean showSearchBarAutocompleteRedesign = false;
 
   /* SaaS Only */
   private boolean assertionMonitorsEnabled = false;
@@ -62,4 +62,5 @@ public class FeatureFlags {
   private boolean usePropagationsFramework = false;
   private boolean displayExecutorPools = false;
   private boolean onlineSmartAssertionsEnabled = false;
+  private boolean showDefaultExternalLinks = true;
 }

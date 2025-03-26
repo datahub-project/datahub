@@ -128,8 +128,8 @@ export default function MLGroupModels() {
             },
         },
         {
-            title: 'Tags',
-            key: 'tags',
+            title: 'Properties',
+            key: 'properties',
             width: 200,
             render: (_: any, record: any) => {
                 const tags = record.properties?.tags || [];

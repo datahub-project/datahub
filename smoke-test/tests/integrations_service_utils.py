@@ -53,6 +53,9 @@ def wait_until_action_has_processed_event(
     action_urn_encoded = quote(action_urn)
     url = f"{integrations_url}/private/actions/{action_urn_encoded}/stats"
     start_time = time.time()
+    last_event_processed_time = None
+    last_event_processed_time_change_time = time.time()
+
     while time.time() - start_time < timeout:
         response = requests.get(url)
         if response.status_code == 200:
@@ -63,10 +66,16 @@ def wait_until_action_has_processed_event(
                 .get("event_processing_stats.last_event_processed_time", "")
             )
             if last_event_processed_time_str:
-                last_event_processed_time = datetime.fromisoformat(
+                current_event_processed_time = datetime.fromisoformat(
                     last_event_processed_time_str
                 )
-                if last_event_processed_time >= event_time:
+                if (
+                    last_event_processed_time is None
+                    or current_event_processed_time != last_event_processed_time
+                ):
+                    last_event_processed_time = current_event_processed_time
+                    last_event_processed_time_change_time = time.time()
+                elif time.time() - last_event_processed_time_change_time >= 5:
                     return
         elif response.status_code != 404:
             # 404 means the action hasn't started processing events yet

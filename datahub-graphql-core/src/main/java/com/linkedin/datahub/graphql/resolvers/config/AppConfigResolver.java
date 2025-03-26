@@ -163,6 +163,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
         visualConfig.setAppTitle(_visualConfiguration.getAppTitle());
       }
       visualConfig.setHideGlossary(_visualConfiguration.isHideGlossary());
+      visualConfig.setShowFullTitleInLineage(_visualConfiguration.isShowFullTitleInLineage());
     }
     if (_visualConfiguration != null && _visualConfiguration.getQueriesTab() != null) {
       QueriesTabConfig queriesTabConfig = new QueriesTabConfig();
@@ -258,12 +259,15 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
                 _featureFlags.isShowDatasetFeaturesSearchSortOptions())
             .setShowNavBarRedesign(_featureFlags.isShowNavBarRedesign())
             .setShowAutoCompleteResults(_featureFlags.isShowAutoCompleteResults())
+            .setEntityVersioningEnabled(_featureFlags.isEntityVersioning())
             .setShowFormAnalytics(_featureFlags.isShowFormAnalytics())
             .setShowStatsTabRedesign(_featureFlags.isShowStatsTabRedesign())
             .setRequestMinimalSlackPermissions(_featureFlags.isRequestMinimalSlackPermissions())
             .setShowTaskCenterRedesign(_featureFlags.isShowTaskCenterRedesign())
             .setUsePropagationsFramework(_featureFlags.isUsePropagationsFramework())
             .setDisplayExecutorPools(_featureFlags.isDisplayExecutorPools())
+            .setShowSearchBarAutocompleteRedesign(
+                _featureFlags.isShowSearchBarAutocompleteRedesign())
             .setOnlineSmartAssertionsEnabled(_featureFlags.isOnlineSmartAssertionsEnabled())
             .setShowDefaultExternalLinks(_featureFlags.isShowDefaultExternalLinks())
             .build();

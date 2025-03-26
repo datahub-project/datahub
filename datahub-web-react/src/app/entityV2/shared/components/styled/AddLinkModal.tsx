@@ -1,25 +1,12 @@
 import React, { useState } from 'react';
-import { message, Modal, Button, Form, Input, Checkbox } from 'antd';
+import { Button as AntButton, message, Modal, Form, Input, Checkbox } from 'antd';
 import styled from 'styled-components/macro';
 import { PlusOutlined } from '@ant-design/icons';
+import { Button } from '@src/alchemy-components';
 import { useEntityData, useMutationUrn } from '../../../../entity/shared/EntityContext';
 import { useAddLinkMutation } from '../../../../../graphql/mutations.generated';
 import analytics, { EventType, EntityActionType } from '../../../../analytics';
 import { useUserContext } from '../../../../context/useUserContext';
-import { REDESIGN_COLORS } from '../../constants';
-
-const TransparentButton = styled(Button)`
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
-    font-size: 12px;
-    box-shadow: none;
-    border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
-    &:hover {
-        transition: 0.15s;
-        opacity: 0.9;
-        border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
-    }
-`;
 
 const FooterContainer = styled.div`
     display: flex;
@@ -90,23 +77,34 @@ export const AddLinkModal = ({ buttonProps, refetch, buttonType }: AddLinkProps)
         }
     };
 
-    return (
-        <>
-            {buttonType === 'transparent' ? (
-                <TransparentButton
-                    data-testid="add-link-button"
-                    size="large"
-                    icon={<PlusOutlined />}
-                    onClick={showModal}
-                    {...buttonProps}
-                >
-                    Add Link
-                </TransparentButton>
-            ) : (
-                <Button data-testid="add-link-button" icon={<PlusOutlined />} onClick={showModal} {...buttonProps}>
+    const renderButton = (bType: string | undefined) => {
+        if (bType === 'transparent') {
+            return (
+                <Button data-testid="add-link-button" variant="outline" onClick={showModal} {...buttonProps}>
+                    <PlusOutlined />
                     Add Link
                 </Button>
-            )}
+            );
+        }
+        if (bType === 'text') {
+            return (
+                <AntButton data-testid="add-link-button" onClick={showModal} type="text">
+                    <PlusOutlined />
+                    Add Link
+                </AntButton>
+            );
+        }
+        return (
+            <Button variant="outline" data-testid="add-link-button" onClick={showModal} {...buttonProps}>
+                <PlusOutlined />
+                Add Link
+            </Button>
+        );
+    };
+
+    return (
+        <>
+            {renderButton(buttonType)}
             <Modal
                 title="Add Link"
                 visible={isModalVisible}
@@ -121,14 +119,14 @@ export const AddLinkModal = ({ buttonProps, refetch, buttonType }: AddLinkProps)
                             Add to asset header
                         </Checkbox>
                         <FooterActions>
-                            <Button type="text" onClick={handleClose}>
+                            <Button variant="text" onClick={handleClose}>
                                 Cancel
                             </Button>
                             <Button
                                 data-testid="add-link-modal-add-button"
                                 form="addLinkForm"
                                 key="submit"
-                                htmlType="submit"
+                                type="submit"
                             >
                                 Add
                             </Button>

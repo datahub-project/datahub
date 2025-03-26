@@ -86,6 +86,15 @@ const meta: Meta = {
                 type: 'select',
             },
         },
+        showLabel: {
+            description: 'Controls whether the label should be displayed.',
+            table: {
+                defaultValue: { summary: 'true' }, // Assuming true is the default
+            },
+            control: {
+                type: 'boolean',
+            },
+        },
     },
 
     // Define defaults
@@ -95,6 +104,7 @@ const meta: Meta = {
         rightIcon: defaults.rightIcon,
         size: defaults.size,
         variant: defaults.variant,
+        showLabel: true,
     },
 } satisfies Meta<typeof Pill>;
 

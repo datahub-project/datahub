@@ -6,6 +6,7 @@ import static org.testng.Assert.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.AspectIngestionUtils;
+import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
@@ -14,7 +15,6 @@ import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.service.UpdateIndicesService;
-import io.datahubproject.test.util.EbeanTestUtils;
 import io.ebean.Database;
 import java.util.List;
 import java.util.Map;

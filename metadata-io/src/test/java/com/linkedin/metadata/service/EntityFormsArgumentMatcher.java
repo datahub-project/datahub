@@ -37,8 +37,8 @@ public class EntityFormsArgumentMatcher implements ArgumentMatcher<List<Metadata
             .filter(mcp -> mcp.getChangeType().equals(ChangeType.PATCH))
             .map(
                 mcp ->
-                    PatchItemImpl.PatchItemImplBuilder.build(
-                            mcp, opContext.getAuditStamp(), opContext.getEntityRegistry())
+                    PatchItemImpl.builder()
+                        .build(mcp, opContext.getAuditStamp(), opContext.getEntityRegistry())
                         .applyPatch(existingForms, opContext.getAspectRetriever()))
             .map(this::getPatchedMcp)
             .collect(Collectors.toList());

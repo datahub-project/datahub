@@ -159,7 +159,12 @@ class ModeConfig(
     )
 
     workspace: str = Field(
-        description="The Mode workspace name. Find it in Settings > Workspace > Details."
+        description="The Mode workspace username. If you navigate to Workspace Settings > Details, "
+        "the url will be `https://app.mode.com/organizations/<workspace-username>`. "
+        # The lowercase comment is derived from a comment in a Mode API example.
+        # https://mode.com/developer/api-cookbook/management/get-all-reports/
+        # > "Note: workspace_name value should be all lowercase"
+        "This is distinct from the workspace's display name, and should be all lowercase."
     )
     _default_schema = pydantic_removed_field("default_schema")
 
@@ -377,7 +382,7 @@ class ModeSource(StatefulIngestionSourceBase):
         ]
 
     def _dashboard_urn(self, report_info: dict) -> str:
-        return builder.make_dashboard_urn(self.platform, report_info.get("id", ""))
+        return builder.make_dashboard_urn(self.platform, str(report_info.get("id", "")))
 
     def _parse_last_run_at(self, report_info: dict) -> Optional[int]:
         # Mode queries are refreshed, and that timestamp is reflected correctly here.
@@ -1494,7 +1499,7 @@ class ModeSource(StatefulIngestionSourceBase):
                     sleep_time = error_response.headers.get("retry-after")
                     if sleep_time is not None:
                         time.sleep(float(sleep_time))
-                    raise HTTPError429
+                    raise HTTPError429 from None
 
                 raise http_error
 

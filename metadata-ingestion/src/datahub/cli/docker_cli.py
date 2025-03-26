@@ -231,7 +231,7 @@ def _docker_compose_v2() -> List[str]:
             # docker-compose v1 is not installed either.
             raise DockerComposeVersionError(
                 "You don't have Docker Compose installed. Please install Docker Compose. See https://docs.docker.com/compose/install/.",
-            )
+            ) from None
 
 
 def _attempt_stop(quickstart_compose_file: List[pathlib.Path]) -> None:

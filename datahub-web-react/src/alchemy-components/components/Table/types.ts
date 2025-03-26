@@ -10,6 +10,7 @@ export interface Column<T> {
     maxWidth?: string;
     sorter?: (a: T, b: T) => number;
     alignment?: AlignmentOptions;
+    tooltipTitle?: string;
 }
 
 export interface TableProps<T> extends TableHTMLAttributes<HTMLTableElement> {
@@ -24,6 +25,7 @@ export interface TableProps<T> extends TableHTMLAttributes<HTMLTableElement> {
     expandable?: ExpandableProps<T>;
     onRowClick?: (record: T) => void;
     rowClassName?: (record: T) => string;
+    rowDataTestId?: (record: T) => string;
     onExpand?: (record: T) => void;
     handleSortColumnChange?: ({ sortColumn, sortOrder }: { sortColumn: string; sortOrder: SortingState }) => void;
     rowKey?: string | ((record: T) => string);
@@ -42,7 +44,7 @@ export interface ExpandableProps<T> {
     rowExpandable?: (record: T) => boolean;
     defaultExpandedRowKeys?: string[];
     expandIconPosition?: 'start' | 'end'; // Configurable position of the expand icon
-    expandedRowKeys?: string[];
+    expandedGroupIds?: string[];
 }
 
 export enum SortingState {

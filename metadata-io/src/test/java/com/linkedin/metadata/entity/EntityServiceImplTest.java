@@ -1,7 +1,9 @@
 package com.linkedin.metadata.entity;
 
+import static com.linkedin.metadata.Constants.DATASET_PROFILE_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.UPSTREAM_LINEAGE_ASPECT_NAME;
+import static com.linkedin.metadata.entity.EntityServiceTest.TEST_AUDIT_STAMP;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -19,7 +21,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
-import static org.testng.AssertJUnit.fail;
+import static org.testng.Assert.fail;
 
 import com.codahale.metrics.Counter;
 import com.datahub.util.RecordUtils;
@@ -29,7 +31,9 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.dataset.UpstreamLineage;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.AspectGenerationUtils;
 import com.linkedin.metadata.aspect.SystemAspect;
@@ -40,7 +44,9 @@ import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.EbeanSystemAspect;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.entity.ebean.batch.DeleteItemImpl;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.event.EventProducer;
@@ -537,6 +543,106 @@ public class EntityServiceImplTest {
         .produceMetadataChangeLog(any(OperationContext.class), any(), any(), any());
   }
 
+  @Test
+  public void testIngestTimeseriesProposal() {
+    // Create a spy of the EntityServiceImpl to track method calls
+    EntityServiceImpl entityServiceSpy = spy(entityService);
+
+    Urn timeseriesUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,timeseriesTest,PROD)");
+    DatasetProfile datasetProfile = new DatasetProfile();
+    datasetProfile.setRowCount(1000);
+    datasetProfile.setColumnCount(15);
+    datasetProfile.setTimestampMillis(0L);
+
+    // Create a mock AspectsBatch with timeseries aspects
+    AspectsBatch mockBatch =
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(
+                List.of(
+                    ChangeItemImpl.builder()
+                        .urn(timeseriesUrn)
+                        .aspectName(DATASET_PROFILE_ASPECT_NAME)
+                        .recordTemplate(datasetProfile)
+                        .changeType(ChangeType.UPSERT)
+                        .auditStamp(TEST_AUDIT_STAMP)
+                        .build(opContext.getAspectRetriever()),
+                    ChangeItemImpl.builder()
+                        .urn(timeseriesUrn)
+                        .aspectName(DATASET_PROFILE_ASPECT_NAME)
+                        .recordTemplate(datasetProfile)
+                        .changeType(ChangeType.UPSERT)
+                        .auditStamp(TEST_AUDIT_STAMP)
+                        .build(opContext.getAspectRetriever())))
+            .build();
+
+    // Test case 1: async = true path
+    // Arrange
+    doReturn(Stream.empty())
+        .when(entityServiceSpy)
+        .ingestProposalAsync(any(OperationContext.class), any(AspectsBatch.class));
+
+    // Act
+    entityServiceSpy.ingestTimeseriesProposal(opContext, mockBatch, true);
+
+    // Verify
+    verify(entityServiceSpy, times(1))
+        .ingestProposalAsync(any(OperationContext.class), any(AspectsBatch.class));
+    verify(entityServiceSpy, never())
+        .ingestProposalSync(any(OperationContext.class), any(AspectsBatch.class));
+
+    // Test case 2: async = false path
+    // Arrange
+    org.mockito.Mockito.reset(entityServiceSpy);
+    doReturn(Stream.empty())
+        .when(entityServiceSpy)
+        .ingestProposalSync(any(OperationContext.class), any(AspectsBatch.class));
+
+    // Act
+    entityServiceSpy.ingestTimeseriesProposal(opContext, mockBatch, false);
+
+    // Verify
+    verify(entityServiceSpy, never())
+        .ingestProposalAsync(any(OperationContext.class), any(AspectsBatch.class));
+    verify(entityServiceSpy, times(1))
+        .ingestProposalSync(any(OperationContext.class), any(AspectsBatch.class));
+  }
+
+  @Test
+  public void testIngestTimeseriesProposalUnsupported() {
+    // Create a spy of the EntityServiceImpl to track method calls
+    EntityServiceImpl entityServiceSpy = spy(entityService);
+
+    Urn timeseriesUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,timeseriesUnsupportedTest,PROD)");
+
+    // Create a mock AspectsBatch with timeseries aspects
+    AspectsBatch mockBatch =
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(
+                List.of(
+                    DeleteItemImpl.builder()
+                        .urn(timeseriesUrn)
+                        .aspectName(DATASET_PROFILE_ASPECT_NAME)
+                        .auditStamp(TEST_AUDIT_STAMP)
+                        .build(opContext.getAspectRetriever()),
+                    DeleteItemImpl.builder()
+                        .urn(timeseriesUrn)
+                        .aspectName(DATASET_PROFILE_ASPECT_NAME)
+                        .auditStamp(TEST_AUDIT_STAMP)
+                        .build(opContext.getAspectRetriever())))
+            .build();
+
+    try {
+      entityServiceSpy.ingestTimeseriesProposal(opContext, mockBatch, true);
+      fail("Should throw UnsupportedOperationException for non-UPSERT change types");
+    } catch (UnsupportedOperationException e) {
+      // Expected
+    }
+  }
+
   /**
    * Tests an end-to-end scenario with createDefaultAspects=true, ensuring that both the aspects are
    * restored to the index and default aspects are created.
@@ -759,7 +865,8 @@ public class EntityServiceImplTest {
     batch.add(anotherSuccessAspect);
 
     // Setup mock stream to create two separate batches
-    // This is the key change - we need to separate the failing aspect into its own batch
+    // This is the key change - we need to separate the failing aspect into its own
+    // batch
     when(mockStream.partition(anyInt()))
         .thenReturn(
             Stream.of(
@@ -820,7 +927,8 @@ public class EntityServiceImplTest {
     // The failing aspect should not generate a result at all, as the implementation
     // filters out null results (batches that throw exceptions)
 
-    // Verify total calls to produceMetadataChangeLog (one for each successful aspect)
+    // Verify total calls to produceMetadataChangeLog (one for each successful
+    // aspect)
     verify(mockEventProducer, times(2))
         .produceMetadataChangeLog(any(OperationContext.class), any(), any(), any());
   }

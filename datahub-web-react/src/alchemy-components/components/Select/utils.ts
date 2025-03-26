@@ -3,7 +3,12 @@ import { getFontSize } from '@components/theme/utils';
 
 import { SelectStyleProps } from './types';
 
-export const getOptionLabelStyle = (isSelected: boolean, isMultiSelect?: boolean, isDisabled?: boolean) => {
+export const getOptionLabelStyle = (
+    isSelected: boolean,
+    isMultiSelect?: boolean,
+    isDisabled?: boolean,
+    applyHoverWidth?: boolean,
+) => {
     const color = isSelected ? colors.gray[600] : colors.gray[500];
     const backgroundColor = !isDisabled && !isMultiSelect && isSelected ? colors.gray[1000] : 'transparent';
 
@@ -18,7 +23,7 @@ export const getOptionLabelStyle = (isSelected: boolean, isMultiSelect?: boolean
         fontSize: typography.fontSizes.md,
         display: 'flex',
         alignItems: 'center',
-
+        width: applyHoverWidth ? '100%' : 'auto',
         '&:hover': {
             backgroundColor: isSelected ? colors.violet[100] : colors.gray[100],
         },

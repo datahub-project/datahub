@@ -142,7 +142,7 @@ def get_table_comment(self, connection, table_name: str, schema: str = None, **k
                     if col_value is not None:
                         properties[col_name] = col_value
 
-            return {"text": properties.get("comment", None), "properties": properties}
+            return {"text": properties.get("comment"), "properties": properties}
         else:
             return self.get_table_comment_default(connection, table_name, schema)
     except Exception:
@@ -483,7 +483,7 @@ def _parse_struct_fields(parts):
 
 
 def _parse_basic_datatype(s):
-    for sql_type in _all_atomic_types.keys():
+    for sql_type in _all_atomic_types:
         if isinstance(s, sql_type):
             return {
                 "type": _all_atomic_types[sql_type],

@@ -170,14 +170,10 @@ def get_column_unique_count_dh_patch(self: SqlAlchemyDataset, column: str) -> in
             ).select_from(self._table)
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
-    elif self.engine.dialect.name.lower() == BIGQUERY:
-        element_values = self.engine.execute(
-            sa.select(sa.func.APPROX_COUNT_DISTINCT(sa.column(column))).select_from(
-                self._table
-            )
-        )
-        return convert_to_json_serializable(element_values.fetchone()[0])
-    elif self.engine.dialect.name.lower() == SNOWFLAKE:
+    elif (
+        self.engine.dialect.name.lower() == BIGQUERY
+        or self.engine.dialect.name.lower() == SNOWFLAKE
+    ):
         element_values = self.engine.execute(
             sa.select(sa.func.APPROX_COUNT_DISTINCT(sa.column(column))).select_from(
                 self._table
@@ -381,12 +377,13 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             col = col_dict["name"]
             self.column_types[col] = str(col_dict["type"])
             # We expect the allow/deny patterns to specify '<table_pattern>.<column_pattern>'
-            if not self.config._allow_deny_patterns.allowed(
-                f"{self.dataset_name}.{col}"
+            if (
+                not self.config._allow_deny_patterns.allowed(
+                    f"{self.dataset_name}.{col}"
+                )
+                or not self.config.profile_nested_fields
+                and "." in col
             ):
-                ignored_columns_by_pattern.append(col)
-            # We try to ignore nested columns as well
-            elif not self.config.profile_nested_fields and "." in col:
                 ignored_columns_by_pattern.append(col)
             elif col_dict.get("type") and self._should_ignore_column(col_dict["type"]):
                 ignored_columns_by_type.append(col)
@@ -605,7 +602,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         if not self.config.include_field_median_value:
             return
         try:
-            if self.dataset.engine.dialect.name.lower() == SNOWFLAKE:
+            if self.dataset.engine.dialect.name.lower() in [SNOWFLAKE, DATABRICKS]:
                 column_profile.median = str(
                     self.dataset.engine.execute(
                         sa.select([sa.func.median(sa.column(column))]).select_from(
@@ -1408,7 +1405,7 @@ class DatahubGEProfiler:
             },
         )
 
-        if platform == BIGQUERY or platform == DATABRICKS:
+        if platform in (BIGQUERY, DATABRICKS):
             # This is done as GE makes the name as DATASET.TABLE
             # but we want it to be PROJECT.DATASET.TABLE instead for multi-project setups
             name_parts = pretty_name.split(".")

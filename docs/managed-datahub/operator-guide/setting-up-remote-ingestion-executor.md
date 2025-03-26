@@ -34,18 +34,6 @@ The Remote Ingestion Executor can be deployed on several different platforms, in
 
 ### Deploying on Amazon ECS
 
-:::note
-
-Customers migrating from the legacy DataHub Executor: migration to the new executor requires a configuration change on Acryl side. Please contact your Acryl representative for detailed guidance.
-
-Steps you will need to perform on your end when instructed by your Acryl representative:
-1. Temporarily stop your legacy DataHub Remote Executor instance (e.g. `aws ecs update-service --desired-count 0 --cluster "cluster-name" --service "service-name"`)
-2. Deploy new DataHub Executor using steps below.
-3. Trigger an ingestion to make sure the new executor is working as expected.
-4. Tear down legacy executor ECS deployment.
-
-:::
-
 1. **Provide AWS account ID**: Provide Acryl with the ID of the AWS account in which the remote executor will be hosted. This will be used to grant access to the private Acryl ECR registry. The account ID can be provided to your Acryl representative via Email or [One Time Secret](https://onetimesecret.com/).
 
 2. **Provision an Acryl Executor** (ECS)**:** Acryl team will provide a [Cloudformation Template](https://raw.githubusercontent.com/acryldata/datahub-cloudformation/master/remote-executor/datahub-executor.ecs.template.yaml) that you can run to provision an ECS cluster with a single remote ingestion task. It will also provision an AWS role for the task which grants the permissions necessary to read and delete from the private queue created for you, along with reading the secrets you've specified. At minimum, the template requires the following parameters:
@@ -66,9 +54,9 @@ Steps you will need to perform on your end when instructed by your Acryl represe
     2.  When working with "secret" fields (passwords, keys, etc), you can refer to any "self-managed" secrets by name: `${SECRET_NAME}:`
 
 
-<p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/Screen-Shot-2023-01-19-at-4.16.52-PM.png"/>
-</p>
+    <p align="center">
+      <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/Screen-Shot-2023-01-19-at-4.16.52-PM.png"/>
+    </p>
 
     3. In the 'Finish Up' step, click '**Advanced'**.
     4. Update the '**Executor Id**' form field to be  '**remote**'. This indicates that you'd like to use the remote executor.

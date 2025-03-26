@@ -579,11 +579,11 @@ def create_1_1_graph_lineage(
     ]
     mcps = []
     field_glossary_term_map = {
-        0: "urn:li:glossaryTerm:TestGlossaryNode1.TestTerm1_1",
-        1: "urn:li:glossaryTerm:TestGlossaryNode1.TestTerm1_2",
-        2: "urn:li:glossaryTerm:TestGlossaryNode2.TestTerm2_1",
-        3: "urn:li:glossaryTerm:TestGlossaryNode2.TestTerm2_2",
-        4: "urn:li:glossaryTerm:TestGlossaryNode2.TestTerm2_3",
+        0: "urn:li:glossaryTerm:TestGlossaryNode1.TestTerm11",
+        1: "urn:li:glossaryTerm:TestGlossaryNode1.TestTerm12",
+        2: "urn:li:glossaryTerm:TestGlossaryNode2.TestTerm21",
+        3: "urn:li:glossaryTerm:TestGlossaryNode2.TestTerm22",
+        4: "urn:li:glossaryTerm:TestGlossaryNode2.TestTerm23",
     }
     for i, dataset_urn in enumerate(dataset_urns):
         dataset = Dataset(
@@ -716,7 +716,7 @@ def create_1_1_graph_lineage(
                         ),
                         terms=[
                             GlossaryTermAssociationClass(
-                                urn="urn:li:glossaryTerm:TestGlossaryNode1.TestTerm1_2",
+                                urn="urn:li:glossaryTerm:TestGlossaryNode1.TestTerm12",
                                 actor="urn:li:corpuser:foobar",
                             )
                         ],
@@ -734,7 +734,7 @@ def create_1_1_graph_lineage(
                         ),
                         terms=[
                             GlossaryTermAssociationClass(
-                                urn="urn:li:glossaryTerm:TestGlossaryNode1.TestTerm1_1",
+                                urn="urn:li:glossaryTerm:TestGlossaryNode1.TestTerm11",
                                 actor="urn:li:corpuser:foobar",
                             )
                         ],
@@ -760,7 +760,7 @@ def create_1_1_graph_lineage(
         TermPropagationExpectation(
             schema_field_urn=downstream_schema_field_urns[0],
             propagation_found=True,
-            propagated_term="urn:li:glossaryTerm:TestGlossaryNode1.TestTerm1_2",
+            propagated_term="urn:li:glossaryTerm:TestGlossaryNode1.TestTerm12",
             propagation_source=test_action_urn,
             propagation_via=None,
             propagation_origin=upstream_schema_field_urns[0],
@@ -768,7 +768,7 @@ def create_1_1_graph_lineage(
         TermPropagationExpectation(
             schema_field_urn=downstream_schema_field_urns[1],
             propagation_found=True,
-            propagated_term="urn:li:glossaryTerm:TestGlossaryNode1.TestTerm1_1",
+            propagated_term="urn:li:glossaryTerm:TestGlossaryNode1.TestTerm11",
             propagation_source=test_action_urn,
             propagation_via=None,
             propagation_origin=upstream_schema_field_urns[1],

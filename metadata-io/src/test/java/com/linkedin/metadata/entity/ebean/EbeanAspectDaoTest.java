@@ -8,12 +8,12 @@ import static org.testng.Assert.assertTrue;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.TransactionResult;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.test.util.EbeanTestUtils;
 import io.ebean.Database;
 import io.ebean.test.LoggedSql;
 import java.util.List;
