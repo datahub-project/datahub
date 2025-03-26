@@ -96,7 +96,7 @@ def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
         if plugin_config.enabled:
             _airflow_listener = DataHubListener(config=plugin_config)
             logger.info(
-                f"DataHub plugin v2 (package: {__package_name__} and version: {__version__})  listener initialized with config: {plugin_config}"
+                f"DataHub plugin v2 (package: {__package_name__} and version: {__version__}) listener initialized with config: {plugin_config}"
             )
             telemetry.telemetry_instance.ping(
                 "airflow-plugin-init",

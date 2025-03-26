@@ -219,27 +219,6 @@ You can only set table-level lineage using inlets and outlets. For column-level 
 
 ```python
 class DbtOperator(BaseOperator):
-  ...
-
-  def execute(self, context):
-    # Perform operations
-    inlets, outlets = self._get_lineage()
-    # inlets/outlets are lists of either datahub_airflow_plugin.entities.Dataset or datahub_airflow_plugin.entities.Urn
-    context['ti'].task.inlets = self.inlets
-    context['ti'].task.outlets = self.outlets
-
-  def _get_lineage(self):
-    # Process to get inlets/outlets
-
-    return inlets, outlets
-```
-
-If you override the `pre_execute` and `post_execute` functions, ensure they include the `@prepare_lineage` and `@apply_lineage` decorators respectively. Refer to the [Airflow documentation](https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/lineage.html#lineage) for more details.
-
-See an example implementation [here](../../metadata-ingestion-modules/airflow-plugin/tests/integration/dags/custom_operator_sql_parsing.py).
-
-```python
-class DbtOperator(BaseOperator):
     ...
 
     def execute(self, context):
