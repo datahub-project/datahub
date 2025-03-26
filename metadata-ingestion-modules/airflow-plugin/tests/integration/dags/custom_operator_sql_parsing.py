@@ -58,7 +58,7 @@ class CustomOperator(BaseOperator):
             )
 
             # Convert inputs and outputs to Dataset objects
-            if not sql_parsing_result.debug_info.error:
+            if not sql_parsing_result.debug_info.table_error:
                 # Convert source tables to inlets
                 for table in sql_parsing_result.in_tables:
                     inlets.append(Urn(table))
@@ -78,13 +78,8 @@ class CustomOperator(BaseOperator):
 
         return inlets, outlets
 
-
-def _fake_athena_execute(*args, **kwargs):
-    pass
-
-
 with DAG(
-    "custom_operator_with_sql_parsing",
+    "custom_operator_sql_parsing",
     start_date=datetime(2023, 1, 1),
     schedule_interval=None,
     catchup=False,

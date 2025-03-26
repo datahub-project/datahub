@@ -120,7 +120,7 @@ def _wait_for_dag_finish(
     retry=tenacity.retry_if_exception_type(NotReadyError),
 )
 def _wait_for_dag_to_load(airflow_instance: AirflowInstance, dag_id: str) -> None:
-    print("Checking if DAG was loaded")
+    print(f"Checking if DAG {dag_id} was loaded")
     res = airflow_instance.session.get(
         url=f"{airflow_instance.airflow_url}/api/v1/dags",
         timeout=5,
