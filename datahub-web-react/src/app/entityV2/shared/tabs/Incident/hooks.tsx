@@ -8,14 +8,14 @@ import { IncidentPriorityLabel } from '@src/alchemy-components/components/Incide
 import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { CorpUser } from '@src/types.generated';
+import { CorpUser, EntityPrivileges } from '@src/types.generated';
 import { getQueryParams } from '../Dataset/Validations/assertionUtils';
 import { getAssigneeNamesWithAvatarUrl, getLinkedAssetsCount } from './utils';
 import { IncidentResolveButton } from './IncidentResolveButton';
 import { IncidentAssigneeAvatarStack } from './IncidentAssigneeAvatarStack';
 import { CategoryType } from './styledComponents';
 
-export const useIncidentsTableColumns = () => {
+export const useIncidentsTableColumns = (privileges?: EntityPrivileges) => {
     return useMemo(() => {
         const columns = [
             {
@@ -107,13 +107,13 @@ export const useIncidentsTableColumns = () => {
                 key: 'actions',
                 width: '15%',
                 render: (record) => {
-                    return !record.groupName && <IncidentResolveButton incident={record} />;
+                    return !record.groupName && <IncidentResolveButton incident={record} privileges={privileges} />;
                 },
                 alignment: 'right' as AlignmentOptions,
             },
         ];
         return columns;
-    }, []);
+    }, [privileges]);
 };
 
 export const useIncidentURNCopyLink = (Urn: string) => {
