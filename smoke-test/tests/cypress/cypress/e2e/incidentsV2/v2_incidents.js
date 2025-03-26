@@ -176,14 +176,17 @@ describe("incidents", () => {
     );
     cy.get('[data-testid="create-incident-btn-main"]').trigger("mouseover");
     cy.get(".ant-dropdown-menu-item").first().click();
+    cy.get('[data-testid="drawer-header-title"]').should(
+      "contain.text",
+      "Create New Incident"
+    );
     cy.get('[data-testid="incident-name-input"]').type(
       newIncidentNameWithTimeStamp,
     );
 
-    cy.get(
-      ".sc-ibFRPP > .remirror-theme > .remirror-editor-wrapper > .ProseMirror"
-    )
+    cy.get(".remirror-editor")
       .should("exist")
+      .eq(1)
       .click({ force: true })
       .type(NEW_INCIDENT_VALUES.DESCRIPTION)
       .should("contain.text", NEW_INCIDENT_VALUES.DESCRIPTION);
