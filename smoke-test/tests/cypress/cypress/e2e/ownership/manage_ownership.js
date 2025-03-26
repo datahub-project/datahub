@@ -5,7 +5,7 @@ describe("manage ownership", () => {
     cy.login();
     cy.goToOwnershipTypesSettings();
 
-    cy.clickOptionWithText("Create new Ownership Type");
+    cy.clickOptionWithTestId("create-owner-type-v1");
     cy.get('[data-testid="ownership-type-name-input"]').clear("T");
     cy.get('[data-testid="ownership-type-name-input"]').type(
       "Test Ownership Type",

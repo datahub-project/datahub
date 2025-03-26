@@ -43,9 +43,9 @@ export const IncidentDrawerHeader = ({
     const handleIncidentLinkCopy = useIncidentURNCopyLink(data ? data?.urn : '');
     return (
         <StyledHeader>
-            <StyledTitle>{mode === IncidentAction.ADD ? 'Create New Incident' : data?.title}</StyledTitle>
+            <StyledTitle>{mode === IncidentAction.CREATE ? 'Create New Incident' : data?.title}</StyledTitle>
             <StyledHeaderActions>
-                {mode === IncidentAction.VIEW && isEditActive === false && (
+                {mode === IncidentAction.EDIT && isEditActive === false && (
                     <>
                         <Tooltip2 title="Edit Incident">
                             <EditButton
