@@ -56,7 +56,6 @@ const headerDropdownItems = new Set([
     EntityMenuItems.SUBSCRIBE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.ANNOUNCE,
-    EntityMenuItems.EXTERNAL_URL,
 ]);
 
 /**

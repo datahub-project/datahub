@@ -30,7 +30,6 @@ const headerDropdownItems = new Set([
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.ANNOUNCE,
-    EntityMenuItems.EXTERNAL_URL,
 ]);
 
 /**
