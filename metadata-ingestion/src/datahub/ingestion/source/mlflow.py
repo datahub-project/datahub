@@ -169,17 +169,20 @@ class MLflowSource(StatefulIngestionSourceBase):
         self.ctx = ctx
         self.config = config
         self.report = StaleEntityRemovalSourceReport()
-        self.client = MlflowClient(
-            tracking_uri=self.config.tracking_uri,
-            registry_uri=self.config.registry_uri,
-        )
-        self._configure_auth()
+        self.client = self._configure_client()
 
-    def _configure_auth(self):
-        """Configure MLflow authentication based on config"""
+    def _configure_client(self) -> MlflowClient:
+        if bool(self.config.username) != bool(self.config.password):
+            raise ValueError("Both username and password must be set together")
+
         if self.config.username and self.config.password:
             os.environ["MLFLOW_TRACKING_USERNAME"] = self.config.username
             os.environ["MLFLOW_TRACKING_PASSWORD"] = self.config.password
+
+        return MlflowClient(
+            tracking_uri=self.config.tracking_uri,
+            registry_uri=self.config.registry_uri,
+        )
 
     def get_report(self) -> SourceReport:
         return self.report
