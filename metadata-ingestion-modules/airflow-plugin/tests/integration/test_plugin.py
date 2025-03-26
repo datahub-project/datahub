@@ -562,5 +562,4 @@ if __name__ == "__main__":
         multiple_connections=False,
     ) as airflow_instance:
         # input("Press enter to exit...")
-        breakpoint()
         print("quitting airflow")
