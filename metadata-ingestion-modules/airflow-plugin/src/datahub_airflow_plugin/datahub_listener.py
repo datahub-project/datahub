@@ -6,7 +6,6 @@ import os
 import threading
 import time
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, TypeVar, cast
-from datahub_airflow_plugin._version import __package_name__, __version__
 
 import airflow
 from airflow.models import Variable
@@ -45,6 +44,7 @@ from datahub_airflow_plugin._airflow_shims import (
 from datahub_airflow_plugin._config import DatahubLineageConfig, get_lineage_config
 from datahub_airflow_plugin._datahub_ol_adapter import translate_ol_to_datahub_urn
 from datahub_airflow_plugin._extractors import SQL_PARSING_RESULT_KEY, ExtractorManager
+from datahub_airflow_plugin._version import __package_name__, __version__
 from datahub_airflow_plugin.client.airflow_generator import AirflowGenerator
 from datahub_airflow_plugin.entities import (
     _Entity,
@@ -95,7 +95,9 @@ def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
 
         if plugin_config.enabled:
             _airflow_listener = DataHubListener(config=plugin_config)
-            logger.info(f"DataHub plugin v2 (package: {__package_name__} and version: {__version__})  listener initialized with config: {plugin_config}")
+            logger.info(
+                f"DataHub plugin v2 (package: {__package_name__} and version: {__version__})  listener initialized with config: {plugin_config}"
+            )
             telemetry.telemetry_instance.ping(
                 "airflow-plugin-init",
                 {
