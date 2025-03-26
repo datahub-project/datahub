@@ -1,3 +1,8 @@
+const TEST_ANNOUNCEMENT_TITLE = "Test Announcement Title";
+const EDITED_TEST_ANNOUNCEMENT_TITLE = "Test Announcement Title";
+const TEST_LINK_TITLE = "Test Link Title";
+const EDITED_TEST_LINK_TITLE = "Test Link Updated Title";
+
 const homePageRedirection = () => {
   cy.visit("/");
   cy.waitTextPresent("Welcome back");
@@ -26,8 +31,8 @@ const clickOnNewPost = () => {
   cy.get('[data-testid="posts-create-post"]').click({ force: true });
 };
 
-const clickOnMoreOption = () => {
-  cy.get('[aria-label="more"]').first().click();
+const clickOnMoreOption = (title) => {
+  cy.get(`[data-testid="dropdown-menu-${title}"]`).click({ force: true });
 };
 
 describe("create announcement and link post", () => {
@@ -39,33 +44,34 @@ describe("create announcement and link post", () => {
   it("create announcement post and verify", () => {
     clickOnNewPost();
     addOrEditAnnouncement(
-      "Create new Post",
-      "Test Announcement Title",
+      "Create",
+      TEST_ANNOUNCEMENT_TITLE,
       "Add Description to post announcement",
       "create",
     );
-    cy.waitTextPresent("Test Announcement Title");
+    cy.waitTextPresent(TEST_ANNOUNCEMENT_TITLE);
   });
 
   it("edit announced post and verify", () => {
-    clickOnMoreOption();
+    clickOnMoreOption(TEST_ANNOUNCEMENT_TITLE);
     cy.clickOptionWithText("Edit");
     addOrEditAnnouncement(
-      "Edit Post",
-      "Test Announcement Title Edited",
-      "Decription Edited",
+      "Edit",
+      EDITED_TEST_ANNOUNCEMENT_TITLE,
+      "Decription Updated",
       "update",
     );
-    cy.waitTextPresent("Test Announcement Title Edited");
+    cy.waitTextPresent(EDITED_TEST_ANNOUNCEMENT_TITLE);
   });
 
   it("delete announced post and verify", () => {
-    clickOnMoreOption();
+    clickOnMoreOption(EDITED_TEST_ANNOUNCEMENT_TITLE);
     cy.clickOptionWithText("Delete");
     cy.clickOptionWithText("Yes");
     cy.reload();
+    cy.ensureTextNotPresent(EDITED_TEST_ANNOUNCEMENT_TITLE);
     homePageRedirection();
-    cy.ensureTextNotPresent("Test Announcement Title Edited");
+    cy.ensureTextNotPresent(EDITED_TEST_ANNOUNCEMENT_TITLE);
   });
 
   it("create link post and verify", () => {
@@ -73,34 +79,35 @@ describe("create announcement and link post", () => {
     cy.waitTextPresent("Create new Post");
     cy.contains("label", "Link").click();
     addOrEditLink(
-      "Create new Post",
-      "Test Link Title",
+      "Create",
+      TEST_LINK_TITLE,
       "https://www.example.com",
       "https://www.example.com/images/example-image.jpg",
       "create",
     );
-    cy.waitTextPresent("Test Link Title");
+    cy.waitTextPresent(TEST_LINK_TITLE);
   });
 
   it("edit linked post and verify", () => {
-    clickOnMoreOption();
+    clickOnMoreOption(TEST_LINK_TITLE);
     cy.clickOptionWithText("Edit");
     addOrEditLink(
-      "Edit Post",
-      "Test Link Edited Title",
+      "Edit",
+      EDITED_TEST_LINK_TITLE,
       "https://www.updatedexample.com",
       "https://www.updatedexample.com/images/example-image.jpg",
       "update",
     );
-    cy.waitTextPresent("Test Link Edited Title");
+    cy.waitTextPresent(EDITED_TEST_LINK_TITLE);
   });
 
   it("delete linked post and verify", () => {
-    clickOnMoreOption();
+    clickOnMoreOption(EDITED_TEST_LINK_TITLE);
     cy.clickOptionWithText("Delete");
     cy.clickOptionWithText("Yes");
     cy.reload();
+    cy.ensureTextNotPresent(EDITED_TEST_LINK_TITLE);
     homePageRedirection();
-    cy.ensureTextNotPresent("Test Link Edited Title");
+    cy.ensureTextNotPresent(EDITED_TEST_LINK_TITLE);
   });
 });
