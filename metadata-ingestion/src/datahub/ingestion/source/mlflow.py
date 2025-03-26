@@ -1,4 +1,5 @@
 import json
+import os
 import time
 from dataclasses import dataclass
 from typing import Any, Callable, Iterable, List, Optional, Tuple, TypeVar, Union
@@ -115,6 +116,13 @@ class MLflowConfig(StatefulIngestionConfigBase, EnvConfigMixin):
         default=None, description="Mapping of source type to datahub platform"
     )
 
+    username: Optional[str] = Field(
+        default=None, description="Username for MLflow authentication"
+    )
+    password: Optional[str] = Field(
+        default=None, description="Password for MLflow authentication"
+    )
+
 
 @dataclass
 class MLflowRegisteredModelStageInfo:
@@ -165,6 +173,13 @@ class MLflowSource(StatefulIngestionSourceBase):
             tracking_uri=self.config.tracking_uri,
             registry_uri=self.config.registry_uri,
         )
+        self._configure_auth()
+
+    def _configure_auth(self):
+        """Configure MLflow authentication based on config"""
+        if self.config.username and self.config.password:
+            os.environ["MLFLOW_TRACKING_USERNAME"] = self.config.username
+            os.environ["MLFLOW_TRACKING_PASSWORD"] = self.config.password
 
     def get_report(self) -> SourceReport:
         return self.report
