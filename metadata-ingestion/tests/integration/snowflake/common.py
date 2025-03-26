@@ -754,4 +754,31 @@ def default_query_results(  # noqa: C901
                 "DOMAIN": "DATABASE",
             },
         ]
+    elif query == SnowflakeQuery.procedures_for_database("TEST_DB"):
+        return [
+            {
+                "PROCEDURE_CATALOG": "TEST_DB",
+                "PROCEDURE_SCHEMA": "TEST_SCHEMA",
+                "PROCEDURE_NAME": "my_procedure",
+                "PROCEDURE_LANGUAGE": "SQL",
+                "ARGUMENT_SIGNATURE": "(arg1 VARCHAR, arg2 VARCHAR)",
+                "PROCEDURE_RETURN_TYPE": "VARCHAR",
+                "PROCEDURE_DEFINITION": "BEGIN RETURN 'Hello World'; END",
+                "CREATED": "2021-01-01T00:00:00.000Z",
+                "LAST_ALTERED": "2021-01-01T00:00:00.000Z",
+                "COMMENT": "This is a test procedure",
+            },
+            {
+                "PROCEDURE_CATALOG": "TEST_DB",
+                "PROCEDURE_SCHEMA": "TEST_SCHEMA",
+                "PROCEDURE_NAME": "my_procedure",
+                "PROCEDURE_LANGUAGE": "SQL",
+                "ARGUMENT_SIGNATURE": "(arg1 VARCHAR)",
+                "PROCEDURE_RETURN_TYPE": "VARCHAR",
+                "PROCEDURE_DEFINITION": "BEGIN RETURN 'Hello World'; END",
+                "CREATED": "2021-01-01T00:00:00.000Z",
+                "LAST_ALTERED": "2021-01-01T00:00:00.000Z",
+                "COMMENT": "This is a test procedure 2",
+            },
+        ]
     raise ValueError(f"Unexpected query: {query}")
