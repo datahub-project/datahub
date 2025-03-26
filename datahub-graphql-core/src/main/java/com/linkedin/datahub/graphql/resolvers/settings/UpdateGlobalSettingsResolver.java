@@ -5,11 +5,8 @@ import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.data.template.SetMode;
-import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.generated.NotificationSettingInput;
-import com.linkedin.datahub.graphql.generated.StringMapEntryInput;
 import com.linkedin.datahub.graphql.generated.UpdateEmailIntegrationSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateGlobalIntegrationSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateGlobalNotificationSettingsInput;
@@ -17,11 +14,10 @@ import com.linkedin.datahub.graphql.generated.UpdateGlobalSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateOidcSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateSlackIntegrationSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateSsoSettingsInput;
+import com.linkedin.datahub.graphql.types.notification.mappers.NotificationSettingMapMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.mxe.MetadataChangeProposal;
-import com.linkedin.settings.NotificationSetting;
 import com.linkedin.settings.NotificationSettingMap;
-import com.linkedin.settings.NotificationSettingValue;
 import com.linkedin.settings.global.EmailIntegrationSettings;
 import com.linkedin.settings.global.GlobalIntegrationSettings;
 import com.linkedin.settings.global.GlobalNotificationSettings;
@@ -32,7 +28,6 @@ import com.linkedin.settings.global.SsoSettings;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.services.SecretService;
-import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
@@ -144,7 +139,8 @@ public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFutu
       final GlobalNotificationSettings existingSettings,
       final UpdateGlobalNotificationSettingsInput update) {
     if (update.getSettings() != null) {
-      NotificationSettingMap newSettings = mapSettings(update.getSettings());
+      NotificationSettingMap newSettings =
+          NotificationSettingMapMapper.mapNotificationSettingInputList(update.getSettings());
       if (existingSettings.hasSettings()) {
         // Simply overwrite what's already there.
         existingSettings.getSettings().putAll(newSettings);
@@ -215,26 +211,5 @@ public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFutu
       oidcSettings.setPreferredJwsAlgorithm2(update.getPreferredJwsAlgorithm());
     }
     oidcSettings.removePreferredJwsAlgorithm();
-  }
-
-  private NotificationSettingMap mapSettings(List<NotificationSettingInput> updatedSettings) {
-    NotificationSettingMap map = new NotificationSettingMap();
-    for (NotificationSettingInput input : updatedSettings) {
-      NotificationSetting notificationSetting = new NotificationSetting();
-      notificationSetting.setValue(NotificationSettingValue.valueOf(input.getValue().toString()));
-      if (input.getParams() != null) {
-        notificationSetting.setParams(mapParams(input.getParams()));
-      }
-      map.put(input.getType().toString(), notificationSetting);
-    }
-    return map;
-  }
-
-  private StringMap mapParams(List<StringMapEntryInput> input) {
-    final StringMap result = new StringMap();
-    for (StringMapEntryInput entry : input) {
-      result.put(entry.getKey(), entry.getValue());
-    }
-    return result;
   }
 }

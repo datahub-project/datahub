@@ -18,6 +18,8 @@ record NotificationSetting {
 
   /**
    * Custom set of setting parameters.
+   * Currently used to store sink enabled / disabled settings.
+   * E.g. slack.enabled = true, email.enabled = false
    */
    params: optional map[string, string]
 }

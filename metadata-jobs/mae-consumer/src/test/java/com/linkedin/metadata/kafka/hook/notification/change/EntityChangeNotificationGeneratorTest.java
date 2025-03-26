@@ -4,7 +4,6 @@ import static org.testng.Assert.assertEquals;
 
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
-import com.datahub.notification.provider.SettingsProvider;
 import com.datahub.notification.recipient.NotificationRecipientBuilders;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -16,6 +15,7 @@ import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.hook.notification.NotificationRecipientsGeneratorExtraContext;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.service.AssertionService;
+import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
 import com.linkedin.subscription.EntityChangeDetails;
 import com.linkedin.subscription.EntityChangeDetailsArray;
@@ -108,7 +108,7 @@ public class EntityChangeNotificationGeneratorTest {
   @Mock private EventProducer eventProducer;
   @Mock private SystemEntityClient entityClient;
   @Mock private GraphClient graphClient;
-  @Mock private SettingsProvider settingsProvider;
+  @Mock private SettingsService settingsService;
   @Mock private AssertionService assertionService;
   @Mock private NotificationRecipientBuilders recipientBuilders;
   @Mock private FeatureFlags featureFlags;
@@ -129,7 +129,7 @@ public class EntityChangeNotificationGeneratorTest {
             eventProducer,
             entityClient,
             graphClient,
-            settingsProvider,
+            settingsService,
             assertionService,
             recipientBuilders,
             featureFlags);

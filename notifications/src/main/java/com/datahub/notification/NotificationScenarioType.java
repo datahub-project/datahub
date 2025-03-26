@@ -21,8 +21,12 @@ public enum NotificationScenarioType {
   DATASET_SCHEMA_CHANGE,
   NEW_INCIDENT,
   INCIDENT_STATUS_CHANGE,
+  /** A relevant proposal has been created. */
   NEW_PROPOSAL,
+  /** A relevant proposal has been approved or rejected. */
   PROPOSAL_STATUS_CHANGE,
+  /** A proposal a user has created has been approved or rejected. */
+  PROPOSER_PROPOSAL_STATUS_CHANGE,
   INGESTION_RUN_CHANGE,
   INGESTION_FAILURE,
   ASSERTION_STATUS_CHANGE,

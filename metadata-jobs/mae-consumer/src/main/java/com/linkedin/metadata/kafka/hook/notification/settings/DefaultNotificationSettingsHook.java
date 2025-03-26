@@ -8,10 +8,13 @@ import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.CORP_USER_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.service.SettingsService.DEFAULT_CORP_USER_SETTINGS;
 
+import com.datahub.notification.NotificationScenarioType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.event.notification.NotificationSinkTypeArray;
 import com.linkedin.event.notification.settings.EmailNotificationSettings;
@@ -30,6 +33,9 @@ import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
+import com.linkedin.settings.NotificationSetting;
+import com.linkedin.settings.NotificationSettingMap;
+import com.linkedin.settings.NotificationSettingValue;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Objects;
@@ -61,6 +67,44 @@ import org.springframework.stereotype.Component;
 @Component
 @Import({SettingsServiceFactory.class, SystemAuthenticationFactory.class})
 public class DefaultNotificationSettingsHook implements MetadataChangeLogHook {
+
+  private static final NotificationSettingMap DEFAULT_EMAIL_NOTIFICATION_SCENARIO_SETTINGS =
+      new NotificationSettingMap(
+          ImmutableMap.of(
+              // Enable being notified when I'm assigned to a proposal
+              NotificationScenarioType.NEW_PROPOSAL.toString(),
+              new NotificationSetting()
+                  .setValue(NotificationSettingValue.ENABLED)
+                  .setParams(new StringMap(ImmutableMap.of("email.enabled", "true"))),
+              // Enable being notified when a proposed I'm assigned to is approved or rejected
+              NotificationScenarioType.PROPOSAL_STATUS_CHANGE.toString(),
+              new NotificationSetting()
+                  .setValue(NotificationSettingValue.ENABLED)
+                  .setParams(new StringMap(ImmutableMap.of("email.enabled", "true"))),
+              // Enable being notified when a proposal I've created is approved or rejected
+              NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE.toString(),
+              new NotificationSetting()
+                  .setValue(NotificationSettingValue.ENABLED)
+                  .setParams(new StringMap(ImmutableMap.of("email.enabled", "true")))));
+
+  private static final NotificationSettingMap DEFAULT_SLACK_NOTIFICATION_SCENARIO_SETTINGS =
+      new NotificationSettingMap(
+          ImmutableMap.of(
+              // Enable being notified when I'm assigned to a proposal
+              NotificationScenarioType.NEW_PROPOSAL.toString(),
+              new NotificationSetting()
+                  .setValue(NotificationSettingValue.ENABLED)
+                  .setParams(new StringMap(ImmutableMap.of("slack.enabled", "true"))),
+              // Enable being notified when a proposed I'm assigned to is approved or rejected
+              NotificationScenarioType.PROPOSAL_STATUS_CHANGE.toString(),
+              new NotificationSetting()
+                  .setValue(NotificationSettingValue.ENABLED)
+                  .setParams(new StringMap(ImmutableMap.of("slack.enabled", "true"))),
+              // Enable being notified when a proposal I've created is approved or rejected
+              NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE.toString(),
+              new NotificationSetting()
+                  .setValue(NotificationSettingValue.ENABLED)
+                  .setParams(new StringMap(ImmutableMap.of("slack.enabled", "true")))));
 
   private static final Set<String> SUPPORTED_ENTITY_TYPES =
       ImmutableSet.of(CORP_USER_ENTITY_NAME, CORP_GROUP_ENTITY_NAME);
@@ -291,6 +335,9 @@ public class DefaultNotificationSettingsHook implements MetadataChangeLogHook {
     notificationSettings.setSinkTypes(
         new NotificationSinkTypeArray(ImmutableList.of(NotificationSinkType.EMAIL)));
     notificationSettings.setEmailSettings(new EmailNotificationSettings().setEmail(email));
+    if (!notificationSettings.hasSettings()) {
+      notificationSettings.setSettings(DEFAULT_EMAIL_NOTIFICATION_SCENARIO_SETTINGS);
+    }
     return notificationSettings;
   }
 
@@ -306,6 +353,9 @@ public class DefaultNotificationSettingsHook implements MetadataChangeLogHook {
             .collect(Collectors.toList());
     existingSettings.setSinkTypes(new NotificationSinkTypeArray(sinkTypes));
     existingSettings.setSlackSettings(new SlackNotificationSettings().setUserHandle(handle));
+    if (!existingSettings.hasSettings()) {
+      existingSettings.setSettings(DEFAULT_SLACK_NOTIFICATION_SCENARIO_SETTINGS);
+    }
   }
 
   /** Returns true if the event should be processed, false otherwise. */

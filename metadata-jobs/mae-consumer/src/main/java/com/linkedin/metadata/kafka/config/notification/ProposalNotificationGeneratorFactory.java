@@ -1,15 +1,15 @@
 package com.linkedin.metadata.kafka.config.notification;
 
-import com.datahub.notification.provider.SettingsProvider;
 import com.datahub.notification.recipient.NotificationRecipientBuilders;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.common.GraphClientFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.gms.factory.notifications.SettingsProviderFactory;
 import com.linkedin.gms.factory.notifications.recipient.NotificationRecipientBuildersFactory;
+import com.linkedin.gms.factory.settings.SettingsServiceFactory;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.hook.notification.proposal.ProposalNotificationGenerator;
+import com.linkedin.metadata.service.SettingsService;
 import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,7 +21,7 @@ import org.springframework.context.annotation.Import;
 @Configuration
 @Import({
   GraphClientFactory.class,
-  SettingsProviderFactory.class,
+  SettingsServiceFactory.class,
   NotificationRecipientBuildersFactory.class
 })
 public class ProposalNotificationGeneratorFactory {
@@ -35,8 +35,8 @@ public class ProposalNotificationGeneratorFactory {
   private GraphClient _graphClient;
 
   @Autowired
-  @Qualifier("settingsProvider")
-  private SettingsProvider _settingsProvider;
+  @Qualifier("settingsService")
+  private SettingsService _settingsService;
 
   @Autowired
   @Qualifier("notificationRecipientBuilders")
@@ -56,7 +56,7 @@ public class ProposalNotificationGeneratorFactory {
         _eventProducer,
         systemEntityClient,
         _graphClient,
-        _settingsProvider,
+        _settingsService,
         _notificationRecipientBuilders,
         _configProvider.getFeatureFlags());
   }

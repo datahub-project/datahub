@@ -1,17 +1,15 @@
 import { message } from 'antd';
+import { FormattedNotificationSetting, SLACK_SINK } from '@src/app/settings/platform/types';
 import {
-    GlobalNotificationSettings,
     NotificationScenarioType,
+    NotificationSetting,
     NotificationSettingValue,
     StringMapEntry,
-} from '../../../../types.generated';
-import { EMAIL_SINK, FormattedNotificationSetting, SLACK_SINK } from '../types';
-import { UpdateGlobalNotificationSettingsMutationFn } from '../../../../graphql/settings.generated';
+} from '@src/types.generated';
 
 export const SLACK_CHANNEL_PARAM_NAME = `${SLACK_SINK.id}.channel`;
-export const EMAIL_ADDRESS_PARAM_NAME = `${EMAIL_SINK.id}.address`;
+export const EMAIL_ADDRESS_PARAM_NAME = `${SLACK_SINK.id}.address`;
 
-// TODO: Move these utilities to a global file.
 export const paramsMapToArray = (params: Map<string, string>) => {
     const paramsArray = Array<StringMapEntry>();
     params.forEach((value, key) => {
@@ -46,10 +44,10 @@ export const isSinkNotificationTypeEnabled = (sinkId, setting?: FormattedNotific
  * Simply converts the backend GraphQL array-based settings into a map for easier access.
  */
 export const buildNotificationSettingsMap = (
-    settings?: GlobalNotificationSettings | null,
+    settings?: NotificationSetting[] | null,
 ): Map<NotificationScenarioType, FormattedNotificationSetting> => {
     const notificationSettings = new Map();
-    settings?.settings?.forEach((setting) => {
+    settings?.forEach((setting) => {
         notificationSettings.set(setting.type, {
             type: setting.type,
             value: setting.value,
@@ -64,21 +62,15 @@ export const updateSinkNotificationType = (
     value: NotificationSettingValue,
     params: Map<string, string>,
     refetch: () => void,
-    updateGlobalNotificationSettings: UpdateGlobalNotificationSettingsMutationFn,
+    updateNotificationSettings: (settings: NotificationSetting[]) => Promise<any>,
 ) => {
-    updateGlobalNotificationSettings({
-        variables: {
-            input: {
-                settings: [
-                    {
-                        value,
-                        type,
-                        params: paramsMapToArray(params),
-                    },
-                ],
-            },
+    updateNotificationSettings([
+        {
+            value,
+            type,
+            params: paramsMapToArray(params),
         },
-    })
+    ])
         .then(() => {
             refetch();
             message.destroy();
@@ -96,10 +88,10 @@ export const updateNotificationTypeParams = (
     type: NotificationScenarioType,
     params: Array<StringMapEntry>,
     refetch: () => void,
-    updateGlobalNotificationSettings: UpdateGlobalNotificationSettingsMutationFn,
-    existingNotificationSettings?: Partial<GlobalNotificationSettings>,
+    updateNotificationSettings: (settings: NotificationSetting[]) => any,
+    existingSettings?: NotificationSetting[],
 ) => {
-    const maybeCurrentTypeSettings = existingNotificationSettings?.settings?.find((setting) => setting.type === type);
+    const maybeCurrentTypeSettings = existingSettings?.find((setting) => setting.type === type);
 
     let currentTypeSettings;
     if (maybeCurrentTypeSettings) {
@@ -131,47 +123,7 @@ export const updateNotificationTypeParams = (
         currentTypeSettings.value,
         currentTypeSettings.params,
         refetch,
-        updateGlobalNotificationSettings,
-    );
-};
-
-export const removeNotificationTypeParams = (
-    type: NotificationScenarioType,
-    params: Array<string>,
-    refetch: () => void,
-    updateGlobalNotificationSettings: UpdateGlobalNotificationSettingsMutationFn,
-    existingNotificationSettings?: Partial<GlobalNotificationSettings>,
-) => {
-    const maybeCurrentTypeSettings = existingNotificationSettings?.settings?.find((setting) => setting.type === type);
-
-    let currentTypeSettings;
-    if (maybeCurrentTypeSettings) {
-        const currentParams = paramsArrayToMap(maybeCurrentTypeSettings?.params || []);
-        currentTypeSettings = {
-            type,
-            value: maybeCurrentTypeSettings.value,
-            params: currentParams,
-        };
-    } else {
-        currentTypeSettings = {
-            type,
-            value: NotificationSettingValue.Enabled,
-            params: new Map(),
-        };
-    }
-
-    // Remove each param
-    params.forEach((value) => {
-        currentTypeSettings.params.remove(value);
-    });
-
-    // Finally, update the current options for the notification type.
-    updateSinkNotificationType(
-        currentTypeSettings.type,
-        currentTypeSettings.value,
-        currentTypeSettings.params,
-        refetch,
-        updateGlobalNotificationSettings,
+        updateNotificationSettings,
     );
 };
 
@@ -180,18 +132,12 @@ export const updateSinkNotificationTypeEnabled = (
     type: NotificationScenarioType,
     enabled: boolean,
     refetch: () => void,
-    updateGlobalNotificationSettings: UpdateGlobalNotificationSettingsMutationFn,
-    existingNotificationSettings?: Partial<GlobalNotificationSettings>,
+    updateNotificationSettings: (settings: NotificationSetting[]) => any,
+    existingSettings?: NotificationSetting[],
 ) => {
     const newParam = {
         key: `${sinkId}.enabled`,
         value: enabled ? 'true' : 'false',
     };
-    updateNotificationTypeParams(
-        type,
-        [newParam],
-        refetch,
-        updateGlobalNotificationSettings,
-        existingNotificationSettings,
-    );
+    updateNotificationTypeParams(type, [newParam], refetch, updateNotificationSettings, existingSettings);
 };

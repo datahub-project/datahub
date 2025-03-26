@@ -3,13 +3,13 @@ import styled from 'styled-components';
 import { Typography, Modal, Form, Input } from 'antd';
 import { Button } from '@src/alchemy-components';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
-import { EMAIL_SINK, NotificationSink, PlatformNotificationOptions, SLACK_SINK } from '../types';
+import { EMAIL_SINK, NotificationSink, NotificationTypeOptions, SLACK_SINK } from './types';
 
 type Props = {
-    initialState?: PlatformNotificationOptions;
+    initialState?: NotificationTypeOptions;
     sinks: Array<NotificationSink>;
     visible: boolean;
-    onDone: (result: PlatformNotificationOptions) => void;
+    onDone: (result: NotificationTypeOptions) => void;
     onClose?: () => void;
 };
 
@@ -26,8 +26,8 @@ const DEFAULT_OPTIONS = {
     email: null,
 };
 
-export const PlatformNotificationOptionsModal = ({ initialState, visible, sinks, onDone, onClose }: Props) => {
-    const [options, setOptions] = useState<PlatformNotificationOptions>(initialState || DEFAULT_OPTIONS);
+export const NotificationTypeOptionsModal = ({ initialState, visible, sinks, onDone, onClose }: Props) => {
+    const [options, setOptions] = useState<NotificationTypeOptions>(initialState || DEFAULT_OPTIONS);
 
     useEffect(() => {
         setOptions(initialState || DEFAULT_OPTIONS);

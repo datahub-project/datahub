@@ -5,7 +5,7 @@ import acrylLogo from '../../../images/acryl-dark-mark.svg';
 // import teamsLogo from '../../../images/teamslogo.png';
 import snowflakeLogo from '../../../images/snowflakelogo.png';
 import bigqueryLogo from '../../../images/bigquerylogo.png';
-import { NotificationScenarioType, NotificationSettingValue, NotificationSinkType } from '../../../types.generated';
+import { NotificationScenarioType } from '../../../types.generated';
 import { SlackIntegration } from './slack/SlackIntegration';
 import { OidcIntegration } from './sso/OidcIntegration';
 import AcrylInstances from './acryl/AcrylInstances';
@@ -29,7 +29,7 @@ export const SUPPORTED_SSO_INTEGRATIONS = [OIDC_INTEGRATION];
 /**
  * Notification Integrations
  */
-const SLACK_INTEGRATION = {
+export const SLACK_INTEGRATION = {
     id: 'slack',
     name: 'Slack',
     img: slackLogo,
@@ -90,11 +90,6 @@ export const SUPPORTED_INTEGRATIONS = [
 /**
  * Notifications
  */
-export type PlatformNotificationOptions = {
-    slackChannel: string | null;
-    email: string | null;
-};
-
 const CHANGE_NOTIFICATIONS = [
     {
         type: NotificationScenarioType.EntityOwnerChange,
@@ -154,11 +149,11 @@ const ASSERTION_NOTIFICATIONS = [
 const PROPOSAL_NOTIFICATIONS = [
     {
         type: NotificationScenarioType.NewProposal,
-        description: 'A tag or glossary term proposal is raised',
+        description: 'A change proposal is raised',
     },
     {
         type: NotificationScenarioType.ProposalStatusChange,
-        description: 'A tag or glossary term proposal is approved or denied',
+        description: 'A change proposal is approved or denied',
     },
 ];
 
@@ -187,34 +182,3 @@ export const NON_RECOMMENDED_PLATFORM_NOTIFICATIONS = [
         notifications: INCIDENT_NOTIFICATIONS,
     },
 ];
-
-export type NotificationSink = {
-    id: string;
-    name: string;
-    img?: any;
-    options: boolean;
-};
-
-export const SLACK_SINK = {
-    type: NotificationSinkType.Slack,
-    id: SLACK_INTEGRATION.id,
-    name: SLACK_INTEGRATION.name,
-    img: SLACK_INTEGRATION.img,
-    options: true,
-};
-
-export const EMAIL_SINK = {
-    type: NotificationSinkType.Email,
-    id: 'email',
-    name: 'Email',
-    img: undefined,
-    options: true,
-};
-
-export const NOTIFICATION_SINKS = [SLACK_SINK, EMAIL_SINK];
-
-export type FormattedNotificationSetting = {
-    type: NotificationScenarioType;
-    value: NotificationSettingValue;
-    params: Map<string, string>;
-};

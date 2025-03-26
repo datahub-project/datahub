@@ -16,6 +16,7 @@ import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.identity.CorpGroupInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
@@ -26,6 +27,8 @@ import com.linkedin.metadata.key.MLModelGroupKey;
 import com.linkedin.metadata.key.MLModelKey;
 import com.linkedin.metadata.key.MLPrimaryKeyKey;
 import com.linkedin.notebook.NotebookInfo;
+import com.linkedin.ownership.OwnershipTypeInfo;
+import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.tag.TagProperties;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.AbstractMap;
@@ -73,6 +76,8 @@ public class EntityNameProvider {
         return batchGetContainerName(opContext, entityUrns);
       case Constants.GLOSSARY_TERM_ENTITY_NAME:
         return batchGetGlossaryTermName(opContext, entityUrns);
+      case Constants.GLOSSARY_NODE_ENTITY_NAME:
+        return batchGetGlossaryNodeName(opContext, entityUrns);
       case Constants.TAG_ENTITY_NAME:
         return batchGetTagName(opContext, entityUrns);
       case Constants.DOMAIN_ENTITY_NAME:
@@ -101,6 +106,10 @@ public class EntityNameProvider {
         return batchGetDataProductName(opContext, entityUrns);
       case Constants.NOTEBOOK_ENTITY_NAME:
         return batchGetNotebookName(opContext, entityUrns);
+      case Constants.OWNERSHIP_TYPE_ENTITY_NAME:
+        return batchGetOwnershipTypeName(opContext, entityUrns);
+      case Constants.STRUCTURED_PROPERTY_ENTITY_NAME:
+        return batchGetStructuredPropertyName(opContext, entityUrns);
       default:
         return entityUrns.stream().collect(Collectors.toMap(k -> k, Urn::toString));
     }
@@ -360,6 +369,26 @@ public class EntityNameProvider {
                 }));
   }
 
+  private Map<Urn, String> batchGetGlossaryNodeName(
+      @Nonnull OperationContext opContext, Set<Urn> glossaryTermUrns) {
+    Map<Urn, DataMap> dataMap =
+        batchGetAspectData(
+            opContext,
+            glossaryTermUrns,
+            Constants.GLOSSARY_NODE_ENTITY_NAME,
+            Constants.GLOSSARY_NODE_INFO_ASPECT_NAME);
+    return glossaryTermUrns.stream()
+        .collect(
+            Collectors.toMap(
+                k -> k,
+                urn -> {
+                  DataMap data = dataMap.get(urn);
+                  if (data == null) return urn.getId();
+                  GlossaryNodeInfo info = new GlossaryNodeInfo(data);
+                  return info.hasName() ? info.getName() : urn.getId();
+                }));
+  }
+
   private Map<Urn, String> batchGetTagName(@Nonnull OperationContext opContext, Set<Urn> tagUrns) {
     Map<Urn, DataMap> dataMap =
         batchGetAspectData(
@@ -608,6 +637,44 @@ public class EntityNameProvider {
                 }));
   }
 
+  private Map<Urn, String> batchGetOwnershipTypeName(
+      @Nonnull OperationContext opContext, Set<Urn> ownershipTypeUrns) {
+    Map<Urn, DataMap> dataMap =
+        batchGetAspectData(
+            opContext,
+            ownershipTypeUrns,
+            Constants.OWNERSHIP_TYPE_ENTITY_NAME,
+            Constants.OWNERSHIP_TYPE_INFO_ASPECT_NAME);
+    return ownershipTypeUrns.stream()
+        .collect(
+            Collectors.toMap(
+                k -> k,
+                urn -> {
+                  DataMap data = dataMap.get(urn);
+                  return data != null ? new OwnershipTypeInfo(data).getName() : urn.toString();
+                }));
+  }
+
+  private Map<Urn, String> batchGetStructuredPropertyName(
+      @Nonnull OperationContext opContext, Set<Urn> structuredPropertyUrns) {
+    Map<Urn, DataMap> dataMap =
+        batchGetAspectData(
+            opContext,
+            structuredPropertyUrns,
+            Constants.STRUCTURED_PROPERTY_ENTITY_NAME,
+            Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
+    return structuredPropertyUrns.stream()
+        .collect(
+            Collectors.toMap(
+                k -> k,
+                urn -> {
+                  DataMap data = dataMap.get(urn);
+                  return data != null
+                      ? new StructuredPropertyDefinition(data).getDisplayName()
+                      : urn.toString();
+                }));
+  }
+
   @Nullable
   private String getAssetPlatform(@Nonnull OperationContext opContext, Urn assetUrn) {
     DataMap data =
@@ -734,6 +801,8 @@ public class EntityNameProvider {
         return "Column";
       case Constants.DATA_PRODUCT_ENTITY_NAME:
         return "Data Product";
+      case Constants.STRUCTURED_PROPERTY_ENTITY_NAME:
+        return "Structured Property";
       default:
         // JUST RETURN THE ENTITY TYPE ITSELF OTHERWISE.
         return entityType;

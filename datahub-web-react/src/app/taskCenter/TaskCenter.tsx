@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 
-import { Badge as BadgeAntd, Tabs } from 'antd';
+import { Badge as BadgeAntd } from 'antd';
 import styled from 'styled-components';
 import { PageTitle } from '@src/alchemy-components';
 import { Badge } from '@src/alchemy-components/components/Badge';
@@ -13,6 +13,7 @@ import { Proposals } from './proposals/Proposals';
 import { useIsThemeV2 } from '../useIsThemeV2';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
+import { RoutedTabs } from '../shared/RoutedTabs';
 
 const PageContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
@@ -48,7 +49,7 @@ const PageHeaderContainer = styled.div`
     }
 `;
 
-const StyledTabs = styled(Tabs)`
+const StyledTabs = styled(RoutedTabs)`
     &&& .ant-tabs-nav {
         margin-bottom: 0;
         padding-left: 28px;
@@ -68,11 +69,6 @@ const StyledTabs = styled(Tabs)`
     &&& .ant-tabs-tab + .ant-tabs-tab {
         margin: 0px;
     }
-`;
-
-const Tab = styled(Tabs.TabPane)`
-    font-size: 14px;
-    line-height: 22px;
 `;
 
 interface TabTitleProps {
@@ -130,27 +126,37 @@ export const TaskCenter = () => {
     const {
         state: { notificationsCount, proposalCount },
     } = useUserContext();
-    const [activeTab, setActiveTab] = useState('requests');
     const isV2 = useIsThemeV2();
     const isShowNavBarRedesign = useShowNavBarRedesign();
+
+    const getTabs = () => {
+        return [
+            {
+                name: <TabTitle title="Requests" count={notificationsCount} dataTestId="requests-tab" />,
+                path: 'requests',
+                content: <Requests />,
+                display: {
+                    enabled: () => true,
+                },
+            },
+            {
+                name: <TabTitle title="Proposals" count={proposalCount} dataTestId="proposals-tab" />,
+                path: 'proposals',
+                content: <Proposals />,
+                display: {
+                    enabled: () => true,
+                },
+            },
+        ];
+    };
+    const defaultTabPath = getTabs() && getTabs()?.length > 0 ? getTabs()[0].path : '';
 
     return (
         <PageContainer isV2={isV2} $isShowNavBarRedesign={isShowNavBarRedesign}>
             <PageHeaderContainer>
                 <PageTitle title="Task Center" subTitle="Review change proposals & complete compliance tasks" />
             </PageHeaderContainer>
-            <StyledTabs activeKey={activeTab} size="large" onTabClick={(tab: string) => setActiveTab(tab)}>
-                <Tab
-                    key="requests"
-                    tab={<TabTitle title="Requests" count={notificationsCount} dataTestId="requests-tab" />}
-                />
-                <Tab
-                    key="proposals"
-                    tab={<TabTitle title="Proposals" count={proposalCount} dataTestId="proposals-tab" />}
-                />
-            </StyledTabs>
-            {activeTab === 'requests' && <Requests />}
-            {activeTab === 'proposals' && <Proposals />}
+            <StyledTabs tabs={getTabs()} defaultPath={defaultTabPath} />
         </PageContainer>
     );
 };
