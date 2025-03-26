@@ -3709,6 +3709,7 @@ export const mocks = [
                         manageIdentities: true,
                         manageDomains: true,
                         manageTags: true,
+                        viewManageTags: true,
                         createDomains: true,
                         createTags: true,
                         manageUserCredentials: true,
