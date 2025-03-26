@@ -589,7 +589,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         if datasource_id:
             dataset_info = self.get_dataset_info(datasource_id).get("result", {})
             dataset_column_info = dataset_info.get("columns", [])
-            
+
             for column in dataset_column_info:
                 col_name = column.get("column_name", "")
                 col_type = column.get("type", "")
@@ -600,11 +600,13 @@ class SupersetSource(StatefulIngestionSourceBase):
                 if col_name == "" or col_type == "":
                     logger.info(f"could not construct column lineage for {column}")
                     continue
-                    
+
                 dataset_columns.append((col_name, col_type, col_description))
         else:
             # if no datasource id, cannot build cll, just return
-            logger.warning("no datasource id was found, cannot build column level lineage")
+            logger.warning(
+                "no datasource id was found, cannot build column level lineage"
+            )
             return []
 
         chart_columns: List[Tuple[str, str, str]] = []
