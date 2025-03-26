@@ -5,7 +5,6 @@ import logging
 import os
 import threading
 import time
-import json
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, TypeVar, cast
 from datahub_airflow_plugin._version import __package_name__, __version__
 
