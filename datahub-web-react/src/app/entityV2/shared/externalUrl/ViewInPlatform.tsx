@@ -1,100 +1,61 @@
-import LaunchIcon from '@mui/icons-material/Launch';
-import React from 'react';
+import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
-import { EntityActionType, EventType } from '@app/analytics';
-import analytics from '@app/analytics/analytics';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { getSiblings } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
-import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
-import { getExternalUrlDisplayName } from '@app/entityV2/shared/utils';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
+import OverflowList from '@src/app/sharedV2/OverflowList';
 
-const Link = styled.a`
+import ExternalLink from './ExternalLink';
+import ViewMoreDropdown from './components/VeiwMoreDropdown/ViewMoreDropdown';
+import { LinkItem } from './types';
+import useExternalLinks from './useExternalLinks';
+import usePlatrofmLinks from './usePlatformLinks';
+
+const Links = styled.div<{ $shouldTakeAllAvailableSpace?: boolean }>`
     display: flex;
-    align-items: center;
-    gap: 5px;
-
-    border-radius: 4px;
-    padding: 4px 6px;
-    margin: 0px 4px;
-
-    background: ${REDESIGN_COLORS.LIGHT_TEXT_DARK_BACKGROUND};
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    width: ${(props) => (props.$shouldTakeAllAvailableSpace ? '100%' : 'fit-content')};
+    overflow: hidden;
 `;
-
-const IconWrapper = styled.span`
-    display: flex;
-    align-items: center;
-    font-size: ${4 / 3}em;
-`;
-
-const Links = styled.div`
-    display: flex;
-    justify-content: end;
-    gap: 4px;
-    flex-wrap: wrap;
-`;
-
-const MAX_VISIBILE_ACTIONS = 2;
 
 interface Props {
     data: GenericEntityProperties | null;
     className?: string;
     hideSiblingActions?: boolean;
     urn: string;
+    suffix?: string;
+    shouldFillAllAvailableSpace?: boolean;
 }
 
-export default function ViewInPlatform({ urn, className, data, hideSiblingActions }: Props) {
-    const separateSiblings = useIsSeparateSiblingsMode();
-    if (!data) return null;
+export default function ViewInPlatform({
+    urn,
+    className,
+    data,
+    hideSiblingActions,
+    suffix,
+    shouldFillAllAvailableSpace = true,
+}: Props) {
+    const externalLinks = useExternalLinks(urn, data);
+    const platformLinks = usePlatrofmLinks(urn, data, !!hideSiblingActions, suffix ?? '', className);
 
-    function sendAnalytics() {
-        analytics.event({
-            type: EventType.EntityActionEvent,
-            actionType: EntityActionType.ClickExternalUrl,
-            entityUrn: urn,
-            entityType: data?.type ?? undefined,
-        });
-    }
-    const externalUrl = data?.properties?.externalUrl;
-    const parentPlatformName = getExternalUrlDisplayName(data);
-    const defaultAction = externalUrl ? [{ displayName: parentPlatformName || 'source', url: externalUrl }] : [];
+    const linkItems: LinkItem[] = useMemo(() => {
+        const links = [...externalLinks, ...platformLinks];
 
-    let visibleActions: any = [...defaultAction];
-    if (!(hideSiblingActions ?? separateSiblings)) {
-        const siblings = getSiblings(data);
-        if (siblings && siblings.length) {
-            const siblingActions: any = siblings
-                .map((sibling) => {
-                    if (sibling?.platform?.name && sibling?.properties?.externalUrl) {
-                        return {
-                            displayName: getExternalUrlDisplayName(sibling),
-                            url: sibling.properties.externalUrl,
-                        };
-                    }
-                    return null;
-                })
-                .filter((action) => action !== null);
-
-            visibleActions = [...defaultAction, ...siblingActions].slice(0, MAX_VISIBILE_ACTIONS);
-        }
-    }
-
-    if (!visibleActions.length) return null;
+        return links.map((link) => ({
+            key: link.url,
+            url: link.url,
+            description: link.label,
+            node: <ExternalLink href={link.url} label={link.label} className={link.className} onClick={link.onClick} />,
+            attributes: link,
+        }));
+    }, [externalLinks, platformLinks]);
 
     return (
-        <Links>
-            {visibleActions.map((action) => (
-                <div>
-                    <Link href={action.url} target="_blank" onClick={sendAnalytics} className={className}>
-                        <IconWrapper>
-                            <LaunchIcon fontSize="inherit" />
-                        </IconWrapper>
-                        View in {action.displayName}
-                    </Link>
-                </div>
-            ))}
+        <Links $shouldTakeAllAvailableSpace={shouldFillAllAvailableSpace}>
+            <OverflowList
+                items={linkItems}
+                renderHiddenItems={(items) => <ViewMoreDropdown linkItems={items} />}
+                gap={8}
+                shouldFillAllAvailableSpace={shouldFillAllAvailableSpace}
+            />
         </Links>
     );
 }

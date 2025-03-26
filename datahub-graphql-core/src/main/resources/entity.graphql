@@ -2688,6 +2688,11 @@ type GlossaryNode implements Entity {
   displayProperties: DisplayProperties
 
   """
+  References to internal resources related to the glossary node
+  """
+  institutionalMemory: InstitutionalMemory
+
+  """
   Carries information about where an entity originated from.
   """
   childrenCount: GlossaryNodeChildrenCount
@@ -10408,6 +10413,11 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
   Additional read only properties about the ML Model Group
   """
   properties: MLModelGroupProperties
+
+  """
+  References to internal resources related to the ml model group
+  """
+  institutionalMemory: InstitutionalMemory
 
   """
   Ownership metadata of the MLModelGroup

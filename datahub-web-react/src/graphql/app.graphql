@@ -107,6 +107,7 @@ query appConfig {
             showLineageExpandMore
             showStatsTabRedesign
             showHomePageRedesign
+            showDefaultExternalLinks
             showProductUpdates
             lineageGraphV3
             logicalModelsEnabled
