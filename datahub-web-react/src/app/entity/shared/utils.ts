@@ -207,14 +207,6 @@ export function formatEntityType(type: string): string {
         case 'assertion': // Constants.ASSERTION_ENTITY_NAME
             return EntityType.Assertion;
 
-        // saas only
-        case 'monitor': // Constants.MONITOR_ENTITY_NAME
-            return EntityType.Monitor;
-        case 'incident': // Constants.INCIDENT_ENTITY_NAME
-            return EntityType.Incident;
-        case 'datacontract': // Constants.DATA_CONTRACT_ENTITY_NAME
-            return EntityType.DataContract;
-
         default:
             return '';
     }
