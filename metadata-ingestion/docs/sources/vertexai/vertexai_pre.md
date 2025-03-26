@@ -69,7 +69,7 @@ Vertex AI Concept Diagram:
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/metadata-ingestion/vertexai/concept-mapping.png"/>
 </p>
-![img.png](concept-mapping.png)
+
 
 #### Lineage
 
