@@ -128,6 +128,8 @@ class SchemaKey(DatabaseKey):
 class ProjectIdKey(ContainerKey):
     project_id: str
 
+class ExperimentKey(ContainerKey):
+    experiment_id: str
 
 class MetastoreKey(ContainerKey):
     metastore: str
