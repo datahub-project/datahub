@@ -269,6 +269,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setShowSearchBarAutocompleteRedesign(
                 _featureFlags.isShowSearchBarAutocompleteRedesign())
             .setOnlineSmartAssertionsEnabled(_featureFlags.isOnlineSmartAssertionsEnabled())
+            .setShowDefaultExternalLinks(_featureFlags.isShowDefaultExternalLinks())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

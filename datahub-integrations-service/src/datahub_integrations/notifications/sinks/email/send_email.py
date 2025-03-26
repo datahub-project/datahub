@@ -9,6 +9,7 @@ from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Asm, Email, Mail, To
 
 from datahub_integrations.notifications.constants import (
+    ACTOR_CHANGE_NOTIFICATION_TEMPLATE,
     CUSTOM_TEMPLATE,
     DEFAULT_RECIPIENT_NAME,
     ENTITY_CHANGE_SUBSCRIPTION_TEMPLATE,
@@ -64,12 +65,12 @@ def send_change_notification_email(
         to_emails=To(recipient_address),
     )
 
-    # Specify the sendgrid template
-    message.template_id = (
-        GLOBAL_CHANGE_NOTIFICATION_TEMPLATE
-        if recipient.origin == NotificationRecipientOriginTypeClass.GLOBAL_NOTIFICATION
-        else ENTITY_CHANGE_SUBSCRIPTION_TEMPLATE
-    )
+    message.template_id = ENTITY_CHANGE_SUBSCRIPTION_TEMPLATE
+
+    if recipient.origin == NotificationRecipientOriginTypeClass.GLOBAL_NOTIFICATION:
+        message.template_id = GLOBAL_CHANGE_NOTIFICATION_TEMPLATE
+    elif recipient.origin == NotificationRecipientOriginTypeClass.ACTOR_NOTIFICATION:
+        message.template_id = ACTOR_CHANGE_NOTIFICATION_TEMPLATE
 
     # Add dynamic data
     message.dynamic_template_data = parameters

@@ -15,6 +15,7 @@ import com.datahub.notification.provider.EntityNameProvider;
 import com.datahub.notification.provider.IdentityProvider;
 import com.datahub.notification.provider.SecretProvider;
 import com.datahub.notification.provider.SettingsProvider;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
@@ -28,6 +29,7 @@ import com.linkedin.data.template.GetMode;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.event.notification.NotificationRecipient;
+import com.linkedin.event.notification.NotificationRecipientOriginType;
 import com.linkedin.event.notification.NotificationRecipientType;
 import com.linkedin.event.notification.NotificationRequest;
 import com.linkedin.event.notification.NotificationSinkType;
@@ -54,6 +56,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -83,7 +86,11 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class SlackNotificationSink implements NotificationSink {
   private static final String DEPRECATION_MODIFIER_TYPE = "deprecation";
+  private static final String GLOSSARY_TERM_MODIFIER_TYPE = "Glossary Term";
+  private static final String GLOSSARY_TERM_GROUP_MODIFIER_TYPE = "Glossary Term Group";
   static final Urn SLACK_CONNECTION_URN = UrnUtils.getUrn(Constants.SLACK_CONNECTION_ID);
+
+  private static final ObjectMapper objectMapper = new ObjectMapper();
 
   /** A list of notification templates supported by this sink. */
   private static final List<NotificationTemplateType> ALL_SUPPORTED_TEMPLATES =
@@ -307,16 +314,11 @@ public class SlackNotificationSink implements NotificationSink {
             sendBroadcastNotification(
                 opContext,
                 notificationRequest.getRecipients(),
-                buildNewProposalMessage(opContext, notificationRequest),
+                buildNewProposalMessage(notificationRequest),
                 RetryMode.DISABLED);
         break;
       case BROADCAST_PROPOSAL_STATUS_CHANGE:
-        responses =
-            sendBroadcastNotification(
-                opContext,
-                notificationRequest.getRecipients(),
-                buildProposalStatusChangeMessage(opContext, notificationRequest),
-                RetryMode.DISABLED);
+        responses = sendBroadcastProposalStatusChangeNotifications(opContext, notificationRequest);
         break;
       case BROADCAST_ENTITY_CHANGE:
         responses =
@@ -504,97 +506,351 @@ public class SlackNotificationSink implements NotificationSink {
     return "";
   }
 
-  private String buildNewProposalMessage(
-      @Nonnull OperationContext opContext, NotificationRequest request) {
-    final String actorName =
-        getUserName(opContext, request.getMessage().getParameters().get("actorUrn"));
-    final String entityName = request.getMessage().getParameters().get("entityName");
-    final String entityUrl =
-        String.format("%s%s", this.baseUrl, request.getMessage().getParameters().get("entityPath"));
-    final String modifierUrl =
-        String.format(
-            "%s%s", this.baseUrl, request.getMessage().getParameters().get("modifierPath"));
-    final String entityType = request.getMessage().getParameters().get("entityType");
-    final String modifierType = request.getMessage().getParameters().get("modifierType");
-    final String modifierName = request.getMessage().getParameters().get("modifierName");
+  /** Sends notifications to recipients for proposal status changes. */
+  @VisibleForTesting
+  Set<ChatPostMessageResponse> sendBroadcastProposalStatusChangeNotifications(
+      @Nonnull OperationContext opContext, final NotificationRequest notificationRequest) {
 
-    final String maybeSubResourceType = request.getMessage().getParameters().get("subResourceType");
-    final String maybeSubResource = request.getMessage().getParameters().get("subResource");
+    final Set<ChatPostMessageResponse> responses = new HashSet<>();
+    // Special case: Send a personalized message to the actor who originally created the proposal.
+    // TODO: Determine if we should solve this in a more generalized way, e.g. subscriptions to a
+    // proposal.
+    // Else, we'll have special cases for creators of incidents, etc. as well.
+    final Urn creatorUrn =
+        notificationRequest.getMessage().getParameters().containsKey("creatorUrn")
+            ? UrnUtils.getUrn(notificationRequest.getMessage().getParameters().get("creatorUrn"))
+            : null;
 
-    if (maybeSubResource != null && maybeSubResourceType != null) {
-      /*
-       * Examples:
-       *
-       *     - John Joyce has proposed tag PII for schema field foo of SampleKafkaDataset.
-       *     - John Joyce has proposed glossary term FOOBAR for schema field bar of SampleKafkaDataset.
-       */
-      return String.format(
-          ":incoming_envelope: *New Proposal Raised*\n\n*%s* has proposed %s *<%s|%s>* for *%s* of %s *<%s|%s>*.",
-          actorName,
-          modifierType,
-          modifierUrl,
-          modifierName,
-          maybeSubResource,
-          entityType,
-          entityUrl,
-          entityName);
+    if (creatorUrn != null) {
+      responses.addAll(
+          sendProposerProposalStatusChangeNotification(opContext, notificationRequest, creatorUrn));
     }
-    /*
-     * Examples:
-     *
-     *     - John Joyce has proposed tag PII for SampleKafkaDataset.
-     *     - John Joyce has proposed glossary term FOOBAR for SampleKafkaDataset.
-     */
-    return String.format(
-        ":incoming_envelope: *New Proposal Raised*\n\n*%s* has proposed %s *<%s|%s>* for %s *<%s|%s>*.",
-        actorName, modifierType, modifierUrl, modifierName, entityType, entityUrl, entityName);
+
+    final List<NotificationRecipient> recipientsWithoutCreator =
+        notificationRequest.getRecipients().stream()
+            .filter(recipient -> creatorUrn == null || !creatorUrn.equals(recipient.getActor()))
+            .collect(Collectors.toList());
+
+    responses.addAll(
+        sendBroadcastNotification(
+            opContext,
+            recipientsWithoutCreator,
+            buildProposalStatusChangeMessage(notificationRequest),
+            RetryMode.DISABLED));
+    return responses;
   }
 
-  private String buildProposalStatusChangeMessage(
-      @Nonnull OperationContext opContext, NotificationRequest request) {
-    // Fetch each user's email, this is required to understand their slack ids.
-    final String actorName =
-        getUserName(opContext, request.getMessage().getParameters().get("actorUrn"));
-    final String entityName = request.getMessage().getParameters().get("entityName");
-    final String entityUrl =
-        String.format("%s%s", this.baseUrl, request.getMessage().getParameters().get("entityPath"));
-    final String modifierUrl =
-        String.format(
-            "%s%s", this.baseUrl, request.getMessage().getParameters().get("modifierPath"));
-    final String entityType = request.getMessage().getParameters().get("entityType");
-    final String modifierType = request.getMessage().getParameters().get("modifierType");
-    final String modifierName = request.getMessage().getParameters().get("modifierName");
-    final String operation = request.getMessage().getParameters().get("operation");
-    final String action = request.getMessage().getParameters().get("action");
+  private List<ChatPostMessageResponse> sendProposerProposalStatusChangeNotification(
+      @Nonnull final OperationContext opContext,
+      final NotificationRequest notificationRequest,
+      final Urn creatorUrn) {
+    final NotificationRecipient creatorRecipient =
+        notificationRequest.getRecipients().stream()
+            .filter(recipient -> creatorUrn.equals(recipient.getActor()))
+            .filter(
+                recipient ->
+                    NotificationRecipientOriginType.ACTOR_NOTIFICATION.equals(
+                        recipient.getOrigin()))
+            .findFirst()
+            .orElse(null);
 
-    final String maybeSubResourceType = request.getMessage().getParameters().get("subResourceType");
-    final String maybeSubResource = request.getMessage().getParameters().get("subResource");
+    if (creatorRecipient != null) {
+      final String creatorMessage = buildProposerProposalStatusChangeMessage(notificationRequest);
+      ChatPostMessageResponse creatorResponse =
+          sendNotificationToRecipient(
+              opContext, creatorRecipient, creatorMessage, RetryMode.DISABLED);
+      return Collections.singletonList(creatorResponse);
+    }
+    return Collections.emptyList();
+  }
+
+  /** Builds the Slack message for a NEW_PROPOSAL scenario. */
+  @VisibleForTesting
+  String buildNewProposalMessage(@Nonnull NotificationRequest request) {
+    final Map<String, String> params = request.getMessage().getParameters();
+    final String actorName = params.getOrDefault("actorName", "Someone");
+    // This is just a simple link for "View details".
+    // If you’re using http://localhost:9002, keep it consistent with your tests.
+    final String detailsLink =
+        String.format("<%s%s|View details>", this.baseUrl, "/requests/proposals");
+
+    final String entityName = params.getOrDefault("entityName", "UnknownEntity");
+    final String operation = params.getOrDefault("operation", "add");
+
+    // If entityPath doesn't exist, we won't create a Slack link (the entity might not exist yet).
+    final String entityPath = params.get("entityPath");
+    final String entityLink =
+        (entityPath != null)
+            ? String.format("*<%s%s|%s>*", this.baseUrl, entityPath, entityName)
+            : String.format("*%s*", entityName); // fallback
+
+    final String modifierType = params.getOrDefault("modifierType", "UnknownModifier");
+    final List<String> modifierNames = safeDeserializeJsonList(params.get("modifierNames"));
+    final List<String> modifierPaths = safeDeserializeJsonList(params.get("modifierPaths"));
+    final String modifierLinks =
+        formatModifierLinks(modifierType, modifierNames, modifierPaths, request);
+
+    // Subresource logic:
+    final String maybeSubResourceType = params.get("subResourceType"); // e.g. "schemaField"
+    final String maybeSubResource = params.get("subResource"); // e.g. "foo"
+
+    // Special-case creation of Glossary Terms / Term Groups
+    if (GLOSSARY_TERM_MODIFIER_TYPE.equals(modifierType)
+        || GLOSSARY_TERM_GROUP_MODIFIER_TYPE.equals(modifierType)) {
+      final String parentTermGroupName = params.get("parentTermGroupName");
+      // e.g. " in Term Group *PII*"
+      final String termGroupString =
+          (parentTermGroupName != null)
+              ? String.format(" in Term Group *%s*", parentTermGroupName)
+              : "";
+      // Example: "John Joyce has proposed creating Glossary Term named Email Address in Term Group
+      // *PII*."
+      return String.format(
+          ":incoming_envelope: *New Proposal Raised*\n\n"
+              + "*%s* has proposed creating %s named *%s*%s. %s",
+          actorName,
+          modifierType,
+          entityName, // used as the "new term name"
+          termGroupString,
+          detailsLink);
+    }
+
+    String modifierStr =
+        !modifierNames.isEmpty()
+            ? String.format("%s %s", modifierType, modifierLinks)
+            : modifierType;
+
+    // If we *are not* creating a new glossary object, follow the usual format
+    if (maybeSubResource != null && maybeSubResourceType != null) {
+      // e.g. "John Joyce has proposed Tag(s) <...> for schema field foo of *SampleKafkaDataset*.
+      // View details"
+      return String.format(
+          ":incoming_envelope: *New Proposal Raised*\n\n"
+              + "*%s* has proposed %s for %s *%s* of %s. %s",
+          actorName, modifierStr, "schema field", maybeSubResource, entityLink, detailsLink);
+    } else {
+      // e.g. "John Joyce has proposed to add Tag(s) <...> for *SampleKafkaDataset*. View details"
+      return String.format(
+          ":incoming_envelope: *New Proposal Raised*\n\n" + "*%s* has proposed to %s %s for %s. %s",
+          actorName, operation, modifierStr, entityLink, detailsLink);
+    }
+  }
+
+  /** Builds the Slack message for a PROPOSAL_STATUS_CHANGE scenario (stakeholders/assignees). */
+  @VisibleForTesting
+  String buildProposalStatusChangeMessage(@Nonnull NotificationRequest request) {
+    final Map<String, String> params = request.getMessage().getParameters();
+    final String actorName = params.getOrDefault("actorName", "Someone");
+    final String detailsLink =
+        String.format("<%s%s|View details>", this.baseUrl, "/requests/proposals");
+
+    final String entityName = params.getOrDefault("entityName", "UnknownEntity");
+    final String entityPath = params.get("entityPath");
+    final String entityLink =
+        (entityPath != null)
+            ? String.format("*<%s%s|%s>*", baseUrl, entityPath, entityName)
+            : String.format("*%s*", entityName);
+
+    final String modifierType = params.getOrDefault("modifierType", "UnknownModifier");
+    final String operation = params.getOrDefault("operation", "add");
+    final String action = params.getOrDefault("action", "accepted"); // e.g. "accepted", "rejected"
+
+    final List<String> modifierNames = safeDeserializeJsonList(params.get("modifierNames"));
+    final List<String> modifierPaths = safeDeserializeJsonList(params.get("modifierPaths"));
+    final String modifierLinks =
+        formatModifierLinks(modifierType, modifierNames, modifierPaths, request);
+
+    final String maybeSubResourceType = params.get("subResourceType");
+    final String maybeSubResource = params.get("subResource");
+
+    // Special-case creation of Glossary Terms / Term Groups
+    if (GLOSSARY_TERM_MODIFIER_TYPE.equals(modifierType)
+        || GLOSSARY_TERM_GROUP_MODIFIER_TYPE.equals(modifierType)) {
+      final String parentTermGroupName = params.get("parentTermGroupName");
+      // e.g. " in Term Group *PII*"
+      final String termGroupString =
+          (parentTermGroupName != null)
+              ? String.format(" in Term Group *%s*", parentTermGroupName)
+              : "";
+      return String.format(
+          ":incoming_envelope: *Proposal Status Changed*\n\n"
+              + "*%s* has %s the proposal to create %s named *%s*%s. %s",
+          actorName,
+          action,
+          modifierType,
+          entityName, // used as the "new term name"
+          termGroupString,
+          detailsLink);
+    }
+
+    String modifierStr =
+        !modifierNames.isEmpty()
+            ? String.format("%s %s", modifierType, modifierLinks)
+            : modifierType;
 
     if (maybeSubResource != null && maybeSubResourceType != null) {
       return String.format(
-          ":incoming_envelope: *Proposal Status Changed*\n\n*%s* has %s proposal to %s %s *<%s|%s>* for *%s* of %s *<%s|%s>*.",
+          ":incoming_envelope: *Proposal Status Changed*\n\n"
+              + "*%s* has %s the proposal to %s %s for %s *%s* of %s. %s",
           actorName,
           action,
           operation,
-          modifierType,
-          modifierUrl,
-          modifierName,
+          modifierStr,
+          "schema field",
           maybeSubResource,
-          entityType,
-          entityUrl,
-          entityName);
+          entityLink,
+          detailsLink);
+    } else {
+      return String.format(
+          ":incoming_envelope: *Proposal Status Changed*\n\n"
+              + "*%s* has %s the proposal to %s %s for %s. %s",
+          actorName, action, operation, modifierStr, entityLink, detailsLink);
     }
-    return String.format(
-        ":incoming_envelope: *Proposal Status Changed*\n\n*%s* has %s proposal to %s %s *<%s|%s>* for %s *<%s|%s>*.",
-        actorName,
-        action,
-        operation,
-        modifierType,
-        modifierUrl,
-        modifierName,
-        entityType,
-        entityUrl,
-        entityName);
+  }
+
+  /**
+   * Builds the Slack message specifically for the PROPOSER_PROPOSAL_STATUS_CHANGE scenario,
+   * notifying the original proposer that their proposal was accepted or rejected.
+   */
+  @VisibleForTesting
+  String buildProposerProposalStatusChangeMessage(@Nonnull NotificationRequest request) {
+    final Map<String, String> params = request.getMessage().getParameters();
+    // second-person style: "Your proposal..."
+    final String operation = params.getOrDefault("operation", "add");
+    final String action = params.getOrDefault("action", "accepted");
+    final String modifierType = params.getOrDefault("modifierType", "UnknownModifier");
+
+    final String entityName = params.getOrDefault("entityName", "UnknownEntity");
+    final String entityPath = params.get("entityPath");
+    final String entityLink =
+        (entityPath != null)
+            ? String.format("*<%s%s|%s>*", baseUrl, entityPath, entityName)
+            : String.format("*%s*", entityName);
+
+    final List<String> modifierNames = safeDeserializeJsonList(params.get("modifierNames"));
+    final List<String> modifierPaths = safeDeserializeJsonList(params.get("modifierPaths"));
+    final String modifierLinks =
+        formatModifierLinks(modifierType, modifierNames, modifierPaths, request);
+
+    final String maybeSubResourceType = params.get("subResourceType");
+    final String maybeSubResource = params.get("subResource");
+
+    // Special-case creation of Glossary Terms / Term Groups
+    if (GLOSSARY_TERM_MODIFIER_TYPE.equals(modifierType)
+        || GLOSSARY_TERM_GROUP_MODIFIER_TYPE.equals(modifierType)) {
+      final String parentTermGroupName = params.get("parentTermGroupName");
+      // e.g. " in Term Group *PII*"
+      final String termGroupString =
+          (parentTermGroupName != null)
+              ? String.format(" in Term Group *%s*", parentTermGroupName)
+              : "";
+      return String.format(
+          ":incoming_envelope: *Your Proposal Has Been %s*\n\n"
+              + "Your proposal to create %s named *%s*%s has been *%s*.",
+          capitalize(action), modifierType, entityName, termGroupString, action);
+    }
+
+    String modifierStr =
+        !modifierNames.isEmpty()
+            ? String.format("%s %s", modifierType, modifierLinks)
+            : modifierType;
+
+    if (maybeSubResource != null && maybeSubResourceType != null) {
+      return String.format(
+          ":incoming_envelope: *Your Proposal Has Been %s*\n\n"
+              + "Your proposal to %s %s for %s *%s* of %s has been *%s*.",
+          capitalize(action),
+          operation,
+          modifierStr,
+          "schema field",
+          maybeSubResource,
+          entityLink,
+          action);
+    } else {
+      return String.format(
+          ":incoming_envelope: *Your Proposal Has Been %s*\n\n"
+              + "Your proposal to %s %s for %s has been *%s*.",
+          capitalize(action), operation, modifierStr, entityLink, action);
+    }
+  }
+
+  // ============================================================================
+  // HELPER METHODS
+  // ============================================================================
+
+  /**
+   * Safely deserialize a JSON array parameter into a List of Strings. Returns an empty list if the
+   * parameter is missing, blank, or not valid JSON.
+   */
+  private List<String> safeDeserializeJsonList(String jsonParam) {
+    if (jsonParam == null || jsonParam.isEmpty()) {
+      return Collections.emptyList();
+    }
+    try {
+      return objectMapper.readValue(jsonParam, new TypeReference<List<String>>() {});
+    } catch (Exception e) {
+      log.warn("Failed to deserialize JSON list: {}", jsonParam, e);
+      return Collections.emptyList();
+    }
+  }
+
+  /**
+   * Returns the Slack-friendly "modifier" text, incorporating: 1) Tag/Term/Owner/Domain or Glossary
+   * create case 2) Structured properties: we'll parse additional details from the "context" param
+   * if the modifierType is "Structured Properties."
+   *
+   * <p>Example: - For Tags or Terms: "<baseUrl/tag/PII|PII>, <baseUrl/tag/Sensitive|Sensitive>, and
+   * <baseUrl/tag/EmailAddress|EmailAddress>" - For Structured Properties: We do something like
+   * "Retention Time (value: 10d) and OneOtherProp (value: something)"
+   */
+  private String formatModifierLinks(
+      String modifierType, List<String> names, List<String> paths, NotificationRequest request) {
+    // Otherwise, default to linkifying each (name, path) pair.
+    if (names.isEmpty()) {
+      // Fallback if no names (maybe creation of new glossary terms).
+      return "";
+    }
+    List<String> linkified = new ArrayList<>();
+    for (int i = 0; i < names.size(); i++) {
+      String name = names.get(i);
+      // If there's no path or we have fewer path items than names, skip linking
+      String path = (i < paths.size()) ? paths.get(i) : null;
+
+      // If path is missing or empty, just bold the name or show in quotes
+      if (path == null || path.isEmpty()) {
+        linkified.add(String.format("'%s'", name));
+      } else {
+        linkified.add(String.format("<%s%s|%s>", baseUrl, path, name));
+      }
+    }
+    return joinWithAnd(linkified);
+  }
+
+  /**
+   * Joins a list of strings with commas and an "and" before the last item.
+   *
+   * <p>e.g. ["PII"] => "PII" ["PII", "Sensitive"] => "PII and Sensitive" ["PII", "Sensitive",
+   * "Email"] => "PII, Sensitive, and Email"
+   */
+  private String joinWithAnd(List<String> items) {
+    if (items.isEmpty()) {
+      return "";
+    } else if (items.size() == 1) {
+      return items.get(0);
+    } else if (items.size() == 2) {
+      return items.get(0) + " and " + items.get(1);
+    }
+    String last = items.get(items.size() - 1);
+    String others = items.subList(0, items.size() - 1).stream().collect(Collectors.joining(", "));
+    return others + ", and " + last;
+  }
+
+  /** Capitalize the first letter of a string (e.g. "accepted" -> "Accepted") */
+  private String capitalize(String s) {
+    if (s == null || s.isEmpty()) {
+      return s;
+    }
+    return s.substring(0, 1).toUpperCase() + s.substring(1);
   }
 
   private String buildNewIncidentMessage(
@@ -878,7 +1134,8 @@ public class SlackNotificationSink implements NotificationSink {
    * Used by {@link #sendNotificationToRecipients(OperationContext, List, String, RetryMode)}. Call
    * that method directly instead of this.
    */
-  private ChatPostMessageResponse sendNotificationToRecipient(
+  @VisibleForTesting
+  ChatPostMessageResponse sendNotificationToRecipient(
       @Nonnull OperationContext opContext,
       final NotificationRecipient recipient,
       final String text,
@@ -947,7 +1204,8 @@ public class SlackNotificationSink implements NotificationSink {
     return null;
   }
 
-  private Set<ChatPostMessageResponse> sendBroadcastNotification(
+  @VisibleForTesting
+  Set<ChatPostMessageResponse> sendBroadcastNotification(
       @Nonnull OperationContext opContext,
       final List<NotificationRecipient> recipients,
       final String text,

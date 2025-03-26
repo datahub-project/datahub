@@ -839,6 +839,11 @@ enum NotificationScenarioType {
   PROPOSAL_STATUS_CHANGE
 
   """
+  Notification to the original proposer when a proposal's status changes.
+  """
+  PROPOSER_PROPOSAL_STATUS_CHANGE
+
+  """
   Notification when an ingestion run changes.
   """
   INGESTION_RUN_CHANGE
@@ -1353,6 +1358,11 @@ type FeatureFlagsConfig {
   If enabled, allow on-demand creation of smart assertions.
   """
   onlineSmartAssertionsEnabled: Boolean!
+
+  """
+  If enabled, show the default external links on the entity page
+  """
+  showDefaultExternalLinks: Boolean!
 }
 
 """

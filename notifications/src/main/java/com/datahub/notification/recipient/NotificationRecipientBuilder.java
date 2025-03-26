@@ -3,7 +3,6 @@ package com.datahub.notification.recipient;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.notification.NotificationScenarioType;
-import com.datahub.notification.provider.SettingsProvider;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
@@ -12,6 +11,7 @@ import com.linkedin.event.notification.NotificationRecipientType;
 import com.linkedin.event.notification.settings.NotificationSettings;
 import com.linkedin.identity.CorpGroupSettings;
 import com.linkedin.identity.CorpUserSettings;
+import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.subscription.SubscriptionInfo;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
@@ -30,19 +30,25 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public abstract class NotificationRecipientBuilder {
-  final SettingsProvider _settingsProvider;
+  final SettingsService _settingsService;
   final Predicate<? super NotificationSettings> _predicate;
 
   protected NotificationRecipientBuilder(
-      @Nonnull final SettingsProvider settingsProvider,
+      @Nonnull final SettingsService settingsService,
       @Nonnull final Predicate<? super NotificationSettings> predicate) {
-    _settingsProvider = settingsProvider;
+    _settingsService = settingsService;
     _predicate = predicate;
   }
 
   /** Builds a list of global recipients. */
   public abstract List<NotificationRecipient> buildGlobalRecipients(
       @Nonnull OperationContext opContext, @Nonnull final NotificationScenarioType type);
+
+  /** Builds an individual actor recipient */
+  public abstract List<NotificationRecipient> buildActorRecipients(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final List<Urn> actorUrns,
+      @Nonnull final NotificationScenarioType type);
 
   /** Builds an individual recipient object with a set of params */
   @Nonnull
@@ -120,8 +126,8 @@ public abstract class NotificationRecipientBuilder {
     try {
       notificationSettingsMap =
           Objects.requireNonNull(
-              _settingsProvider
-                  .getSystemEntityClient()
+              _settingsService
+                  .getEntityClient()
                   .batchGetV2(opContext, entityName, actorUrns, ImmutableSet.of(aspectName)));
     } catch (Exception e) {
       log.error("Failed to fetch notification settings for actors {}", actorUrns, e);

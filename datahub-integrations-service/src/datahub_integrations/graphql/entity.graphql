@@ -1156,8 +1156,7 @@ fragment institutionalMemoryFields on InstitutionalMemory {
   elements {
     url
     author {
-      urn
-      username
+      ...resolvedActorFields
     }
     description
     created {
@@ -1190,5 +1189,8 @@ fragment dataProductSearchFields on DataProduct {
   }
   entities(input: {start: 0, count: 0, query: "*"}) {
     total
+  }
+  institutionalMemory {
+      ...institutionalMemoryFields
   }
 }

@@ -454,12 +454,18 @@ export const EntityActionType = {
     ProposalsRejected: 'ProposalsRejected',
 };
 
+export enum ExternalLinkType {
+    Custom = 'CUSTOM',
+    Default = 'DEFAULT_EXTERNAL_URL',
+}
+
 export interface EntityActionEvent extends BaseEvent {
     type: EventType.EntityActionEvent;
     actionType: string;
     actionQualifier?: string;
     entityType?: EntityType;
     entityUrn: string;
+    externalLinkType?: ExternalLinkType;
 }
 
 export interface BatchEntityActionEvent extends BaseEvent {

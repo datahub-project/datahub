@@ -7,10 +7,12 @@ import static com.linkedin.metadata.Constants.CORP_USER_INFO_ASPECT_NAME;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.datahub.notification.NotificationScenarioType;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.event.notification.NotificationSinkTypeArray;
 import com.linkedin.event.notification.settings.EmailNotificationSettings;
@@ -27,9 +29,13 @@ import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
+import com.linkedin.settings.NotificationSetting;
+import com.linkedin.settings.NotificationSettingMap;
+import com.linkedin.settings.NotificationSettingValue;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
@@ -227,11 +233,139 @@ public class DefaultNotificationSettingsHookTest {
             nullable(OperationContext.class), any(Urn.class), any(CorpGroupSettings.class));
   }
 
+  @Test
+  public void testDefaultEmailScenarioSettingsApplied() {
+    when(settingsService.getCorpUserSettings(nullable(OperationContext.class), any(Urn.class)))
+        .thenReturn(null);
+
+    MetadataChangeLog event = createMockUserInfoEventWithEmail();
+    hook.invoke(event);
+
+    ArgumentCaptor<CorpUserSettings> settingsCaptor =
+        ArgumentCaptor.forClass(CorpUserSettings.class);
+    verify(settingsService, times(1))
+        .updateCorpUserSettings(
+            nullable(OperationContext.class), eq(TEST_USER_URN), settingsCaptor.capture());
+
+    NotificationSettings capturedSettings = settingsCaptor.getValue().getNotificationSettings();
+    assertNotNull(capturedSettings.getSettings());
+
+    // Verify NEW_PROPOSAL scenario
+    assertTrue(
+        capturedSettings
+            .getSettings()
+            .containsKey(NotificationScenarioType.NEW_PROPOSAL.toString()));
+    NotificationSetting newProposalSetting =
+        capturedSettings.getSettings().get(NotificationScenarioType.NEW_PROPOSAL.toString());
+    assertEquals(newProposalSetting.getValue(), NotificationSettingValue.ENABLED);
+    assertTrue(newProposalSetting.getParams().get("email.enabled").equals("true"));
+
+    // Verify PROPOSAL_STATUS_CHANGE scenario
+    assertTrue(
+        capturedSettings
+            .getSettings()
+            .containsKey(NotificationScenarioType.PROPOSAL_STATUS_CHANGE.toString()));
+    NotificationSetting statusChangeSetting =
+        capturedSettings
+            .getSettings()
+            .get(NotificationScenarioType.PROPOSAL_STATUS_CHANGE.toString());
+    assertEquals(statusChangeSetting.getValue(), NotificationSettingValue.ENABLED);
+    assertTrue(statusChangeSetting.getParams().get("email.enabled").equals("true"));
+
+    // Verify PROPOSER_PROPOSAL_STATUS_CHANGE scenario
+    assertTrue(
+        capturedSettings
+            .getSettings()
+            .containsKey(NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE.toString()));
+    NotificationSetting proposerStatusChangeSetting =
+        capturedSettings
+            .getSettings()
+            .get(NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE.toString());
+    assertEquals(proposerStatusChangeSetting.getValue(), NotificationSettingValue.ENABLED);
+    assertTrue(proposerStatusChangeSetting.getParams().get("email.enabled").equals("true"));
+  }
+
+  @Test
+  public void testDefaultSlackScenarioSettingsApplied() {
+    CorpUserSettings existingSettings =
+        new CorpUserSettings()
+            .setNotificationSettings(
+                new NotificationSettings()
+                    .setEmailSettings(new EmailNotificationSettings().setEmail(TEST_EMAIL)));
+
+    when(settingsService.getCorpUserSettings(nullable(OperationContext.class), any(Urn.class)))
+        .thenReturn(existingSettings);
+
+    MetadataChangeLog event = createMockUserEditableInfoEventWithSlack();
+    hook.invoke(event);
+
+    ArgumentCaptor<CorpUserSettings> settingsCaptor =
+        ArgumentCaptor.forClass(CorpUserSettings.class);
+    verify(settingsService, times(1))
+        .updateCorpUserSettings(
+            nullable(OperationContext.class), eq(TEST_USER_URN), settingsCaptor.capture());
+
+    NotificationSettings capturedSettings = settingsCaptor.getValue().getNotificationSettings();
+    assertNotNull(capturedSettings.getSettings());
+
+    // Verify NEW_PROPOSAL scenario
+    assertTrue(
+        capturedSettings
+            .getSettings()
+            .containsKey(NotificationScenarioType.NEW_PROPOSAL.toString()));
+    NotificationSetting newProposalSetting =
+        capturedSettings.getSettings().get(NotificationScenarioType.NEW_PROPOSAL.toString());
+    assertEquals(newProposalSetting.getValue(), NotificationSettingValue.ENABLED);
+    assertTrue(newProposalSetting.getParams().get("slack.enabled").equals("true"));
+
+    // Verify PROPOSAL_STATUS_CHANGE scenario
+    assertTrue(
+        capturedSettings
+            .getSettings()
+            .containsKey(NotificationScenarioType.PROPOSAL_STATUS_CHANGE.toString()));
+    NotificationSetting statusChangeSetting =
+        capturedSettings
+            .getSettings()
+            .get(NotificationScenarioType.PROPOSAL_STATUS_CHANGE.toString());
+    assertEquals(statusChangeSetting.getValue(), NotificationSettingValue.ENABLED);
+    assertTrue(statusChangeSetting.getParams().get("slack.enabled").equals("true"));
+
+    // Verify PROPOSER_PROPOSAL_STATUS_CHANGE scenario
+    assertTrue(
+        capturedSettings
+            .getSettings()
+            .containsKey(NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE.toString()));
+    NotificationSetting proposerStatusChangeSetting =
+        capturedSettings
+            .getSettings()
+            .get(NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE.toString());
+    assertEquals(proposerStatusChangeSetting.getValue(), NotificationSettingValue.ENABLED);
+    assertTrue(proposerStatusChangeSetting.getParams().get("slack.enabled").equals("true"));
+  }
+
   private CorpUserSettings getMockUserSettings() {
     NotificationSettings notificationSettings = new NotificationSettings();
     notificationSettings.setSinkTypes(
         new NotificationSinkTypeArray(ImmutableList.of(NotificationSinkType.EMAIL)));
     notificationSettings.setEmailSettings(new EmailNotificationSettings().setEmail(TEST_EMAIL));
+    notificationSettings.setSettings(
+        new NotificationSettingMap(
+            Stream.of(
+                    NotificationScenarioType.NEW_PROPOSAL,
+                    NotificationScenarioType.PROPOSAL_STATUS_CHANGE,
+                    NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE)
+                .collect(
+                    Collectors.toMap(
+                        NotificationScenarioType::toString,
+                        scenarioType ->
+                            new NotificationSetting()
+                                .setValue(NotificationSettingValue.ENABLED)
+                                .setParams(
+                                    new StringMap(
+                                        Stream.of("email.enabled")
+                                            .collect(
+                                                Collectors.toMap(
+                                                    param -> param, param -> "true"))))))));
     return new CorpUserSettings()
         .setNotificationSettings(notificationSettings)
         .setAppearance(new CorpUserAppearanceSettings().setShowSimplifiedHomepage(false));
@@ -247,6 +381,24 @@ public class DefaultNotificationSettingsHookTest {
     notificationSettings.setEmailSettings(new EmailNotificationSettings().setEmail(TEST_EMAIL));
     notificationSettings.setSlackSettings(
         new SlackNotificationSettings().setUserHandle(TEST_SLACK));
+    notificationSettings.setSettings(
+        new NotificationSettingMap(
+            Stream.of(
+                    NotificationScenarioType.NEW_PROPOSAL,
+                    NotificationScenarioType.PROPOSAL_STATUS_CHANGE,
+                    NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE)
+                .collect(
+                    Collectors.toMap(
+                        NotificationScenarioType::toString,
+                        scenarioType ->
+                            new NotificationSetting()
+                                .setValue(NotificationSettingValue.ENABLED)
+                                .setParams(
+                                    new StringMap(
+                                        Stream.of("email.enabled")
+                                            .collect(
+                                                Collectors.toMap(
+                                                    param -> param, param -> "true"))))))));
     return new CorpUserSettings()
         .setNotificationSettings(notificationSettings)
         .setAppearance(new CorpUserAppearanceSettings().setShowSimplifiedHomepage(false));
@@ -257,6 +409,24 @@ public class DefaultNotificationSettingsHookTest {
     notificationSettings.setSinkTypes(
         new NotificationSinkTypeArray(ImmutableList.of(NotificationSinkType.EMAIL)));
     notificationSettings.setEmailSettings(new EmailNotificationSettings().setEmail(TEST_EMAIL));
+    notificationSettings.setSettings(
+        new NotificationSettingMap(
+            Stream.of(
+                    NotificationScenarioType.NEW_PROPOSAL,
+                    NotificationScenarioType.PROPOSAL_STATUS_CHANGE,
+                    NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE)
+                .collect(
+                    Collectors.toMap(
+                        NotificationScenarioType::toString,
+                        scenarioType ->
+                            new NotificationSetting()
+                                .setValue(NotificationSettingValue.ENABLED)
+                                .setParams(
+                                    new StringMap(
+                                        Stream.of("email.enabled")
+                                            .collect(
+                                                Collectors.toMap(
+                                                    param -> param, param -> "true"))))))));
     return new CorpGroupSettings().setNotificationSettings(notificationSettings);
   }
 

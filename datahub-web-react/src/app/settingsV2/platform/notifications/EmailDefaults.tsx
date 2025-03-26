@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 
 import styled from 'styled-components';
-import { Typography, Form, Input, Space } from 'antd';
-import { Button, Tooltip } from '@components';
+import { Input, Space } from 'antd';
+import { Button, Card, Tooltip } from '@components';
 
 const InputDiv = styled.div`
     width: 360px;
@@ -16,8 +16,7 @@ const StyledInput = styled(Input)`
     }
 `;
 
-const StyledLabel = styled(Typography.Text)`
-    display: inline-block;
+const StyledLabel = styled.div`
     font-size: 14px;
 `;
 
@@ -51,22 +50,17 @@ export const EmailDefaults = ({ isEmailEnabled, emailAddress, onChange }: Props)
     };
 
     return (
-        <Form.Item name="default-email-address" label={<StyledLabel strong>Email Address</StyledLabel>}>
+        <Card title="Email Notifications" subTitle="Receive Email notifications when important changes occur.">
             <InputDiv>
                 <Space direction="horizontal">
                     {!editing ? (
                         <>
-                            <StyledLabel
-                                disabled={!isEmailEnabled}
-                                style={{ marginRight: '16px', display: 'inline-block' }}
-                            >
-                                {emailAddress || 'None'}
-                            </StyledLabel>
+                            <StyledLabel style={{ marginRight: '12px' }}>{emailAddress || 'None'}</StyledLabel>
                             <Tooltip
                                 title={!isEmailEnabled ? 'Email notifications are currently disabled.' : undefined}
                             >
                                 <Button
-                                    variant="outline"
+                                    variant="text"
                                     disabled={!isEmailEnabled || editing}
                                     onClick={() => setEditing(true)}
                                 >
@@ -94,6 +88,6 @@ export const EmailDefaults = ({ isEmailEnabled, emailAddress, onChange }: Props)
                     )}
                 </Space>
             </InputDiv>
-        </Form.Item>
+        </Card>
     );
 };

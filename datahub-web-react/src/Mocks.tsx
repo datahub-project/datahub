@@ -331,6 +331,13 @@ export const dataset1 = {
     institutionalMemory: {
         elements: [
             {
+                actor: {
+                    ...user1,
+                },
+                author: {
+                    ...user1,
+                },
+                label: 'This only points to Google',
                 url: 'https://www.google.com',
                 description: 'This only points to Google',
                 created: {

@@ -270,5 +270,30 @@
       }
     },
     "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot": {
+        "urn": "urn:li:corpGroup:test-notifications-group",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
+              "email": "test-notifications-group@linkedin.com",
+              "admins": [],
+              "members": [],
+              "groups": [],
+              "description": "This group is a test!"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
   }
 ]

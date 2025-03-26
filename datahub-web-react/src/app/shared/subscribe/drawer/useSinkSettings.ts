@@ -28,13 +28,21 @@ type Props = {
 
 // Retrieve the current settings for a user or a group.
 const useActorSinkSettings = ({ isPersonal, groupUrn }: Props) => {
-    const { data: userNotificationSettings, refetch: refetchUserNotificationSettings } =
-        useGetUserNotificationSettingsQuery({ skip: !isPersonal });
-    const { data: groupNotificationSettings, refetch: refetchGroupNotificationSettings } =
-        useGetGroupNotificationSettingsQuery({
-            skip: isPersonal || !groupUrn,
-            variables: { input: { groupUrn: groupUrn || '' } },
-        });
+    const {
+        data: userNotificationSettings,
+        refetch: refetchUserNotificationSettings,
+        error: userError,
+        loading: userLoading,
+    } = useGetUserNotificationSettingsQuery({ skip: !isPersonal });
+    const {
+        data: groupNotificationSettings,
+        refetch: refetchGroupNotificationSettings,
+        error: groupError,
+        loading: groupLoading,
+    } = useGetGroupNotificationSettingsQuery({
+        skip: isPersonal || !groupUrn,
+        variables: { input: { groupUrn: groupUrn || '' } },
+    });
 
     const [updateUserNotificationSettings] = useUpdateUserNotificationSettingsMutation();
     const [updateGroupNotificationSettings] = useUpdateGroupNotificationSettingsMutation();
@@ -84,7 +92,26 @@ const useActorSinkSettings = ({ isPersonal, groupUrn }: Props) => {
         ? { userHandle: origSlackSettings.userHandle, channels: origSlackSettings.channels }
         : undefined;
 
-    return { emailSettings, slackSettings, updateSinkSettings, sinkTypes: baseSinkTypes } as const;
+    const notificationSettings = isPersonal
+        ? userNotificationSettings?.getUserNotificationSettings
+        : groupNotificationSettings?.getGroupNotificationSettings;
+
+    const refetch = isPersonal ? refetchUserNotificationSettings : refetchGroupNotificationSettings;
+
+    const loading = isPersonal ? userLoading : groupLoading;
+
+    const error = isPersonal ? userError : groupError;
+
+    return {
+        emailSettings,
+        slackSettings,
+        updateSinkSettings,
+        sinkTypes: baseSinkTypes,
+        notificationSettings,
+        refetch,
+        loading,
+        error,
+    } as const;
 };
 
 export default useActorSinkSettings;

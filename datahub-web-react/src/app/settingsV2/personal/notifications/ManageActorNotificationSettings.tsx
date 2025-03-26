@@ -1,29 +1,32 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Typography } from 'antd';
+import { PageTitle } from '@src/alchemy-components/components/PageTitle';
+import { useUserContext } from '@src/app/context/useUserContext';
 import { SlackSinkSettingsSection } from './section/SlackSinkSettingsSection';
 import { useGetGlobalSettingsQuery } from '../../../../graphql/settings.generated';
-import { EMAIL_SINK, NOTIFICATION_SINKS, SLACK_SINK } from '../../platform/types';
+import { EMAIL_SINK, NOTIFICATION_SINKS, SLACK_SINK } from '../../notifications/types';
 import { isSinkEnabled } from '../../utils';
 import useActorSinkSettings from '../../../shared/subscribe/drawer/useSinkSettings';
 import {
     EmailNotificationSettingsInput,
+    EntityType,
     NotificationSinkType,
     SlackNotificationSettingsInput,
 } from '../../../../types.generated';
 import { EmailSinkSettingsSection } from './section/EmailSinkSettingsSection';
 import { useAppConfig } from '../../../useAppConfig';
+import { ActorNotificationScenarioSettings } from './ActorNotificationScenarioSettings';
 
-const NotificationSettingsTitle = styled(Typography.Text)`
-    font-family: 'Manrope', sans-serif;
-    font-size: 24px;
-    line-height: 32px;
-    font-weight: 400;
-    margin-bottom: 12px;
+const SinksContainer = styled.div`
+    margin: 16px 0px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
 `;
 
 const NotificationSettingsContainer = styled.div`
-    margin-top: 12px;
+    margin-top: 0px;
     display: flex;
     flex-direction: column;
     gap: 20px;
@@ -33,28 +36,43 @@ type Props = {
     isPersonal: boolean;
     groupUrn?: string;
     groupName?: string;
+    canManageNotifications: boolean;
 };
 
 /**
  * Component used for managing actor notification settings.
  */
-export const ManageActorNotificationSettings = ({ isPersonal, groupUrn, groupName }: Props) => {
+export const ManageActorNotificationSettings = ({ isPersonal, groupUrn, groupName, canManageNotifications }: Props) => {
+    const { urn } = useUserContext();
     const { config } = useAppConfig();
     const { data: globalSettings } = useGetGlobalSettingsQuery();
-    const { emailSettings, slackSettings, updateSinkSettings, sinkTypes } = useActorSinkSettings({
+    const {
+        emailSettings,
+        slackSettings,
+        updateSinkSettings,
+        sinkTypes,
+        notificationSettings,
+        loading,
+        error,
+        refetch,
+    } = useActorSinkSettings({
         isPersonal,
         groupUrn,
     });
+
+    // These are the sinks that are globally allowed to be enabled.
     const globallyEnabledSinks = NOTIFICATION_SINKS.filter((sink) =>
         isSinkEnabled(sink.id, globalSettings?.globalSettings, config),
     );
 
     // Slack is enabled if global settings have been configured AND the actor has it enabled.
-    const isSlackSinkSupported = globallyEnabledSinks.some((sink) => sink.id === SLACK_SINK.id);
+    const isSlackSinkSupported =
+        canManageNotifications && globallyEnabledSinks.some((sink) => sink.id === SLACK_SINK.id);
     const isSlackSinkEnabled = isSlackSinkSupported && !!sinkTypes?.includes(SLACK_SINK.type);
 
     // Email is enabled if the actor has it enabled - there are no global settings.
-    const isEmailSinkSupported = globallyEnabledSinks.some((sink) => sink.id === EMAIL_SINK.id);
+    const isEmailSinkSupported =
+        canManageNotifications && globallyEnabledSinks.some((sink) => sink.id === EMAIL_SINK.id);
     const isEmailSinkEnabled = isEmailSinkSupported && !!sinkTypes?.includes(EMAIL_SINK.type);
 
     const handleUpdateSlackSinkSettings = (newSlackSettings?: SlackNotificationSettingsInput) => {
@@ -87,25 +105,40 @@ export const ManageActorNotificationSettings = ({ isPersonal, groupUrn, groupNam
 
     return (
         <>
-            <NotificationSettingsTitle>{pageTitle}</NotificationSettingsTitle>
+            <PageTitle
+                title={pageTitle}
+                subTitle={`Customize when and where ${
+                    isPersonal ? 'you receive' : 'this group receives'
+                } notifications`}
+            />
             <NotificationSettingsContainer>
-                <EmailSinkSettingsSection
-                    isPersonal={isPersonal}
-                    sinkSupported={isEmailSinkSupported}
-                    sinkEnabled={isEmailSinkEnabled}
-                    settings={emailSettings}
-                    updateSinkSetting={handleUpdateEmailSinkSettings}
-                    toggleSink={(enabled: boolean) => handleToggleSink(EMAIL_SINK.type, enabled)}
-                    groupName={groupName}
-                />
-                <SlackSinkSettingsSection
-                    isPersonal={isPersonal}
-                    sinkSupported={isSlackSinkSupported}
-                    sinkEnabled={isSlackSinkEnabled}
-                    settings={slackSettings}
-                    updateSinkSetting={handleUpdateSlackSinkSettings}
-                    toggleSink={(enabled: boolean) => handleToggleSink(SLACK_SINK.type, enabled)}
-                    groupName={groupName}
+                <SinksContainer>
+                    <EmailSinkSettingsSection
+                        isPersonal={isPersonal}
+                        sinkSupported={isEmailSinkSupported}
+                        sinkEnabled={isEmailSinkEnabled}
+                        settings={emailSettings}
+                        updateSinkSetting={handleUpdateEmailSinkSettings}
+                        toggleSink={(enabled: boolean) => handleToggleSink(EMAIL_SINK.type, enabled)}
+                        groupName={groupName}
+                    />
+                    <SlackSinkSettingsSection
+                        isPersonal={isPersonal}
+                        sinkSupported={isSlackSinkSupported}
+                        sinkEnabled={isSlackSinkEnabled}
+                        settings={slackSettings}
+                        updateSinkSetting={handleUpdateSlackSinkSettings}
+                        toggleSink={(enabled: boolean) => handleToggleSink(SLACK_SINK.type, enabled)}
+                        groupName={groupName}
+                    />
+                </SinksContainer>
+                <ActorNotificationScenarioSettings
+                    actorUrn={(isPersonal ? urn : groupUrn) as string}
+                    actorType={isPersonal ? EntityType.CorpUser : EntityType.CorpGroup}
+                    actorNotificationSettings={notificationSettings || undefined}
+                    loading={loading}
+                    error={error}
+                    refetch={refetch}
                 />
             </NotificationSettingsContainer>
         </>

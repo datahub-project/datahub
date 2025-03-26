@@ -63,6 +63,9 @@ query getGlossaryNode($urn: String!) {
         assetOrigin {
             ...originFields
         }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
         ...notes
     }
 }

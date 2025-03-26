@@ -1,4 +1,4 @@
-from typing import List
+from typing import Any, List
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -14,6 +14,7 @@ from datahub_integrations.notifications.sinks.context import NotificationContext
 # Replace 'your_module.email_sink' with the actual module path where EmailNotificationSink is located
 from datahub_integrations.notifications.sinks.email.email_sink import (
     EmailNotificationSink,
+    RetryMode,
     send_change_notification_to_recipients,
     send_ingestion_run_notification_to_recipients,
 )
@@ -47,6 +48,181 @@ def notification_request_custom() -> NotificationRequestClass:
         ),
         recipients=[],
     )
+
+
+@pytest.fixture
+def sink_with_base_url() -> EmailNotificationSink:
+    sink = EmailNotificationSink()
+    sink.base_url = "https://example.acryl.io"
+    return sink
+
+
+@pytest.fixture
+def recipients_with_creator() -> list[NotificationRecipientClass]:
+    return [
+        # The creator recipient
+        NotificationRecipientClass(
+            type=NotificationRecipientTypeClass.EMAIL,
+            id="creator@example.com",
+            actor="urn:creator",
+        ),
+        # Another recipient
+        NotificationRecipientClass(
+            type=NotificationRecipientTypeClass.EMAIL,
+            id="other@example.com",
+            actor="urn:other",
+        ),
+    ]
+
+
+@pytest.fixture
+def recipients_without_creator() -> list[NotificationRecipientClass]:
+    return [
+        NotificationRecipientClass(
+            type=NotificationRecipientTypeClass.EMAIL,
+            id="other1@example.com",
+            actor="urn:other1",
+        ),
+        NotificationRecipientClass(
+            type=NotificationRecipientTypeClass.EMAIL,
+            id="other2@example.com",
+            actor="urn:other2",
+        ),
+    ]
+
+
+@patch(
+    "datahub_integrations.notifications.sinks.email.email_sink.build_proposer_proposal_status_change_parameters"
+)
+@patch(
+    "datahub_integrations.notifications.sinks.email.email_sink.build_proposal_status_change_parameters"
+)
+def test_send_broadcast_proposal_status_change_with_creator(
+    mock_build_broadcast_params: MagicMock,
+    mock_build_proposer_params: MagicMock,
+    sink_with_base_url: EmailNotificationSink,
+    recipients_with_creator: List[Any],
+) -> None:
+    # Prepare dummy parameters
+    dummy_proposer_params = {"subject": "Personal Notification"}
+    dummy_broadcast_params = {"subject": "Broadcast Notification"}
+    mock_build_proposer_params.return_value = dummy_proposer_params
+    mock_build_broadcast_params.return_value = dummy_broadcast_params
+
+    # Build a request that includes a creatorUrn matching one recipient.
+    request = NotificationRequestClass(
+        message=NotificationMessageClass(
+            template="BROADCAST_PROPOSAL_STATUS_CHANGE",
+            parameters={"creatorUrn": "urn:creator"},
+        ),
+        recipients=recipients_with_creator,
+    )
+
+    # Spy on _send_change_notification calls.
+    sink_with_base_url._send_change_notification = MagicMock()  # type: ignore
+
+    # Call the new method directly.
+    sink_with_base_url._send_broadcast_proposal_status_change_notification(request)
+
+    # Two calls should be made:
+    # 1. To send the personal (proposer) notification to the creator.
+    # 2. To send the broadcast notification to the remaining recipient.
+    calls = sink_with_base_url._send_change_notification.call_args_list
+    assert len(calls) == 2
+
+    # First call: creator notification.
+    args_creator, kwargs_creator = calls[0]
+    # It should be called with a list containing only the creator.
+    creator_recipients = args_creator[0]
+    assert len(creator_recipients) == 1
+    assert creator_recipients[0].actor == "urn:creator"
+    # And parameters should equal dummy_proposer_params.
+    assert args_creator[1] == dummy_proposer_params
+    # Verify that retry_mode was passed as DISABLED.
+    assert kwargs_creator["retry_mode"] == RetryMode.DISABLED
+
+    # Second call: broadcast notification.
+    args_broadcast, kwargs_broadcast = calls[1]
+    broadcast_recipients = args_broadcast[0]
+    # The broadcast list should not include the creator.
+    for r in broadcast_recipients:
+        assert r.actor != "urn:creator"
+    # Parameters should equal dummy_broadcast_params.
+    assert args_broadcast[1] == dummy_broadcast_params
+    assert kwargs_broadcast["retry_mode"] == RetryMode.DISABLED
+
+
+@patch(
+    "datahub_integrations.notifications.sinks.email.email_sink.build_proposal_status_change_parameters"
+)
+@patch(
+    "datahub_integrations.notifications.sinks.email.email_sink.build_proposer_proposal_status_change_parameters"
+)
+def test_send_broadcast_proposal_status_change_with_creator_no_match(
+    mock_build_proposer_params: MagicMock,
+    mock_build_broadcast_params: MagicMock,
+    sink_with_base_url: EmailNotificationSink,
+    recipients_without_creator: List[Any],
+) -> None:
+    # Even though a creatorUrn is provided, no recipient has that actor.
+    dummy_broadcast_params = {"subject": "Broadcast Notification"}
+    mock_build_broadcast_params.return_value = dummy_broadcast_params
+
+    request = NotificationRequestClass(
+        message=NotificationMessageClass(
+            template="BROADCAST_PROPOSAL_STATUS_CHANGE",
+            parameters={
+                "creatorUrn": "urn:creator"
+            },  # No recipient has actor 'urn:creator'
+        ),
+        recipients=recipients_without_creator,
+    )
+
+    # Spy on _send_change_notification.
+    sink_with_base_url._send_change_notification = MagicMock()  # type: ignore
+
+    sink_with_base_url._send_broadcast_proposal_status_change_notification(request)
+
+    # Only one call should be made: broadcast notification to all recipients.
+    sink_with_base_url._send_change_notification.assert_called_once()
+    args, kwargs = sink_with_base_url._send_change_notification.call_args
+    # All recipients are included.
+    assert args[0] == recipients_without_creator
+    assert args[1] == dummy_broadcast_params
+    assert kwargs["retry_mode"] == RetryMode.DISABLED
+
+
+@patch(
+    "datahub_integrations.notifications.sinks.email.email_sink.build_proposal_status_change_parameters"
+)
+def test_send_broadcast_proposal_status_change_without_creator(
+    mock_build_broadcast_params: MagicMock,
+    sink_with_base_url: EmailNotificationSink,
+    recipients_without_creator: List[Any],
+) -> None:
+    # Test the case when there is no creatorUrn at all.
+    dummy_broadcast_params = {"subject": "Broadcast Notification"}
+    mock_build_broadcast_params.return_value = dummy_broadcast_params
+
+    request = NotificationRequestClass(
+        message=NotificationMessageClass(
+            template="BROADCAST_PROPOSAL_STATUS_CHANGE",
+            parameters={},  # No creatorUrn provided.
+        ),
+        recipients=recipients_without_creator,
+    )
+
+    # Spy on _send_change_notification.
+    sink_with_base_url._send_change_notification = MagicMock()  # type: ignore
+
+    sink_with_base_url._send_broadcast_proposal_status_change_notification(request)
+
+    # Only one call should be made, to send broadcast notifications to all recipients.
+    sink_with_base_url._send_change_notification.assert_called_once()
+    args, kwargs = sink_with_base_url._send_change_notification.call_args
+    assert args[0] == recipients_without_creator
+    assert args[1] == dummy_broadcast_params
+    assert kwargs["retry_mode"] == RetryMode.DISABLED
 
 
 @patch(

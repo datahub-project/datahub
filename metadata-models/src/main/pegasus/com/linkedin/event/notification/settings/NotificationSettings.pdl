@@ -2,13 +2,14 @@ namespace com.linkedin.event.notification.settings
 
 import com.linkedin.common.Urn
 import com.linkedin.event.notification.NotificationSinkType
+import com.linkedin.settings.NotificationSetting
 
 /**
  * Notification settings for an actor or subscription.
  */
 record NotificationSettings {
     /**
-     * Sink types that notifications are sent to.
+     * Sink types that notifications are sent to. This is a top-level on/off switch.
      */
     sinkTypes: array[NotificationSinkType]
 
@@ -21,4 +22,12 @@ record NotificationSettings {
      * Email Notification Settings
      */
     emailSettings: optional EmailNotificationSettings
+
+    /**
+     * User or Group Notification Scenario Settings.
+     *
+     * A map of notification scenario type to the settings associated with it.
+     * For a list of all scenario types to notify on, check out NotificationScenarioType enum.
+     */
+    settings: optional map[string, NotificationSetting]
 }

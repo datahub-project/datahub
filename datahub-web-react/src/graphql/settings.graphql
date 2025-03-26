@@ -7,6 +7,14 @@ query getUserNotificationSettings {
         emailSettings {
             email
         }
+        settings {
+            type
+            value
+            params {
+                key
+                value
+            }
+        }
     }
 }
 
@@ -18,6 +26,14 @@ query getGroupNotificationSettings($input: GetGroupNotificationSettingsInput!) {
         }
         emailSettings {
             email
+        }
+        settings {
+            type
+            value
+            params {
+                key
+                value
+            }
         }
     }
 }
@@ -31,6 +47,14 @@ mutation updateUserNotificationSettings($input: UpdateUserNotificationSettingsIn
         emailSettings {
             email
         }
+        settings {
+            type
+            value
+            params {
+                key
+                value
+            }
+        }
     }
 }
 
@@ -42,6 +66,14 @@ mutation updateGroupNotificationSettings($input: UpdateGroupNotificationSettings
         }
         emailSettings {
             email
+        }
+        settings {
+            type
+            value
+            params {
+                key
+                value
+            }
         }
     }
 }

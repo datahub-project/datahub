@@ -14,7 +14,6 @@ import RaiseIncidentMenuAction from './RaiseIncidentMenuAction';
 import UpdateDeprecationMenuAction from './UpdateDeprecationMenuAction';
 
 export enum EntityMenuItems {
-    EXTERNAL_URL,
     SUBSCRIBE,
     SHARE,
     COPY_URL,
@@ -38,10 +37,12 @@ export const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
     margin-left: 5px;
 `;
 
-const MenuItems = styled.div`
+const MenuItems = styled.div<{ $shouldFillAllAvailableSpace?: boolean }>`
     display: flex;
+    gap: 4px;
     align-items: center;
     justify-content: end;
+    ${(props) => props.$shouldFillAllAvailableSpace && 'width: 100%;'}
 `;
 
 const MoreOptionsContainer = styled.div``;
@@ -55,10 +56,11 @@ interface Props {
     menuItems: Set<EntityMenuItems>;
     options?: Options;
     onDeleteEntity?: () => void;
+    shouldExternalLinksFillAllAvailableSpace?: boolean;
 }
 
 function EntityMenuActions(props: Props) {
-    const { menuItems, onDeleteEntity: onDelete, options } = props;
+    const { menuItems, onDeleteEntity: onDelete, options, shouldExternalLinksFillAllAvailableSpace } = props;
 
     const { isClosed } = useContext(EntitySidebarContext);
 
@@ -66,14 +68,17 @@ function EntityMenuActions(props: Props) {
 
     const refetch = useRefetch();
 
+    const shouldFillAllAvailableSpace = shouldExternalLinksFillAllAvailableSpace;
+
     const { entityVersioningEnabled } = useAppConfig().config.featureFlags;
 
     const hasVersioningActions = !!(menuItems.has(EntityMenuItems.LINK_VERSION) || entityData?.versionProperties);
+
     return (
         <>
             {isClosed ? (
-                <MenuItems>
-                    {menuItems.has(EntityMenuItems.EXTERNAL_URL) && <ExternalUrlMenuAction />}
+                <MenuItems $shouldFillAllAvailableSpace={shouldFillAllAvailableSpace}>
+                    <ExternalUrlMenuAction shouldFillAllAvailableSpace={shouldFillAllAvailableSpace} />
                     {menuItems.has(EntityMenuItems.MOVE) && <MoveEntityMenuAction />}
                     {menuItems.has(EntityMenuItems.SUBSCRIBE) && <SubscribeMenuAction />}
                     {menuItems.has(EntityMenuItems.SHARE) && <ShareMenuAction />}
@@ -100,8 +105,8 @@ function EntityMenuActions(props: Props) {
                     )}
                 </MenuItems>
             ) : (
-                <MenuItems>
-                    {menuItems.has(EntityMenuItems.EXTERNAL_URL) && <ExternalUrlMenuAction />}
+                <MenuItems $shouldFillAllAvailableSpace={shouldFillAllAvailableSpace}>
+                    <ExternalUrlMenuAction shouldFillAllAvailableSpace={shouldFillAllAvailableSpace} />
                     {menuItems.has(EntityMenuItems.SUBSCRIBE) && <SubscribeMenuAction />}
                     <MoreOptionsContainer>
                         <MoreOptionsMenuAction

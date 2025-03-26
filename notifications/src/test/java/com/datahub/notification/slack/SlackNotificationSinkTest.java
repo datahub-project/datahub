@@ -3,8 +3,16 @@ package com.datahub.notification.slack;
 import static com.linkedin.metadata.AcrylConstants.*;
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 import com.datahub.notification.NotificationContext;
 import com.datahub.notification.NotificationSinkConfig;
@@ -16,14 +24,17 @@ import com.datahub.notification.provider.SettingsProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.connection.DataHubConnectionDetails;
 import com.linkedin.connection.DataHubConnectionDetailsType;
 import com.linkedin.connection.DataHubJsonConnection;
 import com.linkedin.data.template.StringMap;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.event.notification.NotificationMessage;
 import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.event.notification.NotificationRecipientArray;
+import com.linkedin.event.notification.NotificationRecipientOriginType;
 import com.linkedin.event.notification.NotificationRecipientType;
 import com.linkedin.event.notification.NotificationRequest;
 import com.linkedin.events.metadata.ChangeType;
@@ -49,12 +60,16 @@ import com.slack.api.model.User;
 import io.datahubproject.integrations.invoker.JSON;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import okhttp3.Response;
+import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.mockito.MockitoAnnotations;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -70,10 +85,44 @@ public class SlackNotificationSinkTest {
 
   private EntityClient mockEntityClient;
 
+  private SlackNotificationSink sink;
+
+  @Mock private FeatureFlags mockFeatureFlags;
+
   @BeforeTest
   public void setup() {
+    MockitoAnnotations.openMocks(this);
     opContext = TestOperationContexts.systemContextNoSearchAuthorization();
     mockEntityClient = mock(EntityClient.class);
+    Slack mockSlack = mock(Slack.class);
+    Mockito.when(mockSlack.methods(anyString())).thenReturn(mock(MethodsClient.class));
+
+    // Configure mock sink.
+    sink = new SlackNotificationSink(mockSlack);
+    sink.slackClient = mock(MethodsClient.class);
+
+    SettingsProvider mockSettingsProvider = mock(SettingsProvider.class);
+    IdentityProvider mockIdentityProvider = mock(IdentityProvider.class);
+    EntityNameProvider mockEntityNameProvider = Mockito.mock(EntityNameProvider.class);
+    SecretProvider mockSecretProvider = mock(SecretProvider.class);
+    IntegrationsService mockIntegrationsService = mock(IntegrationsService.class);
+    ConnectionService mockConnectionService = mock(ConnectionService.class);
+    mockConnectionService = mock(ConnectionService.class);
+    Mockito.when(
+            mockConnectionService.getConnectionDetails(any(OperationContext.class), any(Urn.class)))
+        .thenReturn(null);
+
+    sink.init(
+        new NotificationSinkConfig(
+            ImmutableMap.of("botToken", TEST_BOT_TOKEN, "defaultChannel", "#test"),
+            mockEntityClient,
+            mockSettingsProvider,
+            mockIdentityProvider,
+            mockEntityNameProvider,
+            mockSecretProvider,
+            mockConnectionService,
+            mockIntegrationsService,
+            TEST_BASE_URL));
   }
 
   @Test
@@ -154,7 +203,7 @@ public class SlackNotificationSinkTest {
         .thenReturn("{\"bot_token\": \"test-token\"}");
 
     Slack mockSlack = mock(Slack.class);
-    Mockito.when(mockSlack.methods(Mockito.anyString())).thenReturn(mock(MethodsClient.class));
+    Mockito.when(mockSlack.methods(anyString())).thenReturn(mock(MethodsClient.class));
 
     SlackNotificationSink sink = new SlackNotificationSink(mockSlack);
 
@@ -170,7 +219,7 @@ public class SlackNotificationSinkTest {
             mockIntegrationsService,
             TEST_BASE_URL));
 
-    Assert.assertTrue(sink.isEnabled(opContext));
+    assertTrue(sink.isEnabled(opContext));
     Assert.assertEquals(sink.botToken, "test-token");
 
     // Case 2: Slack configs are stored in legacy settings.
@@ -197,7 +246,7 @@ public class SlackNotificationSinkTest {
             mockIntegrationsService,
             TEST_BASE_URL));
 
-    Assert.assertTrue(sink.isEnabled(opContext));
+    assertTrue(sink.isEnabled(opContext));
     Assert.assertEquals(sink.botToken, TEST_BOT_TOKEN);
 
     // Case 3: Slack configs are stored in static configs
@@ -220,7 +269,7 @@ public class SlackNotificationSinkTest {
             mockIntegrationsService,
             TEST_BASE_URL));
 
-    Assert.assertTrue(sink.isEnabled(opContext));
+    assertTrue(sink.isEnabled(opContext));
     Assert.assertEquals(sink.botToken, TEST_BOT_TOKEN);
 
     // Case 4: Changing the connection details at runtime should change the bot token and slack
@@ -236,7 +285,7 @@ public class SlackNotificationSinkTest {
     Mockito.when(mockSecretProvider.decryptSecret("blob"))
         .thenReturn("{\"bot_token\": \"test-token\"}");
 
-    Assert.assertTrue(sink.isEnabled(opContext));
+    assertTrue(sink.isEnabled(opContext));
     Assert.assertEquals(sink.botToken, "test-token");
     MethodsClient methodsClient1 = sink.slackClient;
 
@@ -251,7 +300,7 @@ public class SlackNotificationSinkTest {
     Mockito.when(mockSecretProvider.decryptSecret("blob"))
         .thenReturn("{\"bot_token\": \"test-token-2\"}");
 
-    Assert.assertTrue(sink.isEnabled(opContext));
+    assertTrue(sink.isEnabled(opContext));
     Assert.assertEquals(sink.botToken, "test-token-2"); // Bot token was updated.
     MethodsClient methodsClient2 = sink.slackClient;
 
@@ -1021,6 +1070,531 @@ public class SlackNotificationSinkTest {
             NotificationTemplateType.BROADCAST_ENTITY_CHANGE,
             NotificationTemplateType.BROADCAST_INGESTION_RUN_CHANGE,
             NotificationTemplateType.BROADCAST_ASSERTION_STATUS_CHANGE));
+  }
+
+  // =========================================================================
+  // TESTS: sendBroadcastProposalStatusChangeNotifications(...)
+  // =========================================================================
+
+  @Test
+  public void testSendBroadcastProposalStatusChangeNotificationsCreatorPresentCorrectOrigin() {
+    // Setup a NotificationRequest that has a "creatorUrn" which matches one of the recipients,
+    // and that recipient's origin is ACTOR_NOTIFICATION, triggering the special path for the
+    // recipient.
+    SlackNotificationSink localSpySink = Mockito.spy(sink);
+
+    final String creatorUrnStr = "urn:li:corpuser:creator123";
+    Urn creatorUrn = UrnUtils.getUrn(creatorUrnStr);
+
+    NotificationRecipient creatorRecipient =
+        new NotificationRecipient()
+            .setActor(creatorUrn)
+            .setType(NotificationRecipientType.SLACK_DM)
+            .setId("test-1")
+            .setOrigin(NotificationRecipientOriginType.ACTOR_NOTIFICATION);
+
+    NotificationRecipient otherRecipient =
+        new NotificationRecipient()
+            .setActor(UrnUtils.getUrn("urn:li:corpuser:someone_else"))
+            .setType(NotificationRecipientType.SLACK_DM)
+            .setId("test-2")
+            .setOrigin(NotificationRecipientOriginType.ACTOR_NOTIFICATION);
+
+    List<NotificationRecipient> recipientList = Arrays.asList(creatorRecipient, otherRecipient);
+
+    NotificationMessage msg = new NotificationMessage();
+    Map<String, String> params = new HashMap<>();
+    params.put("creatorUrn", creatorUrnStr);
+    params.put("actorName", "Reviewer Person");
+    params.put("action", "accepted");
+    params.put("entityName", "TestEntity");
+    params.put("operation", "add");
+    params.put("modifierType", "Tag(s)");
+    msg.setParameters(new StringMap(params));
+
+    NotificationRequest request =
+        new NotificationRequest()
+            .setRecipients(new NotificationRecipientArray(recipientList))
+            .setMessage(msg);
+
+    // Mock the downstream calls
+    ChatPostMessageResponse mockBroadcastResponse = mock(ChatPostMessageResponse.class);
+    doReturn(Collections.singleton(mockBroadcastResponse))
+        .when(localSpySink)
+        .sendBroadcastNotification(
+            eq(opContext), eq(Collections.singletonList(otherRecipient)), anyString(), any());
+    ChatPostMessageResponse mockPersonalResponse = mock(ChatPostMessageResponse.class);
+    doReturn(mockPersonalResponse)
+        .when(localSpySink)
+        .sendNotificationToRecipient(eq(opContext), eq(creatorRecipient), anyString(), any());
+
+    // Execute
+    Set<ChatPostMessageResponse> responses =
+        localSpySink.sendBroadcastProposalStatusChangeNotifications(opContext, request);
+
+    // Verify the results
+    // 1) We expect exactly 2 responses: one personal, one broadcast
+    assertEquals(responses.size(), 2);
+
+    // 2) We verify that buildProposerProposalStatusChangeMessage was used for the creator
+    verify(localSpySink, times(1)).buildProposerProposalStatusChangeMessage(Mockito.eq(request));
+
+    // 3) We verify that buildProposalStatusChangeMessage was used for the others
+    verify(localSpySink, times(1)).buildProposalStatusChangeMessage(Mockito.eq(request));
+
+    // 4) We verify the calls to sendNotificationToRecipient (personal) and
+    // sendBroadcastNotification (others)
+    verify(localSpySink, times(1))
+        .sendNotificationToRecipient(
+            Mockito.eq(opContext), Mockito.eq(creatorRecipient), anyString(), any());
+    verify(localSpySink, times(1))
+        .sendBroadcastNotification(
+            Mockito.eq(opContext),
+            Mockito.eq(Collections.singletonList(otherRecipient)),
+            anyString(),
+            any());
+  }
+
+  @Test
+  public void testSendBroadcastProposalStatusChangeNotificationsCreatorPresentWrongOrigin() {
+    // The "creatorUrn" matches a recipient, but the origin is not ACTOR_NOTIFICATION,
+    // so the personal message path should NOT be triggered.
+
+    SlackNotificationSink localSpySink = Mockito.spy(sink);
+
+    final String creatorUrnStr = "urn:li:corpuser:creatorXYZ";
+    Urn creatorUrn = UrnUtils.getUrn(creatorUrnStr);
+
+    NotificationRecipient creatorRecipient =
+        new NotificationRecipient()
+            .setActor(creatorUrn)
+            .setType(NotificationRecipientType.SLACK_DM)
+            .setId("test")
+            // Not ACTOR_NOTIFICATION => we skip personal message
+            .setOrigin(NotificationRecipientOriginType.SUBSCRIPTION);
+
+    NotificationMessage msg = new NotificationMessage();
+    Map<String, String> params = new HashMap<>();
+    params.put("creatorUrn", creatorUrnStr);
+    params.put("actorName", "Another Person");
+    params.put("action", "rejected");
+    params.put("entityName", "DatasetNoPersonalPath");
+    params.put("operation", "create");
+    params.put("modifierType", "Glossary Term");
+    msg.setParameters(new StringMap(params));
+
+    NotificationRequest request =
+        new NotificationRequest()
+            .setRecipients(
+                new NotificationRecipientArray(Collections.singletonList(creatorRecipient)))
+            .setMessage(msg);
+
+    // Mock
+    ChatPostMessageResponse broadcastResponse = mock(ChatPostMessageResponse.class);
+    doReturn(Collections.singleton(broadcastResponse))
+        .when(localSpySink)
+        .sendBroadcastNotification(any(), anyList(), anyString(), any());
+
+    // Execute
+    Set<ChatPostMessageResponse> responses =
+        localSpySink.sendBroadcastProposalStatusChangeNotifications(opContext, request);
+
+    // Verify
+    // 1) Only one broadcast call, no personal path
+    assertEquals(responses.size(), 1);
+
+    // 2) We confirm buildProposerProposalStatusChangeMessage was NEVER used
+    verify(localSpySink, never()).buildProposerProposalStatusChangeMessage(any());
+
+    // 3) We confirm we did build the normal message
+    verify(localSpySink, times(1)).buildProposalStatusChangeMessage(Mockito.eq(request));
+  }
+
+  @Test
+  public void testSendBroadcastProposalStatusChangeNotificationsCreatorAbsent() {
+    // The "creatorUrn" param is present but no matching recipient => skip personal path
+    SlackNotificationSink localSpySink = Mockito.spy(sink);
+
+    final String creatorUrnStr = "urn:li:corpuser:creatorMissing";
+    NotificationRecipient randomRecipient =
+        new NotificationRecipient()
+            .setActor(UrnUtils.getUrn("urn:li:corpuser:someoneElse"))
+            .setType(NotificationRecipientType.SLACK_DM)
+            .setId("test")
+            .setOrigin(NotificationRecipientOriginType.ACTOR_NOTIFICATION);
+
+    NotificationMessage msg = new NotificationMessage();
+    Map<String, String> params = new HashMap<>();
+    params.put("creatorUrn", creatorUrnStr);
+    params.put("actorName", "Alice");
+    params.put("action", "accepted");
+    params.put("entityName", "EntityWithoutCreator");
+    params.put("operation", "add");
+    params.put("modifierType", "Tag(s)");
+    msg.setParameters(new StringMap(params));
+
+    NotificationRequest request =
+        new NotificationRequest()
+            .setRecipients(
+                new NotificationRecipientArray(Collections.singletonList(randomRecipient)))
+            .setMessage(msg);
+
+    // Mock
+    ChatPostMessageResponse broadcastResponse = mock(ChatPostMessageResponse.class);
+    doReturn(Collections.singleton(broadcastResponse))
+        .when(localSpySink)
+        .sendBroadcastNotification(any(), anyList(), anyString(), any());
+
+    // Execute
+    Set<ChatPostMessageResponse> responses =
+        localSpySink.sendBroadcastProposalStatusChangeNotifications(opContext, request);
+
+    // Verify
+    assertEquals(responses.size(), 1);
+    verify(localSpySink, never()).buildProposerProposalStatusChangeMessage(any());
+    verify(localSpySink, times(1)).buildProposalStatusChangeMessage(Mockito.eq(request));
+  }
+
+  // =========================================================================
+  // TESTS: buildNewProposalMessage(...)
+  // =========================================================================
+  @Test
+  public void testBuildNewProposalTagsWithSubResource() {
+    // Example: "John Joyce has proposed Tag(s) [PII, Sensitive] for schema field foo of
+    // *SampleKafkaDataset*. <link>"
+    Map<String, String> params = new HashMap<>();
+    params.put("actorName", "John Joyce");
+    params.put("modifierType", "Tag(s)");
+    params.put("modifierNames", "[\"PII\",\"Sensitive\"]");
+    params.put("modifierPaths", "[\"/tag/PII\",\"/tag/Sensitive\"]");
+    params.put("subResourceType", "schemaField");
+    params.put("subResource", "foo");
+    params.put("entityName", "SampleKafkaDataset");
+    params.put("operation", "add");
+
+    NotificationMessage msg = new NotificationMessage();
+    msg.setParameters(new StringMap(params));
+    NotificationRequest request = new NotificationRequest().setMessage(msg);
+
+    String messageText = sink.buildNewProposalMessage(request);
+
+    assertTrue(messageText.contains("John Joyce"), "Actor name should appear");
+    assertTrue(messageText.contains("Tag(s)"), "Modifier type should appear");
+    assertTrue(
+        messageText.contains("PII") && messageText.contains("Sensitive"),
+        "Modifier names should appear");
+    assertTrue(
+        messageText.contains("foo") && messageText.contains("schema field"),
+        "Subresource references should appear");
+    assertTrue(messageText.contains("SampleKafkaDataset"), "Entity name should appear");
+    assertTrue(messageText.contains("View details"), "Link to details should appear");
+  }
+
+  @Test
+  public void testBuildNewProposalGlossaryTermsWithoutSubResource() {
+    // Example: "John Joyce has proposed Tag(s) [PII, Sensitive] for schema field foo of
+    // *SampleKafkaDataset*. <link>"
+    Map<String, String> params = new HashMap<>();
+    params.put("actorName", "John Joyce");
+    params.put("modifierType", "Glossary Term(s)");
+    params.put("modifierNames", "[\"PII\",\"Sensitive\"]");
+    params.put("modifierPaths", "[\"/glossaryTerm/PII\",\"/glossaryTerm/Sensitive\"]");
+    params.put("entityName", "SampleKafkaDataset");
+    params.put("operation", "add");
+
+    NotificationMessage msg = new NotificationMessage();
+    msg.setParameters(new StringMap(params));
+    NotificationRequest request = new NotificationRequest().setMessage(msg);
+
+    String messageText = sink.buildNewProposalMessage(request);
+
+    assertTrue(messageText.contains("John Joyce"), "Actor name should appear");
+    assertTrue(messageText.contains("Glossary Term(s)"), "Modifier type should appear");
+    assertTrue(
+        messageText.contains("PII") && messageText.contains("Sensitive"),
+        "Modifier names should appear");
+    assertTrue(messageText.contains("SampleKafkaDataset"), "Entity name should appear");
+    assertTrue(messageText.contains("View details"), "Link to details should appear");
+  }
+
+  @Test
+  public void
+      testBuildNewProposalMessageWithoutSubResourceAndCreatingGlossaryTermWithParentGroup() {
+    // "John Joyce has proposed creating Glossary Term named Email Address in Term Group *PII*."
+    Map<String, String> params = new HashMap<>();
+    params.put("actorName", "John Joyce");
+    params.put("modifierType", "Glossary Term");
+    params.put("entityName", "Email Address"); // we interpret this as the new term name
+    params.put("operation", "create");
+    params.put("parentTermGroupName", "PII"); // indicates a parent group
+    NotificationMessage msg = new NotificationMessage();
+    msg.setParameters(new StringMap(params));
+
+    NotificationRequest request = new NotificationRequest().setMessage(msg);
+
+    String messageText = sink.buildNewProposalMessage(request);
+
+    assertTrue(messageText.contains("John Joyce"), "Should include actor name");
+    assertTrue(
+        messageText.contains("creating Glossary Term named *Email Address*"),
+        "Should mention creating the glossary term with that name");
+    assertTrue(
+        messageText.contains("in Term Group *PII*"), "Should mention the parent glossary group");
+    assertTrue(messageText.contains("View details"), "Should mention the details link");
+  }
+
+  @Test
+  public void
+      testBuildNewProposalMessageWithoutSubResourceAndCreatingGlossaryTermGroupWithParentGroup() {
+    // "John Joyce has proposed creating Glossary Term named Email Address in Term Group *PII*."
+    Map<String, String> params = new HashMap<>();
+    params.put("actorName", "John Joyce");
+    params.put("modifierType", "Glossary Term Group");
+    params.put("entityName", "PII"); // we interpret this as the new term name
+    params.put("operation", "create");
+    params.put("parentTermGroupName", "Root"); // indicates a parent group
+    NotificationMessage msg = new NotificationMessage();
+    msg.setParameters(new StringMap(params));
+
+    NotificationRequest request = new NotificationRequest().setMessage(msg);
+
+    String messageText = sink.buildNewProposalMessage(request);
+
+    assertTrue(messageText.contains("John Joyce"), "Should include actor name");
+    assertTrue(
+        messageText.contains("creating Glossary Term Group named *PII*"),
+        "Should mention creating the glossary term with that name");
+    assertTrue(
+        messageText.contains("in Term Group *Root*"), "Should mention the parent glossary group");
+    assertTrue(messageText.contains("View details"), "Should mention the details link");
+  }
+
+  @Test
+  public void testBuildNewProposalMessageRegularCaseNoSubResource() {
+    // "John Joyce has proposed to add Tag(s) 'PII' for *SampleKafkaDataset*."
+    Map<String, String> params = new HashMap<>();
+    params.put("actorName", "John Joyce");
+    params.put("modifierType", "Tag(s)");
+    params.put("modifierNames", "[\"PII\"]");
+    params.put("modifierPaths", "[\"/tag/PII\"]");
+    params.put("entityName", "SampleKafkaDataset");
+    params.put("operation", "add");
+    NotificationMessage msg = new NotificationMessage();
+    msg.setParameters(new StringMap(params));
+
+    NotificationRequest request = new NotificationRequest().setMessage(msg);
+
+    String messageText = sink.buildNewProposalMessage(request);
+
+    assertTrue(
+        messageText.contains("proposed to add Tag(s) <http://localhost:9002/tag/PII|PII>"),
+        "Should mention link to PII");
+    assertTrue(messageText.contains("SampleKafkaDataset"), "Should mention the entity name");
+    assertTrue(messageText.contains("View details"), "Should include the details link");
+  }
+
+  @Test
+  public void testBuildNewProposalMessageStructuredProperties() {
+
+    // Configure mock sink.
+
+    Map<String, String> params = new HashMap<>();
+    params.put("actorName", "John Joyce");
+    params.put("operation", "add");
+    params.put("modifierType", "Structured Property(s)");
+    params.put("modifierNames", "[\"Test Property\", \"Test Property 2\"]");
+    params.put("entityName", "TestEntity");
+
+    NotificationMessage msg = new NotificationMessage();
+    msg.setParameters(new StringMap(params));
+    NotificationRequest request = new NotificationRequest().setMessage(msg);
+
+    String messageText = sink.buildNewProposalMessage(request);
+
+    assertTrue(
+        messageText.contains("proposed to add Structured Property(s)"),
+        "Should mention link to structured properties");
+    assertTrue(messageText.contains("Test Property"), "Should mention the first property");
+    assertTrue(messageText.contains("Test Property 2"), "Should mention the first property 2");
+    assertTrue(messageText.contains("TestEntity"), "Should mention the entity name");
+    assertTrue(messageText.contains("View details"), "Should include the details link");
+  }
+
+  @Test
+  public void testBuildNewProposalUpdateDescription() {
+    Map<String, String> params = new HashMap<>();
+    params.put("actorName", "John Joyce");
+    params.put("modifierType", "Description");
+    params.put("modifierNames", "[]");
+    params.put("modifierPaths", "[]");
+    params.put("entityName", "SampleKafkaDataset");
+    params.put("operation", "update");
+
+    NotificationMessage msg = new NotificationMessage();
+    msg.setParameters(new StringMap(params));
+    NotificationRequest request = new NotificationRequest().setMessage(msg);
+
+    String messageText = sink.buildNewProposalMessage(request);
+
+    assertEquals(
+        messageText,
+        ":incoming_envelope: *New Proposal Raised*\n"
+            + "\n"
+            + "*John Joyce* has proposed to update Description for *SampleKafkaDataset*. <http://localhost:9002/requests/proposals|View details>");
+  }
+
+  // =========================================================================
+  // TESTS: buildProposalStatusChangeMessage(...)
+  // =========================================================================
+  @Test
+  public void testBuildProposalStatusChangeMessageWithSubResourceAccepted() {
+
+    // Example: "*John Joyce* has accepted the proposal to add Tag(s) <...> for *bar* of
+    // *SampleKafkaDataset*."
+    Map<String, String> params = new HashMap<>();
+    params.put("actorName", "John Joyce");
+    params.put("action", "accepted");
+    params.put("operation", "add");
+    params.put("modifierType", "Tag(s)");
+    params.put("modifierNames", "[\"Security\",\"Confidential\"]");
+    params.put("modifierPaths", "[\"/tag/Security\",\"/tag/Confidential\"]");
+    params.put("subResourceType", "schemaField");
+    params.put("subResource", "bar");
+    params.put("entityName", "SampleKafkaDataset");
+
+    NotificationMessage msg = new NotificationMessage();
+    msg.setParameters(new StringMap(params));
+    NotificationRequest request = new NotificationRequest().setMessage(msg);
+
+    String msgText = sink.buildProposalStatusChangeMessage(request);
+    assertTrue(msgText.contains("*John Joyce* has accepted the proposal to add Tag(s)"));
+    assertTrue(msgText.contains("Security") && msgText.contains("Confidential"));
+    assertTrue(msgText.contains("bar"));
+    assertTrue(msgText.contains("SampleKafkaDataset"));
+    assertTrue(msgText.contains("View details"));
+  }
+
+  @Test
+  public void testBuildProposalStatusChangeMessageWithoutSubResourceRejected() {
+
+    // "*Alice* has rejected the proposal to create Glossary Term 'Payment Days' for
+    // *FinancialDataset*."
+    Map<String, String> params = new HashMap<>();
+    params.put("actorName", "Alice");
+    params.put("action", "rejected");
+    params.put("operation", "add");
+    params.put("modifierType", "Glossary Term(s)");
+    params.put("modifierNames", "[\"Payment Days\"]");
+    params.put("modifierPaths", "[]"); // no linking
+    params.put("entityName", "FinancialDataset");
+
+    NotificationMessage msg = new NotificationMessage();
+    msg.setParameters(new StringMap(params));
+    NotificationRequest request = new NotificationRequest().setMessage(msg);
+
+    String msgText = sink.buildProposalStatusChangeMessage(request);
+    assertTrue(
+        msgText.contains(
+            "*Alice* has rejected the proposal to add Glossary Term(s) 'Payment Days'"));
+    assertTrue(msgText.contains("FinancialDataset"));
+    assertTrue(msgText.contains("View details"));
+  }
+
+  @Test
+  public void testBuildProposalStatusChangeMessageStructuredProperties() {
+
+    Map<String, String> params = new HashMap<>();
+    params.put("actorName", "Approver");
+    params.put("action", "accepted");
+    params.put("operation", "add");
+    params.put("modifierType", "Structured Property(s)");
+    params.put("modifierNames", "[\"Test Property\", \"Test Property 2\"]");
+    params.put("entityName", "TestEntity");
+
+    NotificationMessage msg = new NotificationMessage();
+    msg.setParameters(new StringMap(params));
+    NotificationRequest request = new NotificationRequest().setMessage(msg);
+
+    String messageText = sink.buildProposalStatusChangeMessage(request);
+
+    assertTrue(
+        messageText.contains(
+            "*Approver* has accepted the proposal to add Structured Property(s) 'Test Property' and 'Test Property 2' for *TestEntity*. <http://localhost:9002/requests/proposals|View details>"));
+  }
+
+  @Test
+  public void testBuildProposalStatusChangeMessageUpdateDescription() {
+
+    Map<String, String> params = new HashMap<>();
+    params.put("actorName", "Approver");
+    params.put("action", "accepted");
+    params.put("operation", "update");
+    params.put("modifierType", "Description");
+    params.put("modifierNames", "[]");
+    params.put("entityName", "TestEntity");
+    params.put("entityType", "Table");
+
+    NotificationMessage msg = new NotificationMessage();
+    msg.setParameters(new StringMap(params));
+    NotificationRequest request = new NotificationRequest().setMessage(msg);
+
+    String messageText = sink.buildProposalStatusChangeMessage(request);
+
+    assertTrue(
+        messageText.contains(
+            "*Approver* has accepted the proposal to update Description for *TestEntity*. <http://localhost:9002/requests/proposals|View details>"));
+  }
+
+  // =========================================================================
+  // TESTS: buildProposerProposalStatusChangeMessage(...)
+  // =========================================================================
+  @Test
+  public void testBuildProposerProposalStatusChangeMessageWithSubResource() {
+    // "Your proposal to add Tag(s) <...> for *bar* of *SampleKafkaDataset* has been *accepted*."
+    Map<String, String> params = new HashMap<>();
+    params.put("action", "accepted");
+    params.put("operation", "add");
+    params.put("modifierType", "Tag(s)");
+    params.put("modifierNames", "[\"Internal\",\"Critical\"]");
+    params.put("modifierPaths", "[\"/tag/Internal\",\"/tag/Critical\"]");
+    params.put("subResourceType", "schemaField");
+    params.put("subResource", "bar");
+    params.put("entityName", "SampleKafkaDataset");
+
+    NotificationMessage msg = new NotificationMessage();
+    msg.setParameters(new StringMap(params));
+    NotificationRequest request = new NotificationRequest().setMessage(msg);
+
+    String msgText = sink.buildProposerProposalStatusChangeMessage(request);
+    assertTrue(
+        msgText.contains(
+            "Your proposal to add Tag(s) <http://localhost:9002/tag/Internal|Internal>"));
+    assertTrue(msgText.contains("bar"));
+    assertTrue(msgText.contains("SampleKafkaDataset"));
+    assertTrue(msgText.contains("has been *accepted*"));
+  }
+
+  @Test
+  public void testBuildProposerProposalStatusChangeMessageWithoutSubResource() {
+    // "Your proposal to create Glossary Term <...> for *EntityWithoutResource* has been
+    // *rejected*."
+    Map<String, String> params = new HashMap<>();
+    params.put("action", "rejected");
+    params.put("operation", "add");
+    params.put("modifierType", "Glossary Term(s)");
+    params.put("modifierNames", "[\"PII_Term\"]");
+    params.put("modifierPaths", "[\"/term/PII_Term\"]");
+    params.put("entityName", "EntityWithoutResource");
+
+    NotificationMessage msg = new NotificationMessage();
+    msg.setParameters(new StringMap(params));
+    NotificationRequest request = new NotificationRequest().setMessage(msg);
+
+    String msgText = sink.buildProposerProposalStatusChangeMessage(request);
+    assertTrue(
+        msgText.contains(
+            "Your proposal to add Glossary Term(s) <http://localhost:9002/term/PII_Term|PII_Term>"));
+    assertTrue(msgText.contains("for *EntityWithoutResource* has been *rejected*"));
   }
 
   private IdentityProvider.User testUser() {

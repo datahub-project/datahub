@@ -217,6 +217,9 @@ fragment nonSiblingDatasetFields on Dataset {
     proposals: proposals {
         ...proposalsFragment
     }
+    institutionalMemory {
+        ...institutionalMemoryFields
+    }
     ...notes
     ...entityProfileVersionProperties
 }

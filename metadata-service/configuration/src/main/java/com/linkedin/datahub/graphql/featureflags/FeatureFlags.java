@@ -62,4 +62,5 @@ public class FeatureFlags {
   private boolean usePropagationsFramework = false;
   private boolean displayExecutorPools = false;
   private boolean onlineSmartAssertionsEnabled = false;
+  private boolean showDefaultExternalLinks = true;
 }

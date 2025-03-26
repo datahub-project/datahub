@@ -53,7 +53,6 @@ import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
 const PREVIEW_SUPPORTED_PLATFORMS = [LOOKER_URN, MODE_URN];
 
 const headerDropdownItems = new Set([
-    EntityMenuItems.EXTERNAL_URL,
     EntityMenuItems.SHARE,
     EntityMenuItems.SUBSCRIBE,
     EntityMenuItems.UPDATE_DEPRECATION,

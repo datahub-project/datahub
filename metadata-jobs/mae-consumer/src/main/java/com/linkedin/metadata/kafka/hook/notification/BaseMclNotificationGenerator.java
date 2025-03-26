@@ -6,8 +6,8 @@ import static com.linkedin.metadata.kafka.hook.notification.NotificationUtils.*;
 
 import com.datahub.notification.NotificationScenarioType;
 import com.datahub.notification.provider.EntityNameProvider;
-import com.datahub.notification.provider.SettingsProvider;
 import com.datahub.notification.recipient.NotificationRecipientBuilders;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
@@ -34,6 +34,7 @@ import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -73,7 +74,7 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
   protected final EventProducer _eventProducer;
   protected final EntityClient _entityClient;
   protected final GraphClient _graphClient;
-  protected final SettingsProvider _settingsProvider;
+  protected final SettingsService _settingsService;
   protected final EntityNameProvider _entityNameProvider;
   protected final NotificationRecipientBuilders _recipientBuilders;
   protected final OperationContext systemOpContext;
@@ -83,13 +84,13 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
       @Nonnull final EventProducer eventProducer,
       @Nonnull final SystemEntityClient entityClient,
       @Nonnull final GraphClient graphClient,
-      @Nonnull final SettingsProvider settingsProvider,
+      @Nonnull final SettingsService settingsService,
       @Nonnull final NotificationRecipientBuilders recipientBuilders) {
     this.systemOpContext = systemOpContext;
     _eventProducer = Objects.requireNonNull(eventProducer);
     _entityClient = Objects.requireNonNull(entityClient);
     _graphClient = Objects.requireNonNull(graphClient);
-    _settingsProvider = Objects.requireNonNull(settingsProvider);
+    _settingsService = Objects.requireNonNull(settingsService);
     _entityNameProvider = new EntityNameProvider(entityClient);
     _recipientBuilders = Objects.requireNonNull(recipientBuilders);
   }
@@ -99,7 +100,7 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
 
   protected boolean isEligibleForGlobalRecipients(@Nonnull final NotificationScenarioType type) {
     final GlobalSettingsInfo globalSettingsInfo =
-        _settingsProvider.getGlobalSettings(systemOpContext);
+        _settingsService.getGlobalSettings(systemOpContext);
     return globalSettingsInfo != null
         && globalSettingsInfo.getNotifications().hasSettings()
         && globalSettingsInfo.getNotifications().getSettings().containsKey(type.toString())
@@ -116,6 +117,10 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
   }
 
   public boolean isEligibleForSubscriberRecipients() {
+    return false;
+  }
+
+  public boolean isEligibleForCustomRecipients(@Nonnull final NotificationScenarioType type) {
     return false;
   }
 
@@ -138,7 +143,8 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
         opContext, notificationScenarioType, entityUrn, entityChangeType, actorUrn, null);
   }
 
-  protected List<NotificationRecipient> buildRecipients(
+  @VisibleForTesting
+  public List<NotificationRecipient> buildRecipients(
       @Nonnull OperationContext opContext,
       @Nonnull final NotificationScenarioType notificationScenarioType,
       @Nonnull final Urn entityUrn,
@@ -155,6 +161,17 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
     // If we should globally broadcast, build the broadcast recipient.
     if (isEligibleForGlobalRecipients(notificationScenarioType)) {
       recipients.addAll(buildGlobalRecipients(opContext, notificationScenarioType));
+    }
+
+    if (isEligibleForCustomRecipients(notificationScenarioType)) {
+      recipients.addAll(
+          buildCustomRecipients(
+              opContext,
+              notificationScenarioType,
+              entityUrn,
+              entityChangeType,
+              actorUrn,
+              extraContext));
     }
 
     // TODO: Support sending notifications to owners.
@@ -190,6 +207,16 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
   }
 
   protected List<NotificationRecipient> buildRelatedOwnerRecipients() {
+    throw new NotImplementedException();
+  }
+
+  protected List<NotificationRecipient> buildCustomRecipients(
+      @Nonnull OperationContext opContext,
+      @Nonnull NotificationScenarioType type,
+      @Nullable final Urn entityUrn,
+      @Nullable final EntityChangeType changeType,
+      @Nullable final Urn actorUrn,
+      @Nullable NotificationRecipientsGeneratorExtraContext extraContext) {
     throw new NotImplementedException();
   }
 

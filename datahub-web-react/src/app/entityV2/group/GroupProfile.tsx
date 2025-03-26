@@ -7,6 +7,8 @@ import { useUserContext } from '@src/app/context/useUserContext';
 import { useGetGrantedPrivilegesQuery } from '@src/graphql/policy.generated';
 import { ReadOutlined } from '@ant-design/icons';
 import colors from '@src/alchemy-components/theme/foundations/colors';
+import { ManageActorNotifications } from '@src/app/settingsV2/personal/notifications/ManageActorNotifications';
+import { ManageActorSubscriptions } from '@src/app/settingsV2/personal/subscriptions/ManageActorSubscriptions';
 import { PageRoutes } from '../../../conf/Global';
 import { useGetGroupQuery } from '../../../graphql/group.generated';
 import { OriginType, EntityRelationshipsResult, Ownership, EntityType } from '../../../types.generated';
@@ -19,8 +21,6 @@ import { RoutedTabs } from '../../shared/RoutedTabs';
 import GroupSidebar from './GroupSidebar';
 import { GroupAssets } from './GroupAssets';
 import { ErrorSection } from '../../shared/error/ErrorSection';
-import { ManageActorNotifications } from '../../settings/personal/notifications/ManageActorNotifications';
-import { ManageActorSubscriptions } from '../../settings/personal/subscriptions/ManageActorSubscriptions';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import NonExistentEntityPage from '../shared/entity/NonExistentEntityPage';
 import CompactContext from '../../shared/CompactContext';
@@ -106,8 +106,10 @@ export default function GroupProfile({ urn }: Props) {
         skip: !authenticatedUserUrn,
         fetchPolicy: 'cache-first',
     });
+
     const canManageNotifications =
         privilegesData?.getGrantedPrivileges?.privileges.some((v) => v === 'MANAGE_GROUP_NOTIFICATION_SETTINGS') ||
+        privilegesData?.getGrantedPrivileges?.privileges.some((v) => v === 'EDIT_ENTITY') || // All edit permissions
         false;
 
     const finalTabs = [

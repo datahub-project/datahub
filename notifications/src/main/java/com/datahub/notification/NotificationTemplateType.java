@@ -75,28 +75,28 @@ public enum NotificationTemplateType {
       ImmutableSet.of(
           "operation",
           "modifierType",
-          "modifierName",
-          "modifierPath",
+          "modifierNames",
+          "modifierPaths",
           "entityName",
           "entityType",
-          "entityPath",
           "actorUrn",
           "actorName"),
-      ImmutableSet.of("subResourceType", "subResourceUrn")),
+      ImmutableSet.of("entityPath", "subResourceType", "subResourceUrn", "context")),
   /** Broadcast a change proposal update, eg an APPROVE or DENY. */
   BROADCAST_PROPOSAL_STATUS_CHANGE(
       ImmutableSet.of(
           "operation",
           "modifierType",
-          "modifierName",
-          "modifierPath",
+          "modifierNames",
+          "modifierPaths",
           "entityName",
           "entityType",
-          "entityPath",
           "action",
-          "actorUrn",
-          "actorName"),
-      ImmutableSet.of("subResourceType", "subResourceUrn")),
+          "actorUrn", // User who approved or rejected the proposal
+          "actorName",
+          "creatorUrn" // User who initially created the proposal
+          ),
+      ImmutableSet.of("entityPath", "subResourceType", "subResourceUrn", "context")),
   /** Broadcast an Assertion status change as a FAILURE or SUCCESS */
   BROADCAST_ASSERTION_STATUS_CHANGE(
       ImmutableSet.of("assertionUrn", "entityName", "entityPath", "result"),

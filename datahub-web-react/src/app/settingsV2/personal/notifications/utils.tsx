@@ -1,12 +1,16 @@
 import { message } from 'antd';
 import difference from 'lodash/difference';
+import { EMAIL_SINK, SLACK_SINK } from '@src/app/settings/platform/types';
 import { useAppConfig } from '../../../useAppConfig';
 import {
     useUpdateGroupNotificationSettingsMutation,
     useUpdateUserNotificationSettingsMutation,
 } from '../../../../graphql/settings.generated';
 import {
+    AppConfig,
     EmailNotificationSettingsInput,
+    GlobalSettings,
+    NotificationSettings,
     NotificationSinkType,
     SlackNotificationSettingsInput,
 } from '../../../../types.generated';
@@ -126,4 +130,32 @@ export const updateGroupNotificationSettingsFunction = ({
 
 export const useSubscriptionsEnabled = () => {
     return useAppConfig().config.featureFlags.subscriptionsEnabled;
+};
+
+const isPresent = (value?: string | null) => {
+    return value !== null && value !== undefined;
+};
+
+export const isSinkEnabled = (
+    sinkId: string,
+    actorSettings?: Partial<NotificationSettings> | null,
+    globalSettings?: Partial<GlobalSettings> | null,
+    appConfig?: Partial<AppConfig> | null,
+) => {
+    switch (sinkId) {
+        case SLACK_SINK.id: {
+            // This is a HACK. We should actually make a call to check connection settings.
+            return (
+                isPresent(globalSettings?.integrationSettings?.slackSettings?.defaultChannelName) &&
+                actorSettings?.sinkTypes?.includes(NotificationSinkType.Slack)
+            );
+        }
+        case EMAIL_SINK.id:
+            return (
+                appConfig?.featureFlags?.emailNotificationsEnabled &&
+                actorSettings?.sinkTypes?.includes(NotificationSinkType.Email)
+            );
+        default:
+            return false;
+    }
 };

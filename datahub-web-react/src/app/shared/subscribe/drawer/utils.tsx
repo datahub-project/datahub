@@ -431,7 +431,7 @@ export const createSubscriptionFunction = ({
                 entityUrn,
                 entityType,
                 entityChangeTypes: entityChangeTypes.map((details) => details.entityChangeType),
-                sinkTypes: notificationSettings?.sinkTypes,
+                sinkTypes: notificationSettings?.sinkTypes || [],
                 actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
             });
             const description = isPersonal
@@ -452,7 +452,7 @@ export const createSubscriptionFunction = ({
                 entityUrn,
                 entityType,
                 entityChangeTypes: entityChangeTypes.map((details) => details.entityChangeType),
-                sinkTypes: notificationSettings.sinkTypes,
+                sinkTypes: notificationSettings.sinkTypes || [],
                 actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
             });
             message.destroy();
@@ -532,7 +532,7 @@ export const updateSubscriptionFunction = ({
     );
     const sinkTypesRemoved = _.difference(
         subscription?.notificationConfig?.notificationSettings?.sinkTypes ?? [],
-        notificationSettings.sinkTypes,
+        notificationSettings.sinkTypes || [],
     );
 
     if (subscription && subscription.subscriptionUrn) {
@@ -560,7 +560,7 @@ export const updateSubscriptionFunction = ({
                     entityChangeTypes: entityChangeTypes.map((details) => details.entityChangeType),
                     entityChangeTypesAdded,
                     entityChangeTypesRemoved,
-                    sinkTypes: notificationSettings.sinkTypes,
+                    sinkTypes: notificationSettings.sinkTypes || [],
                     sinkTypesAdded,
                     sinkTypesRemoved,
                     actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
@@ -584,7 +584,7 @@ export const updateSubscriptionFunction = ({
                     entityUrn: subscription.entity.urn,
                     entityType,
                     entityChangeTypes: entityChangeTypes.map((details) => details.entityChangeType),
-                    sinkTypes: notificationSettings.sinkTypes,
+                    sinkTypes: notificationSettings.sinkTypes || [],
                     actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
                 });
                 message.destroy();

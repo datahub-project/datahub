@@ -1,74 +1,36 @@
-import { MoreOutlined } from '@ant-design/icons';
 import React, { useEffect, useRef, useState } from 'react';
+import { MoreOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
-import { Typography, Switch, Input, Button, Form } from 'antd';
+import { Button, colors, ToggleCard } from '@components';
+import { Form } from 'antd';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { TestNotificationButton } from '@src/app/shared/notifications/TestNotificationButton';
 import { SLACK_CONNECTION_URN } from '@src/app/settingsV2/platform/slack/constants';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../../../entity/shared/constants';
 import { SlackNotificationSettings, SlackNotificationSettingsInput } from '../../../../../types.generated';
 import { getSlackSettingsChannel } from '../../../../shared/subscribe/drawer/utils';
-
-const SinkSettings = styled.div`
-    margin-top: 12px;
-    display: flex;
-    flex-direction: row;
-    align-items: start;
-`;
-
-const SinkTextContainer = styled.div`
-    display: flex;
-    flex-direction: column;
-    padding-left: 14px;
-    gap: 4px;
-`;
-
-const SinkTitle = styled(Typography.Text)`
-    font-size: 16px;
-`;
-
-const SinkDescription = styled(Typography.Text)`
-    font-size: 14px;
-`;
-
-const SinkEditButton = styled(Button)`
-    padding: 0 4px;
-`;
-
-const EditDescription = styled(Typography.Text)`
-    text-decoration: underline;
-    color: ${(props) => props.theme.styles['primary-color']};
-`;
-
-const SinkButtonsContainer = styled.div`
-    display: flex;
-    flex-direction: row;
-    justify-content: flex-start;
-    align-items: start;
-    margin-top: 8px;
-    gap: 2px;
-`;
-
-const StyledFormItem = styled(Form.Item)`
-    margin-bottom: 0px;
-`;
-
-const StyledInput = styled(Input)`
-    width: 220px;
-    border-color: ${ANTD_GRAY[8]};
-`;
-
-const SaveButton = styled(Button)`
-    margin: 0 4px;
-`;
-
-const CancelButton = styled(Button)``;
+import {
+    CancelButton,
+    SaveButton,
+    SinkButtonsContainer,
+    SinkConfigurationContainer,
+    StyledFormItem,
+    StyledInput,
+} from './styledComponents';
 
 const HelperText = styled.div`
-    color: ${ANTD_GRAY[8]};
+    color: ${colors.gray[1700]};
     margin-top: 6px;
+    font-size: 12px;
+`;
+
+const CurrentValue = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: start;
+    gap: 12px;
     font-size: 14px;
+    color: ${colors.gray[1700]};
 `;
 
 type Props = {
@@ -137,26 +99,20 @@ export const SlackSinkSettingsSection = ({
         setIsEditing(false);
     };
 
-    const onToggle = (enabled: boolean) => {
-        toggleSink(enabled);
-        setIsEditing(enabled && !channelOrUserId);
-    };
-
     const renderSinkDescription = () => {
         const actorDescription = isPersonal ? 'you are' : `${groupName || 'the group'} is`;
-        const supportedSinkDescription = `Receive Slack notifications for entities ${actorDescription} subscribed to at Slack ${
-            isPersonal ? 'member ID' : 'channel'
-        }: `;
+        const supportedSinkDescription = `Receive Slack notifications for entities ${actorDescription} subscribed to & important events.`;
         const unsupportedSinkDescription = `In order to enable, ask your DataHub admin to setup the Slack integration.`;
 
         let description = <>{supportedSinkDescription}</>;
         if (!sinkSupported && isAdminAccess) {
             description = (
                 <>
-                    In order to enable,&nbsp;
-                    <Link to="/settings/integrations/slack" style={{ color: REDESIGN_COLORS.BLUE }}>
-                        click here to setup a Slack integration
-                    </Link>
+                    Slack is currently disabled.&nbsp;
+                    <Link to="/settings/integrations/slack" style={{ color: colors.violet['500'] }}>
+                        Click here
+                    </Link>{' '}
+                    to setup the Slack integration.
                 </>
             );
         }
@@ -167,78 +123,89 @@ export const SlackSinkSettingsSection = ({
     };
 
     return (
-        <SinkSettings>
-            <Switch disabled={!sinkSupported} checked={sinkEnabled} onChange={onToggle} />
-            <SinkTextContainer>
-                <SinkTitle strong>Slack Notifications</SinkTitle>
-                <SinkDescription>
-                    {renderSinkDescription()}
+        <ToggleCard
+            title="Slack Notifications"
+            subTitle={renderSinkDescription()}
+            disabled={!sinkSupported}
+            value={sinkEnabled}
+            onToggle={toggleSink}
+            toggleDataTestId="slack-notifications-enabled-switch"
+        >
+            {sinkEnabled && (
+                <SinkConfigurationContainer>
                     {!editing && (
-                        <strong>
-                            <br /> {inputValue || 'Not set.'}
-                        </strong>
+                        <CurrentValue>
+                            {inputValue ? <strong>{inputValue}</strong> : 'No Slack channel or id set.'}
+                        </CurrentValue>
                     )}
-                    {sinkEnabled && !editing && (
+                    {!editing && (
+                        <Button
+                            variant="text"
+                            onClick={() => setIsEditing(true)}
+                            data-testid="email-notifications-edit-slack-button"
+                        >
+                            Edit
+                        </Button>
+                    )}
+                    {editing ? (
                         <>
-                            <SinkEditButton type="link" onClick={() => setIsEditing(true)}>
-                                <EditDescription strong>edit</EditDescription>
-                            </SinkEditButton>
+                            <SinkButtonsContainer>
+                                <Form form={form}>
+                                    <StyledFormItem name="slackFormValue">
+                                        <StyledInput
+                                            placeholder={slackInputPlaceholder}
+                                            value={inputValue}
+                                            onChange={(e) => setInputValue(e.target.value)}
+                                        />
+                                    </StyledFormItem>
+                                </Form>
+                                <SaveButton
+                                    onClick={saveButtonOnClick}
+                                    data-testid="email-notifications-save-slack-button"
+                                >
+                                    Save
+                                </SaveButton>
+                                <CancelButton
+                                    variant="outline"
+                                    color="gray"
+                                    onClick={cancelButtonOnClick}
+                                    data-testid="email-notifications-cancel-slack-button"
+                                >
+                                    Cancel
+                                </CancelButton>
+                            </SinkButtonsContainer>
+                            <HelperText>
+                                {isPersonal ? (
+                                    <>
+                                        Find a member ID from the <MoreOutlined /> menu in your Slack profile.
+                                        <a
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            href="https://datahubproject.io/docs/managed-datahub/slack/saas-slack-setup/#how-to-find-user-id-in-slack"
+                                        >
+                                            {' '}
+                                            See instructions.
+                                        </a>
+                                    </>
+                                ) : (
+                                    <>
+                                        If this is a private channel, ensure the DataHub Slack bot has been added to it.
+                                    </>
+                                )}
+                            </HelperText>
                         </>
+                    ) : null}
+                    {inputValue && (
+                        <TestNotificationButton
+                            integration="slack"
+                            connectionUrn={SLACK_CONNECTION_URN}
+                            destinationSettings={
+                                isPersonal ? { userHandle: inputValue || '' } : { channels: [inputValue || ''] }
+                            }
+                        />
                     )}
-                </SinkDescription>
-                {sinkEnabled && (
-                    <>
-                        {editing ? (
-                            <>
-                                <SinkButtonsContainer>
-                                    <Form form={form}>
-                                        <StyledFormItem name="slackFormValue">
-                                            <StyledInput
-                                                placeholder={slackInputPlaceholder}
-                                                value={inputValue}
-                                                onChange={(e) => setInputValue(e.target.value)}
-                                            />
-                                        </StyledFormItem>
-                                    </Form>
-                                    <SaveButton type="primary" onClick={saveButtonOnClick}>
-                                        Save
-                                    </SaveButton>
-                                    <CancelButton onClick={cancelButtonOnClick}>Cancel</CancelButton>
-                                </SinkButtonsContainer>
-                                <HelperText>
-                                    {isPersonal ? (
-                                        <>
-                                            Find a member ID from the <MoreOutlined /> menu in your Slack profile.
-                                            <a
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                href="https://datahubproject.io/docs/managed-datahub/slack/saas-slack-setup/#how-to-find-user-id-in-slack"
-                                            >
-                                                {' '}
-                                                See instructions.
-                                            </a>
-                                        </>
-                                    ) : (
-                                        <>
-                                            If this is a private channel, ensure the DataHub Slack bot has been added to
-                                            it.
-                                        </>
-                                    )}
-                                </HelperText>
-                            </>
-                        ) : null}
-                        {inputValue && (
-                            <TestNotificationButton
-                                integration="slack"
-                                connectionUrn={SLACK_CONNECTION_URN}
-                                destinationSettings={
-                                    isPersonal ? { userHandle: inputValue || '' } : { channels: [inputValue || ''] }
-                                }
-                            />
-                        )}
-                    </>
-                )}
-            </SinkTextContainer>
-        </SinkSettings>
+                </SinkConfigurationContainer>
+            )}
+        </ToggleCard>
     );
 };

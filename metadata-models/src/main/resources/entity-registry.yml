@@ -485,6 +485,7 @@ entities:
       - testResults
       - subTypes
       - container
+      - institutionalMemory
       # SaaS Only
       - proposals
       - share
