@@ -42,9 +42,9 @@ record DataProcessInstanceOutput {
       "isUpstream": false,
       "isLineage": true,
       "createdOn": "outputEdges/*/created/time",
-      "createdActor": "outputEdges/*/created/actor"
-      "updatedOn": "outputEdges/*/lastModified/time"
-      "updatedActor": "outputEdges/*/lastModified/actor"
+      "createdActor": "outputEdges/*/created/actor",
+      "updatedOn": "outputEdges/*/lastModified/time",
+      "updatedActor": "outputEdges/*/lastModified/actor",
       "properties": "outputEdges/*/properties"
     }
   }
