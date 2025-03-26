@@ -42,9 +42,9 @@ class RedshiftCommonQuery:
     def list_schemas(database: str) -> str:
         return f"""
         SELECT 
-            schema_name,
+            cast(schema_name as varchar(256)),
             schema_type,
-            schema_option,
+            cast(schema_option as varchar(256)),
             cast(null as varchar(256)) as external_platform,
             cast(null as varchar(256)) as external_database
         FROM svv_redshift_schemas
