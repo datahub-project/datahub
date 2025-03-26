@@ -106,7 +106,7 @@ const SelectActionButtons = ({
                     data-testid="dropdown-option-clear-icon"
                 />
             )}
-            <Icon icon="ChevronLeft" rotate={isOpen ? '90' : '270'} size="xl" color="gray" />
+            <Icon icon="CaretLeft" source="phosphor" rotate={isOpen ? '90' : '270'} size="xl" color="gray" />
         </ActionButtonsContainer>
     );
 };
