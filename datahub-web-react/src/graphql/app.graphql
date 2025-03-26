@@ -84,6 +84,7 @@ query appConfig {
             showAutoCompleteResults
             entityVersioningEnabled
             showSearchBarAutocompleteRedesign
+            showManageTags
         }
         chromeExtensionConfig {
             enabled

@@ -30,3 +30,5 @@ export * from './components/TextArea';
 export * from './components/Timeline';
 export * from './components/Tooltip';
 export * from './components/WhiskerChart';
+export * from './components/ColorPicker';
+export * from './components/Tooltip2';

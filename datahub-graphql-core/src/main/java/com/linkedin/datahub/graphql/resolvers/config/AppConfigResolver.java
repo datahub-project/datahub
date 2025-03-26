@@ -207,6 +207,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setEntityVersioningEnabled(_featureFlags.isEntityVersioning())
             .setShowSearchBarAutocompleteRedesign(
                 _featureFlags.isShowSearchBarAutocompleteRedesign())
+            .setShowManageTags(_featureFlags.isShowManageTags())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);
