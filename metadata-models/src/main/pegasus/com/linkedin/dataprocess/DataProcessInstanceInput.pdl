@@ -41,9 +41,9 @@ record DataProcessInstanceInput {
       "entityTypes": [ "dataset", "mlModel", "dataProcessInstance" ],
       "isLineage": true,
       "createdOn": "inputEdges/*/created/time",
-      "createdActor": "inputEdges/*/created/actor"
-      "updatedOn": "inputEdges/*/lastModified/time"
-      "updatedActor": "inputEdges/*/lastModified/actor"
+      "createdActor": "inputEdges/*/created/actor",
+      "updatedOn": "inputEdges/*/lastModified/time",
+      "updatedActor": "inputEdges/*/lastModified/actor",
       "properties": "inputEdges/*/properties"
     }
   }
