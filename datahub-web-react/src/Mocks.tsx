@@ -4000,6 +4000,7 @@ export const platformPrivileges: PlatformPrivileges = {
     manageGlossaries: true,
     manageUserCredentials: true,
     manageTags: true,
+    viewManageTags: true,
     createTags: true,
     createDomains: true,
     manageGlobalViews: true,
