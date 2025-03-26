@@ -215,6 +215,29 @@ If you have created a [custom Airflow operator](https://airflow.apache.org/docs/
 when overriding the `execute` function, set inlets and outlets via `context['ti'].task.inlets` and `context['ti'].task.outlets`.
 The DataHub Airflow plugin will then pick up those inlets and outlets after the task runs.
 
+You can only set table-level lineage using inlets and outlets. For column-level lineage, you need to write a custom extractor for your custom operator.
+
+```python
+class DbtOperator(BaseOperator):
+  ...
+
+  def execute(self, context):
+    # Perform operations
+    inlets, outlets = self._get_lineage()
+    # inlets/outlets are lists of either datahub_airflow_plugin.entities.Dataset or datahub_airflow_plugin.entities.Urn
+    context['ti'].task.inlets = self.inlets
+    context['ti'].task.outlets = self.outlets
+
+  def _get_lineage(self):
+    # Process to get inlets/outlets
+
+    return inlets, outlets
+```
+
+If you override the `pre_execute` and `post_execute` functions, ensure they include the `@prepare_lineage` and `@apply_lineage` decorators respectively. Refer to the [Airflow documentation](https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/lineage.html#lineage) for more details.
+
+See an example implementation [here](../../metadata-ingestion-modules/airflow-plugin/tests/integration/dags/custom_operator_sql_parsing.py).
+
 ```python
 class DbtOperator(BaseOperator):
     ...

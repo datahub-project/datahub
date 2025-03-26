@@ -5,7 +5,9 @@ import logging
 import os
 import threading
 import time
+import json
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, TypeVar, cast
+from datahub_airflow_plugin._version import __package_name__, __version__
 
 import airflow
 from airflow.models import Variable
@@ -94,7 +96,7 @@ def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
 
         if plugin_config.enabled:
             _airflow_listener = DataHubListener(config=plugin_config)
-
+            logger.info(f"DataHub plugin v2 (package: {__package_name__} and version: {__version__})  listener initialized with config: {plugin_config}")
             telemetry.telemetry_instance.ping(
                 "airflow-plugin-init",
                 {
@@ -168,7 +170,7 @@ def _render_templates(task_instance: "TaskInstance") -> "TaskInstance":
         return task_instance_copy
     except Exception as e:
         logger.info(
-            f"Error rendering templates in DataHub listener. Jinja-templated variables will not be extracted correctly: {e}"
+            f"Error rendering templates in DataHub listener. Jinja-templated variables will not be extracted correctly: {e}. Template rendering improves SQL parsing accuracy. If this causes issues, you can disable it by setting `render_templates` to `false` in the DataHub plugin configuration."
         )
         return task_instance
 
