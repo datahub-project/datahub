@@ -189,6 +189,10 @@ class SupersetConfig(
     provider: str = Field(default="db", description="Superset provider.")
     options: Dict = Field(default={}, description="")
 
+    timeout: int = Field(
+        default=10, description="Timeout of single API call to superset."
+    )
+
     # TODO: Check and remove this if no longer needed.
     # Config database_alias is removed from sql sources.
     database_alias: Dict[str, str] = Field(
@@ -293,13 +297,16 @@ class SupersetSource(StatefulIngestionSourceBase):
             }
         )
 
-        # Test the connection
         test_response = requests_session.get(
-            f"{self.config.connect_uri}/api/v1/dashboard/"
+            f"{self.config.connect_uri}/api/v1/dashboard/",
+            timeout=self.config.timeout,
         )
-        if test_response.status_code == 200:
-            pass
-            # TODO(Gabe): how should we message about this error?
+        if test_response.status_code != 200:
+            # throw an error and terminate ingestion,
+            # cannot proceed without access token
+            logger.error(
+                f"Failed to log in to Superset with status: {test_response.status_code}"
+            )
         return requests_session
 
     def paginate_entity_api_results(self, entity_type, page_size=100):
@@ -310,6 +317,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             response = self.session.get(
                 f"{self.config.connect_uri}/api/v1/{entity_type}",
                 params={"q": f"(page:{current_page},page_size:{page_size})"},
+                timeout=self.config.timeout,
             )
 
             if response.status_code != 200:
@@ -347,6 +355,7 @@ class SupersetSource(StatefulIngestionSourceBase):
     def get_dataset_info(self, dataset_id: int) -> dict:
         dataset_response = self.session.get(
             f"{self.config.connect_uri}/api/v1/dataset/{dataset_id}",
+            timeout=self.config.timeout,
         )
         if dataset_response.status_code != 200:
             logger.warning(f"Failed to get dataset info: {dataset_response.text}")

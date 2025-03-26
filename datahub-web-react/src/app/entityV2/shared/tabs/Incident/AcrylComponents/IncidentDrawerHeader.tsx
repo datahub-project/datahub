@@ -64,7 +64,7 @@ export const IncidentDrawerHeader = ({
                 )}
             </StyledHeaderTitleContainer>
             <StyledHeaderActions>
-                {mode === IncidentAction.VIEW && isEditActive === false && (
+                {mode === IncidentAction.EDIT && isEditActive === false && (
                     <>
                         <Tooltip2 title="Edit Incident">
                             <EditButton

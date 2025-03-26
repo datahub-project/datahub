@@ -1,9 +1,10 @@
+import json
 import time
 from dataclasses import dataclass
-from typing import Any, Callable, Iterable, List, Optional, TypeVar, Union
+from typing import Any, Callable, Iterable, List, Optional, Tuple, TypeVar, Union
 
 from mlflow import MlflowClient
-from mlflow.entities import Experiment, Run
+from mlflow.entities import Dataset as MlflowDataset, Experiment, Run
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.store.entities import PagedList
 from pydantic.fields import Field
@@ -29,6 +30,7 @@ from datahub.ingestion.api.source import (
     SourceReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.data_platforms import KNOWN_VALID_PLATFORM_NAMES
 from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -42,6 +44,7 @@ from datahub.metadata.schema_classes import (
     AuditStampClass,
     ContainerClass,
     DataPlatformInstanceClass,
+    DataProcessInstanceInputClass,
     DataProcessInstanceOutputClass,
     DataProcessInstancePropertiesClass,
     DataProcessInstanceRunEventClass,
@@ -60,16 +63,15 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     TagPropertiesClass,
     TimeStampClass,
+    UpstreamClass,
+    UpstreamLineageClass,
     VersionPropertiesClass,
     VersionTagClass,
     _Aspect,
 )
-from datahub.metadata.urns import (
-    DataPlatformUrn,
-    MlModelUrn,
-    VersionSetUrn,
-)
+from datahub.metadata.urns import DataPlatformUrn, DatasetUrn, MlModelUrn, VersionSetUrn
 from datahub.sdk.container import Container
+from datahub.sdk.dataset import Dataset
 
 T = TypeVar("T")
 
@@ -104,6 +106,13 @@ class MLflowConfig(StatefulIngestionConfigBase, EnvConfigMixin):
             " If not set, tracking_uri is used if it's an HTTP URL."
             " If neither is set, external URLs are not generated."
         ),
+    )
+    materialize_dataset_inputs: Optional[bool] = Field(
+        default=False,
+        description="Whether to materialize dataset inputs for each run",
+    )
+    source_mapping_to_platform: Optional[dict] = Field(
+        default=None, description="Mapping of source type to datahub platform"
     )
 
 
@@ -213,6 +222,7 @@ class MLflowSource(StatefulIngestionSourceBase):
             if runs:
                 for run in runs:
                     yield from self._get_run_workunits(experiment, run)
+                    yield from self._get_dataset_input_workunits(run)
 
     def _get_experiment_custom_properties(self, experiment):
         experiment_custom_props = getattr(experiment, "tags", {}) or {}
@@ -261,6 +271,183 @@ class MLflowSource(StatefulIngestionSourceBase):
             return DataProcessInstanceRunResultClass(
                 type="SKIPPED", nativeResultType=self.platform
             )
+
+    def _get_dataset_schema(
+        self, dataset: MlflowDataset
+    ) -> Optional[List[Tuple[str, str]]]:
+        try:
+            schema_dict = json.loads(dataset.schema)
+        except json.JSONDecodeError:
+            self.report.warning(
+                title="Failed to load dataset schema",
+                message="Schema metadata will be missing due to a JSON parsing error.",
+                context=f"Dataset: {dataset.name}, Schema: {dataset.schema}",
+            )
+            return None
+
+        if "mlflow_colspec" in schema_dict:
+            try:
+                return [
+                    (field["name"], field["type"])
+                    for field in schema_dict["mlflow_colspec"]
+                ]
+            except (KeyError, TypeError):
+                return None
+        # If the schema is not formatted, return None
+        return None
+
+    def _get_external_dataset_urn(self, platform: str, dataset_name: str) -> str:
+        """
+        Get the URN for an external dataset.
+        Args:
+            platform: The platform of the external dataset (e.g., 's3', 'bigquery')
+            dataset: The MLflow dataset
+        Returns:
+            str: The URN of the external dataset
+        """
+        return str(DatasetUrn(platform=platform, name=dataset_name))
+
+    def _get_dataset_input_workunits(self, run: Run) -> Iterable[MetadataWorkUnit]:
+        """
+        Generate workunits for dataset inputs in a run.
+
+        For each dataset input:
+        1. If source type is 'local' or 'code':
+           - Create a local dataset reference
+        2. Otherwise:
+           - If materialization is enabled:
+             - Create a hosted dataset and a dataset reference with upstream
+           - If materialization is not enabled:
+             - Create a dataset reference and add upstream if dataset exists
+        3. Add all dataset references as upstreams for the run
+        """
+        run_urn = DataProcessInstance(
+            id=run.info.run_id,
+            orchestrator=self.platform,
+        ).urn
+
+        dataset_reference_urns = []
+
+        for dataset_input in run.inputs.dataset_inputs:
+            dataset = dataset_input.dataset
+            source_type = dataset.source_type
+            dataset_tags = {k[1]: v[1] for k, v in dataset_input.tags}
+
+            # Prepare dataset properties
+            custom_properties = dataset_tags
+            formatted_schema = self._get_dataset_schema(dataset)
+            if formatted_schema is None:
+                custom_properties["schema"] = dataset.schema
+
+            # Handle local/code datasets
+            if source_type in ("local", "code"):
+                local_dataset = Dataset(
+                    platform=self.platform,
+                    name=dataset.name,
+                    schema=formatted_schema,
+                    custom_properties=custom_properties,
+                )
+                yield from local_dataset.as_workunits()
+                dataset_reference_urns.append(local_dataset.urn)
+                continue
+
+            # Handle hosted datasets
+            formatted_platform = self._get_dataset_platform_from_source_type(
+                source_type
+            )
+
+            # Validate platform if materialization is enabled
+            if self.config.materialize_dataset_inputs:
+                if not formatted_platform:
+                    self.report.failure(
+                        title="Unable to materialize dataset inputs",
+                        message=f"No mapping dataPlatform found for dataset input source type '{source_type}'",
+                        context=f"please add `materialize_dataset_inputs.source_mapping_to_platform` in config "
+                        f"(e.g. '{source_type}': 'snowflake')",
+                    )
+                    continue
+                # Create hosted dataset
+                hosted_dataset = Dataset(
+                    platform=formatted_platform,
+                    name=dataset.name,
+                    schema=formatted_schema,
+                    custom_properties=dataset_tags,
+                )
+                yield from hosted_dataset.as_workunits()
+
+            # Create dataset reference with upstream
+            hosted_dataset_reference = Dataset(
+                platform=self.platform,
+                name=dataset.name,
+                schema=formatted_schema,
+                custom_properties=dataset_tags,
+                upstreams=UpstreamLineageClass(
+                    upstreams=[
+                        UpstreamClass(
+                            self._get_external_dataset_urn(
+                                formatted_platform, dataset.name
+                            ),
+                            type="COPY",
+                        )
+                    ]
+                )
+                if formatted_platform
+                else None,
+            )
+            dataset_reference_urns.append(hosted_dataset_reference.urn)
+            yield from hosted_dataset_reference.as_workunits()
+
+        # Add dataset references as upstreams for the run
+        if dataset_reference_urns:
+            input_edges = [
+                EdgeClass(destinationUrn=str(dataset_ref_urn))
+                for dataset_ref_urn in dataset_reference_urns
+            ]
+            yield MetadataChangeProposalWrapper(
+                entityUrn=str(run_urn),
+                aspect=DataProcessInstanceInputClass(inputs=[], inputEdges=input_edges),
+            ).as_workunit()
+
+    def _get_dataset_platform_from_source_type(self, source_type: str) -> Optional[str]:
+        """
+        Map MLflow source type to DataHub platform.
+
+        Priority:
+        1. User-provided mapping in config
+        2. Internal mapping
+        3. Direct platform match from list of supported platforms
+        """
+        source_type = source_type.lower()
+
+        # User-provided mapping
+        platform = self._get_platform_from_user_mapping(source_type)
+        if platform:
+            return platform
+
+        # Internal mapping
+        if source_type == "gs":
+            return "gcs"
+
+        # Check direct platform match
+        if self._is_valid_platform(source_type):
+            return source_type
+
+        return None
+
+    def _get_platform_from_user_mapping(self, source_type: str) -> Optional[str]:
+        """
+        Get platform from user-provided mapping in config.
+        Returns None if mapping is invalid or platform is not supported.
+        """
+        source_mapping = self.config.source_mapping_to_platform
+        if not source_mapping:
+            return None
+
+        platform = source_mapping.get(source_type)
+        if not platform:
+            return None
+
+        return platform
 
     def _get_run_workunits(
         self, experiment: Experiment, run: Run
@@ -658,6 +845,10 @@ class MLflowSource(StatefulIngestionSourceBase):
             aspect=global_tags,
         )
         return wu
+
+    def _is_valid_platform(self, platform: Optional[str]) -> bool:
+        """Check if platform is registered as a source plugin"""
+        return platform in KNOWN_VALID_PLATFORM_NAMES
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "MLflowSource":

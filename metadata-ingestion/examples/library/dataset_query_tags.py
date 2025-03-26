@@ -1,21 +1,9 @@
-from datahub.emitter.mce_builder import make_dataset_urn
+from datahub.sdk import DataHubClient, DatasetUrn
 
-# read-modify-write requires access to the DataHubGraph (RestEmitter is not enough)
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+client = DataHubClient.from_env()
 
-# Imports for metadata model classes
-from datahub.metadata.schema_classes import GlobalTagsClass
-
-dataset_urn = make_dataset_urn(platform="hive", name="SampleHiveDataset", env="PROD")
-
-gms_endpoint = "http://localhost:8080"
-graph = DataHubGraph(DatahubClientConfig(server=gms_endpoint))
-
-# Query multiple aspects from entity
-result = graph.get_aspects_for_entity(
-    entity_urn=dataset_urn,
-    aspects=["globalTags"],
-    aspect_types=[GlobalTagsClass],
+dataset = client.entities.get(
+    DatasetUrn(platform="hive", name="realestate_db.sales", env="PROD")
 )
 
-print(result)
+print(dataset.tags)
