@@ -8,7 +8,7 @@ module.exports = {
         'plugin:vitest/recommended',
         'prettier',
     ],
-    plugins: ['@typescript-eslint', 'react-refresh'],
+    plugins: ['@typescript-eslint', '@stylistic/js', 'react-refresh'],
     parserOptions: {
         ecmaVersion: 2020, // Allows for the parsing of modern ECMAScript features
         sourceType: 'module', // Allows for the use of imports
@@ -19,6 +19,7 @@ module.exports = {
     },
     rules: {
         '@typescript-eslint/no-explicit-any': 'off',
+        '@stylistic/js/comma-dangle': ['error', 'always-multiline'],
         'arrow-body-style': 'off',
         'class-methods-use-this': 'off',
         'import/no-extraneous-dependencies': 'off',

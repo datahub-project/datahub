@@ -22,7 +22,7 @@ type IncidentDetailDrawerProps = {
 
 export const IncidentDetailDrawer = ({ mode, onCancel, onSubmit, incident, entity }: IncidentDetailDrawerProps) => {
     const [isEditView, setIsEditView] = useState<boolean>(false);
-    const showEditor = isEditView || mode === IncidentAction.ADD;
+    const showEditor = isEditView || mode === IncidentAction.CREATE;
     const modalClosePopup = () => {
         if (showEditor) {
             Modal.confirm({

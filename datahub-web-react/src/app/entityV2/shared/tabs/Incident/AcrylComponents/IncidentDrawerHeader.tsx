@@ -60,7 +60,7 @@ export const IncidentDrawerHeader = ({
     return (
         <StyledHeader>
             <StyledHeaderTitleContainer>
-                <StyledTitle data-testid="drawer-header-title">{mode === IncidentAction.ADD ? 'Create New Incident' : data?.title}</StyledTitle>
+                <StyledTitle data-testid="drawer-header-title">{mode === IncidentAction.CREATE ? 'Create New Incident' : data?.title}</StyledTitle>
                 {platform && (
                     <ForPlatformWrapper>
                         <PlatformIcon platform={platform} size={16} styles={{ marginRight: 4 }} />
@@ -69,7 +69,7 @@ export const IncidentDrawerHeader = ({
                 )}
             </StyledHeaderTitleContainer>
             <StyledHeaderActions>
-                {mode === IncidentAction.VIEW && isEditActive === false && (
+                {mode === IncidentAction.EDIT && isEditActive === false && (
                     <>
                         <Tooltip2 title={canEditIncidents ? 'Edit Incident' : noPermissionsMessage}>
                             <EditIcon
