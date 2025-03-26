@@ -21,7 +21,7 @@ export default function TopUsersFacepile({ users, max, checkExistence = true }: 
             {usersList?.map((user) => {
                 const userName = entityRegistry.getDisplayName(EntityType.CorpUser, user);
                 return (
-                    <Tooltip title={userName} showArrow={false}>
+                    <Tooltip key={user.urn} title={userName} showArrow={false}>
                         <ActorAvatar
                             size={26}
                             name={userName}

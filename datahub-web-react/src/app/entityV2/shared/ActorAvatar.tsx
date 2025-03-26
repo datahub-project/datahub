@@ -1,7 +1,7 @@
 import { Avatar } from 'antd';
 import { Tooltip } from '@components';
 import { TooltipPlacement } from 'antd/lib/tooltip';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
@@ -54,6 +54,27 @@ export default function ActorAvatar({
 }: Props) {
     const history = useHistory();
     const isEmbeddedProfile = useIsEmbeddedProfile();
+    const [imgLoaded, setImgLoaded] = useState(false);
+
+    // Preload the image when photoUrl changes
+    useEffect(() => {
+        setImgLoaded(false);
+        let img;
+
+        if (photoUrl && photoUrl !== '') {
+            img = new Image();
+            img.onload = () => setImgLoaded(true);
+            img.onerror = () => setImgLoaded(false);
+            img.src = photoUrl;
+        }
+
+        return () => {
+            if (img) {
+                img.onload = null;
+                img.onerror = null;
+            }
+        };
+    }, [photoUrl]);
 
     const navigate = () => {
         if (url) {
@@ -81,7 +102,7 @@ export default function ActorAvatar({
         avatarWithInitial
     );
     const avatar =
-        photoUrl && photoUrl !== '' ? (
+        photoUrl && photoUrl !== '' && imgLoaded ? (
             <AvatarStyled onClick={navigate} src={photoUrl} style={style} size={size} />
         ) : (
             avatarWithDefault

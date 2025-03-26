@@ -6,9 +6,10 @@ import ActionsColumn from './ActionsColumn';
 
 interface Props {
     onActionRequestUpdate: () => void;
+    showPendingView?: boolean;
 }
 
-export const useGetColumns = ({ onActionRequestUpdate }: Props) => {
+export const useGetColumns = ({ onActionRequestUpdate, showPendingView }: Props) => {
     const columns = [
         {
             title: 'Content',
@@ -45,7 +46,13 @@ export const useGetColumns = ({ onActionRequestUpdate }: Props) => {
             title: '',
             key: 'actions',
             render: (record) => {
-                return <ActionsColumn actionRequest={record} onUpdate={onActionRequestUpdate} />;
+                return (
+                    <ActionsColumn
+                        actionRequest={record}
+                        onUpdate={onActionRequestUpdate}
+                        showPendingView={showPendingView}
+                    />
+                );
             },
             width: '10%',
             alignment: 'right' as AlignmentOptions,

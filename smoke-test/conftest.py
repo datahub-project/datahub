@@ -71,8 +71,8 @@ def get_batch_start_end(num_tests: int) -> Tuple[int, int]:
     batch_end = batch_start + batch_size
     # We must have exactly as many batches as specified by BATCH_COUNT.
     if (
-        num_tests - batch_end < batch_size
-    ):  # We must have exactly as many batches as specified by BATCH_COUNT, put the remaining in the last batch.
+            batch_number == batch_count - 1  # this is the last batch
+    ):  # If ths is last batch put any remaining tests in the last batch.
         batch_end = num_tests
 
     if batch_count > 0:

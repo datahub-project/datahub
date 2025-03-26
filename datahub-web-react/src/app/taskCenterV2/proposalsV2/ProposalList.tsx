@@ -6,11 +6,16 @@ import { SearchBar, Pagination } from '@src/alchemy-components';
 import FilterSection from '@src/app/sharedV2/filters/FilterSection';
 import usePagination from '@src/app/sharedV2/pagination/usePagination';
 import ProposalsTable from './proposalsTable/ProposalsTable';
-import { ActionRequest, ActionRequestAssignee, EntityType } from '../../../types.generated';
+import {
+    ActionRequest,
+    ActionRequestAssignee,
+    EntityType,
+    FacetFilterInput,
+    FilterOperator,
+} from '../../../types.generated';
 import { useListActionRequestsQuery } from '../../../graphql/actionRequest.generated';
 import ActionsBar from './ActionsBar';
 import { ACTION_REQUEST_DEFAULT_FACETS, PROPOSALS_FILTER_LABELS } from '../utils/constants';
-import { MY_PROPOSALS_GROUP_NAME } from './utils';
 import useGetActionRequestsQueryInputs from './useGetActionRequestsQueryInputs';
 
 const DEFAULT_PAGE_SIZE = 25;
@@ -50,29 +55,47 @@ type Props = {
     title?: string;
     assignee?: ActionRequestAssignee;
     onProposalClick?: (record: ActionRequest) => void;
-    groupName?: string;
-    userUrn?: string;
     resourceUrn?: string;
     showFilters?: boolean;
     useUrlParams?: boolean;
     height?: string;
+    createdBy?: string;
+    filterFacets?: Array<string>;
+    getAllActionRequests?: boolean;
+    showPendingView?: boolean;
 };
 
 export const ProposalList = ({
     title,
     assignee,
     onProposalClick,
-    groupName,
-    userUrn,
     resourceUrn,
     showFilters = false,
-    useUrlParams = true,
+    useUrlParams = false,
     height,
+    createdBy,
+    filterFacets,
+    getAllActionRequests = false,
+    showPendingView = false,
 }: Props) => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const [selectedUrns, setSelectedUrns] = useState<string[]>([]);
     const { start, pageSize, setPageSize, page, setPage } = usePagination(DEFAULT_PAGE_SIZE);
-    const { filters, orFilters, onChangeFilters } = useGetActionRequestsQueryInputs({ useUrlParams });
+    const defaultFilters: Array<FacetFilterInput> = useMemo(
+        () =>
+            createdBy
+                ? [
+                      {
+                          field: 'createdBy',
+                          condition: FilterOperator.Equal,
+                          values: [createdBy],
+                          negated: false,
+                      },
+                  ]
+                : [],
+        [createdBy],
+    );
+    const { filters, orFilters, onChangeFilters } = useGetActionRequestsQueryInputs({ useUrlParams, defaultFilters });
 
     const { loading, error, data, refetch } = useListActionRequestsQuery({
         variables: {
@@ -82,25 +105,20 @@ export const ProposalList = ({
                 orFilters,
                 assignee,
                 resourceUrn,
-                // facets can be converted to prop if needed.
-                facets: ACTION_REQUEST_DEFAULT_FACETS,
+                facets: filterFacets || ACTION_REQUEST_DEFAULT_FACETS,
+                allActionRequests: getAllActionRequests,
             },
         },
-        fetchPolicy: 'no-cache',
+        fetchPolicy: 'cache-and-network',
     });
 
-    // TODO: Remove this filtering if we are passing facets to the API
+    // Filtering Action Request related facets
     const facets =
         data?.listActionRequests?.facets?.filter((facet) =>
-            ACTION_REQUEST_DEFAULT_FACETS.includes(facet?.field || ''),
+            (filterFacets || ACTION_REQUEST_DEFAULT_FACETS).includes(facet?.field || ''),
         ) || [];
 
-    let actionRequests = useMemo(() => data?.listActionRequests?.actionRequests || [], [data]);
-
-    // TODO: Should we do fetch by userUrn instead? We have to reset the filters anyway
-    if (groupName === MY_PROPOSALS_GROUP_NAME) {
-        actionRequests = actionRequests.filter((request) => request.created.actor?.urn === userUrn);
-    }
+    const actionRequests = useMemo(() => data?.listActionRequests?.actionRequests || [], [data]);
     const totalActionRequests = data?.listActionRequests?.total || 0;
 
     const onActionRequestUpdate = () => {
@@ -136,6 +154,7 @@ export const ProposalList = ({
                     onActionRequestUpdate={onActionRequestUpdate}
                     selectedKeys={selectedUrns}
                     setSelectedKeys={setSelectedUrns}
+                    showPendingView={showPendingView}
                 />
                 <FooterContainer>
                     {selectedUrns.length > 0 && (

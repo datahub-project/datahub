@@ -130,7 +130,7 @@ export default function SidebarCollapsibleHeader({ currentTab, headerDropdownIte
                     {showProposalsModal && (
                         // TODO: Add Proposals count Badge in the Modal title
                         <Modal buttons={[]} width="90%" title="Proposals" onCancel={() => setShowProposalsModal(false)}>
-                            <ProposalList resourceUrn={urn} useUrlParams={false} height="700px" />
+                            <ProposalList resourceUrn={urn} height="700px" />
                         </Modal>
                     )}
                 </Title>

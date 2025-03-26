@@ -113,7 +113,7 @@ task cypressTest(type: Exec, dependsOn: [installDev, ':metadata-ingestion:instal
 
     environment 'RUN_QUICKSTART', 'false'
     environment 'TEST_STRATEGY', 'cypress'
-    environment 'BATCH_COUNT', 11
+    environment 'BATCH_COUNT', 5 //Match CI
     environment 'BATCH_NUMBER', batchNumber
 
     workingDir = project.projectDir
