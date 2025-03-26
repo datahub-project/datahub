@@ -47,7 +47,7 @@ export const IncidentTitleContainer = ({
                 <IncidentListTitle>Incidents</IncidentListTitle>
                 <SubTitle>View and manage ongoing data incidents for this asset</SubTitle>
             </div>
-            <Tooltip showArrow={false} title={(!canEditIncidents && noPermissionsMessage) || null}>
+            <Tooltip showArrow={false} title={canEditIncidents ? 'Create Incident' : noPermissionsMessage}>
                 <CreateButton
                     onClick={() => canEditIncidents && setShowIncidentBuilder(true)}
                     disabled={!canEditIncidents}

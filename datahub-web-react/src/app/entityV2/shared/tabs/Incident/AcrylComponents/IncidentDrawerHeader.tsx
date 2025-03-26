@@ -4,23 +4,23 @@ import styled from 'styled-components';
 import { Tooltip2 } from '@src/alchemy-components/components/Tooltip2';
 import { EntityPrivileges } from '@src/types.generated';
 import { useIncidentURNCopyLink } from '../hooks';
-import { IncidentAction } from '../constant';
+import { IncidentAction, noPermissionsMessage } from '../constant';
 import { IncidentTableRow } from '../types';
 import { StyledHeader, StyledHeaderActions, StyledTitle } from './styledComponents';
 
-const EditButton = styled(PencilSimpleLine)`
+const EditIcon = styled(PencilSimpleLine)`
     :hover {
         cursor: pointer;
     }
 `;
 
-const CloseButton = styled(X)`
+const CloseIcon = styled(X)`
     :hover {
         cursor: pointer;
     }
 `;
 
-const LinkButton = styled(LinkIcon)`
+const CopyLinkIcon = styled(LinkIcon)`
     :hover {
         cursor: pointer;
     }
@@ -53,19 +53,20 @@ export const IncidentDrawerHeader = ({
             <StyledHeaderActions>
                 {mode === IncidentAction.VIEW && isEditActive === false && (
                     <>
-                        <Tooltip2 title="Edit Incident">
-                            <EditButton
+                        <Tooltip2 title={canEditIncidents ? 'Edit Incident' : noPermissionsMessage}>
+                            <EditIcon
                                 size={20}
                                 onClick={() => canEditIncidents && setIsEditActive(!isEditActive)}
                                 data-testid="edit-incident-icon"
+                                aria-disabled={!canEditIncidents}
                             />
                         </Tooltip2>
                         <Tooltip2 title="Copy Link">
-                            <LinkButton size={20} onClick={handleIncidentLinkCopy} />
+                            <CopyLinkIcon size={20} onClick={handleIncidentLinkCopy} />
                         </Tooltip2>
                     </>
                 )}
-                <CloseButton size={20} onClick={() => onClose?.()} data-testid="incident-drawer-close-button" />
+                <CloseIcon size={20} onClick={() => onClose?.()} data-testid="incident-drawer-close-button" />
             </StyledHeaderActions>
         </StyledHeader>
     );
