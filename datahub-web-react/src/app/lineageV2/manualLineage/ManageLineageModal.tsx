@@ -6,7 +6,6 @@ import ClickOutside from '@src/app/shared/ClickOutside';
 import { Modal as AntModal, message } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
-import { Button } from '@src/alchemy-components';
 import { toTitleCase } from '../../../graphql-mock/helper';
 import { useUpdateLineageMutation } from '../../../graphql/mutations.generated';
 import { Entity, EntityType, LineageDirection } from '../../../types.generated';
