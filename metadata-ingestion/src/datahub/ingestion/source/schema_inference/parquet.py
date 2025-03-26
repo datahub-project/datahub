@@ -64,6 +64,7 @@ pyarrow_type_map: Dict[Callable[[Any], bool], Type] = {
     pyarrow.types.is_dictionary: RecordTypeClass,
 }
 
+
 def get_column_metadata(schema_dict, column_name):
     """
     Get metadata for a specific column from the schema dictionary.
@@ -77,8 +78,8 @@ def get_column_metadata(schema_dict, column_name):
     """
     # Iterate through all columns in the schema
     for _, column_info in schema_dict.items():
-        if column_info.get('name') == column_name:
-            return column_info.get('metadata', {})
+        if column_info.get("name") == column_name:
+            return column_info.get("metadata", {})
 
     # Return None if column not found
     return None
@@ -94,9 +95,7 @@ def parse_metadata(schema_metadata: bytes) -> Dict:
     Returns:
         Dict: Parsed metadata fields dictionary
     """
-    return (pandas.read_json(schema_metadata.decode("utf-8"))
-            .to_dict()
-            ["fields"])
+    return pandas.read_json(schema_metadata.decode("utf-8")).to_dict()["fields"]
 
 
 def map_pyarrow_type(pyarrow_type: Type) -> Type:
@@ -116,7 +115,9 @@ class ParquetInferrer(SchemaInferenceBase):
 
         fields: List[SchemaField] = []
 
-        meta_data_fields = parse_metadata(schema.metadata[b'org.apache.spark.sql.parquet.row.metadata'])
+        meta_data_fields = parse_metadata(
+            schema.metadata[b"org.apache.spark.sql.parquet.row.metadata"]
+        )
 
         for name, pyarrow_type in zip(schema.names, schema.types):
             mapped_type = map_pyarrow_type(pyarrow_type)
@@ -130,7 +131,7 @@ class ParquetInferrer(SchemaInferenceBase):
                 type=SchemaFieldDataType(mapped_type()),
                 nativeDataType=str(pyarrow_type),
                 recursive=False,
-                description=description
+                description=description,
             )
 
             fields.append(field)

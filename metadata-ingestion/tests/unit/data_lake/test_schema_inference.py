@@ -51,6 +51,7 @@ expected_field_descriptions = [
     "A column containing string values",
 ]
 
+
 def assert_field_types_match(
     fields: List[SchemaField], expected_field_types: List[Type]
 ) -> None:
