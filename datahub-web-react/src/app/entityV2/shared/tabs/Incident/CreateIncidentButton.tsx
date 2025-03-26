@@ -12,13 +12,13 @@ import { CreateIncidentButtonProps, EntityStagedForIncident } from './types';
 import { CreateButton, SiblingSelectionDropdownLink } from './styledComponents';
 
 export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEntity }: CreateIncidentButtonProps) => {
-    const { entityData, urn, entityType } = useEntityData();
+    const { entityData, urn: entityUrn, entityType: dataEntityType } = useEntityData();
 
     const isHideSiblingMode = useIsSeparateSiblingsMode();
 
     const isSiblingMode = !!entityData?.siblingsSearch?.total && !isHideSiblingMode;
 
-    const siblingOptionsToAuthorOn = useSiblingOptionsForIncidentBuilder(entityData, urn, entityType) ?? [];
+    const siblingOptionsToAuthorOn = useSiblingOptionsForIncidentBuilder(entityData, entityUrn, dataEntityType) ?? [];
 
     const noPermissionsMessage = 'You do not have permission to edit incidents for this asset.';
 
