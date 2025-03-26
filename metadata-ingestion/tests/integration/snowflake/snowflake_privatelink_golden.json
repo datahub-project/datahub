@@ -4510,6 +4510,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "CREATE VIEW view_1 AS\nSELECT\n  *\nFROM table_1",
                 "language": "SQL"
@@ -4755,7 +4756,7 @@
             "transforms": [
                 {
                     "queryStatement": {
-                        "value": "CREATE OR REPLACE PROCEDURE my_procedure(arg1 VARCHAR, arg2 VARCHAR) RETURNS VARCHAR AS $$ BEGIN RETURN 'Hello World'; END;",
+                        "value": "BEGIN RETURN 'Hello World'; END",
                         "language": "SQL"
                     }
                 }
@@ -4764,7 +4765,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-tcd1vn",
+        "runId": "snowflake-2022_06_07-17_00_00-hyhd0l",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4879,7 +4880,7 @@
             "transforms": [
                 {
                     "queryStatement": {
-                        "value": "CREATE OR REPLACE PROCEDURE my_procedure(arg1 VARCHAR) RETURNS VARCHAR AS $$ BEGIN RETURN 'Hello World'; END;",
+                        "value": "BEGIN RETURN 'Hello World'; END",
                         "language": "SQL"
                     }
                 }
@@ -4888,7 +4889,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-tcd1vn",
+        "runId": "snowflake-2022_06_07-17_00_00-hyhd0l",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5142,6 +5143,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "CREATE VIEW view_2 AS\nSELECT\n  *\nFROM table_2",
                 "language": "SQL"

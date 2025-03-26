@@ -12,25 +12,25 @@ from tests.test_helpers import mce_helpers
 
 PROCEDURE_SQLS_DIR = pathlib.Path(__file__).parent / "procedures"
 PROCEDURES_GOLDEN_DIR = pathlib.Path(__file__).parent / "golden_files"
+platforms = [folder.name for folder in PROCEDURE_SQLS_DIR.iterdir() if folder.is_dir()]
 procedure_sqls = [
-    sql_file.name for sql_file in PROCEDURE_SQLS_DIR.iterdir() if sql_file.is_file()
+    (platform, sql_file.name, f"{platform}/{sql_file.name}")
+    for platform in platforms
+    for sql_file in PROCEDURE_SQLS_DIR.glob(f"{platform}/*.sql")
 ]
 
 
-@pytest.mark.parametrize("procedure_sql_file", procedure_sqls)
+@pytest.mark.parametrize("platform, sql_file_name, procedure_sql_file", procedure_sqls)
 @pytest.mark.integration
-def test_stored_procedure_lineage(procedure_sql_file: str) -> None:
+def test_stored_procedure_lineage(
+    platform: str, sql_file_name: str, procedure_sql_file: str
+) -> None:
     sql_file_path = PROCEDURE_SQLS_DIR / procedure_sql_file
     procedure_code = sql_file_path.read_text()
 
-    # Procedure file is named as <platform>_<db>.<schema>.<procedure_name>
-    platform_split = procedure_sql_file.split("_", 1)
-    platform = platform_split[0]
-
-    splits = platform_split[1].split(".")
-    db = splits[0]
-    schema = splits[1]
-    name = splits[2]
+    name = sql_file_name
+    db = "default_db"
+    schema = "default_schema"
 
     procedure = BaseProcedure(
         name=name,

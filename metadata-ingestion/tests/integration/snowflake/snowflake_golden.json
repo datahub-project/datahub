@@ -4451,7 +4451,7 @@
             "transforms": [
                 {
                     "queryStatement": {
-                        "value": "CREATE OR REPLACE PROCEDURE my_procedure(arg1 VARCHAR, arg2 VARCHAR) RETURNS VARCHAR AS $$ BEGIN RETURN 'Hello World'; END;",
+                        "value": "BEGIN RETURN 'Hello World'; END",
                         "language": "SQL"
                     }
                 }
@@ -4460,7 +4460,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_03_24-20_29_40-4vdgrh",
+        "runId": "snowflake-2025_03_26-18_25_36-8s62oa",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4552,7 +4552,7 @@
             "transforms": [
                 {
                     "queryStatement": {
-                        "value": "CREATE OR REPLACE PROCEDURE my_procedure(arg1 VARCHAR) RETURNS VARCHAR AS $$ BEGIN RETURN 'Hello World'; END;",
+                        "value": "BEGIN RETURN 'Hello World'; END",
                         "language": "SQL"
                     }
                 }
@@ -4561,7 +4561,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_03_24-20_29_40-4vdgrh",
+        "runId": "snowflake-2025_03_26-18_25_36-8s62oa",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5136,6 +5136,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "INSERT INTO TEST_DB.TEST_SCHEMA.TABLE_1\nSELECT\n  *\nFROM TEST_DB.TEST_SCHEMA.TABLE_2",
                 "language": "SQL"
@@ -5391,6 +5392,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "INSERT INTO TEST_DB.TEST_SCHEMA.TABLE_10\nSELECT\n  *\nFROM TEST_DB.TEST_SCHEMA.TABLE_2",
                 "language": "SQL"
@@ -5640,6 +5642,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "INSERT INTO TEST_DB.TEST_SCHEMA.TABLE_2\nSELECT\n  *\nFROM TEST_DB.TEST_SCHEMA.TABLE_2",
                 "language": "SQL"
@@ -5886,6 +5889,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "INSERT INTO TEST_DB.TEST_SCHEMA.TABLE_3\nSELECT\n  *\nFROM TEST_DB.TEST_SCHEMA.TABLE_2",
                 "language": "SQL"
@@ -6135,6 +6139,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "INSERT INTO TEST_DB.TEST_SCHEMA.TABLE_4\nSELECT\n  *\nFROM TEST_DB.TEST_SCHEMA.TABLE_2",
                 "language": "SQL"
@@ -6384,6 +6389,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "INSERT INTO TEST_DB.TEST_SCHEMA.TABLE_5\nSELECT\n  *\nFROM TEST_DB.TEST_SCHEMA.TABLE_2",
                 "language": "SQL"
@@ -6633,6 +6639,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "INSERT INTO TEST_DB.TEST_SCHEMA.TABLE_6\nSELECT\n  *\nFROM TEST_DB.TEST_SCHEMA.TABLE_2",
                 "language": "SQL"
@@ -6882,6 +6889,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "INSERT INTO TEST_DB.TEST_SCHEMA.TABLE_7\nSELECT\n  *\nFROM TEST_DB.TEST_SCHEMA.TABLE_2",
                 "language": "SQL"
@@ -7131,6 +7139,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "INSERT INTO TEST_DB.TEST_SCHEMA.TABLE_8\nSELECT\n  *\nFROM TEST_DB.TEST_SCHEMA.TABLE_2",
                 "language": "SQL"
@@ -7380,6 +7389,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "INSERT INTO TEST_DB.TEST_SCHEMA.TABLE_9\nSELECT\n  *\nFROM TEST_DB.TEST_SCHEMA.TABLE_2",
                 "language": "SQL"
@@ -7629,6 +7639,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "CREATE VIEW view_1 AS\nSELECT\n  *\nFROM table_1",
                 "language": "SQL"
@@ -7908,6 +7919,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "CREATE VIEW view_2 AS\nSELECT\n  *\nFROM table_2",
                 "language": "SQL"
