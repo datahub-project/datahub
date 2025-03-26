@@ -46,6 +46,8 @@ export default function ViewInPlatform({
         }));
     }, [externalLinks, platformLinks]);
 
+    if (linkItems.length === 0) return null;
+
     return (
         <Links $shouldTakeAllAvailableSpace={shouldFillAllAvailableSpace}>
             <OverflowList
