@@ -792,3 +792,95 @@ class TestMapper(unittest.TestCase):
         assert (
             dashboard_urn.urn() == "urn:li:dashboard:(hex,test-platform.dashboard_name)"
         )
+
+    def test_dataset_edges(self):
+        from datahub.metadata.schema_classes import EdgeClass
+        from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
+
+        mapper = Mapper(
+            workspace_name=self.workspace_name,
+        )
+
+        # Test with empty list
+        edges = mapper._dataset_edges([])
+        assert not edges
+
+        # Test with only DatasetUrns
+        dataset_urn1 = DatasetUrn(
+            platform="snowflake",
+            name="test-dataset-1",
+        )
+        dataset_urn2 = DatasetUrn(
+            platform="bigquery",
+            name="test-dataset-2",
+        )
+
+        edges = mapper._dataset_edges([dataset_urn1, dataset_urn2])
+        assert edges and len(edges) == 2
+        assert all(isinstance(edge, EdgeClass) for edge in edges)
+        assert edges[0].destinationUrn == dataset_urn1.urn()
+        assert edges[1].destinationUrn == dataset_urn2.urn()
+
+        # Test with mixed DatasetUrns and SchemaFieldUrns - should filter out SchemaFieldUrns
+        schema_field_urn = SchemaFieldUrn(
+            parent=dataset_urn1,
+            field_path="test.field.path",
+        )
+
+        edges = mapper._dataset_edges([dataset_urn1, schema_field_urn, dataset_urn2])
+        assert edges and len(edges) == 2  # SchemaFieldUrn should be filtered out
+        assert edges[0].destinationUrn == dataset_urn1.urn()
+        assert edges[1].destinationUrn == dataset_urn2.urn()
+
+    def test_map_project_with_upstream_datasets(self):
+        from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
+
+        # Create a project with upstream datasets
+        dataset_urn1 = DatasetUrn(
+            platform="snowflake",
+            name="test-dataset-1",
+        )
+        dataset_urn2 = DatasetUrn(
+            platform="bigquery",
+            name="test-dataset-2",
+        )
+        schema_field_urn = SchemaFieldUrn(
+            parent=dataset_urn1,
+            field_path="test.field.path",
+        )
+
+        project = Project(
+            id="uuid1",
+            title="Test Project With Lineage",
+            description="A test project with upstream datasets",
+            created_at=self.created_at,
+            last_edited_at=self.last_edited_at,
+            status=Status(name="Published"),
+            creator=Owner(email="creator@example.com"),
+            owner=Owner(email="owner@example.com"),
+            upstream=[dataset_urn1, schema_field_urn, dataset_urn2],
+        )
+
+        mapper = Mapper(
+            workspace_name=self.workspace_name,
+            patch_metadata=False,
+        )
+
+        work_units = list(mapper.map_project(project))
+
+        dashboard_info_wus = [
+            wu for wu in work_units if wu.get_aspect_of_type(DashboardInfoClass)
+        ]
+        assert len(dashboard_info_wus) == 1
+        dashboard_info = dashboard_info_wus[0].get_aspect_of_type(DashboardInfoClass)
+
+        # Verify dataset edges
+        assert (
+            dashboard_info
+            and dashboard_info.datasetEdges
+            and len(dashboard_info.datasetEdges) == 2
+        )
+        edge_urns = [edge.destinationUrn for edge in dashboard_info.datasetEdges]
+        assert dataset_urn1.urn() in edge_urns
+        assert dataset_urn2.urn() in edge_urns
+        assert schema_field_urn.urn() not in edge_urns  # Should be filtered out

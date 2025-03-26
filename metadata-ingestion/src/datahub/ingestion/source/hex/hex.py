@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional
 
 from pydantic import Field, SecretStr
@@ -25,6 +26,7 @@ from datahub.ingestion.source.hex.constants import (
     HEX_API_PAGE_SIZE_DEFAULT,
     HEX_PLATFORM_NAME,
 )
+from datahub.ingestion.source.hex.datahub import HexQueryFetcher
 from datahub.ingestion.source.hex.mapper import Mapper
 from datahub.ingestion.source.hex.model import Component, Project
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -34,9 +36,10 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
-    StatefulIngestionReport,
     StatefulIngestionSourceBase,
 )
+from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
+from datahub.sdk.main_client import DataHubClient
 
 
 class HexSourceConfig(
@@ -93,9 +96,14 @@ class HexSourceConfig(
         default=True,
         description="Set ownership identity from owner/creator email",
     )
+    include_lineage: bool = Field(
+        default=True,
+        description="Include Hex lineage, being fetched from DataHub",
+    )
 
 
-class HexReport(StaleEntityRemovalSourceReport, HexApiReport):
+@dataclass
+class HexReport(StaleEntityRemovalSourceReport, HexApiReport, IngestionStageReport):
     pass
 
 
@@ -110,7 +118,7 @@ class HexSource(StatefulIngestionSourceBase):
     def __init__(self, config: HexSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.source_config = config
-        self.report = HexReport()
+        self.report: HexReport = HexReport()
         self.platform = HEX_PLATFORM_NAME
         self.hex_api = HexApi(
             report=self.report,
@@ -129,6 +137,18 @@ class HexSource(StatefulIngestionSourceBase):
             categories_as_tags=self.source_config.categories_as_tags,
             set_ownership_from_email=self.source_config.set_ownership_from_email,
         )
+        self.project_registry: Dict[str, Project] = {}
+        self.component_registry: Dict[str, Component] = {}
+
+        self.datahub_client: Optional[DataHubClient] = None
+        self.query_fetcher: Optional[HexQueryFetcher] = None
+        if self.source_config.include_lineage:
+            assert ctx.graph, "Graph is required for lineage ingestion"
+            self.datahub_client = DataHubClient(graph=ctx.graph)
+            self.query_fetcher = HexQueryFetcher(
+                datahub_client=self.datahub_client,
+                workspace_name=self.source_config.workspace_name,
+            )
 
     @classmethod
     def create(cls, config_dict: Dict[str, Any], ctx: PipelineContext) -> "HexSource":
@@ -143,25 +163,45 @@ class HexSource(StatefulIngestionSourceBase):
             ).workunit_processor,
         ]
 
-    def get_report(self) -> StatefulIngestionReport:
+    def get_report(self) -> HexReport:
         return self.report
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        yield from self.mapper.map_workspace()
-
-        for project_or_component in self.hex_api.fetch_projects():
-            if isinstance(project_or_component, Project):
-                if self.source_config.project_title_pattern.allowed(
-                    project_or_component.title
-                ):
-                    yield from self.mapper.map_project(project=project_or_component)
-            elif isinstance(project_or_component, Component):
-                if (
-                    self.source_config.include_components
-                    and self.source_config.component_title_pattern.allowed(
+        with self.report.new_stage("Fetch Hex assets from Hex API"):
+            for project_or_component in self.hex_api.fetch_projects():
+                if isinstance(project_or_component, Project):
+                    if self.source_config.project_title_pattern.allowed(
                         project_or_component.title
-                    )
-                ):
-                    yield from self.mapper.map_component(component=project_or_component)
-            else:
-                assert_never(project_or_component)
+                    ):
+                        self.project_registry[project_or_component.id] = (
+                            project_or_component
+                        )
+                elif isinstance(project_or_component, Component):
+                    if (
+                        self.source_config.include_components
+                        and self.source_config.component_title_pattern.allowed(
+                            project_or_component.title
+                        )
+                    ):
+                        self.component_registry[project_or_component.id] = (
+                            project_or_component
+                        )
+                else:
+                    assert_never(project_or_component)
+
+        if self.source_config.include_lineage:
+            assert self.datahub_client and self.query_fetcher
+
+            with self.report.new_stage("Fetch Hex lineage from DataHub"):
+                for query in self.query_fetcher.fetch():
+                    project = self.project_registry.get(query.hex_project_id)
+                    if project:
+                        project.upstream.extend(query.subjects)
+
+        with self.report.new_stage("Emit"):
+            yield from self.mapper.map_workspace()
+
+            for project in self.project_registry.values():
+                yield from self.mapper.map_project(project=project)
+            for component in self.component_registry.values():
+                yield from self.mapper.map_component(component=component)

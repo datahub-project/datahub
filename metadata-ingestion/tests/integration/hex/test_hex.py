@@ -64,6 +64,7 @@ def test_hex_ingestion(pytestconfig, hex_mock_api_runner, test_resources_dir, tm
                     "token": "test-token",
                     "base_url": "http://localhost:8000/api/v1",  # Mock API URL
                     "platform_instance": "hex_test",
+                    "include_lineage": False,
                 },
             },
             "sink": {
