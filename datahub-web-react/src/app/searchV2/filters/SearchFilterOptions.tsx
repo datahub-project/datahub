@@ -2,6 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { Divider } from 'antd';
 import { SlidersOutlined } from '@ant-design/icons';
+import { useAppConfig } from '@src/app/useAppConfig';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import { useUserContext } from '../../context/useUserContext';
 import { ORIGIN_FILTER_NAME, UnionType } from '../utils/constants';
@@ -68,6 +69,7 @@ export default function SearchFilterOptions({
     // If we move view select down, then move this down into a sibling component.
     const userContext = useUserContext();
     const filterRendererRegistry = useFilterRendererRegistry();
+    const { config } = useAppConfig();
     const fieldsWithCustomRenderers = Array.from(filterRendererRegistry.fieldNameToRenderer.keys());
     const selectedViewUrn = userContext?.localState?.selectedViewUrn;
     const showSaveViewButton = activeFilters?.length > 0 && selectedViewUrn === undefined;
@@ -131,6 +133,7 @@ export default function SearchFilterOptions({
                             filter,
                             activeFilters,
                             onChangeFilters,
+                            config,
                         })
                     ) : (
                         <SearchFilter

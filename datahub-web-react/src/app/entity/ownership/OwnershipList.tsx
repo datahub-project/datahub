@@ -89,8 +89,8 @@ export const OwnershipList = () => {
                     duration: 3,
                 })}
             <TabToolbar>
-                <Button type="text" onClick={onClickCreateOwnershipType}>
-                    <PlusOutlined /> Create new Ownership Type
+                <Button type="text" onClick={onClickCreateOwnershipType} data-testid="create-owner-type-v1">
+                    <PlusOutlined /> Create Ownership Type
                 </Button>
                 <SearchBar
                     initialQuery=""
