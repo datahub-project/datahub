@@ -163,7 +163,7 @@ export const SubscribeMenuAction = () => {
         }
         return (
             <IconContainer data-testid="subscribe-action">
-                <Bell />
+                <Bell size={14} />
             </IconContainer>
         );
     };

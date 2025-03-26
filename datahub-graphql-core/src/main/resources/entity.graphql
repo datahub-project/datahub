@@ -2614,6 +2614,11 @@ type GlossaryNode implements Entity {
     Carries information about where an entity originated from.
     """
     assetOrigin: Origin
+
+    """
+    References to internal resources related to the glossary node
+    """
+    institutionalMemory: InstitutionalMemory
 }
 
 """
@@ -10508,6 +10513,11 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
     Human readable description for MLModelGroup
     """
     description: String
+
+    """
+    References to internal resources related to the ml model group
+    """
+    institutionalMemory: InstitutionalMemory
 
     """
     Additional read only properties about the ML Model Group

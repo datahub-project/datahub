@@ -476,6 +476,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - institutionalMemory
       # SaaS Only
       - proposals
       - share

@@ -382,11 +382,15 @@ fragment institutionalMemoryFields on InstitutionalMemory {
             ...resolvedActorFields
         }
         description
+        label
         created {
             actor
             time
         }
         associatedUrn
+        settings {
+            showInAssetPreview
+        }
     }
 }
 
@@ -1207,6 +1211,9 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     }
     assetOrigin {
         ...originFields
+    }
+    institutionalMemory {
+        ...institutionalMemoryFields
     }
 }
 

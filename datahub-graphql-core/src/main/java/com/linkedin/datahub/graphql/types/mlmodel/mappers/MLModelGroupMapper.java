@@ -9,6 +9,7 @@ import com.linkedin.common.Deprecation;
 import com.linkedin.common.Forms;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
+import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Origin;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Share;
@@ -127,6 +128,12 @@ public class MLModelGroupMapper implements ModelMapper<EntityResponse, MLModelGr
         (entity, dataMap) ->
             entity.setLineageFeatures(
                 LineageFeaturesMapper.map(context, new LineageFeatures(dataMap))));
+    mappingHelper.mapToResult(
+        INSTITUTIONAL_MEMORY_ASPECT_NAME,
+        (mlModelGroup, dataMap) ->
+            mlModelGroup.setInstitutionalMemory(
+                InstitutionalMemoryMapper.map(
+                    context, new InstitutionalMemory(dataMap), entityUrn)));
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), MLModelGroup.class);

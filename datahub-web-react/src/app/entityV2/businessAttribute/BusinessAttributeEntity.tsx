@@ -16,6 +16,8 @@ import { PageRoutes } from '../../../conf/Global';
 import BusinessAttributeRelatedEntity from './profile/BusinessAttributeRelatedEntity';
 import { BusinessAttributeDataTypeSection } from './profile/BusinessAttributeDataTypeSection';
 
+const headerDropdownItems = new Set([EntityMenuItems.DELETE]);
+
 /**
  *  Definition of datahub Business Attribute Entity
  */
@@ -101,7 +103,7 @@ export class BusinessAttributeEntity implements Entity<BusinessAttribute> {
                 urn={urn}
                 entityType={EntityType.BusinessAttribute}
                 useEntityQuery={useGetBusinessAttributeQuery as any}
-                headerDropdownItems={new Set([EntityMenuItems.DELETE])}
+                headerDropdownItems={headerDropdownItems}
                 isNameEditable
                 tabs={[
                     {

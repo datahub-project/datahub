@@ -29,12 +29,7 @@ import ContainerSummaryTab from './ContainerSummaryTab';
 import { Preview } from './preview/Preview';
 import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
 
-const headerDropdownItems = new Set([
-    EntityMenuItems.EXTERNAL_URL,
-    EntityMenuItems.SHARE,
-    EntityMenuItems.SUBSCRIBE,
-    EntityMenuItems.ANNOUNCE,
-]);
+const headerDropdownItems = new Set([EntityMenuItems.SHARE, EntityMenuItems.SUBSCRIBE, EntityMenuItems.ANNOUNCE]);
 
 /**
  * Definition of the DataHub Container entity.

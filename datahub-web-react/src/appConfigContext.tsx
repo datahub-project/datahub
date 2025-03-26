@@ -106,6 +106,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         usePropagationsFramework: false,
         displayExecutorPools: false,
         onlineSmartAssertionsEnabled: false,
+        showDefaultExternalLinks: true,
     },
     chromeExtensionConfig: {
         enabled: false,

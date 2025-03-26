@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import styled from 'styled-components';
 import LinkButton from '../LinkButton';
 import { useEntityData, useRefetch } from '../../../../../../entity/shared/EntityContext';
@@ -19,7 +19,11 @@ export default function LinksSection({ hideLinksButton, readOnly }: Props) {
     const { entityData } = useEntityData();
     const refetch = useRefetch();
 
-    const links = entityData?.institutionalMemory?.elements || [];
+    const links = useMemo(
+        // Do not show links that shown in entity profile's header
+        () => entityData?.institutionalMemory?.elements?.filter((link) => !link.settings?.showInAssetPreview) || [],
+        [entityData],
+    );
 
     return (
         <>

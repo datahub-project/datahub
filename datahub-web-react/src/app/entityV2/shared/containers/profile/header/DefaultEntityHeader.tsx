@@ -78,6 +78,7 @@ export const LeftColumn = styled.div`
     align-items: start;
     flex-grow: 1;
     flex-shrink: 1;
+    min-width: fit-content;
 `;
 
 export const RightColumn = styled.div`
@@ -85,6 +86,9 @@ export const RightColumn = styled.div`
     flex-direction: column;
     align-items: end;
     justify-content: center;
+    width: 100%;
+    overflow: hidden;
+    padding-left: 8px;
 `;
 
 export const TopButtonsWrapper = styled.div`
@@ -92,6 +96,7 @@ export const TopButtonsWrapper = styled.div`
     justify-content: flex-end;
     gap: 8px;
     max-width: 100%;
+    width: 100%;
 `;
 
 export const StyledDivider = styled(Divider)`
@@ -244,7 +249,12 @@ export const DefaultEntityHeader = ({
                         {headerActionItems && (
                             <EntityActions urn={urn} actionItems={headerActionItems} refetchForEntity={refetch} />
                         )}
-                        {headerDropdownItems && <EntityMenuActions menuItems={headerDropdownItems} />}
+                        {headerDropdownItems && (
+                            <EntityMenuActions
+                                menuItems={headerDropdownItems}
+                                shouldExternalLinksFillAllAvailableSpace={!headerActionItems}
+                            />
+                        )}
                     </TopButtonsWrapper>
                 </RightColumn>
             </Row>

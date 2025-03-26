@@ -28,7 +28,7 @@ export default function MoreOptionsMenuAction({
     actions,
 }: Props) {
     return (
-        <ActionMenuItem key="view-more" fontSize={size} excludeMargin>
+        <ActionMenuItem key="view-more" fontSize={size}>
             <EntityDropdown
                 urn={urn}
                 entityType={entityType}

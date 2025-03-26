@@ -123,6 +123,7 @@ query appConfig {
             usePropagationsFramework
             displayExecutorPools
             onlineSmartAssertionsEnabled
+            showDefaultExternalLinks
         }
         chromeExtensionConfig {
             enabled
