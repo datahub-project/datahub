@@ -26,9 +26,10 @@ const StyledIcon = styled(Icon)`
 interface Props {
     actionRequest: ActionRequest;
     onUpdate: () => void;
+    showPendingView?: boolean;
 }
 
-const ActionsColumn = ({ actionRequest, onUpdate }: Props) => {
+const ActionsColumn = ({ actionRequest, onUpdate, showPendingView }: Props) => {
     const entityRegistry = useEntityRegistryV2();
 
     const [acceptProposalsMutation] = useAcceptProposalsMutation();
@@ -104,10 +105,19 @@ const ActionsColumn = ({ actionRequest, onUpdate }: Props) => {
                         leftIcon={isAccepted ? 'Check' : 'Close'}
                         label={resultAuthorDisplayName || ''}
                         color={isAccepted ? 'green' : 'red'}
-                        size="lg"
+                        size="md"
                     />
                 </Link>
             </div>
+        );
+    } else if (showPendingView) {
+        // Just showing the status until we support deleting a proposal
+        actionResultView = (
+            <Pill
+                size="md"
+                customIconRenderer={() => <Icon size="md" icon="Spinner" source="phosphor" />}
+                label="Pending"
+            />
         );
     } else {
         actionResultView = (
@@ -116,14 +126,20 @@ const ActionsColumn = ({ actionRequest, onUpdate }: Props) => {
                     icon="Close"
                     color="red"
                     style={{ backgroundColor: colors.red[0] }}
-                    onClick={rejectRequest}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        rejectRequest();
+                    }}
                     data-testid="decline-button"
                 />
                 <StyledIcon
                     icon="Check"
                     color="green"
                     style={{ backgroundColor: colors.green[0] }}
-                    onClick={acceptRequest}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        acceptRequest();
+                    }}
                     data-testid="approve-button"
                 />
             </IconsContainer>

@@ -6,11 +6,16 @@ import { FacetFilterInput } from '@src/types.generated';
 import * as QueryString from 'query-string';
 import { useMemo, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
+import { mergeFilters } from './utils';
 
-export default function useGetActionRequestsQueryInputs({ useUrlParams }) {
+type Props = {
+    useUrlParams: boolean;
+    defaultFilters?: FacetFilterInput[];
+};
+
+export default function useGetActionRequestsQueryInputs({ useUrlParams, defaultFilters = [] }: Props) {
     const history = useHistory();
     const location = useLocation();
-    const [filters, setFilters] = useState<Array<FacetFilterInput>>([]);
 
     // TODO: Separate other page params from proposal params when needed (eg ProposalsTab)
     const params = useMemo(() => {
@@ -18,13 +23,15 @@ export default function useGetActionRequestsQueryInputs({ useUrlParams }) {
     }, [location.search]);
     const unionType: UnionType = Number(params.unionType as any as UnionType) || UnionType.AND;
 
-    // Filters extracted from query params
-    const filtersFromUrl: Array<FacetFilterInput> = useFilters(params);
+    // Filters extracted from query params.
+    const filtersFromUrl: FacetFilterInput[] = mergeFilters(defaultFilters, useFilters(params));
     const orFiltersFromUrl = useMemo(() => generateOrFilters(unionType, filtersFromUrl), [filtersFromUrl, unionType]);
-    // Filters
+
+    // Filters for local state
+    const [filters, setFilters] = useState<FacetFilterInput[]>([]);
     const orFilters = useMemo(() => generateOrFilters(UnionType.AND, filters), [filters]);
 
-    const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {
+    const onChangeFilters = (newFilters: FacetFilterInput[]) => {
         if (useUrlParams) {
             navigateWithFilters({
                 filters: newFilters,
@@ -32,16 +39,16 @@ export default function useGetActionRequestsQueryInputs({ useUrlParams }) {
                 location,
             });
         } else {
-            setFilters(newFilters);
+            setFilters(mergeFilters(defaultFilters, newFilters));
         }
     };
 
-    // Default to use url query params
+    // Use url query params if specified
     if (useUrlParams) {
         return { orFilters: orFiltersFromUrl, filters: filtersFromUrl, onChangeFilters };
     }
 
-    // Use local state otherwise. This will be useful in modals etc
+    // Otherwise default to local state. This will be useful in modals etc
     return {
         orFilters,
         filters,

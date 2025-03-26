@@ -2,10 +2,12 @@ import { colors, Button as TabButton } from '@components';
 import { Button } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import { useHistory, useLocation } from 'react-router';
 import { ActionRequest, AssigneeType, CorpGroup } from '../../../types.generated';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 import { ProposalList } from './ProposalList';
 import { ActionRequestGroup, MY_PROPOSALS_GROUP_NAME, PERSONAL_ACTION_REQUESTS_GROUP_NAME } from './utils';
+import { ACTION_REQUEST_DEFAULT_FACETS } from '../utils/constants';
 
 const StyledButtonGroup = styled(Button.Group)`
     margin: 8px 16px;
@@ -37,6 +39,9 @@ type Props = {
 };
 
 export const Proposals = ({ onProposalClick }: Props) => {
+    const location = useLocation();
+    const history = useHistory();
+
     /**
      * Determines which view should be visible: pending or completed requests.
      */
@@ -51,6 +56,9 @@ export const Proposals = ({ onProposalClick }: Props) => {
      *
      * The first is for the "personal" inbox, where action requests
      * having the authenticated user urn as the assignee are displayed.
+     *
+     * The second is for the "My Proposals" or outbox, where action requests
+     * having the authenticated user urn as the creator are displayed.
      *
      * The subsequent are "group" inboxes, where action requests
      * directed to a specific group are displayed.
@@ -68,8 +76,7 @@ export const Proposals = ({ onProposalClick }: Props) => {
             {
                 name: MY_PROPOSALS_GROUP_NAME,
                 displayName: MY_PROPOSALS_GROUP_NAME,
-                assignee: {
-                    type: AssigneeType.User,
+                createdBy: {
                     urn: authenticatedUser?.corpUser?.urn,
                 },
             },
@@ -87,16 +94,29 @@ export const Proposals = ({ onProposalClick }: Props) => {
         ]) ||
         [];
 
+    const handleGroupSwitch = (group) => {
+        setActionRequestGroupName(group.name);
+        // Clear the query params of the other groups
+        history.push(location.pathname);
+    };
+
     const filteredActionRequestGroups = actionRequestGroups.filter((group) => group.name === actionRequestGroupName);
     const activeActionRequestGroup = filteredActionRequestGroups.length > 0 && filteredActionRequestGroups[0];
     const activeActionRequestGroupTabView = activeActionRequestGroup && (
         <ActiveGroupTabViewContainer>
             <ProposalList
                 assignee={activeActionRequestGroup.assignee}
-                groupName={activeActionRequestGroup.name}
-                userUrn={authenticatedUser?.corpUser.urn}
                 showFilters
                 onProposalClick={onProposalClick}
+                useUrlParams
+                createdBy={activeActionRequestGroup?.createdBy?.urn}
+                getAllActionRequests={activeActionRequestGroup.name === MY_PROPOSALS_GROUP_NAME}
+                filterFacets={
+                    activeActionRequestGroup.name === MY_PROPOSALS_GROUP_NAME
+                        ? ['type', 'status']
+                        : ACTION_REQUEST_DEFAULT_FACETS
+                }
+                showPendingView={activeActionRequestGroup.name === MY_PROPOSALS_GROUP_NAME}
             />
         </ActiveGroupTabViewContainer>
     );
@@ -107,7 +127,7 @@ export const Proposals = ({ onProposalClick }: Props) => {
                 {actionRequestGroups.map((group) => (
                     <StyledTabButton
                         variant="text"
-                        onClick={() => setActionRequestGroupName(group.name)}
+                        onClick={() => handleGroupSwitch(group)}
                         $isSelected={
                             (activeActionRequestGroup && activeActionRequestGroup.name === group.name) ?? false
                         }
