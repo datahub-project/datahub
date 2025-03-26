@@ -55,7 +55,7 @@ export const IncidentDrawerHeader = ({
     return (
         <StyledHeader>
             <StyledHeaderTitleContainer>
-                <StyledTitle>{mode === IncidentAction.ADD ? 'Create New Incident' : data?.title}</StyledTitle>
+                <StyledTitle>{mode === IncidentAction.CREATE ? 'Create New Incident' : data?.title}</StyledTitle>
                 {platform && (
                     <ForPlatformWrapper>
                         <PlatformIcon platform={platform} size={16} styles={{ marginRight: 4 }} />
