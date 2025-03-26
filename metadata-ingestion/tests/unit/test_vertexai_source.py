@@ -540,7 +540,9 @@ def test_get_experiment_mcps(
             name=mock_experiment.name,
             customProperties={
                 "platform": source.platform,
-                "experiment_id": source._make_vertexai_experiment_name(mock_experiment.name),
+                "experiment_id": source._make_vertexai_experiment_name(
+                    mock_experiment.name
+                ),
                 "name": mock_experiment.name,
                 "resourceName": mock_experiment.resource_name,
                 "dashboardURL": mock_experiment.dashboard_url

@@ -22,7 +22,11 @@ from google.oauth2 import service_account
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import ContainerKey, ProjectIdKey, gen_containers, ExperimentKey
+from datahub.emitter.mcp_builder import (
+    ExperimentKey,
+    ProjectIdKey,
+    gen_containers,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -94,6 +98,7 @@ class ModelMetadata:
     model_version: VersionInfo
     training_job_urn: Optional[str] = None
     endpoints: Optional[List[Endpoint]] = None
+
 
 @platform_name("Vertex AI", id="vertexai")
 @config_class(VertexAIConfig)
