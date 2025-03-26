@@ -1,8 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Button, Empty, Typography } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
-import { useHistory } from 'react-router';
+import { Empty, Typography } from 'antd';
 
 type Props = {
     isEmptySearch: boolean;
@@ -23,8 +21,6 @@ const StyledEmpty = styled(Empty)`
 `;
 
 const EmptyTags = ({ isEmptySearch }: Props) => {
-    const history = useHistory();
-
     return (
         <EmptyContainer>
             <StyledEmpty
@@ -40,14 +36,6 @@ const EmptyTags = ({ isEmptySearch }: Props) => {
                                 </Typography.Paragraph>
                             )}
                         </div>
-                        <Button
-                            type="primary"
-                            onClick={() => history.push('/tag/new')}
-                            data-testid="add-tag-button"
-                            icon={<PlusOutlined />}
-                        >
-                            Create New Tag
-                        </Button>
                     </>
                 }
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
