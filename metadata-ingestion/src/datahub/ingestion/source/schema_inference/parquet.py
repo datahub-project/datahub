@@ -1,5 +1,6 @@
 from typing import IO, Any, Callable, Dict, List, Type
 
+import pandas
 import pyarrow
 import pyarrow.parquet
 
@@ -63,6 +64,40 @@ pyarrow_type_map: Dict[Callable[[Any], bool], Type] = {
     pyarrow.types.is_dictionary: RecordTypeClass,
 }
 
+def get_column_metadata(schema_dict, column_name):
+    """
+    Get metadata for a specific column from the schema dictionary.
+
+    Args:
+        schema_dict (dict): The schema dictionary containing column definitions
+        column_name (str): The name of the column to get metadata for
+
+    Returns:
+        dict: The metadata for the specified column, or None if column not found
+    """
+    # Iterate through all columns in the schema
+    for _, column_info in schema_dict.items():
+        if column_info.get('name') == column_name:
+            return column_info.get('metadata', {})
+
+    # Return None if column not found
+    return None
+
+
+def parse_metadata(schema_metadata: bytes) -> Dict:
+    """
+    Parse parquet schema metadata into a dictionary of fields.
+
+    Args:
+        schema_metadata (bytes): Raw schema metadata from parquet file
+
+    Returns:
+        Dict: Parsed metadata fields dictionary
+    """
+    return (pandas.read_json(schema_metadata.decode("utf-8"))
+            .to_dict()
+            ["fields"])
+
 
 def map_pyarrow_type(pyarrow_type: Type) -> Type:
     for checker, mapped_type in pyarrow_type_map.items():
@@ -81,14 +116,21 @@ class ParquetInferrer(SchemaInferenceBase):
 
         fields: List[SchemaField] = []
 
+        meta_data_fields = parse_metadata(schema.metadata[b'org.apache.spark.sql.parquet.row.metadata'])
+
         for name, pyarrow_type in zip(schema.names, schema.types):
             mapped_type = map_pyarrow_type(pyarrow_type)
+
+            description = get_column_metadata(meta_data_fields, name)
+
+            description = description.get(name, None)
 
             field = SchemaField(
                 fieldPath=name,
                 type=SchemaFieldDataType(mapped_type()),
                 nativeDataType=str(pyarrow_type),
                 recursive=False,
+                description=description
             )
 
             fields.append(field)

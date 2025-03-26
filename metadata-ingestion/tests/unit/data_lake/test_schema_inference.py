@@ -39,6 +39,17 @@ test_table = pd.DataFrame(
     }
 )
 
+# Add descriptions to columns
+test_table["integer_field"].attrs["description"] = "A column containing integer values"
+test_table["boolean_field"].attrs["description"] = "A column containing boolean values"
+test_table["string_field"].attrs["description"] = "A column containing string values"
+
+
+expected_field_descriptions = [
+    "A column containing integer values",
+    "A column containing boolean values",
+    "A column containing string values",
+]
 
 def assert_field_types_match(
     fields: List[SchemaField], expected_field_types: List[Type]
@@ -46,6 +57,14 @@ def assert_field_types_match(
     assert len(fields) == len(expected_field_types)
     for field, expected_type in zip(fields, expected_field_types):
         assert isinstance(field.type.type, expected_type)
+
+
+def assert_field_descriptions_match(
+    fields: List[SchemaField], expected_field_descriptions: List[str]
+) -> None:
+    assert len(fields) == len(expected_field_descriptions)
+    for field, expected_description in zip(fields, expected_field_descriptions):
+        assert field.description == expected_description
 
 
 def test_infer_schema_csv():
@@ -106,6 +125,7 @@ def test_infer_schema_parquet():
 
         assert_field_paths_match(fields, expected_field_paths)
         assert_field_types_match(fields, expected_field_types)
+        assert_field_descriptions_match(fields, expected_field_descriptions)
 
 
 def test_infer_schema_avro():
