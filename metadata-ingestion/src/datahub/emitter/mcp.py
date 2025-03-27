@@ -3,7 +3,6 @@ import json
 from typing import TYPE_CHECKING, List, Optional, Sequence, Tuple, Union
 
 from datahub.emitter.aspect import ASPECT_MAP, JSON_CONTENT_TYPE
-from datahub.emitter.mce_builder import get_sys_time
 from datahub.emitter.serialization_helper import post_json_transform, pre_json_transform
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
@@ -98,9 +97,6 @@ class MetadataChangeProposalWrapper:
             raise ValueError(
                 f"aspectName {self.aspectName} does not match aspect type {type(self.aspect)} with name {self.aspect.get_aspect_name()}"
             )
-
-        if not self.systemMetadata:
-            self.systemMetadata = SystemMetadataClass(lastObserved=get_sys_time())
 
     @classmethod
     def construct_many(
