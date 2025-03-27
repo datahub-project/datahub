@@ -83,6 +83,7 @@ To set up Key Pair authentication, follow the three steps in [this guide](https:
 
 Pass in the following values in recipe config instead of password:
 ```yml
+authentication_type: KEY_PAIR_AUTHENTICATOR
 private_key: <Private key in a form of '-----BEGIN PRIVATE KEY-----\nprivate-key\n-----END PRIVATE KEY-----'>
 
 # Optional - if using encrypted private key
