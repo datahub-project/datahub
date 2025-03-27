@@ -113,6 +113,7 @@ per_version_test_requirements = {
         "Flask-Session<0.6.0",
         "connexion<3.0",
         "marshmallow<3.24.0",
+        "apache-airflow-providers-amazon==7.3.0",
     },
 }
 
