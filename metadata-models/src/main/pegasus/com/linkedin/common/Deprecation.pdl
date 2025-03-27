@@ -13,7 +13,9 @@ record Deprecation {
    */
   @Searchable = {
     "fieldType": "BOOLEAN",
-    "weightsPerFieldValue": { "true": 0.5 }
+    "weightsPerFieldValue": { "true": 0.5 },
+    "addToFilters": true,
+    "filterNameOverride": "Deprecated"
   }
   deprecated: boolean
 

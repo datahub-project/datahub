@@ -15,6 +15,7 @@ from datahub.ingestion.source.common.subtypes import (
     FlowContainerSubTypes,
     JobContainerSubTypes,
 )
+from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
 from datahub.metadata.schema_classes import (
     ContainerClass,
     DataFlowInfoClass,
@@ -135,6 +136,19 @@ class StoredProcedure:
     def escape_full_name(self) -> str:
         return f"[{self.db}].[{self.schema}].[{self.formatted_name}]"
 
+    def to_base_procedure(self) -> BaseProcedure:
+        return BaseProcedure(
+            name=self.formatted_name,
+            procedure_definition=self.code,
+            created=None,
+            last_altered=None,
+            comment=None,
+            argument_signature=None,
+            return_type=None,
+            language="SQL",
+            extra_properties=None,
+        )
+
 
 @dataclass
 class JobStep:
@@ -222,7 +236,7 @@ class MSSQLDataJob:
         type = (
             JobContainerSubTypes.MSSQL_JOBSTEP
             if isinstance(self.entity, JobStep)
-            else JobContainerSubTypes.MSSQL_STORED_PROCEDURE
+            else JobContainerSubTypes.STORED_PROCEDURE
         )
         return SubTypesClass(
             typeNames=[type],
