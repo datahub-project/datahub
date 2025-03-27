@@ -17,7 +17,6 @@ from datahub.ingestion.source.vertexai.vertexai import (
     VertexAIConfig,
     VertexAISource,
 )
-
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.ml.metadata import (
     MLModelGroupProperties,
@@ -27,6 +26,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.ml.metadata import (
 from datahub.metadata.schema_classes import (
     ContainerClass,
     ContainerPropertiesClass,
+    DataFlowInfoClass,
+    DataJobInputOutputClass,
     DataPlatformInstanceClass,
     DataProcessInstanceInputClass,
     DataProcessInstancePropertiesClass,
@@ -38,8 +39,6 @@ from datahub.metadata.schema_classes import (
     TimeStampClass,
     VersionPropertiesClass,
     VersionTagClass,
-    DataFlowInfoClass,
-    DataJobInputOutputClass,
 )
 from datahub.metadata.urns import DataPlatformUrn
 from datahub.utilities.time import datetime_to_ts_millis
