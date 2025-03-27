@@ -165,6 +165,23 @@ class SnowflakeQuery:
         order by table_schema, table_name"""
 
     @staticmethod
+    def procedures_for_database(db_name: Optional[str]) -> str:
+        db_clause = f'"{db_name}".' if db_name is not None else ""
+        return f"""
+        SELECT procedure_catalog AS "PROCEDURE_CATALOG",
+        procedure_schema AS "PROCEDURE_SCHEMA",
+        procedure_name AS "PROCEDURE_NAME",
+        procedure_language AS "PROCEDURE_LANGUAGE",
+        argument_signature AS "ARGUMENT_SIGNATURE",
+        data_type AS "PROCEDURE_RETURN_TYPE",
+        procedure_definition AS "PROCEDURE_DEFINITION",
+        created AS "CREATED",
+        last_altered AS "LAST_ALTERED",
+        comment AS "COMMENT"
+        FROM {db_clause}information_schema.procedures
+        order by procedure_schema, procedure_name"""
+
+    @staticmethod
     def get_all_tags():
         return """
         SELECT tag_database as "TAG_DATABASE",
