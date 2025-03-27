@@ -38,7 +38,7 @@ export const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
 
 const MenuItems = styled.div<{ $shouldFillAllAvailableSpace?: boolean }>`
     display: flex;
-    gap: 4px;
+    gap: 8px;
     align-items: center;
     justify-content: end;
     ${(props) => props.$shouldFillAllAvailableSpace && 'width: 100%;'}
@@ -68,7 +68,7 @@ function EntityMenuActions(props: Props) {
     const refetch = useRefetch();
 
     const shouldFillAllAvailableSpace = shouldExternalLinksFillAllAvailableSpace;
-    
+
     const { entityVersioningEnabled } = useAppConfig().config.featureFlags;
 
     const hasVersioningActions = !!(menuItems.has(EntityMenuItems.LINK_VERSION) || entityData?.versionProperties);
@@ -76,7 +76,7 @@ function EntityMenuActions(props: Props) {
     return (
         <>
             {isClosed ? (
-                <MenuItems $shouldFillAllAvailableSpace={shouldFillAllAvailableSpace}>
+                <MenuItems $shouldFillAllAvailableSpace={shouldFillAllAvailableSpace} data-testid="entity-menu-actions">
                     <ExternalUrlMenuAction shouldFillAllAvailableSpace={shouldFillAllAvailableSpace} />
                     {menuItems.has(EntityMenuItems.MOVE) && <MoveEntityMenuAction />}
                     {menuItems.has(EntityMenuItems.SHARE) && <ShareMenuAction />}
@@ -102,7 +102,7 @@ function EntityMenuActions(props: Props) {
                     )}
                 </MenuItems>
             ) : (
-                <MenuItems $shouldFillAllAvailableSpace={shouldFillAllAvailableSpace}>
+                <MenuItems $shouldFillAllAvailableSpace={shouldFillAllAvailableSpace} data-testid="entity-menu-actions">
                     <ExternalUrlMenuAction shouldFillAllAvailableSpace={shouldFillAllAvailableSpace} />
                     <MoreOptionsContainer>
                         <MoreOptionsMenuAction

@@ -9245,6 +9245,11 @@ input UpdateLinkInput {
   label: String!
 
   """
+  The new optional settings input for the link
+  """
+  settings: LinkSettingsInput
+
+  """
   The urn of the resource or entity to attach the link to, for example a dataset urn
   """
   resourceUrn: String!

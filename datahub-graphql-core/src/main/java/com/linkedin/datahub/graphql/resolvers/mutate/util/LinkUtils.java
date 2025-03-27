@@ -67,6 +67,7 @@ public class LinkUtils {
       String newLinkLabel,
       Urn resourceUrn,
       Urn actor,
+      @Nullable LinkSettingsInput settingsInput,
       EntityService<?> entityService) {
     InstitutionalMemory institutionalMemoryAspect =
         (InstitutionalMemory)
@@ -83,7 +84,34 @@ public class LinkUtils {
         currentLinkLabel,
         newLinkUrl,
         newLinkLabel,
-        actor);
+        actor,
+        settingsInput);
+    persistAspect(
+        opContext,
+        resourceUrn,
+        Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
+        institutionalMemoryAspect,
+        actor,
+        entityService);
+  }
+
+  public static void upsertLink(
+      @Nonnull OperationContext opContext,
+      String linkUrl,
+      String linkLabel,
+      Urn resourceUrn,
+      Urn actor,
+      @Nullable LinkSettingsInput settingsInput,
+      EntityService<?> entityService) {
+    InstitutionalMemory institutionalMemoryAspect =
+        (InstitutionalMemory)
+            EntityUtils.getAspectFromEntity(
+                opContext,
+                resourceUrn.toString(),
+                Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
+                entityService,
+                new InstitutionalMemory());
+    upsertLink(institutionalMemoryAspect, linkUrl, linkLabel, actor, settingsInput);
     persistAspect(
         opContext,
         resourceUrn,
@@ -130,17 +158,18 @@ public class LinkUtils {
 
     InstitutionalMemoryMetadataArray linksArray = institutionalMemoryAspect.getElements();
 
+    // if link exists, do not add it again
+    if (hasDuplicates(linksArray, linkUrl, linkLabel)) {
+      throw new IllegalArgumentException(
+          String.format("The link '%s' with label '%s' already exists", linkUrl, linkLabel));
+    }
+
     InstitutionalMemoryMetadata newLink = new InstitutionalMemoryMetadata();
     newLink.setUrl(new Url(linkUrl));
     newLink.setCreateStamp(EntityUtils.getAuditStamp(actor));
     newLink.setDescription(linkLabel); // We no longer support, this is really a label.
     if (settingsInput != null) {
       newLink.setSettings(mapSettings(settingsInput));
-    }
-
-    // if link exists, do not add it again
-    if (hasDuplicates(linksArray, newLink)) {
-      return;
     }
 
     linksArray.add(newLink);
@@ -168,7 +197,8 @@ public class LinkUtils {
       String currentLinkLabel,
       String newLinkUrl,
       String newLinkLabel,
-      Urn actor) {
+      Urn actor,
+      @Nullable LinkSettingsInput settingsInput) {
     if (!institutionalMemoryAspect.hasElements()) {
       throw new IllegalArgumentException(
           String.format(
@@ -188,23 +218,53 @@ public class LinkUtils {
     }
     InstitutionalMemoryMetadata linkToReplace = optionalLinkToReplace.get();
 
-    InstitutionalMemoryMetadata updatedLink = new InstitutionalMemoryMetadata();
-    updatedLink.setUrl(new Url(newLinkUrl));
-    updatedLink.setDescription(newLinkLabel);
-    updatedLink.setCreateStamp(linkToReplace.getCreateStamp());
-    updatedLink.setUpdateStamp(EntityUtils.getAuditStamp(actor));
-
     InstitutionalMemoryMetadataArray linksWithoutReplacingOne =
         new InstitutionalMemoryMetadataArray();
     linksWithoutReplacingOne.addAll(
         elementsArray.stream().filter(link -> !link.equals(linkToReplace)).toList());
 
-    if (hasDuplicates(linksWithoutReplacingOne, updatedLink)) {
+    if (hasDuplicates(linksWithoutReplacingOne, newLinkUrl, newLinkLabel)) {
       throw new IllegalArgumentException(
           String.format("The link '%s' with label '%s' already exists", newLinkUrl, newLinkLabel));
     }
 
+    InstitutionalMemoryMetadata updatedLink = new InstitutionalMemoryMetadata();
+    updatedLink.setUrl(new Url(newLinkUrl));
+    updatedLink.setDescription(newLinkLabel);
+    updatedLink.setCreateStamp(linkToReplace.getCreateStamp());
+    updatedLink.setUpdateStamp(EntityUtils.getAuditStamp(actor));
+    if (settingsInput != null) {
+      updatedLink.setSettings(mapSettings(settingsInput));
+    }
+
     elementsArray.set(elementsArray.indexOf(linkToReplace), updatedLink);
+  }
+
+  private static void upsertLink(
+      InstitutionalMemory institutionalMemoryAspect,
+      String newLinkUrl,
+      String newLinkLabel,
+      Urn actor,
+      @Nullable LinkSettingsInput settingsInput) {
+    if (!institutionalMemoryAspect.hasElements()) {
+      addLink(institutionalMemoryAspect, newLinkUrl, newLinkLabel, actor, settingsInput);
+      return;
+    }
+
+    InstitutionalMemoryMetadataArray elementsArray = institutionalMemoryAspect.getElements();
+
+    if (hasDuplicates(elementsArray, newLinkUrl, newLinkLabel)) {
+      updateLink(
+          institutionalMemoryAspect,
+          newLinkUrl,
+          newLinkLabel,
+          newLinkUrl,
+          newLinkLabel,
+          actor,
+          settingsInput);
+    } else {
+      addLink(institutionalMemoryAspect, newLinkUrl, newLinkLabel, actor, settingsInput);
+    }
   }
 
   private static Predicate<InstitutionalMemoryMetadata> getPredicate(
@@ -214,10 +274,7 @@ public class LinkUtils {
   }
 
   private static boolean hasDuplicates(
-      InstitutionalMemoryMetadataArray linksArray, InstitutionalMemoryMetadata linkToValidate) {
-    String url = linkToValidate.getUrl().toString();
-    String label = linkToValidate.getDescription();
-
+      InstitutionalMemoryMetadataArray linksArray, String url, String label) {
     return linksArray.stream().anyMatch(getPredicate(url, label));
   }
 
