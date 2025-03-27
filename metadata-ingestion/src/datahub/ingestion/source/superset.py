@@ -1,10 +1,10 @@
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import lru_cache
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import dateutil.parser as dp
 import requests
@@ -513,7 +513,9 @@ class SupersetSource(StatefulIngestionSourceBase):
                         f"Dashboard '{dashboard_title}' (id: {dashboard_id}) filtered by dashboard_pattern"
                     )
                     return []
-                dashboard_snapshot = self.construct_dashboard_from_api_data(dashboard_data)
+                dashboard_snapshot = self.construct_dashboard_from_api_data(
+                    dashboard_data
+                )
             except Exception as e:
                 self.report.warning(
                     f"Failed to construct dashboard snapshot. Dashboard name: {dashboard_data.get('dashboard_title')}. Error: \n{e}"
@@ -521,13 +523,19 @@ class SupersetSource(StatefulIngestionSourceBase):
                 return []
             mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
             work_units = [MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)]
-            work_units.extend(self._get_domain_wu(title=dashboard_title, entity_urn=dashboard_snapshot.urn))
+            work_units.extend(
+                self._get_domain_wu(
+                    title=dashboard_title, entity_urn=dashboard_snapshot.urn
+                )
+            )
             return work_units
 
         with ThreadPoolExecutor(max_workers=10) as executor:
             future_to_dashboard = {
                 executor.submit(process_dashboard, dashboard_data): dashboard_data
-                for dashboard_data in self.paginate_entity_api_results("dashboard/", PAGE_SIZE)
+                for dashboard_data in self.paginate_entity_api_results(
+                    "dashboard/", PAGE_SIZE
+                )
             }
             for future in as_completed(future_to_dashboard):
                 work_units = future.result()
@@ -782,8 +790,12 @@ class SupersetSource(StatefulIngestionSourceBase):
                     datasource_id = chart_data.get("datasource_id")
                     if datasource_id:
                         dataset_response = self.get_dataset_info(datasource_id)
-                        dataset_name = dataset_response.get("result", {}).get("table_name", "")
-                        if dataset_name and not self.config.dataset_pattern.allowed(dataset_name):
+                        dataset_name = dataset_response.get("result", {}).get(
+                            "table_name", ""
+                        )
+                        if dataset_name and not self.config.dataset_pattern.allowed(
+                            dataset_name
+                        ):
                             self.report.warning(
                                 f"Chart '{chart_name}' (id: {chart_id}) uses dataset '{dataset_name}' which is filtered by dataset_pattern"
                             )
@@ -794,7 +806,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                     f"Failed to construct chart snapshot. Chart name: {chart_name}. Error: \n{e}"
                 )
                 return []
-        
+
         with ThreadPoolExecutor(max_workers=10) as executor:
             future_to_chart = {
                 executor.submit(process_chart, chart_data): chart_data
@@ -1037,9 +1049,13 @@ class SupersetSource(StatefulIngestionSourceBase):
             try:
                 dataset_name = dataset_data.get("table_name", "")
                 if not self.config.dataset_pattern.allowed(dataset_name):
-                    self.report.report_dropped(f"Dataset '{dataset_name}' filtered by dataset_pattern")
+                    self.report.report_dropped(
+                        f"Dataset '{dataset_name}' filtered by dataset_pattern"
+                    )
                     return []
-                dataset_snapshot = self.construct_dataset_from_dataset_data(dataset_data)
+                dataset_snapshot = self.construct_dataset_from_dataset_data(
+                    dataset_data
+                )
                 mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
             except Exception as e:
                 self.report.warning(
@@ -1047,16 +1063,20 @@ class SupersetSource(StatefulIngestionSourceBase):
                 )
                 return []
             work_units = [MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)]
-            work_units.extend(self._get_domain_wu(
-                title=dataset_data.get("table_name", ""),
-                entity_urn=dataset_snapshot.urn,
-            ))
+            work_units.extend(
+                self._get_domain_wu(
+                    title=dataset_data.get("table_name", ""),
+                    entity_urn=dataset_snapshot.urn,
+                )
+            )
             return work_units
 
         with ThreadPoolExecutor(max_workers=10) as executor:
             future_to_dataset = {
                 executor.submit(process_dataset, dataset_data): dataset_data
-                for dataset_data in self.paginate_entity_api_results("dataset/", PAGE_SIZE)
+                for dataset_data in self.paginate_entity_api_results(
+                    "dataset/", PAGE_SIZE
+                )
             }
             for future in as_completed(future_to_dataset):
                 work_units = future.result()
