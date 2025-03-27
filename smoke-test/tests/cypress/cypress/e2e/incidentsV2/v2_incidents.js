@@ -257,9 +257,7 @@ describe("incidents", () => {
       `${newIncidentNameWithTimeStamp}-New`
     );
 
-    cy.get(
-      ".sc-ibFRPP > .remirror-theme > .remirror-editor-wrapper > .ProseMirror"
-    )
+    cy.get(".remirror-editor")
       .should("exist")
       .click({ force: true })
       .type(NEW_INCIDENT_VALUES.DESCRIPTION)
