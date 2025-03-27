@@ -1,6 +1,7 @@
 import { PlusOutlined } from '@ant-design/icons';
 import { Button as AntButton, Form, Input, Modal, message } from 'antd';
 import React, { useState } from 'react';
+import { FormData, LinkFormModal } from '@app/entityV2/shared/components/styled/LinkFormModal';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
@@ -10,35 +11,38 @@ import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 
 import { useAddLinkMutation } from '@graphql/mutations.generated';
 
-type AddLinkProps = {
+interface Props {
     buttonProps?: Record<string, unknown>;
     refetch?: () => Promise<any>;
     buttonType?: string;
-};
+}
 
-export const AddLinkModal = ({ buttonProps, refetch, buttonType }: AddLinkProps) => {
+export const AddLinkModal = ({ buttonProps, refetch, buttonType }: Props) => {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const mutationUrn = useMutationUrn();
     const user = useUserContext();
     const { entityType } = useEntityData();
     const [addLinkMutation] = useAddLinkMutation();
 
-    const [form] = Form.useForm();
-
     const showModal = () => {
         setIsModalVisible(true);
     };
 
     const handleClose = () => {
-        form.resetFields();
         setIsModalVisible(false);
     };
 
-    const handleAdd = async (formData: any) => {
+    const handleAdd = async (formData: FormData) => {
         if (user?.urn) {
             try {
                 await addLinkMutation({
-                    variables: { input: { linkUrl: formData.url, label: formData.label, resourceUrn: mutationUrn } },
+                    variables: {
+                        input: {
+                            linkUrl: formData.url,
+                            label: formData.label,
+                            resourceUrn: mutationUrn,
+                        },
+                    },
                 });
                 message.success({ content: 'Link Added', duration: 2 });
                 analytics.event({
@@ -47,6 +51,7 @@ export const AddLinkModal = ({ buttonProps, refetch, buttonType }: AddLinkProps)
                     entityUrn: mutationUrn,
                     actionType: EntityActionType.UpdateLinks,
                 });
+                handleClose();
             } catch (e: unknown) {
                 message.destroy();
                 if (e instanceof Error) {
@@ -54,7 +59,6 @@ export const AddLinkModal = ({ buttonProps, refetch, buttonType }: AddLinkProps)
                 }
             }
             refetch?.();
-            handleClose();
         } else {
             message.error({ content: `Error adding link: no user`, duration: 2 });
         }
@@ -88,56 +92,7 @@ export const AddLinkModal = ({ buttonProps, refetch, buttonType }: AddLinkProps)
     return (
         <>
             {renderButton(buttonType)}
-            <Modal
-                title="Add Link"
-                visible={isModalVisible}
-                destroyOnClose
-                onCancel={handleClose}
-                footer={[
-                    <ModalButtonContainer>
-                        <Button variant="text" onClick={handleClose}>
-                            Cancel
-                        </Button>
-                        <Button data-testid="add-link-modal-add-button" form="addLinkForm" key="submit">
-                            Add
-                        </Button>
-                    </ModalButtonContainer>,
-                ]}
-            >
-                <Form form={form} name="addLinkForm" onFinish={handleAdd} layout="vertical">
-                    <Form.Item
-                        data-testid="add-link-modal-url"
-                        name="url"
-                        label="URL"
-                        rules={[
-                            {
-                                required: true,
-                                message: 'A URL is required.',
-                            },
-                            {
-                                type: 'url',
-                                warningOnly: true,
-                                message: 'This field must be a valid url.',
-                            },
-                        ]}
-                    >
-                        <Input placeholder="https://" autoFocus />
-                    </Form.Item>
-                    <Form.Item
-                        data-testid="add-link-modal-label"
-                        name="label"
-                        label="Label"
-                        rules={[
-                            {
-                                required: true,
-                                message: 'A label is required.',
-                            },
-                        ]}
-                    >
-                        <Input placeholder="A short label for this link" />
-                    </Form.Item>
-                </Form>
-            </Modal>
+            <LinkFormModal variant="create" open={isModalVisible} onSubmit={handleAdd} onCancel={handleClose} />
         </>
     );
 };
