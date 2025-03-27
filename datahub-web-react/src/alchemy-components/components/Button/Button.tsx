@@ -30,6 +30,8 @@ export const Button = ({
     isDisabled = buttonDefaults.isDisabled,
     isActive = buttonDefaults.isActive,
     children,
+    iconSource,
+    iconColor,
     ...props
 }: ButtonProps) => {
     const styleProps = {
@@ -52,9 +54,13 @@ export const Button = ({
 
     return (
         <ButtonBase {...styleProps} {...props}>
-            {icon && iconPosition === 'left' && <Icon icon={icon} size={iconSize || size} />}
+            {icon && iconPosition === 'left' && (
+                <Icon icon={icon} color={iconColor} size={iconSize || size} source={iconSource} />
+            )}
             {!isCircle && children}
-            {icon && iconPosition === 'right' && <Icon icon={icon} size={iconSize || size} />}
+            {icon && iconPosition === 'right' && (
+                <Icon icon={icon} color={iconColor} size={iconSize || size} source={iconSource} />
+            )}
         </ButtonBase>
     );
 };

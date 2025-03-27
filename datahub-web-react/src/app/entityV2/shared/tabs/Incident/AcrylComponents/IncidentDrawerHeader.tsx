@@ -1,6 +1,5 @@
 import React from 'react';
-import styled from 'styled-components';
-import { Link as LinkIcon, PencilSimpleLine, X } from '@phosphor-icons/react';
+import { Button } from '@src/alchemy-components';
 import { Tooltip2 } from '@src/alchemy-components/components/Tooltip2';
 import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
 import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
@@ -15,24 +14,6 @@ import {
     StyledHeaderTitleContainer,
     StyledTitle,
 } from './styledComponents';
-
-const EditIcon = styled(PencilSimpleLine)`
-    :hover {
-        cursor: pointer;
-    }
-`;
-
-const CloseIcon = styled(X)`
-    :hover {
-        cursor: pointer;
-    }
-`;
-
-const CopyLinkIcon = styled(LinkIcon)`
-    :hover {
-        cursor: pointer;
-    }
-`;
 
 type IncidentDrawerHeaderProps = {
     mode: IncidentAction;
@@ -60,7 +41,9 @@ export const IncidentDrawerHeader = ({
     return (
         <StyledHeader>
             <StyledHeaderTitleContainer>
-                <StyledTitle>{mode === IncidentAction.CREATE ? 'Create New Incident' : data?.title}</StyledTitle>
+                <StyledTitle data-testid="drawer-header-title">
+                    {mode === IncidentAction.CREATE ? 'Create New Incident' : data?.title}
+                </StyledTitle>
                 {platform && (
                     <ForPlatformWrapper>
                         <PlatformIcon platform={platform} size={16} styles={{ marginRight: 4 }} />
@@ -72,19 +55,40 @@ export const IncidentDrawerHeader = ({
                 {mode === IncidentAction.EDIT && isEditActive === false && (
                     <>
                         <Tooltip2 title={canEditIncidents ? 'Edit Incident' : noPermissionsMessage}>
-                            <EditIcon
-                                size={20}
-                                onClick={() => canEditIncidents && setIsEditActive(!isEditActive)}
-                                data-testid="edit-incident-icon"
-                                aria-disabled={!canEditIncidents}
-                            />
+                            <span>
+                                <Button
+                                    icon="PencilSimpleLine"
+                                    variant="text"
+                                    iconColor="gray"
+                                    iconSource="phosphor"
+                                    onClick={() => canEditIncidents && setIsEditActive(!isEditActive)}
+                                    disabled={!canEditIncidents}
+                                    data-testid="edit-incident-icon"
+                                    size="xl"
+                                />
+                            </span>
                         </Tooltip2>
                         <Tooltip2 title="Copy Link">
-                            <CopyLinkIcon size={20} onClick={handleIncidentLinkCopy} />
+                            <Button
+                                icon="Link"
+                                variant="text"
+                                iconColor="gray"
+                                iconSource="phosphor"
+                                onClick={handleIncidentLinkCopy}
+                                size="xl"
+                            />
                         </Tooltip2>
                     </>
                 )}
-                <CloseIcon size={20} onClick={() => onClose?.()} data-testid="incident-drawer-close-button" />
+                <Button
+                    icon="X"
+                    variant="text"
+                    iconColor="gray"
+                    iconSource="phosphor"
+                    onClick={() => onClose?.()}
+                    data-testid="incident-drawer-close-button"
+                    size="xl"
+                />
             </StyledHeaderActions>
         </StyledHeader>
     );
