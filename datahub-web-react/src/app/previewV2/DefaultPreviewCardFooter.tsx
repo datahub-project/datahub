@@ -1,4 +1,6 @@
-import React from 'react';
+import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
+import { useMatchedFieldsForList } from '@app/search/context/SearchResultContext';
+import React, { useContext } from 'react';
 import styled from 'styled-components';
 import { Divider } from 'antd';
 import Pills from './Pills';
@@ -8,10 +10,10 @@ import {
     DatasetStatsSummary,
     EntityPath,
     EntityType,
-    GlobalTags,
-    GlossaryTerms,
+    GlossaryTermAssociation,
     Maybe,
     Owner,
+    TagAssociation,
 } from '../../types.generated';
 import { EntityCapabilityType, PreviewType } from '../entityV2/Entity';
 import PreviewCardFooterRightSection from './PreviewCardFooterRightSection';
@@ -21,9 +23,9 @@ import { entityHasCapability } from './utils';
 import { DatasetLastUpdatedMs, DashboardLastUpdatedMs } from '../entityV2/shared/utils';
 
 interface DefaultPreviewCardFooterProps {
-    glossaryTerms?: GlossaryTerms;
-    tags?: GlobalTags;
-    owners?: Array<Owner> | null;
+    glossaryTerms: GlossaryTermAssociation[];
+    tags: TagAssociation[];
+    owners: Owner[];
     entityCapabilities: Set<EntityCapabilityType>;
     tier?: PopularityTier;
     entityTitleSuffix?: React.ReactNode;
@@ -43,6 +45,7 @@ const Container = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
+
     .ant-btn-link {
         padding: inherit;
     }
@@ -103,7 +106,23 @@ const DefaultPreviewCardFooter: React.FC<DefaultPreviewCardFooterProps> = ({
     paths,
     isFullViewCard,
 }) => {
-    const shouldRenderPillsRow = [glossaryTerms?.terms, tags?.tags, owners?.length].some(Boolean);
+    const groupedMatches = useMatchedFieldsForList('fieldLabels');
+    const { lineageDirection, isColumnLevelLineage, selectedColumn } = useContext(LineageTabContext);
+
+    const showGlossaryTerms = entityHasCapability(entityCapabilities, EntityCapabilityType.GLOSSARY_TERMS);
+    const showTags = entityHasCapability(entityCapabilities, EntityCapabilityType.TAGS);
+    const showOwners = entityHasCapability(entityCapabilities, EntityCapabilityType.OWNERS);
+
+    // Only show the column paths pill on datasets who actually have columns to show
+    const shouldShowPaths =
+        !!paths?.length && entityType === EntityType.Dataset && isColumnLevelLineage && selectedColumn;
+    const shouldRenderPillsRow = [
+        showGlossaryTerms && glossaryTerms.length,
+        showTags && tags.length,
+        showOwners && owners.length,
+        groupedMatches.length,
+        shouldShowPaths,
+    ].some(Boolean);
     const shouldRenderEntityLink = previewType === PreviewType.HOVER_CARD && entityTitleSuffix;
     const shouldRenderRightSection =
         tier !== undefined ||
@@ -118,12 +137,12 @@ const DefaultPreviewCardFooter: React.FC<DefaultPreviewCardFooterProps> = ({
             <Container>
                 {isFullViewCard && (
                     <Pills
-                        glossaryTerms={glossaryTerms}
-                        tags={tags}
-                        owners={owners}
-                        entityCapabilities={entityCapabilities}
-                        paths={paths}
-                        entityType={entityType}
+                        glossaryTerms={showGlossaryTerms ? glossaryTerms : []}
+                        tags={showTags ? tags : []}
+                        owners={showOwners ? owners : []}
+                        groupedMatches={groupedMatches}
+                        paths={shouldRenderPillsRow ? paths : []}
+                        lineageDirection={lineageDirection}
                     />
                 )}
                 <RightSection isFullViewCard={isFullViewCard}>

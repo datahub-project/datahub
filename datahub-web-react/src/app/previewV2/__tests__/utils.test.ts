@@ -23,7 +23,7 @@ describe('Preview V2 utils tests', () => {
         expect(result).toBe(false);
     });
     it('getHighlightedTag -> get name of the tag', () => {
-        const result = getHighlightedTag(globalTags);
+        const result = getHighlightedTag(globalTags.tags || []);
         expect(result).toMatch('abc-sample-tag');
     });
     it('getHighlightedTag -> get empty output for empty tag', () => {
