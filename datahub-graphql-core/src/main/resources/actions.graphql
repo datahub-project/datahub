@@ -787,6 +787,12 @@ input ProposeDataContractInput {
   The data quality portion of the contract. If not provided, this will be set to none.
   """
   dataQuality: [DataQualityContractInput!]
+
+  """
+  Optional description providing context for the proposal
+  Also called proposalNote for some other proposal types
+  """
+  description: String
 }
 
 """
@@ -828,6 +834,7 @@ input ProposeTermAssociationInput {
 input ProposeTermsInput {
     """
     Optional description providing context for the proposal
+    Also called proposalNote for some other proposal types
     """
     description: String
 
@@ -865,6 +872,7 @@ input ProposeTermsInput {
 input ProposeTagsInput {
     """
     Optional description providing context for the proposal
+    Also called proposalNote for some other proposal types
     """
     description: String
 
@@ -902,6 +910,7 @@ input ProposeTagsInput {
 input ProposeDomainInput {
     """
     Optional description providing context for the proposal
+    Also called proposalNote for some other proposal types
     """
     description: String
 
@@ -929,6 +938,7 @@ input ProposeDomainInput {
 input ProposeOwnersInput {
     """
     Optional description providing context for the proposal
+    Also called proposalNote for some other proposal types
     """
     description: String
 
@@ -956,6 +966,7 @@ input ProposeOwnersInput {
 input ProposeStructuredPropertiesInput {
     """
     Optional description providing context for the proposal
+    Also called proposalNote for some other proposal types
     """
     description: String
 

@@ -65,7 +65,7 @@ public class ProposeUpdateDescriptionResolverTest {
     input.setResourceUrn(GLOSSARY_NODE_URN_STRING);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
     when(_ActionRequestService.proposeUpdateResourceDescription(
-            any(OperationContext.class), any(), any(), any(), any(), any()))
+            any(OperationContext.class), any(), any(), any(), any(), any(), eq(null)))
         .thenReturn(true);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
@@ -82,7 +82,7 @@ public class ProposeUpdateDescriptionResolverTest {
     input.setResourceUrn(GLOSSARY_TERM_URN_STRING);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
     when(_ActionRequestService.proposeUpdateResourceDescription(
-            any(OperationContext.class), any(), any(), any(), any(), any()))
+            any(OperationContext.class), any(), any(), any(), any(), any(), eq(null)))
         .thenReturn(true);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
@@ -99,7 +99,7 @@ public class ProposeUpdateDescriptionResolverTest {
     input.setResourceUrn(DATASET_URN_STRING);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
     when(_ActionRequestService.proposeUpdateResourceDescription(
-            any(OperationContext.class), any(), any(), any(), any(), any()))
+            any(OperationContext.class), any(), any(), any(), any(), any(), eq(null)))
         .thenReturn(true);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
@@ -126,7 +126,8 @@ public class ProposeUpdateDescriptionResolverTest {
             eq(Urn.createFromString(DATASET_URN_STRING)),
             eq(SubResourceType.DATASET_FIELD.toString()),
             eq(fieldPath),
-            eq(DESCRIPTION)))
+            eq(DESCRIPTION),
+            eq(null)))
         .thenReturn(true);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());

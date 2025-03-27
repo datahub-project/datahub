@@ -63,7 +63,7 @@ public class ProposeCreateGlossaryTermResolverTest {
     input.setName(GLOSSARY_TERM_NAME);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
     when(_ActionRequestService.proposeCreateGlossaryTerm(
-            any(OperationContext.class), any(), eq(GLOSSARY_TERM_NAME), any(), any()))
+            any(OperationContext.class), any(), eq(GLOSSARY_TERM_NAME), any(), any(), eq(null)))
         .thenReturn(true);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());

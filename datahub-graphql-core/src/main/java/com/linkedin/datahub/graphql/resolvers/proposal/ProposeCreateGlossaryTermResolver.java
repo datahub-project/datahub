@@ -28,6 +28,7 @@ public class ProposeCreateGlossaryTermResolver implements DataFetcher<Completabl
     String name = input.getName();
     String parentNodeUrnStr = input.getParentNode();
     String description = input.getDescription();
+    String proposalNote = input.getProposalNote();
 
     if (name == null || name.isEmpty()) {
       throw new IllegalArgumentException("Name cannot be null or the empty string");
@@ -45,7 +46,7 @@ public class ProposeCreateGlossaryTermResolver implements DataFetcher<Completabl
             log.info("Proposing Creation of Glossary Term. input: {}", input);
 
             return _proposalService.proposeCreateGlossaryTerm(
-                context.getOperationContext(), actor, name, parentNode, description);
+                context.getOperationContext(), actor, name, parentNode, description, proposalNote);
           } catch (Exception e) {
             log.error("Failed to perform update against input {}, {}", input, e.getMessage());
             throw new RuntimeException(

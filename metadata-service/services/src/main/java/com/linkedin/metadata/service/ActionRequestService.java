@@ -645,7 +645,8 @@ public class ActionRequestService extends BaseService {
       @Nonnull final Urn actorUrn,
       @Nonnull final String name,
       @Nonnull final Optional<Urn> parentNode,
-      final String description) {
+      final String description,
+      @Nullable final String proposalNote) {
     Objects.requireNonNull(actorUrn, "actorUrn cannot be null");
     Objects.requireNonNull(name, "name cannot be null");
     Objects.requireNonNull(parentNode, "parentNode cannot be null");
@@ -658,7 +659,14 @@ public class ActionRequestService extends BaseService {
     List<Urn> assignedRoles = actors.getRoles();
     ActionRequestSnapshot snapshot =
         createCreateGlossaryNodeProposalActionRequest(
-            actorUrn, assignedUsers, assignedGroups, assignedRoles, name, parentNode, description);
+            actorUrn,
+            assignedUsers,
+            assignedGroups,
+            assignedRoles,
+            name,
+            parentNode,
+            description,
+            proposalNote);
 
     final AuditStamp auditStamp = new AuditStamp();
     auditStamp.setActor(actorUrn, SetMode.IGNORE_NULL);
@@ -743,7 +751,8 @@ public class ActionRequestService extends BaseService {
       @Nonnull final Urn actorUrn,
       @Nonnull final String name,
       @Nonnull final Optional<Urn> parentNode,
-      final String description) {
+      final String description,
+      @Nullable final String proposalNote) {
     Objects.requireNonNull(actorUrn, "actorUrn cannot be null");
     Objects.requireNonNull(name, "name cannot be null");
     Objects.requireNonNull(parentNode, "parentNode cannot be null");
@@ -757,7 +766,14 @@ public class ActionRequestService extends BaseService {
 
     ActionRequestSnapshot snapshot =
         createCreateGlossaryTermProposalActionRequest(
-            actorUrn, assignedUsers, assignedGroups, assignedRoles, name, parentNode, description);
+            actorUrn,
+            assignedUsers,
+            assignedGroups,
+            assignedRoles,
+            name,
+            parentNode,
+            description,
+            proposalNote);
 
     final AuditStamp auditStamp = new AuditStamp();
     auditStamp.setActor(actorUrn, SetMode.IGNORE_NULL);
@@ -843,7 +859,8 @@ public class ActionRequestService extends BaseService {
       @Nonnull final Urn resourceUrn,
       final String subResourceType,
       final String subResource,
-      @Nonnull final String description)
+      @Nonnull final String description,
+      @Nullable final String proposalNote)
       throws RemoteInvocationException {
     Objects.requireNonNull(actorUrn, "actorUrn cannot be null");
     Objects.requireNonNull(resourceUrn, "resourceUrn cannot be null");
@@ -894,7 +911,8 @@ public class ActionRequestService extends BaseService {
             assignedUsers,
             assignedGroups,
             assignedRoles,
-            description);
+            description,
+            proposalNote);
 
     final AuditStamp auditStamp = new AuditStamp();
     auditStamp.setActor(actorUrn, SetMode.IGNORE_NULL);
@@ -963,7 +981,8 @@ public class ActionRequestService extends BaseService {
       @Nonnull final DataContractProposalOperationType opType,
       @Nullable final List<FreshnessContract> freshness,
       @Nullable final List<SchemaContract> schema,
-      @Nullable final List<DataQualityContract> quality)
+      @Nullable final List<DataQualityContract> quality,
+      @Nullable final String description)
       throws RemoteInvocationException {
     Objects.requireNonNull(actorUrn, "actorUrn cannot be null");
     Objects.requireNonNull(entityUrn, "entityUrn cannot be null");
@@ -1000,7 +1019,15 @@ public class ActionRequestService extends BaseService {
 
     ActionRequestSnapshot snapshot =
         createDataContractActionRequest(
-            actorUrn, assignedUsers, assignedGroups, entityUrn, opType, freshness, schema, quality);
+            actorUrn,
+            assignedUsers,
+            assignedGroups,
+            entityUrn,
+            opType,
+            freshness,
+            schema,
+            quality,
+            description);
 
     final AuditStamp auditStamp = new AuditStamp();
     auditStamp.setActor(actorUrn, SetMode.IGNORE_NULL);
@@ -3327,7 +3354,8 @@ public class ActionRequestService extends BaseService {
       @Nonnull final List<Urn> assignedRoles,
       @Nonnull final String name,
       @Nonnull final Optional<Urn> parentNode,
-      final String description) {
+      final String description,
+      @Nullable final String proposalNote) {
     final ActionRequestSnapshot result = new ActionRequestSnapshot();
 
     final UUID uuid = UUID.randomUUID();
@@ -3345,7 +3373,8 @@ public class ActionRequestService extends BaseService {
                 assignedRoles,
                 name,
                 parentNode,
-                description)));
+                description,
+                proposalNote)));
 
     result.setAspects(aspects);
 
@@ -3360,7 +3389,8 @@ public class ActionRequestService extends BaseService {
       @Nonnull final List<Urn> assignedRoles,
       @Nonnull final String name,
       @Nonnull final Optional<Urn> parentNode,
-      final String description) {
+      final String description,
+      @Nullable final String proposalNote) {
     final ActionRequestSnapshot result = new ActionRequestSnapshot();
 
     final UUID uuid = UUID.randomUUID();
@@ -3378,7 +3408,8 @@ public class ActionRequestService extends BaseService {
                 assignedRoles,
                 name,
                 parentNode,
-                description)));
+                description,
+                proposalNote)));
 
     result.setAspects(aspects);
 
@@ -3394,7 +3425,8 @@ public class ActionRequestService extends BaseService {
       @Nonnull final List<Urn> assignedUsers,
       @Nonnull final List<Urn> assignedGroups,
       @Nonnull final List<Urn> assignedRoles,
-      @Nonnull final String description) {
+      @Nonnull final String description,
+      @Nullable final String proposalNote) {
     final ActionRequestSnapshot result = new ActionRequestSnapshot();
 
     final UUID uuid = UUID.randomUUID();
@@ -3413,7 +3445,8 @@ public class ActionRequestService extends BaseService {
                 assignedUsers,
                 assignedGroups,
                 assignedRoles,
-                description)));
+                description,
+                proposalNote)));
 
     result.setAspects(aspects);
 
@@ -3428,7 +3461,8 @@ public class ActionRequestService extends BaseService {
       @Nonnull final DataContractProposalOperationType opType,
       @Nullable final List<FreshnessContract> freshness,
       @Nullable final List<SchemaContract> schema,
-      @Nullable final List<DataQualityContract> quality) {
+      @Nullable final List<DataQualityContract> quality,
+      @Nullable final String description) {
     final ActionRequestSnapshot result = new ActionRequestSnapshot();
 
     final UUID uuid = UUID.randomUUID();
@@ -3447,7 +3481,8 @@ public class ActionRequestService extends BaseService {
                 opType,
                 freshness,
                 schema,
-                quality)));
+                quality,
+                description)));
     result.setAspects(aspects);
 
     return result;
@@ -3460,7 +3495,8 @@ public class ActionRequestService extends BaseService {
       final List<Urn> assignedRoles,
       final String name,
       final Optional<Urn> parentNode,
-      final String description) {
+      final String description,
+      @Nullable final String proposalNote) {
     final ActionRequestInfo info = new ActionRequestInfo();
     info.setType(CREATE_GLOSSARY_NODE_ACTION_REQUEST_TYPE);
     info.setAssignedUsers(new UrnArray(assignedUsers));
@@ -3472,6 +3508,10 @@ public class ActionRequestService extends BaseService {
     info.setCreated(System.currentTimeMillis());
     info.setCreatedBy(creator);
 
+    if (proposalNote != null) {
+      info.setDescription(proposalNote);
+    }
+
     return info;
   }
 
@@ -3482,7 +3522,8 @@ public class ActionRequestService extends BaseService {
       @Nonnull final List<Urn> assignedRoles,
       @Nonnull final String name,
       @Nonnull final Optional<Urn> parentNode,
-      final String description) {
+      final String description,
+      @Nullable final String proposalNote) {
     final ActionRequestInfo info = new ActionRequestInfo();
     info.setType(CREATE_GLOSSARY_TERM_ACTION_REQUEST_TYPE);
     info.setAssignedUsers(new UrnArray(assignedUsers));
@@ -3493,6 +3534,10 @@ public class ActionRequestService extends BaseService {
 
     info.setCreated(System.currentTimeMillis());
     info.setCreatedBy(actorUrn);
+
+    if (proposalNote != null) {
+      info.setDescription(proposalNote);
+    }
 
     return info;
   }
@@ -3505,7 +3550,8 @@ public class ActionRequestService extends BaseService {
       @Nonnull final List<Urn> assignedUsers,
       @Nonnull final List<Urn> assignedGroups,
       @Nonnull final List<Urn> assignedRoles,
-      @Nonnull final String description) {
+      @Nonnull final String description,
+      @Nullable final String proposalNote) {
     final ActionRequestInfo info = new ActionRequestInfo();
     info.setType(UPDATE_DESCRIPTION_ACTION_REQUEST_TYPE);
     info.setResource(resourceUrn.toString());
@@ -3529,6 +3575,10 @@ public class ActionRequestService extends BaseService {
     info.setCreated(System.currentTimeMillis());
     info.setCreatedBy(actorUrn);
 
+    if (proposalNote != null) {
+      info.setDescription(proposalNote);
+    }
+
     return info;
   }
 
@@ -3540,7 +3590,8 @@ public class ActionRequestService extends BaseService {
       @Nonnull final DataContractProposalOperationType opType,
       @Nullable final List<FreshnessContract> freshness,
       @Nullable final List<SchemaContract> schema,
-      @Nullable final List<DataQualityContract> quality) {
+      @Nullable final List<DataQualityContract> quality,
+      @Nullable final String description) {
     final ActionRequestInfo info = new ActionRequestInfo();
     info.setType(DATA_CONTRACT_REQUEST_TYPE);
     info.setResource(entityUrn.toString());
@@ -3550,6 +3601,9 @@ public class ActionRequestService extends BaseService {
     info.setParams(createDataContractParams(opType, freshness, schema, quality));
     info.setCreated(System.currentTimeMillis());
     info.setCreatedBy(actorUrn);
+    if (description != null) {
+      info.setDescription(description);
+    }
     return info;
   }
 

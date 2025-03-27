@@ -63,7 +63,7 @@ public class ProposeCreateGlossaryNodeResolverTest {
     input.setName(GLOSSARY_NODE_NAME);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
     when(_ActionRequestService.proposeCreateGlossaryNode(
-            any(OperationContext.class), any(), eq(GLOSSARY_NODE_NAME), any(), any()))
+            any(OperationContext.class), any(), eq(GLOSSARY_NODE_NAME), any(), any(), eq(null)))
         .thenReturn(true);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());

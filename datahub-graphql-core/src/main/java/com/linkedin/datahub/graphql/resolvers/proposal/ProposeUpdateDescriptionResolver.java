@@ -30,6 +30,7 @@ public class ProposeUpdateDescriptionResolver implements DataFetcher<Completable
     String subResourceType =
         input.getSubResourceType() == null ? null : input.getSubResourceType().toString();
     String subresource = input.getSubResource();
+    String proposalNote = input.getProposalNote();
 
     if (!ProposalUtils.isAuthorizedToProposeDescription(context, resourceUrn, subresource)) {
       throw new AuthorizationException(
@@ -53,7 +54,8 @@ public class ProposeUpdateDescriptionResolver implements DataFetcher<Completable
                     resourceUrn,
                     subResourceType,
                     subresource,
-                    description);
+                    description,
+                    proposalNote);
               default:
                 log.warn(
                     String.format(

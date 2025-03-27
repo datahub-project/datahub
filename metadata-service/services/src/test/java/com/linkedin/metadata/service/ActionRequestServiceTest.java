@@ -2989,21 +2989,21 @@ public class ActionRequestServiceTest {
     assertThrows(
         () ->
             actionRequestService.proposeCreateGlossaryNode(
-                mockOpContext, null, GLOSSARY_NODE_NAME, Optional.empty(), "test"));
+                mockOpContext, null, GLOSSARY_NODE_NAME, Optional.empty(), "test", null));
     assertThrows(
         () ->
             actionRequestService.proposeCreateGlossaryNode(
-                mockOpContext, ACTOR_URN, null, Optional.empty(), "test"));
+                mockOpContext, ACTOR_URN, null, Optional.empty(), "test", null));
     assertThrows(
         () ->
             actionRequestService.proposeCreateGlossaryNode(
-                mockOpContext, ACTOR_URN, GLOSSARY_NODE_NAME, null, "test"));
+                mockOpContext, ACTOR_URN, GLOSSARY_NODE_NAME, null, "test", null));
   }
 
   @Test
   public void proposeCreateGlossaryNodePasses() {
     actionRequestService.proposeCreateGlossaryNode(
-        mockOpContext, ACTOR_URN, GLOSSARY_NODE_NAME, Optional.empty(), "test");
+        mockOpContext, ACTOR_URN, GLOSSARY_NODE_NAME, Optional.empty(), "test", null);
     verify(mockEntityService).ingestEntity(any(OperationContext.class), any(), any());
   }
 
@@ -3012,21 +3012,21 @@ public class ActionRequestServiceTest {
     assertThrows(
         () ->
             actionRequestService.proposeCreateGlossaryTerm(
-                mockOpContext, null, GLOSSARY_TERM_NAME, Optional.empty(), "test"));
+                mockOpContext, null, GLOSSARY_TERM_NAME, Optional.empty(), "test", null));
     assertThrows(
         () ->
             actionRequestService.proposeCreateGlossaryTerm(
-                mockOpContext, ACTOR_URN, null, Optional.empty(), "test"));
+                mockOpContext, ACTOR_URN, null, Optional.empty(), "test", null));
     assertThrows(
         () ->
             actionRequestService.proposeCreateGlossaryTerm(
-                mockOpContext, ACTOR_URN, GLOSSARY_TERM_NAME, null, "test"));
+                mockOpContext, ACTOR_URN, GLOSSARY_TERM_NAME, null, "test", null));
   }
 
   @Test
   public void proposeCreateGlossaryTermPasses() {
     actionRequestService.proposeCreateGlossaryTerm(
-        mockOpContext, ACTOR_URN, GLOSSARY_TERM_NAME, Optional.empty(), "test");
+        mockOpContext, ACTOR_URN, GLOSSARY_TERM_NAME, Optional.empty(), "test", null);
     verify(mockEntityService).ingestEntity(any(OperationContext.class), any(), any());
   }
 
@@ -3035,15 +3035,15 @@ public class ActionRequestServiceTest {
     assertThrows(
         () ->
             actionRequestService.proposeUpdateResourceDescription(
-                mockOpContext, null, TEST_GLOSSARY_NODE_URN, null, null, DESCRIPTION));
+                mockOpContext, null, TEST_GLOSSARY_NODE_URN, null, null, DESCRIPTION, null));
     assertThrows(
         () ->
             actionRequestService.proposeUpdateResourceDescription(
-                mockOpContext, ACTOR_URN, null, null, null, DESCRIPTION));
+                mockOpContext, ACTOR_URN, null, null, null, DESCRIPTION, null));
     assertThrows(
         () ->
             actionRequestService.proposeUpdateResourceDescription(
-                mockOpContext, ACTOR_URN, TEST_GLOSSARY_NODE_URN, null, null, null));
+                mockOpContext, ACTOR_URN, TEST_GLOSSARY_NODE_URN, null, null, null, null));
   }
 
   private static class DescriptionUpdateActionRequestMatcher extends ActionRequestSnapshotMatcher {
@@ -3070,7 +3070,7 @@ public class ActionRequestServiceTest {
         .thenReturn(true);
 
     actionRequestService.proposeUpdateResourceDescription(
-        mockOpContext, ACTOR_URN, TEST_GLOSSARY_NODE_URN, null, null, DESCRIPTION);
+        mockOpContext, ACTOR_URN, TEST_GLOSSARY_NODE_URN, null, null, DESCRIPTION, null);
 
     DescriptionUpdateActionRequestMatcher snapshotMatcher =
         new DescriptionUpdateActionRequestMatcher(
@@ -3098,7 +3098,8 @@ public class ActionRequestServiceTest {
         TEST_ENTITY_URN,
         SubResourceType.DATASET_FIELD.toString(),
         TEST_FIELD_PATH,
-        DESCRIPTION);
+        DESCRIPTION,
+        null);
 
     DescriptionUpdateActionRequestMatcher snapshotMatcher =
         new DescriptionUpdateActionRequestMatcher(
@@ -3144,12 +3145,13 @@ public class ActionRequestServiceTest {
                 datasetUrn,
                 SubResourceType.DATASET_FIELD.toString(),
                 null,
-                DESCRIPTION));
+                DESCRIPTION,
+                null));
 
     assertThrows(
         () ->
             actionRequestService.proposeUpdateResourceDescription(
-                mockOpContext, ACTOR_URN, datasetUrn, null, fieldPath, DESCRIPTION));
+                mockOpContext, ACTOR_URN, datasetUrn, null, fieldPath, DESCRIPTION, null));
 
     verify(mockEntityService, never()).ingestEntity(any(OperationContext.class), any(), any());
   }
@@ -3230,7 +3232,8 @@ public class ActionRequestServiceTest {
             Collections.EMPTY_LIST,
             GLOSSARY_NODE_NAME,
             Optional.empty(),
-            "test");
+            "test",
+            null);
     actionRequestService.acceptCreateGlossaryNodeProposal(
         mockOpContext, ACTOR_URN, actionRequestSnapshot, true);
 
@@ -3261,7 +3264,8 @@ public class ActionRequestServiceTest {
             Collections.EMPTY_LIST,
             GLOSSARY_TERM_NAME,
             Optional.empty(),
-            "test");
+            "test",
+            null);
     actionRequestService.acceptCreateGlossaryTermProposal(
         mockOpContext, ACTOR_URN, actionRequestSnapshot, true);
 
@@ -3299,7 +3303,8 @@ public class ActionRequestServiceTest {
             Collections.singletonList(ACTOR_URN),
             Collections.EMPTY_LIST,
             Collections.EMPTY_LIST,
-            DESCRIPTION);
+            DESCRIPTION,
+            null);
     actionRequestService.acceptUpdateResourceDescriptionProposal(
         mockOpContext, actionRequestSnapshot);
 
@@ -3327,7 +3332,8 @@ public class ActionRequestServiceTest {
             Collections.singletonList(ACTOR_URN),
             Collections.EMPTY_LIST,
             Collections.EMPTY_LIST,
-            DESCRIPTION);
+            DESCRIPTION,
+            null);
     actionRequestService.acceptUpdateResourceDescriptionProposal(
         mockOpContext, actionRequestSnapshot);
 
@@ -3370,7 +3376,8 @@ public class ActionRequestServiceTest {
             Collections.singletonList(ACTOR_URN),
             Collections.EMPTY_LIST,
             Collections.EMPTY_LIST,
-            DESCRIPTION);
+            DESCRIPTION,
+            null);
 
     actionRequestService.acceptUpdateResourceDescriptionProposal(
         mockOpContext, actionRequestSnapshot);
@@ -3407,7 +3414,8 @@ public class ActionRequestServiceTest {
             Collections.singletonList(ACTOR_URN),
             Collections.EMPTY_LIST,
             Collections.EMPTY_LIST,
-            DESCRIPTION);
+            DESCRIPTION,
+            null);
 
     actionRequestService.acceptUpdateResourceDescriptionProposal(
         mockOpContext, actionRequestSnapshot);
@@ -3463,7 +3471,8 @@ public class ActionRequestServiceTest {
             Collections.singletonList(ACTOR_URN),
             Collections.EMPTY_LIST,
             Collections.EMPTY_LIST,
-            DESCRIPTION);
+            DESCRIPTION,
+            null);
 
     actionRequestService.acceptUpdateResourceDescriptionProposal(
         mockOpContext, actionRequestSnapshot);
@@ -3504,7 +3513,8 @@ public class ActionRequestServiceTest {
             Collections.singletonList(ACTOR_URN),
             Collections.EMPTY_LIST,
             Collections.EMPTY_LIST,
-            DESCRIPTION);
+            DESCRIPTION,
+            null);
 
     actionRequestService.acceptUpdateResourceDescriptionProposal(
         mockOpContext, actionRequestSnapshot);
@@ -3538,7 +3548,8 @@ public class ActionRequestServiceTest {
             Collections.singletonList(ACTOR_URN),
             Collections.EMPTY_LIST,
             Collections.EMPTY_LIST,
-            DESCRIPTION);
+            DESCRIPTION,
+            null);
 
     // set subresource to null
     actionRequestSnapshot.getAspects().get(1).getActionRequestInfo().removeSubResource();
@@ -3602,7 +3613,8 @@ public class ActionRequestServiceTest {
             Collections.singletonList(ACTOR_URN),
             Collections.EMPTY_LIST,
             Collections.EMPTY_LIST,
-            DESCRIPTION);
+            DESCRIPTION,
+            null);
     Entity entity = new Entity().setValue(Snapshot.create(actionRequestSnapshot));
     actionRequestService.completeProposal(
         mockOpContext,
@@ -3626,7 +3638,8 @@ public class ActionRequestServiceTest {
             Collections.singletonList(ACTOR_URN),
             Collections.EMPTY_LIST,
             Collections.EMPTY_LIST,
-            DESCRIPTION);
+            DESCRIPTION,
+            null);
     Entity entity = new Entity().setValue(Snapshot.create(actionRequestSnapshot));
 
     actionRequestService.completeProposal(

@@ -43,6 +43,7 @@ public class ProposeDataContractResolver implements DataFetcher<CompletableFutur
     final List<SchemaContract> schema = mapSchemaContracts(input.getSchema());
     final List<DataQualityContract> quality = mapQualityContracts(input.getDataQuality());
     final Urn actorUrn = CorpuserUrn.createFromString(context.getActorUrn());
+    final String description = input.getDescription();
 
     return CompletableFuture.supplyAsync(
         () -> {
@@ -55,7 +56,8 @@ public class ProposeDataContractResolver implements DataFetcher<CompletableFutur
                 opType,
                 freshness,
                 schema,
-                quality);
+                quality,
+                description);
           } catch (Exception e) {
             log.error("Failed to perform update against input {}, {}", input, e.getMessage());
             throw new RuntimeException(

@@ -9434,6 +9434,12 @@ input DescriptionUpdateInput {
     A sub resource identifier, eg dataset field path
     """
     subResource: String
+
+    """
+    Optional description providing context for the proposal
+    Also called description for some other proposal types
+    """
+    proposalNote: String
 }
 
 """
@@ -11991,6 +11997,12 @@ input CreateGlossaryEntityInput {
     Optional parent node urn for the Glossary Node or Term
     """
     parentNode: String
+
+    """
+    Optional description providing context for the proposal
+    Also called description for some other proposal types
+    """
+    proposalNote: String
 }
 
 enum HealthStatus {
