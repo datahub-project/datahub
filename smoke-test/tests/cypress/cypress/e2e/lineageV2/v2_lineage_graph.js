@@ -147,11 +147,10 @@ describe("lineage_graph", () => {
 
     // there are multiple search inputs, we want to find the one for the search bar in the modal
     cy.get('[role="dialog"] [data-testid="search-input"]').type(
-      "fct_cypress_users_deleted",
+      "cypress_health_test",
     );
-    // cy.contains("fct_cypress_users_deleted").should("be.visible");
 
-    // find the checkbox for fct_cypress_users_deleted (data-testid="preview-urn:li:dataset:(urn:li:dataPlatform:hive,cypress_health_test,PROD)") is the
+    // find the checkbox for cypress_health_test (data-testid="preview-urn:li:dataset:(urn:li:dataPlatform:hive,cypress_health_test,PROD)") is the
     // test id for a sibling of the checkbox, we want to find that id, find its parent, and click the checkbox
 
     cy.get(
