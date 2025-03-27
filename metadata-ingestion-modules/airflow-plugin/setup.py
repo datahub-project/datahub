@@ -24,8 +24,9 @@ _self_pin = (
 
 base_requirements = {
     f"acryl-datahub[datahub-rest]{_self_pin}",
-    # We require Airflow 2.3.x, since we need the new DAG listener API.
-    "apache-airflow>=2.3.0",
+    # We require Airflow 2.3.x at minimum, since we need the new DAG listener API.
+    # We pin to 2.5.x, since we also need typing-extensions>=4.5 in acryl-datahub.
+    "apache-airflow>=2.5.0",
 }
 
 plugins: Dict[str, Set[str]] = {
@@ -106,6 +107,14 @@ integration_test_requirements = {
     "virtualenv",  # needed by PythonVirtualenvOperator
     "apache-airflow-providers-sqlite",
 }
+per_version_test_requirements = {
+    "test-airflow25": {
+        "pendulum<3.0",
+        "Flask-Session<0.6.0",
+        "connexion<3.0",
+        "marshmallow<3.24.0",
+    },
+}
 
 
 entry_points = {
@@ -160,5 +169,9 @@ setuptools.setup(
         **{plugin: list(dependencies) for plugin, dependencies in plugins.items()},
         "dev": list(dev_requirements),
         "integration-tests": list(integration_test_requirements),
+        **{
+            plugin: list(dependencies)
+            for plugin, dependencies in per_version_test_requirements.items()
+        },
     },
 )

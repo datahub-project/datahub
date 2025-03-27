@@ -34,7 +34,8 @@ jobs:
         include:
           # Note: this should be kept in sync with tox.ini.
           - python-version: "3.8"
-            extra_pip_requirements: "apache-airflow~=2.5.3 -c https://raw.githubusercontent.com/apache/airflow/constraints-2.5.3/constraints-3.8.txt"
+            extra_pip_extras: test-airflow25
+            # extra_pip_requirements: "apache-airflow~=2.5.3 -c https://raw.githubusercontent.com/apache/airflow/constraints-2.5.3/constraints-3.8.txt"
           - python-version: "3.10"
             extra_pip_requirements: "apache-airflow~=2.6.3 -c https://raw.githubusercontent.com/apache/airflow/constraints-2.6.3/constraints-3.10.txt"
           - python-version: "3.10"
@@ -61,7 +62,7 @@ jobs:
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Install airflow package and test (extras ${{ matrix.extra_pip_requirements }})
-        run: ./gradlew -Pextra_pip_requirements='${{ matrix.extra_pip_requirements }}' :metadata-ingestion-modules:airflow-plugin:build
+        run: ./gradlew -Pextra_pip_requirements='${{ matrix.extra_pip_requirements }}' -Pextra_pip_extras='${{ matrix.extra_pip_extras }}' :metadata-ingestion-modules:airflow-plugin:build
       - name: pip freeze show list installed
         if: always()
         run: source metadata-ingestion-modules/airflow-plugin/venv/bin/activate && uv pip freeze
