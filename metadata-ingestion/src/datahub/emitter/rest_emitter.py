@@ -109,7 +109,7 @@ class RestSinkEndpoint(ConfigEnum):
 
 DEFAULT_REST_SINK_ENDPOINT = pydantic.parse_obj_as(
     RestSinkEndpoint,
-    os.getenv("DATAHUB_REST_SINK_DEFAULT_ENDPOINT", RestSinkEndpoint.RESTLI),
+    os.getenv("DATAHUB_REST_SINK_DEFAULT_ENDPOINT", RestSinkEndpoint.OPENAPI),
 )
 
 
@@ -227,7 +227,9 @@ class DataHubRestEmitter(Closeable, Emitter):
         ca_certificate_path: Optional[str] = None,
         client_certificate_path: Optional[str] = None,
         disable_ssl_verification: bool = False,
-        openapi_ingestion: bool = False,
+        openapi_ingestion: bool = (
+            DEFAULT_REST_SINK_ENDPOINT == RestSinkEndpoint.OPENAPI
+        ),
         default_trace_mode: bool = False,
     ):
         if not gms_server:
