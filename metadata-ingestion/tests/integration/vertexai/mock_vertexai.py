@@ -115,7 +115,7 @@ def gen_mock_experiment_run() -> ExperimentRun:
     return mock_experiment_run
 
 
-def get_mock_pipeline_job() -> PipelineJobType:
+def get_mock_pipeline_job() -> PipelineJob:
     mock_pipeline_job = MagicMock(spec=PipelineJob)
     mock_pipeline_job.name = "mock_pipeline_job"
     mock_pipeline_job.resource_name = (
@@ -125,7 +125,7 @@ def get_mock_pipeline_job() -> PipelineJobType:
     mock_pipeline_job.create_time = datetime.fromtimestamp(1647878400)
     mock_pipeline_job.update_time = datetime.fromtimestamp(1647878500)
     mock_pipeline_job.location = "us-west2"
-    gca_resource = MagicMock(spec=PipelineJob)
+    gca_resource = MagicMock(spec=PipelineJobType)
     mock_pipeline_job.gca_resource = gca_resource
     task_detail = MagicMock(spec=PipelineTaskDetail)
     task_detail.task_name = "mock_pipeline_task"

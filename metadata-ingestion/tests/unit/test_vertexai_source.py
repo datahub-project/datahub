@@ -17,10 +17,7 @@ from datahub.ingestion.source.vertexai.vertexai import (
     VertexAIConfig,
     VertexAISource,
 )
-from datahub.metadata._schema_classes import (
-    DataFlowInfoClass,
-    DataJobInputOutputClass,
-)
+
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.ml.metadata import (
     MLModelGroupProperties,
@@ -41,6 +38,8 @@ from datahub.metadata.schema_classes import (
     TimeStampClass,
     VersionPropertiesClass,
     VersionTagClass,
+    DataFlowInfoClass,
+    DataJobInputOutputClass,
 )
 from datahub.metadata.urns import DataPlatformUrn
 from datahub.utilities.time import datetime_to_ts_millis
@@ -665,8 +664,8 @@ def test_gen_pipeline_run_mcps(
                 env=source.config.env,
                 name=mock_pipeline.name,
                 customProperties={
-                    "display_name": "mock_pipeline_job",
-                    "resource_name": "projects/123/locations/us-central1/pipelineJobs/456",
+                    "display_name": mock_pipeline.name,
+                    "resource_name": mock_pipeline.resource_name,
                     "create_time": "2022-03-21 09:00:00",
                     "update_time": "2022-03-21 09:01:40",
                     "duration": "1m 40s",
@@ -715,6 +714,7 @@ def test_gen_pipeline_run_mcps(
         )
 
         assert len(actual_mcps) == 13
+
         assert any(mcp_pipe_df_info == mcp for mcp in actual_mcps)
         assert any(mcp_pipe_df_status == mcp for mcp in actual_mcps)
         assert any(mcp_pipe_subtype == mcp for mcp in actual_mcps)
