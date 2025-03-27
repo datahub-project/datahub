@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import time
+import warnings
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -749,6 +750,10 @@ class DataHubRestEmitter(Closeable, Emitter):
             trace_flag if trace_flag is not None else self._default_trace_mode
         )
         resolved_async_flag = async_flag if async_flag is not None else async_default
+        if resolved_trace_flag and not resolved_async_flag:
+            warnings.warn(
+                "API tracing is only available with async ingestion. For synchronous ingestion, API errors will be surfaced directly as an API response. "
+            )
         return resolved_trace_flag and resolved_async_flag
 
     def __repr__(self) -> str:
