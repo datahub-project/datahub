@@ -1,7 +1,9 @@
+import logging
 import re
 from enum import Enum
 from typing import Iterator, List, Tuple
 
+logger = logging.getLogger(__name__)
 SELECT_KEYWORD = "SELECT"
 CASE_KEYWORD = "CASE"
 END_KEYWORD = "END"
@@ -120,7 +122,9 @@ class _StatementSplitter:
         # Reset current_statement-specific state.
         self.does_select_mean_new_statement = False
         if self.current_case_statements != 0:
-            breakpoint()
+            logger.warning(
+                f"Unexpected END keyword. Current case statements: {self.current_case_statements}"
+            )
         self.current_case_statements = 0
 
     def process(self) -> Iterator[str]:
