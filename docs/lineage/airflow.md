@@ -215,6 +215,8 @@ If you have created a [custom Airflow operator](https://airflow.apache.org/docs/
 when overriding the `execute` function, set inlets and outlets via `context['ti'].task.inlets` and `context['ti'].task.outlets`.
 The DataHub Airflow plugin will then pick up those inlets and outlets after the task runs.
 
+You can only set table-level lineage using inlets and outlets. For column-level lineage, you need to write a custom extractor for your custom operator.
+
 ```python
 class DbtOperator(BaseOperator):
     ...
@@ -233,6 +235,8 @@ class DbtOperator(BaseOperator):
 ```
 
 If you override the `pre_execute` and `post_execute` function, ensure they include the `@prepare_lineage` and `@apply_lineage` decorators respectively. Reference the [Airflow docs](https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/lineage.html#lineage) for more details.
+
+See example implementation of a custom operator using SQL parser to capture table level lineage [here](../../metadata-ingestion-modules/airflow-plugin/tests/integration/dags/custom_operator_sql_parsing.py)
 
 ### Custom Extractors
 

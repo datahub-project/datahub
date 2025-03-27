@@ -149,7 +149,6 @@ class PipelineMetadata:
     SourceCapability.DESCRIPTIONS,
     "Extract descriptions for Vertex AI Registered Models and Model Versions",
 )
-@capability(SourceCapability.TAGS, "Extract tags for Vertex AI Registered Model Stages")
 class VertexAISource(Source):
     platform: str = "vertexai"
 

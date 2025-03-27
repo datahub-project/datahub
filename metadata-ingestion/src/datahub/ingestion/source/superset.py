@@ -3,7 +3,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import lru_cache
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import dateutil.parser as dp
 import requests
@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from pydantic.class_validators import root_validator, validator
 from pydantic.fields import Field
 
+import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     EnvConfigMixin,
@@ -26,6 +27,7 @@ from datahub.emitter.mce_builder import (
     make_schema_field_urn,
     make_user_urn,
 )
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -50,6 +52,8 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     ChangeAuditStamps,
+    InputField,
+    InputFields,
     Status,
     TimeStamp,
 )
@@ -60,11 +64,16 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    BooleanTypeClass,
+    DateTypeClass,
     MySqlDDL,
     NullType,
+    NullTypeClass,
+    NumberTypeClass,
     SchemaField,
     SchemaFieldDataType,
     SchemaMetadata,
+    StringTypeClass,
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -113,8 +122,16 @@ chart_type_from_viz_type = {
     "box_plot": ChartTypeClass.BAR,
 }
 
-
 platform_without_databases = ["druid"]
+
+FIELD_TYPE_MAPPING = {
+    "INT": NumberTypeClass,
+    "STRING": StringTypeClass,
+    "FLOAT": NumberTypeClass,
+    "DATETIME": DateTypeClass,
+    "BOOLEAN": BooleanTypeClass,
+    "SQL": StringTypeClass,
+}
 
 
 @dataclass
@@ -512,7 +529,119 @@ class SupersetSource(StatefulIngestionSourceBase):
                 entity_urn=dashboard_snapshot.urn,
             )
 
-    def construct_chart_from_chart_data(self, chart_data: dict) -> ChartSnapshot:
+    def build_input_fields(
+        self,
+        chart_columns: List[Tuple[str, str, str]],
+        datasource_urn: Union[str, None],
+    ) -> List[InputField]:
+        input_fields: List[InputField] = []
+
+        for column in chart_columns:
+            col_name, col_type, description = column
+            if not col_type or not datasource_urn:
+                continue
+
+            type_class = FIELD_TYPE_MAPPING.get(
+                col_type.upper(), NullTypeClass
+            )  # gets the type mapping
+
+            input_fields.append(
+                InputField(
+                    schemaFieldUrn=builder.make_schema_field_urn(
+                        parent_urn=str(datasource_urn),
+                        field_path=col_name,
+                    ),
+                    schemaField=SchemaField(
+                        fieldPath=col_name,
+                        type=SchemaFieldDataType(type=type_class()),  # type: ignore
+                        description=(description if description != "null" else ""),
+                        nativeDataType=col_type,
+                        globalTags=None,
+                        nullable=True,
+                    ),
+                )
+            )
+
+        return input_fields
+
+    def construct_chart_cll(
+        self,
+        chart_data: dict,
+        datasource_urn: Union[str, None],
+        datasource_id: Union[Any, int],
+    ) -> List[InputField]:
+        column_data: List[Union[str, dict]] = chart_data.get("form_data", {}).get(
+            "all_columns", []
+        )
+
+        # the second field represents whether its a SQL expression,
+        # false being just regular column and true being SQL col
+        chart_column_data: List[Tuple[str, bool]] = [
+            (column, False)
+            if isinstance(column, str)
+            else (column.get("label", ""), True)
+            for column in column_data
+        ]
+
+        dataset_columns: List[Tuple[str, str, str]] = []
+
+        # parses the superset dataset's column info, to build type and description info
+        if datasource_id:
+            dataset_info = self.get_dataset_info(datasource_id).get("result", {})
+            dataset_column_info = dataset_info.get("columns", [])
+
+            for column in dataset_column_info:
+                col_name = column.get("column_name", "")
+                col_type = column.get("type", "")
+                col_description = column.get("description", "")
+
+                # if missing column name or column type, cannot construct the column,
+                # so we skip this column, missing description is fine
+                if col_name == "" or col_type == "":
+                    logger.info(f"could not construct column lineage for {column}")
+                    continue
+
+                dataset_columns.append((col_name, col_type, col_description))
+        else:
+            # if no datasource id, cannot build cll, just return
+            logger.warning(
+                "no datasource id was found, cannot build column level lineage"
+            )
+            return []
+
+        chart_columns: List[Tuple[str, str, str]] = []
+        for chart_col in chart_column_data:
+            chart_col_name, is_sql = chart_col
+            if is_sql:
+                chart_columns.append(
+                    (
+                        chart_col_name,
+                        "SQL",
+                        "",
+                    )
+                )
+                continue
+
+            # find matching upstream column
+            for dataset_col in dataset_columns:
+                dataset_col_name, dataset_col_type, dataset_col_description = (
+                    dataset_col
+                )
+                if dataset_col_name == chart_col_name:
+                    chart_columns.append(
+                        (chart_col_name, dataset_col_type, dataset_col_description)
+                    )  # column name, column type, description
+                    break
+
+            # if no matching upstream column was found
+            if len(chart_columns) == 0 or chart_columns[-1][0] != chart_col_name:
+                chart_columns.append((chart_col_name, "", ""))
+
+        return self.build_input_fields(chart_columns, datasource_urn)
+
+    def construct_chart_from_chart_data(
+        self, chart_data: dict
+    ) -> Iterable[MetadataWorkUnit]:
         chart_urn = make_chart_urn(
             platform=self.platform,
             name=str(chart_data["id"]),
@@ -600,6 +729,18 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         chart_snapshot.aspects.append(chart_info)
 
+        input_fields = self.construct_chart_cll(
+            chart_data, datasource_urn, datasource_id
+        )
+
+        if input_fields:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=chart_urn,
+                aspect=InputFields(
+                    fields=sorted(input_fields, key=lambda x: x.schemaFieldUrn)
+                ),
+            ).as_workunit()
+
         chart_owners_list = self.build_owner_urn(chart_data)
         owners_info = OwnershipClass(
             owners=[
@@ -612,7 +753,14 @@ class SupersetSource(StatefulIngestionSourceBase):
             lastModified=last_modified,
         )
         chart_snapshot.aspects.append(owners_info)
-        return chart_snapshot
+        yield MetadataWorkUnit(
+            id=chart_urn, mce=MetadataChangeEvent(proposedSnapshot=chart_snapshot)
+        )
+
+        yield from self._get_domain_wu(
+            title=chart_data.get("slice_name", ""),
+            entity_urn=chart_urn,
+        )
 
     def emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
         for chart_data in self.paginate_entity_api_results("chart/", PAGE_SIZE):
@@ -642,20 +790,12 @@ class SupersetSource(StatefulIngestionSourceBase):
                                 f"Chart '{chart_name}' (id: {chart_id}) uses dataset '{dataset_name}' which is filtered by dataset_pattern"
                             )
 
-                chart_snapshot = self.construct_chart_from_chart_data(chart_data)
-
-                mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
+                yield from self.construct_chart_from_chart_data(chart_data)
             except Exception as e:
                 self.report.warning(
                     f"Failed to construct chart snapshot. Chart name: {chart_name}. Error: \n{e}"
                 )
                 continue
-            # Emit the chart
-            yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
-            yield from self._get_domain_wu(
-                title=chart_data.get("slice_name", ""),
-                entity_urn=chart_snapshot.urn,
-            )
 
     def gen_schema_fields(self, column_data: List[Dict[str, str]]) -> List[SchemaField]:
         schema_fields: List[SchemaField] = []
