@@ -41,7 +41,7 @@ RUN apk --no-cache --update-cache --available upgrade \
     && apk --no-cache add curl bash coreutils gcompat sqlite libc6-compat snappy \
     && apk --no-cache add openjdk17-jre-headless --repository=${ALPINE_REPO_URL}/edge/community \
     && apk --no-cache add jattach --repository ${ALPINE_REPO_URL}/edge/community/ \
-    && wget --no-verbose ${GITHUB_REPO_URL}/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.24.0/opentelemetry-javaagent.jar \
+    && wget --no-verbose ${GITHUB_REPO_URL}/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.11.0/opentelemetry-javaagent.jar \
     && wget --no-verbose ${MAVEN_CENTRAL_REPO_URL}/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_VERSION}/jmx_prometheus_javaagent-${JMX_VERSION}.jar -O jmx_prometheus_javaagent.jar \
     && cp /usr/lib/jvm/java-17-openjdk/jre/lib/security/cacerts /tmp/kafka.client.truststore.jks
 COPY --from=binary /go/bin/dockerize /usr/local/bin
@@ -49,11 +49,11 @@ COPY --from=binary /go/bin/dockerize /usr/local/bin
 ENV LD_LIBRARY_PATH="/lib:/lib64"
 
 FROM base AS prod-install
-COPY war.war /datahub/datahub-gms/bin/war.war
 COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-gms/resources/entity-registry.yml
 COPY docker/datahub-gms/start.sh /datahub/datahub-gms/scripts/start.sh
 COPY docker/monitoring/client-prometheus-config.yaml /datahub/datahub-gms/scripts/prometheus-config.yaml
 RUN chmod +x /datahub/datahub-gms/scripts/start.sh
+COPY war.war /datahub/datahub-gms/bin/war.war
 
 FROM base AS dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
@@ -69,6 +69,10 @@ USER datahub
 
 ENV JMX_OPTS=""
 ENV JAVA_OPTS=""
+ENV OTEL_EXPORTER_OTLP_MAX_PAYLOAD_SIZE=4194304 \
+    OTEL_EXPORTER_OTLP_HTTP_HTTP2_MAX_FRAME_SIZE=8388608 \
+    OTEL_EXPORTER_OTLP_HTTP_COMPRESSION=gzip \
+    OTEL_EXPORTER_OTLP_TRACES_COMPRESSION=gzip
 
 EXPOSE 8080
 

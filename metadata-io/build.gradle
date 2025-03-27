@@ -2,6 +2,7 @@ plugins {
   id 'java-library'
   id 'pegasus'
   id 'io.ebean' version "${ebeanVersion}" // Use the latest version from global build.gradle
+  id 'java-test-fixtures'
 }
 
 apply from: '../gradle/coverage/java-coverage.gradle'
@@ -30,8 +31,6 @@ dependencies {
 
   implementation externalDependency.guava
   implementation externalDependency.reflections
-  // https://mvnrepository.com/artifact/nl.basjes.parse.useragent/yauaa
-  implementation 'nl.basjes.parse.useragent:yauaa:7.27.0'
 
   api(externalDependency.dgraph4j) {
     exclude group: 'com.google.guava', module: 'guava'
@@ -41,6 +40,7 @@ dependencies {
   implementation externalDependency.slf4jApi
   runtimeOnly externalDependency.logbackClassic
   compileOnly externalDependency.lombok
+  compileOnly externalDependency.hazelcast
   implementation externalDependency.commonsCollections
   api externalDependency.datastaxOssNativeProtocol
   api(externalDependency.datastaxOssCore) {
@@ -97,7 +97,7 @@ dependencies {
   testImplementation externalDependency.springBootTest
   testImplementation spec.product.pegasus.restliServer
   testImplementation externalDependency.ebeanTest
-
+  testImplementation externalDependency.opentelemetrySdk
   // logback >=1.3 required due to `testcontainers` only
   testImplementation 'ch.qos.logback:logback-classic:1.4.7'
   testImplementation 'net.datafaker:datafaker:1.9.0'
@@ -158,5 +158,7 @@ tasks.withType(Test) {
 }
 
 clean {
-  project.delete("$projectDir/generated")
+  //TODO: Is this really needed? dont see generated folder in projectDir. It is in build, but that doest need explicit clean
+  delete "$projectDir/generated"
 }
+

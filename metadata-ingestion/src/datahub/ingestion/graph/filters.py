@@ -1,5 +1,8 @@
+import dataclasses
 import enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
+
+from typing_extensions import TypeAlias
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -7,7 +10,49 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.utilities.urns.urn import guess_entity_type
 
-SearchFilterRule = Dict[str, Any]
+RawSearchFilterRule = Dict[str, Any]
+
+# Mirrors our GraphQL enum: https://datahubproject.io/docs/graphql/enums#filteroperator
+FilterOperator: TypeAlias = Literal[
+    "CONTAIN",
+    "EQUAL",
+    "IEQUAL",
+    "IN",
+    "EXISTS",
+    "GREATER_THAN",
+    "GREATER_THAN_OR_EQUAL_TO",
+    "LESS_THAN",
+    "LESS_THAN_OR_EQUAL_TO",
+    "START_WITH",
+    "END_WITH",
+    "DESCENDANTS_INCL",
+    "ANCESTORS_INCL",
+    "RELATED_INCL",
+]
+
+
+@dataclasses.dataclass
+class SearchFilterRule:
+    field: str
+    condition: FilterOperator
+    values: List[str]
+    negated: bool = False
+
+    def to_raw(self) -> RawSearchFilterRule:
+        return {
+            "field": self.field,
+            "condition": self.condition,
+            "values": self.values,
+            "negated": self.negated,
+        }
+
+    def negate(self) -> "SearchFilterRule":
+        return SearchFilterRule(
+            field=self.field,
+            condition=self.condition,
+            values=self.values,
+            negated=not self.negated,
+        )
 
 
 class RemovedStatusFilter(enum.Enum):
@@ -29,9 +74,9 @@ def generate_filter(
     env: Optional[str],
     container: Optional[str],
     status: RemovedStatusFilter,
-    extra_filters: Optional[List[SearchFilterRule]],
-    extra_or_filters: Optional[List[SearchFilterRule]] = None,
-) -> List[Dict[str, List[SearchFilterRule]]]:
+    extra_filters: Optional[List[RawSearchFilterRule]],
+    extra_or_filters: Optional[List[RawSearchFilterRule]] = None,
+) -> List[Dict[str, List[RawSearchFilterRule]]]:
     """
     Generate a search filter based on the provided parameters.
     :param platform: The platform to filter by.
@@ -43,30 +88,32 @@ def generate_filter(
     :param extra_or_filters: Extra OR filters to apply. These are combined with
     the AND filters using an OR at the top level.
     """
-    and_filters: List[SearchFilterRule] = []
+    and_filters: List[RawSearchFilterRule] = []
 
     # Platform filter.
     if platform:
-        and_filters.append(_get_platform_filter(platform))
+        and_filters.append(_get_platform_filter(platform).to_raw())
 
     # Platform instance filter.
     if platform_instance:
-        and_filters.append(_get_platform_instance_filter(platform, platform_instance))
+        and_filters.append(
+            _get_platform_instance_filter(platform, platform_instance).to_raw()
+        )
 
     # Browse path v2 filter.
     if container:
-        and_filters.append(_get_container_filter(container))
+        and_filters.append(_get_container_filter(container).to_raw())
 
     # Status filter.
     status_filter = _get_status_filter(status)
     if status_filter:
-        and_filters.append(status_filter)
+        and_filters.append(status_filter.to_raw())
 
     # Extra filters.
     if extra_filters:
         and_filters += extra_filters
 
-    or_filters: List[Dict[str, List[SearchFilterRule]]] = [{"and": and_filters}]
+    or_filters: List[Dict[str, List[RawSearchFilterRule]]] = [{"and": and_filters}]
 
     # Env filter
     if env:
@@ -89,7 +136,7 @@ def generate_filter(
     return or_filters
 
 
-def _get_env_filters(env: str) -> List[SearchFilterRule]:
+def _get_env_filters(env: str) -> List[RawSearchFilterRule]:
     # The env filter is a bit more tricky since it's not always stored
     # in the same place in ElasticSearch.
     return [
@@ -125,19 +172,19 @@ def _get_status_filter(status: RemovedStatusFilter) -> Optional[SearchFilterRule
         # removed field is simply not present in the ElasticSearch document. Ideally this
         # would be a "removed" : "false" filter, but that doesn't work. Instead, we need to
         # use a negated filter.
-        return {
-            "field": "removed",
-            "values": ["true"],
-            "condition": "EQUAL",
-            "negated": True,
-        }
+        return SearchFilterRule(
+            field="removed",
+            values=["true"],
+            condition="EQUAL",
+            negated=True,
+        )
 
     elif status == RemovedStatusFilter.ONLY_SOFT_DELETED:
-        return {
-            "field": "removed",
-            "values": ["true"],
-            "condition": "EQUAL",
-        }
+        return SearchFilterRule(
+            field="removed",
+            values=["true"],
+            condition="EQUAL",
+        )
 
     elif status == RemovedStatusFilter.ALL:
         # We don't need to add a filter for this case.
@@ -152,11 +199,11 @@ def _get_container_filter(container: str) -> SearchFilterRule:
     if guess_entity_type(container) != "container":
         raise ValueError(f"Invalid container urn: {container}")
 
-    return {
-        "field": "browsePathV2",
-        "values": [container],
-        "condition": "CONTAIN",
-    }
+    return SearchFilterRule(
+        field="browsePathV2",
+        values=[container],
+        condition="CONTAIN",
+    )
 
 
 def _get_platform_instance_filter(
@@ -171,16 +218,16 @@ def _get_platform_instance_filter(
     if guess_entity_type(platform_instance) != "dataPlatformInstance":
         raise ValueError(f"Invalid data platform instance urn: {platform_instance}")
 
-    return {
-        "field": "platformInstance",
-        "values": [platform_instance],
-        "condition": "EQUAL",
-    }
+    return SearchFilterRule(
+        field="platformInstance",
+        condition="EQUAL",
+        values=[platform_instance],
+    )
 
 
 def _get_platform_filter(platform: str) -> SearchFilterRule:
-    return {
-        "field": "platform.keyword",
-        "values": [make_data_platform_urn(platform)],
-        "condition": "EQUAL",
-    }
+    return SearchFilterRule(
+        field="platform.keyword",
+        condition="EQUAL",
+        values=[make_data_platform_urn(platform)],
+    )

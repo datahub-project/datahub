@@ -37,7 +37,7 @@ Cypress.Commands.add("login", () => {
 });
 
 Cypress.Commands.add("loginWithCredentials", (username, password) => {
-  cy.visit("/");
+  cy.visit("/login");
   if ((username, password)) {
     cy.get("input[data-testid=username]").type(username);
     cy.get("input[data-testid=password]").type(password);
@@ -114,6 +114,11 @@ Cypress.Commands.add("goToOwnershipTypesSettings", () => {
 Cypress.Commands.add("goToHomePagePostSettings", () => {
   cy.visit("/settings/posts");
   cy.waitTextVisible("Home Page Posts");
+});
+
+Cypress.Commands.add("goToHomePagePostSettingsV1", () => {
+  cy.visit("/settings/posts");
+  cy.waitTestIdVisible("managePostsV1");
 });
 
 Cypress.Commands.add("goToHomePagePostSettingsV2", () => {

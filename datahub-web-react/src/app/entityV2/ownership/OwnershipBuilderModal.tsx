@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Form, Input, Modal, Typography, message, notification } from 'antd';
+import { Form, Input, Modal, Typography, message, notification } from 'antd';
 import styled from 'styled-components/macro';
+import { Button } from '@src/alchemy-components';
 import { useCreateOwnershipTypeMutation, useUpdateOwnershipTypeMutation } from '../../../graphql/ownership.generated';
 import { OwnershipTypeEntity } from '../../../types.generated';
 import { OwnershipTypeBuilderState } from './table/types';
@@ -14,7 +15,7 @@ const TitleContainer = styled.div`
 `;
 
 const TitleText = styled(Typography.Text)`
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 700;
 `;
 
@@ -36,6 +37,7 @@ const SaveButtonContainer = styled.div`
     width: 100%;
     display: flex;
     justify-content: right;
+    margin-top: 12px;
 `;
 
 const CancelButton = styled(Button)`
@@ -187,7 +189,7 @@ export const OwnershipBuilderModal = ({ isOpen, onClose, refetch, ownershipType 
                     >
                         <Input
                             data-testid={NAME_INPUT_TEST_ID}
-                            placeholder="Ownership type name"
+                            placeholder="Provide a name"
                             onChange={(e) => {
                                 setName(e.target.value);
                             }}
@@ -199,7 +201,7 @@ export const OwnershipBuilderModal = ({ isOpen, onClose, refetch, ownershipType 
                     <StyledFormItem name="description" rules={[{ whitespace: true }, { min: 1, max: 250 }]}>
                         <Input
                             data-testid={DESCRIPTION_INPUT_TEST_ID}
-                            placeholder="Ownership type description"
+                            placeholder="Provide a description"
                             onChange={(e) => {
                                 setDescription(e.target.value);
                             }}
@@ -208,14 +210,14 @@ export const OwnershipBuilderModal = ({ isOpen, onClose, refetch, ownershipType 
                 </FormItemContainer>
             </Form>
             <SaveButtonContainer>
-                <CancelButton data-testid="ownership-builder-cancel" onClick={onClose}>
+                <CancelButton data-testid="ownership-builder-cancel" variant="text" color="gray" onClick={onClose}>
                     Cancel
                 </CancelButton>
                 <Button
                     data-testid="ownership-builder-save"
-                    type="primary"
                     disabled={!ownershipTypeBuilderState.name}
                     onClick={onUpsert}
+                    type="submit"
                 >
                     Save
                 </Button>

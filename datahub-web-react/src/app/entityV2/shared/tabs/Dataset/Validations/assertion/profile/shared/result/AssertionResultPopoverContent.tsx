@@ -94,11 +94,6 @@ const ThinDivider = styled(Divider)`
     padding: 0px;
 `;
 
-const detailsButtonStyle = {
-    borderRadius: 20,
-    padding: '4px 12px',
-};
-
 type Props = {
     assertion: Assertion;
     run?: AssertionRunEvent;
@@ -157,7 +152,7 @@ export const AssertionResultPopoverContent = ({
                 <Actions>
                     <AssertionResultPill result={result} type={resultStatusType} />
                     {(showProfileButton && onClickProfileButton && (
-                        <PrimaryButton title="Details" onClick={onClickProfileButton} style={detailsButtonStyle} />
+                        <PrimaryButton title="Details" onClick={onClickProfileButton} />
                     )) ||
                         undefined}
                 </Actions>

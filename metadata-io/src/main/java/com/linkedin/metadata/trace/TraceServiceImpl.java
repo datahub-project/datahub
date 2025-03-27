@@ -11,6 +11,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.systemmetadata.TraceService;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.FailedMetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -168,7 +169,12 @@ public class TraceServiceImpl implements TraceService {
             String aspectName = aspectEntry.getKey();
 
             if (traceId.equals(systemTraceId)) {
-              aspectStatuses.put(aspectName, TraceStorageStatus.ok(TraceWriteStatus.ACTIVE_STATE));
+              if (SystemMetadataUtils.isNoOp(systemMetadata)) {
+                aspectStatuses.put(aspectName, TraceStorageStatus.ok(TraceWriteStatus.NO_OP));
+              } else {
+                aspectStatuses.put(
+                    aspectName, TraceStorageStatus.ok(TraceWriteStatus.ACTIVE_STATE));
+              }
             } else if (traceTimestampMillis <= extractTimestamp(systemTraceId, createdOnMillis)) {
               aspectStatuses.put(
                   aspectName, TraceStorageStatus.ok(TraceWriteStatus.HISTORIC_STATE));
@@ -325,24 +331,33 @@ public class TraceServiceImpl implements TraceService {
           primaryStatuses.getOrDefault(urn, new LinkedHashMap<>());
 
       for (String aspectName : entry.getValue()) {
-        TraceWriteStatus status = primaryStatus.get(aspectName).getWriteStatus();
-        if (status == TraceWriteStatus.PENDING) {
+        TraceWriteStatus primaryStorageStatus = primaryStatus.get(aspectName).getWriteStatus();
+        if (primaryStorageStatus == TraceWriteStatus.PENDING) {
+          // If the primary storage write hasn't happened, then we don't expect the search write
           finalResponse.put(
               aspectName,
               TraceStorageStatus.ok(TraceWriteStatus.PENDING, "Pending primary storage write."));
-        } else if (status == TraceWriteStatus.NO_OP) {
+        } else if (primaryStorageStatus == TraceWriteStatus.NO_OP) {
           if (entitySpec.getAspectSpec(aspectName).isTimeseries()) {
             finalResponse.put(
                 aspectName, TraceStorageStatus.ok(TraceWriteStatus.TRACE_NOT_IMPLEMENTED));
           } else {
+            // If the primary write is a no-op, then the search write is as well
             finalResponse.put(aspectName, TraceStorageStatus.NO_OP);
           }
-        } else if (status == TraceWriteStatus.ERROR) {
+        } else if (primaryStorageStatus == TraceWriteStatus.HISTORIC_STATE) {
+          // If primary storage is historic then we assume the search write should also be historic
+          // If the search state hasn't been overwritten, then this "write" didn't fail
+          finalResponse.put(aspectName, TraceStorageStatus.ok(TraceWriteStatus.HISTORIC_STATE));
+        } else if (primaryStorageStatus == TraceWriteStatus.ERROR) {
+          // If primary write fails, then search write never happened
           finalResponse.put(
               aspectName,
               TraceStorageStatus.fail(TraceWriteStatus.ERROR, "Primary storage write failed."));
-        } else if (status == TraceWriteStatus.TRACE_NOT_IMPLEMENTED
-            || status == TraceWriteStatus.UNKNOWN) {
+        } else if (primaryStorageStatus == TraceWriteStatus.TRACE_NOT_IMPLEMENTED
+            || primaryStorageStatus == TraceWriteStatus.UNKNOWN) {
+          // If we don't know what happened with primary storage, then we can't know what should
+          // have happend to search
           finalResponse.put(
               aspectName,
               TraceStorageStatus.ok(
@@ -421,7 +436,9 @@ public class TraceServiceImpl implements TraceService {
             storageEntry -> {
               String aspectName = storageEntry.getKey();
               TraceStorageStatus primaryStatus = storageEntry.getValue();
-              TraceStorageStatus searchStatus = searchAspectStatus.get(aspectName);
+              TraceStorageStatus searchStatus =
+                  searchAspectStatus.getOrDefault(
+                      aspectName, TraceStorageStatus.ok(TraceWriteStatus.PENDING));
               TraceStatus traceStatus =
                   TraceStatus.builder()
                       .primaryStorage(primaryStatus)
@@ -448,7 +465,7 @@ public class TraceServiceImpl implements TraceService {
   }
 
   private static boolean isSuccess(
-      TraceStorageStatus primaryStatus, TraceStorageStatus searchStatus) {
+      @Nonnull TraceStorageStatus primaryStatus, @Nonnull TraceStorageStatus searchStatus) {
     return !TraceWriteStatus.ERROR.equals(primaryStatus.getWriteStatus())
         && !TraceWriteStatus.ERROR.equals(searchStatus.getWriteStatus());
   }

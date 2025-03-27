@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
-import { Button } from 'antd';
 import { EditOutlined, FileOutlined } from '@ant-design/icons';
+import { Button } from '@src/alchemy-components';
 import { useEntityData, useRefetch, useRouteToTab } from '../../../entity/shared/EntityContext';
 import { Editor } from '../tabs/Documentation/components/editor/Editor';
 import { EmptyTab } from '../components/styled/EmptyTab';
@@ -78,13 +78,13 @@ export default function SummaryAboutSection() {
                 )}
                 {!description && (
                     <EmptyTab tab="documentation" hideImage>
+                        <AddLinkModal refetch={refetch} />
                         <Button
                             data-testid="add-documentation"
                             onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}
                         >
                             <EditOutlined /> Add Documentation
                         </Button>
-                        <AddLinkModal refetch={refetch} />
                     </EmptyTab>
                 )}
                 <LinkList refetch={refetch} />

@@ -7,9 +7,21 @@ from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.sdk.entity_client import EntityClient
 from datahub.sdk.resolver_client import ResolverClient
+from datahub.sdk.search_client import SearchClient
 
 
 class DataHubClient:
+    """Main client for interacting with DataHub.
+
+    This class provides the primary interface for interacting with DataHub,
+    including entity management, search, and resolution capabilities.
+
+    The client can be initialized in three ways:
+    1. With a server URL and optional token
+    2. With a DatahubClientConfig object
+    3. With an existing (legacy) :py:class:`DataHubGraph` instance
+    """
+
     @overload
     def __init__(self, *, server: str, token: Optional[str] = None): ...
     @overload
@@ -24,6 +36,17 @@ class DataHubClient:
         graph: Optional[DataHubGraph] = None,
         config: Optional[DatahubClientConfig] = None,
     ):
+        """Initialize a new DataHubClient instance.
+
+        Args:
+            server: The URL of the DataHub server (e.g. "http://localhost:8080").
+            token: Optional authentication token.
+            graph: An existing DataHubGraph instance to use.
+            config: A DatahubClientConfig object with connection details.
+
+        Raises:
+            SdkUsageError: If invalid combinations of arguments are provided.
+        """
         if server is not None:
             if config is not None:
                 raise SdkUsageError("Cannot specify both server and config")
@@ -38,6 +61,9 @@ class DataHubClient:
             raise SdkUsageError("Must specify either server, config, or graph")
 
         self._graph = graph
+
+    def test_connection(self) -> None:
+        self._graph.test_connection()
 
     @classmethod
     def from_env(cls) -> "DataHubClient":
@@ -69,5 +95,8 @@ class DataHubClient:
     def resolve(self) -> ResolverClient:
         return ResolverClient(self)
 
-    # TODO: search client
+    @property
+    def search(self) -> SearchClient:
+        return SearchClient(self)
+
     # TODO: lineage client

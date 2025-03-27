@@ -271,12 +271,12 @@ class DremioAPIOperations:
                     self.cancel_query(job_id)
                     raise DremioAPIException(
                         f"Query execution timed out after {timeout} seconds"
-                    )
+                    ) from None
                 except RuntimeError as e:
-                    raise DremioAPIException(f"{str(e)}")
+                    raise DremioAPIException() from e
 
         except requests.RequestException as e:
-            raise DremioAPIException(f"Error executing query: {str(e)}")
+            raise DremioAPIException("Error executing query") from e
 
     def fetch_results(self, job_id: str) -> List[Dict]:
         """Fetch job results with status checking"""
@@ -683,11 +683,7 @@ class DremioAPIOperations:
                 # Add end anchor for exact matching
                 regex_pattern = regex_pattern + "$"
 
-        for path in paths:
-            if re.match(regex_pattern, path, re.IGNORECASE):
-                return True
-
-        return False
+        return any(re.match(regex_pattern, path, re.IGNORECASE) for path in paths)
 
     def should_include_container(self, path: List[str], name: str) -> bool:
         """

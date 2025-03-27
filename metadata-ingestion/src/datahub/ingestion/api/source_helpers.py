@@ -48,7 +48,9 @@ logger = logging.getLogger(__name__)
 
 
 def auto_workunit(
-    stream: Iterable[Union[MetadataChangeEventClass, MetadataChangeProposalWrapper]],
+    stream: Iterable[
+        Union[MetadataChangeEventClass, MetadataChangeProposalWrapper, MetadataWorkUnit]
+    ],
 ) -> Iterable[MetadataWorkUnit]:
     """Convert a stream of MCEs and MCPs to a stream of :class:`MetadataWorkUnit`s."""
 
@@ -58,8 +60,10 @@ def auto_workunit(
                 id=MetadataWorkUnit.generate_workunit_id(item),
                 mce=item,
             )
-        else:
+        elif isinstance(item, MetadataChangeProposalWrapper):
             yield item.as_workunit()
+        else:
+            yield item
 
 
 def create_dataset_props_patch_builder(
@@ -250,6 +254,10 @@ def auto_browse_path_v2(
     emitted_urns: Set[str] = set()
     containers_used_as_parent: Set[str] = set()
     for urn, batch in _batch_workunits_by_urn(stream):
+        # Do not generate browse path v2 for entities that do not support it
+        if not entity_supports_aspect(guess_entity_type(urn), BrowsePathsV2Class):
+            yield from batch
+            continue
         container_path: Optional[List[BrowsePathEntryClass]] = None
         legacy_path: Optional[List[BrowsePathEntryClass]] = None
         browse_path_v2: Optional[List[BrowsePathEntryClass]] = None
