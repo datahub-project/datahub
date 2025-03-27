@@ -4,7 +4,7 @@ import { Link as LinkIcon, PencilSimpleLine, X } from '@phosphor-icons/react';
 import { Tooltip2 } from '@src/alchemy-components/components/Tooltip2';
 import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
 import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
-import { DataPlatform } from '@src/types.generated';
+import { DataPlatform, EntityPrivileges } from '@src/types.generated';
 import { useIncidentURNCopyLink } from '../hooks';
 import { IncidentAction, noPermissionsMessage } from '../constant';
 import { IncidentTableRow } from '../types';
@@ -41,6 +41,7 @@ type IncidentDrawerHeaderProps = {
     setIsEditActive: React.Dispatch<React.SetStateAction<boolean>>;
     data?: IncidentTableRow;
     platform?: DataPlatform;
+    privileges?: EntityPrivileges;
 };
 
 export const IncidentDrawerHeader = ({
@@ -50,6 +51,7 @@ export const IncidentDrawerHeader = ({
     setIsEditActive,
     data,
     platform,
+    privileges
 }: IncidentDrawerHeaderProps) => {
     const handleIncidentLinkCopy = useIncidentURNCopyLink(data ? data?.urn : '');
 
