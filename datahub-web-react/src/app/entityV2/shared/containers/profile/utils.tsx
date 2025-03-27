@@ -268,7 +268,7 @@ export const getFinalSidebarTabs = (tabs: EntitySidebarTab[], sidebarSections: E
     if ((sidebarSections || [])?.length > 0) {
         finalTabs = [
             {
-                name: 'About',
+                name: 'Summary',
                 icon: BookOpen,
                 component: EntitySidebarSectionsTab,
                 properties: {

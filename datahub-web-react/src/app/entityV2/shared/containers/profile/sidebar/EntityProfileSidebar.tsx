@@ -3,7 +3,6 @@ import React, { useContext, useState } from 'react';
 import styled from 'styled-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
-import { SEARCH_COLORS } from '../../../constants';
 import { EntitySidebarTab, TabContextType, TabRenderType } from '../../../types';
 import { EntitySidebarTabs } from './EntitySidebarTabs';
 import { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
@@ -23,18 +22,18 @@ export const StyledEntitySidebarContainer = styled.div<{
             ? props.theme.styles['box-shadow-navbar-redesign']
             : '0px 0px 6px 0px rgba(93, 102, 139, 0.2)'};
     ${(props) => !props.isCollapsed && props.$width && `min-width: ${props.$width}px; max-width: ${props.$width}px;`}
-    ${(props) => props.isCollapsed && 'min-width: 56px; max-width: 56px;'}
+    ${(props) => props.isCollapsed && 'min-width: 60px; max-width: 60px;'}
     ${(props) => props.backgroundColor && `background-color: ${props.backgroundColor};`}
-        /* Hide scrollbar for Chrome, Safari, and Opera */
+    /* Hide scrollbar for Chrome, Safari, and Opera */
     &::-webkit-scrollbar {
         display: none;
     }
 
     margin: ${(props) => {
         if (props.$isShowNavBarRedesign) {
-            return props.isFocused ? '6px 5px 5px 9px' : '4px 4px 4px 8px';
+            return '4px 4px 4px 8px';
         }
-        return props.isFocused ? '12px 12px 12px 0px' : '0px 0px 0px 0px';
+        return '0px 0px 0px 0px';
     }};
     ${(props) =>
         props.$isShowNavBarRedesign && `border-radius: ${props.theme.styles['border-radius-navbar-redesign']};`}
@@ -52,8 +51,6 @@ export const StyledSidebar = styled.div<{ isCard: boolean; isFocused?: boolean; 
     overflow: hidden;
     height: 100%;
     display: flex;
-    border-top: ${(props) => (props.isFocused ? `1px solid ${SEARCH_COLORS.TITLE_PURPLE}` : 'inherit')};
-    border-top-width: ${(props) => (props.isFocused ? 'medium' : 'inherit')};
 `;
 
 const Body = styled.div`
@@ -87,6 +84,7 @@ const ContentContainer = styled.div<{ isVisible: boolean }>`
     overflow: auto;
     display: flex;
     flex-direction: column;
+    height: 100%;
     /* hide the scrollbar */
 
     ::-webkit-scrollbar {
@@ -97,9 +95,17 @@ const ContentContainer = styled.div<{ isVisible: boolean }>`
     scrollbar-width: none; /* Firefox */
 `;
 
-const TabsContainer = styled.div``;
+const TabsContainer = styled.div`
+    display: flex;
+    justify-content: center;
+    height: 100%;
+`;
 
-const Tabs = styled.div``;
+const Tabs = styled.div`
+    display: flex;
+    justify-content: center;
+    height: 100%;
+`;
 
 interface Props {
     type?: 'card' | 'default';

@@ -16,13 +16,13 @@ type Props = {
 
 const UnborderedTabs = styled(Tabs)<{ $isClosed: boolean }>`
     height: 100%;
-    width: 56px;
+    width: 60px;
     box-sizing: border-box;
     user-select: none;
     overflow: visible;
     &&& .ant-tabs-nav {
         margin: 0;
-        width: 56px;
+        width: 60px;
         display: flex;
         justify-content: center;
         box-sizing: border-box;
@@ -34,11 +34,11 @@ const UnborderedTabs = styled(Tabs)<{ $isClosed: boolean }>`
     &&& .ant-tabs-nav-list {
         margin: 0;
         gap: 0;
-        width: 56px;
+        width: 60px;
         display: flex;
         flex-direction: column;
         align-items: center;
-        padding: 4px;
+        padding: 4px 0;
         box-sizing: border-box;
         overflow: visible;
     }
@@ -52,8 +52,8 @@ const UnborderedTabs = styled(Tabs)<{ $isClosed: boolean }>`
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 48px;
-        height: 48px;
+        width: 52px;
+        height: 52px;
         transition: none !important;
         overflow: visible;
         .ant-tabs-tab-btn {
@@ -66,12 +66,20 @@ const UnborderedTabs = styled(Tabs)<{ $isClosed: boolean }>`
             height: 100%;
         }
         &:hover {
-            background: linear-gradient(
+            background: ${(props) =>
+                props.$isClosed
+                    ? `linear-gradient(
                 180deg,
                 rgba(243, 244, 246, 0.5) -3.99%,
                 rgba(235, 236, 240, 0.5) 53.04%,
                 rgba(235, 236, 240, 0.5) 100%
-            );
+            )`
+                    : `linear-gradient(
+                180deg,
+                rgba(243, 244, 246, 0.5) -3.99%,
+                rgba(235, 236, 240, 0.5) 53.04%,
+                rgba(235, 236, 240, 0.5) 100%
+            )`} !important;
             box-shadow: 0px 0px 0px 1px rgba(139, 135, 157, 0.08);
         }
         &:last-child {
@@ -92,6 +100,23 @@ const UnborderedTabs = styled(Tabs)<{ $isClosed: boolean }>`
             props.$isClosed ? 'none !important' : '0px 0px 0px 1px rgba(108, 71, 255, 0.08) !important'};
         .ant-tabs-tab-btn {
             color: inherit !important;
+        }
+        &:hover {
+            background: ${(props) =>
+                props.$isClosed
+                    ? `linear-gradient(
+                180deg,
+                rgba(243, 244, 246, 0.5) -3.99%,
+                rgba(235, 236, 240, 0.5) 53.04%,
+                rgba(235, 236, 240, 0.5) 100%
+            )`
+                    : `linear-gradient(
+                180deg,
+                rgba(83, 63, 209, 0.04) -3.99%,
+                rgba(112, 94, 228, 0.04) 53.04%,
+                rgba(112, 94, 228, 0.04) 100%
+            )`} !important;
+            box-shadow: 0px 0px 0px 1px rgba(139, 135, 157, 0.08);
         }
     }
     &&& .ant-tabs-content-holder {
@@ -124,13 +149,14 @@ const TabIconContainer = styled.div<{ $isSelected?: boolean }>`
 
 const TabText = styled.span<{ $isSelected?: boolean }>`
     font-size: 10px;
+    font-weight: ${(props) => (props.$isSelected ? '500' : '400')};
     text-align: center;
     transition: none !important;
     /* Prevent text selection */
     user-select: none;
     /* Handle text overflow */
     display: block;
-    width: 42px;
+    width: 48px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -223,7 +249,7 @@ const GradientDefs = () => (
 );
 
 const TabsWrapper = styled.div`
-    width: 56px;
+    width: 60px;
     flex-shrink: 0;
     box-sizing: border-box;
     display: flex;
@@ -259,7 +285,7 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab, hideColl
                 padding: 0,
                 margin: 0,
                 alignItems: 'center',
-                width: '56px',
+                width: '60px',
                 boxSizing: 'border-box',
                 overflow: 'visible',
             }}
@@ -286,9 +312,7 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab, hideColl
                                             <CaretRight size={20} weight="regular" />
                                         )}
                                     </IconWrapper>
-                                    <TabText>
-                                        {isClosed ? 'Open' : 'Close'}
-                                    </TabText>
+                                    <TabTextWithTooltip text={isClosed ? 'Open' : 'Close'} isSelected={false} />
                                 </TabIconContainer>
                             }
                             key="collapse"
@@ -315,11 +339,11 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab, hideColl
                                                 <TabIcon />
                                             )}
                                         </IconWrapper>
-                                        <TabTextWithTooltip 
+                                        <TabTextWithTooltip
                                             text={(() => {
                                                 switch (name) {
                                                     case 'Summary':
-                                                        return 'About';
+                                                        return 'Summary';
                                                     case 'Properties':
                                                         return 'Properties';
                                                     case 'Columns':
