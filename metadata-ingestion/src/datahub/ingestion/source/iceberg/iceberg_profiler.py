@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Callable, Dict, Iterable, Union, cast
+from typing import Any, Callable, Dict, Iterable, Optional, cast
 
 from pyiceberg.conversions import from_bytes
 from pyiceberg.schema import Schema
@@ -165,11 +165,10 @@ class IcebergProfiler:
                             )
                         total_count += data_file.record_count
             except Exception as e:
-                # Catch any errors that arise from attempting to read the Iceberg table's manifests
-                # This will prevent stateful ingestion from being blocked by an error (profiling is not critical)
-                self.report.report_warning(
-                    "profiling",
-                    f"Error while profiling dataset {dataset_name}: {e}",
+                self.report.warning(
+                    title="Generic error when profiling a table",
+                    message="Encountered error, when trying to profile a table, which couldn't have been handled. Skipping the profiling.",
+                    context=f"Failed to profile dataset {dataset_name}: Due to {e}",
                 )
             if row_count:
                 # Iterating through fieldPaths introduces unwanted stats for list element fields...
@@ -213,7 +212,7 @@ class IcebergProfiler:
 
     def _render_value(
         self, dataset_name: str, value_type: IcebergType, value: Any
-    ) -> Union[str, None]:
+    ) -> Optional[str]:
         try:
             if isinstance(value_type, TimestampType):
                 return to_human_timestamp(value)
@@ -225,9 +224,10 @@ class IcebergProfiler:
                 return to_human_time(value)
             return str(value)
         except Exception as e:
-            self.report.report_warning(
-                "profiling",
-                f"Error in dataset {dataset_name} when profiling a {value_type} field with value {value}: {e}",
+            self.report.warning(
+                title="Couldn't render value when profiling a table",
+                message="Encountered error, when trying to redner a value for table profile.",
+                context=f"Failed to render value {str(value)} of type {str(value_type)} for dataset {dataset_name}. Details: {e}",
             )
             return None
 

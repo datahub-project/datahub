@@ -164,21 +164,17 @@ class IcebergSource(StatefulIngestionSourceBase):
                     ".".join(namespace), len(tables)
                 )
                 yield from tables
-            except NoSuchNamespaceError:
-                self.report.report_warning(
-                    "no-such-namespace",
-                    f"Couldn't list tables for namespace {namespace} due to NoSuchNamespaceError exception",
-                )
-                LOGGER.warning(
-                    f"NoSuchNamespaceError exception while trying to get list of tables from namespace {namespace}, skipping it",
+            except NoSuchNamespaceError as e:
+                self.report.warning(
+                    title="No such namespace",
+                    message="Encountered error when trying to list tables in a namespace, skipping the namespace.",
+                    context=f"Couldn't list tables for namespace {namespace}. Details: {e}",
                 )
             except Exception as e:
                 self.report.report_failure(
-                    "listing-tables-exception",
-                    f"Couldn't list tables for namespace {namespace} due to {e}",
-                )
-                LOGGER.exception(
-                    f"Unexpected exception while trying to get list of tables for namespace {namespace}, skipping it"
+                    title="Generic error when processing a namespace",
+                    message="Encountered error, when trying to process a namespace, which couldn't have been handled. Skipping the namespace.",
+                    context=f"Couldn't list tables for namespace {namespace}. Details: {e}",
                 )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
@@ -212,51 +208,42 @@ class IcebergSource(StatefulIngestionSourceBase):
                         entityUrn=dataset_urn, aspect=aspect
                     ).as_workunit()
             except NoSuchPropertyException as e:
-                self.report.report_warning(
-                    "table-property-missing",
-                    f"Failed to create workunit for {dataset_name}. {e}",
-                )
-                LOGGER.warning(
-                    f"NoSuchPropertyException while processing table {dataset_path}, skipping it.",
+                self.report.warning(
+                    title="Unable to process table",
+                    message="Table was not processed due to expected property missing (table is probably not an iceberg table).",
+                    context=f"Did not process {dataset_name}. Details: {e}",
                 )
             except NoSuchIcebergTableError as e:
-                self.report.report_warning(
-                    "not-an-iceberg-table",
-                    f"Failed to create workunit for {dataset_name}. {e}",
-                )
-                LOGGER.warning(
-                    f"NoSuchIcebergTableError while processing table {dataset_path}, skipping it.",
+                self.report.warning(
+                    title="Skipped non-iceberg table",
+                    message="Table was recognized as non-iceberg and skipped.",
+                    context=f"Did not process {dataset_name}. Details: {e}",
                 )
             except NoSuchTableError as e:
-                self.report.report_warning(
-                    "no-such-table",
-                    f"Failed to create workunit for {dataset_name}. {e}",
-                )
-                LOGGER.warning(
-                    f"NoSuchTableError while processing table {dataset_path}, skipping it.",
+                self.report.warning(
+                    title="Table not found",
+                    message="Table was returned by the catalog in the list of table but catalog can't find its details, table was skipped.",
+                    context=f"Did not found {dataset_name} in the catalog. Details: {e}",
                 )
             except FileNotFoundError as e:
-                self.report.report_warning(
-                    "file-not-found",
-                    f"Encountered FileNotFoundError when trying to read manifest file for {dataset_name}. {e}",
-                )
-                LOGGER.warning(
-                    f"FileNotFoundError while processing table {dataset_path}, skipping it."
+                self.report.warning(
+                    title="Manifest file not found",
+                    message="Couldn't find manifest file to read for the table, skipping it.",
+                    context=f"Encountered FileNotFoundError when trying to read manifest file for {dataset_name}. Details: {e}",
                 )
             except ServerError as e:
-                self.report.report_warning(
-                    "iceberg-rest-server-error",
-                    f"Iceberg Rest Catalog returned 500 status due to an unhandled exception for {dataset_name}. Exception: {e}",
-                )
-                LOGGER.warning(
-                    f"Iceberg Rest Catalog server error (500 status) encountered when processing table {dataset_path}, skipping it."
+                self.report.warning(
+                    title="Iceberg REST Server Error",
+                    message="Iceberg returned 500 HTTP status when trying to process a table, skipping it.",
+                    context=f"Iceberg Rest Catalog returned 500 status due to an unhandled exception for {dataset_name}. Details: {e}",
                 )
             except ValueError as e:
                 if "Could not initialize FileIO" not in str(e):
                     raise
                 self.report.warning(
-                    "Could not initialize FileIO",
-                    f"Could not initialize FileIO for {dataset_path} due to: {e}",
+                    title="Could not initialize FileIO",
+                    message="Could not initialize FileIO for a table (are you using custom FileIO?). Skipping the table.",
+                    context=f"Could not initialize FileIO for {dataset_path}. Details: {e}",
                 )
 
         def _process_dataset(dataset_path: Identifier) -> Iterable[MetadataWorkUnit]:
@@ -274,17 +261,19 @@ class IcebergSource(StatefulIngestionSourceBase):
                 yield from _try_processing_dataset(dataset_path, dataset_name)
             except Exception as e:
                 self.report.report_failure(
-                    "general",
-                    f"Failed to create workunit for dataset {dataset_path}: {e}",
-                )
-                LOGGER.exception(
-                    f"Exception while processing table {dataset_path}, skipping it.",
+                    title="Generic error when processing a table",
+                    message="Encountered error, when trying to process a table, which couldn't have been handled. Skipping the table.",
+                    context=f"Failed to create workunit for dataset {dataset_path}: Due to {e}",
                 )
 
         try:
             catalog = self.config.get_catalog()
         except Exception as e:
-            self.report.report_failure("get-catalog", f"Failed to get catalog: {e}")
+            self.report.report_failure(
+                title="Failed to initialize catalog object",
+                message="Couldn't start the ingestion due to failure to initialize catalog object",
+                context=f"Failed to initialize catalog object. Details: {e}",
+            )
             return
 
         for wu in ThreadedIteratorExecutor.process(
