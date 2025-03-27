@@ -21,7 +21,14 @@ type IncidentDetailDrawerProps = {
     privileges?: EntityPrivileges;
 };
 
-export const IncidentDetailDrawer = ({ mode, onCancel, onSubmit, incident, entity, privileges }: IncidentDetailDrawerProps) => {
+export const IncidentDetailDrawer = ({
+    mode,
+    onCancel,
+    onSubmit,
+    incident,
+    entity,
+    privileges,
+}: IncidentDetailDrawerProps) => {
     const [isEditView, setIsEditView] = useState<boolean>(false);
     const showEditor = isEditView || mode === IncidentAction.CREATE;
     const modalClosePopup = () => {
