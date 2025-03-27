@@ -61,7 +61,7 @@ jobs:
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Install airflow package and test (extras ${{ matrix.extra_pip_requirements }})
-        run: ./gradlew -Pextra_pip_requirements='${{ matrix.extra_pip_requirements }}' -Pextra_pip_extras='${{ matrix.extra_pip_extras }}' :metadata-ingestion-modules:airflow-plugin:build
+        run: ./gradlew -Pextra_pip_requirements='${{ matrix.extra_pip_requirements }}' :metadata-ingestion-modules:airflow-plugin:build
       - name: pip freeze show list installed
         if: always()
         run: source metadata-ingestion-modules/airflow-plugin/venv/bin/activate && uv pip freeze
