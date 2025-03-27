@@ -107,7 +107,6 @@ class ContainerKeyWithId(ContainerKey):
     SourceCapability.DESCRIPTIONS,
     "Extract descriptions for Vertex AI Registered Models and Model Versions",
 )
-@capability(SourceCapability.TAGS, "Extract tags for Vertex AI Registered Model Stages")
 class VertexAISource(Source):
     platform: str = "vertexai"
 
@@ -602,6 +601,7 @@ class VertexAISource(Source):
                         else None
                     ),
                     customProperties=None,
+                    externalUrl=self._make_model_external_url(model),
                 ),
                 SubTypesClass(typeNames=[MLAssetSubTypes.VERTEX_MODEL_GROUP]),
                 ContainerClass(container=self._get_project_container().as_urn()),
