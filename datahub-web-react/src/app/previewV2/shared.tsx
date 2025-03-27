@@ -6,5 +6,6 @@ export const ActionsAndStatusSection = styled.div`
     display: flex;
     flex-direction: row;
     align-items: center;
+    justify-content: flex-end;
     gap: 5px;
 `;

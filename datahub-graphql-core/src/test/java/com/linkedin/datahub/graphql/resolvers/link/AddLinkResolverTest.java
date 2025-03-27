@@ -1,19 +1,14 @@
 package com.linkedin.datahub.graphql.resolvers.link;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
-import static com.linkedin.metadata.Constants.*;
-import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.assertThrows;
 
 import com.datahub.authentication.Authentication;
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.InstitutionalMemoryMetadata;
 import com.linkedin.common.InstitutionalMemoryMetadataArray;
 import com.linkedin.common.InstitutionalMemoryMetadataSettings;
 import com.linkedin.common.url.Url;
-import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AddLinkInput;
@@ -21,21 +16,9 @@ import com.linkedin.datahub.graphql.generated.LinkSettingsInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddLinkResolver;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
-import com.linkedin.metadata.search.SearchEntityArray;
-import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.utils.GenericRecordUtils;
-import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
-import io.datahubproject.metadata.context.OperationContext;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.concurrent.CompletionException;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
-import org.testng.Assert;
 import org.testng.annotations.Test;
 
 public class AddLinkResolverTest {
@@ -54,8 +37,8 @@ public class AddLinkResolverTest {
 
   @Test
   public void testGetSuccessNoPreviousAspect() throws Exception {
-    EntityClient mockClient = initMockClient();
-    EntityService<?> mockService = initMockEntityService(true, null);
+    EntityClient mockClient = LinkTestUtils.initMockClient();
+    EntityService<?> mockService = LinkTestUtils.initMockEntityService(true, null);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
 
     InstitutionalMemory expectedAspect = new InstitutionalMemory();
@@ -74,34 +57,25 @@ public class AddLinkResolverTest {
     AddLinkResolver resolver = new AddLinkResolver(mockService, mockClient);
     resolver.get(mockEnv).get();
 
-    verifyIngestInstitutionalMemory(mockService, 1, expectedAspect);
+    LinkTestUtils.verifyIngestInstitutionalMemory(mockService, 1, expectedAspect);
   }
 
   @Test
   public void testGetSuccessWithPreviousAspect() throws Exception {
     InstitutionalMemory originalAspect = new InstitutionalMemory();
     InstitutionalMemoryMetadataArray elements = new InstitutionalMemoryMetadataArray();
-    InstitutionalMemoryMetadata link = new InstitutionalMemoryMetadata();
-    InstitutionalMemoryMetadataSettings settings = new InstitutionalMemoryMetadataSettings();
-    settings.setShowInAssetPreview(false);
-    link.setUrl(new Url("https://www.google.com"));
-    link.setDescription("Original Label");
-    link.setSettings(settings);
+    InstitutionalMemoryMetadata link =
+        LinkTestUtils.createLink("https://www.google.com", "Original Label", false);
     elements.add(link);
     originalAspect.setElements(elements);
 
-    EntityClient mockClient = initMockClient();
-    EntityService<?> mockService = initMockEntityService(true, originalAspect);
+    EntityClient mockClient = LinkTestUtils.initMockClient();
+    EntityService<?> mockService = LinkTestUtils.initMockEntityService(true, originalAspect);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
 
     InstitutionalMemory expectedAspect = new InstitutionalMemory();
     InstitutionalMemoryMetadataArray newElements = new InstitutionalMemoryMetadataArray();
-    InstitutionalMemoryMetadata newLink = new InstitutionalMemoryMetadata();
-    InstitutionalMemoryMetadataSettings newSettings = new InstitutionalMemoryMetadataSettings();
-    newSettings.setShowInAssetPreview(true);
-    newLink.setUrl(new Url(TEST_URL));
-    newLink.setDescription(TEST_LABEL);
-    newLink.setSettings(newSettings);
+    InstitutionalMemoryMetadata newLink = LinkTestUtils.createLink(TEST_URL, TEST_LABEL, true);
     // make sure to include existing link
     newElements.add(link);
     newElements.add(newLink);
@@ -112,13 +86,13 @@ public class AddLinkResolverTest {
     AddLinkResolver resolver = new AddLinkResolver(mockService, mockClient);
     resolver.get(mockEnv).get();
 
-    verifyIngestInstitutionalMemory(mockService, 1, expectedAspect);
+    LinkTestUtils.verifyIngestInstitutionalMemory(mockService, 1, expectedAspect);
   }
 
   @Test
   public void testGetFailureNoEntity() throws Exception {
-    EntityClient mockClient = initMockClient();
-    EntityService<?> mockService = initMockEntityService(false, null);
+    EntityClient mockClient = LinkTestUtils.initMockClient();
+    EntityService<?> mockService = LinkTestUtils.initMockEntityService(false, null);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
 
     setupTest(mockEnv);
@@ -126,13 +100,13 @@ public class AddLinkResolverTest {
     AddLinkResolver resolver = new AddLinkResolver(mockService, mockClient);
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
-    verifyIngestInstitutionalMemory(mockService, 0, null);
+    LinkTestUtils.verifyIngestInstitutionalMemory(mockService, 0, null);
   }
 
   @Test
   public void testGetFailureNoPermission() throws Exception {
-    EntityClient mockClient = initMockClient();
-    EntityService<?> mockService = initMockEntityService(true, null);
+    EntityClient mockClient = LinkTestUtils.initMockClient();
+    EntityService<?> mockService = LinkTestUtils.initMockEntityService(true, null);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
 
     QueryContext mockContext = getMockDenyContext();
@@ -143,92 +117,91 @@ public class AddLinkResolverTest {
     AddLinkResolver resolver = new AddLinkResolver(mockService, mockClient);
     assertThrows(AuthorizationException.class, () -> resolver.get(mockEnv).join());
 
-    verifyIngestInstitutionalMemory(mockService, 0, null);
+    LinkTestUtils.verifyIngestInstitutionalMemory(mockService, 0, null);
   }
 
-  private EntityService<ChangeItemImpl> initMockEntityService(
-      @Nonnull Boolean entityExists, @Nullable RecordTemplate currentAspect) {
-    EntityService<ChangeItemImpl> mockService = Mockito.mock(EntityService.class);
+  @Test
+  public void testShouldNotAddLinkWithTheSameUrlAndLabel() throws Exception {
+    InstitutionalMemory originalAspect = new InstitutionalMemory();
+    InstitutionalMemoryMetadataArray elements = new InstitutionalMemoryMetadataArray();
+    InstitutionalMemoryMetadata link = LinkTestUtils.createLink(TEST_URL, TEST_LABEL, false);
+    elements.add(link);
+    originalAspect.setElements(elements);
 
-    if (entityExists) {
-      Mockito.when(
-              mockService.exists(any(OperationContext.class), any(Urn.class), Mockito.eq(true)))
-          .thenReturn(true);
-    } else {
-      Mockito.when(
-              mockService.exists(any(OperationContext.class), any(Urn.class), Mockito.eq(true)))
-          .thenReturn(false);
-    }
+    EntityClient mockClient = LinkTestUtils.initMockClient();
+    EntityService<?> mockService = LinkTestUtils.initMockEntityService(true, originalAspect);
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
 
-    Mockito.when(
-            mockService.getAspect(
-                any(OperationContext.class),
-                any(Urn.class),
-                Mockito.eq(INSTITUTIONAL_MEMORY_ASPECT_NAME),
-                any(long.class)))
-        .thenReturn(currentAspect);
+    InstitutionalMemory expectedAspect = new InstitutionalMemory();
+    InstitutionalMemoryMetadataArray newElements = new InstitutionalMemoryMetadataArray();
+    InstitutionalMemoryMetadata newLink = LinkTestUtils.createLink(TEST_URL, TEST_LABEL, true);
+    // should include only already existing link
+    newElements.add(link);
+    expectedAspect.setElements(newElements);
 
-    return mockService;
+    setupTest(mockEnv);
+
+    AddLinkResolver resolver = new AddLinkResolver(mockService, mockClient);
+    resolver.get(mockEnv).get();
+
+    LinkTestUtils.verifyIngestInstitutionalMemory(mockService, 1, expectedAspect);
   }
 
-  private EntityClient initMockClient() throws Exception {
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
+  @Test
+  public void testGetSuccessWhenLinkWithTheSameUrlAndDifferentLabelAdded() throws Exception {
+    InstitutionalMemory originalAspect = new InstitutionalMemory();
+    InstitutionalMemoryMetadataArray elements = new InstitutionalMemoryMetadataArray();
+    InstitutionalMemoryMetadata link = LinkTestUtils.createLink(TEST_URL, "Another label", false);
 
-    Mockito.when(
-            mockClient.filter(
-                any(),
-                Mockito.eq(GLOSSARY_TERM_ENTITY_NAME),
-                Mockito.any(),
-                Mockito.eq(null),
-                Mockito.eq(0),
-                Mockito.eq(1000)))
-        .thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
-    Mockito.when(
-            mockClient.batchGetV2(
-                any(),
-                Mockito.eq(GLOSSARY_TERM_ENTITY_NAME),
-                Mockito.any(),
-                Mockito.eq(Collections.singleton(GLOSSARY_TERM_INFO_ASPECT_NAME))))
-        .thenReturn(new HashMap<>());
+    elements.add(link);
+    originalAspect.setElements(elements);
 
-    return mockClient;
+    EntityClient mockClient = LinkTestUtils.initMockClient();
+    EntityService<?> mockService = LinkTestUtils.initMockEntityService(true, originalAspect);
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+
+    InstitutionalMemory expectedAspect = new InstitutionalMemory();
+    InstitutionalMemoryMetadataArray newElements = new InstitutionalMemoryMetadataArray();
+    InstitutionalMemoryMetadata newLink = LinkTestUtils.createLink(TEST_URL, TEST_LABEL, true);
+    // make sure to include existing link
+    newElements.add(link);
+    newElements.add(newLink);
+    expectedAspect.setElements(newElements);
+
+    setupTest(mockEnv);
+
+    AddLinkResolver resolver = new AddLinkResolver(mockService, mockClient);
+    resolver.get(mockEnv).get();
+
+    LinkTestUtils.verifyIngestInstitutionalMemory(mockService, 1, expectedAspect);
   }
 
-  static void verifyIngestInstitutionalMemory(
-      EntityService<?> mockService, int numberOfInvocations, InstitutionalMemory expectedAspect) {
-    ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
-        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+  @Test
+  public void testGetSuccessWhenLinkWithDifferentUrlAndTheSameLabelAdded() throws Exception {
+    InstitutionalMemory originalAspect = new InstitutionalMemory();
+    InstitutionalMemoryMetadataArray elements = new InstitutionalMemoryMetadataArray();
+    InstitutionalMemoryMetadata link =
+        LinkTestUtils.createLink("https://another-url.com", TEST_LABEL, false);
+    elements.add(link);
+    originalAspect.setElements(elements);
 
-    Mockito.verify(mockService, Mockito.times(numberOfInvocations))
-        .ingestProposal(any(), proposalCaptor.capture(), any(AuditStamp.class), Mockito.eq(false));
+    EntityClient mockClient = LinkTestUtils.initMockClient();
+    EntityService<?> mockService = LinkTestUtils.initMockEntityService(true, originalAspect);
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
 
-    if (numberOfInvocations > 0) {
-      // check has time
-      Assert.assertTrue(proposalCaptor.getValue().getSystemMetadata().getLastObserved() > 0L);
+    InstitutionalMemory expectedAspect = new InstitutionalMemory();
+    InstitutionalMemoryMetadataArray newElements = new InstitutionalMemoryMetadataArray();
+    InstitutionalMemoryMetadata newLink = LinkTestUtils.createLink(TEST_URL, TEST_LABEL, true);
+    // make sure to include existing link
+    newElements.add(link);
+    newElements.add(newLink);
+    expectedAspect.setElements(newElements);
 
-      InstitutionalMemory actualAspect =
-          GenericRecordUtils.deserializeAspect(
-              proposalCaptor.getValue().getAspect().getValue(),
-              proposalCaptor.getValue().getAspect().getContentType(),
-              InstitutionalMemory.class);
+    setupTest(mockEnv);
 
-      Assert.assertEquals(actualAspect.getElements().size(), expectedAspect.getElements().size());
+    AddLinkResolver resolver = new AddLinkResolver(mockService, mockClient);
+    resolver.get(mockEnv).get();
 
-      actualAspect
-          .getElements()
-          .forEach(
-              element -> {
-                int index = actualAspect.getElements().indexOf(element);
-                InstitutionalMemoryMetadata expectedElement =
-                    expectedAspect.getElements().get(index);
-                Assert.assertEquals(element.getUrl(), expectedElement.getUrl());
-                Assert.assertEquals(element.getDescription(), expectedElement.getDescription());
-                if (expectedElement.getSettings() != null) {
-                  Assert.assertEquals(
-                      element.getSettings().isShowInAssetPreview(),
-                      expectedElement.getSettings().isShowInAssetPreview());
-                }
-              });
-    }
+    LinkTestUtils.verifyIngestInstitutionalMemory(mockService, 1, expectedAspect);
   }
 }

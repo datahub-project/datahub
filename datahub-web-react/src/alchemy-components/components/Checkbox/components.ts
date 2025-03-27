@@ -1,7 +1,7 @@
 import styled from 'styled-components';
 import { borders, colors, spacing, transform, zIndices, radius } from '@components/theme';
 import { SizeOptions } from '@src/alchemy-components/theme/config';
-import { getCheckboxColor, getCheckboxHoverBackgroundColor, getCheckboxSize } from './utils';
+import { getCheckboxColor, getCheckboxHoverBackgroundColor, getCheckboxSize, getCheckmarkPosition } from './utils';
 import { formLabelTextStyles } from '../commonStyles';
 
 export const CheckboxContainer = styled.div({
@@ -50,11 +50,10 @@ export const Checkmark = styled.div<{
     size: SizeOptions;
 }>(({ intermediate, checked, error, disabled, size }) => ({
     ...getCheckboxSize(size),
+    ...getCheckmarkPosition(size),
     position: 'absolute',
-    top: '4px',
-    left: '11px',
     zIndex: zIndices.docked,
-    borderRadius: '3px',
+    borderRadius: '4px',
     border: `${borders['2px']} ${getCheckboxColor(checked, error, disabled, undefined)}`,
     transition: 'all 0.2s ease-in-out',
     cursor: 'pointer',

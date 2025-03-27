@@ -18,7 +18,7 @@ export function getCheckboxColor(checked: boolean, error: string, disabled: bool
     if (disabled) return checkboxBackgroundDefault.disabled;
     if (error) return checkboxBackgroundDefault.error;
     if (checked) return checkboxBackgroundDefault.checked;
-    return mode === 'background' ? checkboxBackgroundDefault.default : colors.gray[500];
+    return mode === 'background' ? checkboxBackgroundDefault.default : colors.gray[1800];
 }
 
 export function getCheckboxHoverBackgroundColor(checked: boolean, error: string) {
@@ -40,5 +40,21 @@ export function getCheckboxSize(size: SizeOptions) {
     return {
         height: sizeMap[size],
         width: sizeMap[size],
+    };
+}
+
+const offsetMap: Record<SizeOptions, string> = {
+    xs: '7px',
+    sm: '6px',
+    md: '5px',
+    lg: '4px',
+    xl: '3px',
+    inherit: 'inherit',
+};
+
+export function getCheckmarkPosition(size: SizeOptions) {
+    return {
+        top: offsetMap[size],
+        left: offsetMap[size],
     };
 }
