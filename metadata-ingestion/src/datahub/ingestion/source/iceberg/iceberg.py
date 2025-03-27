@@ -299,7 +299,7 @@ class IcebergSource(StatefulIngestionSourceBase):
     ) -> Iterable[_Aspect]:
         with PerfTimer() as timer:
             self.report.report_table_scanned(dataset_name)
-            LOGGER.info(f"Processing table {dataset_name}")
+            LOGGER.debug(f"Processing table {dataset_name}")
             yield Status(removed=False)
 
             yield self._get_dataset_properties_aspect(dataset_name, table)
