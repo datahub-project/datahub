@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { getAssetDescriptionDetails } from '@src/app/entityV2/shared/tabs/Documentation/utils';
@@ -21,23 +21,17 @@ import { getEntityPath } from '../../utils';
 
 const LINE_LIMIT = 5;
 
-interface Properties {
-    hideLinksButton?: boolean;
-}
-
 interface Props {
-    properties?: Properties;
     readOnly?: boolean;
 }
 
-export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
+export const SidebarAboutSection = ({ readOnly }: Props) => {
     const { entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const isLineageMode = useIsLineageMode();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const urn = useMutationUrn();
 
-    const hideLinksButton = properties?.hideLinksButton;
     const isEmbeddedProfile = useIsEmbeddedProfile();
     const routeToTab = useRouteToTab();
 
@@ -49,9 +43,13 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
     });
     const showInferDocsButton = !displayedDescription && canShowInferDocsButton;
 
-    const links = entityData?.institutionalMemory?.elements || [];
+    const hasContent = useMemo(() => {
+        // Do not take into account links that shown in entity profile's header as they will not be shown
+        const links =
+            entityData?.institutionalMemory?.elements?.filter((link) => !link.settings?.showInAssetPreview) || [];
 
-    const hasContent = !!displayedDescription || links.length > 0;
+        return !!displayedDescription || links.length > 0;
+    }, [displayedDescription, entityData]);
 
     const canEditDescription = !!entityData?.privileges?.canEditDescription;
     const canProposeDescription = !!entityData?.privileges?.canProposeDescription;
@@ -70,7 +68,7 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
                                 lineLimit={LINE_LIMIT}
                             />,
                         ]}
-                        {hasContent && <LinksSection hideLinksButton={hideLinksButton} readOnly />}
+                        {hasContent && <LinksSection readOnly />}
                         {!hasContent && [
                             <EmptySectionText message={EMPTY_MESSAGES.documentation.title} />,
                             showInferDocsButton && (

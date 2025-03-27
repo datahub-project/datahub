@@ -51,12 +51,7 @@ const EmptyTabWrapper = styled.div`
     height: 100%;
 `;
 
-interface Props {
-    hideLinksButton?: boolean;
-}
-
-export const DocumentationTab = ({ properties }: { properties?: Props }) => {
-    const hideLinksButton = properties?.hideLinksButton;
+export const DocumentationTab = () => {
     const { urn, entityData, entityType } = useEntityData();
 
     const refetch = useRefetch();
@@ -99,7 +94,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                             >
                                 <EditOutlined /> Edit
                             </AntButton>
-                            {!hideLinksButton && <AddLinkModal buttonType="text" refetch={refetch} />}
+                            <AddLinkModal buttonType="text" refetch={refetch} />
                         </div>
                         <div>
                             <AntButton
@@ -128,14 +123,14 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                         )}
                         <Divider />
                         <DocumentationContainer>
-                            {!hideLinksButton && <LinkList refetch={refetch} />}
+                            <LinkList refetch={refetch} />
                         </DocumentationContainer>
                     </div>
                 </>
             ) : (
                 <EmptyTabWrapper>
                     <EmptyTab tab="documentation" hideImage={false}>
-                        {!hideLinksButton && <AddLinkModal refetch={refetch} />}
+                        <AddLinkModal refetch={refetch} />
                         <Button
                             data-testid="add-documentation"
                             onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}

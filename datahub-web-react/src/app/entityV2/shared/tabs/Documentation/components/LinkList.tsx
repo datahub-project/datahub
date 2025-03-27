@@ -15,23 +15,27 @@ import { shouldTryLinkPreview } from '../../../../../integration/linkPreviews';
 import LinkPreview from '../../../../../integration/LinkPreview';
 import { FormData, LinkFormModal } from '../../../components/styled/LinkFormModal';
 
-const LinkListItem = styled(List.Item)`
-    border-radius: 5px;
-    > .ant-btn {
-        opacity: 0;
-    }
-    &:hover {
-        background-color: ${ANTD_GRAY[2]};
-        > .ant-btn {
-            opacity: 1;
-        }
-    }
-`;
-
 const LinkButtonsContainer = styled.div`
     display: flex;
     flex-direction: row;
     gap: 8px;
+`;
+
+const LinkListItem = styled(List.Item)`
+    border-radius: 5px;
+    ${LinkButtonsContainer} {
+        > .ant-btn {
+            opacity: 0;
+        }
+    }
+    &:hover {
+        background-color: ${ANTD_GRAY[2]};
+        ${LinkButtonsContainer} {
+            > .ant-btn {
+                opacity: 1;
+            }
+        }
+    }
 `;
 
 const ListOffsetIcon = styled.span`

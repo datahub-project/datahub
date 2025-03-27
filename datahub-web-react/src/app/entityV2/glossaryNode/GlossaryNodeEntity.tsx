@@ -98,9 +98,6 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                         name: 'Documentation',
                         component: DocumentationTab,
                         icon: FileOutlined,
-                        properties: {
-                            hideLinksButton: true,
-                        },
                     },
                     {
                         name: 'Properties',
@@ -121,9 +118,6 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
     getSidebarSections = () => [
         {
             component: SidebarAboutSection,
-            properties: {
-                hideLinksButton: true,
-            },
         },
         {
             component: SidebarNotesSection,

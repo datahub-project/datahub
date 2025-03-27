@@ -11,11 +11,10 @@ const AddLinksWrapper = styled.div`
 `;
 
 interface Props {
-    hideLinksButton?: boolean;
     readOnly?: boolean;
 }
 
-export default function LinksSection({ hideLinksButton, readOnly }: Props) {
+export default function LinksSection({ readOnly }: Props) {
     const { entityData } = useEntityData();
     const refetch = useRefetch();
 
@@ -33,7 +32,7 @@ export default function LinksSection({ hideLinksButton, readOnly }: Props) {
                     {shouldTryLinkPreview(link.url) && <LinkPreview link={link} />}
                 </>
             ))}
-            {!readOnly && !hideLinksButton && (
+            {!readOnly && (
                 <AddLinksWrapper>
                     <AddLinkModal buttonProps={{ type: 'text' }} refetch={refetch} />
                 </AddLinksWrapper>
