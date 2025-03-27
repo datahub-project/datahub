@@ -61,7 +61,7 @@ export const IncidentDrawerHeader = ({
                                     variant="text"
                                     iconColor="gray"
                                     iconSource="phosphor"
-                                    onClick={() => canEditIncidents && setIsEditActive(!isEditActive)}
+                                    onClick={() => setIsEditActive(!isEditActive)}
                                     disabled={!canEditIncidents}
                                     data-testid="edit-incident-icon"
                                     size="xl"
