@@ -81,6 +81,7 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipTypeClass,
     TimeStampClass,
+    _Aspect,
 )
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
@@ -200,7 +201,16 @@ class IcebergSource(StatefulIngestionSourceBase):
                         time_taken, dataset_name, table.metadata_location
                     )
                 LOGGER.debug(f"Loaded table: {table.name()}, time taken: {time_taken}")
-                yield from self._create_iceberg_workunit(dataset_name, table)
+                dataset_urn: str = make_dataset_urn_with_platform_instance(
+                    self.platform,
+                    dataset_name,
+                    self.config.platform_instance,
+                    self.config.env,
+                )
+                for aspect in self._create_iceberg_table_aspects(dataset_name, table):
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=dataset_urn, aspect=aspect
+                    ).as_workunit()
             except NoSuchPropertyException as e:
                 self.report.report_warning(
                     "table-property-missing",
@@ -284,43 +294,25 @@ class IcebergSource(StatefulIngestionSourceBase):
         ):
             yield wu
 
-    def _create_iceberg_workunit(
+    def _create_iceberg_table_aspects(
         self, dataset_name: str, table: Table
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> Iterable[_Aspect]:
         with PerfTimer() as timer:
             self.report.report_table_scanned(dataset_name)
-            LOGGER.debug(f"Processing table {dataset_name}")
-            dataset_urn: str = make_dataset_urn_with_platform_instance(
-                self.platform,
-                dataset_name,
-                self.config.platform_instance,
-                self.config.env,
-            )
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn, aspect=Status(removed=False)
-            ).as_workunit()
+            LOGGER.info(f"Processing table {dataset_name}")
+            yield Status(removed=False)
 
-            dataset_properties = self._get_dataset_properties_aspect(
-                dataset_name, table
-            )
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn, aspect=dataset_properties
-            ).as_workunit()
+            yield self._get_dataset_properties_aspect(dataset_name, table)
 
             dataset_ownership = self._get_ownership_aspect(table)
             if dataset_ownership:
                 LOGGER.debug(
                     f"Adding ownership: {dataset_ownership} to the dataset {dataset_name}"
                 )
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=dataset_urn, aspect=dataset_ownership
-                ).as_workunit()
+                yield dataset_ownership
 
-            schema_metadata = self._create_schema_metadata(dataset_name, table)
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn, aspect=schema_metadata
-            ).as_workunit()
-            yield self._get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
+            yield self._create_schema_metadata(dataset_name, table)
+            yield self._get_dataplatform_instance_aspect()
 
         self.report.report_table_processing_time(
             timer.elapsed_seconds(), dataset_name, table.metadata_location
@@ -328,7 +320,7 @@ class IcebergSource(StatefulIngestionSourceBase):
 
         if self.config.is_profiling_enabled():
             profiler = IcebergProfiler(self.report, self.config.profiling)
-            yield from profiler.profile_table(dataset_name, dataset_urn, table)
+            yield from profiler.profile_table(dataset_name, table)
 
     def _get_partition_aspect(self, table: Table) -> Optional[str]:
         """Extracts partition information from the provided table and returns a JSON array representing the [partition spec](https://iceberg.apache.org/spec/?#partition-specs) of the table.
@@ -435,18 +427,15 @@ class IcebergSource(StatefulIngestionSourceBase):
                 )
         return OwnershipClass(owners=owners) if owners else None
 
-    def _get_dataplatform_instance_aspect(self, dataset_urn: str) -> MetadataWorkUnit:
-        return MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=DataPlatformInstanceClass(
-                platform=make_data_platform_urn(self.platform),
-                instance=make_dataplatform_instance_urn(
-                    self.platform, self.config.platform_instance
-                )
-                if self.config.platform_instance
-                else None,
-            ),
-        ).as_workunit()
+    def _get_dataplatform_instance_aspect(self) -> DataPlatformInstanceClass:
+        return DataPlatformInstanceClass(
+            platform=make_data_platform_urn(self.platform),
+            instance=make_dataplatform_instance_urn(
+                self.platform, self.config.platform_instance
+            )
+            if self.config.platform_instance
+            else None,
+        )
 
     def _create_schema_metadata(
         self, dataset_name: str, table: Table

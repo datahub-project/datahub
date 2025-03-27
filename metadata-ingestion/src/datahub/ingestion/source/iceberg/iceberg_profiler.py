@@ -24,8 +24,6 @@ from pyiceberg.utils.datetime import (
 )
 
 from datahub.emitter.mce_builder import get_sys_time
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.iceberg.iceberg_common import (
     IcebergProfilingConfig,
     IcebergSourceReport,
@@ -33,6 +31,7 @@ from datahub.ingestion.source.iceberg.iceberg_common import (
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
     DatasetProfileClass,
+    _Aspect,
 )
 from datahub.utilities.perf_timer import PerfTimer
 
@@ -86,9 +85,8 @@ class IcebergProfiler:
     def profile_table(
         self,
         dataset_name: str,
-        dataset_urn: str,
         table: Table,
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> Iterable[_Aspect]:
         """This method will profile the supplied Iceberg table by looking at the table's manifest.
 
         The overall profile of the table is aggregated from the individual manifest files.
@@ -211,10 +209,7 @@ class IcebergProfiler:
                 f"Finished profiling of dataset: {dataset_name} in {time_taken}"
             )
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=dataset_profile,
-        ).as_workunit()
+        yield dataset_profile
 
     def _render_value(
         self, dataset_name: str, value_type: IcebergType, value: Any
