@@ -145,7 +145,7 @@
         "@storybook/react-vite": "^8.1.11",
         "@storybook/test": "^8.1.11",
         "@storybook/theming": "^8.1.11",
-        "@stylistic/eslint-plugin-js": "^4.2.0",
+        "@stylistic/eslint-plugin-js": "^3.1.0",
         "@types/graphql": "^14.5.0",
         "@types/query-string": "^6.3.0",
         "@types/styled-components": "^5.1.7",
