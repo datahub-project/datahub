@@ -65,7 +65,7 @@ pyarrow_type_map: Dict[Callable[[Any], bool], Type] = {
 }
 
 
-def get_column_metadata(schema_dict, column_name):
+def get_column_metadata(schema_dict: dict, column_name: str) -> str:
     """
     Get metadata for a specific column from the schema dictionary.
 

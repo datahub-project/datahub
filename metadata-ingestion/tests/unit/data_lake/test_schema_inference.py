@@ -16,6 +16,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringTypeClass,
 )
 from tests.unit.test_schema_util import assert_field_paths_match
+from datahub.ingestion.source.schema_inference.parquet import get_column_metadata
 
 expected_field_paths = [
     "integer_field",
@@ -50,6 +51,19 @@ expected_field_descriptions = [
     "A column containing boolean values",
     "A column containing string values",
 ]
+
+
+test_column_metadata = [
+    {"name": "integer_field", "metadata": { "integer_field" : "A column containing integer values"}},
+    {"name": "boolean_field", "metadata": { "boolean_field" : "A column containing boolean values"}},
+    {"name": "string_field", "metadata": { "string_field": "A column containing string values"}},
+]
+
+
+def test_get_column_metadata():
+    assert "A column containing integer values" == get_column_metadata(test_column_metadata, "integer_field")
+    assert "A column containing boolean values" == get_column_metadata(test_column_metadata, "boolean_field")
+    assert "A column containing string values" == get_column_metadata(test_column_metadata, "string_field")
 
 
 def assert_field_types_match(
