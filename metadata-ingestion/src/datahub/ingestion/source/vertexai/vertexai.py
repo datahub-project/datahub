@@ -202,8 +202,9 @@ class VertexAISource(Source):
         """
 
         pipeline_jobs = self.client.PipelineJob.list()
+
         for pipeline in pipeline_jobs:
-            logger.info(f"fetching {pipeline.name}")
+            logger.info(f"fetching pipeline ({pipeline.name})")
             pipeline_meta = self._get_pipeline_metadata(pipeline)
             yield from self._get_pipeline_mcps(pipeline_meta)
             yield from self._gen_pipeline_task_mcps(pipeline_meta)
@@ -288,7 +289,9 @@ class VertexAISource(Source):
         dataflow_urn = pipeline.urn
 
         for task in pipeline.tasks:
-            logger.info(f"fetching task {task.name} in pipeline {pipeline.name}")
+            logger.info(
+                f"fetching pipeline task ({task.name}) in pipeline ({pipeline.name})"
+            )
             datajob = DataJob(
                 id=self._make_vertexai_pipeline_task_name(task.name),
                 flow_urn=dataflow_urn,
@@ -296,9 +299,12 @@ class VertexAISource(Source):
                 properties=self._get_pipeline_task_properties(task),
                 owners={"urn:li:corpuser:datahub"},
                 upstream_urns=task.upstreams if task.upstreams else [],
-                tags=set(f"{k}:{v}" for k, v in pipeline.labels.items())
-                if pipeline.labels
-                else set(),
+                tags=(
+                    set(f"{k}:{v}" for k, v in pipeline.labels.items())
+                    if pipeline.labels
+                    else set()
+                ),
+                url=self._make_pipeline_external_url(pipeline.name),
             )
             yield from MetadataChangeProposalWrapper.construct_many(
                 entityUrn=str(datajob.urn),
@@ -369,7 +375,7 @@ class VertexAISource(Source):
                 if pipeline.duration
                 else ""
             ),
-            "region": (pipeline.region if pipeline.region else ""),
+            "location": (pipeline.region if pipeline.region else ""),
         }
 
     def _get_pipeline_mcps(

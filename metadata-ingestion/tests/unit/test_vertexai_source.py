@@ -17,6 +17,10 @@ from datahub.ingestion.source.vertexai.vertexai import (
     VertexAIConfig,
     VertexAISource,
 )
+from datahub.metadata._schema_classes import (
+    DataFlowInfoClass,
+    DataJobInputOutputClass,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.ml.metadata import (
     MLModelGroupProperties,
@@ -49,6 +53,7 @@ from tests.integration.vertexai.mock_vertexai import (
     gen_mock_model_version,
     gen_mock_training_automl_job,
     gen_mock_training_custom_job,
+    get_mock_pipeline_job,
 )
 
 PROJECT_ID = "acryl-poc"
@@ -635,6 +640,89 @@ def test_gen_experiment_run_mcps(
     assert any(mcp_subtype == mcp for mcp in actual_mcps)
     assert any(mcp_container == mcp for mcp in actual_mcps)
     assert any(mcp_dataplatform == mcp for mcp in actual_mcps)
+
+
+def test_gen_pipeline_run_mcps(
+    source: VertexAISource,
+) -> None:
+    mock_pipeline = get_mock_pipeline_job()
+    with contextlib.ExitStack() as exit_stack:
+        mock = exit_stack.enter_context(
+            patch("google.cloud.aiplatform.PipelineJob.list")
+        )
+        mock.return_value = [mock_pipeline]
+
+        actual_mcps = [mcp for mcp in source._get_pipelines_mcps()]
+
+        # Assert Entity Urns
+        expected_pipeline_urn = "urn:li:dataFlow:(vertexai,vertexai.acryl-poc.pipeline.mock_pipeline_job,PROD)"
+
+        expected_task_urn = "urn:li:dataJob:(urn:li:dataFlow:(vertexai,vertexai.acryl-poc.pipeline.mock_pipeline_job,PROD),acryl-poc.pipeline_task.reverse)"
+
+        mcp_pipe_df_info = MetadataChangeProposalWrapper(
+            entityUrn=expected_pipeline_urn,
+            aspect=DataFlowInfoClass(
+                env=source.config.env,
+                name=mock_pipeline.name,
+                customProperties={
+                    "display_name": "mock_pipeline_job",
+                    "resource_name": "projects/123/locations/us-central1/pipelineJobs/456",
+                    "create_time": "2022-03-21 09:00:00",
+                    "update_time": "2022-03-21 09:01:40",
+                    "duration": "1m 40s",
+                    "location": "us-west2",
+                },
+                externalUrl=source._make_pipeline_external_url(mock_pipeline.name),
+            ),
+        )
+        mcp_pipe_df_status = MetadataChangeProposalWrapper(
+            entityUrn=expected_pipeline_urn,
+            aspect=StatusClass(removed=False),
+        )
+        mcp_pipe_container = MetadataChangeProposalWrapper(
+            entityUrn=expected_pipeline_urn,
+            aspect=ContainerClass(container=source._get_project_container().as_urn()),
+        )
+        mcp_pipe_subtype = MetadataChangeProposalWrapper(
+            entityUrn=expected_pipeline_urn,
+            aspect=SubTypesClass(typeNames=[MLAssetSubTypes.VERTEX_PIPELINE]),
+        )
+
+        mcp_task_input = MetadataChangeProposalWrapper(
+            entityUrn=expected_task_urn,
+            aspect=DataJobInputOutputClass(
+                inputDatasets=[],
+                outputDatasets=[],
+                inputDatajobs=[
+                    "urn:li:dataJob:(urn:li:dataFlow:(vertexai,vertexai.acryl-poc.pipeline.mock_pipeline_job,PROD),acryl-poc.pipeline_task.concat)"
+                ],
+                fineGrainedLineages=[],
+            ),
+        )
+
+        mcp_task_container = MetadataChangeProposalWrapper(
+            entityUrn=expected_task_urn,
+            aspect=ContainerClass(container=source._get_project_container().as_urn()),
+        )
+        mcp_task_subtype = MetadataChangeProposalWrapper(
+            entityUrn=expected_task_urn,
+            aspect=SubTypesClass(typeNames=[MLAssetSubTypes.VERTEX_PIPELINE_TASK]),
+        )
+
+        mcp_task_status = MetadataChangeProposalWrapper(
+            entityUrn=expected_pipeline_urn,
+            aspect=StatusClass(removed=False),
+        )
+
+        assert len(actual_mcps) == 13
+        assert any(mcp_pipe_df_info == mcp for mcp in actual_mcps)
+        assert any(mcp_pipe_df_status == mcp for mcp in actual_mcps)
+        assert any(mcp_pipe_subtype == mcp for mcp in actual_mcps)
+        assert any(mcp_pipe_container == mcp for mcp in actual_mcps)
+        assert any(mcp_task_input == mcp for mcp in actual_mcps)
+        assert any(mcp_task_container == mcp for mcp in actual_mcps)
+        assert any(mcp_task_subtype == mcp for mcp in actual_mcps)
+        assert any(mcp_task_status == mcp for mcp in actual_mcps)
 
 
 def test_make_model_external_url(source: VertexAISource) -> None:

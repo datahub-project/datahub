@@ -14,6 +14,7 @@ from tests.integration.vertexai.mock_vertexai import (
     gen_mock_models,
     gen_mock_training_automl_job,
     gen_mock_training_custom_job,
+    get_mock_pipeline_job,
 )
 from tests.test_helpers import mce_helpers
 
@@ -99,6 +100,11 @@ def test_vertexai_source_ingestion(pytestconfig: Config, tmp_path: Path) -> None
             patch("google.cloud.aiplatform.ExperimentRun.list")
         )
         mock_exp_run.return_value = [gen_mock_experiment_run()]
+
+        mock = exit_stack.enter_context(
+            patch("google.cloud.aiplatform.PipelineJob.list")
+        )
+        mock.return_value = [get_mock_pipeline_job()]
 
         golden_file_path = (
             pytestconfig.rootpath
