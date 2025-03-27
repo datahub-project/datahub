@@ -57,6 +57,7 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.iceberg.iceberg_common import (
     IcebergSourceConfig,
     IcebergSourceReport,
@@ -68,7 +69,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.common import Status
+from datahub.metadata.com.linkedin.pegasus2avro.common import Status, SubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     OtherSchema,
     SchemaField,
@@ -290,6 +291,7 @@ class IcebergSource(StatefulIngestionSourceBase):
             self.report.report_table_scanned(dataset_name)
             LOGGER.debug(f"Processing table {dataset_name}")
             yield Status(removed=False)
+            yield SubTypes(typeNames=[DatasetSubTypes.TABLE])
 
             yield self._get_dataset_properties_aspect(dataset_name, table)
 
