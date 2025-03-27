@@ -4,9 +4,6 @@ namespace com.linkedin.dataplatform.slack
  * Information about a Slack channel.
  * Namespace for the urn of this entity should be 'slack-channel'. See GenericEntityKey.pdl for details.
  */
-// @Aspect = {
-//   "name": "slackChannel"
-// }
 record SlackChannel {
 
   /**

@@ -9,6 +9,7 @@ const ingestion_source_name = `ingestion source ${number}`;
 describe("managing secrets for ingestion creation", () => {
   it("create a secret, create ingestion source using a secret, remove a secret", () => {
     // Navigate to the manage ingestion page → secrets
+    cy.ignoreResizeObserverLoop();
     cy.loginWithCredentials();
     cy.goToIngestionPage();
     cy.clickOptionWithText("Secrets");

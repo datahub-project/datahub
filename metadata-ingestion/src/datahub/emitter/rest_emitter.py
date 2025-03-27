@@ -24,9 +24,9 @@ from typing import (
 
 import pydantic
 import requests
-from deprecated import deprecated
 from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import HTTPError, RequestException
+from typing_extensions import deprecated
 
 from datahub._version import nice_version_name
 from datahub.cli import config_utils
@@ -597,7 +597,7 @@ class DataHubRestEmitter(Closeable, Emitter):
 
         return len(mcp_obj_chunks)
 
-    @deprecated
+    @deprecated("Use emit with a datasetUsageStatistics aspect instead")
     def emit_usage(self, usageStats: UsageAggregation) -> None:
         url = f"{self._gms_server}/usageStats?action=batchIngest"
 

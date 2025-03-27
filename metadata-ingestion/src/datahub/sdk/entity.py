@@ -150,7 +150,7 @@ class Entity:
         self._set_aspect(default_aspect)
         return default_aspect
 
-    def _as_mcps(
+    def as_mcps(
         self,
         change_type: Union[str, models.ChangeTypeClass] = models.ChangeTypeClass.UPSERT,
     ) -> List[MetadataChangeProposalWrapper]:
@@ -182,7 +182,7 @@ class Entity:
         Returns:
             A list of MetadataWorkUnit objects.
         """
-        return [mcp.as_workunit() for mcp in self._as_mcps()]
+        return [mcp.as_workunit() for mcp in self.as_mcps()]
 
     def _set_extra_aspects(self, extra_aspects: ExtraAspectsType) -> None:
         """Set additional aspects on the entity.

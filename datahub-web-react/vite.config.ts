@@ -6,6 +6,10 @@ import macrosPlugin from 'vite-plugin-babel-macros';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 
 const injectMeticulous = () => {
+    if (!process.env.REACT_APP_METICULOUS_PROJECT_TOKEN) {
+        return null;
+    }
+
     return {
         name: 'inject-meticulous',
         transformIndexHtml: {

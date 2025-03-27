@@ -1350,6 +1350,11 @@ type FeatureFlagsConfig {
   displayExecutorPools: Boolean!
 
   """
+  If turned on, show the "has siblings" filter in search
+  """
+  showHasSiblingsFilter: Boolean!
+
+  """
   If turned on, show the redesigned search bar's autocomplete
   """
   showSearchBarAutocompleteRedesign: Boolean!

@@ -1428,7 +1428,9 @@
       "type" : "boolean",
       "doc" : "Whether the entity is deprecated.",
       "Searchable" : {
+        "addToFilters" : true,
         "fieldType" : "BOOLEAN",
+        "filterNameOverride" : "Deprecated",
         "weightsPerFieldValue" : {
           "true" : 0.5
         }

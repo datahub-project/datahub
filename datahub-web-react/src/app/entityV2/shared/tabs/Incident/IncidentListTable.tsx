@@ -136,7 +136,7 @@ export const IncidentListTable = ({ incidentData, filter, refetch }: Props) => {
             {focusIncidentUrn && focusedIncidentEntity && (
                 <IncidentDetailDrawer
                     urn={focusIncidentUrn}
-                    mode={IncidentAction.VIEW}
+                    mode={IncidentAction.EDIT}
                     incident={focusIncidentData}
                     onCancel={() => setFocusIncidentUrn(null)}
                     onSubmit={() => {

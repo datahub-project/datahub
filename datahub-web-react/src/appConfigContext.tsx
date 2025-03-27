@@ -102,6 +102,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         showStatsTabRedesign: false,
         requestMinimalSlackPermissions: false,
         entityVersioningEnabled: false,
+        showHasSiblingsFilter: false,
         showSearchBarAutocompleteRedesign: false,
         showTaskCenterRedesign: false,
         usePropagationsFramework: false,

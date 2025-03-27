@@ -107,7 +107,7 @@ export const IncidentList = () => {
             {showIncidentBuilder && (
                 <IncidentDetailDrawer
                     urn={urn}
-                    mode={IncidentAction.ADD}
+                    mode={IncidentAction.CREATE}
                     onSubmit={() => {
                         setTimeout(() => {
                             refetch();
