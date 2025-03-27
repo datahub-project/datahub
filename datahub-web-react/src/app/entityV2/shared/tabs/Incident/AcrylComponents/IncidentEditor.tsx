@@ -36,6 +36,7 @@ export const IncidentEditor = ({
     data,
     onClose,
     mode = IncidentAction.CREATE,
+    entity,
 }: IncidentEditorProps) => {
     const assigneeValues = data?.assignees && getAssigneeWithURN(data.assignees);
     const isFormValid = Boolean(
@@ -63,6 +64,7 @@ export const IncidentEditor = ({
         user,
         assignees: cachedAssignees,
         linkedAssets: cachedLinkedAssets,
+        entity,
     });
     const formValues = Form.useWatch([], form);
 
