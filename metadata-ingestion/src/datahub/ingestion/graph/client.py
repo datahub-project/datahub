@@ -873,7 +873,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         env: Optional[str] = None,
         query: Optional[str] = None,
         container: Optional[str] = None,
-        status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
+        status: Optional[RemovedStatusFilter] = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 10000,
         extraFilters: Optional[List[RawSearchFilterRule]] = None,
         extra_or_filters: Optional[List[Dict[str, List[RawSearchFilterRule]]]] = None,

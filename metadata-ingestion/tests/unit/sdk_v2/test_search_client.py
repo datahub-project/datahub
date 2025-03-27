@@ -1,10 +1,18 @@
 from io import StringIO
+from unittest.mock import Mock
 
 import pytest
 import yaml
 from pydantic import ValidationError
 
-from datahub.ingestion.graph.filters import SearchFilterRule
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.filters import (
+    RemovedStatusFilter,
+    SearchFilterRule,
+    generate_filter,
+)
+from datahub.metadata.urns import DataPlatformUrn, QueryUrn
+from datahub.sdk.main_client import DataHubClient
 from datahub.sdk.search_client import compile_filters
 from datahub.sdk.search_filters import Filter, FilterDsl as F, load_filters
 from datahub.utilities.urns.error import InvalidUrnError
@@ -184,13 +192,11 @@ def test_compile_filters() -> None:
                     "field": "origin",
                     "condition": "EQUAL",
                     "values": ["PROD"],
-                    "negated": False,
                 },
                 {
                     "field": "platform.keyword",
                     "condition": "EQUAL",
                     "values": ["urn:li:dataPlatform:snowflake"],
-                    "negated": False,
                 },
             ]
         },
@@ -200,15 +206,107 @@ def test_compile_filters() -> None:
                     "field": "env",
                     "condition": "EQUAL",
                     "values": ["PROD"],
-                    "negated": False,
                 },
                 {
                     "field": "platform.keyword",
                     "condition": "EQUAL",
                     "values": ["urn:li:dataPlatform:snowflake"],
-                    "negated": False,
                 },
             ]
         },
     ]
     assert compile_filters(filter) == expected_filters
+
+
+def test_generate_filters() -> None:
+    compiled = compile_filters(
+        F.and_(
+            F.entity_type(QueryUrn.ENTITY_TYPE),
+            F.custom_filter("origin", "EQUAL", [DataPlatformUrn("snowflake").urn()]),
+        )
+    )
+    assert compiled == [
+        {
+            "and": [
+                {"field": "_entityType", "condition": "EQUAL", "values": ["QUERY"]},
+                {
+                    "field": "origin",
+                    "condition": "EQUAL",
+                    "values": ["urn:li:dataPlatform:snowflake"],
+                },
+            ]
+        }
+    ]
+
+    assert generate_filter(
+        platform=None,
+        platform_instance=None,
+        env=None,
+        container=None,
+        status=RemovedStatusFilter.NOT_SOFT_DELETED,
+        extra_filters=None,
+        extra_or_filters=compiled,
+    ) == [
+        {
+            "and": [
+                {
+                    "field": "removed",
+                    "condition": "EQUAL",
+                    "negated": True,
+                    "values": ["true"],
+                },
+                {
+                    "field": "_entityType",
+                    "condition": "EQUAL",
+                    "values": ["QUERY"],
+                },
+                {
+                    "field": "origin",
+                    "condition": "EQUAL",
+                    "values": ["urn:li:dataPlatform:snowflake"],
+                },
+            ]
+        }
+    ]
+
+
+@pytest.fixture
+def mock_graph() -> Mock:
+    graph = Mock(spec=DataHubGraph)
+    return graph
+
+
+@pytest.fixture
+def client(mock_graph: Mock) -> DataHubClient:
+    return DataHubClient(graph=mock_graph)
+
+
+"""
+def test_get_urns(client: DataHubClient, mock_graph: Mock) -> None:
+    result_urns = ["urn:li:corpuser:datahub"]
+    mock_graph.get_urns_by_filter.return_value = result_urns
+
+    urns = client.search.get_urns(
+        filter=F.and_(
+            F.entity_type("corpuser"),
+        )
+    )
+    assert list(urns) == [Urn.from_string(urn) for urn in result_urns]
+
+    assert mock_graph.get_urns_by_filter.call_count == 1
+    assert mock_graph.get_urns_by_filter.call_args.kwargs == dict(
+        query=None,
+        entity_types=["corpuser"],
+        extra_or_filters=[
+            {
+                "and": [
+                    {
+                        "field": "_entityType",
+                        "condition": "EQUAL",
+                        "values": ["CORP_USER"],
+                    }
+                ]
+            },
+        ],
+    )
+"""

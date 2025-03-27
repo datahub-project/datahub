@@ -3,6 +3,7 @@ from __future__ import annotations
 import abc
 from typing import (
     Any,
+    ClassVar,
     List,
     Sequence,
     TypedDict,
@@ -47,13 +48,15 @@ def _flexible_entity_type_to_graphql(entity_type: str) -> str:
 
 
 class _EntityTypeFilter(_BaseFilter):
+    ENTITY_TYPE_FIELD: ClassVar[str] = "_entityType"
+
     entity_type: List[str] = pydantic.Field(
         description="The entity type to filter on. Can be 'dataset', 'chart', 'dashboard', 'corpuser', etc.",
     )
 
     def _build_rule(self) -> SearchFilterRule:
         return SearchFilterRule(
-            field="_entityType",
+            field=self.ENTITY_TYPE_FIELD,
             condition="EQUAL",
             values=[_flexible_entity_type_to_graphql(t) for t in self.entity_type],
         )

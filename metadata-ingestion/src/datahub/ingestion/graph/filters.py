@@ -1,6 +1,6 @@
 import dataclasses
 import enum
-from typing import Any, Dict, List, Literal, Optional
+from typing import Dict, List, Literal, Optional, Union
 
 from typing_extensions import TypeAlias
 
@@ -10,7 +10,7 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.utilities.urns.urn import guess_entity_type
 
-RawSearchFilterRule = Dict[str, Any]
+RawSearchFilterRule: TypeAlias = Dict[str, Union[str, bool, List[str]]]
 
 # Mirrors our GraphQL enum: https://datahubproject.io/docs/graphql/enums#filteroperator
 FilterOperator: TypeAlias = Literal[
@@ -39,12 +39,14 @@ class SearchFilterRule:
     negated: bool = False
 
     def to_raw(self) -> RawSearchFilterRule:
-        return {
+        rule: RawSearchFilterRule = {
             "field": self.field,
             "condition": self.condition,
             "values": self.values,
-            "negated": self.negated,
         }
+        if self.negated:
+            rule["negated"] = True
+        return rule
 
     def negate(self) -> "SearchFilterRule":
         return SearchFilterRule(
@@ -73,9 +75,9 @@ def generate_filter(
     platform_instance: Optional[str],
     env: Optional[str],
     container: Optional[str],
-    status: RemovedStatusFilter,
+    status: Optional[RemovedStatusFilter],
     extra_filters: Optional[List[RawSearchFilterRule]],
-    extra_or_filters: Optional[List[RawSearchFilterRule]] = None,
+    extra_or_filters: Optional[List[Dict[str, List[RawSearchFilterRule]]]] = None,
 ) -> List[Dict[str, List[RawSearchFilterRule]]]:
     """
     Generate a search filter based on the provided parameters.
@@ -105,9 +107,10 @@ def generate_filter(
         and_filters.append(_get_container_filter(container).to_raw())
 
     # Status filter.
-    status_filter = _get_status_filter(status)
-    if status_filter:
-        and_filters.append(status_filter.to_raw())
+    if status:
+        status_filter = _get_status_filter(status)
+        if status_filter:
+            and_filters.append(status_filter.to_raw())
 
     # Extra filters.
     if extra_filters:
@@ -128,7 +131,7 @@ def generate_filter(
     # Extra OR filters are distributed across the top level and lists.
     if extra_or_filters:
         or_filters = [
-            {"and": and_filter["and"] + [extra_or_filter]}
+            {"and": and_filter["and"] + extra_or_filter["and"]}
             for extra_or_filter in extra_or_filters
             for and_filter in or_filters
         ]
