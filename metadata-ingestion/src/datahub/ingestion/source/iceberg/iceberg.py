@@ -348,9 +348,10 @@ class IcebergSource(StatefulIngestionSourceBase):
                 ]
             )
         except Exception as e:
-            self.report.report_warning(
-                "extract-partition",
-                f"Failed to extract partition spec from Iceberg table {table.name()} due to error: {str(e)}",
+            self.report.warning(
+                title="Failed to extract partition information",
+                message="Failed to extract partition information for a table. Table metadata will be ingested without it.",
+                context=f"Failed to extract partition spec from Iceberg table {table.name()}. Details: {e}",
             )
             return None
 
