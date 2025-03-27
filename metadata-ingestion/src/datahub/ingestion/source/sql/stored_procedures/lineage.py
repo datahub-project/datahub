@@ -1,8 +1,6 @@
 import logging
-from typing import Callable, Iterable, Optional
+from typing import Callable, Optional
 
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.source.sql.mssql.job_models import StoredProcedure
 from datahub.metadata.schema_classes import DataJobInputOutputClass
 from datahub.sql_parsing.datajob import to_datajob_input_output
 from datahub.sql_parsing.schema_resolver import SchemaResolver
@@ -56,29 +54,3 @@ def parse_procedure_code(
         mcps=mcps,
         ignore_extra_mcps=True,
     )
-
-
-# Is procedure handling generic enough to be added to SqlParsingAggregator?
-def generate_procedure_lineage(
-    *,
-    schema_resolver: SchemaResolver,
-    procedure: StoredProcedure,
-    procedure_job_urn: str,
-    is_temp_table: Callable[[str], bool] = lambda _: False,
-    raise_: bool = False,
-) -> Iterable[MetadataChangeProposalWrapper]:
-    if procedure.code:
-        datajob_input_output = parse_procedure_code(
-            schema_resolver=schema_resolver,
-            default_db=procedure.db,
-            default_schema=procedure.schema,
-            code=procedure.code,
-            is_temp_table=is_temp_table,
-            raise_=raise_,
-        )
-
-        if datajob_input_output:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=procedure_job_urn,
-                aspect=datajob_input_output,
-            )
