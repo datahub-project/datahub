@@ -7,21 +7,18 @@ import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
 
-import TabToolbar from '../../components/styled/TabToolbar';
 import { useSiblingOptionsForIncidentBuilder } from './utils';
 import { CreateIncidentButtonProps, EntityStagedForIncident } from './types';
 import { CreateButton, SiblingSelectionDropdownLink } from './styledComponents';
 
 export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEntity }: CreateIncidentButtonProps) => {
-    const primaryEntityData = useEntityData();
-    const { entityData } = primaryEntityData;
+    const { entityData, urn: entityUrn, entityType: dataEntityType } = useEntityData();
 
     const isHideSiblingMode = useIsSeparateSiblingsMode();
 
     const isSiblingMode = !!entityData?.siblingsSearch?.total && !isHideSiblingMode;
 
-    const siblingOptionsToAuthorOn =
-        useSiblingOptionsForIncidentBuilder(entityData, primaryEntityData.urn, primaryEntityData.entityType) ?? [];
+    const siblingOptionsToAuthorOn = useSiblingOptionsForIncidentBuilder(entityData, entityUrn, dataEntityType) ?? [];
 
     const noPermissionsMessage = 'You do not have permission to edit incidents for this asset.';
 
@@ -35,16 +32,13 @@ export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEn
             );
             return;
         }
-
+        if (!canEditIncidents) return;
         setEntity({
             urn,
             entityType,
             platform,
         });
-
-        if (canEditIncidents) {
-            setShowIncidentBuilder(true);
-        }
+        setShowIncidentBuilder(true);
     };
 
     const siblingSelectionOptions = siblingOptionsToAuthorOn.map((option) => ({
@@ -54,15 +48,17 @@ export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEn
                 style={{ opacity: option.disabled ? 0.5 : 1 }}
                 onClick={() => onCreateIncidentForEntity(option)}
             >
-                <PlatformIcon platform={option.platform} size={16} styles={{ marginRight: 4 }} />
+                {option.platform ? (
+                    <PlatformIcon platform={option.platform} size={16} styles={{ marginRight: 4 }} />
+                ) : null}
                 {option.title}
             </SiblingSelectionDropdownLink>
         ),
     }));
 
     return (
-        <TabToolbar style={{ boxShadow: 'none', justifyContent: 'end', padding: 0 }}>
-            {isSiblingMode && canEditIncidents ? (
+        <>
+            {isSiblingMode ? (
                 <Dropdown placement="bottom" menu={{ items: siblingSelectionOptions }}>
                     <CreateButton
                         disabled={!canEditIncidents}
@@ -73,9 +69,9 @@ export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEn
                     </CreateButton>
                 </Dropdown>
             ) : (
-                <Tooltip showArrow={false} title={(!canEditIncidents && noPermissionsMessage) || null}>
+                <Tooltip showArrow={false} title={!canEditIncidents ? noPermissionsMessage : null}>
                     <CreateButton
-                        onClick={() => canEditIncidents && setShowIncidentBuilder(true)}
+                        onClick={() => setShowIncidentBuilder(true)}
                         disabled={!canEditIncidents}
                         data-testid="create-incident-btn-main"
                         className="create-incident-button"
@@ -84,6 +80,6 @@ export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEn
                     </CreateButton>
                 </Tooltip>
             )}
-        </TabToolbar>
+        </>
     );
 };

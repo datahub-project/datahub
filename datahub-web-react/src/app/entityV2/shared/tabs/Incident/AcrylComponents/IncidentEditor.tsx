@@ -35,7 +35,7 @@ export const IncidentEditor = ({
     onSubmit,
     data,
     onClose,
-    mode = IncidentAction.ADD,
+    mode = IncidentAction.CREATE,
     entity,
 }: IncidentEditorProps) => {
     const assigneeValues = data?.assignees && getAssigneeWithURN(data.assignees);
