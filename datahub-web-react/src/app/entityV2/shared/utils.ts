@@ -103,7 +103,7 @@ export function getExternalUrlDisplayName(entity: GenericEntityProperties | null
     // Scoping these constants
     const GITHUB_LINK = 'github.com';
     const GITHUB_NAME = 'GitHub';
-    const GITLAB_LINK = 'gitlab.com';
+    const GITLAB_LINK = 'gitlab.';
     const GITLAB_NAME = 'GitLab';
 
     const externalUrl = entity?.properties?.externalUrl;

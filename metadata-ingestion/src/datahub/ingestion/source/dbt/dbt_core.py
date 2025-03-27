@@ -343,6 +343,9 @@ class DBTRunResult(BaseModel):
     def timing_map(self) -> Dict[str, DBTRunTiming]:
         return {x.name: x for x in self.timing if x.name}
 
+    def has_success_status(self) -> bool:
+        return self.status in ("pass", "success")
+
 
 class DBTRunMetadata(BaseModel):
     dbt_schema_version: str
@@ -355,12 +358,7 @@ def _parse_test_result(
     dbt_metadata: DBTRunMetadata,
     run_result: DBTRunResult,
 ) -> Optional[DBTTestResult]:
-    if run_result.status == "success":
-        # This was probably a docs generate run result, so this isn't actually
-        # a test result.
-        return None
-
-    if run_result.status != "pass":
+    if not run_result.has_success_status():
         native_results = {"message": run_result.message or ""}
         if run_result.failures:
             native_results.update({"failures": str(run_result.failures)})

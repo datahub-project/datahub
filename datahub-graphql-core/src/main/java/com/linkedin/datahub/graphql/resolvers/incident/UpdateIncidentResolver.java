@@ -12,6 +12,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -116,18 +117,19 @@ public class UpdateIncidentResolver implements DataFetcher<CompletableFuture<Boo
     if (input.getDescription() != null) {
       info.setDescription(input.getDescription());
     }
-    if (input.getPriority() != null) {
-      info.setPriority(IncidentUtils.mapIncidentPriority(input.getPriority()));
-    }
-    if (input.getAssigneeUrns() != null) {
-      info.setAssignees(IncidentUtils.mapIncidentAssignees(input.getAssigneeUrns(), actorStamp));
-    }
     if (input.getStatus() != null) {
       info.setStatus(IncidentUtils.mapIncidentStatus(input.getStatus(), actorStamp));
     }
     if (input.getResourceUrns() != null && !input.getResourceUrns().isEmpty()) {
       info.setEntities(new UrnArray(IncidentUtils.stringsToUrns(input.getResourceUrns())));
     }
+
+    info.setPriority(
+        IncidentUtils.mapIncidentPriority(input.getPriority()), SetMode.REMOVE_IF_NULL);
+
+    info.setAssignees(
+        IncidentUtils.mapIncidentAssignees(input.getAssigneeUrns(), actorStamp),
+        SetMode.REMOVE_IF_NULL);
   }
 
   private boolean isAuthorizedToUpdateIncident(final Urn resourceUrn, final QueryContext context) {

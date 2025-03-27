@@ -75,6 +75,21 @@ Authentication is most simply done via a Snowflake user and password.
 
 Alternatively, other authentication methods are supported via the `authentication_type` config option.
 
+#### Key Pair Authentication
+To set up Key Pair authentication, follow the three steps in [this guide](https://docs.snowflake.com/en/user-guide/key-pair-auth#configuring-key-pair-authentication)
+  - Generate the private key
+  - Generate the public key
+  - Assign the public key to datahub user to be configured in recipe.
+
+Pass in the following values in recipe config instead of password:
+```yml
+authentication_type: KEY_PAIR_AUTHENTICATOR
+private_key: <Private key in a form of '-----BEGIN PRIVATE KEY-----\nprivate-key\n-----END PRIVATE KEY-----'>
+
+# Optional - if using encrypted private key
+private_key_password: <Password for your private key>
+```
+
 #### Okta OAuth
 To set up Okta OAuth authentication, roughly follow the four steps in [this guide](https://docs.snowflake.com/en/user-guide/oauth-okta).
 
