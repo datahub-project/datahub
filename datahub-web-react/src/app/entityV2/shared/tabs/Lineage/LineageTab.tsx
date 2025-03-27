@@ -1,15 +1,15 @@
 import LineageGraph from '@app/lineageV2/LineageGraph';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
-import { useLineageV2 } from '../../../../lineageV2/useLineageV2';
 import { LineageDirection } from '../../../../../types.generated';
 import { useEntityData } from '../../../../entity/shared/EntityContext';
+import LineageExplorer from '../../../../lineage/LineageExplorer';
+import { useLineageV2 } from '../../../../lineageV2/useLineageV2';
+import TabFullsizedContext from '../../../../shared/TabFullsizedContext';
 import { TabRenderType } from '../../types';
 import { CompactLineageTab } from './CompactLineageTab';
-import LineageExplorer from '../../../../lineage/LineageExplorer';
-import { LineageColumnView } from './LineageColumnView';
-import TabFullsizedContext from '../../../../shared/TabFullsizedContext';
 import { useLineageViewState } from './hooks';
+import { LineageColumnView } from './LineageColumnView';
 
 const LINEAGE_SWITCH_WIDTH = 90;
 
@@ -68,7 +68,7 @@ function WideLineageTab({ defaultDirection }: { defaultDirection: LineageDirecti
     const { isTabFullsize } = useContext(TabFullsizedContext);
     const { urn, entityType } = useEntityData();
     const isLineageV2 = useLineageV2();
-    const { isVisualizeView, setVisualizeView } = useLineageViewState();
+    const { isVisualizeView, setVisualizeView, setVisualizeViewInEditMode } = useLineageViewState();
 
     return (
         <LineageTabWrapper>
@@ -84,7 +84,12 @@ function WideLineageTab({ defaultDirection }: { defaultDirection: LineageDirecti
                     </LineageSwitchWrapper>
                 </LineageTabHeader>
             )}
-            {!isVisualizeView && <LineageColumnView defaultDirection={defaultDirection} />}
+            {!isVisualizeView && (
+                <LineageColumnView
+                    defaultDirection={defaultDirection}
+                    setVisualizeViewInEditMode={setVisualizeViewInEditMode}
+                />
+            )}
             {isVisualizeView && !isLineageV2 && <LineageExplorer urn={urn} type={entityType} />}
             {isVisualizeView && isLineageV2 && (
                 <VisualizationWrapper>
