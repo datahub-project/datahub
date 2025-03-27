@@ -1,3 +1,17 @@
+### Auth Configuration
+
+You can configure the MLflow source to authenticate with the MLflow server using the `username` and `password` configuration options.
+
+```yaml
+source:
+  type: mlflow
+  config:
+    tracking_uri: "http://127.0.0.1:5000"
+    username: <username>
+    password: <password>
+```
+
+### Dataset Lineage 
 You can map MLflow run datasets to specific DataHub platforms using the `source_mapping_to_platform` configuration option. This allows you to specify which DataHub platform should be associated with datasets from different MLflow engines.
 
 Example:
