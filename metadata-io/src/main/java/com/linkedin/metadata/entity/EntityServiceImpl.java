@@ -2580,8 +2580,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   Integer additionalRowsDeleted = 0;
 
                   // 1. Fetch the latest existing version of the aspect.
-                  final SystemAspect latest =
-                      aspectDao.getLatestAspect(opContext, urn, aspectName, false);
+                  SystemAspect latest = null;
+                  try {
+                    latest = aspectDao.getLatestAspect(opContext, urn, aspectName, false);
+                  } catch (EntityNotFoundException e) {
+                    log.debug("Delete non-existing aspect. urn {} aspect {}", urn, aspectName);
+                    MetricUtils.counter(EntityServiceImpl.class, "delete_nonexisting").inc();
+                  }
 
                   // 1.1 If no latest exists, skip this aspect
                   if (latest == null) {

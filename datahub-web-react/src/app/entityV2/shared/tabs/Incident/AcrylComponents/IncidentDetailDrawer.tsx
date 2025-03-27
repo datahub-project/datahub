@@ -6,7 +6,7 @@ import { EntityPrivileges, Incident } from '@src/types.generated';
 import { IncidentDrawerHeader } from './IncidentDrawerHeader';
 import { IncidentView } from './IncidentView';
 import { IncidentEditor } from './IncidentEditor';
-import { IncidentTableRow } from '../types';
+import { EntityStagedForIncident, IncidentTableRow } from '../types';
 import { IncidentAction } from '../constant';
 
 const modalBodyStyle = { padding: 0, fontFamily: 'Mulish, sans-serif' };
@@ -17,12 +17,12 @@ type IncidentDetailDrawerProps = {
     incident?: IncidentTableRow;
     onCancel?: () => void;
     onSubmit?: (incident?: Incident) => void;
-    privileges?: EntityPrivileges;
+    entity?: EntityStagedForIncident;
 };
 
-export const IncidentDetailDrawer = ({ mode, onCancel, onSubmit, incident, privileges }: IncidentDetailDrawerProps) => {
+export const IncidentDetailDrawer = ({ mode, onCancel, onSubmit, incident, entity }: IncidentDetailDrawerProps) => {
     const [isEditView, setIsEditView] = useState<boolean>(false);
-    const showEditor = isEditView || mode === IncidentAction.ADD;
+    const showEditor = isEditView || mode === IncidentAction.CREATE;
     const modalClosePopup = () => {
         if (showEditor) {
             Modal.confirm({
@@ -56,7 +56,7 @@ export const IncidentDetailDrawer = ({ mode, onCancel, onSubmit, incident, privi
                     isEditActive={isEditView}
                     setIsEditActive={setIsEditView}
                     data={incident}
-                    privileges={privileges}
+                    platform={entity?.platform}
                 />
                 {showEditor ? (
                     <IncidentEditor
@@ -65,6 +65,7 @@ export const IncidentDetailDrawer = ({ mode, onCancel, onSubmit, incident, privi
                         mode={mode}
                         incidentUrn={incident?.urn}
                         onSubmit={onSubmit}
+                        entity={entity}
                     />
                 ) : (
                     <IncidentView incident={incident as IncidentTableRow} />

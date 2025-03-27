@@ -138,7 +138,7 @@ export const IncidentListTable = ({ incidentData, filter, refetch, privileges }:
             {focusIncidentUrn && focusedIncidentEntity && (
                 <IncidentDetailDrawer
                     urn={focusIncidentUrn}
-                    mode={IncidentAction.VIEW}
+                    mode={IncidentAction.EDIT}
                     incident={focusIncidentData}
                     privileges={privileges}
                     onCancel={() => setFocusIncidentUrn(null)}

@@ -8,7 +8,7 @@ import { EntityPrivileges, Incident } from '../../../../../types.generated';
 import { combineEntityDataWithSiblings } from '../../../../entity/shared/siblingUtils';
 import { useIsSeparateSiblingsMode } from '../../useIsSeparateSiblingsMode';
 import { IncidentTitleContainer } from './IncidentTitleContainer';
-import { IncidentListFilter, IncidentTable } from './types';
+import { EntityStagedForIncident, IncidentListFilter, IncidentTable } from './types';
 import { INCIDENT_DEFAULT_FILTERS, IncidentAction } from './constant';
 import { IncidentFilterContainer } from './IncidentFilterContainer';
 import { IncidentListTable } from './IncidentListTable';
@@ -20,6 +20,7 @@ import { getQueryParams } from '../Dataset/Validations/assertionUtils';
 export const IncidentList = () => {
     const { urn } = useEntityData();
     const [showIncidentBuilder, setShowIncidentBuilder] = useState(false);
+    const [entity, setEntity] = useState<EntityStagedForIncident>();
     const [visibleIncidents, setVisibleIncidents] = useState<IncidentTable>({
         incidents: [],
         groupBy: { type: [], priority: [], stage: [], state: [] },
@@ -95,7 +96,11 @@ export const IncidentList = () => {
     };
     return (
         <>
-            <IncidentTitleContainer privileges={privileges} setShowIncidentBuilder={setShowIncidentBuilder} />
+            <IncidentTitleContainer
+                privileges={privileges}
+                setShowIncidentBuilder={setShowIncidentBuilder}
+                setEntity={setEntity}
+            />
             {allIncidentData?.length > 0 && !loading && (
                 <IncidentFilterContainer
                     filteredIncidents={visibleIncidents}
@@ -108,7 +113,7 @@ export const IncidentList = () => {
             {showIncidentBuilder && (
                 <IncidentDetailDrawer
                     urn={urn}
-                    mode={IncidentAction.ADD}
+                    mode={IncidentAction.CREATE}
                     onSubmit={() => {
                         setTimeout(() => {
                             refetch();
@@ -116,6 +121,7 @@ export const IncidentList = () => {
                         setShowIncidentBuilder(false);
                     }}
                     onCancel={() => setShowIncidentBuilder(false)}
+                    entity={entity}
                 />
             )}
         </>
