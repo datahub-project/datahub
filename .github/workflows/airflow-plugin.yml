@@ -45,7 +45,7 @@ jobs:
           - python-version: "3.11"
             extra_pip_requirements: "apache-airflow~=2.9.3 -c https://raw.githubusercontent.com/apache/airflow/constraints-2.9.3/constraints-3.11.txt"
           - python-version: "3.11"
-            extra_pip_requirements: "apache-airflow~=2.10.5 -c https://raw.githubusercontent.com/apache/airflow/constraints-2.10.5/constraints-3.11.txt"
+            extra_pip_requirements: "apache-airflow~=2.10.3 -c https://raw.githubusercontent.com/apache/airflow/constraints-2.10.3/constraints-3.11.txt"
       fail-fast: false
     steps:
       - name: Set up JDK 17
