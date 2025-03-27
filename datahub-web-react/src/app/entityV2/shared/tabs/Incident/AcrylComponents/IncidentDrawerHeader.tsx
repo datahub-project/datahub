@@ -32,7 +32,7 @@ export const IncidentDrawerHeader = ({
     setIsEditActive,
     data,
     platform,
-    privileges
+    privileges,
 }: IncidentDrawerHeaderProps) => {
     const handleIncidentLinkCopy = useIncidentURNCopyLink(data ? data?.urn : '');
 
