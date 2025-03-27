@@ -11,16 +11,6 @@
             "description": "Description of the marketing domain",
             "parentDomain": "urn:li:domain:gtm"
         }
-    },
-    "systemMetadata": {
-        "lastObserved": 1742490370799,
-        "runId": "no-run-id-provided",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": null,
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null,
-        "version": null
     }
 }
 ]

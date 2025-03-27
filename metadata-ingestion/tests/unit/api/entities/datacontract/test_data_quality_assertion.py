@@ -1,5 +1,3 @@
-from freezegun import freeze_time
-
 from datahub.api.entities.datacontract.data_quality_assertion import (
     DataQualityAssertion,
 )
@@ -16,10 +14,7 @@ from datahub.metadata.schema_classes import (
     SqlAssertionTypeClass,
 )
 
-FROZEN_TIME = "2021-07-22 18:54:06"
 
-
-@freeze_time(FROZEN_TIME)
 def test_parse_sql_assertion():
     assertion_urn = "urn:li:assertion:a"
     entity_urn = "urn:li:dataset:d"

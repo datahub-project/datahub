@@ -20,10 +20,7 @@ from datahub.ingestion.source.file import (
     GenericFileSource,
     read_metadata_file,
 )
-from datahub.metadata.schema_classes import (
-    MetadataChangeEventClass,
-    SystemMetadataClass,
-)
+from datahub.metadata.schema_classes import MetadataChangeEventClass
 from datahub.metadata.schemas import getMetadataChangeEventSchema
 from datahub.testing.pytest_hooks import get_golden_settings
 from tests.test_helpers import mce_helpers
@@ -151,11 +148,6 @@ def test_serde_paired(pytestconfig: pytest.Config) -> None:
                 name="Marketing",
                 description="Description of the marketing domain",
                 parentDomain="urn:li:domain:gtm",
-            ),
-            systemMetadata=SystemMetadataClass(
-                lastObserved=1742490370799,
-                runId="no-run-id-provided",
-                lastRunId="no-run-id-provided",
             ),
         )
     ]

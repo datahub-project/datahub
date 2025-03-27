@@ -10,16 +10,6 @@
             "name": "test_db.test_schema.table_1",
             "origin": "PROD"
         }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "no-run-id-provided",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": null,
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null,
-        "version": null
     }
 },
 {
@@ -31,16 +21,6 @@
         "json": {
             "platform": "urn:li:dataPlatform:snowflake"
         }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "no-run-id-provided",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": null,
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null,
-        "version": null
     }
 },
 {
@@ -92,16 +72,6 @@
                 }
             ]
         }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "no-run-id-provided",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": null,
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null,
-        "version": null
     }
 },
 {
@@ -121,16 +91,6 @@
             },
             "description": "test description"
         }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "no-run-id-provided",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": null,
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null,
-        "version": null
     }
 },
 {
@@ -142,16 +102,6 @@
         "json": {
             "container": "urn:li:container:07540cbc78ed6aff6882a43442d7e8c6"
         }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "no-run-id-provided",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": null,
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null,
-        "version": null
     }
 },
 {
@@ -172,16 +122,6 @@
                 }
             ]
         }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "no-run-id-provided",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": null,
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null,
-        "version": null
     }
 },
 {
@@ -197,16 +137,6 @@
                 }
             ]
         }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "no-run-id-provided",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": null,
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null,
-        "version": null
     }
 }
 ]

@@ -2,7 +2,6 @@ import pathlib
 from unittest.mock import Mock
 
 import pytest
-from freezegun import freeze_time
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
@@ -15,7 +14,6 @@ from datahub.sdk.main_client import DataHubClient
 from tests.test_helpers import mce_helpers
 
 _GOLDEN_DIR = pathlib.Path(__file__).parent / "entity_client_goldens"
-FROZEN_TIME = "2020-04-14 07:00:00"
 
 
 @pytest.fixture
@@ -56,7 +54,6 @@ def test_container_creation_flow(client: DataHubClient, mock_graph: Mock) -> Non
     assert_client_golden(client, _GOLDEN_DIR / "test_container_schema_golden.json")
 
 
-@freeze_time(FROZEN_TIME)
 def test_dataset_creation(client: DataHubClient, mock_graph: Mock) -> None:
     schema = SchemaKey(platform="snowflake", database="test_db", schema="test_schema")
 
