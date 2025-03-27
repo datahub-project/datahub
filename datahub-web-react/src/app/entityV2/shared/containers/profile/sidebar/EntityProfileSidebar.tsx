@@ -7,6 +7,7 @@ import { SEARCH_COLORS } from '../../../constants';
 import { EntitySidebarTab, TabContextType, TabRenderType } from '../../../types';
 import { EntitySidebarTabs } from './EntitySidebarTabs';
 import { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
+import SidebarCollapsibleHeader from './SidebarCollapsibleHeader';
 
 export const StyledEntitySidebarContainer = styled.div<{
     isCollapsed: boolean;
@@ -142,6 +143,7 @@ export default function EntityProfileSidebar({
         >
             <StyledSidebar isCard={isCardLayout} isFocused={focused} $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <ContentContainer isVisible={!isClosed}>
+                    <SidebarCollapsibleHeader currentTab={selectedTab} />
                     <Body>
                         {selectedTab && (
                             <Content>

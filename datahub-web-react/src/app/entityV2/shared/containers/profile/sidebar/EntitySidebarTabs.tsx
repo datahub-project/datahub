@@ -1,6 +1,8 @@
 import React, { useContext } from 'react';
 import styled from 'styled-components/macro';
 import { Tabs } from 'antd';
+import { CaretLeft, CaretRight } from '@phosphor-icons/react';
+import { Tooltip } from '@components';
 import { EntitySidebarTab } from '../../../types';
 import { useBaseEntity, useEntityData } from '../../../../../entity/shared/EntityContext';
 import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
@@ -9,38 +11,43 @@ type Props = {
     tabs: EntitySidebarTab[];
     selectedTab?: EntitySidebarTab;
     onSelectTab: (name: string) => void;
+    hideCollapse?: boolean;
 };
 
 const UnborderedTabs = styled(Tabs)<{ $isClosed: boolean }>`
     height: 100%;
     width: 56px;
-    padding-top: 0;
+    box-sizing: border-box;
     user-select: none;
+    overflow: visible;
     &&& .ant-tabs-nav {
         margin: 0;
-        padding: 0;
         width: 56px;
         display: flex;
         justify-content: center;
+        box-sizing: border-box;
+        overflow: visible;
     }
     &&& .ant-tabs-nav-operations {
         display: none;
     }
     &&& .ant-tabs-nav-list {
         margin: 0;
-        padding: 0;
         gap: 0;
-        width: 100%;
+        width: 56px;
         display: flex;
         flex-direction: column;
         align-items: center;
+        padding: 4px;
+        box-sizing: border-box;
+        overflow: visible;
     }
     &&& .ant-tabs-ink-bar {
         display: none;
     }
     &&& .ant-tabs-tab {
-        padding: 8px;
-        margin: 0 4px 12px 4px !important;
+        padding: 0;
+        margin: 0 0 4px 0 !important;
         border-radius: 8px;
         display: flex;
         align-items: center;
@@ -48,6 +55,7 @@ const UnborderedTabs = styled(Tabs)<{ $isClosed: boolean }>`
         width: 48px;
         height: 48px;
         transition: none !important;
+        overflow: visible;
         .ant-tabs-tab-btn {
             color: inherit !important;
             transition: none !important;
@@ -65,6 +73,9 @@ const UnborderedTabs = styled(Tabs)<{ $isClosed: boolean }>`
                 rgba(235, 236, 240, 0.5) 100%
             );
             box-shadow: 0px 0px 0px 1px rgba(139, 135, 157, 0.08);
+        }
+        &:last-child {
+            margin-bottom: 0 !important;
         }
     }
     &&& .ant-tabs-tab-active {
@@ -86,7 +97,6 @@ const UnborderedTabs = styled(Tabs)<{ $isClosed: boolean }>`
     &&& .ant-tabs-content-holder {
         display: none;
     }
-
     background-color: #ffffff;
 `;
 
@@ -104,20 +114,26 @@ const TabIconContainer = styled.div<{ $isSelected?: boolean }>`
     justify-content: center;
     transition: none !important;
     color: #8088a3;
-    width: 100%;
-    height: 100%;
+    width: 48px;
+    height: 48px;
     padding: 0;
     margin: 0;
+    gap: 2px;
     user-select: none;
 `;
 
 const TabText = styled.span<{ $isSelected?: boolean }>`
     font-size: 10px;
-    margin-top: 2px;
     text-align: center;
     transition: none !important;
     /* Prevent text selection */
     user-select: none;
+    /* Handle text overflow */
+    display: block;
+    width: 42px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     /* Override any Ant Design styling that could cause blue text */
     color: ${(props) => (props.$isSelected ? 'transparent !important' : '#8088a3 !important')};
     ${(props) =>
@@ -130,13 +146,35 @@ const TabText = styled.span<{ $isSelected?: boolean }>`
         `}
 `;
 
+const TabTextWithTooltip = ({ text, isSelected }: { text: string; isSelected?: boolean }) => {
+    const textRef = React.useRef<HTMLSpanElement>(null);
+    const [isOverflowing, setIsOverflowing] = React.useState(false);
+
+    React.useEffect(() => {
+        const element = textRef.current;
+        if (element) {
+            setIsOverflowing(element.scrollWidth > element.clientWidth);
+        }
+    }, [text]);
+
+    const tooltipText = text === 'Properties' ? 'Structured Properties' : text;
+
+    return (
+        <Tooltip title={isOverflowing ? tooltipText : null} placement="right">
+            <TabText ref={textRef} $isSelected={isSelected}>
+                {text}
+            </TabText>
+        </Tooltip>
+    );
+};
+
 const IconWrapper = styled.div<{ $isSelected?: boolean }>`
     display: flex;
     align-items: center;
     justify-content: center;
     transition: none !important;
     width: 20px;
-    height: 20px;
+    height: 18px;
     position: relative;
 
     /* For Phosphor icons */
@@ -192,16 +230,19 @@ const TabsWrapper = styled.div`
     flex-direction: column;
     align-items: center;
     padding: 0;
-    margin-top: 4px;
+    margin: 0;
+    overflow: visible;
 `;
 
-export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab }: Props) => {
+export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab, hideCollapse }: Props) => {
     const { entityData } = useEntityData();
     const baseEntity = useBaseEntity<T>();
     const { isClosed, setSidebarClosed } = useContext(EntitySidebarContext);
 
     const handleTabClick = (name: string) => {
-        if (selectedTab?.name === name && !isClosed) {
+        if (name === 'collapse') {
+            setSidebarClosed(!isClosed);
+        } else if (selectedTab?.name === name && !isClosed) {
             setSidebarClosed(true);
         } else {
             onSelectTab(name);
@@ -218,6 +259,9 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab }: Props)
                 padding: 0,
                 margin: 0,
                 alignItems: 'center',
+                width: '56px',
+                boxSizing: 'border-box',
+                overflow: 'visible',
             }}
         >
             <GradientDefs />
@@ -226,11 +270,31 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab }: Props)
                     id="entity-sidebar-tabs"
                     animated={false}
                     tabPosition="right"
-                    activeKey={isClosed ? undefined : selectedTab?.name || ''}
+                    activeKey={selectedTab?.name || ''}
                     size="large"
                     onTabClick={handleTabClick}
                     $isClosed={isClosed}
                 >
+                    {!hideCollapse && (
+                        <Tab
+                            tab={
+                                <TabIconContainer>
+                                    <IconWrapper>
+                                        {isClosed ? (
+                                            <CaretLeft size={20} weight="regular" />
+                                        ) : (
+                                            <CaretRight size={20} weight="regular" />
+                                        )}
+                                    </IconWrapper>
+                                    <TabText>
+                                        {isClosed ? 'Open' : 'Close'}
+                                    </TabText>
+                                </TabIconContainer>
+                            }
+                            key="collapse"
+                            data-node-key="collapse"
+                        />
+                    )}
                     {tabs.map((tab) => {
                         const TabIcon = tab.icon;
                         const { name } = tab;
@@ -251,13 +315,13 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab }: Props)
                                                 <TabIcon />
                                             )}
                                         </IconWrapper>
-                                        <TabText $isSelected={isSelected}>
-                                            {(() => {
+                                        <TabTextWithTooltip 
+                                            text={(() => {
                                                 switch (name) {
                                                     case 'Summary':
                                                         return 'About';
                                                     case 'Properties':
-                                                        return 'Props';
+                                                        return 'Properties';
                                                     case 'Columns':
                                                         return 'Columns';
                                                     case 'Lineage':
@@ -266,10 +330,12 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab }: Props)
                                                         return name;
                                                 }
                                             })()}
-                                        </TabText>
+                                            isSelected={isSelected}
+                                        />
                                     </TabIconContainer>
                                 }
                                 key={tab.name}
+                                data-node-key={tab.name}
                             />
                         );
                     })}
