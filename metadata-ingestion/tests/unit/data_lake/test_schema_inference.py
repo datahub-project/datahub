@@ -59,6 +59,79 @@ test_column_metadata = [
     {"name": "string_field", "metadata": { "string_field": "A column containing string values"}},
 ]
 
+def test_get_column_metadata_column_exists():
+    # Test when column exists with metadata
+    schema_dict = {
+        "col1": {
+            "name": "age",
+            "metadata": {"description": "Age of person"}
+        },
+        "col2": {
+            "name": "name",
+            "metadata": {"description": "Full name"}
+        }
+    }
+
+    result = get_column_metadata(schema_dict, "age")
+    assert result == {"description": "Age of person"}
+
+
+def test_get_column_metadata_column_no_metadata():
+    # Test when column exists but has no metadata
+    schema_dict = {
+        "col1": {
+            "name": "age"
+        }
+    }
+
+    result = get_column_metadata(schema_dict, "age")
+    assert result == {}
+
+
+def test_get_column_metadata_column_not_found():
+    # Test when column doesn't exist
+    schema_dict = {
+        "col1": {
+            "name": "age",
+            "metadata": {"description": "Age of person"}
+        }
+    }
+
+    result = get_column_metadata(schema_dict, "non_existent")
+    assert result is None
+
+
+def test_get_column_metadata_empty_dict():
+    # Test with empty schema dictionary
+    schema_dict = {}
+
+    result = get_column_metadata(schema_dict, "any_column")
+    assert result is None
+
+
+def test_get_column_metadata_invalid_schema():
+    # Test with invalid schema structure
+    schema_dict = {
+        "col1": "invalid_structure",
+        "col2": None
+    }
+
+    result = get_column_metadata(schema_dict, "col1")
+    assert result is None
+
+
+def test_get_column_metadata_empty_column_name():
+    # Test with empty column name
+    schema_dict = {
+        "col1": {
+            "name": "",
+            "metadata": {"description": "Empty name"}
+        }
+    }
+
+    result = get_column_metadata(schema_dict, "")
+    assert result == {"description": "Empty name"}
+
 
 def test_get_column_metadata():
     assert "A column containing integer values" == get_column_metadata(test_column_metadata, "integer_field")
