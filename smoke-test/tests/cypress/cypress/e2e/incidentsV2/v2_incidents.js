@@ -178,7 +178,7 @@ describe("incidents", () => {
     cy.get(".ant-dropdown-menu-item").first().click();
     cy.get('[data-testid="drawer-header-title"]').should(
       "contain.text",
-      "Create New Incident"
+      "Create New Incident",
     );
     cy.get('[data-testid="incident-name-input"]').type(
       newIncidentNameWithTimeStamp,
@@ -227,13 +227,13 @@ describe("incidents", () => {
         });
     });
     cy.get(
-      `[data-testid="incident-row-${newIncidentNameWithTimeStamp}"]`
+      `[data-testid="incident-row-${newIncidentNameWithTimeStamp}"]`,
     ).should("exist");
     cy.get(`[data-testid="${newIncidentNameWithTimeStamp}"]`)
       .scrollIntoView()
       .should("be.visible");
     cy.get(
-      `[data-testid="incident-row-${newIncidentNameWithTimeStamp}"]`
+      `[data-testid="incident-row-${newIncidentNameWithTimeStamp}"]`,
     ).within(() => {
       cy.get('[data-testid="incident-stage"]')
         .invoke("text")
@@ -254,7 +254,7 @@ describe("incidents", () => {
     );
     cy.get('[data-testid="create-incident-btn-main"]').click();
     cy.get('[data-testid="incident-name-input"]').type(
-      `${newIncidentNameWithTimeStamp}-New`
+      `${newIncidentNameWithTimeStamp}-New`,
     );
 
     cy.get(".remirror-editor")
@@ -299,13 +299,13 @@ describe("incidents", () => {
         });
     });
     cy.get(
-      `[data-testid="incident-row-${newIncidentNameWithTimeStamp}-New"]`
+      `[data-testid="incident-row-${newIncidentNameWithTimeStamp}-New"]`,
     ).should("exist");
     cy.get(`[data-testid="${newIncidentNameWithTimeStamp}-New"]`)
       .scrollIntoView()
       .should("be.visible");
     cy.get(
-      `[data-testid="incident-row-${newIncidentNameWithTimeStamp}-New"]`
+      `[data-testid="incident-row-${newIncidentNameWithTimeStamp}-New"]`,
     ).within(() => {
       cy.get('[data-testid="incident-stage"]')
         .invoke("text")
