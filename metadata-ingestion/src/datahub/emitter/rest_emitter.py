@@ -41,7 +41,7 @@ from datahub.configuration.common import (
     TraceTimeoutError,
     TraceValidationError,
 )
-from datahub.emitter.aspect import JSON_CONTENT_TYPE
+from datahub.emitter.aspect import JSON_CONTENT_TYPE, JSON_PATCH_CONTENT_TYPE
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.request_helper import make_curl_command
@@ -361,8 +361,14 @@ class DataHubRestEmitter(Closeable, Emitter):
                 )["aspect"]["json"]
             else:
                 obj = mcp.aspect.to_obj()
-                if obj.get("value") and obj.get("contentType") == JSON_CONTENT_TYPE:
+                content_type = obj.get("contentType")
+                if obj.get("value") and content_type == JSON_CONTENT_TYPE:
+                    # Undo double serialization.
                     obj = json.loads(obj["value"])
+                elif content_type == JSON_PATCH_CONTENT_TYPE:
+                    raise NotImplementedError(
+                        "Patches are not supported for OpenAPI ingestion. Set the endpoint to RESTLI."
+                    )
                 aspect_value = pre_json_transform(obj)
             return (
                 url,
