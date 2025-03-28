@@ -6,8 +6,15 @@
     "aspectName": "dataFlowInfo",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "connector_type": "postgres",
+                "sync_frequency": "1440",
+                "paused": "False",
+                "destination_id": "interval_unconstitutional",
+                "destination_platform": "snowflake"
+            },
             "name": "postgres",
+            "description": "Fivetran connector for postgres to snowflake",
             "env": "PROD"
         }
     },
@@ -86,11 +93,14 @@
                 "source.platform": "postgres",
                 "source.env": "DEV",
                 "source.database": "postgres_db",
+                "source.column_naming_pattern": "auto",
                 "destination.platform": "snowflake",
                 "destination.env": "PROD",
-                "destination.database": "test_database"
+                "destination.database": "test_database",
+                "destination.column_naming_pattern": "auto"
             },
             "name": "postgres",
+            "description": "Fivetran data pipeline from postgres to snowflake",
             "type": {
                 "string": "COMMAND"
             },
@@ -139,6 +149,17 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
+                        "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.employee,DEV)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.postgres_public.employee,PROD)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.employee,DEV),id)"
                     ],
                     "downstreamType": "FIELD",
@@ -155,6 +176,17 @@
                     "downstreamType": "FIELD",
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.postgres_public.employee,PROD),name)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.company,DEV)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.postgres_public.company,PROD)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -228,16 +260,16 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:ee88d32dbe3133a23a9023c097050190",
+    "entityUrn": "urn:li:dataProcessInstance:d8f100271d2dc3fa905717f82d083c8d",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
         "json": {
             "customProperties": {},
-            "name": "4c9a03d6-eded-4422-a46a-163266e58243",
+            "name": "63c2fc85-600b-455f-9ba0-f576522465be",
             "type": "BATCH_SCHEDULED",
             "created": {
-                "time": 1695191853000,
+                "time": 1696343755000,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -250,7 +282,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:ee88d32dbe3133a23a9023c097050190",
+    "entityUrn": "urn:li:dataProcessInstance:d8f100271d2dc3fa905717f82d083c8d",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRelationships",
     "aspect": {
@@ -267,7 +299,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:ee88d32dbe3133a23a9023c097050190",
+    "entityUrn": "urn:li:dataProcessInstance:d8f100271d2dc3fa905717f82d083c8d",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceInput",
     "aspect": {
@@ -286,7 +318,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:ee88d32dbe3133a23a9023c097050190",
+    "entityUrn": "urn:li:dataProcessInstance:d8f100271d2dc3fa905717f82d083c8d",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceOutput",
     "aspect": {
@@ -305,12 +337,12 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:ee88d32dbe3133a23a9023c097050190",
+    "entityUrn": "urn:li:dataProcessInstance:d8f100271d2dc3fa905717f82d083c8d",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1695191853000,
+            "timestampMillis": 1696343755000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -326,19 +358,19 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:ee88d32dbe3133a23a9023c097050190",
+    "entityUrn": "urn:li:dataProcessInstance:d8f100271d2dc3fa905717f82d083c8d",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1695191885000,
+            "timestampMillis": 1696343790000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "status": "COMPLETE",
             "result": {
-                "type": "SUCCESS",
+                "type": "FAILURE",
                 "nativeResultType": "fivetran"
             }
         }
@@ -474,16 +506,16 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:d8f100271d2dc3fa905717f82d083c8d",
+    "entityUrn": "urn:li:dataProcessInstance:ee88d32dbe3133a23a9023c097050190",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
         "json": {
             "customProperties": {},
-            "name": "63c2fc85-600b-455f-9ba0-f576522465be",
+            "name": "4c9a03d6-eded-4422-a46a-163266e58243",
             "type": "BATCH_SCHEDULED",
             "created": {
-                "time": 1696343755000,
+                "time": 1695191853000,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -496,7 +528,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:d8f100271d2dc3fa905717f82d083c8d",
+    "entityUrn": "urn:li:dataProcessInstance:ee88d32dbe3133a23a9023c097050190",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRelationships",
     "aspect": {
@@ -513,7 +545,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:d8f100271d2dc3fa905717f82d083c8d",
+    "entityUrn": "urn:li:dataProcessInstance:ee88d32dbe3133a23a9023c097050190",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceInput",
     "aspect": {
@@ -532,7 +564,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:d8f100271d2dc3fa905717f82d083c8d",
+    "entityUrn": "urn:li:dataProcessInstance:ee88d32dbe3133a23a9023c097050190",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceOutput",
     "aspect": {
@@ -551,12 +583,12 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:d8f100271d2dc3fa905717f82d083c8d",
+    "entityUrn": "urn:li:dataProcessInstance:ee88d32dbe3133a23a9023c097050190",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1696343755000,
+            "timestampMillis": 1695191853000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -572,19 +604,19 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:d8f100271d2dc3fa905717f82d083c8d",
+    "entityUrn": "urn:li:dataProcessInstance:ee88d32dbe3133a23a9023c097050190",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1696343790000,
+            "timestampMillis": 1695191885000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "status": "COMPLETE",
             "result": {
-                "type": "FAILURE",
+                "type": "SUCCESS",
                 "nativeResultType": "fivetran"
             }
         }
@@ -602,8 +634,15 @@
     "aspectName": "dataFlowInfo",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "connector_type": "confluent_cloud",
+                "sync_frequency": "1440",
+                "paused": "False",
+                "destination_id": "interval_unconstitutional",
+                "destination_platform": "snowflake"
+            },
             "name": "confluent_cloud",
+            "description": "Fivetran connector for confluent_cloud to snowflake",
             "env": "PROD"
         }
     },
@@ -682,11 +721,14 @@
                 "source.platform": "kafka",
                 "source.env": "PROD",
                 "source.database": "kafka_prod",
+                "source.column_naming_pattern": "auto",
                 "destination.platform": "snowflake",
                 "destination.env": "PROD",
-                "destination.database": "test_database"
+                "destination.database": "test_database",
+                "destination.column_naming_pattern": "auto"
             },
             "name": "confluent_cloud",
+            "description": "Fivetran data pipeline from confluent_cloud to snowflake",
             "type": {
                 "string": "COMMAND"
             },
@@ -729,7 +771,19 @@
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.confluent_cloud.my-destination-topic,PROD)"
             ],
             "inputDatajobs": [],
-            "fineGrainedLineages": []
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-source-topic,PROD)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.confluent_cloud.my-destination-topic,PROD)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
         }
     },
     "systemMetadata": {
