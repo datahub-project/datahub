@@ -499,7 +499,9 @@ class DataProcessCleanup:
         logger.info(f"Collected {len(all_jobs)} data jobs in total")
         return all_jobs
 
-    def _process_all_datajobs(self, all_jobs: List[DataJobEntity]) -> Dict[str, List[DataJobEntity]]:
+    def _process_all_datajobs(
+        self, all_jobs: List[DataJobEntity]
+    ) -> Dict[str, List[DataJobEntity]]:
         """
         Process each job's DPIs and potentially delete empty jobs.
         Returns a dictionary mapping flow URNs to lists of non-deleted jobs.
@@ -534,7 +536,9 @@ class DataProcessCleanup:
 
                 # Remove from dataJobs dictionary to mark as deleted
                 if job.flow_urn in dataJobs:
-                    dataJobs[job.flow_urn] = [j for j in dataJobs[job.flow_urn] if j.urn != job.urn]
+                    dataJobs[job.flow_urn] = [
+                        j for j in dataJobs[job.flow_urn] if j.urn != job.urn
+                    ]
 
                 if deleted_jobs % self.config.batch_size == 0:
                     logger.info(f"Deleted {deleted_jobs} DataJobs so far")
@@ -544,7 +548,11 @@ class DataProcessCleanup:
 
         return dataJobs
 
-    def _delete_empty_dataflows(self, dataFlows: Dict[str, DataFlowEntity], dataJobs: Dict[str, List[DataJobEntity]]) -> None:
+    def _delete_empty_dataflows(
+        self,
+        dataFlows: Dict[str, DataFlowEntity],
+        dataJobs: Dict[str, List[DataJobEntity]],
+    ) -> None:
         """
         Delete dataflows that have no jobs associated with them.
         """
