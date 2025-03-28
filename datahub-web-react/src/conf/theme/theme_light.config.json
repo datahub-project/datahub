@@ -6,7 +6,7 @@
         "layout-header-background": "white",
         "layout-header-color": "#434343",
         "layout-body-background": "white",
-        "component-background": "white",
+        "component-background": "black",
         "body-background": "white",
         "border-color-base": "#ececec",
         "text-color": "fade(black, 85%)",
@@ -27,10 +27,10 @@
         "highlight-border-color": "#BAE0FF"
     },
     "assets": {
-        "logoUrl": "/assets/logo.png"
+        "logoUrl": "/assets/datahublogo.png"
     },
     "content": {
-        "title": "DataHub",
+        "title": "Pathways Technologies",
         "homepage": {
             "homepageMessage": "Find data you can count on"
         },
