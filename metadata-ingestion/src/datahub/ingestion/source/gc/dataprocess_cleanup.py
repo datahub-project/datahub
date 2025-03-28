@@ -431,10 +431,14 @@ class DataProcessCleanup:
                 dataFlows[flow.urn] = flow
 
         # Collect all datajobs first
+        # We keep this in memory as data jobs cleanup can take long time and scroll can be timed out
         all_jobs = self._collect_all_datajobs()
 
         # Process the jobs and return a dictionary of job URNs by flow URN
         dataJobs = self._process_all_datajobs(all_jobs)
+
+        # Force to cleanup all_jobs to free up memory
+        all_jobs = []
 
         # Delete empty dataflows if needed
         if self.config.delete_empty_data_flows:
@@ -506,14 +510,14 @@ class DataProcessCleanup:
         Process each job's DPIs and potentially delete empty jobs.
         Returns a dictionary mapping flow URNs to lists of non-deleted jobs.
         """
-        dataJobs: Dict[str, List[DataJobEntity]] = defaultdict(list)
+        data_jobs: Dict[str, List[DataJobEntity]] = defaultdict(list)
         deleted_jobs: int = 0
 
         logger.info(f"Processing DPIs for {len(all_jobs)} data jobs...")
 
         # First, organize jobs by flow URN
         for job in all_jobs:
-            dataJobs[job.flow_urn].append(job)
+            data_jobs[job.flow_urn].append(job)
 
         # Then process each job
         for i, job in enumerate(all_jobs):
@@ -535,9 +539,9 @@ class DataProcessCleanup:
                 deleted_jobs += 1
 
                 # Remove from dataJobs dictionary to mark as deleted
-                if job.flow_urn in dataJobs:
-                    dataJobs[job.flow_urn] = [
-                        j for j in dataJobs[job.flow_urn] if j.urn != job.urn
+                if job.flow_urn in data_jobs:
+                    data_jobs[job.flow_urn] = [
+                        j for j in data_jobs[job.flow_urn] if j.urn != job.urn
                     ]
 
                 if deleted_jobs % self.config.batch_size == 0:
@@ -546,7 +550,7 @@ class DataProcessCleanup:
         if deleted_jobs > 0:
             logger.info(f"Deleted {deleted_jobs} DataJobs in total")
 
-        return dataJobs
+        return data_jobs
 
     def _delete_empty_dataflows(
         self,
