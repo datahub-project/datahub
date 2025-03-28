@@ -166,7 +166,7 @@ class IcebergSource(StatefulIngestionSourceBase):
             yield namespace
 
     def _get_datasets(
-        self, catalog: Catalog, namespaces: Iterable[Identifier]
+        self, catalog: Catalog, namespaces: Iterable[Tuple[Identifier, str]]
     ) -> Iterable[Tuple[Identifier, Urn]]:
         LOGGER.debug("Starting to retrieve tables")
         tables_count = 0
@@ -286,7 +286,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                 self.report.report_failure(
                     title="Generic error when processing a table",
                     message="Encountered error, when trying to process a table, which couldn't have been handled. Skipping the table.",
-                    context=f"Failed to create workunit for dataset {dataset_path}: Due to {e}",
+                    context=f"Failed to create workunit for dataset {dataset_path}. Details: {e}",
                 )
 
         try:
@@ -301,7 +301,7 @@ class IcebergSource(StatefulIngestionSourceBase):
 
         try:
             namespace_ids = self._get_namespaces(catalog)
-            namespaces = []
+            namespaces: List[Tuple[Identifier, str]] = []
             for namespace in namespace_ids:
                 namespace_repr = ".".join(namespace)
                 LOGGER.debug(f"Processing namespace {namespace_repr}")
