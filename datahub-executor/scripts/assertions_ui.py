@@ -316,11 +316,12 @@ Example exclusion windows:
     metric_urn = make_volume_metric_cube_urn(dataset_urn)
     all_metrics = metrics_client.fetch_row_count_metric_values(
         metric_urn=metric_urn,
+        dataset_urn=dataset_urn,
         start_time=last_day_cutoff - timedelta(days=lookback + 5),
         end_time=datetime.now(timezone.utc),
     )
     st.json(
-        {"all_metrics": {m.timestamp().isoformat(): m.value() for m in all_metrics}},
+        {"all_metrics": {m.timestamp().isoformat(): m.value for m in all_metrics}},
         expanded=False,
     )
 
@@ -338,6 +339,7 @@ Example exclusion windows:
 
     historical_metrics = metrics_client.fetch_row_count_metric_values(
         metric_urn=metric_urn,
+        dataset_urn=dataset_urn,
         start_time=last_day_cutoff - timedelta(days=lookback),
         end_time=last_day_cutoff,
     )
@@ -350,7 +352,7 @@ Example exclusion windows:
     st.json(
         {
             "training_metrics": {
-                m.timestamp().isoformat(): m.value() for m in training_metrics
+                m.timestamp().isoformat(): m.value for m in training_metrics
             }
         },
         expanded=False,
@@ -389,22 +391,22 @@ def plot_metrics_and_predictions(
     Plot the original metrics and the predicted boundaries using Plotly.
     """
 
-    training_timestamps = [m.timestamp_ms() for m in training_metrics]
+    training_timestamps = [m.timestamp_ms for m in training_metrics]
     non_training_metrics = [
-        m for m in (all_metrics or []) if m.timestamp_ms() not in training_timestamps
+        m for m in (all_metrics or []) if m.timestamp_ms not in training_timestamps
     ]
 
     # Create a DataFrame for easier plotting
     training_df = pd.DataFrame(
         {
             "timestamp": [m.timestamp() for m in training_metrics],
-            "value": [m.value() for m in training_metrics],
+            "value": [m.value for m in training_metrics],
         }
     )
     non_training_df = pd.DataFrame(
         {
             "timestamp": [m.timestamp() for m in non_training_metrics],
-            "value": [m.value() for m in non_training_metrics],
+            "value": [m.value for m in non_training_metrics],
         }
     )
 
@@ -432,8 +434,8 @@ def plot_metrics_and_predictions(
     for i, boundary in enumerate(metric_boundaries):
         start_time = datetime.fromtimestamp(boundary.start_time_ms / 1000)
         end_time = datetime.fromtimestamp(boundary.end_time_ms / 1000)
-        lower = boundary.lower_bound.value()
-        upper = boundary.upper_bound.value()
+        lower = boundary.lower_bound.value
+        upper = boundary.upper_bound.value
 
         # Add to arrays for connecting lines
         lower_bound_x.extend([start_time, end_time])

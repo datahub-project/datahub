@@ -211,7 +211,8 @@ class TestMetricClient:
         start_time = datetime(2022, 1, 1, tzinfo=timezone.utc)
         end_time = datetime(2022, 1, 7, tzinfo=timezone.utc)
         result = metric_client.fetch_row_count_metric_values(
-            metric_urn,
+            metric_urn=metric_urn,
+            dataset_urn=None,
             start_time=start_time,
             end_time=end_time,
             limit=100,
@@ -250,7 +251,12 @@ class TestMetricClient:
         start_time = datetime(2022, 1, 1, tzinfo=timezone.utc)
         end_time = datetime(2022, 1, 7, tzinfo=timezone.utc)
         result = metric_client.fetch_row_count_metric_values(
-            dataset_urn, start_time=start_time, end_time=end_time, limit=100
+            metric_urn="invalid_metric_urn",
+            dataset_urn=dataset_urn,
+            start_time=start_time,
+            end_time=end_time,
+            limit=100,
+            dataset_profiles_fallback=True,
         )
 
         # Verify the result - should have metrics from dataset profiles
@@ -268,7 +274,11 @@ class TestMetricClient:
         assert second_call_args["aspect_type"] == DatasetProfileClass
 
     def test_fetch_row_count_metric_values_partial_fallback(
-        self, metric_client: MetricClient, dataset_urn: str, mock_graph: MagicMock
+        self,
+        metric_client: MetricClient,
+        metric_urn: str,
+        dataset_urn: str,
+        mock_graph: MagicMock,
     ) -> None:
         """Test fetching row counts with partial results from metric cube and fallback to profiles."""
         # Setup - First call returns some data, second call (for dataset profiles) returns more
@@ -293,7 +303,12 @@ class TestMetricClient:
         start_time = datetime(2022, 1, 1, tzinfo=timezone.utc)
         end_time = datetime(2022, 1, 3, tzinfo=timezone.utc)
         result = metric_client.fetch_row_count_metric_values(
-            dataset_urn, start_time=start_time, end_time=end_time, limit=100
+            metric_urn=metric_urn,
+            dataset_urn=dataset_urn,
+            start_time=start_time,
+            end_time=end_time,
+            limit=100,
+            dataset_profiles_fallback=True,
         )
 
         # Verify the result - should combine results from both sources
@@ -323,7 +338,12 @@ class TestMetricClient:
 
         with pytest.raises(OperationalError) as excinfo:
             metric_client.fetch_row_count_metric_values(
-                dataset_urn, start_time=start_time, end_time=end_time
+                metric_urn="invalid_metric_urn",
+                dataset_urn=dataset_urn,
+                start_time=start_time,
+                end_time=end_time,
+                limit=100,
+                dataset_profiles_fallback=False,
             )
 
         # Verify the error message
@@ -357,7 +377,10 @@ class TestMetricClient:
         start_time = datetime(2021, 12, 30, tzinfo=timezone.utc)
         end_time = datetime(2022, 1, 1, tzinfo=timezone.utc)
         result = metric_client.fetch_row_counts_from_dataset_profile(
-            dataset_urn, start_time=start_time, end_time=end_time, limit=100
+            dataset_urn=dataset_urn,
+            start_time=start_time,
+            end_time=end_time,
+            limit=100,
         )
 
         # Verify result - should only include profiles with rowCount

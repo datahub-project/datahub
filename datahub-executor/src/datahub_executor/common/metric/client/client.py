@@ -113,33 +113,40 @@ class MetricClient:
 
     def fetch_row_count_metric_values(
         self,
-        metric_urn: str,
+        metric_urn: Optional[str],
+        dataset_urn: Optional[str],
         start_time: datetime,
         end_time: datetime,
         limit: int = _DEFAULT_METRIC_LIMIT,
         dataset_profiles_fallback: bool = True,
     ) -> List[Metric]:
         metrics = []
-        try:
-            metrics = self.fetch_metric_values_by_time(
-                metric_urn,
-                start_time=start_time,
-                end_time=end_time,
-                limit=limit,
-            )
-        except OperationalError as e:
-            if (
-                dataset_profiles_fallback
-                and "Failed to find entity with name dataHubMetricCube" in str(e.info)
-            ):
-                # Gracefully handle the case where the backend doesn't have the metric cube entity yet.
-                # This should generally only happen when testing against older remote instances,
-                # but should never happen in production.
-                pass
-            else:
-                raise e
+        if metric_urn is not None:
+            try:
+                metrics = self.fetch_metric_values_by_time(
+                    metric_urn=metric_urn,
+                    start_time=start_time,
+                    end_time=end_time,
+                    limit=limit,
+                )
+            except OperationalError as e:
+                if (
+                    dataset_profiles_fallback
+                    and "Failed to find entity with name dataHubMetricCube"
+                    in str(e.info)
+                ):
+                    # Gracefully handle the case where the backend doesn't have the metric cube entity yet.
+                    # This should generally only happen when testing against older remote instances,
+                    # but should never happen in production.
+                    pass
+                else:
+                    raise e
 
-        if dataset_profiles_fallback and len(metrics) < limit:
+        if (
+            dataset_profiles_fallback
+            and len(metrics) < limit
+            and dataset_urn is not None
+        ):
             # If we have started producing metric cube metrics, then we should only
             # consider datasetProfile for historical data prior to the oldest metric cube metric.
             # This way, we can avoid duplicate data in case we due wrote metric values to
@@ -153,7 +160,7 @@ class MetricClient:
             # If we got partial results from the metric cube, fetch the rest from the dataset profile.
             metrics.extend(
                 self.fetch_row_counts_from_dataset_profile(
-                    metric_urn,
+                    dataset_urn=dataset_urn,
                     start_time=start_time,
                     end_time=updated_end_time,
                     limit=(limit - len(metrics)),
