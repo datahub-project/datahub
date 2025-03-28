@@ -26,7 +26,7 @@ const EmptyTags = ({ isEmptySearch }: Props) => {
             <StyledEmpty
                 description={
                     <>
-                        <Typography.Text>
+                        <Typography.Text data-testid="tags-not-found">
                             {isEmptySearch ? 'No tags found for your search query' : 'No tags found'}
                         </Typography.Text>
                         <div>
