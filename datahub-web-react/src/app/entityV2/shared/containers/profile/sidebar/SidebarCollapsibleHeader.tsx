@@ -62,7 +62,6 @@ export default function SidebarCollapsibleHeader({ currentTab, headerDropdownIte
     const { isClosed, forLineage, separateSiblings } = useContext(EntitySidebarContext);
 
     const currentTabName = currentTab?.name;
-    // const currentTabDescription = currentTab?.name === 'About' ? 'Basic information, description, and properties' : currentTab?.description;
     const actionType = currentTab?.properties?.actionType;
     const icon = currentTab?.icon;
 
@@ -92,7 +91,6 @@ export default function SidebarCollapsibleHeader({ currentTab, headerDropdownIte
                             )}
                         </RightActions>
                     </Top>
-                    {/* {currentTabDescription && <_TitleDescription>{currentTabDescription}</_TitleDescription>} */}
                 </Title>
             )}
         </Controls>
