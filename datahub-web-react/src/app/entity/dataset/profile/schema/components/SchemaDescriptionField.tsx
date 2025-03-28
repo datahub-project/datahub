@@ -1,8 +1,10 @@
-import { Typography, message, Button } from 'antd';
+import { Button } from '@src/alchemy-components';
+import { Typography, message } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { FetchResult } from '@apollo/client';
+import CompactMarkdownViewer from '@src/app/entity/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import { ActionRequestType, EntityType, StringMapEntry } from '../../../../../../types.generated';
 import { UpdateDatasetMutation } from '../../../../../../graphql/dataset.generated';
 import PropagationDetails from '../../../../shared/propagation/PropagationDetails';
@@ -75,15 +77,6 @@ const ReadLessText = styled(Typography.Link)`
     margin-right: 4px;
 `;
 
-const StyledViewer = styled(Editor)`
-    padding-right: 8px;
-    display: block;
-
-    .remirror-editor.ProseMirror {
-        padding: 0;
-    }
-`;
-
 const AttributeDescription = styled.div`
     margin-top: 8px;
     color: ${ANTD_GRAY[7]};
@@ -98,10 +91,12 @@ const StyledAttributeViewer = styled(Editor)`
     }
 `;
 
+const EditButton = styled(Button)`
+    margin-left: 4px;
+`;
+
 type Props = {
-    onExpanded: (expanded: boolean) => void;
     onBAExpanded?: (expanded: boolean) => void;
-    expanded: boolean;
     baExpanded?: boolean;
     description: string;
     original?: string | null;
@@ -119,9 +114,7 @@ type Props = {
 const ABBREVIATED_LIMIT = 80;
 
 export default function DescriptionField({
-    expanded,
     baExpanded,
-    onExpanded: handleExpanded,
     onBAExpanded: handleBAExpanded,
     description,
     onUpdate,
@@ -134,7 +127,6 @@ export default function DescriptionField({
     sourceDetail,
 }: Props) {
     const [showAddModal, setShowAddModal] = useState(false);
-    const overLimit = removeMarkdown(description).length > 80;
     const isSchemaEditable = React.useContext(SchemaEditableContext) && !isReadOnly;
     const onCloseModal = () => setShowAddModal(false);
     const { urn, entityType } = useEntityData();
@@ -180,62 +172,30 @@ export default function DescriptionField({
         onCloseModal();
     };
 
-    const EditButton =
-        (isSchemaEditable && description && (
-            <EditIcon twoToneColor="#52c41a" onClick={() => setShowAddModal(true)} />
-        )) ||
-        undefined;
-
     const showAddDescription = isSchemaEditable && !description;
 
     return (
         <DescriptionContainer>
-            {expanded ? (
-                <>
-                    {!!description && <StyledViewer content={description} readOnly />}
-                    {!!description && (EditButton || overLimit) && (
-                        <ExpandedActions>
-                            {overLimit && (
-                                <ReadLessText
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleExpanded(false);
-                                    }}
-                                >
-                                    Read Less
-                                </ReadLessText>
-                            )}
-                            {EditButton}
-                        </ExpandedActions>
+            <>
+                <DescriptionWrapper>
+                    {isPropagated && (
+                        <>
+                            <PropagationDetails sourceDetail={sourceDetail} />
+                            &nbsp;
+                        </>
                     )}
-                </>
-            ) : (
-                <>
-                    <DescriptionWrapper>
-                        {isPropagated && <PropagationDetails sourceDetail={sourceDetail} />}
-                        &nbsp;
-                        <StripMarkdownText
-                            limit={ABBREVIATED_LIMIT}
-                            readMore={
-                                <>
-                                    <Typography.Link
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleExpanded(true);
-                                        }}
-                                    >
-                                        Read More
-                                    </Typography.Link>
-                                </>
-                            }
-                            suffix={EditButton}
-                            shouldWrap
-                        >
-                            {description}
-                        </StripMarkdownText>
-                    </DescriptionWrapper>
-                </>
-            )}
+                    <CompactMarkdownViewer
+                        content={description}
+                        lineLimit={2}
+                        fixedLineHeight
+                        customStyle={{ fontSize: '12px' }}
+                        scrollableY={false}
+                    />
+                    {isSchemaEditable && !!description && (
+                        <EditButton icon="Edit" size="md" variant="text" onClick={() => setShowAddModal(true)} />
+                    )}
+                </DescriptionWrapper>
+            </>
             {isEdited && <EditedLabel>(edited)</EditedLabel>}
             {showAddModal && (
                 <div>
@@ -251,58 +211,60 @@ export default function DescriptionField({
                 </div>
             )}
             {showAddDescription && (
-                <AddNewDescription type="text" onClick={() => setShowAddModal(true)}>
+                <AddNewDescription variant="text" onClick={() => setShowAddModal(true)}>
                     + Add Description
                 </AddNewDescription>
             )}
-            <AttributeDescription>
-                {baExpanded || !attributeDescriptionOverLimit ? (
-                    <>
-                        {!!businessAttributeDescription && (
-                            <StyledAttributeViewer content={businessAttributeDescription} readOnly />
-                        )}
-                        {!!businessAttributeDescription && (
-                            <ExpandedActions>
-                                {attributeDescriptionOverLimit && (
-                                    <ReadLessText
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            if (handleBAExpanded) {
-                                                handleBAExpanded(false);
-                                            }
-                                        }}
-                                    >
-                                        Read Less
-                                    </ReadLessText>
-                                )}
-                            </ExpandedActions>
-                        )}
-                    </>
-                ) : (
-                    <>
-                        <StripMarkdownText
-                            limit={ABBREVIATED_LIMIT}
-                            readMore={
-                                <>
-                                    <Typography.Link
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            if (handleBAExpanded) {
-                                                handleBAExpanded(true);
-                                            }
-                                        }}
-                                    >
-                                        Read More
-                                    </Typography.Link>
-                                </>
-                            }
-                            shouldWrap
-                        >
-                            {businessAttributeDescription}
-                        </StripMarkdownText>
-                    </>
-                )}
-            </AttributeDescription>
+            {!!businessAttributeDescription && (
+                <>
+                    {baExpanded || !attributeDescriptionOverLimit ? (
+                        <AttributeDescription>
+                            {!!businessAttributeDescription && (
+                                <StyledAttributeViewer content={businessAttributeDescription} readOnly />
+                            )}
+                            {!!businessAttributeDescription && (
+                                <ExpandedActions>
+                                    {attributeDescriptionOverLimit && (
+                                        <ReadLessText
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (handleBAExpanded) {
+                                                    handleBAExpanded(false);
+                                                }
+                                            }}
+                                        >
+                                            Read Less
+                                        </ReadLessText>
+                                    )}
+                                </ExpandedActions>
+                            )}
+                        </AttributeDescription>
+                    ) : (
+                        <AttributeDescription>
+                            <StripMarkdownText
+                                limit={ABBREVIATED_LIMIT}
+                                readMore={
+                                    <>
+                                        <Typography.Link
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (handleBAExpanded) {
+                                                    handleBAExpanded(true);
+                                                }
+                                            }}
+                                        >
+                                            Read More
+                                        </Typography.Link>
+                                    </>
+                                }
+                                shouldWrap
+                            >
+                                {businessAttributeDescription}
+                            </StripMarkdownText>
+                        </AttributeDescription>
+                    )}
+                </>
+            )}
         </DescriptionContainer>
     );
 }

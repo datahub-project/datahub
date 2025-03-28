@@ -150,7 +150,14 @@ export default function CompactMarkdownViewer({
                     <ShowMoreWrapper>
                         <CustomButton
                             type="link"
-                            onClick={() => (handleShowMore ? handleShowMore() : setIsShowingMore(!isShowingMore))}
+                            onClick={(e) => {
+                                if (handleShowMore) {
+                                    handleShowMore();
+                                } else {
+                                    setIsShowingMore(!isShowingMore);
+                                }
+                                e.stopPropagation();
+                            }}
                         >
                             {isShowingMore ? 'show less' : 'show more'}
                         </CustomButton>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import DOMPurify from 'dompurify';
 import { BusinessAttribute } from '../../../types.generated';
 import DescriptionField from '../../entity/dataset/profile/schema/components/SchemaDescriptionField';
@@ -6,23 +6,18 @@ import { useUpdateDescriptionMutation } from '../../../graphql/mutations.generat
 
 export default function useDescriptionRenderer(businessAttributeRefetch: () => Promise<any>) {
     const [updateDescription] = useUpdateDescriptionMutation();
-    const [expandedRows, setExpandedRows] = useState({});
 
     const refresh: any = () => {
         businessAttributeRefetch?.();
     };
 
-    return (description: string, record: BusinessAttribute, index: number): JSX.Element => {
+    return (description: string, record: BusinessAttribute): JSX.Element => {
         const relevantEditableFieldInfo = record?.properties;
         const displayedDescription = relevantEditableFieldInfo?.description || description;
         const sanitizedDescription = DOMPurify.sanitize(displayedDescription);
 
-        const handleExpandedRows = (expanded) => setExpandedRows((prev) => ({ ...prev, [index]: expanded }));
-
         return (
             <DescriptionField
-                onExpanded={handleExpandedRows}
-                expanded={!!expandedRows[index]}
                 description={sanitizedDescription}
                 onUpdate={(updatedDescription) =>
                     updateDescription({

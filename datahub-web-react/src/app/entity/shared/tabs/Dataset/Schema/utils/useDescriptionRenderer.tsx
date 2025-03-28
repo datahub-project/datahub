@@ -14,7 +14,6 @@ export default function useDescriptionRenderer(editableSchemaMetadata: EditableS
     const refetch = useRefetch();
     const schemaRefetch = useSchemaRefetch();
     const [updateDescription] = useUpdateDescriptionMutation();
-    const [expandedRows, setExpandedRows] = useState({});
     const [expandedBARows, setExpandedBARows] = useState({});
     const [proposeUpdateDescription] = useProposeUpdateDescriptionMutation();
     const extractFieldDescription = useExtractFieldDescriptionInfo(editableSchemaMetadata);
@@ -34,15 +33,12 @@ export default function useDescriptionRenderer(editableSchemaMetadata: EditableS
             record?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.properties
                 ?.description || '';
 
-        const handleExpandedRows = (expanded) => setExpandedRows((prev) => ({ ...prev, [index]: expanded }));
         const handleBAExpandedRows = (expanded) => setExpandedBARows((prev) => ({ ...prev, [index]: expanded }));
 
         return (
             <DescriptionField
                 businessAttributeDescription={businessAttributeDescription}
-                onExpanded={handleExpandedRows}
                 onBAExpanded={handleBAExpandedRows}
-                expanded={!!expandedRows[index]}
                 baExpanded={!!expandedBARows[index]}
                 description={sanitizedDescription}
                 original={original}

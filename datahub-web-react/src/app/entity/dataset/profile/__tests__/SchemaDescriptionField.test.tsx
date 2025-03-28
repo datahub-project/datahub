@@ -10,13 +10,7 @@ describe('SchemaDescriptionField', () => {
         const { getByText, getByRole, queryByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
-                    <SchemaDescriptionField
-                        expanded
-                        onExpanded={() => {}}
-                        description="test description updated"
-                        isEdited
-                        onUpdate={async () => {}}
-                    />{' '}
+                    <SchemaDescriptionField description="test description updated" isEdited onUpdate={async () => {}} />{' '}
                 </TestPageContainer>
             </MockedProvider>,
         );
@@ -30,8 +24,6 @@ describe('SchemaDescriptionField', () => {
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
                     <SchemaDescriptionField
-                        expanded
-                        onExpanded={() => {}}
                         description="test description"
                         original="test description"
                         isEdited
@@ -52,12 +44,7 @@ describe('SchemaDescriptionField', () => {
 
     it('renders short messages without show more / show less', () => {
         const { getByText, queryByText } = render(
-            <SchemaDescriptionField
-                expanded
-                onExpanded={() => {}}
-                description="short description"
-                onUpdate={() => Promise.resolve()}
-            />,
+            <SchemaDescriptionField description="short description" onUpdate={() => Promise.resolve()} />,
         );
         expect(getByText('short description')).toBeInTheDocument();
         expect(queryByText('Read Less')).not.toBeInTheDocument();
@@ -70,12 +57,7 @@ describe('SchemaDescriptionField', () => {
         it('renders longer messages with show more when not expanded', () => {
             const onClick = vi.fn();
             const { getByText, queryByText } = render(
-                <SchemaDescriptionField
-                    expanded={false}
-                    onExpanded={onClick}
-                    description={longDescription}
-                    onUpdate={() => Promise.resolve()}
-                />,
+                <SchemaDescriptionField description={longDescription} onUpdate={() => Promise.resolve()} />,
             );
             expect(getByText('Read More')).toBeInTheDocument();
             expect(queryByText(longDescription)).not.toBeInTheDocument();
@@ -86,12 +68,7 @@ describe('SchemaDescriptionField', () => {
         it('renders longer messages with show less when expanded', () => {
             const onClick = vi.fn();
             const { getByText } = render(
-                <SchemaDescriptionField
-                    expanded
-                    onExpanded={onClick}
-                    description={longDescription}
-                    onUpdate={() => Promise.resolve()}
-                />,
+                <SchemaDescriptionField description={longDescription} onUpdate={() => Promise.resolve()} />,
             );
             expect(getByText(longDescription)).toBeInTheDocument();
             expect(getByText('Read Less')).toBeInTheDocument();
