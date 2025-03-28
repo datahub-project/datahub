@@ -330,9 +330,9 @@ class SnowflakeV2Config(
         description="If set to True, assumes this is Datahub Enterprise Edition, and skips the check for standard edition.",
     )
 
-    allow_empty_schemas: bool = Field(
-        default=False,
-        description="If set to True, allows schemas with no tables or views to be processed, without reporting generic permissions error.",
+    warn_no_datasets: bool = Field(
+        default=True,
+        description="If True, warns when no datasets are found during ingestion. If False, ingestion fails when no datasets are found.",
     )
     
     include_assertion_results: bool = Field(
