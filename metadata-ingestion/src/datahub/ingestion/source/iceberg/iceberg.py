@@ -183,14 +183,16 @@ class IcebergSource(StatefulIngestionSourceBase):
             except NoSuchNamespaceError as e:
                 self.report.warning(
                     title="No such namespace",
-                    message="Encountered error when trying to list tables in a namespace, skipping the namespace.",
-                    context=f"Couldn't list tables for namespace {namespace}. Details: {e}",
+                    message="Skipping the missing namespace.",
+                    context=str(namespace),
+                    exc=e,
                 )
             except Exception as e:
                 self.report.report_failure(
-                    title="Generic error when processing a namespace",
-                    message="Encountered error, when trying to process a namespace, which couldn't have been handled. Skipping the namespace.",
-                    context=f"Couldn't list tables for namespace {namespace}. Details: {e}",
+                    title="Error when processing a namespace",
+                    message="Skipping the namespace due to errors while processing it.",
+                    context=str(namespace),
+                    exc=e,
                 )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
@@ -229,31 +231,36 @@ class IcebergSource(StatefulIngestionSourceBase):
                 self.report.warning(
                     title="Unable to process table",
                     message="Table was not processed due to expected property missing (table is probably not an iceberg table).",
-                    context=f"Did not process {dataset_name}. Details: {e}",
+                    context=dataset_name,
+                    exc=e,
                 )
             except NoSuchIcebergTableError as e:
                 self.report.warning(
                     title="Skipped non-iceberg table",
                     message="Table was recognized as non-iceberg and skipped.",
-                    context=f"Did not process {dataset_name}. Details: {e}",
+                    context=dataset_name,
+                    exc=e,
                 )
             except NoSuchTableError as e:
                 self.report.warning(
                     title="Table not found",
                     message="Table was returned by the catalog in the list of table but catalog can't find its details, table was skipped.",
-                    context=f"Did not found {dataset_name} in the catalog. Details: {e}",
+                    context=dataset_name,
+                    exc=e,
                 )
             except FileNotFoundError as e:
                 self.report.warning(
                     title="Manifest file not found",
                     message="Couldn't find manifest file to read for the table, skipping it.",
-                    context=f"Encountered FileNotFoundError when trying to read manifest file for {dataset_name}. Details: {e}",
+                    context=dataset_name,
+                    exc=e,
                 )
             except ServerError as e:
                 self.report.warning(
                     title="Iceberg REST Server Error",
                     message="Iceberg returned 500 HTTP status when trying to process a table, skipping it.",
-                    context=f"Iceberg Rest Catalog returned 500 status due to an unhandled exception for {dataset_name}. Details: {e}",
+                    context=dataset_name,
+                    exc=e,
                 )
             except ValueError as e:
                 if "Could not initialize FileIO" not in str(e):
@@ -261,7 +268,8 @@ class IcebergSource(StatefulIngestionSourceBase):
                 self.report.warning(
                     title="Could not initialize FileIO",
                     message="Could not initialize FileIO for a table (are you using custom FileIO?). Skipping the table.",
-                    context=f"Could not initialize FileIO for {dataset_path}. Details: {e}",
+                    context=dataset_name,
+                    exc=e,
                 )
 
         def _process_dataset(
@@ -283,9 +291,10 @@ class IcebergSource(StatefulIngestionSourceBase):
                 )
             except Exception as e:
                 self.report.report_failure(
-                    title="Generic error when processing a table",
-                    message="Encountered error, when trying to process a table, which couldn't have been handled. Skipping the table.",
-                    context=f"Failed to create workunit for dataset {dataset_path}. Details: {e}",
+                    title="Error when processing a table",
+                    message="Skipping the table due to errors when processing it.",
+                    context=str(dataset_path),
+                    exc=e,
                 )
 
         try:
@@ -293,8 +302,8 @@ class IcebergSource(StatefulIngestionSourceBase):
         except Exception as e:
             self.report.report_failure(
                 title="Failed to initialize catalog object",
-                message="Couldn't start the ingestion due to failure to initialize catalog object",
-                context=f"Failed to initialize catalog object. Details: {e}",
+                message="Couldn't start the ingestion due to failure to initialize catalog object.",
+                exc=e,
             )
             return
 
@@ -321,8 +330,8 @@ class IcebergSource(StatefulIngestionSourceBase):
         except Exception as e:
             self.report.report_failure(
                 title="Failed to list namespaces",
-                message="Couldn't start the ingestion due to a failure to process list of the namespaces",
-                context=f"Failed to list namespaces. Details: {e}",
+                message="Couldn't start the ingestion due to a failure to process the list of the namespaces",
+                exc=e,
             )
             return
 
@@ -408,7 +417,8 @@ class IcebergSource(StatefulIngestionSourceBase):
             self.report.warning(
                 title="Failed to extract partition information",
                 message="Failed to extract partition information for a table. Table metadata will be ingested without it.",
-                context=f"Failed to extract partition spec from Iceberg table {table.name()}. Details: {e}",
+                context=str(table.name),
+                exc=e,
             )
             return None
 

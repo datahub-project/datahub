@@ -166,9 +166,10 @@ class IcebergProfiler:
                         total_count += data_file.record_count
             except Exception as e:
                 self.report.warning(
-                    title="Generic error when profiling a table",
-                    message="Encountered error, when trying to profile a table, which couldn't have been handled. Skipping the profiling.",
-                    context=f"Failed to profile dataset {dataset_name}: Due to {e}",
+                    title="Error when profiling a table",
+                    message="Skipping profiling of the table due to errors",
+                    context=dataset_name,
+                    exc=e,
                 )
             if row_count:
                 # Iterating through fieldPaths introduces unwanted stats for list element fields...
@@ -227,7 +228,14 @@ class IcebergProfiler:
             self.report.warning(
                 title="Couldn't render value when profiling a table",
                 message="Encountered error, when trying to redner a value for table profile.",
-                context=f"Failed to render value {str(value)} of type {str(value_type)} for dataset {dataset_name}. Details: {e}",
+                context=str(
+                    {
+                        "value": value,
+                        "value_type": value_type,
+                        "dataset_name": dataset_name,
+                    }
+                ),
+                exc=e,
             )
             return None
 

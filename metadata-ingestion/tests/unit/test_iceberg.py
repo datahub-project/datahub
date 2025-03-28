@@ -1184,7 +1184,7 @@ def test_handle_unexpected_exceptions() -> None:
         TestCase().assertCountEqual(
             failures[0].context,
             [
-                "Failed to create workunit for dataset ('namespaceA', 'table6'). Details: Other value exception",
-                "Failed to create workunit for dataset ('namespaceA', 'table5'). Details: ",
+                "('namespaceA', 'table6') <class 'ValueError'>: Other value exception",
+                "('namespaceA', 'table5') <class 'Exception'>: ",
             ],
         )
