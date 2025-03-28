@@ -74,7 +74,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.metadata._schema_classes import ContainerClass
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status, SubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.container import ContainerProperties
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -83,6 +82,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaMetadata,
 )
 from datahub.metadata.schema_classes import (
+    ContainerClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
     OwnerClass,
@@ -93,7 +93,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
-from datahub.utilities.urns._urn_base import Urn
 
 LOGGER = logging.getLogger(__name__)
 logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
@@ -198,7 +197,7 @@ class IcebergSource(StatefulIngestionSourceBase):
         thread_local = threading.local()
 
         def _try_processing_dataset(
-            dataset_path: Tuple[str, ...], dataset_name: str, namespace_urn: Urn
+            dataset_path: Tuple[str, ...], dataset_name: str, namespace_urn: str
         ) -> Iterable[MetadataWorkUnit]:
             try:
                 if not hasattr(thread_local, "local_catalog"):
@@ -266,7 +265,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                 )
 
         def _process_dataset(
-            dataset_path: Identifier, namespace_urn: Urn
+            dataset_path: Identifier, namespace_urn: str
         ) -> Iterable[MetadataWorkUnit]:
             try:
                 LOGGER.debug(f"Processing dataset for path {dataset_path}")
@@ -340,7 +339,7 @@ class IcebergSource(StatefulIngestionSourceBase):
             yield wu
 
     def _create_iceberg_table_aspects(
-        self, dataset_name: str, table: Table, namespace_urn: Urn
+        self, dataset_name: str, table: Table, namespace_urn: str
     ) -> Iterable[_Aspect]:
         with PerfTimer() as timer:
             self.report.report_table_scanned(dataset_name)
