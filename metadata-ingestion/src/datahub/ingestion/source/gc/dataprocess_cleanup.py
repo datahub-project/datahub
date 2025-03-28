@@ -470,7 +470,8 @@ class DataProcessCleanup:
                 self.report.failure(
                     f"While trying to get data jobs with scroll_id={scroll_id}", exc=e
                 )
-                break
+                raise e
+                #break
 
             scrollAcrossEntities = result.get("scrollAcrossEntities")
             if not scrollAcrossEntities:
