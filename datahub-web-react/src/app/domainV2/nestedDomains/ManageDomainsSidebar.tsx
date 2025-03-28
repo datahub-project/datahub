@@ -118,7 +118,7 @@ export default function ManageDomainsSidebarV2({ isEntityProfile }: Props) {
                     mouseLeaveDelay={0}
                 >
                     <CloseButton $isActive={!isClosed} type="link" onClick={() => setIsClosed(!isClosed)}>
-                        <StyledCaretLeft direction={isClosed ? 'left' : 'right'} size={20} />
+                        <StyledCaretLeft direction={isClosed ? 'right' : 'left'} size={20} />
                     </CloseButton>
                 </Tooltip>
             </Controls>
