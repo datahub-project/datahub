@@ -19,16 +19,6 @@ from datahub.metadata.urns import DatasetUrn
 from plotly.subplots import make_subplots
 from pydantic.json import pydantic_encoder
 
-from datahub_executor.common.metric.client.client import (
-    MetricClient,
-)
-from datahub_executor.common.monitor.inference.metric_projection.metric_predictor import (
-    MetricBoundary,
-    MetricPredictor,
-)
-from datahub_executor.common.metric.types import (
-    Metric,
-)
 from datahub_executor.common.assertion.engine.evaluator.utils.shared import (
     default_volume_assertion_urn,
     default_volume_monitor_urn,
@@ -45,7 +35,19 @@ from datahub_executor.common.client.fetcher.monitors.mapper import (
 )
 from datahub_executor.common.constants import LIST_MONITORS_BATCH_SIZE
 from datahub_executor.common.helpers import paginate_datahub_query_results
-from datahub_executor.common.monitor.inference.monitor_training_engine import MonitorTrainingEngine
+from datahub_executor.common.metric.client.client import (
+    MetricClient,
+)
+from datahub_executor.common.metric.types import (
+    Metric,
+)
+from datahub_executor.common.monitor.inference.base_assertion_trainer import (
+    BaseAssertionTrainer,
+)
+from datahub_executor.common.monitor.inference.metric_projection.metric_predictor import (
+    MetricBoundary,
+    MetricPredictor,
+)
 from datahub_executor.common.types import (
     AssertionAdjustmentSettings,
     AssertionExclusionWindow,
@@ -280,7 +282,7 @@ Example exclusion windows:
 """,
     )
     default_lookback = (
-        MonitorTrainingEngine.extract_lookback_days_from_adjustment_settings(
+        BaseAssertionTrainer.extract_lookback_days_from_adjustment_settings(
             original_adjustment_settings
         )
     )
@@ -333,13 +335,13 @@ Example exclusion windows:
         training_data_lookback_window_days=lookback,
         sensitivity=AssertionMonitorSensitivity(level=sensitivity),
     )
-    
+
     historical_metrics = metrics_client.fetch_row_count_metric_values(
         metric_urn=metric_urn,
         start_time=last_day_cutoff - timedelta(days=lookback),
         end_time=last_day_cutoff,
     )
-    training_metrics = MonitorTrainingEngine.filter_training_timeseries(
+    training_metrics = BaseAssertionTrainer.filter_training_timeseries(
         historical_metrics, adjustment_settings
     )
     st.write(
