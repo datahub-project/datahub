@@ -39,7 +39,7 @@ export const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
 
 const MenuItems = styled.div<{ $shouldFillAllAvailableSpace?: boolean }>`
     display: flex;
-    gap: 4px;
+    gap: 8px;
     align-items: center;
     justify-content: end;
     ${(props) => props.$shouldFillAllAvailableSpace && 'width: 100%;'}

@@ -34,6 +34,7 @@ const IconWrapper = styled.span`
 
 const PopoverWrapper = styled.div`
     max-width: 300px;
+    overflow-wrap: break-word;
 `;
 
 interface Props {

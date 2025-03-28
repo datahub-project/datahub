@@ -6,6 +6,7 @@ import KeyboardBackspaceIcon from '@mui/icons-material/KeyboardBackspace';
 import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
 
 const StyledButton = styled(Button)`
+    flex-shrink: 0;
     height: 25px;
     width: 25px;
     color: ${REDESIGN_COLORS.TITLE_PURPLE};
