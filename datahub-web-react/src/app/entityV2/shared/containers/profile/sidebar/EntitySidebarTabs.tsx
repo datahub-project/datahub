@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 import styled from 'styled-components/macro';
 import { Tabs } from 'antd';
-import { CaretLeft, CaretRight } from '@phosphor-icons/react';
+import { ArrowLineLeft, ArrowLineRight } from '@phosphor-icons/react';
 import { Tooltip } from '@components';
 import { EntitySidebarTab } from '../../../types';
 import { useBaseEntity, useEntityData } from '../../../../../entity/shared/EntityContext';
@@ -16,13 +16,13 @@ type Props = {
 
 const UnborderedTabs = styled(Tabs)<{ $isClosed: boolean }>`
     height: 100%;
-    width: 60px;
+    width: 64px;
     box-sizing: border-box;
     user-select: none;
     overflow: visible;
     &&& .ant-tabs-nav {
         margin: 0;
-        width: 60px;
+        width: 64px;
         display: flex;
         justify-content: center;
         box-sizing: border-box;
@@ -31,14 +31,22 @@ const UnborderedTabs = styled(Tabs)<{ $isClosed: boolean }>`
     &&& .ant-tabs-nav-operations {
         display: none;
     }
+    &&& .ant-tabs-nav-wrap {
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        min-width: 64px;
+        box-sizing: border-box;
+        overflow: visible;
+    }
     &&& .ant-tabs-nav-list {
         margin: 0;
-        gap: 0;
-        width: 60px;
+        gap: 4px;
+        width: 64px;
         display: flex;
-        flex-direction: column;
         align-items: center;
-        padding: 4px 0;
+        padding: 4px 0px;
         box-sizing: border-box;
         overflow: visible;
     }
@@ -183,7 +191,7 @@ const TabTextWithTooltip = ({ text, isSelected }: { text: string; isSelected?: b
         }
     }, [text]);
 
-    const tooltipText = text === 'Properties' ? 'Structured Properties' : text;
+    const tooltipText = text === 'Props' ? 'Structured Properties' : text;
 
     return (
         <Tooltip title={isOverflowing ? tooltipText : null} placement="right">
@@ -249,7 +257,7 @@ const GradientDefs = () => (
 );
 
 const TabsWrapper = styled.div`
-    width: 60px;
+    width: 64px;
     flex-shrink: 0;
     box-sizing: border-box;
     display: flex;
@@ -268,103 +276,93 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab, hideColl
     const handleTabClick = (name: string) => {
         if (name === 'collapse') {
             setSidebarClosed(!isClosed);
-        } else if (selectedTab?.name === name && !isClosed) {
-            setSidebarClosed(true);
-        } else {
-            onSelectTab(name);
+            return;
+        }
+
+        if (selectedTab?.name === name) {
+            setSidebarClosed(!isClosed);
+            return;
+        }
+
+        onSelectTab(name);
+        if (isClosed) {
             setSidebarClosed(false);
         }
     };
 
     return (
-        <div
-            style={{
-                display: 'flex',
-                flexDirection: 'column',
-                height: '100%',
-                padding: 0,
-                margin: 0,
-                alignItems: 'center',
-                width: '60px',
-                boxSizing: 'border-box',
-                overflow: 'visible',
-            }}
-        >
+        <TabsWrapper>
             <GradientDefs />
-            <TabsWrapper>
-                <UnborderedTabs
-                    id="entity-sidebar-tabs"
-                    animated={false}
-                    tabPosition="right"
-                    activeKey={selectedTab?.name || ''}
-                    size="large"
-                    onTabClick={handleTabClick}
-                    $isClosed={isClosed}
-                >
-                    {!hideCollapse && (
+            <UnborderedTabs
+                id="entity-sidebar-tabs"
+                animated={false}
+                tabPosition="right"
+                activeKey={selectedTab?.name || ''}
+                onTabClick={handleTabClick}
+                $isClosed={isClosed}
+            >
+                {!hideCollapse && (
+                    <Tab
+                        tab={
+                            <TabIconContainer>
+                                <IconWrapper>
+                                    {isClosed ? (
+                                        <ArrowLineLeft size={20} weight="regular" />
+                                    ) : (
+                                        <ArrowLineRight size={20} weight="regular" />
+                                    )}
+                                </IconWrapper>
+                            </TabIconContainer>
+                        }
+                        key="collapse"
+                        data-node-key="collapse"
+                    />
+                )}
+                {tabs.map((tab) => {
+                    const TabIcon = tab.icon;
+                    const { name } = tab;
+                    const isDisabled = !tab.display?.enabled(entityData, baseEntity);
+                    const isSelected = !isClosed && selectedTab?.name === tab.name;
+
+                    return (
                         <Tab
+                            disabled={isDisabled}
                             tab={
-                                <TabIconContainer>
-                                    <IconWrapper>
-                                        {isClosed ? (
-                                            <CaretLeft size={20} weight="regular" />
+                                <TabIconContainer $isSelected={isSelected}>
+                                    <IconWrapper $isSelected={isSelected}>
+                                        {typeof TabIcon === 'function' &&
+                                        (TabIcon.toString().includes('@phosphor-icons') ||
+                                            (TabIcon.displayName && TabIcon.displayName.includes('Phosphor'))) ? (
+                                            <TabIcon size={20} weight="regular" />
                                         ) : (
-                                            <CaretRight size={20} weight="regular" />
+                                            <TabIcon />
                                         )}
                                     </IconWrapper>
-                                    <TabTextWithTooltip text={isClosed ? 'Open' : 'Close'} isSelected={false} />
+                                    <TabTextWithTooltip
+                                        text={(() => {
+                                            switch (name) {
+                                                case 'Summary':
+                                                    return 'Summary';
+                                                case 'Properties':
+                                                    return 'Props';
+                                                case 'Columns':
+                                                    return 'Columns';
+                                                case 'Lineage':
+                                                    return 'Lineage';
+                                                default:
+                                                    return name;
+                                            }
+                                        })()}
+                                        isSelected={isSelected}
+                                    />
                                 </TabIconContainer>
                             }
-                            key="collapse"
-                            data-node-key="collapse"
+                            key={tab.name}
+                            data-node-key={tab.name}
                         />
-                    )}
-                    {tabs.map((tab) => {
-                        const TabIcon = tab.icon;
-                        const { name } = tab;
-                        const isDisabled = !tab.display?.enabled(entityData, baseEntity);
-                        const isSelected = !isClosed && selectedTab?.name === tab.name;
-
-                        return (
-                            <Tab
-                                disabled={isDisabled}
-                                tab={
-                                    <TabIconContainer $isSelected={isSelected}>
-                                        <IconWrapper $isSelected={isSelected}>
-                                            {typeof TabIcon === 'function' &&
-                                            (TabIcon.toString().includes('@phosphor-icons') ||
-                                                (TabIcon.displayName && TabIcon.displayName.includes('Phosphor'))) ? (
-                                                <TabIcon size={20} weight="regular" />
-                                            ) : (
-                                                <TabIcon />
-                                            )}
-                                        </IconWrapper>
-                                        <TabTextWithTooltip
-                                            text={(() => {
-                                                switch (name) {
-                                                    case 'Summary':
-                                                        return 'Summary';
-                                                    case 'Properties':
-                                                        return 'Properties';
-                                                    case 'Columns':
-                                                        return 'Columns';
-                                                    case 'Lineage':
-                                                        return 'Lineage';
-                                                    default:
-                                                        return name;
-                                                }
-                                            })()}
-                                            isSelected={isSelected}
-                                        />
-                                    </TabIconContainer>
-                                }
-                                key={tab.name}
-                                data-node-key={tab.name}
-                            />
-                        );
-                    })}
-                </UnborderedTabs>
-            </TabsWrapper>
-        </div>
+                    );
+                })}
+            </UnborderedTabs>
+        </TabsWrapper>
     );
 };

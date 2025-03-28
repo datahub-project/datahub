@@ -22,7 +22,7 @@ export const StyledEntitySidebarContainer = styled.div<{
             ? props.theme.styles['box-shadow-navbar-redesign']
             : '0px 0px 6px 0px rgba(93, 102, 139, 0.2)'};
     ${(props) => !props.isCollapsed && props.$width && `min-width: ${props.$width}px; max-width: ${props.$width}px;`}
-    ${(props) => props.isCollapsed && 'min-width: 60px; max-width: 60px;'}
+    ${(props) => props.isCollapsed && 'min-width: 64px; max-width: 64px;'}
     ${(props) => props.backgroundColor && `background-color: ${props.backgroundColor};`}
     /* Hide scrollbar for Chrome, Safari, and Opera */
     &::-webkit-scrollbar {
@@ -84,27 +84,29 @@ const ContentContainer = styled.div<{ isVisible: boolean }>`
     overflow: auto;
     display: flex;
     flex-direction: column;
-    height: 100%;
+    /* Remove fixed height to allow proper flex behavior */
     /* hide the scrollbar */
-
     ::-webkit-scrollbar {
         display: none; /* for Chrome, Safari and Opera */
     }
-
     -ms-overflow-style: none; /* IE and Edge */
     scrollbar-width: none; /* Firefox */
 `;
 
 const TabsContainer = styled.div`
     display: flex;
-    justify-content: center;
     height: 100%;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
 `;
 
 const Tabs = styled.div`
     display: flex;
-    justify-content: center;
     height: 100%;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
 `;
 
 interface Props {
