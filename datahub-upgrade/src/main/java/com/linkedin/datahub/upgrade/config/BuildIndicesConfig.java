@@ -14,10 +14,11 @@ import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 
-@Order(1)
 @Configuration
 @Conditional(SystemUpdateCondition.BlockingSystemUpdateCondition.class)
 public class BuildIndicesConfig {
+
+  @Order(1)
   @Bean(name = "buildIndices")
   public BlockingSystemUpgrade buildIndices(
       final SystemMetadataService systemMetadataService,
