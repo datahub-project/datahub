@@ -59,6 +59,7 @@ AI terms classification is covered below.
 | Variable                                                           | Default             | Unit/Type | Components               | Description                                                                                                          |
 | ------------------------------------------------------------------ | ------------------- | --------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------- |
 | `DISPLAY_EXECUTOR_POOLS`                                           | `false`             | boolean   | [`GMS`]                  | Enables displaying executor pools across ingestion tab and ingestion/automation creation/editing wizards.            |
+| `EXECUTOR_POOL_HOOK_ENABLED`                                           | `false`             | boolean   | [`GMS`, `MAE Consumer`]                  | Auto provisions SQS queue on pool create, and auto-deletes queue on pool delete.            |
 | `DATAHUB_EXECUTOR_HOST`                                            | `localhost`         | string    | [`GMS`]                  | Hostname of the DataHub executor service.                                                                            |
 | `DATAHUB_EXECUTOR_PORT`                                            | `9004`              | integer   | [`GMS`]                  | Port of the DataHub executor service.                                                                                |
 | `DATAHUB_EXECUTOR_USE_SSL`                                         | `false`             | boolean   | [`GMS`]                  | Whether to use SSL when connecting to the DataHub executor.                                                          |
@@ -88,6 +89,7 @@ AI terms classification is covered below.
 | `ENABLE_INCIDENT_ACTIVITY_EVENTS`        | `true`  | boolean   | [`GMS`]    | Enables generating incident activity events via the incident activity event hook. |
 | `BROADCAST_NEW_INCIDENT_UPDATES_ENABLED` | `true`  | boolean   | [`GMS`]    | Enables broadcasting stateful incident update notifications to other systems.     |
 | `SCHEMA_ASSERTION_MONITORS_ENABLED`      | `false` | boolean   | [`GMS`]    | Enables schema assertion authoring in the UI.                                     |
+| `ONLINE_SMART_ASSERTIONS_ENABLED`      | `false` | boolean   | [`GMS`, `Executor`]    | Allow on-demand creation of smart assertions in the UI, and let them run online.                                     |
 
 ## Metadata Change Proposal (MCP) Throttling
 
