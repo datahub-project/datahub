@@ -8,8 +8,8 @@ import com.linkedin.common.*;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.LinkSettingsInput;
-import com.linkedin.datahub.graphql.generated.UpdateLinkInput;
-import com.linkedin.datahub.graphql.resolvers.mutate.UpdateLinkResolver;
+import com.linkedin.datahub.graphql.generated.UpsertLinkInput;
+import com.linkedin.datahub.graphql.resolvers.mutate.UpsertLinkResolver;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetchingEnvironment;
@@ -17,26 +17,23 @@ import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-public class UpdateLinkResolverTest {
+public class UpsertLinkResolverTest {
   private static final String ASSET_URN = "urn:li:dataset:(test1,test2,test3)";
 
-  private static DataFetchingEnvironment initMockEnv(UpdateLinkInput input) {
+  private static DataFetchingEnvironment initMockEnv(UpsertLinkInput input) {
     DataFetchingEnvironment mockEnv = LinkTestUtils.initMockEnv();
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
     return mockEnv;
   }
 
   @Test
-  public void testGetSuccessWhenUpdatingExistingLink() throws Exception {
+  public void testShouldCreateLinkWhenEntityHasNoLinks() throws Exception {
     InstitutionalMemory originalAspect = new InstitutionalMemory();
-    InstitutionalMemoryMetadata originalLink =
-        LinkTestUtils.createLink("https://original-url.com", "Original label", true);
-    InstitutionalMemoryMetadataArray elements = new InstitutionalMemoryMetadataArray(originalLink);
-    originalAspect.setElements(elements);
+    originalAspect.setElements(new InstitutionalMemoryMetadataArray());
 
     InstitutionalMemory expectedAspect = new InstitutionalMemory();
     InstitutionalMemoryMetadata updatedLink =
-        LinkTestUtils.createLink("https://updated-url.com", "Updated label", false);
+        LinkTestUtils.createLink("https://original-url.com", "Original label", false);
     InstitutionalMemoryMetadataArray newElements =
         new InstitutionalMemoryMetadataArray(updatedLink);
     expectedAspect.setElements(newElements);
@@ -45,64 +42,99 @@ public class UpdateLinkResolverTest {
     EntityClient mockClient = LinkTestUtils.initMockClient();
     DataFetchingEnvironment mockEnv =
         initMockEnv(
-            new UpdateLinkInput(
+            new UpsertLinkInput(
                 "https://original-url.com",
                 "Original label",
-                "https://updated-url.com",
-                "Updated label",
                 ASSET_URN,
                 new LinkSettingsInput(false)));
-    UpdateLinkResolver resolver = new UpdateLinkResolver(mockService, mockClient);
+    UpsertLinkResolver resolver = new UpsertLinkResolver(mockService, mockClient);
     resolver.get(mockEnv).get();
 
     LinkTestUtils.verifyIngestInstitutionalMemory(mockService, 1, expectedAspect);
   }
 
   @Test
-  public void testGetFailedWhenUpdatingNonExistingLink() throws Exception {
-    InstitutionalMemory originalAspect = new InstitutionalMemory();
-    originalAspect.setElements(new InstitutionalMemoryMetadataArray());
-
-    EntityService<?> mockService = LinkTestUtils.initMockEntityService(true, originalAspect);
-    EntityClient mockClient = LinkTestUtils.initMockClient();
-    DataFetchingEnvironment mockEnv =
-        initMockEnv(
-            new UpdateLinkInput(
-                "https://original-url.com",
-                "Original label",
-                "https://updated-url.com",
-                "Updated label",
-                ASSET_URN,
-                new LinkSettingsInput(false)));
-    UpdateLinkResolver resolver = new UpdateLinkResolver(mockService, mockClient);
-    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-  }
-
-  @Test
-  public void testGetFailedWhenUpdatedLinkIsNotUnique() throws Exception {
+  public void testShouldCreateLinkWhenUpsertLinkWithTheSameUrlAndDifferentLabel() throws Exception {
     InstitutionalMemory originalAspect = new InstitutionalMemory();
     InstitutionalMemoryMetadata originalLink =
         LinkTestUtils.createLink("https://original-url.com", "Original label", true);
-    InstitutionalMemoryMetadata duplicatedLink =
-        LinkTestUtils.createLink("https://duplicated-url.com", "Duplicated label", true);
-    InstitutionalMemoryMetadataArray elements =
-        new InstitutionalMemoryMetadataArray(originalLink, duplicatedLink);
+    InstitutionalMemoryMetadataArray elements = new InstitutionalMemoryMetadataArray(originalLink);
     originalAspect.setElements(elements);
+
+    InstitutionalMemory expectedAspect = new InstitutionalMemory();
+    InstitutionalMemoryMetadata updatedLink =
+        LinkTestUtils.createLink("https://original-url.com", "New label", false);
+    InstitutionalMemoryMetadataArray newElements =
+        new InstitutionalMemoryMetadataArray(originalLink, updatedLink);
+    expectedAspect.setElements(newElements);
 
     EntityService<?> mockService = LinkTestUtils.initMockEntityService(true, originalAspect);
     EntityClient mockClient = LinkTestUtils.initMockClient();
     DataFetchingEnvironment mockEnv =
         initMockEnv(
-            new UpdateLinkInput(
+            new UpsertLinkInput(
+                "https://original-url.com", "New label", ASSET_URN, new LinkSettingsInput(false)));
+    UpsertLinkResolver resolver = new UpsertLinkResolver(mockService, mockClient);
+    resolver.get(mockEnv).get();
+
+    LinkTestUtils.verifyIngestInstitutionalMemory(mockService, 1, expectedAspect);
+  }
+
+  @Test
+  public void testShouldCreateLinkWhenUpsertLinkWithDifferentUrlAndTheSameLabel() throws Exception {
+    InstitutionalMemory originalAspect = new InstitutionalMemory();
+    InstitutionalMemoryMetadata originalLink =
+        LinkTestUtils.createLink("https://original-url.com", "Original label", true);
+    InstitutionalMemoryMetadataArray elements = new InstitutionalMemoryMetadataArray(originalLink);
+    originalAspect.setElements(elements);
+
+    InstitutionalMemory expectedAspect = new InstitutionalMemory();
+    InstitutionalMemoryMetadata updatedLink =
+        LinkTestUtils.createLink("https://new-url.com", "Original label", false);
+    InstitutionalMemoryMetadataArray newElements =
+        new InstitutionalMemoryMetadataArray(originalLink, updatedLink);
+    expectedAspect.setElements(newElements);
+
+    EntityService<?> mockService = LinkTestUtils.initMockEntityService(true, originalAspect);
+    EntityClient mockClient = LinkTestUtils.initMockClient();
+    DataFetchingEnvironment mockEnv =
+        initMockEnv(
+            new UpsertLinkInput(
+                "https://new-url.com", "Original label", ASSET_URN, new LinkSettingsInput(false)));
+    UpsertLinkResolver resolver = new UpsertLinkResolver(mockService, mockClient);
+    resolver.get(mockEnv).get();
+
+    LinkTestUtils.verifyIngestInstitutionalMemory(mockService, 1, expectedAspect);
+  }
+
+  @Test
+  public void testShouldUpdateLinkWhenUpsertLinkWithTheSameUrlAndLabel() throws Exception {
+    InstitutionalMemory originalAspect = new InstitutionalMemory();
+    InstitutionalMemoryMetadata originalLink =
+        LinkTestUtils.createLink("https://original-url.com", "Original label", true);
+    InstitutionalMemoryMetadataArray elements = new InstitutionalMemoryMetadataArray(originalLink);
+    originalAspect.setElements(elements);
+
+    InstitutionalMemory expectedAspect = new InstitutionalMemory();
+    InstitutionalMemoryMetadata updatedLink =
+        LinkTestUtils.createLink("https://original-url.com", "Original label", false);
+    InstitutionalMemoryMetadataArray newElements =
+        new InstitutionalMemoryMetadataArray(updatedLink);
+    expectedAspect.setElements(newElements);
+
+    EntityService<?> mockService = LinkTestUtils.initMockEntityService(true, originalAspect);
+    EntityClient mockClient = LinkTestUtils.initMockClient();
+    DataFetchingEnvironment mockEnv =
+        initMockEnv(
+            new UpsertLinkInput(
                 "https://original-url.com",
                 "Original label",
-                "https://duplicated-url.com",
-                "Duplicated label",
                 ASSET_URN,
                 new LinkSettingsInput(false)));
-    UpdateLinkResolver resolver = new UpdateLinkResolver(mockService, mockClient);
+    UpsertLinkResolver resolver = new UpsertLinkResolver(mockService, mockClient);
+    resolver.get(mockEnv).get();
 
-    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    LinkTestUtils.verifyIngestInstitutionalMemory(mockService, 1, expectedAspect);
   }
 
   @Test
@@ -112,14 +144,12 @@ public class UpdateLinkResolverTest {
 
     DataFetchingEnvironment mockEnv =
         initMockEnv(
-            new UpdateLinkInput(
+            new UpsertLinkInput(
                 "https://original-url.com",
                 "Original label",
-                "https://duplicated-url.com",
-                "Duplicated label",
                 ASSET_URN,
                 new LinkSettingsInput(false)));
-    UpdateLinkResolver resolver = new UpdateLinkResolver(mockService, mockClient);
+    UpsertLinkResolver resolver = new UpsertLinkResolver(mockService, mockClient);
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
     LinkTestUtils.verifyIngestInstitutionalMemory(mockService, 0, null);
@@ -135,16 +165,14 @@ public class UpdateLinkResolverTest {
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     Mockito.when(mockEnv.getArgument(Mockito.eq("input")))
         .thenReturn(
-            new UpdateLinkInput(
+            new UpsertLinkInput(
                 "https://original-url.com",
                 "Original label",
-                "https://duplicated-url.com",
-                "Duplicated label",
                 ASSET_URN,
                 new LinkSettingsInput(false)));
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
-    UpdateLinkResolver resolver = new UpdateLinkResolver(mockService, mockClient);
+    UpsertLinkResolver resolver = new UpsertLinkResolver(mockService, mockClient);
     assertThrows(AuthorizationException.class, () -> resolver.get(mockEnv).join());
 
     LinkTestUtils.verifyIngestInstitutionalMemory(mockService, 0, null);
