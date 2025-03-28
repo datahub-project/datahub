@@ -14,7 +14,7 @@ import pydantic
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
 from datahub.ingestion.graph.client import entity_type_to_graphql
-from datahub.ingestion.graph.filters import SearchFilterRule
+from datahub.ingestion.graph.filters import FilterOperator, SearchFilterRule
 from datahub.metadata.schema_classes import EntityTypeName
 from datahub.metadata.urns import DataPlatformUrn, DomainUrn
 
@@ -63,25 +63,19 @@ class _EntityTypeFilter(_BaseFilter):
 
 
 class _EntitySubtypeFilter(_BaseFilter):
-    entity_type: str
     entity_subtype: str = pydantic.Field(
         description="The entity subtype to filter on. Can be 'Table', 'View', 'Source', etc. depending on the native platform's concepts.",
     )
 
+    def _build_rule(self) -> SearchFilterRule:
+        return SearchFilterRule(
+            field="typeNames",
+            condition="EQUAL",
+            values=[self.entity_subtype],
+        )
+
     def compile(self) -> _OrFilters:
-        rules = [
-            SearchFilterRule(
-                field="_entityType",
-                condition="EQUAL",
-                values=[_flexible_entity_type_to_graphql(self.entity_type)],
-            ),
-            SearchFilterRule(
-                field="typeNames",
-                condition="EQUAL",
-                values=[self.entity_subtype],
-            ),
-        ]
-        return [{"and": rules}]
+        return [{"and": [self._build_rule()]}]
 
 
 class _PlatformFilter(_BaseFilter):
@@ -160,7 +154,7 @@ class _CustomCondition(_BaseFilter):
     """Represents a single field condition."""
 
     field: str
-    condition: str
+    condition: FilterOperator
     values: List[str]
 
     def compile(self) -> _OrFilters:
@@ -329,14 +323,15 @@ class FilterDsl:
         )
 
     @staticmethod
-    def entity_subtype(entity_type: str, subtype: str) -> _EntitySubtypeFilter:
+    def entity_subtype(
+        entity_subtype: Union[str, Sequence[str]],
+    ) -> _EntitySubtypeFilter:
         return _EntitySubtypeFilter(
-            entity_type=entity_type,
-            entity_subtype=subtype,
+            entity_subtype=entity_subtype,
         )
 
     @staticmethod
-    def platform(platform: Union[str, List[str]], /) -> _PlatformFilter:
+    def platform(platform: Union[str, Sequence[str]], /) -> _PlatformFilter:
         return _PlatformFilter(
             platform=[platform] if isinstance(platform, str) else platform
         )
@@ -344,11 +339,11 @@ class FilterDsl:
     # TODO: Add a platform_instance filter
 
     @staticmethod
-    def domain(domain: Union[str, List[str]], /) -> _DomainFilter:
+    def domain(domain: Union[str, Sequence[str]], /) -> _DomainFilter:
         return _DomainFilter(domain=[domain] if isinstance(domain, str) else domain)
 
     @staticmethod
-    def env(env: Union[str, List[str]], /) -> _EnvFilter:
+    def env(env: Union[str, Sequence[str]], /) -> _EnvFilter:
         return _EnvFilter(env=[env] if isinstance(env, str) else env)
 
     @staticmethod
@@ -365,7 +360,7 @@ class FilterDsl:
 
     @staticmethod
     def custom_filter(
-        field: str, condition: str, values: List[str]
+        field: str, condition: FilterOperator, values: Sequence[str]
     ) -> _CustomCondition:
         return _CustomCondition(
             field=field,
