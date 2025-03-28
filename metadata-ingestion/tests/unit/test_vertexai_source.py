@@ -18,11 +18,6 @@ from datahub.ingestion.source.vertexai.vertexai import (
     VertexAIConfig,
     VertexAISource,
 )
-from datahub.metadata._schema_classes import (
-    DataJobInfoClass,
-    GlobalTagsClass,
-    TagAssociationClass,
-)
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.ml.metadata import (
     MLModelGroupProperties,
@@ -33,15 +28,18 @@ from datahub.metadata.schema_classes import (
     ContainerClass,
     ContainerPropertiesClass,
     DataFlowInfoClass,
+    DataJobInfoClass,
     DataJobInputOutputClass,
     DataPlatformInstanceClass,
     DataProcessInstanceInputClass,
     DataProcessInstancePropertiesClass,
     DatasetPropertiesClass,
     EdgeClass,
+    GlobalTagsClass,
     MLModelDeploymentPropertiesClass,
     StatusClass,
     SubTypesClass,
+    TagAssociationClass,
     TimeStampClass,
     VersionPropertiesClass,
     VersionTagClass,
