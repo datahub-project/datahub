@@ -855,6 +855,45 @@ executors:
   backendRevision: 2
   executorRoleArn: ${DATAHUB_EXECUTOR_ROLE_ARN:#{null}}
   executorCustomerId: ${DATAHUB_EXECUTOR_CUSTOMER_ID:#{null}}
+  executorPoolHook:
+    enabled: ${EXECUTOR_POOL_HOOK_ENABLED:true}
+    messageRetentionPeriod: "86400"
+    visibilityTimeout: "43200"
+    managedSseEnabled: true
+    consumerGroupSuffix: ${EXECUTOR_POOL_HOOK_CONSUMER_GROUP_SUFFIX:}
+    sqsMaxRetries: 5
+    sqsBaseDelayMs: 500
+    policyTemplate: |
+      {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "Delegation",
+            "Effect": "Allow",
+            "Principal": {
+              "AWS": "arn:aws:iam::795586375822:root"
+            },
+            "Action": "sqs:*",
+            "Resource": "{{queueArn}}"
+          },
+          {
+            "Sid": "Remote",
+            "Effect": "Allow",
+            "Principal": {
+              "AWS": "{{roleArn}}"
+            },
+            "Action": [
+              "sqs:SendMessage",
+              "sqs:ReceiveMessage",
+              "sqs:GetQueueUrl",
+              "sqs:GetQueueAttributes",
+              "sqs:DeleteMessage",
+              "sqs:ChangeMessageVisibility"
+            ],
+            "Resource": "{{queueArn}}"
+          }
+        ]
+      }
 
 corpuser:
   hook:

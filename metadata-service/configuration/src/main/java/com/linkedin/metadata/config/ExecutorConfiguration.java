@@ -17,4 +17,7 @@ public class ExecutorConfiguration {
    * this should be incremented, and a corresponding check added on the client. *
    */
   public int backendRevision;
+
+  /** Executor pool SQS provisioning hook config */
+  public ExecutorPoolHookConfiguration executorPoolHook;
 }
