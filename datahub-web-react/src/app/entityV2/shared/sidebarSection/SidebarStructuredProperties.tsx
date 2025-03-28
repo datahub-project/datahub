@@ -216,6 +216,7 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                     values={selectedPropertyValues?.map((val) => val.value)}
                     refetch={isSchemaSidebar ? properties?.refetch : undefined}
                     associatedUrn={isSchemaSidebar ? properties?.fieldEntity?.urn : undefined}
+                    fieldEntity={isSchemaSidebar ? properties?.fieldEntity : undefined}
                 />
             )}
         </>

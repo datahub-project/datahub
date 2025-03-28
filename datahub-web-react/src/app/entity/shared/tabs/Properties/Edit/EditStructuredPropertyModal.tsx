@@ -13,7 +13,9 @@ import {
 } from '../../../../../../graphql/structuredProperties.generated';
 import {
     EntityType,
+    Maybe,
     PropertyValueInput,
+    SchemaFieldEntity,
     StructuredPropertyEntity,
     SubResourceType,
 } from '../../../../../../types.generated';
@@ -36,6 +38,7 @@ interface Props {
     closeModal: () => void;
     refetch?: () => void;
     isAddMode?: boolean;
+    fieldEntity?: Maybe<SchemaFieldEntity>;
 }
 
 export default function EditStructuredPropertyModal({
@@ -46,6 +49,7 @@ export default function EditStructuredPropertyModal({
     closeModal,
     refetch,
     isAddMode,
+    fieldEntity,
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
     const { refetch: entityRefetch } = useEntityContext();
@@ -226,6 +230,7 @@ export default function EditStructuredPropertyModal({
                         selectSingleValue={selectSingleValue}
                         toggleSelectedValue={toggleSelectedValue}
                         updateSelectedValues={updateSelectedValues}
+                        fieldEntity={fieldEntity}
                     />
                 </Modal>
             )}

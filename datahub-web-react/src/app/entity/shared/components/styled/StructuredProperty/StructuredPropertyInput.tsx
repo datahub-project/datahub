@@ -1,5 +1,11 @@
 import React from 'react';
-import { PropertyCardinality, StdDataType, StructuredPropertyEntity } from '@src/types.generated';
+import {
+    Maybe,
+    PropertyCardinality,
+    SchemaFieldEntity,
+    StdDataType,
+    StructuredPropertyEntity,
+} from '@src/types.generated';
 import SingleSelectInput from './SingleSelectInput';
 import MultiSelectInput from './MultiSelectInput';
 import StringInput from './StringInput';
@@ -14,6 +20,7 @@ interface Props {
     selectSingleValue: (value: string | number) => void;
     toggleSelectedValue: (value: string | number) => void;
     updateSelectedValues: (value: (string | number | null)[]) => void;
+    fieldEntity?: Maybe<SchemaFieldEntity>;
 }
 
 export default function StructuredPropertyInput({
@@ -22,6 +29,7 @@ export default function StructuredPropertyInput({
     selectedValues,
     toggleSelectedValue,
     updateSelectedValues,
+    fieldEntity,
 }: Props) {
     const { allowedValues, cardinality, valueType } = structuredProperty.definition;
 
@@ -71,6 +79,7 @@ export default function StructuredPropertyInput({
                     structuredProperty={structuredProperty}
                     selectedValues={selectedValues}
                     updateSelectedValues={updateSelectedValues}
+                    fieldEntity={fieldEntity}
                 />
             )}
         </>
