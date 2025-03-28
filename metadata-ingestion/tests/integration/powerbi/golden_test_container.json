@@ -2043,6 +2043,13 @@
             },
             {
                 "op": "add",
+                "path": "/dashboards/urn:li:dashboard:(powerbi,reports.5b218778-e7a5-4d73-8187-f10824047715)",
+                "value": {
+                    "destinationUrn": "urn:li:dashboard:(powerbi,reports.5b218778-e7a5-4d73-8187-f10824047715)"
+                }
+            },
+            {
+                "op": "add",
                 "path": "/lastModified",
                 "value": {
                     "created": {
@@ -3475,13 +3482,6 @@
                 "op": "add",
                 "path": "/dashboardUrl",
                 "value": "https://app.powerbi.com/groups/f089354e-8366-4e18-aea3-4cb4a3a50b48/reports/5b218778-e7a5-4d73-8187-f10824047715"
-            },
-            {
-                "op": "add",
-                "path": "/dashboards/urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
-                "value": {
-                    "destinationUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)"
-                }
             },
             {
                 "op": "add",
