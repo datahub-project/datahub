@@ -1,14 +1,13 @@
 import React, { useCallback, useState } from 'react';
 import { Button, Divider } from 'antd';
-import { Tooltip } from '@components';
+import { Tooltip, colors } from '@components';
 import styled from 'styled-components';
+import { CaretLeft } from '@phosphor-icons/react';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import useSidebarWidth from '../../sharedV2/sidebar/useSidebarWidth';
 import DomainsSidebarHeader from './DomainsSidebarHeader';
 import DomainNavigator from './domainNavigator/DomainNavigator';
 import DomainSearch from '../DomainSearch';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import SidebarBackArrow from '../../../images/sidebarBackArrow.svg?react';
 
 const PLATFORM_BROWSE_TRANSITION_MS = 300;
 
@@ -44,19 +43,27 @@ const Controls = styled.div<{ isCollapsed: boolean }>`
     display: flex;
     align-items: center;
     justify-content: ${(props) => (props.isCollapsed ? 'center' : 'space-between')};
-    padding: 15px 16px 10px 12px;
+    padding: 12px;
     overflow: hidden;
     height: 50px;
 `;
 
 const CloseButton = styled(Button)<{ $isActive }>`
-    margin: 0px;
-    padding: 2px 0px;
+    margin: 0;
+    padding: 0;
     display: flex;
     align-items: center;
-    transition: transform ${PLATFORM_BROWSE_TRANSITION_MS}ms ease;
-    && {
-        color: ${(props) => (props.$isActive ? ANTD_GRAY[9] : '#8088a3')};
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    min-height: 24px;
+    border-radius: 50%;
+    transition: background-color 0.2s ease-in-out;
+
+    &:hover {
+        background-color: ${colors.gray[1600]};
+        color: ${colors.gray[1800]};
     }
 `;
 
@@ -65,8 +72,11 @@ const ThinDivider = styled(Divider)`
     padding: 0px;
 `;
 
-const StyledSidebarBackArrow = styled(SidebarBackArrow)<{ direction: 'left' | 'right' }>`
+const StyledCaretLeft = styled(CaretLeft)<{ direction: 'left' | 'right' }>`
     cursor: pointer;
+    color: ${colors.gray[1700]};
+    width: 20px;
+    height: 20px;
     ${(props) => (props.direction === 'right' && 'transform: scaleX(-1);') || undefined}
 `;
 
@@ -108,7 +118,7 @@ export default function ManageDomainsSidebarV2({ isEntityProfile }: Props) {
                     mouseLeaveDelay={0}
                 >
                     <CloseButton $isActive={!isClosed} type="link" onClick={() => setIsClosed(!isClosed)}>
-                        <StyledSidebarBackArrow direction={isClosed ? 'left' : 'right'} />
+                        <StyledCaretLeft direction={isClosed ? 'left' : 'right'} size={20} />
                     </CloseButton>
                 </Tooltip>
             </Controls>
