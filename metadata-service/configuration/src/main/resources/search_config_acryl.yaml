@@ -1,0 +1,79 @@
+queryConfigurations:
+  - queryRegex: '[*]|'
+    simpleQuery: false
+    prefixMatchQuery: false
+    exactMatchQuery: false
+    functionScore:
+      functions:
+        - script_score:
+            script: |-
+              if (doc.containsKey('combinedSearchRankingMultiplier') && !doc['combinedSearchRankingMultiplier'].isEmpty()) {
+                def value = doc['combinedSearchRankingMultiplier'].value;
+                if (value instanceof Number) {
+                  return ((Number) value).doubleValue();
+                } else {
+                  return 1.0;
+                }
+              } else {
+                return 1.0;
+              }
+        - filter:
+            term:
+              deprecated:
+                value: true
+          weight: 0.5
+      score_mode: multiply
+      boost_mode: replace
+
+  - queryRegex: >-
+      ^["'].+["']$
+    simpleQuery: false
+    prefixMatchQuery: true
+    exactMatchQuery: true
+    functionScore:
+      functions:
+        - script_score:
+            script: |-
+              if (doc.containsKey('combinedSearchRankingMultiplier') && !doc['combinedSearchRankingMultiplier'].isEmpty()) {
+                def value = doc['combinedSearchRankingMultiplier'].value;
+                if (value instanceof Number) {
+                  return ((Number) value).doubleValue();
+                } else {
+                  return 1.0;
+                }
+              } else {
+                return 1.0;
+              }
+        - filter:
+            term:
+              deprecated:
+                value: true
+          weight: 0.5
+      score_mode: multiply
+      boost_mode: multiply
+
+  - queryRegex: '.*'
+    simpleQuery: true
+    prefixMatchQuery: true
+    exactMatchQuery: true
+    functionScore:
+      functions:
+        - script_score:
+            script: |-
+              if (doc.containsKey('combinedSearchRankingMultiplier') && !doc['combinedSearchRankingMultiplier'].isEmpty()) {
+                def value = doc['combinedSearchRankingMultiplier'].value;
+                if (value instanceof Number) {
+                  return ((Number) value).doubleValue();
+                } else {
+                  return 1.0;
+                }
+              } else {
+                return 1.0;
+              }
+        - filter:
+            term:
+              deprecated:
+                value: true
+          weight: 0.5
+      score_mode: multiply
+      boost_mode: multiply
