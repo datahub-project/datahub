@@ -106,7 +106,7 @@ export default function LineageControls() {
                         <FilterOutlined
                             style={{
                                 color:
-                                    hideTransformations || showDataProcessInstances || showGhostEntities
+                                    hideTransformations || !showDataProcessInstances || showGhostEntities
                                         ? REDESIGN_COLORS.BLUE
                                         : undefined,
                             }}
