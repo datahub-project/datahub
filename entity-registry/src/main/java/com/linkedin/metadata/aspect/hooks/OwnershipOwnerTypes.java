@@ -66,6 +66,10 @@ public class OwnershipOwnerTypes extends MutationHook {
     if (ownership == null) {
       return false;
     }
+    log.info(
+        "ownership input is **** owners={}, types={}",
+        ownership.getOwners(),
+        ownership.getOwnerTypes());
     UrnArrayMap ownerTypes = ownership.getOwnerTypes();
     Map<String, List<Urn>> ownerTypesMap;
     if (ownerTypes == null) {
@@ -87,7 +91,7 @@ public class OwnershipOwnerTypes extends MutationHook {
         OwnershipType type = owner.getType();
         String typeStr = "urn:li:ownershipType:__system__" + type.toString().toLowerCase();
         if (ownerTypesMap.containsKey(typeStr)) {
-          ownerOfType = ownerTypes.get(typeStr);
+          ownerOfType = ownerTypesMap.get(typeStr);
         } else {
           ownerOfType = new ArrayList<>();
           ownerTypesMap.put(typeStr, ownerOfType);

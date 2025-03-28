@@ -50,7 +50,7 @@ public class OwnershipOwnerTypeTest {
 
   @Test
   public void testNoChange() throws URISyntaxException {
-    Ownership ownership = getOwnership(true, true);
+    Ownership ownership = getOwnership(true, true, false);
     TestMCP mcp = getTestMcpBuilder().recordTemplate(ownership).build();
 
     List<Pair<ChangeMCP, Boolean>> result =
@@ -63,7 +63,7 @@ public class OwnershipOwnerTypeTest {
 
   @Test
   public void testChangeAddBusinessOwnerType() throws URISyntaxException {
-    Ownership ownership = getOwnership(true, false);
+    Ownership ownership = getOwnership(true, false, false);
     TestMCP mcp = getTestMcpBuilder().recordTemplate(ownership).build();
 
     List<Pair<ChangeMCP, Boolean>> result =
@@ -74,6 +74,29 @@ public class OwnershipOwnerTypeTest {
     assertEquals(resulted.getSecond(), true);
     Ownership resultOwnership = resulted.getFirst().getAspect(Ownership.class);
     assertEquals(resultOwnership.getOwnerTypes().keySet().size(), 1);
+  }
+
+  @Test
+  public void testChangeAddBusinessOwnerTypeUrn() throws URISyntaxException {
+    Ownership ownership = getOwnership(false, false, true);
+    TestMCP mcp = getTestMcpBuilder().recordTemplate(ownership).build();
+
+    List<Pair<ChangeMCP, Boolean>> result =
+        test.writeMutation(Set.of(mcp), mockRetrieverContext).toList();
+
+    assertEquals(result.size(), 1);
+    Pair<ChangeMCP, Boolean> resulted = result.get(0);
+    assertEquals(resulted.getSecond(), true);
+    Ownership resultOwnership = resulted.getFirst().getAspect(Ownership.class);
+    Set<String> ownerTypes = resultOwnership.getOwnerTypes().keySet();
+    assertEquals(ownerTypes, Set.of("urn:li:ownershipType:__system__business_owner"));
+    assertEquals(
+        resultOwnership
+            .getOwnerTypes()
+            .get("urn:li:ownershipType:__system__business_owner")
+            .get(0)
+            .toString(),
+        "urn:li:corpGroup:business_group");
   }
 
   private TestMCP.TestMCPBuilder getTestMcpBuilder() {
@@ -88,14 +111,23 @@ public class OwnershipOwnerTypeTest {
   }
 
   private Ownership getOwnership(
-      final boolean has_business_owner, final boolean has_business_owner_in_owner_type)
+      final boolean has_business_owner_with_type,
+      final boolean has_business_owner_in_owner_type,
+      final boolean has_business_owner_with_type_urn)
       throws URISyntaxException {
 
     Ownership ownership = new Ownership();
     OwnerArray ownerArray = new OwnerArray();
-    if (has_business_owner) {
+    if (has_business_owner_with_type) {
       Owner businessOwner =
           new Owner().setOwner(getBusinessOwner()).setType(OwnershipType.BUSINESS_OWNER);
+      ownerArray.add(businessOwner);
+    }
+    if (has_business_owner_with_type_urn) {
+      Owner businessOwner =
+          new Owner()
+              .setOwner(getBusinessOwner())
+              .setTypeUrn(new Urn("urn:li:ownershipType:__system__business_owner"));
       ownerArray.add(businessOwner);
     }
 
