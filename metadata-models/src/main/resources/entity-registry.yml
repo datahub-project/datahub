@@ -759,6 +759,12 @@ plugins:
           aspectName: 'editableSchemaMetadata'
     - className: 'com.linkedin.metadata.aspect.hooks.OwnershipOwnerTypes'
       enabled: true
+      supportedOperations:
+        - CREATE
+        - UPSERT
+        - UPDATE
+        - RESTATE
+        - PATCH
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: 'ownership'

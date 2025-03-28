@@ -10,15 +10,15 @@ import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.util.Pair;
-import java.util.Collection;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Getter
 @Setter
 @Accessors(chain = true)
@@ -42,6 +42,24 @@ public class OwnershipOwnerTypes extends MutationHook {
     return item.getAspectName().equals(OWNERSHIP_ASPECT_NAME);
   }
 
+  public static Map<String, List<Urn>> toMap(UrnArrayMap map) {
+    Map<String, List<Urn>> result = new HashMap<>();
+    map.forEach(
+        ((s, urns) -> {
+          result.put(s, new ArrayList<>(urns));
+        }));
+    return result;
+  }
+
+  public static UrnArrayMap toUrnArrayMap(Map<String, List<Urn>> map) {
+    UrnArrayMap result = new UrnArrayMap();
+    map.forEach(
+        (key, urns) -> {
+          result.put(key, new UrnArray(urns));
+        });
+    return result;
+  }
+
   public static boolean processOwnershipAspect(ChangeMCP item) {
     boolean mutated = false;
     Ownership ownership = item.getAspect(Ownership.class);
@@ -49,10 +67,12 @@ public class OwnershipOwnerTypes extends MutationHook {
       return false;
     }
     UrnArrayMap ownerTypes = ownership.getOwnerTypes();
+    Map<String, List<Urn>> ownerTypesMap;
     if (ownerTypes == null) {
-      ownerTypes = ownership.getOwnerTypes();
-      ownership.setOwnerTypes(ownerTypes);
+      ownerTypesMap = new HashMap<>();
       mutated = true;
+    } else {
+      ownerTypesMap = toMap(ownerTypes);
     }
     OwnerArray owners = ownership.getOwners();
     for (Owner owner : owners) {
@@ -61,24 +81,24 @@ public class OwnershipOwnerTypes extends MutationHook {
       if (typeUrn != null) {
         typeUrnStr = typeUrn.toString();
       }
-      UrnArray ownerOfType;
+      List<Urn> ownerOfType;
       boolean found = false;
       if (typeUrnStr == null) {
         OwnershipType type = owner.getType();
         String typeStr = "urn:li:ownershipType:__system__" + type.toString().toLowerCase();
-        if (ownerTypes.containsKey(typeStr)) {
-          ownerOfType = ownerTypes.get(typeUrnStr);
+        if (ownerTypesMap.containsKey(typeStr)) {
+          ownerOfType = ownerTypes.get(typeStr);
         } else {
-          ownerOfType = new UrnArray();
-          ownerTypes.put(typeStr, ownerOfType);
+          ownerOfType = new ArrayList<>();
+          ownerTypesMap.put(typeStr, ownerOfType);
           mutated = true;
         }
       } else {
-        if (ownerTypes.containsKey(typeUrnStr)) {
-          ownerOfType = ownerTypes.get(typeUrnStr);
+        if (ownerTypesMap.containsKey(typeUrnStr)) {
+          ownerOfType = ownerTypesMap.get(typeUrnStr);
         } else {
-          ownerOfType = new UrnArray();
-          ownerTypes.put(typeUrnStr, ownerOfType);
+          ownerOfType = new ArrayList<>();
+          ownerTypesMap.put(typeUrnStr, ownerOfType);
           mutated = true;
         }
       }
@@ -91,6 +111,9 @@ public class OwnershipOwnerTypes extends MutationHook {
         ownerOfType.add(owner.getOwner());
         mutated = true;
       }
+    }
+    if (mutated) {
+      ownership.setOwnerTypes((toUrnArrayMap(ownerTypesMap)));
     }
     return mutated;
   }
