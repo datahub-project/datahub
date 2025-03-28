@@ -546,17 +546,20 @@ class SnowflakeV2Source(
             for stream_name in schema.streams
         ]
 
-        if (
-            len(discovered_tables) == 0
-            and len(discovered_views) == 0
-            and len(discovered_streams) == 0
-            and not self.config.allow_empty_schemas
-        ):
-            self.structured_reporter.failure(
-                GENERIC_PERMISSION_ERROR_KEY,
-                "No tables/views found and allow_empty_schemas is false. Please check permissions.",
-            )
-            return
+        if (  
+            len(discovered_tables) == 0  
+            and len(discovered_views) == 0  
+            and len(discovered_streams) == 0  
+        ):  
+            if self.config.warn_no_datasets:  
+                self.structured_reporter.warning(    
+                    "No tables/views/streams found. Verify dataset permissions if Snowflake source is not empty.",  
+                )  
+            else:  
+                self.structured_reporter.failure(  
+                    GENERIC_PERMISSION_ERROR_KEY,  
+                    "No tables/views/streams found. Verify dataset permissions in Snowflake.",  
+                )
 
         self.discovered_datasets = (
             discovered_tables + discovered_views + discovered_streams
