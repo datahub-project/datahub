@@ -741,9 +741,13 @@ def test_superset_stateful_ingest(
                 "username": "test_username",
                 "password": "test_password",
                 "provider": "db",
-                # Enable dataset ingestion
+                # enable dataset ingestion
                 "ingest_datasets": True,
+                # enable timeout for api calls, this is not required
+                # but just for coverage
                 "timeout": 10,
+                # set max_threads to 10
+                "max_threads": 10,
                 # enable stateful ingestion
                 "stateful_ingestion": {
                     "enabled": True,
