@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List
 from unittest.mock import MagicMock
 
@@ -108,8 +108,10 @@ def gen_mock_experiment(num: int = 1) -> Experiment:
 def gen_mock_experiment_run() -> ExperimentRun:
     mock_experiment_run = MagicMock(spec=ExperimentRun)
     mock_experiment_run.name = "mock_experiment_run"
-    mock_experiment_run.project = datetime.fromtimestamp(1647878400)
-    mock_experiment_run.update_time = datetime.fromtimestamp(1647878500)
+    mock_experiment_run.project = datetime.fromtimestamp(1647878400, tz=timezone.utc)
+    mock_experiment_run.update_time = datetime.fromtimestamp(
+        1647878500, tz=timezone.utc
+    )
     mock_experiment_run.display_name = "mock_experiment_run_display_name"
     mock_experiment_run.description = "mock_experiment_run_description"
     return mock_experiment_run
@@ -122,8 +124,8 @@ def get_mock_pipeline_job() -> PipelineJob:
         "projects/123/locations/us-central1/pipelineJobs/456"
     )
     mock_pipeline_job.labels = {"key1": "value1"}
-    mock_pipeline_job.create_time = datetime.fromtimestamp(1647878400)
-    mock_pipeline_job.update_time = datetime.fromtimestamp(1647878500)
+    mock_pipeline_job.create_time = datetime.fromtimestamp(1647878400, tz=timezone.utc)
+    mock_pipeline_job.update_time = datetime.fromtimestamp(1647878500, tz=timezone.utc)
     mock_pipeline_job.location = "us-west2"
     gca_resource = MagicMock(spec=PipelineJobType)
     mock_pipeline_job.gca_resource = gca_resource
@@ -131,9 +133,9 @@ def get_mock_pipeline_job() -> PipelineJob:
     task_detail.task_name = "mock_pipeline_task"
     task_detail.task_id = "dummy_task_id"
     task_detail.task_id = "dummy_state"
-    task_detail.start_time = datetime.fromtimestamp(1647878400)
-    task_detail.create_time = datetime.fromtimestamp(1647878500)
-    task_detail.end_time = datetime.fromtimestamp(1647878600)
+    task_detail.start_time = datetime.fromtimestamp(1647878400, tz=timezone.utc)
+    task_detail.create_time = datetime.fromtimestamp(1647878500, tz=timezone.utc)
+    task_detail.end_time = datetime.fromtimestamp(1647878600, tz=timezone.utc)
     mock_pipeline_job.task_details = [task_detail]
     gca_resource.pipeline_spec = {
         "root": {
