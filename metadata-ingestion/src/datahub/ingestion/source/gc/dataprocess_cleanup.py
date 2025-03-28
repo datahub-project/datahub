@@ -424,40 +424,61 @@ class DataProcessCleanup:
             return []
         assert self.ctx.graph
 
+        # First, collect all dataflows if needed
         dataFlows: Dict[str, DataFlowEntity] = {}
         if self.config.delete_empty_data_flows:
             for flow in self.get_data_flows():
                 dataFlows[flow.urn] = flow
 
+        # Collect all datajobs first
+        all_jobs = self._collect_all_datajobs()
+
+        # Process the jobs and return a dictionary of job URNs by flow URN
+        dataJobs = self._process_all_datajobs(all_jobs)
+
+        # Delete empty dataflows if needed
+        if self.config.delete_empty_data_flows:
+            self._delete_empty_dataflows(dataFlows, dataJobs)
+
+        return []
+
+    def _collect_all_datajobs(self) -> List[DataJobEntity]:
+        """
+        Collect all data jobs without processing their DPIs.
+        Returns a list of DataJobEntity objects.
+        """
+        assert self.ctx.graph
+        all_jobs: List[DataJobEntity] = []
         scroll_id: Optional[str] = None
-        previous_scroll_id: Optional[str] = None
 
-        dataJobs: Dict[str, List[DataJobEntity]] = defaultdict(list)
-        deleted_jobs: int = 0
-
+        logger.info("Collecting all data jobs...")
         while True:
             try:
                 result = self.ctx.graph.execute_graphql(
                     DATAJOB_QUERY,
                     {
                         "query": "*",
-                        "scrollId": scroll_id if scroll_id else None,
+                        "scrollId": scroll_id,
                         "batchSize": self.config.batch_size,
                     },
                 )
             except Exception as e:
                 self.report.failure(
-                    f"While trying to get data jobs with {scroll_id}", exc=e
+                    f"While trying to get data jobs with scroll_id={scroll_id}", exc=e
                 )
                 break
+
             scrollAcrossEntities = result.get("scrollAcrossEntities")
             if not scrollAcrossEntities:
                 raise ValueError("Missing scrollAcrossEntities in response")
 
-            self.report.num_data_jobs_found += scrollAcrossEntities.get("count")
-            logger.info(f"Got {scrollAcrossEntities.get('count')} DataJob entities")
+            batch_count = scrollAcrossEntities.get("count", 0)
+            self.report.num_data_jobs_found += batch_count
+            logger.info(f"Got {batch_count} DataJob entities")
 
-            scroll_id = scrollAcrossEntities.get("nextScrollId")
+            new_scroll_id = scrollAcrossEntities.get("nextScrollId")
+
+            # Collect jobs without processing
             for job in scrollAcrossEntities.get("searchResults"):
                 datajob_entity = DataJobEntity(
                     urn=job.get("entity").get("urn"),
@@ -467,46 +488,76 @@ class DataProcessCleanup:
                     dataPlatformInstance=job.get("entity").get("dataPlatformInstance"),
                     total_runs=job.get("entity").get("runs").get("total"),
                 )
-                if datajob_entity.total_runs > 0:
-                    try:
-                        self.delete_dpi_from_datajobs(datajob_entity)
-                    except Exception as e:
-                        self.report.failure(
-                            f"While trying to delete {datajob_entity} ", exc=e
-                        )
-                if (
-                    datajob_entity.total_runs == 0
-                    and self.config.delete_empty_data_jobs
-                ):
-                    logger.info(
-                        f"Deleting datajob {datajob_entity.urn} because there are no runs"
-                    )
-                    self.delete_entity(datajob_entity.urn, "dataJob")
-                    deleted_jobs += 1
-                    if deleted_jobs % self.config.batch_size == 0:
-                        logger.info(f"Deleted {deleted_jobs} DataJobs")
-                else:
-                    dataJobs[datajob_entity.flow_urn].append(datajob_entity)
+                all_jobs.append(datajob_entity)
 
-            if not scroll_id or previous_scroll_id == scroll_id:
+            # Exit scroll loop when done
+            if not new_scroll_id or new_scroll_id == scroll_id:
                 break
 
-            previous_scroll_id = scroll_id
+            scroll_id = new_scroll_id
+
+        logger.info(f"Collected {len(all_jobs)} data jobs in total")
+        return all_jobs
+
+    def _process_all_datajobs(self, all_jobs: List[DataJobEntity]) -> Dict[str, List[DataJobEntity]]:
+        """
+        Process each job's DPIs and potentially delete empty jobs.
+        Returns a dictionary mapping flow URNs to lists of non-deleted jobs.
+        """
+        dataJobs: Dict[str, List[DataJobEntity]] = defaultdict(list)
+        deleted_jobs: int = 0
+
+        logger.info(f"Processing DPIs for {len(all_jobs)} data jobs...")
+
+        # First, organize jobs by flow URN
+        for job in all_jobs:
+            dataJobs[job.flow_urn].append(job)
+
+        # Then process each job
+        for i, job in enumerate(all_jobs):
+            if i > 0 and i % self.config.batch_size == 0:
+                logger.info(f"Processed {i}/{len(all_jobs)} jobs")
+
+            if job.total_runs > 0:
+                try:
+                    self.delete_dpi_from_datajobs(job)
+                except Exception as e:
+                    self.report.failure(
+                        f"While trying to delete DPIs for job {job.urn}", exc=e
+                    )
+
+            # Check if job should be deleted after processing its DPIs
+            if job.total_runs == 0 and self.config.delete_empty_data_jobs:
+                logger.info(f"Deleting datajob {job.urn} because there are no runs")
+                self.delete_entity(job.urn, "dataJob")
+                deleted_jobs += 1
+
+                # Remove from dataJobs dictionary to mark as deleted
+                if job.flow_urn in dataJobs:
+                    dataJobs[job.flow_urn] = [j for j in dataJobs[job.flow_urn] if j.urn != job.urn]
+
+                if deleted_jobs % self.config.batch_size == 0:
+                    logger.info(f"Deleted {deleted_jobs} DataJobs so far")
 
         if deleted_jobs > 0:
-            logger.info(f"Deleted {deleted_jobs} DataJobs")
-        # Delete empty dataflows if needed
-        if self.config.delete_empty_data_flows:
-            deleted_data_flows: int = 0
-            for key in dataFlows:
-                if not dataJobs.get(key) or len(dataJobs[key]) == 0:
-                    logger.info(
-                        f"Deleting dataflow {key} because there are not datajobs"
-                    )
-                    self.delete_entity(key, "dataFlow")
-                    deleted_data_flows += 1
-                    if deleted_jobs % self.config.batch_size == 0:
-                        logger.info(f"Deleted {deleted_data_flows} DataFlows")
-            logger.info(f"Deleted {deleted_data_flows} DataFlows")
+            logger.info(f"Deleted {deleted_jobs} DataJobs in total")
 
-        return []
+        return dataJobs
+
+    def _delete_empty_dataflows(self, dataFlows: Dict[str, DataFlowEntity], dataJobs: Dict[str, List[DataJobEntity]]) -> None:
+        """
+        Delete dataflows that have no jobs associated with them.
+        """
+        deleted_data_flows: int = 0
+
+        logger.info(f"Checking {len(dataFlows)} dataflows for deletion...")
+
+        for key in dataFlows:
+            if not dataJobs.get(key) or len(dataJobs[key]) == 0:
+                logger.info(f"Deleting dataflow {key} because there are no datajobs")
+                self.delete_entity(key, "dataFlow")
+                deleted_data_flows += 1
+                if deleted_data_flows % self.config.batch_size == 0:
+                    logger.info(f"Deleted {deleted_data_flows} DataFlows so far")
+
+        logger.info(f"Deleted {deleted_data_flows} DataFlows in total")
