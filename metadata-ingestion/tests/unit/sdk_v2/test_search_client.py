@@ -1,21 +1,22 @@
+import unittest
+import unittest.mock
 from io import StringIO
-from unittest.mock import Mock
 
 import pytest
 import yaml
 from pydantic import ValidationError
 
-from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.filters import (
     RemovedStatusFilter,
     SearchFilterRule,
     generate_filter,
 )
-from datahub.metadata.urns import DataPlatformUrn, QueryUrn
+from datahub.metadata.urns import DataPlatformUrn, QueryUrn, Urn
 from datahub.sdk.main_client import DataHubClient
-from datahub.sdk.search_client import compile_filters
+from datahub.sdk.search_client import compile_filters, compute_entity_types
 from datahub.sdk.search_filters import Filter, FilterDsl as F, load_filters
 from datahub.utilities.urns.error import InvalidUrnError
+from tests.test_helpers.graph_helpers import MockDataHubGraph
 
 
 def test_filters_simple() -> None:
@@ -183,6 +184,39 @@ def test_unsupported_not() -> None:
         F.not_(env_filter)
 
 
+_default_soft_deleted_filter = {
+    "field": "removed",
+    "condition": "EQUAL",
+    "values": ["true"],
+    "negated": True,
+}
+
+
+def test_compute_entity_types() -> None:
+    assert compute_entity_types(
+        [
+            {
+                "and": [
+                    SearchFilterRule(
+                        field="_entityType",
+                        condition="EQUAL",
+                        values=["DATASET"],
+                    )
+                ]
+            },
+            {
+                "and": [
+                    SearchFilterRule(
+                        field="_entityType",
+                        condition="EQUAL",
+                        values=["CHART"],
+                    )
+                ]
+            },
+        ]
+    ) == ["DATASET", "CHART"]
+
+
 def test_compile_filters() -> None:
     filter = F.and_(F.env("PROD"), F.platform("snowflake"))
     expected_filters = [
@@ -198,6 +232,7 @@ def test_compile_filters() -> None:
                     "condition": "EQUAL",
                     "values": ["urn:li:dataPlatform:snowflake"],
                 },
+                _default_soft_deleted_filter,
             ]
         },
         {
@@ -212,19 +247,23 @@ def test_compile_filters() -> None:
                     "condition": "EQUAL",
                     "values": ["urn:li:dataPlatform:snowflake"],
                 },
+                _default_soft_deleted_filter,
             ]
         },
     ]
-    assert compile_filters(filter) == expected_filters
+    types, compiled = compile_filters(filter)
+    assert types is None
+    assert compiled == expected_filters
 
 
 def test_generate_filters() -> None:
-    compiled = compile_filters(
+    types, compiled = compile_filters(
         F.and_(
             F.entity_type(QueryUrn.ENTITY_TYPE),
             F.custom_filter("origin", "EQUAL", [DataPlatformUrn("snowflake").urn()]),
         )
     )
+    assert types == ["QUERY"]
     assert compiled == [
         {
             "and": [
@@ -234,6 +273,7 @@ def test_generate_filters() -> None:
                     "condition": "EQUAL",
                     "values": ["urn:li:dataPlatform:snowflake"],
                 },
+                _default_soft_deleted_filter,
             ]
         }
     ]
@@ -249,12 +289,9 @@ def test_generate_filters() -> None:
     ) == [
         {
             "and": [
-                {
-                    "field": "removed",
-                    "condition": "EQUAL",
-                    "negated": True,
-                    "values": ["true"],
-                },
+                # This filter appears twice - once from the compiled filters, and once
+                # from the status arg to generate_filter.
+                _default_soft_deleted_filter,
                 {
                     "field": "_entityType",
                     "condition": "EQUAL",
@@ -265,48 +302,64 @@ def test_generate_filters() -> None:
                     "condition": "EQUAL",
                     "values": ["urn:li:dataPlatform:snowflake"],
                 },
+                _default_soft_deleted_filter,
             ]
         }
     ]
 
 
-@pytest.fixture
-def mock_graph() -> Mock:
-    graph = Mock(spec=DataHubGraph)
-    return graph
+def test_get_urns() -> None:
+    graph = MockDataHubGraph()
 
+    with unittest.mock.patch.object(graph, "execute_graphql") as mock_execute_graphql:
+        mock_execute_graphql.return_value = {
+            "scrollAcrossEntities": {
+                "nextScrollId": None,
+                "searchResults": [{"entity": {"urn": "urn:li:corpuser:datahub"}}],
+            }
+        }
 
-@pytest.fixture
-def client(mock_graph: Mock) -> DataHubClient:
-    return DataHubClient(graph=mock_graph)
+        result_urns = ["urn:li:corpuser:datahub"]
+        mock_execute_graphql.return_value = {
+            "scrollAcrossEntities": {
+                "nextScrollId": None,
+                "searchResults": [{"entity": {"urn": urn}} for urn in result_urns],
+            }
+        }
 
-
-"""
-def test_get_urns(client: DataHubClient, mock_graph: Mock) -> None:
-    result_urns = ["urn:li:corpuser:datahub"]
-    mock_graph.get_urns_by_filter.return_value = result_urns
-
-    urns = client.search.get_urns(
-        filter=F.and_(
-            F.entity_type("corpuser"),
+        client = DataHubClient(graph=graph)
+        urns = client.search.get_urns(
+            filter=F.and_(
+                F.entity_type("corpuser"),
+            )
         )
-    )
-    assert list(urns) == [Urn.from_string(urn) for urn in result_urns]
+        assert list(urns) == [Urn.from_string(urn) for urn in result_urns]
 
-    assert mock_graph.get_urns_by_filter.call_count == 1
-    assert mock_graph.get_urns_by_filter.call_args.kwargs == dict(
-        query=None,
-        entity_types=["corpuser"],
-        extra_or_filters=[
-            {
-                "and": [
+        assert mock_execute_graphql.call_count == 1
+        assert "scrollAcrossEntities" in mock_execute_graphql.call_args.args[0]
+        mock_execute_graphql.assert_called_once_with(
+            unittest.mock.ANY,
+            variables={
+                "types": ["CORP_USER"],
+                "query": "*",
+                "orFilters": [
                     {
-                        "field": "_entityType",
-                        "condition": "EQUAL",
-                        "values": ["CORP_USER"],
+                        "and": [
+                            {
+                                "field": "_entityType",
+                                "condition": "EQUAL",
+                                "values": ["CORP_USER"],
+                            },
+                            {
+                                "field": "removed",
+                                "condition": "EQUAL",
+                                "values": ["true"],
+                                "negated": True,
+                            },
+                        ]
                     }
-                ]
+                ],
+                "batchSize": unittest.mock.ANY,
+                "scrollId": None,
             },
-        ],
-    )
-"""
+        )

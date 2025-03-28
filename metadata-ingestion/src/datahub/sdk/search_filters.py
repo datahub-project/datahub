@@ -4,7 +4,9 @@ import abc
 from typing import (
     Any,
     ClassVar,
+    Iterator,
     List,
+    Optional,
     Sequence,
     TypedDict,
     Union,
@@ -14,8 +16,13 @@ import pydantic
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
-from datahub.ingestion.graph.client import entity_type_to_graphql
-from datahub.ingestion.graph.filters import FilterOperator, SearchFilterRule
+from datahub.ingestion.graph.client import flexible_entity_type_to_graphql
+from datahub.ingestion.graph.filters import (
+    FilterOperator,
+    RemovedStatusFilter,
+    SearchFilterRule,
+    _get_status_filter,
+)
 from datahub.metadata.schema_classes import EntityTypeName
 from datahub.metadata.urns import DataPlatformUrn, DomainUrn
 
@@ -38,16 +45,17 @@ class _BaseFilter(ConfigModel):
     def compile(self) -> _OrFilters:
         pass
 
-
-def _flexible_entity_type_to_graphql(entity_type: str) -> str:
-    if entity_type.upper() == entity_type:
-        # Assume that we were passed a graphql EntityType enum value,
-        # so no conversion is needed.
-        return entity_type
-    return entity_type_to_graphql(entity_type)
+    def dfs(self) -> Iterator[_BaseFilter]:
+        yield self
 
 
 class _EntityTypeFilter(_BaseFilter):
+    """Filter for specific entity types.
+
+    If no entity type filter is specified, we will search all entity types in the
+    default search set, mirroring the behavior of the DataHub UI.
+    """
+
     ENTITY_TYPE_FIELD: ClassVar[str] = "_entityType"
 
     entity_type: List[str] = pydantic.Field(
@@ -58,7 +66,7 @@ class _EntityTypeFilter(_BaseFilter):
         return SearchFilterRule(
             field=self.ENTITY_TYPE_FIELD,
             condition="EQUAL",
-            values=[_flexible_entity_type_to_graphql(t) for t in self.entity_type],
+            values=[flexible_entity_type_to_graphql(t) for t in self.entity_type],
         )
 
     def compile(self) -> _OrFilters:
@@ -79,6 +87,26 @@ class _EntitySubtypeFilter(_BaseFilter):
 
     def compile(self) -> _OrFilters:
         return [{"and": [self._build_rule()]}]
+
+
+class _StatusFilter(_BaseFilter):
+    """Filter for the status of entities during search.
+
+    If not explicitly specified, the NOT_SOFT_DELETED status filter will be applied.
+    """
+
+    status: RemovedStatusFilter
+
+    def _build_rule(self) -> Optional[SearchFilterRule]:
+        return _get_status_filter(self.status)
+
+    def compile(self) -> _OrFilters:
+        rule = self._build_rule()
+        if rule:
+            return [{"and": [rule]}]
+        else:
+            # Our boolean algebra logic requires something here - returning [] would cause errors.
+            return FilterDsl.true().compile()
 
 
 class _PlatformFilter(_BaseFilter):
@@ -216,6 +244,11 @@ class _And(_BaseFilter):
             ]
         }
 
+    def dfs(self) -> Iterator[_BaseFilter]:
+        yield self
+        for filter in self.and_:
+            yield from filter.dfs()
+
 
 class _Or(_BaseFilter):
     """Represents an OR conjunction of filters."""
@@ -228,6 +261,11 @@ class _Or(_BaseFilter):
         for filter in self.or_:
             merged_filter.extend(filter.compile())
         return merged_filter
+
+    def dfs(self) -> Iterator[_BaseFilter]:
+        yield self
+        for filter in self.or_:
+            yield from filter.dfs()
 
 
 class _Not(_BaseFilter):
@@ -259,6 +297,10 @@ class _Not(_BaseFilter):
 
         return final_filters
 
+    def dfs(self) -> Iterator[_BaseFilter]:
+        yield self
+        yield from self.not_.dfs()
+
 
 # TODO: With pydantic 2, we can use a RootModel with a
 # discriminated union to make the error messages more informative.
@@ -268,6 +310,7 @@ Filter = Union[
     _Not,
     _EntityTypeFilter,
     _EntitySubtypeFilter,
+    _StatusFilter,
     _PlatformFilter,
     _DomainFilter,
     _EnvFilter,
@@ -316,6 +359,18 @@ class FilterDsl:
         return _Not(not_=arg)
 
     @staticmethod
+    def true() -> "Filter":
+        return _CustomCondition(
+            field="urn",
+            condition="EXISTS",
+            values=[],
+        )
+
+    @staticmethod
+    def false() -> "Filter":
+        return FilterDsl.not_(FilterDsl.true())
+
+    @staticmethod
     def entity_type(
         entity_type: Union[EntityTypeName, Sequence[EntityTypeName]],
     ) -> _EntityTypeFilter:
@@ -356,6 +411,10 @@ class FilterDsl:
             condition="EQUAL",
             values=[f"{key}={value}"],
         )
+
+    @staticmethod
+    def soft_deleted(status: RemovedStatusFilter) -> _StatusFilter:
+        return _StatusFilter(status=status)
 
     # TODO: Add a soft-deletion status filter
     # TODO: add a container / browse path filter

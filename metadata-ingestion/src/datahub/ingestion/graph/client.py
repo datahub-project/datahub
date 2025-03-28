@@ -49,6 +49,7 @@ from datahub.ingestion.graph.connections import (
 )
 from datahub.ingestion.graph.entity_versioning import EntityVersioningAPI
 from datahub.ingestion.graph.filters import (
+    RawSearchFilter,
     RawSearchFilterRule,
     RemovedStatusFilter,
     generate_filter,
@@ -75,10 +76,11 @@ from datahub.metadata.schema_classes import (
     SystemMetadataClass,
     TelemetryClientIdClass,
 )
+from datahub.metadata.urns import CorpUserUrn, Urn
 from datahub.telemetry.telemetry import telemetry_instance
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.str_enum import StrEnum
-from datahub.utilities.urns.urn import Urn, guess_entity_type
+from datahub.utilities.urns.urn import guess_entity_type
 
 if TYPE_CHECKING:
     from datahub.ingestion.sink.datahub_rest import (
@@ -116,7 +118,7 @@ def entity_type_to_graphql(entity_type: str) -> str:
     """Convert the entity types into GraphQL "EntityType" enum values."""
 
     # Hard-coded special cases.
-    if entity_type == "corpuser":
+    if entity_type == CorpUserUrn.ENTITY_TYPE:
         return "CORP_USER"
 
     # Convert camelCase to UPPER_UNDERSCORE.
@@ -131,6 +133,14 @@ def entity_type_to_graphql(entity_type: str) -> str:
         entity_type = entity_type[len("DATA_HUB_") :]
 
     return entity_type
+
+
+def flexible_entity_type_to_graphql(entity_type: str) -> str:
+    if entity_type.upper() == entity_type:
+        # Assume that we were passed a graphql EntityType enum value,
+        # so no conversion is needed.
+        return entity_type
+    return entity_type_to_graphql(entity_type)
 
 
 class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
@@ -805,7 +815,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
 
         :return: An iterable of (urn, schema info) tuple that match the filters.
         """
-        types = [entity_type_to_graphql("dataset")]
+        types = self._get_types(["dataset"])
 
         # Add the query default of * if no query is specified.
         query = query or "*"
@@ -876,7 +886,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         status: Optional[RemovedStatusFilter] = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 10000,
         extraFilters: Optional[List[RawSearchFilterRule]] = None,
-        extra_or_filters: Optional[List[Dict[str, List[RawSearchFilterRule]]]] = None,
+        extra_or_filters: Optional[RawSearchFilter] = None,
     ) -> Iterable[str]:
         """Fetch all urns that match all of the given filters.
 
@@ -968,7 +978,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 10000,
         extra_and_filters: Optional[List[RawSearchFilterRule]] = None,
-        extra_or_filters: Optional[List[Dict[str, List[RawSearchFilterRule]]]] = None,
+        extra_or_filters: Optional[RawSearchFilter] = None,
         extra_source_fields: Optional[List[str]] = None,
         skip_cache: bool = False,
     ) -> Iterable[dict]:
@@ -1121,7 +1131,8 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                 )
 
             types = [
-                entity_type_to_graphql(entity_type) for entity_type in entity_types
+                flexible_entity_type_to_graphql(entity_type)
+                for entity_type in entity_types
             ]
         return types
 

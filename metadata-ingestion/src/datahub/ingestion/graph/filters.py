@@ -14,6 +14,10 @@ from datahub.utilities.urns.urn import guess_entity_type
 
 RawSearchFilterRule: TypeAlias = Dict[str, Union[str, bool, List[str]]]
 
+# This is a list of OR filters, each of which is a list of AND filters.
+# This can be put directly into the orFilters parameter in GraphQL.
+RawSearchFilter: TypeAlias = List[Dict[Literal["and"], List[RawSearchFilterRule]]]
+
 # Mirrors our GraphQL enum: https://datahubproject.io/docs/graphql/enums#filteroperator
 FilterOperator: TypeAlias = Literal[
     "CONTAIN",
@@ -79,8 +83,8 @@ def generate_filter(
     container: Optional[str],
     status: Optional[RemovedStatusFilter],
     extra_filters: Optional[List[RawSearchFilterRule]],
-    extra_or_filters: Optional[List[Dict[str, List[RawSearchFilterRule]]]] = None,
-) -> List[Dict[str, List[RawSearchFilterRule]]]:
+    extra_or_filters: Optional[RawSearchFilter] = None,
+) -> RawSearchFilter:
     """
     Generate a search filter based on the provided parameters.
     :param platform: The platform to filter by.
@@ -118,7 +122,7 @@ def generate_filter(
     if extra_filters:
         and_filters += extra_filters
 
-    or_filters: List[Dict[str, List[RawSearchFilterRule]]] = [{"and": and_filters}]
+    or_filters: RawSearchFilter = [{"and": and_filters}]
 
     # Env filter
     if env:
@@ -132,7 +136,7 @@ def generate_filter(
 
     # Extra OR filters are distributed across the top level and lists.
     if extra_or_filters:
-        new_or_filters = []
+        new_or_filters: RawSearchFilter = []
         for and_filter in or_filters:
             for extra_or_filter in extra_or_filters:
                 if isinstance(extra_or_filter, dict) and "and" in extra_or_filter:
