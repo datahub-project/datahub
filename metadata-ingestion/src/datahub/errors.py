@@ -37,3 +37,7 @@ class SearchFilterWarning(Warning):
 
 class ExperimentalWarning(Warning):
     pass
+
+
+class APITracingWarning(Warning):
+    pass
