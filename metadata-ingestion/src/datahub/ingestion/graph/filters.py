@@ -1,5 +1,6 @@
 import dataclasses
 import enum
+import warnings
 from typing import Dict, List, Literal, Optional, Union
 
 from typing_extensions import TypeAlias
@@ -8,6 +9,7 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
 )
+from datahub.errors import SearchFilterWarning
 from datahub.utilities.urns.urn import guess_entity_type
 
 RawSearchFilterRule: TypeAlias = Dict[str, Union[str, bool, List[str]]]
@@ -130,11 +132,27 @@ def generate_filter(
 
     # Extra OR filters are distributed across the top level and lists.
     if extra_or_filters:
-        or_filters = [
-            {"and": and_filter["and"] + extra_or_filter["and"]}
-            for extra_or_filter in extra_or_filters
-            for and_filter in or_filters
-        ]
+        new_or_filters = []
+        for and_filter in or_filters:
+            for extra_or_filter in extra_or_filters:
+                if isinstance(extra_or_filter, dict) and "and" in extra_or_filter:
+                    new_or_filters.append(
+                        {"and": and_filter["and"] + extra_or_filter["and"]}
+                    )
+                else:
+                    # Hack for backwards compatibility.
+                    # We have some code that erroneously passed a List[RawSearchFilterRule]
+                    # instead of a List[Dict["and", List[RawSearchFilterRule]]].
+                    warnings.warn(
+                        "Passing a List[RawSearchFilterRule] to extra_or_filters is deprecated. "
+                        "Please pass a List[Dict[str, List[RawSearchFilterRule]]] instead.",
+                        SearchFilterWarning,
+                        stacklevel=3,
+                    )
+                    new_or_filters.append(
+                        {"and": and_filter["and"] + [extra_or_filter]}  # type: ignore
+                    )
+        or_filters = new_or_filters
 
     return or_filters
 
