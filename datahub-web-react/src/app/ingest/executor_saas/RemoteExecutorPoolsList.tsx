@@ -3,6 +3,7 @@ import TabToolbar from '@src/app/entityV2/shared/components/styled/TabToolbar';
 import { Message } from '@src/app/shared/Message';
 import * as QueryString from 'query-string';
 import {
+    useGetRemoteExecutorPoolQuery,
     useListRemoteExecutorPoolsQuery,
     useUpdateDefaultRemoteExecutorPoolMutation,
 } from '@src/graphql/remote_executor.saas.generated';
@@ -19,13 +20,11 @@ import { INGESTION_TAB_QUERY_PARAMS } from '../constants';
 import { TabType } from '../types';
 import { RemoteExecutorPoolsTable } from './RemoteExecutorPoolsTable';
 import CreateRemoteExecutorPoolModal from './CreateRemoteExecutorPoolModal';
+import { RemoteExecutorPoolProvisioningPreviewModal } from './RemoteExecutorPoolProvisioningPreviewModal';
 
 const DEFAULT_PAGE_SIZE = 25;
 const REMOTE_EXECUTORS_CREATE_SOURCE_ID = 'REMOTE_EXECUTORS_CREATE_SOURCE_ID';
 const REMOTE_EXECUTORS_REFRESH_SOURCE_ID = 'REMOTE_EXECUTORS_REFRESH_SOURCE_ID';
-
-// TODO: remove this once SQS provisioning is ready
-const IS_CREATE_POOL_ENABLED = false;
 
 const ExecutorsContainer = styled.div``;
 
@@ -59,7 +58,11 @@ const StyledSearchBar = styled(SearchBar)`
     width: 220px;
 `;
 
-const RefreshButtonContainer = styled.div``;
+const RefreshButtonContainer = styled.div`
+    flex-direction: row;
+    display: flex;
+    gap: 24px;
+`;
 
 const PaginationContainer = styled.div`
     display: flex;
@@ -122,6 +125,19 @@ export const RemoteExecutorPoolsList = ({ onSwitchTab }: Props) => {
         setShowCreatePoolModal(true);
     };
 
+    // ---------------------- view pool provisioning status ---------------------- //
+    const [showPoolProvisioningStatusForUrn, setShowPoolProvisioningStatusForUrn] = useState<string | null>(null);
+
+    const { data: poolProvisioningStatus, refetch: refetchPoolProvisioningStatus } = useGetRemoteExecutorPoolQuery({
+        variables: {
+            urn: showPoolProvisioningStatusForUrn || '',
+        },
+    });
+
+    const onViewPoolProvisioningStatus = (urn: string) => {
+        setShowPoolProvisioningStatusForUrn(urn);
+    };
+
     // ---------------------- default search handling ---------------------- //
     const searchInputRef = useRef<HTMLInputElement>(null);
     useEffect(() => {
@@ -151,22 +167,16 @@ export const RemoteExecutorPoolsList = ({ onSwitchTab }: Props) => {
             <ExecutorsContainer>
                 {/* ----------- Toolbar ----------- */}
                 <StyledTabToolbar>
-                    <div>
-                        {canManagePools && IS_CREATE_POOL_ENABLED && (
+                    <SearchContainer>
+                        <StyledSearchBar placeholder="Search pools..." value={query || ''} onChange={handleSearch} />
+                    </SearchContainer>
+                    <RefreshButtonContainer>
+                        {canManagePools && (
                             <Button id={REMOTE_EXECUTORS_CREATE_SOURCE_ID} variant="text" onClick={onCreatePool}>
                                 <PlusStyled />
                                 <span style={{ marginLeft: 4 }}>Create</span>
                             </Button>
                         )}
-                        <SearchContainer>
-                            <StyledSearchBar
-                                placeholder="Search pools..."
-                                value={query || ''}
-                                onChange={handleSearch}
-                            />
-                        </SearchContainer>
-                    </div>
-                    <RefreshButtonContainer>
                         <Button id={REMOTE_EXECUTORS_REFRESH_SOURCE_ID} variant="text" onClick={onRefresh}>
                             <ArrowClockwiseStyled /> <span style={{ marginLeft: 4 }}>Refresh</span>
                         </Button>
@@ -178,6 +188,7 @@ export const RemoteExecutorPoolsList = ({ onSwitchTab }: Props) => {
                     onRefresh={onRefresh}
                     updateDefaultPool={updateDefaultPool}
                     viewSourcesForPool={onViewSourcesForPool}
+                    viewPoolProvisioningStatus={onViewPoolProvisioningStatus}
                 />
                 {/* ----------- Pagination ----------- */}
                 <PaginationContainer>
@@ -196,6 +207,14 @@ export const RemoteExecutorPoolsList = ({ onSwitchTab }: Props) => {
                     visible={showCreatePoolModal}
                     onCancel={() => setShowCreatePoolModal(false)}
                     onSuccessfulCreate={() => setTimeout(onRefresh, 500)}
+                />
+            )}
+            {showPoolProvisioningStatusForUrn && (
+                <RemoteExecutorPoolProvisioningPreviewModal
+                    visible
+                    onClose={() => setShowPoolProvisioningStatusForUrn(null)}
+                    getPool={() => refetchPoolProvisioningStatus()}
+                    pool={poolProvisioningStatus}
                 />
             )}
         </>

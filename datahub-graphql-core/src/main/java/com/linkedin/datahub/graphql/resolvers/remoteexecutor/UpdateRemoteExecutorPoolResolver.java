@@ -12,6 +12,8 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.executorpool.RemoteExecutorPoolInfo;
+import com.linkedin.executorpool.RemoteExecutorPoolState;
+import com.linkedin.executorpool.RemoteExecutorPoolStatus;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
@@ -52,6 +54,21 @@ public class UpdateRemoteExecutorPoolResolver implements DataFetcher<Completable
             // 3. Update poolInfo
             if (input.getDescription() != null) {
               poolInfo.setDescription(input.getDescription());
+            }
+            if (input.getReprovision() != null && input.getReprovision()) {
+              if (!poolInfo.hasState()) {
+                final RemoteExecutorPoolState defaultState = new RemoteExecutorPoolState();
+                poolInfo.setState(defaultState);
+              }
+              final boolean isProvisioningFailed =
+                  !poolInfo.getState().hasStatus()
+                      || poolInfo
+                          .getState()
+                          .getStatus()
+                          .equals(RemoteExecutorPoolStatus.PROVISIONING_FAILED);
+              if (isProvisioningFailed) {
+                poolInfo.getState().setStatus(RemoteExecutorPoolStatus.PROVISIONING_PENDING);
+              }
             }
 
             // 4. Ingest updated poolInfo

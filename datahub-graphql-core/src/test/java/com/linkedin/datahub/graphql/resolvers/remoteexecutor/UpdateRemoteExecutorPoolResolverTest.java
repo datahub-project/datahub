@@ -17,6 +17,8 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.executorpool.RemoteExecutorPoolInfo;
+import com.linkedin.executorpool.RemoteExecutorPoolState;
+import com.linkedin.executorpool.RemoteExecutorPoolStatus;
 import com.linkedin.metadata.AcrylConstants;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
@@ -63,6 +65,7 @@ public class UpdateRemoteExecutorPoolResolverTest {
     UpdateRemoteExecutorPoolInput input = new UpdateRemoteExecutorPoolInput();
     input.setUrn(TEST_POOL_URN_STR);
     input.setDescription(TEST_DESCRIPTION);
+    input.setReprovision(false); // Default to false
     when(_dataFetchingEnvironment.getArgument("input")).thenReturn(input);
 
     _resolver = new UpdateRemoteExecutorPoolResolver(_entityClient);
@@ -187,5 +190,188 @@ public class UpdateRemoteExecutorPoolResolverTest {
 
     // Verify exception is thrown
     assertThrows(RuntimeException.class, () -> _resolver.get(_dataFetchingEnvironment).join());
+  }
+
+  @Test
+  public void testUpdatePoolWithReprovisionNoState() throws Exception {
+    // Mock permissions check
+    when(_mockContext.getOperationContext().authorize(anyString(), any(EntitySpec.class)))
+        .thenReturn(
+            new AuthorizationResult(
+                mock(AuthorizationRequest.class), AuthorizationResult.Type.ALLOW, "message"));
+
+    // Mock existing pool info without state
+    RemoteExecutorPoolInfo existingPoolInfo = new RemoteExecutorPoolInfo();
+    existingPoolInfo.setDescription("Old description");
+    existingPoolInfo.setCreatedAt(1234567890L);
+
+    EnvelopedAspect mockEnvelopedAspect = new EnvelopedAspect();
+    mockEnvelopedAspect.setValue(new Aspect(existingPoolInfo.data()));
+
+    EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    aspectMap.put(AcrylConstants.REMOTE_EXECUTOR_POOL_INFO_ASPECT_NAME, mockEnvelopedAspect);
+
+    EntityResponse mockResponse = mock(EntityResponse.class);
+    when(mockResponse.getAspects()).thenReturn(aspectMap);
+    when(_entityClient.getV2(
+            any(OperationContext.class),
+            eq(AcrylConstants.REMOTE_EXECUTOR_POOL_ENTITY_NAME),
+            eq(TEST_POOL_URN),
+            any(Set.class),
+            eq(false)))
+        .thenReturn(mockResponse);
+
+    // Setup input with reprovision true
+    UpdateRemoteExecutorPoolInput input = new UpdateRemoteExecutorPoolInput();
+    input.setUrn(TEST_POOL_URN_STR);
+    input.setReprovision(true);
+    when(_dataFetchingEnvironment.getArgument("input")).thenReturn(input);
+
+    // Execute resolver
+    Boolean result = _resolver.get(_dataFetchingEnvironment).join();
+
+    // Verify result
+    assertTrue(result);
+
+    // Verify ingest proposal was called with correct parameters
+    ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    verify(_entityClient)
+        .ingestProposal(any(OperationContext.class), proposalCaptor.capture(), eq(false));
+
+    // Verify proposal contents
+    MetadataChangeProposal proposal = proposalCaptor.getValue();
+    assertEquals(proposal.getEntityUrn(), TEST_POOL_URN);
+    assertEquals(proposal.getAspectName(), AcrylConstants.REMOTE_EXECUTOR_POOL_INFO_ASPECT_NAME);
+
+    RemoteExecutorPoolInfo updatedPoolInfo =
+        new RemoteExecutorPoolInfo(mockEnvelopedAspect.getValue().data());
+    assertTrue(updatedPoolInfo.hasState());
+    assertEquals(
+        updatedPoolInfo.getState().getStatus(), RemoteExecutorPoolStatus.PROVISIONING_PENDING);
+  }
+
+  @Test
+  public void testUpdatePoolWithReprovisionFailedState() throws Exception {
+    // Mock permissions check
+    when(_mockContext.getOperationContext().authorize(anyString(), any(EntitySpec.class)))
+        .thenReturn(
+            new AuthorizationResult(
+                mock(AuthorizationRequest.class), AuthorizationResult.Type.ALLOW, "message"));
+
+    // Mock existing pool info with failed state
+    RemoteExecutorPoolInfo existingPoolInfo = new RemoteExecutorPoolInfo();
+    existingPoolInfo.setDescription("Old description");
+    existingPoolInfo.setCreatedAt(1234567890L);
+    RemoteExecutorPoolState state = new RemoteExecutorPoolState();
+    state.setStatus(RemoteExecutorPoolStatus.PROVISIONING_FAILED);
+    existingPoolInfo.setState(state);
+
+    EnvelopedAspect mockEnvelopedAspect = new EnvelopedAspect();
+    mockEnvelopedAspect.setValue(new Aspect(existingPoolInfo.data()));
+
+    EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    aspectMap.put(AcrylConstants.REMOTE_EXECUTOR_POOL_INFO_ASPECT_NAME, mockEnvelopedAspect);
+
+    EntityResponse mockResponse = mock(EntityResponse.class);
+    when(mockResponse.getAspects()).thenReturn(aspectMap);
+    when(_entityClient.getV2(
+            any(OperationContext.class),
+            eq(AcrylConstants.REMOTE_EXECUTOR_POOL_ENTITY_NAME),
+            eq(TEST_POOL_URN),
+            any(Set.class),
+            eq(false)))
+        .thenReturn(mockResponse);
+
+    // Setup input with reprovision true
+    UpdateRemoteExecutorPoolInput input = new UpdateRemoteExecutorPoolInput();
+    input.setUrn(TEST_POOL_URN_STR);
+    input.setReprovision(true);
+    when(_dataFetchingEnvironment.getArgument("input")).thenReturn(input);
+
+    // Execute resolver
+    Boolean result = _resolver.get(_dataFetchingEnvironment).join();
+
+    // Verify result
+    assertTrue(result);
+
+    // Verify ingest proposal was called with correct parameters
+    ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    verify(_entityClient)
+        .ingestProposal(any(OperationContext.class), proposalCaptor.capture(), eq(false));
+
+    // Verify proposal contents
+    MetadataChangeProposal proposal = proposalCaptor.getValue();
+    assertEquals(proposal.getEntityUrn(), TEST_POOL_URN);
+    assertEquals(proposal.getAspectName(), AcrylConstants.REMOTE_EXECUTOR_POOL_INFO_ASPECT_NAME);
+
+    RemoteExecutorPoolInfo updatedPoolInfo =
+        new RemoteExecutorPoolInfo(mockEnvelopedAspect.getValue().data());
+    assertTrue(updatedPoolInfo.hasState());
+    assertEquals(
+        updatedPoolInfo.getState().getStatus(), RemoteExecutorPoolStatus.PROVISIONING_PENDING);
+  }
+
+  @Test
+  public void testUpdatePoolWithReprovisionNonFailedState() throws Exception {
+    // Mock permissions check
+    when(_mockContext.getOperationContext().authorize(anyString(), any(EntitySpec.class)))
+        .thenReturn(
+            new AuthorizationResult(
+                mock(AuthorizationRequest.class), AuthorizationResult.Type.ALLOW, "message"));
+
+    // Mock existing pool info with non-failed state
+    RemoteExecutorPoolInfo existingPoolInfo = new RemoteExecutorPoolInfo();
+    existingPoolInfo.setDescription("Old description");
+    existingPoolInfo.setCreatedAt(1234567890L);
+    RemoteExecutorPoolState state = new RemoteExecutorPoolState();
+    state.setStatus(RemoteExecutorPoolStatus.PROVISIONING_PENDING);
+    existingPoolInfo.setState(state);
+
+    EnvelopedAspect mockEnvelopedAspect = new EnvelopedAspect();
+    mockEnvelopedAspect.setValue(new Aspect(existingPoolInfo.data()));
+
+    EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    aspectMap.put(AcrylConstants.REMOTE_EXECUTOR_POOL_INFO_ASPECT_NAME, mockEnvelopedAspect);
+
+    EntityResponse mockResponse = mock(EntityResponse.class);
+    when(mockResponse.getAspects()).thenReturn(aspectMap);
+    when(_entityClient.getV2(
+            any(OperationContext.class),
+            eq(AcrylConstants.REMOTE_EXECUTOR_POOL_ENTITY_NAME),
+            eq(TEST_POOL_URN),
+            any(Set.class),
+            eq(false)))
+        .thenReturn(mockResponse);
+
+    // Setup input with reprovision true
+    UpdateRemoteExecutorPoolInput input = new UpdateRemoteExecutorPoolInput();
+    input.setUrn(TEST_POOL_URN_STR);
+    input.setReprovision(true);
+    when(_dataFetchingEnvironment.getArgument("input")).thenReturn(input);
+
+    // Execute resolver
+    Boolean result = _resolver.get(_dataFetchingEnvironment).join();
+
+    // Verify result
+    assertTrue(result);
+
+    // Verify ingest proposal was called with correct parameters
+    ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    verify(_entityClient)
+        .ingestProposal(any(OperationContext.class), proposalCaptor.capture(), eq(false));
+
+    // Verify proposal contents
+    MetadataChangeProposal proposal = proposalCaptor.getValue();
+    assertEquals(proposal.getEntityUrn(), TEST_POOL_URN);
+    assertEquals(proposal.getAspectName(), AcrylConstants.REMOTE_EXECUTOR_POOL_INFO_ASPECT_NAME);
+
+    RemoteExecutorPoolInfo updatedPoolInfo =
+        new RemoteExecutorPoolInfo(mockEnvelopedAspect.getValue().data());
+    assertTrue(updatedPoolInfo.hasState());
+    assertEquals(
+        updatedPoolInfo.getState().getStatus(), RemoteExecutorPoolStatus.PROVISIONING_PENDING);
   }
 }

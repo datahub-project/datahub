@@ -2,6 +2,7 @@ extend type Query {
   listRemoteExecutorPools(input: ListRemoteExecutorPoolsInput!): ListRemoteExecutorPoolsResult!
   defaultRemoteExecutorPool: DefaultRemoteExecutorPoolResult!
   getRemoteExecutor(urn: String!): RemoteExecutor
+  getRemoteExecutorPool(urn: String!): RemoteExecutorPool
 }
 
 extend type Mutation {
@@ -49,6 +50,12 @@ input UpdateRemoteExecutorPoolInput {
   A human-readable description of the pool
   """
   description: String
+
+  """
+  Whether to reprovision the pool
+  Only works if the pool is in the provisioning failed state
+  """
+  reprovision: Boolean
 }
 
 input ListRemoteExecutorPoolsInput {
@@ -111,6 +118,11 @@ type RemoteExecutorPool implements Entity {
   isEmbedded: Boolean
 
   """
+  The readiness state of the remote executor pool
+  """
+  state: RemoteExecutorPoolState
+
+  """
   The remote executors within this pool
   """
   remoteExecutors(start: Int!, count: Int!): ListRemoteExecutorsResult
@@ -119,6 +131,37 @@ type RemoteExecutorPool implements Entity {
   The ingestion sources that are associated with this pool
   """
   ingestionSources(input: RemoteExecutorPoolIngestionSourcesInput!): ListIngestionSourcesResult
+}
+
+enum RemoteExecutorPoolStatus {
+  """
+  The pool is pending provisioning. Default state on creation.
+  """
+  PROVISIONING_PENDING,
+  """
+  The pool has been picked up by DataHub and is in the process of being provisioned.
+  """
+  PROVISIONING_IN_PROGRESS,
+  """
+  The pool has failed to be provisioned.
+  """
+  PROVISIONING_FAILED,
+  """
+  The pool has been successfully provisioned and is ready to accept tasks.
+  """
+  READY,
+}
+
+type RemoteExecutorPoolState {
+  """
+  The status of the remote executor pool
+  """
+  status: RemoteExecutorPoolStatus!
+
+  """
+  The message of the remote executor pool
+  """
+  message: String
 }
 
 input RemoteExecutorPoolIngestionSourcesInput {

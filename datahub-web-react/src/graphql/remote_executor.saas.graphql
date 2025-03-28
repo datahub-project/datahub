@@ -18,6 +18,16 @@ query getDefaultRemoteExecutorPool {
     }
 }
 
+query getRemoteExecutorPool($urn: String!) {
+    getRemoteExecutorPool(urn: $urn) {
+        urn
+        state {
+            status
+            message
+        }
+    }
+}
+
 query getRemoteExecutor($urn: String!) {
     getRemoteExecutor(urn: $urn) {
         urn

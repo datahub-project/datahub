@@ -5,6 +5,8 @@ import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.RemoteExecutorPool;
+import com.linkedin.datahub.graphql.generated.RemoteExecutorPoolState;
+import com.linkedin.datahub.graphql.generated.RemoteExecutorPoolStatus;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -41,5 +43,20 @@ public class RemoteExecutorPoolMapper {
     if (info.hasDescription()) {
       executor.setDescription(info.getDescription());
     }
+    if (info.hasState()) {
+      executor.setState(mapState(info.getState()));
+    }
+  }
+
+  private static RemoteExecutorPoolState mapState(
+      com.linkedin.executorpool.RemoteExecutorPoolState state) {
+    final RemoteExecutorPoolState result = new RemoteExecutorPoolState();
+    if (state.hasMessage()) {
+      result.setMessage(state.getMessage());
+    }
+    if (state.hasStatus()) {
+      result.setStatus(RemoteExecutorPoolStatus.valueOf(state.getStatus().name()));
+    }
+    return result;
   }
 }

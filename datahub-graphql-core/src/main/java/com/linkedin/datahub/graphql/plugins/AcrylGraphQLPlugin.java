@@ -565,6 +565,10 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     new ListRemoteExecutorPoolsResolver(this.entityClient))
                 .dataFetcher("getRemoteExecutor", new GetRemoteExecutorResolver(this.entityClient))
                 .dataFetcher(
+                    "getRemoteExecutorPool",
+                    new LoadableTypeResolver<>(
+                        remoteExecutorPoolType, (env) -> env.getArgument("urn")))
+                .dataFetcher(
                     "defaultRemoteExecutorPool",
                     new GetDefaultRemoteExecutorPoolResolver(this.entityClient)));
   }

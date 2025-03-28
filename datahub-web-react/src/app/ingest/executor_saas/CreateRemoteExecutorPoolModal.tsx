@@ -1,9 +1,14 @@
 import { colors } from '@src/alchemy-components';
-import { useCreateRemoteExecutorPoolMutation } from '@src/graphql/remote_executor.saas.generated';
-import { Button, Form, Input, Modal, Switch, Typography } from 'antd';
+import {
+    useCreateRemoteExecutorPoolMutation,
+    useGetRemoteExecutorPoolQuery,
+} from '@src/graphql/remote_executor.saas.generated';
+import { RemoteExecutorPoolStatus } from '@src/types.generated';
+import { Button, Form, Input, message, Modal, Switch, Typography } from 'antd';
 import { CheckCircle } from 'phosphor-react';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import { RemoteExecutorPoolProvisioningPreviewModal } from './RemoteExecutorPoolProvisioningPreviewModal';
 
 const SuccessHeaderWrapper = styled.div`
     display: flex;
@@ -25,39 +30,55 @@ type FormProps = {
 };
 
 export default function CreateRemoteExecutorPoolModal({ visible, onCancel, onSuccessfulCreate }: Props) {
-    const [showSuccess, setShowSuccess] = useState(false);
+    const [createdPoolUrn, setCreatedPoolUrn] = useState<string | null>(null);
+    const showSuccess = !!createdPoolUrn;
+
     const [form] = Form.useForm<FormProps>();
     const [createButtonEnabled, setCreateButtonEnabled] = useState(true);
 
     const [createPool, { loading }] = useCreateRemoteExecutorPoolMutation();
+    const { data: createdPool, refetch } = useGetRemoteExecutorPoolQuery({
+        variables: {
+            urn: createdPoolUrn || '',
+        },
+        skip: !createdPoolUrn,
+    });
+
+    const isPoolReady = createdPool?.getRemoteExecutorPool?.state?.status === RemoteExecutorPoolStatus.Ready;
 
     const handleCreate = async () => {
         try {
             const { name, description, isDefault } = form.getFieldsValue();
-            await createPool({
-                variables: {
-                    input: {
-                        executorPoolId: name,
-                        description,
-                        isDefault,
+            const poolUrn = (
+                await createPool({
+                    variables: {
+                        input: {
+                            executorPoolId: name,
+                            description,
+                            isDefault,
+                        },
                     },
-                },
-            });
+                })
+            ).data?.createRemoteExecutorPool;
+            if (!poolUrn) {
+                throw new Error('Failed to create pool');
+            }
             onSuccessfulCreate();
-            setShowSuccess(true);
+            setCreatedPoolUrn(poolUrn);
         } catch (error) {
+            message.error('Failed to create pool. Please try again later.');
             console.error('Failed to create pool:', error);
         }
     };
 
     const handleClose = () => {
         form.resetFields();
-        setShowSuccess(false);
+        setCreatedPoolUrn(null);
         onCancel();
     };
 
     if (showSuccess) {
-        return (
+        return isPoolReady ? (
             <Modal open={visible} cancelButtonProps={{ style: { display: 'none' } }} onOk={handleClose} title="Success">
                 <div className="space-y-4 p-4">
                     <div className="flex flex-col gap-2">
@@ -78,6 +99,13 @@ export default function CreateRemoteExecutorPoolModal({ visible, onCancel, onSuc
                     </div>
                 </div>
             </Modal>
+        ) : (
+            <RemoteExecutorPoolProvisioningPreviewModal
+                getPool={refetch}
+                pool={createdPool}
+                visible={visible}
+                onClose={handleClose}
+            />
         );
     }
 

@@ -1,6 +1,6 @@
 import { uniq } from 'lodash';
 import { StyledTable } from '@src/app/entityV2/shared/components/styled/StyledTable';
-import { RemoteExecutorPool } from '@src/types.generated';
+import { RemoteExecutorPool, RemoteExecutorPoolStatus } from '@src/types.generated';
 import { Button, Empty, Popover, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
@@ -55,14 +55,29 @@ const LinkButton = styled(Button)`
     }
 `;
 
+const ProvisioningStatusButton = styled(Button)`
+    margin-left: 4px;
+    color: ${colors.blue[500]};
+    &:hover {
+        background: none;
+    }
+`;
+
 type Props = {
     pools: RemoteExecutorPool[];
     onRefresh: () => void;
     updateDefaultPool: (urn: string) => void;
     viewSourcesForPool: (executorPoolId: string) => void;
+    viewPoolProvisioningStatus: (urn: string) => void;
 };
 
-export const RemoteExecutorPoolsTable = ({ pools, onRefresh, updateDefaultPool, viewSourcesForPool }: Props) => {
+export const RemoteExecutorPoolsTable = ({
+    pools,
+    onRefresh,
+    updateDefaultPool,
+    viewSourcesForPool,
+    viewPoolProvisioningStatus,
+}: Props) => {
     const tableData = pools.map((pool) => ({
         urn: pool.urn,
         isEmbedded: pool.isEmbedded,
@@ -76,6 +91,7 @@ export const RemoteExecutorPoolsTable = ({ pools, onRefresh, updateDefaultPool, 
         remoteExecutors: pool.remoteExecutors,
         ingestionSources: pool.ingestionSources,
         isDefault: pool.isDefault,
+        status: pool.state?.status,
     }));
     const tableColumns = [
         {
@@ -90,6 +106,11 @@ export const RemoteExecutorPoolsTable = ({ pools, onRefresh, updateDefaultPool, 
                     ) : (
                         ''
                     )}
+                    {record.status !== RemoteExecutorPoolStatus.Ready ? (
+                        <ProvisioningStatusButton type="text" onClick={() => viewPoolProvisioningStatus(record.urn)}>
+                            See status
+                        </ProvisioningStatusButton>
+                    ) : null}
                 </Typography.Text>
             ),
         },

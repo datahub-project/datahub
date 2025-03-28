@@ -229,9 +229,10 @@ export function DetailsColumn({ executor }: { executor: RemoteExecutor }) {
                     <Typography.Text>
                         <b>Host:</b> {executor.executorHostname}
                     </Typography.Text>
-                    <Typography.Text>
+                    {/* Hiding IP address for now as it's not useful information and unecessary to expose */}
+                    {/* <Typography.Text>
                         <b>Address:</b> {executor.executorAddress}
-                    </Typography.Text>
+                    </Typography.Text> */}
                     <Typography.Text>
                         <b>Logs enabled:</b> {executor.logDeliveryEnabled ? 'Yes' : 'No'}
                     </Typography.Text>
