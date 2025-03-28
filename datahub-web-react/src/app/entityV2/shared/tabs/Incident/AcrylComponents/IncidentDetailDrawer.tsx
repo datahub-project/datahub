@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 
 import { Drawer, Modal } from 'antd';
 import ClickOutside from '@src/app/shared/ClickOutside';
-import { Incident } from '@src/types.generated';
+import { EntityPrivileges, Incident } from '@src/types.generated';
 import { IncidentDrawerHeader } from './IncidentDrawerHeader';
 import { IncidentView } from './IncidentView';
 import { IncidentEditor } from './IncidentEditor';
@@ -18,9 +18,17 @@ type IncidentDetailDrawerProps = {
     onCancel?: () => void;
     onSubmit?: (incident?: Incident) => void;
     entity?: EntityStagedForIncident;
+    privileges?: EntityPrivileges;
 };
 
-export const IncidentDetailDrawer = ({ mode, onCancel, onSubmit, incident, entity }: IncidentDetailDrawerProps) => {
+export const IncidentDetailDrawer = ({
+    mode,
+    onCancel,
+    onSubmit,
+    incident,
+    entity,
+    privileges,
+}: IncidentDetailDrawerProps) => {
     const [isEditView, setIsEditView] = useState<boolean>(false);
     const showEditor = isEditView || mode === IncidentAction.CREATE;
     const modalClosePopup = () => {
@@ -57,6 +65,7 @@ export const IncidentDetailDrawer = ({ mode, onCancel, onSubmit, incident, entit
                     setIsEditActive={setIsEditView}
                     data={incident}
                     platform={entity?.platform}
+                    privileges={privileges}
                 />
                 {showEditor ? (
                     <IncidentEditor
