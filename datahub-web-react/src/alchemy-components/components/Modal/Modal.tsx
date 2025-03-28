@@ -50,8 +50,9 @@ const ButtonsContainer = styled.div`
 
 export interface ModalButton extends ButtonProps {
     text: string;
-    key: string;
+    key?: string;
     onClick: () => void;
+    buttonDataTestId?: string;
 }
 
 export interface ModalProps {
@@ -94,10 +95,10 @@ export function Modal({
             footer={
                 !!buttons?.length && (
                     <ButtonsContainer>
-                        {buttons.map(({ text, variant, onClick, key, ...buttonProps }, index) => (
+                        {buttons.map(({ text, variant, onClick, key, buttonDataTestId, ...buttonProps }, index) => (
                             <Button
-                                key={key}
-                                data-testid={dataTestId && `${dataTestId}-${variant}-${index}`}
+                                key={key || text}
+                                data-testid={buttonDataTestId ?? (dataTestId && `${dataTestId}-${variant}-${index}`)}
                                 variant={variant}
                                 onClick={onClick}
                                 {...buttonProps}

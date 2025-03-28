@@ -21,8 +21,10 @@ const REQUEST_TYPE_DISPLAY_NAME = 'Glossary Term Proposal';
 export default function TermAssociationRequestItem({ actionRequest, showActionsButtons, onUpdate }: Props) {
     const entityRegistry = useEntityRegistry();
 
-    const term = actionRequest.params?.glossaryTermProposal?.glossaryTerm;
-    const termName = entityRegistry.getDisplayName(EntityType.GlossaryTerm, term);
+    const term =
+        actionRequest.params?.glossaryTermProposal?.glossaryTerm ||
+        actionRequest.params?.glossaryTermProposal?.glossaryTerms?.[0];
+    const termName = term && entityRegistry.getDisplayName(EntityType.GlossaryTerm, term);
     const termView = term && (
         <Link to={`/${entityRegistry.getPathName(EntityType.GlossaryTerm)}/${term.urn}`}>
             <StyledTag noMargin $color={null} style={{ marginRight: 2, marginLeft: 2 }}>

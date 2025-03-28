@@ -205,36 +205,40 @@ export default function TagTermGroup({
                     fontSize={fontSize}
                 />
             ))}
-            {proposedGlossaryTerms?.map((actionRequest) => (
-                <ProposedTerm
-                    closable={false}
-                    data-testid={`proposed-term-${actionRequest.params?.glossaryTermProposal?.glossaryTerm?.name}`}
-                    onClick={() => {
-                        setShowProposalDecisionModal(true);
-                    }}
-                >
-                    <BookmarkSimple style={{ marginRight: '3%' }} />
-                    {entityRegistry.getDisplayName(
-                        EntityType.GlossaryTerm,
-                        actionRequest.params?.glossaryTermProposal?.glossaryTerm,
-                    )}
-                    <ProposalModal
-                        actionRequest={actionRequest}
-                        showProposalDecisionModal={showProposalDecisionModal}
-                        onCloseProposalDecisionModal={onCloseProposalDecisionModal}
-                        onProposalAcceptance={onProposalAcceptance}
-                        onProposalRejection={onProposalRejection}
-                        onActionRequestUpdate={onActionRequestUpdate}
-                        elementName={entityRegistry.getDisplayName(
-                            EntityType.GlossaryTerm,
-                            actionRequest.params?.glossaryTermProposal?.glossaryTerm,
+            {proposedGlossaryTerms?.map((actionRequest) => {
+                const proposedTerm =
+                    actionRequest.params?.glossaryTermProposal?.glossaryTerm ||
+                    actionRequest.params?.glossaryTermProposal?.glossaryTerms?.[0];
+
+                return (
+                    <>
+                        {proposedTerm && (
+                            <ProposedTerm
+                                closable={false}
+                                data-testid={`proposed-term-${proposedTerm?.name}`}
+                                onClick={() => {
+                                    setShowProposalDecisionModal(true);
+                                }}
+                            >
+                                <BookmarkSimple style={{ marginRight: '3%' }} />
+                                {entityRegistry.getDisplayName(EntityType.GlossaryTerm, proposedTerm)}
+                                <ProposalModal
+                                    actionRequest={actionRequest}
+                                    showProposalDecisionModal={showProposalDecisionModal}
+                                    onCloseProposalDecisionModal={onCloseProposalDecisionModal}
+                                    onProposalAcceptance={onProposalAcceptance}
+                                    onProposalRejection={onProposalRejection}
+                                    onActionRequestUpdate={onActionRequestUpdate}
+                                    elementName={entityRegistry.getDisplayName(EntityType.GlossaryTerm, proposedTerm)}
+                                />
+                                <Tooltip overlay="Proposed Term - Pending Approval" showArrow={false}>
+                                    <ClockCircleOutlined style={{ color: ANTD_GRAY[7], marginLeft: '5px' }} />
+                                </Tooltip>
+                            </ProposedTerm>
                         )}
-                    />
-                    <Tooltip overlay="Proposed Term - Pending Approval" showArrow={false}>
-                        <ClockCircleOutlined style={{ color: ANTD_GRAY[7], marginLeft: '5px' }} />
-                    </Tooltip>
-                </ProposedTerm>
-            ))}
+                    </>
+                );
+            })}
             {/* uneditable tags are provided by ingestion pipelines exclusively */}
             {uneditableTags?.tags?.map((tag) => {
                 renderedTags += 1;
@@ -277,32 +281,40 @@ export default function TagTermGroup({
                     />
                 );
             })}
-            {proposedTags?.map((actionRequest) => (
-                <StyledTag
-                    data-testid={`proposed-tag-${actionRequest?.params?.tagProposal?.tag?.properties?.name}`}
-                    $colorHash={actionRequest?.params?.tagProposal?.tag?.urn}
-                    $color={actionRequest?.params?.tagProposal?.tag?.properties?.colorHex}
-                    onClick={() => {
-                        setShowProposalDecisionModal(true);
-                    }}
-                >
-                    <span>
-                        {entityRegistry.getDisplayName(EntityType.Tag, actionRequest?.params?.tagProposal?.tag)}
-                        <ProposalModal
-                            actionRequest={actionRequest}
-                            showProposalDecisionModal={showProposalDecisionModal}
-                            onCloseProposalDecisionModal={onCloseProposalDecisionModal}
-                            onProposalAcceptance={onProposalAcceptance}
-                            onProposalRejection={onProposalRejection}
-                            onActionRequestUpdate={onActionRequestUpdate}
-                            elementName={actionRequest?.params?.tagProposal?.tag?.properties?.name}
-                        />
-                        <Tooltip overlay="Proposed Tag - Pending Approval" showArrow={false}>
-                            <ClockCircleOutlined style={{ color: ANTD_GRAY[7], marginLeft: '5px' }} />
-                        </Tooltip>
-                    </span>
-                </StyledTag>
-            ))}
+            {proposedTags?.map((actionRequest) => {
+                const proposedTag =
+                    actionRequest?.params?.tagProposal?.tag || actionRequest?.params?.tagProposal?.tags?.[0];
+                return (
+                    <>
+                        {proposedTag && (
+                            <StyledTag
+                                data-testid={`proposed-tag-${proposedTag?.properties?.name}`}
+                                $colorHash={proposedTag?.urn}
+                                $color={proposedTag?.properties?.colorHex}
+                                onClick={() => {
+                                    setShowProposalDecisionModal(true);
+                                }}
+                            >
+                                <span>
+                                    {entityRegistry.getDisplayName(EntityType.Tag, proposedTag)}
+                                    <ProposalModal
+                                        actionRequest={actionRequest}
+                                        showProposalDecisionModal={showProposalDecisionModal}
+                                        onCloseProposalDecisionModal={onCloseProposalDecisionModal}
+                                        onProposalAcceptance={onProposalAcceptance}
+                                        onProposalRejection={onProposalRejection}
+                                        onActionRequestUpdate={onActionRequestUpdate}
+                                        elementName={proposedTag?.properties?.name}
+                                    />
+                                    <Tooltip overlay="Proposed Tag - Pending Approval" showArrow={false}>
+                                        <ClockCircleOutlined style={{ color: ANTD_GRAY[7], marginLeft: '5px' }} />
+                                    </Tooltip>
+                                </span>
+                            </StyledTag>
+                        )}
+                    </>
+                );
+            })}
             {showEmptyMessage && canAddTag && tagsEmpty && (
                 <Typography.Paragraph type="secondary">
                     {EMPTY_MESSAGES.tags.title}. {EMPTY_MESSAGES.tags.description}

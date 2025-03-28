@@ -21,6 +21,7 @@ const createProposalOnModal = (to_type, text) => {
   cy.wait(1000);
   cy.get(".rc-virtual-list").find("div").contains(to_type).click();
   cy.get('[data-testid="create-proposal-btn"]').click({ force: true });
+  cy.get('[data-testid="add-note-propose-button"]').click({ force: true });
   cy.waitTextVisible(to_type);
   cy.contains(to_type).should("be.visible");
   cy.wait(2000);

@@ -1510,6 +1510,9 @@ fragment proposalsFragment on ActionRequest {
             glossaryTerm {
                 ...glossaryTerm
             }
+            glossaryTerms {
+                ...glossaryTerm
+            }
         }
         tagProposal {
             tag {
@@ -1517,6 +1520,15 @@ fragment proposalsFragment on ActionRequest {
                 type
                 name
                 description
+                properties {
+                    name
+                    colorHex
+                }
+            }
+            tags {
+                urn
+                type
+                name
                 properties {
                     name
                     colorHex

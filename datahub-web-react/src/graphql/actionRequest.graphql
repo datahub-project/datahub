@@ -3,6 +3,7 @@ fragment actionRequestFields on ActionRequest {
     type
     status
     result
+    description
     entity {
         urn
         type
@@ -143,9 +144,26 @@ fragment actionRequestFields on ActionRequest {
                     name
                 }
             }
+            glossaryTerms {
+                urn
+                type
+                name
+                properties {
+                    name
+                }
+            }
         }
         tagProposal {
             tag {
+                urn
+                type
+                name
+                properties {
+                    name
+                    colorHex
+                }
+            }
+            tags {
                 urn
                 type
                 name

@@ -12,7 +12,7 @@ interface Props {
 const TagAssociationRequestItem = ({ actionRequest }: Props) => {
     const entityRegistry = useEntityRegistry();
 
-    const tag = actionRequest.params?.tagProposal?.tag;
+    const tag = actionRequest.params?.tagProposal?.tag || actionRequest.params?.tagProposal?.tags?.[0];
     const tagView = tag && (
         <Link to={`/${entityRegistry.getPathName(EntityType.Tag)}/${tag.urn}`}>
             <StyledTag

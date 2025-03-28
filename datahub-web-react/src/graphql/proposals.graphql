@@ -17,3 +17,11 @@ mutation proposeCreateGlossaryNode($input: CreateGlossaryEntityInput!) {
 mutation proposeUpdateDescription($input: DescriptionUpdateInput!) {
     proposeUpdateDescription(input: $input)
 }
+
+mutation proposeTags($input: ProposeTagsInput!) {
+    proposeTags(input: $input)
+}
+
+mutation proposeTerms($input: ProposeTermsInput!) {
+    proposeTerms(input: $input)
+}

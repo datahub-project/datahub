@@ -1,13 +1,12 @@
 import React, { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import { Empty, Form, message, Modal, Select, Tag, Typography } from 'antd';
+import { Empty, Form, message, Select, Tag, Typography } from 'antd';
 import styled from 'styled-components/macro';
 import { getModalDomContainer } from '@src/utils/focus';
 import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 import { LoadingOutlined } from '@ant-design/icons';
 import { useEntityContext, useMutationUrn } from '@src/app/entity/shared/EntityContext';
 import handleGraphQLError from '@src/app/shared/handleGraphQLError';
-import { Button } from '@src/alchemy-components';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import { Modal } from '@src/alchemy-components';
 import { CorpUser, Entity, EntityType, OwnerEntityType } from '../../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../../../../analytics';
@@ -21,6 +20,7 @@ import { OwnerLabel } from '../../../../../../shared/OwnerLabel';
 import { handleBatchError } from '../../../../utils';
 import { useListOwnershipTypesQuery, useProposeOwnersMutation } from '../../../../../../../graphql/ownership.generated';
 import OwnershipTypesSelect from './OwnershipTypesSelect';
+import ProposalDescriptionModal from '../ProposalDescriptionModal';
 
 const SelectInput = styled(Select)`
     width: 480px;
@@ -150,6 +150,7 @@ export const EditOwnersModal = ({
     ]);
     const loading = recommendationsLoading || userSearchLoading || groupSearchLoading;
     const inputEl = useRef(null);
+    const [showProposeModal, setShowProposeModal] = useState(false);
 
     // Invokes the search API as the owner types
     const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
@@ -316,7 +317,7 @@ export const EditOwnersModal = ({
         }
     };
 
-    const proposeOwners = () => {
+    const proposeOwners = (description?: string) => {
         message.loading('Proposing...');
 
         // Get the formatted inputs
@@ -337,6 +338,7 @@ export const EditOwnersModal = ({
                 input: {
                     resourceUrn: mutationUrn,
                     owners: inputs,
+                    description,
                 },
             },
         })
@@ -346,11 +348,14 @@ export const EditOwnersModal = ({
                     resourceUrn: mutationUrn,
                     owners: inputs,
                 });
-                if (refetch) {
-                    refetch();
-                } else {
-                    entityRefetch();
-                }
+                setTimeout(() => {
+                    if (refetch) {
+                        refetch();
+                    } else {
+                        entityRefetch();
+                    }
+                }, 3000);
+
                 message.destroy();
                 message.success('Successfully proposed owners. It is pending approval.');
                 onModalClose();
@@ -399,102 +404,112 @@ export const EditOwnersModal = ({
         setInputValue('');
     }
 
+    const handlePropose = () => {
+        setShowProposeModal(true);
+    };
+
     return (
-        <Modal
-            title={title || `${operationType === OperationType.ADD ? 'Add' : 'Remove'} Owners`}
-            visible
-            onCancel={onModalClose}
-            keyboard
-            footer={
-                <ModalButtonContainer>
-                    <Button color="gray" type="button" variant="text" onClick={onModalClose}>
-                        Cancel
-                    </Button>
-                    <Button
-                        variant="outline"
-                        type="button"
-                        onClick={proposeOwners}
-                        disabled={!selectedOwners?.length}
-                        data-testid="propose-owners-on-entity-button"
-                    >
-                        Propose
-                    </Button>
-                    <Button id="addOwnerButton" disabled={selectedOwners.length === 0} onClick={onOk}>
-                        Add
-                    </Button>
-                </ModalButtonContainer>
-            }
-            getContainer={getModalDomContainer}
-        >
-            <Form layout="vertical" colon={false}>
-                <Form.Item key="owners" name="owners" label={<Typography.Text strong>Owner</Typography.Text>}>
-                    <Typography.Paragraph>Find a user or group</Typography.Paragraph>
-                    <Form.Item name="owner">
-                        <SelectInput
-                            labelInValue
-                            autoFocus
-                            defaultOpen
-                            mode="multiple"
-                            ref={inputEl}
-                            placeholder="Search for users or groups..."
-                            showSearch
-                            data-testid="edit-owners-modal-find-actors-input"
-                            filterOption={false}
-                            defaultActiveFirstOption={false}
-                            onSelect={(asset: any) => onSelectOwner(asset)}
-                            onDeselect={(asset: any) => onDeselectOwner(asset)}
-                            onSearch={(value: string) => {
-                                // eslint-disable-next-line react/prop-types
-                                handleActorSearch(value.trim());
-                                // eslint-disable-next-line react/prop-types
-                                setInputValue(value.trim());
-                            }}
-                            tagRender={tagRender}
-                            onBlur={handleBlur}
-                            value={selectedOwners as any}
-                            defaultValue={selectedOwners.map((owner) => ({
-                                key: owner.value.ownerUrn,
-                                value: owner.value.ownerUrn,
-                                label: owner.label,
-                            }))}
-                            notFoundContent={
-                                !loading ? (
-                                    <Empty
-                                        description="No Users or Groups Found"
-                                        image={Empty.PRESENTED_IMAGE_SIMPLE}
-                                        style={{ color: ANTD_GRAY[7] }}
-                                    />
-                                ) : null
-                            }
-                        >
-                            {loading ? (
-                                <Select.Option value="loading" key="loading">
-                                    <LoadingWrapper>
-                                        <LoadingOutlined />
-                                    </LoadingWrapper>
-                                </Select.Option>
-                            ) : (
-                                ownerSearchOptions
-                            )}
-                        </SelectInput>
-                    </Form.Item>
-                </Form.Item>
-                {!hideOwnerType && (
-                    <Form.Item label={<Typography.Text strong>Type</Typography.Text>}>
-                        <Typography.Paragraph>Choose an owner type</Typography.Paragraph>
-                        <Form.Item name="type">
-                            {ownershipTypesLoading && <Select />}
-                            {!ownershipTypesLoading && (
-                                <OwnershipTypesSelect
-                                    selectedOwnerTypeUrn={selectedOwnerType}
-                                    ownershipTypes={ownershipTypes}
-                                    onSelectOwnerType={onSelectOwnerType}
-                                />
-                            )}
+        <>
+            {!showProposeModal && (
+                <Modal
+                    title={title || `${operationType === OperationType.ADD ? 'Add' : 'Remove'} Owners`}
+                    onCancel={onModalClose}
+                    keyboard
+                    buttons={[
+                        { text: 'Cancel', key: 'Cancel', variant: 'text', onClick: onModalClose, type: 'button' },
+                        {
+                            text: 'Propose',
+                            key: 'Propose',
+                            type: 'button',
+                            variant: 'outline',
+                            onClick: handlePropose,
+                            disabled: !selectedOwners?.length,
+                            buttonDataTestId: 'propose-owners-on-entity-button',
+                        },
+                        {
+                            text: 'Add',
+                            key: 'Add',
+                            variant: 'filled',
+                            onClick: onOk,
+                            disabled: selectedOwners.length === 0,
+                            id: 'addOwnerButton',
+                        },
+                    ]}
+                    getContainer={getModalDomContainer}
+                >
+                    <Form layout="vertical" colon={false}>
+                        <Form.Item key="owners" name="owners" label={<Typography.Text strong>Owner</Typography.Text>}>
+                            <Typography.Paragraph>Find a user or group</Typography.Paragraph>
+                            <Form.Item name="owner">
+                                <SelectInput
+                                    labelInValue
+                                    autoFocus
+                                    defaultOpen
+                                    mode="multiple"
+                                    ref={inputEl}
+                                    placeholder="Search for users or groups..."
+                                    showSearch
+                                    filterOption={false}
+                                    defaultActiveFirstOption={false}
+                                    onSelect={(asset: any) => onSelectOwner(asset)}
+                                    onDeselect={(asset: any) => onDeselectOwner(asset)}
+                                    onSearch={(value: string) => {
+                                        // eslint-disable-next-line react/prop-types
+                                        handleActorSearch(value.trim());
+                                        // eslint-disable-next-line react/prop-types
+                                        setInputValue(value.trim());
+                                    }}
+                                    tagRender={tagRender}
+                                    onBlur={handleBlur}
+                                    value={selectedOwners as any}
+                                    defaultValue={selectedOwners.map((owner) => ({
+                                        key: owner.value.ownerUrn,
+                                        value: owner.value.ownerUrn,
+                                        label: owner.label,
+                                    }))}
+                                    notFoundContent={
+                                        !loading ? (
+                                            <Empty
+                                                description="No Users or Groups Found"
+                                                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                                                style={{ color: ANTD_GRAY[7] }}
+                                            />
+                                        ) : null
+                                    }
+                                >
+                                    {loading ? (
+                                        <Select.Option value="loading" key="loading">
+                                            <LoadingWrapper>
+                                                <LoadingOutlined />
+                                            </LoadingWrapper>
+                                        </Select.Option>
+                                    ) : (
+                                        ownerSearchOptions
+                                    )}
+                                </SelectInput>
+                            </Form.Item>
                         </Form.Item>
-                    </Form.Item>
-                )}
-            </Form>
-        </Modal>
+                        {!hideOwnerType && (
+                            <Form.Item label={<Typography.Text strong>Type</Typography.Text>}>
+                                <Typography.Paragraph>Choose an owner type</Typography.Paragraph>
+                                <Form.Item name="type">
+                                    {ownershipTypesLoading && <Select />}
+                                    {!ownershipTypesLoading && (
+                                        <OwnershipTypesSelect
+                                            selectedOwnerTypeUrn={selectedOwnerType}
+                                            ownershipTypes={ownershipTypes}
+                                            onSelectOwnerType={onSelectOwnerType}
+                                        />
+                                    )}
+                                </Form.Item>
+                            </Form.Item>
+                        )}
+                    </Form>
+                </Modal>
+            )}
+            {showProposeModal && (
+                <ProposalDescriptionModal onPropose={proposeOwners} onCancel={() => setShowProposeModal(false)} />
+            )}
+        </>
     );
 };

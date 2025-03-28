@@ -38,7 +38,7 @@ export const useGetColumns = ({ onActionRequestUpdate, showPendingView }: Props)
             title: 'Note',
             key: 'note',
             render: (record) => {
-                return <>{record.note}</>;
+                return <>{record.description}</>;
             },
             width: '25%',
         },

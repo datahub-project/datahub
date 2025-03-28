@@ -1,12 +1,11 @@
 import React, { useRef, useState } from 'react';
-import { Form, message, Modal, Select, Empty } from 'antd';
+import { Form, message, Select, Empty } from 'antd';
 import { getModalDomContainer } from '@src/utils/focus';
 import { useProposeDomainMutation } from '@src/graphql/domain.generated';
 import { useEntityContext, useMutationUrn } from '@src/app/entity/shared/EntityContext';
 import analytics, { EventType } from '@src/app/analytics';
 import handleGraphQLError from '@src/app/shared/handleGraphQLError';
-import { Button } from '@src/alchemy-components';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import { Modal } from '@src/alchemy-components';
 import { useGetAutoCompleteResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { Domain, Entity, EntityType } from '../../../../../../../types.generated';
 import { useBatchSetDomainMutation } from '../../../../../../../graphql/mutations.generated';
@@ -18,6 +17,7 @@ import { BrowserWrapper } from '../../../../../../shared/tags/AddTagsTermsModal'
 import DomainNavigator from '../../../../../../domain/nestedDomains/domainNavigator/DomainNavigator';
 import ClickOutside from '../../../../../../shared/ClickOutside';
 import { ANTD_GRAY } from '../../../../constants';
+import ProposalDescriptionModal from '../ProposalDescriptionModal';
 
 type Props = {
     urns: string[];
@@ -56,6 +56,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
     const [proposeDomainMutation] = useProposeDomainMutation();
     const inputEl = useRef(null);
     const isShowingDomainNavigator = !inputValue && isFocusedOnInput;
+    const [showProposeModal, setShowProposeModal] = useState(false);
 
     const onModalClose = () => {
         setInputValue('');
@@ -95,19 +96,19 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
         }
     };
 
-    const proposeDomain = () => {
+    const proposeDomain = (description?: string) => {
         message.loading('Proposing...');
 
         if (!selectedDomain) {
             return;
         }
 
-        // TODO: Add description to the proposal
         proposeDomainMutation({
             variables: {
                 input: {
                     resourceUrn: mutationUrn,
                     domainUrn: selectedDomain.urn,
+                    description,
                 },
             },
         })
@@ -117,11 +118,14 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                     resourceUrn: mutationUrn,
                     domainUrn: selectedDomain.urn,
                 });
-                if (refetch) {
-                    refetch();
-                } else {
-                    entityRefetch();
-                }
+                setTimeout(() => {
+                    if (refetch) {
+                        refetch();
+                    } else {
+                        entityRefetch();
+                    }
+                }, 3000);
+
                 message.destroy();
                 message.success('Successfully proposed domain. It is pending approval.');
                 onModalClose();
@@ -205,67 +209,79 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
         setTimeout(() => setIsFocusedOnInput(false), 0);
     }
 
+    const handlePropose = () => {
+        setShowProposeModal(true);
+    };
+
     return (
-        <Modal
-            title={titleOverride || 'Set Domain'}
-            open
-            onCancel={onModalClose}
-            footer={
-                <ModalButtonContainer>
-                    <Button variant="text" type="button" color="gray" onClick={onModalClose}>
-                        Cancel
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={proposeDomain}
-                        disabled={!selectedDomain}
-                        data-testid="propose-domain-on-entity-button"
-                    >
-                        Propose
-                    </Button>
-                    <Button id="setDomainButton" disabled={selectedDomain === undefined} onClick={onOk}>
-                        Save
-                    </Button>
-                </ModalButtonContainer>
-            }
-            getContainer={getModalDomContainer}
-        >
-            <Form component={false}>
-                <Form.Item>
-                    <ClickOutside onClickOutside={handleClickOutside}>
-                        <Select
-                            autoFocus
-                            showSearch
-                            filterOption={false}
-                            defaultActiveFirstOption={false}
-                            placeholder="Search for Domains..."
-                            onSelect={(domainUrn: any) => onSelectDomain(domainUrn)}
-                            onDeselect={onDeselectDomain}
-                            onSearch={(value: string) => {
-                                handleSearch(value.trim());
-                                setInputValue(value.trim());
-                            }}
-                            ref={inputEl}
-                            value={selectValue}
-                            onBlur={handleBlur}
-                            onFocus={() => setIsFocusedOnInput(true)}
-                            dropdownStyle={isShowingDomainNavigator ? { display: 'none' } : {}}
-                            notFoundContent={
-                                <Empty
-                                    description="No Domains Found"
-                                    image={Empty.PRESENTED_IMAGE_SIMPLE}
-                                    style={{ color: ANTD_GRAY[7] }}
+        <>
+            {!showProposeModal && (
+                <Modal
+                    title={titleOverride || 'Set Domain'}
+                    open
+                    onCancel={onModalClose}
+                    buttons={[
+                        { text: 'Cancel', key: 'Cancel', variant: 'text', onClick: onModalClose, type: 'button' },
+                        {
+                            text: 'Propose',
+                            key: 'Propose',
+                            variant: 'outline',
+                            type: 'button',
+                            onClick: handlePropose,
+                            disabled: !selectedDomain,
+                            buttonDataTestId: 'propose-domain-on-entity-button',
+                        },
+                        {
+                            text: 'Save',
+                            key: 'Save',
+                            variant: 'filled',
+                            onClick: onOk,
+                            disabled: selectedDomain === undefined,
+                            id: 'setDomainButton',
+                        },
+                    ]}
+                    getContainer={getModalDomContainer}
+                >
+                    <Form component={false}>
+                        <Form.Item>
+                            <ClickOutside onClickOutside={handleClickOutside}>
+                                <Select
+                                    autoFocus
+                                    showSearch
+                                    filterOption={false}
+                                    defaultActiveFirstOption={false}
+                                    placeholder="Search for Domains..."
+                                    onSelect={(domainUrn: any) => onSelectDomain(domainUrn)}
+                                    onDeselect={onDeselectDomain}
+                                    onSearch={(value: string) => {
+                                        handleSearch(value.trim());
+                                        setInputValue(value.trim());
+                                    }}
+                                    ref={inputEl}
+                                    value={selectValue}
+                                    onBlur={handleBlur}
+                                    onFocus={() => setIsFocusedOnInput(true)}
+                                    dropdownStyle={isShowingDomainNavigator ? { display: 'none' } : {}}
+                                    notFoundContent={
+                                        <Empty
+                                            description="No Domains Found"
+                                            image={Empty.PRESENTED_IMAGE_SIMPLE}
+                                            style={{ color: ANTD_GRAY[7] }}
+                                        />
+                                    }
+                                    options={domainAutocompleteOptions(domainResult, searchLoading, entityRegistry)}
                                 />
-                            }
-                            options={domainAutocompleteOptions(domainResult, searchLoading, entityRegistry)}
-                        />
-                        <BrowserWrapper isHidden={!isShowingDomainNavigator}>
-                            <DomainNavigator selectDomainOverride={selectDomainFromBrowser} />
-                        </BrowserWrapper>
-                    </ClickOutside>
-                </Form.Item>
-            </Form>
-        </Modal>
+                                <BrowserWrapper isHidden={!isShowingDomainNavigator}>
+                                    <DomainNavigator selectDomainOverride={selectDomainFromBrowser} />
+                                </BrowserWrapper>
+                            </ClickOutside>
+                        </Form.Item>
+                    </Form>
+                </Modal>
+            )}
+            {showProposeModal && (
+                <ProposalDescriptionModal onPropose={proposeDomain} onCancel={() => setShowProposeModal(false)} />
+            )}
+        </>
     );
 };

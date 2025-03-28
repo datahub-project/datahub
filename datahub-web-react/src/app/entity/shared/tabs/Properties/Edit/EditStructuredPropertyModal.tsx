@@ -1,11 +1,11 @@
 import analytics, { EventType } from '@src/app/analytics';
 import { getFieldPathFromSchemaFieldUrn, getSourceUrnFromSchemaFieldUrn } from '@src/app/entityV2/schemaField/utils';
-import { Modal, message } from 'antd';
-import React, { useEffect, useMemo } from 'react';
+import { message } from 'antd';
+import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { Button } from '@src/alchemy-components';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import ProposalDescriptionModal from '@src/app/entityV2/shared/containers/profile/sidebar/ProposalDescriptionModal';
+import { Modal } from '@src/alchemy-components';
 import {
     // Saas-only mutation
     useProposeStructuredPropetiesMutation,
@@ -65,6 +65,7 @@ export default function EditStructuredPropertyModal({
 
     // Saas-only mutation
     const [proposeStructuredProperties] = useProposeStructuredPropetiesMutation();
+    const [showProposeModal, setShowProposeModal] = useState(false);
 
     useEffect(() => {
         setSelectedValues(initialValues);
@@ -121,7 +122,7 @@ export default function EditStructuredPropertyModal({
     }
 
     // Saas-only mutation
-    function proposeProperties() {
+    function proposeProperties(description?: string) {
         message.loading('Proposing...');
 
         const propValues = selectedValues.map((value) => {
@@ -143,6 +144,7 @@ export default function EditStructuredPropertyModal({
                             values: propValues,
                         },
                     ],
+                    description,
                 },
             },
         })
@@ -155,11 +157,12 @@ export default function EditStructuredPropertyModal({
                     assetType: associatedUrn?.includes('urn:li:schemaField') ? EntityType.SchemaField : entityType,
                     values: propValues,
                 });
-                if (refetch) {
-                    refetch();
-                } else {
+                setTimeout(() => {
                     entityRefetch();
-                }
+                    if (refetch) {
+                        refetch();
+                    }
+                }, 3000);
                 message.destroy();
                 message.success('Successfully proposed structured property. It is pending approval.');
                 closeModal();
@@ -177,50 +180,58 @@ export default function EditStructuredPropertyModal({
             });
     }
 
+    const handlePropose = () => {
+        setShowProposeModal(true);
+    };
+
     return (
-        <Modal
-            title={`${isAddMode ? 'Add property' : 'Edit property'} ${entityRegistry.getDisplayName(
-                structuredProperty.type,
-                structuredProperty,
-            )}`}
-            onCancel={closeModal}
-            open={isOpen}
-            width={650}
-            footer={
-                <ModalButtonContainer>
-                    <Button variant="text" type="button" onClick={closeModal} color="gray">
-                        Cancel
-                    </Button>
-                    <Button
-                        variant="outline"
-                        type="button"
-                        onClick={proposeProperties}
-                        disabled={!selectedValues.length}
-                        data-testid="propose-update-structured-prop-on-entity-button"
-                    >
-                        Propose
-                    </Button>
-                    <Button
-                        onClick={upsertProperties}
-                        disabled={!selectedValues.length}
-                        data-testid="add-update-structured-prop-on-entity-button"
-                    >
-                        {isAddMode ? 'Add' : 'Update'}
-                    </Button>
-                </ModalButtonContainer>
-            }
-            destroyOnClose
-        >
-            {structuredProperty?.definition?.description && (
-                <Description>{structuredProperty.definition.description}</Description>
+        <>
+            {!showProposeModal && (
+                <Modal
+                    title={`${isAddMode ? 'Add property' : 'Edit property'} ${entityRegistry.getDisplayName(
+                        structuredProperty.type,
+                        structuredProperty,
+                    )}`}
+                    onCancel={closeModal}
+                    open={isOpen}
+                    width={650}
+                    buttons={[
+                        { text: 'Cancel', key: 'Cancel', variant: 'text', onClick: closeModal, type: 'button' },
+                        {
+                            text: 'Propose',
+                            key: 'Propose',
+                            variant: 'outline',
+                            onClick: handlePropose,
+                            type: 'button',
+                            disabled: !selectedValues.length,
+                            buttonDataTestId: 'propose-update-structured-prop-on-entity-button',
+                        },
+                        {
+                            text: isAddMode ? 'Add' : 'Update',
+                            key: isAddMode ? 'Add' : 'Update',
+                            variant: 'filled',
+                            onClick: upsertProperties,
+                            disabled: !selectedValues.length,
+                            buttonDataTestId: 'add-update-structured-prop-on-entity-button',
+                        },
+                    ]}
+                    destroyOnClose
+                >
+                    {structuredProperty?.definition?.description && (
+                        <Description>{structuredProperty.definition.description}</Description>
+                    )}
+                    <StructuredPropertyInput
+                        structuredProperty={structuredProperty}
+                        selectedValues={selectedValues}
+                        selectSingleValue={selectSingleValue}
+                        toggleSelectedValue={toggleSelectedValue}
+                        updateSelectedValues={updateSelectedValues}
+                    />
+                </Modal>
             )}
-            <StructuredPropertyInput
-                structuredProperty={structuredProperty}
-                selectedValues={selectedValues}
-                selectSingleValue={selectSingleValue}
-                toggleSelectedValue={toggleSelectedValue}
-                updateSelectedValues={updateSelectedValues}
-            />
-        </Modal>
+            {showProposeModal && (
+                <ProposalDescriptionModal onPropose={proposeProperties} onCancel={() => setShowProposeModal(false)} />
+            )}
+        </>
     );
 }
