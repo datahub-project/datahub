@@ -41,7 +41,7 @@ from datahub.configuration.common import (
     TraceTimeoutError,
     TraceValidationError,
 )
-from datahub.emitter.aspect import JSON_CONTENT_TYPE
+from datahub.emitter.aspect import JSON_CONTENT_TYPE, JSON_PATCH_CONTENT_TYPE
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.request_helper import make_curl_command
@@ -109,9 +109,9 @@ class RestSinkEndpoint(ConfigEnum):
     OPENAPI = auto()
 
 
-DEFAULT_REST_SINK_ENDPOINT = pydantic.parse_obj_as(
+DEFAULT_REST_EMITTER_ENDPOINT = pydantic.parse_obj_as(
     RestSinkEndpoint,
-    os.getenv("DATAHUB_REST_SINK_DEFAULT_ENDPOINT", RestSinkEndpoint.RESTLI),
+    os.getenv("DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT", RestSinkEndpoint.RESTLI),
 )
 
 
@@ -229,7 +229,9 @@ class DataHubRestEmitter(Closeable, Emitter):
         ca_certificate_path: Optional[str] = None,
         client_certificate_path: Optional[str] = None,
         disable_ssl_verification: bool = False,
-        openapi_ingestion: bool = False,
+        openapi_ingestion: bool = (
+            DEFAULT_REST_EMITTER_ENDPOINT == RestSinkEndpoint.OPENAPI
+        ),
         default_trace_mode: bool = False,
     ):
         if not gms_server:
@@ -359,8 +361,14 @@ class DataHubRestEmitter(Closeable, Emitter):
                 )["aspect"]["json"]
             else:
                 obj = mcp.aspect.to_obj()
-                if obj.get("value") and obj.get("contentType") == JSON_CONTENT_TYPE:
+                content_type = obj.get("contentType")
+                if obj.get("value") and content_type == JSON_CONTENT_TYPE:
+                    # Undo double serialization.
                     obj = json.loads(obj["value"])
+                elif content_type == JSON_PATCH_CONTENT_TYPE:
+                    raise NotImplementedError(
+                        "Patches are not supported for OpenAPI ingestion. Set the endpoint to RESTLI."
+                    )
                 aspect_value = pre_json_transform(obj)
             return (
                 url,
