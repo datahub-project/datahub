@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.hex.constants import (
+    DATAHUB_API_PAGE_SIZE_DEFAULT,
     HEX_PLATFORM_URN,
 )
 from datahub.metadata._schema_classes import QueryPropertiesClass, QuerySubjectsClass
@@ -114,13 +115,13 @@ class HexQueryFetcher:
         workspace_name: str,
         start_datetime: datetime,
         report: HexQueryFetcherReport,
-        fetch_query_entities_page_size: int = 100,
+        page_size: int = DATAHUB_API_PAGE_SIZE_DEFAULT,
     ):
         self.datahub_client = datahub_client
         self.workspace_name = workspace_name
         self.start_datetime = start_datetime
         self.report = report
-        self.fetch_query_entities_page_size = fetch_query_entities_page_size
+        self.page_size = page_size
 
     def fetch(self) -> Generator[QueryResponse, None, None]:
         try:
@@ -235,8 +236,8 @@ class HexQueryFetcher:
     def _fetch_query_entities(self, query_urns: List[QueryUrn]) -> EntitiesResponse:
         entities_by_urn = EntitiesResponse()
 
-        for i in range(0, len(query_urns), self.fetch_query_entities_page_size):
-            batch = query_urns[i : i + self.fetch_query_entities_page_size]
+        for i in range(0, len(query_urns), self.page_size):
+            batch = query_urns[i : i + self.page_size]
 
             response_json = self.datahub_client._graph.get_entities_v2(
                 entity_name="query",
@@ -273,7 +274,7 @@ class HexQueryFetcher:
 
         query_urn_strs = self.datahub_client._graph.get_urns_by_filter(
             entity_types=[QueryUrn.ENTITY_TYPE],
-            batch_size=100,
+            batch_size=self.page_size,
             extraFilters=[
                 {
                     "field": "origin",

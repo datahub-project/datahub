@@ -23,6 +23,7 @@ from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.hex.api import HexApi, HexApiReport
 from datahub.ingestion.source.hex.constants import (
+    DATAHUB_API_PAGE_SIZE_DEFAULT,
     HEX_API_BASE_URL_DEFAULT,
     HEX_API_PAGE_SIZE_DEFAULT,
     HEX_PLATFORM_NAME,
@@ -108,6 +109,10 @@ class HexSourceConfig(
         default=7,
         description="Number of days to look back for lineage",
     )
+    datahub_page_size: int = Field(
+        default=DATAHUB_API_PAGE_SIZE_DEFAULT,
+        description="Number of items to fetch per DataHub API call.",
+    )
 
 
 @dataclass
@@ -166,6 +171,7 @@ class HexSource(StatefulIngestionSourceBase):
                     - timedelta(days=self.source_config.lineage_lookback_days)
                 ),
                 report=self.report,
+                page_size=self.source_config.datahub_page_size,
             )
 
     @classmethod
