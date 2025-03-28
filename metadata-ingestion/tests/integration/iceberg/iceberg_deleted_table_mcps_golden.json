@@ -1,5 +1,42 @@
 [
 {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:76a48cd3253f4ce45b6e65bfd4e96d5d",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "iceberg-2020_04_14-07_00_00-mbclry",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:76a48cd3253f4ce45b6e65bfd4e96d5d",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "nyc",
+            "qualifiedName": "nyc",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "iceberg-2020_04_14-07_00_00-mbclry",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,test_platform_instance.nyc.another_taxis,PROD)",
     "changeType": "UPSERT",
@@ -47,6 +84,65 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "iceberg-2020_04_14-07_00_00-prds53",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:76a48cd3253f4ce45b6e65bfd4e96d5d",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:iceberg,test_platform_instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:iceberg,test_platform_instance)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "iceberg-2020_04_14-07_00_00-mbclry",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:76a48cd3253f4ce45b6e65bfd4e96d5d",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:iceberg",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:iceberg,test_platform_instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "iceberg-2020_04_14-07_00_00-mbclry",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:76a48cd3253f4ce45b6e65bfd4e96d5d",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Namespace"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "iceberg-2020_04_14-07_00_00-mbclry",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -226,6 +322,68 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "iceberg-2020_04_14-07_00_00-prds53",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,test_platform_instance.nyc.another_taxis,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "iceberg-2020_04_14-07_00_00-mbclry",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,test_platform_instance.nyc.another_taxis,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:76a48cd3253f4ce45b6e65bfd4e96d5d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "iceberg-2020_04_14-07_00_00-mbclry",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,test_platform_instance.nyc.another_taxis,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:iceberg,test_platform_instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:iceberg,test_platform_instance)"
+                },
+                {
+                    "id": "urn:li:container:76a48cd3253f4ce45b6e65bfd4e96d5d",
+                    "urn": "urn:li:container:76a48cd3253f4ce45b6e65bfd4e96d5d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "iceberg-2020_04_14-07_00_00-mbclry",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
