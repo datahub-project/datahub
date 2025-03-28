@@ -60,7 +60,12 @@ import {
     FilterPredicate,
     FilterValueOption,
 } from './types';
-import { capitalizeFirstLetterOnly, forcePluralize, pluralizeIfIrregular } from '../../shared/textUtil';
+import {
+    capitalizeFirstLetter,
+    capitalizeFirstLetterOnly,
+    forcePluralize,
+    pluralizeIfIrregular,
+} from '../../shared/textUtil';
 import { convertBackendToFrontendOperatorType } from './operator/operator';
 import { ALL_FILTER_FIELDS, STRUCTURED_PROPERTY_FILTER } from './field/fields';
 import { getSubTypeIcon } from '../../entityV2/shared/components/subtypes';
@@ -680,9 +685,29 @@ export function getIsDateRangeFilter(field: FilterField | FacetMetadata) {
     return false;
 }
 
-export function getFilterDisplayName(option: FilterValueOption, field: FilterField) {
+export function getActionRequestFilterDisplayName(option: FilterValueOption, field: FilterField) {
+    if (field.field === 'type' || field.field === 'status') {
+        // SNAKE_CASE to Pascal Case with spaces
+        return option.value?.split('_').map(capitalizeFirstLetter)?.join(' ');
+    }
+
+    return null;
+}
+
+export function getFilterDisplayName(
+    option: FilterValueOption,
+    field: FilterField,
+    aggregationsEntityTypes?: Array<EntityType>,
+) {
     if (option.displayName) {
         return option.displayName;
+    }
+
+    const displayNameForProposalsFilters =
+        aggregationsEntityTypes?.includes(EntityType.ActionRequest) && getActionRequestFilterDisplayName(option, field);
+
+    if (displayNameForProposalsFilters) {
+        return displayNameForProposalsFilters;
     }
 
     return field.field.startsWith(STRUCTURED_PROPERTIES_FILTER_NAME)

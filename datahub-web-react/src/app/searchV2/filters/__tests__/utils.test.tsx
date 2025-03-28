@@ -22,6 +22,7 @@ import {
     isAnyOptionSelected,
     getStructuredPropFilterDisplayName,
     getFilterDisplayName,
+    getActionRequestFilterDisplayName,
 } from '../utils';
 import { ENTITY_SUB_TYPE_FILTER_NAME } from '../../utils/constants';
 import { FieldType, FilterField } from '../types';
@@ -477,15 +478,84 @@ describe('filter utils - getFilterDisplayName', () => {
         expect(getFilterDisplayName(option, field)).toBe('test name');
     });
 
-    it('should return undefined if no display name and field is not a structured property filter', () => {
+    it('should return formatted display name for action request type fields when aggregationsEntityTypes includes ActionRequest', () => {
+        const option = { value: 'TAG_ASSOCIATION' };
+        const field: FilterField = { type: FieldType.ENUM, field: 'type', displayName: 'Type' };
+        expect(getFilterDisplayName(option, field, [EntityType.ActionRequest])).toBe('Tag Association');
+    });
+
+    it('should return formatted display name for action request status fields when aggregationsEntityTypes includes ActionRequest', () => {
+        const option = { value: 'PENDING' };
+        const field: FilterField = { type: FieldType.ENUM, field: 'status', displayName: 'Status' };
+        expect(getFilterDisplayName(option, field, [EntityType.ActionRequest])).toBe('Pending');
+    });
+
+    it('should return undefined for action request fields when aggregationsEntityTypes does not include ActionRequest', () => {
+        const option = { value: 'TAG_ASSOCIATION' };
+        const field: FilterField = { type: FieldType.ENUM, field: 'type', displayName: 'Type' };
+        expect(getFilterDisplayName(option, field, [EntityType.Dataset])).toBe(undefined);
+    });
+
+    it('should return structured property display name for structured property fields', () => {
         const option = { value: 'testValue' };
-        const field: FilterField = { type: FieldType.ENUM, field: 'structuredProperties.test', displayName: 'test' };
+        const field: FilterField = { type: FieldType.ENUM, field: 'structuredProperties.test', displayName: 'Test' };
         expect(getFilterDisplayName(option, field)).toBe('testValue');
     });
 
-    it('should return the structured property value properly if this is a structured property filter (structured prop value is tested above)', () => {
+    it('should return undefined for non-structured property fields without displayName', () => {
         const option = { value: 'testValue' };
-        const field: FilterField = { type: FieldType.ENUM, field: 'test', displayName: 'test' };
+        const field: FilterField = { type: FieldType.ENUM, field: 'test', displayName: 'Test' };
         expect(getFilterDisplayName(option, field)).toBe(undefined);
+    });
+
+    it('should handle empty value for structured property fields', () => {
+        const option = { value: '' };
+        const field: FilterField = { type: FieldType.ENUM, field: 'structuredProperties.test', displayName: 'Test' };
+        expect(getFilterDisplayName(option, field)).toBe('');
+    });
+});
+
+describe('filter utils - getActionRequestFilterDisplayName', () => {
+    it('should convert ActionRequestStatus values to Pascal Case with spaces for status field', () => {
+        const statusField: FilterField = { type: FieldType.ENUM, field: 'status', displayName: 'Status' };
+
+        expect(getActionRequestFilterDisplayName({ value: 'PENDING' }, statusField)).toBe('Pending');
+        expect(getActionRequestFilterDisplayName({ value: 'COMPLETED' }, statusField)).toBe('Completed');
+    });
+
+    it('should convert ActionRequestType values to Pascal Case with spaces for type field', () => {
+        const typeField: FilterField = { type: FieldType.ENUM, field: 'type', displayName: 'Type' };
+
+        expect(getActionRequestFilterDisplayName({ value: 'TAG_ASSOCIATION' }, typeField)).toBe('Tag Association');
+        expect(getActionRequestFilterDisplayName({ value: 'TERM_ASSOCIATION' }, typeField)).toBe('Term Association');
+        expect(getActionRequestFilterDisplayName({ value: 'CREATE_GLOSSARY_TERM' }, typeField)).toBe(
+            'Create Glossary Term',
+        );
+        expect(getActionRequestFilterDisplayName({ value: 'CREATE_GLOSSARY_NODE' }, typeField)).toBe(
+            'Create Glossary Node',
+        );
+        expect(getActionRequestFilterDisplayName({ value: 'UPDATE_DESCRIPTION' }, typeField)).toBe(
+            'Update Description',
+        );
+        expect(getActionRequestFilterDisplayName({ value: 'DATA_CONTRACT' }, typeField)).toBe('Data Contract');
+        expect(getActionRequestFilterDisplayName({ value: 'STRUCTURED_PROPERTY_ASSOCIATION' }, typeField)).toBe(
+            'Structured Property Association',
+        );
+        expect(getActionRequestFilterDisplayName({ value: 'DOMAIN_ASSOCIATION' }, typeField)).toBe(
+            'Domain Association',
+        );
+        expect(getActionRequestFilterDisplayName({ value: 'OWNER_ASSOCIATION' }, typeField)).toBe('Owner Association');
+    });
+
+    it('should return null value for non-type/status fields', () => {
+        const option = { value: 'TAG_ASSOCIATION' };
+        const field: FilterField = { type: FieldType.ENUM, field: 'other', displayName: 'Other' };
+        expect(getActionRequestFilterDisplayName(option, field)).toBe(null);
+    });
+
+    it('should handle empty value', () => {
+        const option = { value: '' };
+        const field: FilterField = { type: FieldType.ENUM, field: 'type', displayName: 'Type' };
+        expect(getActionRequestFilterDisplayName(option, field)).toBe('');
     });
 });

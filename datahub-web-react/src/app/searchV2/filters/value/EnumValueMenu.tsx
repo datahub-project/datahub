@@ -59,7 +59,7 @@ export default function EnumValueMenu({
                 value: option.value,
                 count: option.count,
                 entity: option.entity,
-                displayName: getFilterDisplayName(option, field),
+                displayName: getFilterDisplayName(option, field, aggregationsEntityTypes),
             },
             entityRegistry,
             selectedFilterOptions: values.map((value) => {
