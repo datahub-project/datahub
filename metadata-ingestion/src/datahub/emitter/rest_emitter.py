@@ -51,6 +51,7 @@ from datahub.emitter.response_helper import (
     extract_trace_data_from_mcps,
 )
 from datahub.emitter.serialization_helper import pre_json_transform
+from datahub.errors import APITracingWarning
 from datahub.ingestion.api.closeable import Closeable
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
@@ -752,7 +753,9 @@ class DataHubRestEmitter(Closeable, Emitter):
         resolved_async_flag = async_flag if async_flag is not None else async_default
         if resolved_trace_flag and not resolved_async_flag:
             warnings.warn(
-                "API tracing is only available with async ingestion. For synchronous ingestion, API errors will be surfaced directly as an API response. "
+                "API tracing is only available with async ingestion. For sync mode, API errors will be surfaced as exceptions.",
+                APITracingWarning,
+                stacklevel=3,
             )
         return resolved_trace_flag and resolved_async_flag
 
