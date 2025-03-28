@@ -167,7 +167,7 @@ class IcebergSource(StatefulIngestionSourceBase):
 
     def _get_datasets(
         self, catalog: Catalog, namespaces: Iterable[Tuple[Identifier, str]]
-    ) -> Iterable[Tuple[Identifier, Urn]]:
+    ) -> Iterable[Tuple[Identifier, str]]:
         LOGGER.debug("Starting to retrieve tables")
         tables_count = 0
         for namespace, namespace_urn in namespaces:
