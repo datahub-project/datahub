@@ -23,6 +23,14 @@ This is over and above updating-datahub.md file
 
 ## Next
 
+### Environment variables
+
+- [datahub-gms] `ONLINE_SMART_ASSERTIONS_ENABLED`: Flag to allow on-demand creation of smart assertions in the UI, and let them run online. (TODO @John extend to indicate that this variable is also in use in executor)
+- [datahub-gms] `DISPLAY_EXECUTOR_POOLS`: Flag to enable displaying executor pools across the ingestion tab and the ingestion/automation creation/editing wizards.
+- [datahub-upgrade] `BOOTSTRAP_SYSTEM_UPDATE_EXECUTOR_POOLS_ENABLED`: Flag to enable bootstrapping remote executor pools when instance is setup.
+- [datahub-mae-consumer | datahub-gms] `EXECUTOR_POOL_HOOK_ENABLED`: Auto provisions SQS queue on pool create, and auto-deletes queue on pool delete.
+
+
 ## v0.3.9
 
 ### Breaking Changes
@@ -54,10 +62,8 @@ that can be specified in datahub-apps, e.g.:
 ### Environment Variables
 
 - [datahub-gms] `DATAHUB_EXECUTOR_RESOLVE_ASSERTION_INGESTION_SOURCE_WITH_ASPECTS`: CSV listing aspects that the system should reference to determine an ingestion source that can execute an assertion. Default: datasetProperties
-- [datahub-gms] `DISPLAY_EXECUTOR_POOLS`: Flag to enable displaying executor pools across the ingestion tab and the ingestion/automation creation/editing wizards.
 - [datahub-gms] `SHOW_STATS_TAB_REDESIGN`: Displays the updated stats tab experience for Datasets and Columns. This includes our new designs for charts and a few new charts themselves. Default: true
-- [datahub-gms] `ONLINE_SMART_ASSERTIONS_ENABLED`: Flag to allow on-demand creation of smart assertions in the UI, and let them run online. (TODO @John extend to indicate that this variable is also in use in executor)
-- [datahub-gms] `BOOTSTRAP_SYSTEM_UPDATE_PURGE_LEGACY_EXECUTORS_ENABLED`: Enables purging of legacy executor entities. On by default to clear malformed data.
+- [datahub-upgrade] `BOOTSTRAP_SYSTEM_UPDATE_PURGE_LEGACY_EXECUTORS_ENABLED`: Enables purging of legacy executor entities. On by default to clear malformed data.
 
 ## v0.3.8
 
