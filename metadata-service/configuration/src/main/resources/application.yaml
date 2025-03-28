@@ -609,6 +609,11 @@ systemUpdate:
     customerId: ${BOOTSTRAP_SYSTEM_UPDATE_EXECUTOR_POOLS_CUSTOMER_ID:unset}
     reprocess:
       enabled: ${BOOTSTRAP_SYSTEM_UPDATE_EXECUTOR_POOLS_REPROCESS:false}
+  purgeLegacyExecutors:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_PURGE_LEGACY_EXECUTORS_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_PURGE_LEGACY_EXECUTORS_BATCH_SIZE:1000}
+    reprocess:
+      enabled: ${BOOTSTRAP_SYSTEM_UPDATE_PURGE_LEGACY_EXECUTORS_REPROCESS:false}
 
 structuredProperties:
   enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings
