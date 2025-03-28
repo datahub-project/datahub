@@ -23,6 +23,8 @@ This is over and above updating-datahub.md file
 
 ## Next
 
+## v0.3.9
+
 ### Breaking Changes
 
 ### Potential Downtime
@@ -32,11 +34,28 @@ This is over and above updating-datahub.md file
 - #5287: The unused observability Anomaly entity has been removed from the system, replaced by MonitorAnomalyEvent. This should not affect existing deployments, as the entity was not consumed anywhere.
 
 ### Other Notable Changes
+We initially told Figma to produce `DataProcessInstanceInput.inputs` and `DataProcessInstanceOutput.outputs`
+for their AI/ML use cases. However, if they wish to see these data process instances and their edges
+in lineage, they should instead produce `DataProcessInstanceInput.inputEdges` and `DataProcessInstanceOutput.outputEdges`.
+
+We have a non-blocking upgrade job to migrate the data from the old fields to the new fields,
+that can be specified in datahub-apps, e.g.:
+```yaml
+  datahubSystemUpdate:
+    upgrades:
+      migrateProcessInstanceEdges:
+        enabled: true
+        reprocess: false
+        inputPlatforms: 'workbench,mlflow'
+        outputPlatforms: 'workbench,mlflow'
+        parentPlatforms: 'workbench,mlflow'
+```
 
 ### Environment Variables
 
 - [datahub-gms] `DATAHUB_EXECUTOR_RESOLVE_ASSERTION_INGESTION_SOURCE_WITH_ASPECTS`: CSV listing aspects that the system should reference to determine an ingestion source that can execute an assertion. Default: datasetProperties
 - [datahub-gms] `DISPLAY_EXECUTOR_POOLS`: Flag to enable displaying executor pools across the ingestion tab and the ingestion/automation creation/editing wizards.
+- [datahub-gms] `SHOW_STATS_TAB_REDESIGN`: Displays the updated stats tab experience for Datasets and Columns. This includes our new designs for charts and a few new charts themselves. Default: true
 - [datahub-gms] `ONLINE_SMART_ASSERTIONS_ENABLED`: Flag to allow on-demand creation of smart assertions in the UI, and let them run online. (TODO @John extend to indicate that this variable is also in use in executor)
 - [datahub-gms] `BOOTSTRAP_SYSTEM_UPDATE_PURGE_LEGACY_EXECUTORS_ENABLED`: Enables purging of legacy executor entities. On by default to clear malformed data.
 
