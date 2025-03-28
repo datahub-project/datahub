@@ -481,7 +481,9 @@ class DataProcessCleanup:
             logger.info(f"Got {batch_count} DataJob entities")
 
             new_scroll_id = scrollAcrossEntities.get("nextScrollId")
-
+            logger.debug(
+                f"Old Scroll id was: {scroll_id} Got new scroll_id: {new_scroll_id}"
+            )
             # Collect jobs without processing
             for job in scrollAcrossEntities.get("searchResults"):
                 datajob_entity = DataJobEntity(
