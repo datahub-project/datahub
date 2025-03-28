@@ -27,15 +27,12 @@ public class OwnershipOwnerTypes extends MutationHook {
 
   protected Stream<Pair<ChangeMCP, Boolean>> writeMutation(
       @Nonnull Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
-    List<Pair<ChangeMCP, Boolean>> results = new LinkedList<>();
-    for (ChangeMCP item : changeMCPS) {
-      if (aspectFilter(item)) {
-        results.add(Pair.of(item, processOwnershipAspect(item)));
-      } else {
-        results.add(Pair.of(item, false));
-      }
-    }
-    return results.stream();
+    return changeMCPS.stream()
+        .map(
+            item ->
+                aspectFilter(item)
+                    ? Pair.of(item, processOwnershipAspect(item))
+                    : Pair.of(item, false));
   }
 
   private static boolean aspectFilter(ReadItem item) {
@@ -76,39 +73,24 @@ public class OwnershipOwnerTypes extends MutationHook {
     }
     OwnerArray owners = ownership.getOwners();
     for (Owner owner : owners) {
-      Urn typeUrn = owner.getTypeUrn();
-      String typeUrnStr = null;
-      if (typeUrn != null) {
-        typeUrnStr = typeUrn.toString();
-      }
+      String typeKey =
+          Optional.ofNullable(owner.getTypeUrn())
+              .map(Urn::toString)
+              .orElseGet(
+                  () ->
+                      "urn:li:ownershipType:__system__" + owner.getType().toString().toLowerCase());
+
       List<Urn> ownerOfType;
-      boolean found = false;
-      if (typeUrnStr == null) {
-        OwnershipType type = owner.getType();
-        String typeStr = "urn:li:ownershipType:__system__" + type.toString().toLowerCase();
-        if (ownerTypesMap.containsKey(typeStr)) {
-          ownerOfType = ownerTypesMap.get(typeStr);
-        } else {
-          ownerOfType = new ArrayList<>();
-          ownerTypesMap.put(typeStr, ownerOfType);
-          mutated = true;
-        }
+      if (ownerTypesMap.containsKey(typeKey)) {
+        ownerOfType = ownerTypesMap.get(typeKey);
       } else {
-        if (ownerTypesMap.containsKey(typeUrnStr)) {
-          ownerOfType = ownerTypesMap.get(typeUrnStr);
-        } else {
-          ownerOfType = new ArrayList<>();
-          ownerTypesMap.put(typeUrnStr, ownerOfType);
-          mutated = true;
-        }
+        ownerOfType = new ArrayList<>();
+        ownerTypesMap.put(typeKey, ownerOfType);
+        mutated = true;
       }
-      for (Urn ownerUrn : ownerOfType) {
-        if (ownerUrn.equals(owner.getOwner())) {
-          found = true;
-        }
-      }
-      if (!found) {
-        ownerOfType.add(owner.getOwner());
+      Urn ownerUrn = owner.getOwner();
+      if (!ownerOfType.contains(ownerUrn)) {
+        ownerOfType.add(ownerUrn);
         mutated = true;
       }
     }
