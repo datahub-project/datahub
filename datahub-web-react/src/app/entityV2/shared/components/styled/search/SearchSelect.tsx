@@ -1,14 +1,14 @@
 import { FilterOutlined } from '@ant-design/icons';
 import { Button, message, Typography } from 'antd';
 import React, { useState } from 'react';
-import styled from 'styled-components';
 import { useDebounce } from 'react-use';
+import styled from 'styled-components';
 
-import useSortInput from '@src/app/searchV2/sorting/useSortInput';
 import SearchSortSelect from '@src/app/searchV2/sorting/SearchSortSelect';
+import useSortInput from '@src/app/searchV2/sorting/useSortInput';
 import { SearchCfg } from '../../../../../../conf';
 import { useGetSearchResultsForMultipleQuery } from '../../../../../../graphql/search.generated';
-import { EntityType, FacetFilterInput, FilterOperator } from '../../../../../../types.generated';
+import { Entity, EntityType, FacetFilterInput, FilterOperator } from '../../../../../../types.generated';
 import { EntityAndType } from '../../../../../entity/shared/types';
 import { SearchBar } from '../../../../../search/SearchBar';
 import { ENTITY_FILTER_NAME, UnionType } from '../../../../../search/utils/constants';
@@ -47,7 +47,7 @@ type Props = {
     fixedEntityTypes?: Array<EntityType> | null;
     placeholderText?: string | null;
     selectedEntities: EntityAndType[];
-    setSelectedEntities: (Entities: EntityAndType[]) => void;
+    setSelectedEntities: (Entities: Entity[]) => void;
     limit?: number;
 };
 

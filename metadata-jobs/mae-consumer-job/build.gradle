@@ -29,6 +29,7 @@ dependencies {
     implementation externalDependency.log4j2Api
     compileOnly externalDependency.lombok
     implementation externalDependency.logbackClassic
+    runtimeOnly externalDependency.opentelemetryExporter
 
     testImplementation project(':metadata-dao-impl:kafka-producer')
     testImplementation project(':metadata-jobs:pe-consumer')

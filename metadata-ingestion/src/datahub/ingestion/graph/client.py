@@ -23,9 +23,9 @@ from typing import (
 )
 
 from avro.schema import RecordSchema
-from deprecated import deprecated
 from pydantic import BaseModel
 from requests.models import HTTPError
+from typing_extensions import deprecated
 
 from datahub.cli import config_utils
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
@@ -33,9 +33,11 @@ from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import (
-    DEFAULT_REST_SINK_ENDPOINT,
+    DEFAULT_REST_EMITTER_ENDPOINT,
+    DEFAULT_REST_TRACE_MODE,
     DatahubRestEmitter,
     RestSinkEndpoint,
+    RestTraceMode,
 )
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.ingestion.graph.config import (
@@ -145,7 +147,8 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             ca_certificate_path=self.config.ca_certificate_path,
             client_certificate_path=self.config.client_certificate_path,
             disable_ssl_verification=self.config.disable_ssl_verification,
-            openapi_ingestion=DEFAULT_REST_SINK_ENDPOINT == RestSinkEndpoint.OPENAPI,
+            openapi_ingestion=DEFAULT_REST_EMITTER_ENDPOINT == RestSinkEndpoint.OPENAPI,
+            default_trace_mode=DEFAULT_REST_TRACE_MODE == RestTraceMode.ENABLED,
         )
 
         self.server_id = _MISSING_SERVER_ID
@@ -327,7 +330,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                 f"Failed to find {aspect_type_name} in response {response_json}"
             )
 
-    @deprecated(reason="Use get_aspect instead which makes aspect string name optional")
+    @deprecated("Use get_aspect instead which makes aspect string name optional")
     def get_aspect_v2(
         self,
         entity_urn: str,
@@ -352,7 +355,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
     def get_schema_metadata(self, entity_urn: str) -> Optional[SchemaMetadataClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=SchemaMetadataClass)
 
-    @deprecated(reason="Use get_aspect directly.")
+    @deprecated("Use get_aspect directly.")
     def get_domain_properties(self, entity_urn: str) -> Optional[DomainPropertiesClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=DomainPropertiesClass)
 
@@ -373,7 +376,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
     def get_domain(self, entity_urn: str) -> Optional[DomainsClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=DomainsClass)
 
-    @deprecated(reason="Use get_aspect directly.")
+    @deprecated("Use get_aspect directly.")
     def get_browse_path(self, entity_urn: str) -> Optional[BrowsePathsClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=BrowsePathsClass)
 
@@ -502,7 +505,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         return response.json()
 
     @deprecated(
-        reason="Use get_aspect for a single aspect or get_entity_semityped for a full entity."
+        "Use get_aspect for a single aspect or get_entity_semityped for a full entity."
     )
     def get_aspects_for_entity(
         self,
@@ -632,9 +635,6 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
     def _aspect_count_endpoint(self):
         return f"{self.config.server}/aspects?action=getCount"
 
-    # def _session(self) -> Session:
-    #    return super()._session
-
     def get_domain_urn_by_name(self, domain_name: str) -> Optional[str]:
         """Retrieve a domain urn based on its name. Returns None if there is no match found"""
 
@@ -746,9 +746,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
 
         assert res["upsertConnection"]["urn"] == urn
 
-    @deprecated(
-        reason='Use get_urns_by_filter(entity_types=["container"], ...) instead'
-    )
+    @deprecated('Use get_urns_by_filter(entity_types=["container"], ...) instead')
     def get_container_urns_by_filter(
         self,
         env: Optional[str] = None,

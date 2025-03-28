@@ -33,6 +33,7 @@ from datahub.emitter.mcp_builder import (
     add_dataset_to_container,
     gen_containers,
 )
+from datahub.emitter.request_helper import make_curl_command
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -339,7 +340,8 @@ class ModeSource(StatefulIngestionSourceBase):
 
         # Test the connection
         try:
-            self._get_request_json(f"{self.config.connect_uri}/api/verify")
+            key_info = self._get_request_json(f"{self.config.connect_uri}/api/verify")
+            logger.debug(f"Auth info: {key_info}")
         except ModeRequestError as e:
             self.report.report_failure(
                 title="Failed to Connect",
@@ -1485,12 +1487,17 @@ class ModeSource(StatefulIngestionSourceBase):
 
         @r.wraps
         def get_request():
+            curl_command = make_curl_command(self.session, "GET", url, "")
+            logger.debug(f"Issuing request; curl equivalent: {curl_command}")
+
             try:
                 response = self.session.get(
                     url, timeout=self.config.api_options.timeout
                 )
                 if response.status_code == 204:  # No content, don't parse json
                     return {}
+
+                response.raise_for_status()
                 return response.json()
             except HTTPError as http_error:
                 error_response = http_error.response
@@ -1501,6 +1508,9 @@ class ModeSource(StatefulIngestionSourceBase):
                         time.sleep(float(sleep_time))
                     raise HTTPError429 from None
 
+                logger.debug(
+                    f"Error response ({error_response.status_code}): {error_response.text}"
+                )
                 raise http_error
 
         return get_request()

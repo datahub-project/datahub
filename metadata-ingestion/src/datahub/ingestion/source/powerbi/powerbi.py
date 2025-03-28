@@ -3,6 +3,7 @@
 # Meta Data Ingestion From the Power BI Source
 #
 #########################################################
+import functools
 import logging
 from datetime import datetime
 from typing import Iterable, List, Optional, Tuple, Union
@@ -24,6 +25,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.incremental_lineage_helper import (
+    auto_incremental_lineage,
     convert_dashboard_info_to_patch,
 )
 from datahub.ingestion.api.source import (
@@ -237,6 +239,10 @@ class Mapper:
 
         upstream: List[UpstreamClass] = []
         cll_lineage: List[FineGrainedLineage] = []
+
+        logger.debug(
+            f"Extracting lineage for table {table.full_name} in dataset {table.dataset.name if table.dataset else None}"
+        )
 
         upstream_lineage: List[
             datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
@@ -666,6 +672,7 @@ class Mapper:
         workspace: powerbi_data_classes.Workspace,
         chart_mcps: List[MetadataChangeProposalWrapper],
         user_mcps: List[MetadataChangeProposalWrapper],
+        dashboard_edges: List[EdgeClass],
     ) -> List[MetadataChangeProposalWrapper]:
         """
         Map PowerBi dashboard to Datahub dashboard
@@ -695,6 +702,7 @@ class Mapper:
             lastModified=ChangeAuditStamps(),
             dashboardUrl=dashboard.webUrl,
             customProperties={**chart_custom_properties(dashboard)},
+            dashboards=dashboard_edges,
         )
 
         info_mcp = self.new_mcp(
@@ -933,7 +941,7 @@ class Mapper:
         dashboard: powerbi_data_classes.Dashboard,
         workspace: powerbi_data_classes.Workspace,
     ) -> List[EquableMetadataWorkUnit]:
-        mcps = []
+        mcps: List[MetadataChangeProposalWrapper] = []
 
         logger.info(
             f"Converting dashboard={dashboard.displayName} to datahub dashboard"
@@ -945,9 +953,30 @@ class Mapper:
         )
         # Convert tiles to charts
         ds_mcps, chart_mcps = self.to_datahub_chart(dashboard.tiles, workspace)
+
+        # collect all downstream reports (dashboards)
+        dashboard_edges = []
+        for t in dashboard.tiles:
+            if t.report:
+                dashboard_urn = builder.make_dashboard_urn(
+                    platform=self.__config.platform_name,
+                    platform_instance=self.__config.platform_instance,
+                    name=t.report.get_urn_part(),
+                )
+                edge = EdgeClass(
+                    destinationUrn=dashboard_urn,
+                )
+                dashboard_edges.append(edge)
+
         # Lets convert dashboard to datahub dashboard
         dashboard_mcps: List[MetadataChangeProposalWrapper] = (
-            self.to_datahub_dashboard_mcp(dashboard, workspace, chart_mcps, user_mcps)
+            self.to_datahub_dashboard_mcp(
+                dashboard=dashboard,
+                workspace=workspace,
+                chart_mcps=chart_mcps,
+                user_mcps=user_mcps,
+                dashboard_edges=dashboard_edges,
+            )
         )
 
         # Now add MCPs in sequence
@@ -1054,7 +1083,6 @@ class Mapper:
         report: powerbi_data_classes.Report,
         chart_mcps: List[MetadataChangeProposalWrapper],
         user_mcps: List[MetadataChangeProposalWrapper],
-        dashboard_edges: List[EdgeClass],
     ) -> List[MetadataChangeProposalWrapper]:
         """
         Map PowerBi report to Datahub dashboard
@@ -1076,7 +1104,6 @@ class Mapper:
             charts=chart_urn_list,
             lastModified=ChangeAuditStamps(),
             dashboardUrl=report.webUrl,
-            dashboards=dashboard_edges,
         )
 
         info_mcp = self.new_mcp(
@@ -1170,27 +1197,12 @@ class Mapper:
         ds_mcps = self.to_datahub_dataset(report.dataset, workspace)
         chart_mcps = self.pages_to_chart(report.pages, workspace, ds_mcps)
 
-        # find all dashboards with a Tile referencing this report
-        downstream_dashboards_edges = []
-        for d in workspace.dashboards.values():
-            if any(t.report_id == report.id for t in d.tiles):
-                dashboard_urn = builder.make_dashboard_urn(
-                    platform=self.__config.platform_name,
-                    platform_instance=self.__config.platform_instance,
-                    name=d.get_urn_part(),
-                )
-                edge = EdgeClass(
-                    destinationUrn=dashboard_urn,
-                    sourceUrn=None,
-                    created=None,
-                    lastModified=None,
-                    properties=None,
-                )
-                downstream_dashboards_edges.append(edge)
-
         # Let's convert report to datahub dashboard
         report_mcps = self.report_to_dashboard(
-            workspace, report, chart_mcps, user_mcps, downstream_dashboards_edges
+            workspace=workspace,
+            report=report,
+            chart_mcps=chart_mcps,
+            user_mcps=user_mcps,
         )
 
         # Now add MCPs in sequence
@@ -1300,7 +1312,9 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
         allowed_workspaces = []
         for workspace in all_workspaces:
-            if not self.source_config.workspace_id_pattern.allowed(workspace.id):
+            if not self.source_config.workspace_id_pattern.allowed(
+                workspace.id
+            ) or not self.source_config.workspace_name_pattern.allowed(workspace.name):
                 self.reporter.filtered_workspace_names.append(
                     f"{workspace.id} - {workspace.name}"
                 )
@@ -1516,6 +1530,9 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         else:
             return [
                 *super().get_workunit_processors(),
+                functools.partial(
+                    auto_incremental_lineage, self.source_config.incremental_lineage
+                ),
                 self.stale_entity_removal_handler.workunit_processor,
             ]
 

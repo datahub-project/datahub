@@ -30,7 +30,13 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     ReferencedTable,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
-from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
+from datahub.metadata.schema_classes import SchemaFieldDataTypeClass
+from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnLineageInfo,
+    ColumnRef,
+    DownstreamColumnRef,
+    SqlParsingResult,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -262,6 +268,33 @@ class AbstractLineage(ABC):
             ),
         )
 
+    def create_table_column_lineage(self, urn: str) -> List[ColumnLineageInfo]:
+        column_lineage = []
+
+        if self.table.columns is not None:
+            for column in self.table.columns:
+                downstream = DownstreamColumnRef(
+                    table=self.table.name,
+                    column=column.name,
+                    column_type=SchemaFieldDataTypeClass(type=column.datahubDataType),
+                    native_column_type=column.dataType or "UNKNOWN",
+                )
+
+                upstreams = [
+                    ColumnRef(
+                        table=urn,
+                        column=column.name.lower(),
+                    )
+                ]
+
+                column_lineage_info = ColumnLineageInfo(
+                    downstream=downstream, upstreams=upstreams
+                )
+
+                column_lineage.append(column_lineage_info)
+
+        return column_lineage
+
 
 class AmazonRedshiftLineage(AbstractLineage):
     def get_platform_pair(self) -> DataPlatformPair:
@@ -299,6 +332,8 @@ class AmazonRedshiftLineage(AbstractLineage):
             qualified_table_name=qualified_table_name,
         )
 
+        column_lineage = self.create_table_column_lineage(urn)
+
         return Lineage(
             upstreams=[
                 DataPlatformTable(
@@ -306,7 +341,7 @@ class AmazonRedshiftLineage(AbstractLineage):
                     urn=urn,
                 )
             ],
-            column_lineage=[],
+            column_lineage=column_lineage,
         )
 
 
@@ -364,6 +399,8 @@ class OracleLineage(AbstractLineage):
             qualified_table_name=qualified_table_name,
         )
 
+        column_lineage = self.create_table_column_lineage(urn)
+
         return Lineage(
             upstreams=[
                 DataPlatformTable(
@@ -371,7 +408,7 @@ class OracleLineage(AbstractLineage):
                     urn=urn,
                 )
             ],
-            column_lineage=[],
+            column_lineage=column_lineage,
         )
 
 
@@ -449,6 +486,8 @@ class DatabricksLineage(AbstractLineage):
                 qualified_table_name=qualified_table_name,
             )
 
+            column_lineage = self.create_table_column_lineage(urn)
+
             return Lineage(
                 upstreams=[
                     DataPlatformTable(
@@ -456,7 +495,7 @@ class DatabricksLineage(AbstractLineage):
                         urn=urn,
                     )
                 ],
-                column_lineage=[],
+                column_lineage=column_lineage,
             )
 
         return Lineage.empty()
@@ -509,6 +548,9 @@ class TwoStepDataAccessPattern(AbstractLineage, ABC):
             server=server,
             qualified_table_name=qualified_table_name,
         )
+
+        column_lineage = self.create_table_column_lineage(urn)
+
         return Lineage(
             upstreams=[
                 DataPlatformTable(
@@ -516,8 +558,60 @@ class TwoStepDataAccessPattern(AbstractLineage, ABC):
                     urn=urn,
                 )
             ],
-            column_lineage=[],
+            column_lineage=column_lineage,
         )
+
+
+class MySQLLineage(AbstractLineage):
+    def create_lineage(
+        self, data_access_func_detail: DataAccessFunctionDetail
+    ) -> Lineage:
+        logger.debug(
+            f"Processing {self.get_platform_pair().powerbi_data_platform_name} data-access function detail {data_access_func_detail}"
+        )
+
+        server, db_name = self.get_db_detail_from_argument(
+            data_access_func_detail.arg_list
+        )
+        if server is None or db_name is None:
+            return Lineage.empty()  # Return an empty list
+
+        schema_name: str = cast(
+            IdentifierAccessor, data_access_func_detail.identifier_accessor
+        ).items["Schema"]
+
+        table_name: str = cast(
+            IdentifierAccessor, data_access_func_detail.identifier_accessor
+        ).items["Item"]
+
+        qualified_table_name: str = f"{schema_name}.{table_name}"
+
+        logger.debug(
+            f"Platform({self.get_platform_pair().datahub_data_platform_name}) qualified_table_name= {qualified_table_name}"
+        )
+
+        urn = make_urn(
+            config=self.config,
+            platform_instance_resolver=self.platform_instance_resolver,
+            data_platform_pair=self.get_platform_pair(),
+            server=server,
+            qualified_table_name=qualified_table_name,
+        )
+
+        column_lineage = self.create_table_column_lineage(urn)
+
+        return Lineage(
+            upstreams=[
+                DataPlatformTable(
+                    data_platform_pair=self.get_platform_pair(),
+                    urn=urn,
+                )
+            ],
+            column_lineage=column_lineage,
+        )
+
+    def get_platform_pair(self) -> DataPlatformPair:
+        return SupportedDataPlatform.MYSQL.value
 
 
 class PostgresLineage(TwoStepDataAccessPattern):
@@ -671,6 +765,8 @@ class ThreeStepDataAccessPattern(AbstractLineage, ABC):
             qualified_table_name=qualified_table_name,
         )
 
+        column_lineage = self.create_table_column_lineage(urn)
+
         return Lineage(
             upstreams=[
                 DataPlatformTable(
@@ -678,7 +774,7 @@ class ThreeStepDataAccessPattern(AbstractLineage, ABC):
                     urn=urn,
                 )
             ],
-            column_lineage=[],
+            column_lineage=column_lineage,
         )
 
 
@@ -726,6 +822,7 @@ class NativeQueryLineage(AbstractLineage):
 
         tables: List[str] = native_sql_parser.get_tables(query)
 
+        column_lineage = []
         for qualified_table_name in tables:
             if len(qualified_table_name.split(".")) != 3:
                 logger.debug(
@@ -748,12 +845,11 @@ class NativeQueryLineage(AbstractLineage):
                 )
             )
 
+            column_lineage = self.create_table_column_lineage(urn)
+
         logger.debug(f"Generated dataplatform_tables {dataplatform_tables}")
 
-        return Lineage(
-            upstreams=dataplatform_tables,
-            column_lineage=[],
-        )
+        return Lineage(upstreams=dataplatform_tables, column_lineage=column_lineage)
 
     def get_db_name(self, data_access_tokens: List[str]) -> Optional[str]:
         if (
@@ -883,6 +979,11 @@ class SupportedPattern(Enum):
     AMAZON_REDSHIFT = (
         AmazonRedshiftLineage,
         FunctionName.AMAZON_REDSHIFT_DATA_ACCESS,
+    )
+
+    MYSQL = (
+        MySQLLineage,
+        FunctionName.MYSQL_DATA_ACCESS,
     )
 
     NATIVE_QUERY = (
