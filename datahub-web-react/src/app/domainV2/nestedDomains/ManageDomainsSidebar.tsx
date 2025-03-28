@@ -1,8 +1,7 @@
 import React, { useCallback, useState } from 'react';
-import { Button, Divider } from 'antd';
-import { Tooltip, colors } from '@components';
 import styled from 'styled-components';
-import { CaretLeft } from '@phosphor-icons/react';
+import { Divider } from 'antd';
+import { Button } from '@components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import useSidebarWidth from '../../sharedV2/sidebar/useSidebarWidth';
 import DomainsSidebarHeader from './DomainsSidebarHeader';
@@ -48,36 +47,9 @@ const Controls = styled.div<{ isCollapsed: boolean }>`
     height: 50px;
 `;
 
-const CloseButton = styled(Button)<{ $isActive }>`
-    margin: 0;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    min-width: 24px;
-    min-height: 24px;
-    border-radius: 50%;
-    transition: background-color 0.2s ease-in-out;
-
-    &:hover {
-        background-color: ${colors.gray[1600]};
-        color: ${colors.gray[1800]};
-    }
-`;
-
 const ThinDivider = styled(Divider)`
     margin: 0px;
     padding: 0px;
-`;
-
-const StyledCaretLeft = styled(CaretLeft)<{ direction: 'left' | 'right' }>`
-    cursor: pointer;
-    color: ${colors.gray[1700]};
-    width: 20px;
-    height: 20px;
-    ${(props) => (props.direction === 'right' && 'transform: scaleX(-1);') || undefined}
 `;
 
 const StyledSidebar = styled.div`
@@ -110,17 +82,16 @@ export default function ManageDomainsSidebarV2({ isEntityProfile }: Props) {
         >
             <Controls isCollapsed={isClosed}>
                 {!isClosed && <DomainsSidebarHeader />}
-                <Tooltip
-                    placement="left"
-                    showArrow={false}
-                    title={!isClosed ? 'Close navigator' : 'Open navigator'}
-                    mouseEnterDelay={0.7}
-                    mouseLeaveDelay={0}
-                >
-                    <CloseButton $isActive={!isClosed} type="link" onClick={() => setIsClosed(!isClosed)}>
-                        <StyledCaretLeft direction={isClosed ? 'right' : 'left'} size={20} />
-                    </CloseButton>
-                </Tooltip>
+                <Button
+                    variant="text"
+                    color="gray"
+                    size="lg"
+                    isCircle
+                    icon={isClosed ? 'ArrowLineRight' : 'ArrowLineLeft'}
+                    iconSource="phosphor"
+                    isActive={!isClosed}
+                    onClick={() => setIsClosed(!isClosed)}
+                />
             </Controls>
             <ThinDivider />
             <StyledSidebar>
