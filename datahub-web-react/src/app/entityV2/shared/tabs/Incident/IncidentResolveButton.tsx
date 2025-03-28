@@ -123,8 +123,8 @@ export const IncidentResolveButton = ({
             data-testid="incident-resolve-button-container"
         >
             {incident?.state === IncidentState.Active ? (
-                <Tooltip showArrow={false} title={(!canEditIncidents && noPermissionsMessage) || null}>
-                    <ResolveButton variant="text" onClick={() => canEditIncidents && handleShowPopup()}>
+                <Tooltip showArrow={false} title={!canEditIncidents ? noPermissionsMessage : null}>
+                    <ResolveButton disabled={!canEditIncidents} variant="text" onClick={handleShowPopup}>
                         Resolve
                     </ResolveButton>
                 </Tooltip>
