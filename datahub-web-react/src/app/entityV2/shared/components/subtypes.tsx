@@ -10,7 +10,7 @@ import ViewComfyOutlinedIcon from '@mui/icons-material/ViewComfyOutlined';
 import TableauWorkbookLogo from '../../../../images/tableau-workbook.svg?react';
 import TableauEmbeddedDataSourceLogo from '../../../../images/tableau-embedded-data-source.svg?react';
 import TableauPublishedDataSourceLogo from '../../../../images/tableau-published-data-source.svg?react';
-import VertexAILogo from '../../../../images/vertexai.png?react';
+import VertexAIPipelineTaskLogo from '../../../../images/vertex-pipeline-task.svg?react';
 
 export enum SubType {
     Database = 'Database',
@@ -64,11 +64,8 @@ export function getSubTypeIcon(subType?: string): JSX.Element | undefined {
     if (lowerSubType === SubType.TableauWorksheet.toLowerCase()) {
         return <LineChartOutlined className={TYPE_ICON_CLASS_NAME} />;
     }
-    if (lowerSubType === SubType.TableauWorksheet.toLowerCase()) {
-        return <LineChartOutlined className={TYPE_ICON_CLASS_NAME} />;
-    }
     if (lowerSubType === SubType.VertexAIPipelineTask.toLowerCase()) {
-        return <Icon component={VertexAILogo} className={TYPE_ICON_CLASS_NAME} />;
+        return <Icon component={VertexAIPipelineTaskLogo} className={TYPE_ICON_CLASS_NAME} />;
     }
     return undefined;
 }
