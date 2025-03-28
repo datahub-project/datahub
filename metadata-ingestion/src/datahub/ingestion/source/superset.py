@@ -1,3 +1,4 @@
+import os
 import json
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -209,6 +210,11 @@ class SupersetConfig(
 
     timeout: int = Field(
         default=10, description="Timeout of single API call to superset."
+    )
+
+    max_threads: int = Field(
+        default_factory=lambda: os.cpu_count() or 40,
+        description="Max parallelism for Looker API calls. Defaults to cpuCount or 40",
     )
 
     # TODO: Check and remove this if no longer needed.
@@ -530,7 +536,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             )
             return work_units
 
-        with ThreadPoolExecutor(max_workers=10) as executor:
+        with ThreadPoolExecutor(max_workers=self.config.max_threads) as executor:
             future_to_dashboard = {
                 executor.submit(process_dashboard, dashboard_data): dashboard_data
                 for dashboard_data in self.paginate_entity_api_results(
@@ -807,7 +813,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                 )
                 return []
 
-        with ThreadPoolExecutor(max_workers=10) as executor:
+        with ThreadPoolExecutor(max_workers=self.config.max_threads) as executor:
             future_to_chart = {
                 executor.submit(process_chart, chart_data): chart_data
                 for chart_data in self.paginate_entity_api_results("chart/", PAGE_SIZE)
@@ -1071,7 +1077,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             )
             return work_units
 
-        with ThreadPoolExecutor(max_workers=10) as executor:
+        with ThreadPoolExecutor(max_workers=self.config.max_threads) as executor:
             future_to_dataset = {
                 executor.submit(process_dataset, dataset_data): dataset_data
                 for dataset_data in self.paginate_entity_api_results(
