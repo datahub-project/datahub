@@ -299,7 +299,7 @@ class VertexAISource(Source):
                 owners={"urn:li:corpuser:datahub"},
                 upstream_urns=task.upstreams if task.upstreams else [],
                 tags=(
-                    set(f"{k}:{v}" for k, v in pipeline.labels.items())
+                    set(f"{k}_{v}" for k, v in pipeline.labels.items())
                     if pipeline.labels
                     else set()
                 ),
@@ -360,14 +360,10 @@ class VertexAISource(Source):
             "display_name": pipeline.name,
             "resource_name": pipeline.resource_name if pipeline.resource_name else "",
             "create_time": (
-                pipeline.create_time.strftime("%Y-%m-%d %H:%M:%S")
-                if pipeline.create_time
-                else ""
+                pipeline.create_time.isoformat() if pipeline.create_time else ""
             ),
             "update_time": (
-                pipeline.update_time.strftime("%Y-%m-%d %H:%M:%S")
-                if pipeline.update_time
-                else ""
+                pipeline.update_time.isoformat() if pipeline.update_time else ""
             ),
             "duration": (
                 self._format_pipeline_duration(pipeline.duration)
@@ -387,7 +383,7 @@ class VertexAISource(Source):
             name=pipeline.name,
             platform_instance=self.platform,
             properties=self._get_pipeline_properties(pipeline),
-            tags=set(f"{k}:{v}" for k, v in pipeline.labels.items())
+            tags=set(f"{k}_{v}" for k, v in pipeline.labels.items())
             if pipeline.labels
             else set(),
             owners={"urn:li:corpuser:datahub"},

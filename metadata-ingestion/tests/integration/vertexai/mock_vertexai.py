@@ -121,7 +121,7 @@ def get_mock_pipeline_job() -> PipelineJob:
     mock_pipeline_job.resource_name = (
         "projects/123/locations/us-central1/pipelineJobs/456"
     )
-    mock_pipeline_job.labels = {"key": "value"}
+    mock_pipeline_job.labels = {"key1": "value1"}
     mock_pipeline_job.create_time = datetime.fromtimestamp(1647878400)
     mock_pipeline_job.update_time = datetime.fromtimestamp(1647878500)
     mock_pipeline_job.location = "us-west2"
