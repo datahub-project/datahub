@@ -119,6 +119,7 @@ def test_hex_ingestion_with_lineage(
                     "base_url": "http://localhost:8000/api/v1",  # Mock Hex API URL
                     "platform_instance": "hex_test",
                     "include_lineage": True,
+                    "datahub_page_size": 1,  # Force pagination
                     "stateful_ingestion": {
                         "enabled": False,
                     },

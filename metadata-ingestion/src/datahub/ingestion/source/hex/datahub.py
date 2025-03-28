@@ -239,6 +239,7 @@ class HexQueryFetcher:
         for i in range(0, len(query_urns), self.page_size):
             batch = query_urns[i : i + self.page_size]
 
+            logger.debug(f"Fetching query entities for {len(batch)} queries: {batch}")
             response_json = self.datahub_client._graph.get_entities_v2(
                 entity_name="query",
                 urns=[urn.urn() for urn in batch],
