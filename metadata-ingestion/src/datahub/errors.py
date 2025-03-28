@@ -33,3 +33,7 @@ class MultipleSubtypesWarning(Warning):
 
 class ExperimentalWarning(Warning):
     pass
+
+
+class APITracingWarning(Warning):
+    pass
