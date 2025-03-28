@@ -31,7 +31,10 @@ from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     make_sqlalchemy_type,
 )
-from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
+from datahub.ingestion.source.sql.sql_config import (
+    BasicSQLAlchemyConfig,
+    make_sqlalchemy_uri,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -71,14 +74,16 @@ class OracleConfig(BasicSQLAlchemyConfig):
         description="Will be set automatically to default value.",
     )
     service_name: Optional[str] = Field(
-        default=None, description="Oracle service name. If using, omit `database`."
+        default=None,
+        description="Oracle service name for connection. Can be used together with database.",
     )
     database: Optional[str] = Field(
-        default=None, description="If using, omit `service_name`."
+        default=None,
+        description="Oracle database name. If provided along with service_name, service_name will be used for connection and database will be used in URNs when add_database_name_to_urn=True.",
     )
     add_database_name_to_urn: Optional[bool] = Field(
         default=False,
-        description="Add oracle database name to urn, default urn is schema.table",
+        description="Add oracle database name to urn. When True, URNs will be database.schema.table, otherwise schema.table.",
     )
     # custom
     data_dictionary_mode: Optional[str] = Field(
@@ -96,14 +101,6 @@ class OracleConfig(BasicSQLAlchemyConfig):
         description="If using thick mode on Windows or Mac, set thick_mode_lib_dir to the oracle client libraries path. "
         "On Linux, this value is ignored, as ldconfig or LD_LIBRARY_PATH will define the location.",
     )
-
-    @pydantic.validator("service_name")
-    def check_service_name(cls, v, values):
-        if values.get("database") and v:
-            raise ValueError(
-                "specify one of 'database' and 'service_name', but not both"
-            )
-        return v
 
     @pydantic.validator("data_dictionary_mode")
     def check_data_dictionary_mode(cls, values):
@@ -123,21 +120,37 @@ class OracleConfig(BasicSQLAlchemyConfig):
             )
         return v
 
-    def get_sql_alchemy_url(self):
-        url = super().get_sql_alchemy_url()
+    def get_sql_alchemy_url(
+        self, uri_opts: Optional[Dict[str, Any]] = None, database: Optional[str] = None
+    ) -> str:
+        # If service_name is provided, always use it for connection and set database to None
+        # to avoid the error: "service_name option shouldn't be used with a database part of the url"
         if self.service_name:
-            assert not self.database
-            url = f"{url}/?service_name={self.service_name}"
-        return url
+            # Build the URL without the database part
+            base_url = make_sqlalchemy_uri(
+                self.scheme,
+                self.username,
+                self.password.get_secret_value() if self.password is not None else None,
+                self.host_port,
+                None,  # Explicitly set database to None, not using database or self.database
+                uri_opts,
+            )
 
-    def get_identifier(self, schema: str, table: str) -> str:
-        regular = f"{schema}.{table}"
-        if self.add_database_name_to_urn:
-            if self.database:
-                return f"{self.database}.{regular}"
-            return regular
-        else:
-            return regular
+            # Add service_name as a query parameter
+            if "?" in base_url:
+                return f"{base_url}&service_name={self.service_name}"
+            else:
+                return f"{base_url}/?service_name={self.service_name}"
+
+        # Default behavior when no service_name is provided - use the parent implementation
+        return self.sqlalchemy_uri or make_sqlalchemy_uri(
+            self.scheme,
+            self.username,
+            self.password.get_secret_value() if self.password is not None else None,
+            self.host_port,
+            database or self.database,
+            uri_opts=uri_opts,
+        )
 
 
 class OracleInspectorObjectWrapper:
@@ -632,6 +645,10 @@ class OracleSource(SQLAlchemySource):
 
     Using the Oracle source requires that you've also installed the correct drivers; see the [cx_Oracle docs](https://cx-oracle.readthedocs.io/en/latest/user_guide/installation.html). The easiest one is the [Oracle Instant Client](https://www.oracle.com/database/technologies/instant-client.html).
 
+    Configuration Notes:
+    - Both `service_name` and `database` can be provided. When both are provided:
+      - The `service_name` will be used for establishing the database connection
+      - The `database` value will be used for constructing URNs if `add_database_name_to_urn` is True
     """
 
     config: OracleConfig
@@ -661,6 +678,8 @@ class OracleSource(SQLAlchemySource):
         database name from Connection URL, which does not work when using
         service instead of database.
         In that case, it tries to retrieve the database name by sending a query to the DB.
+
+        Note: This is used as a fallback if database is not specified in the config.
         """
 
         # call default implementation first
@@ -670,6 +689,30 @@ class OracleSource(SQLAlchemySource):
             db_name = inspector.get_db_name()
 
         return db_name
+
+    def get_identifier(
+        self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
+    ) -> str:
+        """
+        Override the default identifier generation for Oracle to avoid duplicating schema names.
+        This ensures proper URNs for tables and views.
+        """
+        # Only get the database name if add_database_name_to_urn is True
+        db_name = None
+        if self.config.add_database_name_to_urn:
+            db_name = (
+                self.config.database
+                if self.config.database
+                else self.get_db_name(inspector)
+            )
+            if db_name:
+                # Build the identifier with all parts
+                qualified_name = f"{db_name}.{schema}.{entity}"
+                return qualified_name
+
+        # Build schema.entity identifier
+        qualified_name = f"{schema}.{entity}"
+        return qualified_name
 
     def get_inspectors(self) -> Iterable[Inspector]:
         for inspector in super().get_inspectors():
@@ -687,7 +730,49 @@ class OracleSource(SQLAlchemySource):
                 # To silent the mypy lint error
                 yield cast(Inspector, inspector)
 
+    def get_db_schema(self, dataset_identifier: str) -> Tuple[Optional[str], str]:
+        """
+        Override the get_db_schema method to ensure proper schema name extraction.
+        This method is used during view lineage extraction to determine the default schema
+        for unqualified table names in view definitions.
+        """
+        try:
+            # Try to get the schema from the dataset identifier
+            parts = dataset_identifier.split(".")
+
+            # Handle the identifier format differently based on add_database_name_to_urn flag
+            if self.config.add_database_name_to_urn:
+                if len(parts) >= 3:
+                    # Format is: database.schema.view when add_database_name_to_urn=True
+                    db_name = parts[-3]
+                    schema_name = parts[-2]
+                    return db_name, schema_name
+                elif len(parts) >= 2:
+                    # Handle the case where database might be missing even with flag enabled
+                    # If we have a database in the config, use that
+                    db_name = self.config.database
+                    schema_name = parts[-2]
+                    return db_name, schema_name
+            else:
+                # Format is: schema.view when add_database_name_to_urn=False
+                if len(parts) >= 2:
+                    # When add_database_name_to_urn is False, don't include database in the result
+                    db_name = None
+                    schema_name = parts[-2]
+                    return db_name, schema_name
+        except Exception as e:
+            logger.warning(
+                f"Error extracting schema from identifier {dataset_identifier}: {e}"
+            )
+
+        # Fall back to parent implementation if our approach fails
+        db_name, schema_name = super().get_db_schema(dataset_identifier)
+        return db_name, schema_name
+
     def get_workunits(self):
+        """
+        Override get_workunits to patch Oracle dialect for custom types.
+        """
         with patch.dict(
             "sqlalchemy.dialects.oracle.base.OracleDialect.ischema_names",
             {klass.__name__: klass for klass in extra_oracle_types},
