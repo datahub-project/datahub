@@ -33,7 +33,6 @@ from datahub.ingestion.source.sql.sql_common import (
 )
 from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
-    make_sqlalchemy_uri,
 )
 
 logger = logging.getLogger(__name__)
@@ -75,15 +74,15 @@ class OracleConfig(BasicSQLAlchemyConfig):
     )
     service_name: Optional[str] = Field(
         default=None,
-        description="Oracle service name for connection. Can be used together with database.",
+        description="Oracle service name. If using, omit `database`.",
     )
     database: Optional[str] = Field(
         default=None,
-        description="Oracle database name. If provided along with service_name, service_name will be used for connection and database will be used in URNs when add_database_name_to_urn=True.",
+        description="If using, omit `service_name`.",
     )
     add_database_name_to_urn: Optional[bool] = Field(
         default=False,
-        description="Add oracle database name to urn. When True, URNs will be database.schema.table, otherwise schema.table.",
+        description="Add oracle database name to urn, default urn is schema.table",
     )
     # custom
     data_dictionary_mode: Optional[str] = Field(
@@ -101,6 +100,14 @@ class OracleConfig(BasicSQLAlchemyConfig):
         description="If using thick mode on Windows or Mac, set thick_mode_lib_dir to the oracle client libraries path. "
         "On Linux, this value is ignored, as ldconfig or LD_LIBRARY_PATH will define the location.",
     )
+
+    @pydantic.validator("service_name")
+    def check_service_name(cls, v, values):
+        if values.get("database") and v:
+            raise ValueError(
+                "specify one of 'database' and 'service_name', but not both"
+            )
+        return v
 
     @pydantic.validator("data_dictionary_mode")
     def check_data_dictionary_mode(cls, values):
@@ -120,37 +127,12 @@ class OracleConfig(BasicSQLAlchemyConfig):
             )
         return v
 
-    def get_sql_alchemy_url(
-        self, uri_opts: Optional[Dict[str, Any]] = None, database: Optional[str] = None
-    ) -> str:
-        # If service_name is provided, always use it for connection and set database to None
-        # to avoid the error: "service_name option shouldn't be used with a database part of the url"
+    def get_sql_alchemy_url(self):
+        url = super().get_sql_alchemy_url()
         if self.service_name:
-            # Build the URL without the database part
-            base_url = make_sqlalchemy_uri(
-                self.scheme,
-                self.username,
-                self.password.get_secret_value() if self.password is not None else None,
-                self.host_port,
-                None,  # Explicitly set database to None, not using database or self.database
-                uri_opts,
-            )
-
-            # Add service_name as a query parameter
-            if "?" in base_url:
-                return f"{base_url}&service_name={self.service_name}"
-            else:
-                return f"{base_url}/?service_name={self.service_name}"
-
-        # Default behavior when no service_name is provided - use the parent implementation
-        return self.sqlalchemy_uri or make_sqlalchemy_uri(
-            self.scheme,
-            self.username,
-            self.password.get_secret_value() if self.password is not None else None,
-            self.host_port,
-            database or self.database,
-            uri_opts=uri_opts,
-        )
+            assert not self.database
+            url = f"{url}/?service_name={self.service_name}"
+        return url
 
 
 class OracleInspectorObjectWrapper:
@@ -644,11 +626,6 @@ class OracleSource(SQLAlchemySource):
     - Table, row, and column statistics via optional SQL profiling
 
     Using the Oracle source requires that you've also installed the correct drivers; see the [cx_Oracle docs](https://cx-oracle.readthedocs.io/en/latest/user_guide/installation.html). The easiest one is the [Oracle Instant Client](https://www.oracle.com/database/technologies/instant-client.html).
-
-    Configuration Notes:
-    - Both `service_name` and `database` can be provided. When both are provided:
-      - The `service_name` will be used for establishing the database connection
-      - The `database` value will be used for constructing URNs if `add_database_name_to_urn` is True
     """
 
     config: OracleConfig
