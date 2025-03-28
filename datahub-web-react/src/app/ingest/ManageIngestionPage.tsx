@@ -1,6 +1,7 @@
-import { Tabs, Typography } from 'antd';
+import { Tabs } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+import { PageTitle } from '../../alchemy-components/components/PageTitle';
 import { IngestionSourceList } from './source/IngestionSourceList';
 import { useAppConfig } from '../useAppConfig';
 import { useUserContext } from '../context/useUserContext';
@@ -30,12 +31,6 @@ const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 const PageHeaderContainer = styled.div`
     && {
         padding-left: 24px;
-    }
-`;
-
-const PageTitle = styled(Typography.Title)`
-    && {
-        margin-bottom: 12px;
     }
 `;
 
@@ -92,10 +87,10 @@ export const ManageIngestionPage = () => {
         <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
             <OnboardingTour stepIds={[INGESTION_CREATE_SOURCE_ID, INGESTION_REFRESH_SOURCES_ID]} />
             <PageHeaderContainer>
-                <PageTitle level={3}>Manage Data Sources</PageTitle>
-                <Typography.Paragraph type="secondary">
-                    Configure and schedule syncs to import data from your data sources
-                </Typography.Paragraph>
+                <PageTitle 
+                    title="Manage Data Sources"
+                    subTitle="Configure and schedule syncs to import data from your data sources"
+                />
             </PageHeaderContainer>
             <StyledTabs activeKey={selectedTab} size="large" onTabClick={(tab: string) => onClickTab(tab)}>
                 {showIngestionTab && <Tab key={TabType.Sources} tab={TabType.Sources} />}
