@@ -642,7 +642,7 @@ class DataHubListener:
         if dag.dag_id == _DATAHUB_CLEANUP_DAG:
             assert self.graph
 
-            logger.debug("Initiating the cleanup of obsselete data from datahub")
+            logger.debug("Initiating the cleanup of obsolete data from datahub")
 
             # get all ingested dataflow and datajob
             ingested_dataflow_urns = list(
