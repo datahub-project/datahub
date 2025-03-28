@@ -38,6 +38,7 @@ from pyiceberg.types import (
 )
 
 from datahub.emitter.mce_builder import (
+    make_container_urn,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
@@ -45,6 +46,7 @@ from datahub.emitter.mce_builder import (
     make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import NamespaceKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -57,7 +59,10 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
-from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.iceberg.iceberg_common import (
     IcebergSourceConfig,
     IcebergSourceReport,
@@ -69,7 +74,9 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.metadata._schema_classes import ContainerClass
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status, SubTypes
+from datahub.metadata.com.linkedin.pegasus2avro.container import ContainerProperties
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     OtherSchema,
     SchemaField,
@@ -86,6 +93,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
+from datahub.utilities.urns._urn_base import Urn
 
 LOGGER = logging.getLogger(__name__)
 logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
@@ -121,9 +129,10 @@ class IcebergSource(StatefulIngestionSourceBase):
     [pyiceberg library](https://py.iceberg.apache.org/).
     """
 
+    platform: str = "iceberg"
+
     def __init__(self, config: IcebergSourceConfig, ctx: PipelineContext) -> None:
         super().__init__(config, ctx)
-        self.platform: str = "iceberg"
         self.report: IcebergSourceReport = IcebergSourceReport()
         self.config: IcebergSourceConfig = config
 
@@ -140,13 +149,12 @@ class IcebergSource(StatefulIngestionSourceBase):
             ).workunit_processor,
         ]
 
-    def _get_datasets(self, catalog: Catalog) -> Iterable[Identifier]:
+    def _get_namespaces(self, catalog: Catalog) -> Iterable[Identifier]:
         namespaces = catalog.list_namespaces()
         LOGGER.debug(
             f"Retrieved {len(namespaces)} namespaces, first 10: {namespaces[:10]}"
         )
         self.report.report_no_listed_namespaces(len(namespaces))
-        tables_count = 0
         for namespace in namespaces:
             namespace_repr = ".".join(namespace)
             if not self.config.namespace_pattern.allowed(namespace_repr):
@@ -155,6 +163,14 @@ class IcebergSource(StatefulIngestionSourceBase):
                 )
                 self.report.report_dropped(f"{namespace_repr}.*")
                 continue
+            yield namespace
+
+    def _get_datasets(
+        self, catalog: Catalog, namespaces: Iterable[Identifier]
+    ) -> Iterable[Tuple[Identifier, Urn]]:
+        LOGGER.debug("Starting to retrieve tables")
+        tables_count = 0
+        for namespace, namespace_urn in namespaces:
             try:
                 tables = catalog.list_tables(namespace)
                 tables_count += len(tables)
@@ -164,7 +180,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                 self.report.report_listed_tables_for_namespace(
                     ".".join(namespace), len(tables)
                 )
-                yield from tables
+                yield from [(table, namespace_urn) for table in tables]
             except NoSuchNamespaceError as e:
                 self.report.warning(
                     title="No such namespace",
@@ -182,7 +198,7 @@ class IcebergSource(StatefulIngestionSourceBase):
         thread_local = threading.local()
 
         def _try_processing_dataset(
-            dataset_path: Tuple[str, ...], dataset_name: str
+            dataset_path: Tuple[str, ...], dataset_name: str, namespace_urn: Urn
         ) -> Iterable[MetadataWorkUnit]:
             try:
                 if not hasattr(thread_local, "local_catalog"):
@@ -204,7 +220,9 @@ class IcebergSource(StatefulIngestionSourceBase):
                     self.config.platform_instance,
                     self.config.env,
                 )
-                for aspect in self._create_iceberg_table_aspects(dataset_name, table):
+                for aspect in self._create_iceberg_table_aspects(
+                    dataset_name, table, namespace_urn
+                ):
                     yield MetadataChangeProposalWrapper(
                         entityUrn=dataset_urn, aspect=aspect
                     ).as_workunit()
@@ -247,7 +265,9 @@ class IcebergSource(StatefulIngestionSourceBase):
                     context=f"Could not initialize FileIO for {dataset_path}. Details: {e}",
                 )
 
-        def _process_dataset(dataset_path: Identifier) -> Iterable[MetadataWorkUnit]:
+        def _process_dataset(
+            dataset_path: Identifier, namespace_urn: Urn
+        ) -> Iterable[MetadataWorkUnit]:
             try:
                 LOGGER.debug(f"Processing dataset for path {dataset_path}")
                 dataset_name = ".".join(dataset_path)
@@ -259,7 +279,9 @@ class IcebergSource(StatefulIngestionSourceBase):
                     )
                     return
 
-                yield from _try_processing_dataset(dataset_path, dataset_name)
+                yield from _try_processing_dataset(
+                    dataset_path, dataset_name, namespace_urn
+                )
             except Exception as e:
                 self.report.report_failure(
                     title="Generic error when processing a table",
@@ -277,15 +299,48 @@ class IcebergSource(StatefulIngestionSourceBase):
             )
             return
 
+        try:
+            namespace_ids = self._get_namespaces(catalog)
+            namespaces = []
+            for namespace in namespace_ids:
+                namespace_repr = ".".join(namespace)
+                LOGGER.debug(f"Processing namespace {namespace_repr}")
+                namespace_urn = make_container_urn(
+                    NamespaceKey(
+                        namespace=namespace_repr,
+                        platform=self.platform,
+                        instance=self.config.platform_instance,
+                        env=self.config.env,
+                    )
+                )
+                namespaces.append((namespace, namespace_urn))
+                for aspect in self._create_iceberg_namespace_aspects(namespace):
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=namespace_urn, aspect=aspect
+                    ).as_workunit()
+            LOGGER.debug("Namespaces ingestion completed")
+        except Exception as e:
+            self.report.report_failure(
+                title="Failed to list namespaces",
+                message="Couldn't start the ingestion due to a failure to process list of the namespaces",
+                context=f"Failed to list namespaces. Details: {e}",
+            )
+            return
+
         for wu in ThreadedIteratorExecutor.process(
             worker_func=_process_dataset,
-            args_list=[(dataset_path,) for dataset_path in self._get_datasets(catalog)],
+            args_list=[
+                (dataset_path, namespace_urn)
+                for dataset_path, namespace_urn in self._get_datasets(
+                    catalog, namespaces
+                )
+            ],
             max_workers=self.config.processing_threads,
         ):
             yield wu
 
     def _create_iceberg_table_aspects(
-        self, dataset_name: str, table: Table
+        self, dataset_name: str, table: Table, namespace_urn: Urn
     ) -> Iterable[_Aspect]:
         with PerfTimer() as timer:
             self.report.report_table_scanned(dataset_name)
@@ -304,6 +359,7 @@ class IcebergSource(StatefulIngestionSourceBase):
 
             yield self._create_schema_metadata(dataset_name, table)
             yield self._get_dataplatform_instance_aspect()
+            yield ContainerClass(container=str(namespace_urn))
 
         self.report.report_table_processing_time(
             timer.elapsed_seconds(), dataset_name, table.metadata_location
@@ -455,6 +511,17 @@ class IcebergSource(StatefulIngestionSourceBase):
 
     def get_report(self) -> SourceReport:
         return self.report
+
+    def _create_iceberg_namespace_aspects(
+        self, namespace: Identifier
+    ) -> Iterable[_Aspect]:
+        namespace_repr = ".".join(namespace)
+        yield Status(removed=False)
+        yield ContainerProperties(
+            name=namespace_repr, qualifiedName=namespace_repr, env=self.config.env
+        )
+        yield SubTypes(typeNames=[DatasetContainerSubTypes.NAMESPACE])
+        yield self._get_dataplatform_instance_aspect()
 
 
 class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):
