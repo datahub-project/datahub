@@ -124,7 +124,8 @@ class Mapper:
             ),
             externalUrl=f"{self._base_url}/{self._workspace_name}/hex/{project.id}",
             customProperties=dict(id=project.id),
-            datasetEdges=self._dataset_edges(project.upstream),
+            datasetEdges=self._dataset_edges(project.upstream_datasets),
+            # TODO: support schema field upstream, maybe InputFields?
         )
 
         subtypes = SubTypesClass(

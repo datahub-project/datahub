@@ -53,7 +53,12 @@ class Project:
     creator: Optional[Owner] = None
     owner: Optional[Owner] = None
     analytics: Optional[Analytics] = None
-    upstream: List[Union[DatasetUrn, SchemaFieldUrn]] = field(default_factory=list)
+    upstream_datasets: List[Union[DatasetUrn, SchemaFieldUrn]] = field(
+        default_factory=list
+    )
+    upstream_schema_fields: List[Union[DatasetUrn, SchemaFieldUrn]] = field(
+        default_factory=list
+    )
 
 
 @dataclass

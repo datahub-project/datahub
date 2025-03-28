@@ -858,7 +858,7 @@ class TestMapper(unittest.TestCase):
             status=Status(name="Published"),
             creator=Owner(email="creator@example.com"),
             owner=Owner(email="owner@example.com"),
-            upstream=[dataset_urn1, schema_field_urn, dataset_urn2],
+            upstream_datasets=[dataset_urn1, schema_field_urn, dataset_urn2],
         )
 
         mapper = Mapper(

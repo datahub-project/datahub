@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import Any, Dict, Iterable, List, Optional
 
 from pydantic import Field, SecretStr
@@ -26,7 +27,10 @@ from datahub.ingestion.source.hex.constants import (
     HEX_API_PAGE_SIZE_DEFAULT,
     HEX_PLATFORM_NAME,
 )
-from datahub.ingestion.source.hex.datahub import HexQueryFetcher
+from datahub.ingestion.source.hex.datahub import (
+    HexQueryFetcher,
+    HexQueryFetcherReport,
+)
 from datahub.ingestion.source.hex.mapper import Mapper
 from datahub.ingestion.source.hex.model import Component, Project
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -100,10 +104,19 @@ class HexSourceConfig(
         default=True,
         description="Include Hex lineage, being fetched from DataHub",
     )
+    lineage_lookback_days: int = Field(
+        default=7,
+        description="Number of days to look back for lineage",
+    )
 
 
 @dataclass
-class HexReport(StaleEntityRemovalSourceReport, HexApiReport, IngestionStageReport):
+class HexReport(
+    StaleEntityRemovalSourceReport,
+    HexApiReport,
+    IngestionStageReport,
+    HexQueryFetcherReport,
+):
     pass
 
 
@@ -148,6 +161,11 @@ class HexSource(StatefulIngestionSourceBase):
             self.query_fetcher = HexQueryFetcher(
                 datahub_client=self.datahub_client,
                 workspace_name=self.source_config.workspace_name,
+                start_datetime=(
+                    datetime.now()
+                    - timedelta(days=self.source_config.lineage_lookback_days)
+                ),
+                report=self.report,
             )
 
     @classmethod
@@ -192,11 +210,24 @@ class HexSource(StatefulIngestionSourceBase):
         if self.source_config.include_lineage:
             assert self.datahub_client and self.query_fetcher
 
-            with self.report.new_stage("Fetch Hex lineage from DataHub"):
-                for query in self.query_fetcher.fetch():
-                    project = self.project_registry.get(query.hex_project_id)
+            with self.report.new_stage(
+                "Fetch Hex lineage from existing Queries in DataHub"
+            ):
+                for query_metadata in self.query_fetcher.fetch():
+                    project = self.project_registry.get(query_metadata.hex_project_id)
                     if project:
-                        project.upstream.extend(query.subjects)
+                        project.upstream_datasets.extend(
+                            query_metadata.dataset_subjects
+                        )
+                        project.upstream_schema_fields.extend(
+                            query_metadata.schema_field_subjects
+                        )
+                    else:
+                        self.report.report_warning(
+                            title="Missing project for lineage",
+                            message="Lineage missed because missed project, likely due to filter patterns.",
+                            context=str(query_metadata),
+                        )
 
         with self.report.new_stage("Emit"):
             yield from self.mapper.map_workspace()
