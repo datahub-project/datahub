@@ -94,6 +94,24 @@ const datasetPrimary = {
             causes: ['cause', 'cause2'],
         },
     ],
+    institutionalMemory: {
+        elements: [
+            {
+                url: 'https://primary.com',
+                label: 'Primary',
+                settings: {
+                    showInAssetPreview: true,
+                },
+            },
+            {
+                url: 'https://primary2.com',
+                label: 'Primary2',
+                settings: {
+                    showInAssetPreview: true,
+                },
+            },
+        ],
+    },
 };
 
 const datasetUnprimary = {
@@ -179,6 +197,24 @@ const datasetUnprimary = {
     ],
     siblings: {
         isPrimary: false,
+    },
+    institutionalMemory: {
+        elements: [
+            {
+                url: 'https://unprimary.com',
+                label: 'Unprimary',
+                settings: {
+                    showInAssetPreview: true,
+                },
+            },
+            {
+                url: 'https://primary2.com',
+                label: 'Primary2',
+                settings: {
+                    showInAssetPreview: false,
+                },
+            },
+        ],
     },
 };
 
@@ -268,6 +304,13 @@ describe('siblingUtils', () => {
             expect(combinedData.dataset.globalTags.tags).toHaveLength(2);
             expect(combinedData.dataset.globalTags.tags[0].tag.urn).toEqual('urn:li:tag:unprimary-tag');
             expect(combinedData.dataset.globalTags.tags[1].tag.urn).toEqual('urn:li:tag:primary-tag');
+
+            // will merge links excluding duplicates by url and label
+            expect(combinedData.dataset.institutionalMemory.elements).toHaveLength(3);
+            expect(combinedData.dataset.institutionalMemory.elements[0].url).toEqual('https://primary.com');
+            expect(combinedData.dataset.institutionalMemory.elements[1].url).toEqual('https://primary2.com');
+            expect(combinedData.dataset.institutionalMemory.elements[1].settings.showInAssetPreview).toEqual(true);
+            expect(combinedData.dataset.institutionalMemory.elements[2].url).toEqual('https://unprimary.com');
 
             // merges schema metadata properly  by fieldPath
             expect(combinedData.dataset.schemaMetadata?.fields).toHaveLength(4);
