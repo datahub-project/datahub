@@ -229,7 +229,9 @@ class DataHubRestEmitter(Closeable, Emitter):
         ca_certificate_path: Optional[str] = None,
         client_certificate_path: Optional[str] = None,
         disable_ssl_verification: bool = False,
-        openapi_ingestion: bool = False,
+        openapi_ingestion: bool = (
+            DEFAULT_REST_SINK_ENDPOINT == RestSinkEndpoint.OPENAPI
+        ),
         default_trace_mode: bool = False,
     ):
         if not gms_server:
