@@ -1640,6 +1640,10 @@ fragment entityDisplayNameFields on Entity {
     }
     ... on CorpUser {
         username
+        editableProperties {
+            displayName
+            email
+        }
         properties {
             displayName
             title

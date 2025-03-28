@@ -25,15 +25,14 @@ query getEntitySubscriptionSummary($input: GetEntitySubscriptionSummaryInput!) {
         groupSubscriptionCount
         subscribedGroups {
             urn
+            ...entityDisplayNameFields
             properties {
                 displayName
             }
         }
         subscribedUsers {
             urn
-            properties {
-                displayName
-            }
+            ...entityDisplayNameFields
             editableProperties {
                 pictureLink
             }

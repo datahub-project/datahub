@@ -229,12 +229,12 @@ export const SubscribeMenuAction = () => {
                                             key={user?.urn}
                                         >
                                             <Pill
-                                                label={user?.properties?.displayName || ''}
+                                                label={entityRegistry.getDisplayName(user.type, user)}
                                                 variant="outline"
                                                 customIconRenderer={() => (
                                                     <CustomAvatar
                                                         photoUrl={user?.editableProperties?.pictureLink || ''}
-                                                        name={user?.properties?.displayName || ''}
+                                                        name={entityRegistry.getDisplayName(user.type, user)}
                                                         size={16}
                                                         hideTooltip
                                                     />
