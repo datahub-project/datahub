@@ -66,10 +66,6 @@ public class OwnershipOwnerTypes extends MutationHook {
     if (ownership == null) {
       return false;
     }
-    log.info(
-        "ownership input is **** owners={}, types={}",
-        ownership.getOwners(),
-        ownership.getOwnerTypes());
     UrnArrayMap ownerTypes = ownership.getOwnerTypes();
     Map<String, List<Urn>> ownerTypesMap;
     if (ownerTypes == null) {
