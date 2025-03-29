@@ -35,6 +35,7 @@ from datahub.metadata.schema_classes import (
     TimeWindowSizeClass,
 )
 from datahub.metadata.urns import DatasetUrn, GlossaryTermUrn, TagUrn, Urn
+from datahub.sdk.entity import Entity
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.telemetry import telemetry
 from datahub.utilities.urns.error import InvalidUrnError
@@ -49,7 +50,12 @@ logger = logging.getLogger(__name__)
 
 def auto_workunit(
     stream: Iterable[
-        Union[MetadataChangeEventClass, MetadataChangeProposalWrapper, MetadataWorkUnit]
+        Union[
+            MetadataChangeEventClass,
+            MetadataChangeProposalWrapper,
+            MetadataWorkUnit,
+            Entity,
+        ]
     ],
 ) -> Iterable[MetadataWorkUnit]:
     """Convert a stream of MCEs and MCPs to a stream of :class:`MetadataWorkUnit`s."""
@@ -62,6 +68,8 @@ def auto_workunit(
             )
         elif isinstance(item, MetadataChangeProposalWrapper):
             yield item.as_workunit()
+        elif isinstance(item, Entity):
+            yield from item.as_workunits()
         else:
             yield item
 
