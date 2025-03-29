@@ -5,27 +5,35 @@ from typing import Any, Dict, Iterable, List, Optional, Type, Union
 
 import pandas as pd
 from neo4j import GraphDatabase
-from pydantic.fields import Field
+from pydantic import Field
 
 from datahub.configuration.source_common import (
     EnvConfigMixin,
+    PlatformInstanceConfigMixin,
 )
-from datahub.emitter.mce_builder import make_data_platform_urn, make_dataset_urn
+from datahub.emitter.mce_builder import (
+    make_data_platform_urn,
+    make_dataset_urn_with_platform_instance,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
 )
 from datahub.ingestion.api.source import (
     MetadataWorkUnitProcessor,
+    SourceCapability,
 )
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
+    StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
@@ -64,11 +72,15 @@ _type_mapping: Dict[Union[Type, str], Type] = {
 }
 
 
-class Neo4jConfig(EnvConfigMixin, StatefulIngestionConfigBase):
+class Neo4jConfig(
+    StatefulIngestionConfigBase, EnvConfigMixin, PlatformInstanceConfigMixin
+):
     username: str = Field(description="Neo4j Username")
     password: str = Field(description="Neo4j Password")
     uri: str = Field(description="The URI for the Neo4j server")
     env: str = Field(description="Neo4j env")
+
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
 
 @dataclass
@@ -79,21 +91,27 @@ class Neo4jSourceReport(StatefulIngestionReport):
 
 @platform_name("Neo4j", id="neo4j")
 @config_class(Neo4jConfig)
+@capability(
+    SourceCapability.PLATFORM_INSTANCE, "Supported via the `platform_instance` config"
+)
 @support_status(SupportStatus.CERTIFIED)
 class Neo4jSource(StatefulIngestionSourceBase):
     NODE = "node"
     RELATIONSHIP = "relationship"
-    PLATFORM = "neo4j"
+    config: Neo4jConfig
+    report: Neo4jSourceReport
 
-    def __init__(self, ctx: PipelineContext, config: Neo4jConfig):
+    def __init__(self, config: Neo4jConfig, ctx: PipelineContext):
+        super().__init__(config, ctx)
         self.ctx = ctx
         self.config = config
+        self.platform = "neo4j"
         self.report: Neo4jSourceReport = Neo4jSourceReport()
 
     @classmethod
-    def create(cls, config_dict, ctx):
+    def create(cls, config_dict: Dict, ctx: PipelineContext) -> "Neo4jSource":
         config = Neo4jConfig.parse_obj(config_dict)
-        return cls(ctx, config)
+        return cls(config, ctx)
 
     def get_field_type(self, attribute_type: Union[type, str]) -> SchemaFieldDataType:
         type_class: type = _type_mapping.get(attribute_type, NullTypeClass)
@@ -123,34 +141,40 @@ class Neo4jSource(StatefulIngestionSourceBase):
         dataset: str,
         description: Optional[str] = None,
         custom_properties: Optional[Dict[str, str]] = None,
-    ) -> MetadataChangeProposalWrapper:
+    ) -> Iterable[MetadataWorkUnit]:
         dataset_properties = DatasetPropertiesClass(
             description=description,
             customProperties=custom_properties,
         )
-        return MetadataChangeProposalWrapper(
-            entityUrn=make_dataset_urn(
-                platform=self.PLATFORM, name=dataset, env=self.config.env
+        yield MetadataChangeProposalWrapper(
+            entityUrn=make_dataset_urn_with_platform_instance(
+                platform=self.platform,
+                name=dataset,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
             ),
             aspect=dataset_properties,
-        )
+        ).as_workunit()
 
     def generate_neo4j_object(
         self, dataset: str, columns: list, obj_type: Optional[str] = None
-    ) -> MetadataChangeProposalWrapper:
+    ) -> Optional[MetadataChangeProposalWrapper]:
         try:
             fields = [
                 self.get_schema_field_class(key, value.lower(), obj_type=obj_type)
                 for d in columns
                 for key, value in d.items()
             ]
-            mcp = MetadataChangeProposalWrapper(
-                entityUrn=make_dataset_urn(
-                    platform=self.PLATFORM, name=dataset, env=self.config.env
+            return MetadataChangeProposalWrapper(
+                entityUrn=make_dataset_urn_with_platform_instance(
+                    platform=self.platform,
+                    name=dataset,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
                 ),
                 aspect=SchemaMetadataClass(
                     schemaName=dataset,
-                    platform=make_data_platform_urn(self.PLATFORM),
+                    platform=make_data_platform_urn(self.platform),
                     version=0,
                     hash="",
                     platformSchema=OtherSchemaClass(rawSchema=""),
@@ -161,13 +185,16 @@ class Neo4jSource(StatefulIngestionSourceBase):
                     fields=fields,
                 ),
             )
-            self.report.obj_created += 1
         except Exception as e:
             log.error(e)
-            self.report.obj_failures += 1
-        return mcp
+            self.report.report_failure(
+                message="Failed to process dataset",
+                context=dataset,
+                exc=e,
+            )
+            return None
 
-    def get_neo4j_metadata(self, query: str) -> pd.DataFrame:
+    def get_neo4j_metadata(self, query: str) -> Optional[pd.DataFrame]:
         driver = GraphDatabase.driver(
             self.config.uri, auth=(self.config.username, self.config.password)
         )
@@ -201,13 +228,14 @@ class Neo4jSource(StatefulIngestionSourceBase):
 
             union_cols = ["key", "obj_type", "property_data_types", "description"]
             df = pd.concat([node_df[union_cols], rel_df[union_cols]])
+            return df
         except Exception as e:
             self.report.failure(
                 message="Failed to get neo4j metadata",
                 exc=e,
             )
 
-        return df
+        return None
 
     def process_nodes(self, data: list) -> pd.DataFrame:
         nodes = [record for record in data if record["value"]["type"] == self.NODE]
@@ -306,46 +334,48 @@ class Neo4jSource(StatefulIngestionSourceBase):
         df = self.get_neo4j_metadata(
             "CALL apoc.meta.schema() YIELD value UNWIND keys(value) AS key RETURN key, value[key] AS value;"
         )
+        if df is None:
+            log.warning("No metadata retrieved from Neo4j")
+            return
+
         for _, row in df.iterrows():
             try:
-                yield MetadataWorkUnit(
-                    id=row["key"],
-                    mcp=self.generate_neo4j_object(
-                        columns=row["property_data_types"],
-                        dataset=row["key"],
-                    ),
-                    is_primary_source=True,
+                neo4j_obj = self.generate_neo4j_object(
+                    columns=row["property_data_types"],
+                    dataset=row["key"],
                 )
+                if neo4j_obj:
+                    yield from auto_workunit([neo4j_obj])
 
-                yield MetadataWorkUnit(
-                    id=row["key"],
-                    mcp=MetadataChangeProposalWrapper(
-                        entityUrn=make_dataset_urn(
-                            platform=self.PLATFORM,
-                            name=row["key"],
-                            env=self.config.env,
-                        ),
-                        aspect=SubTypesClass(
-                            typeNames=[
-                                DatasetSubTypes.NEO4J_NODE
-                                if row["obj_type"] == self.NODE
-                                else DatasetSubTypes.NEO4J_RELATIONSHIP
-                            ]
-                        ),
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=make_dataset_urn_with_platform_instance(
+                        platform=self.platform,
+                        name=row["key"],
+                        platform_instance=self.config.platform_instance,
+                        env=self.config.env,
                     ),
-                )
+                    aspect=SubTypesClass(
+                        typeNames=[
+                            DatasetSubTypes.NEO4J_NODE
+                            if row["obj_type"] == self.NODE
+                            else DatasetSubTypes.NEO4J_RELATIONSHIP
+                        ]
+                    ),
+                ).as_workunit()
 
-                yield MetadataWorkUnit(
-                    id=row["key"],
-                    mcp=self.add_properties(
-                        dataset=row["key"],
-                        custom_properties=None,
-                        description=row["description"],
-                    ),
+                yield from self.add_properties(
+                    dataset=row["key"],
+                    custom_properties=None,
+                    description=row["description"],
                 )
 
             except Exception as e:
-                raise e
+                log.error(f"Failed to process row {row['key']}: {str(e)}")
+                self.report.report_failure(
+                    message="Error processing Neo4j metadata",
+                    context=row["key"],
+                    exc=e,
+                )
 
-    def get_report(self):
+    def get_report(self) -> "Neo4jSourceReport":
         return self.report
