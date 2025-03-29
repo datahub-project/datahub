@@ -80,13 +80,17 @@ export default function LineageSearchFilters() {
             <ToggleWrapper>
                 <span>
                     <ToggleLabel>
-                        Show Process Instances
+                        Hide Process Instances
                         <StyledInfoPopover
-                            content={<PopoverWrapper>Show task runs. Will not hide home node.</PopoverWrapper>}
+                            content={<PopoverWrapper>Hide task runs. Will not hide home node.</PopoverWrapper>}
                         />
                     </ToggleLabel>
                 </span>
-                <StyledSwitch size="small" checked={showDataProcessInstances} onChange={setShowDataProcessInstances} />
+                <StyledSwitch
+                    size="small"
+                    checked={!showDataProcessInstances}
+                    onChange={() => setShowDataProcessInstances(!showDataProcessInstances)}
+                />
             </ToggleWrapper>
             <ToggleWrapper>
                 <span>
