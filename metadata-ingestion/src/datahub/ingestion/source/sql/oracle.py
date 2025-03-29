@@ -134,6 +134,15 @@ class OracleConfig(BasicSQLAlchemyConfig):
             url = f"{url}/?service_name={self.service_name}"
         return url
 
+    def get_identifier(self, schema: str, table: str) -> str:
+        regular = f"{schema}.{table}"
+        if self.add_database_name_to_urn:
+            if self.database:
+                return f"{self.database}.{regular}"
+            return regular
+        else:
+            return regular
+
 
 class OracleInspectorObjectWrapper:
     """
@@ -667,30 +676,6 @@ class OracleSource(SQLAlchemySource):
 
         return db_name
 
-    def get_identifier(
-        self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
-    ) -> str:
-        """
-        Override the default identifier generation for Oracle to avoid duplicating schema names.
-        This ensures proper URNs for tables and views.
-        """
-        # Only get the database name if add_database_name_to_urn is True
-        db_name = None
-        if self.config.add_database_name_to_urn:
-            db_name = (
-                self.config.database
-                if self.config.database
-                else self.get_db_name(inspector)
-            )
-            if db_name:
-                # Build the identifier with all parts
-                qualified_name = f"{db_name}.{schema}.{entity}"
-                return qualified_name
-
-        # Build schema.entity identifier
-        qualified_name = f"{schema}.{entity}"
-        return qualified_name
-
     def get_inspectors(self) -> Iterable[Inspector]:
         for inspector in super().get_inspectors():
             event.listen(
@@ -795,13 +780,12 @@ class OracleSource(SQLAlchemySource):
 
         TABLE_NAME_COL_LOC = 1
         return [
-            self.get_identifier(
+            self.config.get_identifier(
                 schema=schema,
-                entity=inspector.dialect.normalize_name(row[TABLE_NAME_COL_LOC])
+                table=inspector.dialect.normalize_name(row[TABLE_NAME_COL_LOC])
                 or _raise_err(
                     ValueError(f"Invalid table name: {row[TABLE_NAME_COL_LOC]}")
                 ),
-                inspector=inspector,
             )
             for row in cursor
         ]
