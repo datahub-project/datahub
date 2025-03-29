@@ -91,7 +91,7 @@ plugins {
   // TODO id "org.gradlex.java-ecosystem-capabilities" version "1.0"
 }
 
-apply from: "gradle/docker/docker.gradle"
+apply from: "gradle/docker/docker-utils.gradle"
 
 project.ext.spec = [
     'product' : [
@@ -112,12 +112,12 @@ project.ext.spec = [
 
 project.ext.externalDependency = [
     'akkaHttp': "com.typesafe.akka:akka-http-core_$playScalaVersion:10.2.10", // max version due to licensing
+    'akkaParsing': "com.typesafe.akka:akka-parsing_$playScalaVersion:10.2.10", // akka-parsing is part of akka-http, so use akka http version
     'akkaActor': "com.typesafe.akka:akka-actor_$playScalaVersion:$akkaVersion",
     'akkaStream': "com.typesafe.akka:akka-stream_$playScalaVersion:$akkaVersion",
     'akkaActorTyped': "com.typesafe.akka:akka-actor-typed_$playScalaVersion:$akkaVersion",
     'akkaSlf4j': "com.typesafe.akka:akka-slf4j_$playScalaVersion:$akkaVersion",
     'akkaJackson': "com.typesafe.akka:akka-serialization-jackson_$playScalaVersion:$akkaVersion",
-    'akkaParsing': "com.typesafe.akka:akka-parsing_$playScalaVersion:$akkaVersion",
     'akkaProtobuf': "com.typesafe.akka:akka-protobuf-v3_$playScalaVersion:$akkaVersion",
     'antlr4Runtime': 'org.antlr:antlr4-runtime:4.9.3',
     'antlr4': 'org.antlr:antlr4:4.9.3',
