@@ -712,7 +712,7 @@ class OracleSource(SQLAlchemySource):
                 elif len(parts) >= 2:
                     # Handle the case where database might be missing even with flag enabled
                     # If we have a database in the config, use that
-                    db_name = self.config.database
+                    db_name = str(self.config.database)
                     schema_name = parts[-2]
                     return db_name, schema_name
             else:
