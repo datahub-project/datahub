@@ -299,4 +299,59 @@ public class IngestionSchedulerTest {
     // And that the future is cancelled
     Assert.assertTrue(future.isCancelled());
   }
+
+  @Test
+  public void testDayRangeAndHashmarkSyntax() throws Exception {
+    assertEquals(_ingestionScheduler.nextIngestionSourceExecutionCache.size(), 1);
+
+    // Create two ingestion sources with different cron syntax methods
+    // need to affirm both '0 0 1-7 * 0' and the equivalent '0 0 0 * 0#2' work
+    final Urn dayRangeUrn = Urn.createFromString("urn:li:dataHubIngestionSourceUrn:day-range");
+    final DataHubIngestionSourceInfo dayRangeInfo = new DataHubIngestionSourceInfo();
+    dayRangeInfo.setSchedule(
+        new DataHubIngestionSourceSchedule().setInterval("0 0 1-7 * 0").setTimezone("UTC"));
+    dayRangeInfo.setType("mysql");
+    dayRangeInfo.setName("Day Range Syntax Test Source");
+    dayRangeInfo.setConfig(
+        new DataHubIngestionSourceConfig()
+            .setExecutorId("default")
+            .setRecipe("{ type: \"type\" }")
+            .setVersion("0.8.18"));
+
+    final Urn hashmarkUrn = Urn.createFromString("urn:li:dataHubIngestionSourceUrn:hashmark");
+    final DataHubIngestionSourceInfo hashmarkInfo = new DataHubIngestionSourceInfo();
+    hashmarkInfo.setSchedule(
+        new DataHubIngestionSourceSchedule().setInterval("0 0 * * 0#1").setTimezone("UTC"));
+    hashmarkInfo.setType("mysql");
+    hashmarkInfo.setName("Hashmark Syntax Test Source");
+    hashmarkInfo.setConfig(
+        new DataHubIngestionSourceConfig()
+            .setExecutorId("default")
+            .setRecipe("{ type: \"type\" }")
+            .setVersion("0.8.18"));
+
+    // Schedule both sources
+    _ingestionScheduler.scheduleNextIngestionSourceExecution(dayRangeUrn, dayRangeInfo);
+    _ingestionScheduler.scheduleNextIngestionSourceExecution(hashmarkUrn, hashmarkInfo);
+
+    // Verify both were scheduled successfully
+    assertEquals(_ingestionScheduler.nextIngestionSourceExecutionCache.size(), 3);
+    assertTrue(_ingestionScheduler.nextIngestionSourceExecutionCache.containsKey(dayRangeUrn));
+    assertTrue(_ingestionScheduler.nextIngestionSourceExecutionCache.containsKey(hashmarkUrn));
+
+    // Get both scheduled futures
+    ScheduledFuture<?> dayRangeFuture =
+        _ingestionScheduler.nextIngestionSourceExecutionCache.get(dayRangeUrn);
+    ScheduledFuture<?> hashmarkFuture =
+        _ingestionScheduler.nextIngestionSourceExecutionCache.get(hashmarkUrn);
+
+    // Both should be valid futures
+    assertFalse(dayRangeFuture.isCancelled());
+    assertFalse(hashmarkFuture.isCancelled());
+
+    // Clean up
+    _ingestionScheduler.unscheduleNextIngestionSourceExecution(dayRangeUrn);
+    _ingestionScheduler.unscheduleNextIngestionSourceExecution(hashmarkUrn);
+    assertEquals(_ingestionScheduler.nextIngestionSourceExecutionCache.size(), 1);
+  }
 }
