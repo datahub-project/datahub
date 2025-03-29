@@ -85,6 +85,7 @@ query appConfig {
             entityVersioningEnabled
             showHasSiblingsFilter
             showSearchBarAutocompleteRedesign
+            showManageTags
         }
         chromeExtensionConfig {
             enabled

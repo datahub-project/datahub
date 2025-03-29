@@ -208,6 +208,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setShowHasSiblingsFilter(_featureFlags.isShowHasSiblingsFilter())
             .setShowSearchBarAutocompleteRedesign(
                 _featureFlags.isShowSearchBarAutocompleteRedesign())
+            .setShowManageTags(_featureFlags.isShowManageTags())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

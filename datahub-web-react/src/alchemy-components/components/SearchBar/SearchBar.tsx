@@ -25,6 +25,7 @@ export const SearchBar = ({
             prefix={<SearchOutlined />}
             allowClear={allowClear}
             $width={width}
+            data-testid="search-bar-input"
         />
     );
 };

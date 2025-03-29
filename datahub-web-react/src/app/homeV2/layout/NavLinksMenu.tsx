@@ -160,6 +160,12 @@ export function NavLinksMenu(props: Props) {
                         isHidden: false,
                     },
                     {
+                        title: 'Tags',
+                        description: 'View and modify your tags',
+                        link: PageRoutes.MANAGE_TAGS,
+                        isHidden: false,
+                    },
+                    {
                         title: 'Domains',
                         description: 'Manage related groups of data assets',
                         link: PageRoutes.DOMAINS,
