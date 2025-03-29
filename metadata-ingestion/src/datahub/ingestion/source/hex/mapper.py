@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import Iterable, List, Optional, Tuple
+from typing import Iterable, List, Optional, Tuple, Union
 
 from datahub._codegen.aspect import (
     _Aspect,  # TODO: is there a better import than this one?
@@ -46,6 +46,7 @@ from datahub.metadata.schema_classes import (
     DashboardInfoClass,
     DashboardUsageStatisticsClass,
     DataPlatformInstanceClass,
+    EdgeClass,
     GlobalTagsClass,
     OwnerClass,
     OwnershipClass,
@@ -53,7 +54,14 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     TimeWindowSizeClass,
 )
-from datahub.metadata.urns import ContainerUrn, CorpUserUrn, DashboardUrn, Urn
+from datahub.metadata.urns import (
+    ContainerUrn,
+    CorpUserUrn,
+    DashboardUrn,
+    DatasetUrn,
+    SchemaFieldUrn,
+    Urn,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +124,8 @@ class Mapper:
             ),
             externalUrl=f"{self._base_url}/{self._workspace_name}/hex/{project.id}",
             customProperties=dict(id=project.id),
+            datasetEdges=self._dataset_edges(project.upstream_datasets),
+            # TODO: support schema field upstream, maybe InputFields?
         )
 
         subtypes = SubTypesClass(
@@ -341,6 +351,22 @@ class Mapper:
             )
             if self._platform_instance
             else None,
+        )
+
+    def _dataset_edges(
+        self, upstream: List[Union[DatasetUrn, SchemaFieldUrn]]
+    ) -> Optional[List[EdgeClass]]:
+        # TBC: is there support for CLL in Dashboards? for the moment, skip SchemaFieldUrns
+        return (
+            [
+                EdgeClass(
+                    destinationUrn=upstream_urn.urn(),
+                )
+                for upstream_urn in upstream
+                if isinstance(upstream_urn, DatasetUrn)
+            ]
+            if upstream
+            else None
         )
 
     def _yield_mcps(
