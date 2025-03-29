@@ -1,6 +1,6 @@
 package com.linkedin.datahub.upgrade.config;
 
-import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
+import com.linkedin.datahub.upgrade.system.BlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.executors.PurgeLegacyExecutors;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.SearchService;
@@ -11,11 +11,11 @@ import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@Conditional(SystemUpdateCondition.NonBlockingSystemUpdateCondition.class)
+@Conditional(SystemUpdateCondition.BlockingSystemUpdateCondition.class)
 public class PurgeLegacyExecutorsConfig {
 
   @Bean
-  public NonBlockingSystemUpgrade purgeLegacyExecutors(
+  public BlockingSystemUpgrade purgeLegacyExecutors(
       final OperationContext opContext,
       final EntityService<?> entityService,
       final SearchService searchService,

@@ -2,7 +2,7 @@ package com.linkedin.datahub.upgrade.system.executors;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.upgrade.UpgradeStep;
-import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
+import com.linkedin.datahub.upgrade.system.BlockingSystemUpgrade;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.SearchService;
 import io.datahubproject.metadata.context.OperationContext;
@@ -10,7 +10,7 @@ import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class PurgeLegacyExecutors implements NonBlockingSystemUpgrade {
+public class PurgeLegacyExecutors implements BlockingSystemUpgrade {
 
   private List<UpgradeStep> _steps;
 
