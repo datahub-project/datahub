@@ -780,12 +780,13 @@ class OracleSource(SQLAlchemySource):
 
         TABLE_NAME_COL_LOC = 1
         return [
-            self.config.get_identifier(
+            self.get_identifier(
                 schema=schema,
-                table=inspector.dialect.normalize_name(row[TABLE_NAME_COL_LOC])
+                entity=inspector.dialect.normalize_name(row[TABLE_NAME_COL_LOC])
                 or _raise_err(
                     ValueError(f"Invalid table name: {row[TABLE_NAME_COL_LOC]}")
                 ),
+                inspector=inspector,
             )
             for row in cursor
         ]
