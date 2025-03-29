@@ -2,7 +2,7 @@ import { ReadOutlined } from '@ant-design/icons';
 import { isEqual } from 'lodash';
 import queryString from 'query-string';
 import React, { useEffect } from 'react';
-import { useLocation } from 'react-router';
+import { useParams } from 'react-router';
 import { EntityRegistry } from '../../../../../entityRegistryContext';
 import { EntityType, FeatureFlagsConfig } from '../../../../../types.generated';
 import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
@@ -37,13 +37,6 @@ import { GenericEntityProperties } from '../../../../entity/shared/types';
 import EntitySidebarSectionsTab from './sidebar/EntitySidebarSectionsTab';
 import SidebarPopularityHeaderSection from './sidebar/shared/SidebarPopularityHeaderSection';
 import { PopularityTier, getBarsStatusFromPopularityTier } from './sidebar/shared/utils';
-
-/**
- * The structure of our path will be
- *
- * /<entity-name>/<entity-urn>/<tab-name>
- */
-const ENTITY_TAB_NAME_REGEX_PATTERN = '^/[^/]+/[^/]+/([^/]+).*';
 
 export type SidebarStatsColumn = {
     title: React.ReactNode;
@@ -133,46 +126,17 @@ export function useEntityPath(entityType: EntityType, urn: string, tabName?: str
 }
 
 export function useRoutedTab(tabs: EntityTab[]): EntityTab | undefined {
-    const { pathname } = useLocation();
-    const trimmedPathName = pathname.endsWith('/') ? pathname.slice(0, pathname.length - 1) : pathname;
-    // Match against the regex
-    const match = trimmedPathName.match(ENTITY_TAB_NAME_REGEX_PATTERN);
-    if (match && match[1]) {
-        const selectedTabPath = match[1];
-        const routedTab = tabs.find((tab) => tab.name === selectedTabPath);
-        return routedTab;
-    }
-    // No match found!
-    return undefined;
+    const { tab } = useParams<{ tab?: string }>();
+    return tabs.find((t) => t.name === tab);
 }
 
 export function useIsOnTab(tabName: string): boolean {
-    const { pathname } = useLocation();
-    const trimmedPathName = pathname.endsWith('/') ? pathname.slice(0, pathname.length - 1) : pathname;
-    // Match against the regex
-    const match = trimmedPathName.match(ENTITY_TAB_NAME_REGEX_PATTERN);
-    if (match && match[1]) {
-        const selectedTabPath = match[1];
-        return selectedTabPath === tabName;
-    }
-    // No match found!
-    return false;
+    const { tab } = useParams<{ tab?: string }>();
+    return tab === tabName;
 }
 
 export function useGlossaryActiveTabPath(): string {
-    const { pathname, search } = useLocation();
-    const trimmedPathName = pathname.endsWith('/') ? pathname.slice(0, pathname.length - 1) : pathname;
-
-    // Match against the regex
-    const match = trimmedPathName.match(ENTITY_TAB_NAME_REGEX_PATTERN);
-
-    if (match && match[1]) {
-        const selectedTabPath = match[1] + (search || ''); // Include all query parameters
-        return selectedTabPath;
-    }
-
-    // No match found!
-    return '';
+    return useParams<{ tab?: string }>().tab ?? '';
 }
 
 export function formatDateString(time: number) {

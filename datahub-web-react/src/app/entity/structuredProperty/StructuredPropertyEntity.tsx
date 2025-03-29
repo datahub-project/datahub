@@ -1,3 +1,4 @@
+import { globalEntityRegistry } from '@app/EntityRegistryProvider';
 import * as React from 'react';
 import styled from 'styled-components';
 import TableIcon from '@src/images/table-icon.svg?react';
@@ -6,7 +7,6 @@ import DefaultPreviewCard from '@src/app/preview/DefaultPreviewCard';
 import { EntityType, SearchResult, StructuredPropertyEntity as StructuredProperty } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { urlEncodeUrn } from '../shared/utils';
 
 const PreviewPropIcon = styled(TableIcon)`
     font-size: 20px;
@@ -61,7 +61,7 @@ export class StructuredPropertyEntity implements Entity<StructuredProperty> {
             description={data.definition?.description || ''}
             name={this.displayName(data)}
             urn={data.urn}
-            url={`/${this.getPathName()}/${urlEncodeUrn(data.urn)}`}
+            url={globalEntityRegistry.getEntityUrl(this.type, data.urn)}
             logoComponent={<PreviewPropIcon />}
             typeIcon={this.icon(14, IconStyleType.ACCENT)}
             previewType={previewType}

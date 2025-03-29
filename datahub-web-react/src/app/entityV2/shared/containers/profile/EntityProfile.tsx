@@ -5,14 +5,13 @@ import { Alert } from 'antd';
 import { MutationHookOptions, MutationTuple, QueryHookOptions, QueryResult } from '@apollo/client/react/types/types';
 import useEntityState from '@src/app/entity/shared/useEntityState';
 import styled from 'styled-components/macro';
-import { useHistory, useLocation } from 'react-router';
-import { matchPath } from 'react-router-dom';
+import { generatePath, useHistory, useLocation } from 'react-router';
+import { matchPath, useRouteMatch } from 'react-router-dom';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 import { EntityType, Exact } from '../../../../../types.generated';
 import { useLineageV2 } from '../../../../lineageV2/useLineageV2';
 import {
-    getEntityPath,
     getFinalSidebarTabs,
     getOnboardingStepIdsForEntityType,
     useRoutedTab,
@@ -28,7 +27,6 @@ import CompactContext from '../../../../shared/CompactContext';
 import DynamicTab from '../../tabs/Entity/weaklyTypedAspects/DynamicTab';
 import analytics, { EventType } from '../../../../analytics';
 import { EntityMenuItems } from '../../EntityDropdown/EntityMenuActions';
-import { useIsSeparateSiblingsMode } from '../../useIsSeparateSiblingsMode';
 import { EntityActionItem } from '../../entity/EntityActions';
 import { ErrorSection } from '../../../../shared/error/ErrorSection';
 import { EntityHead } from '../../../../shared/EntityHead';
@@ -207,10 +205,11 @@ export const EntityProfile = <T, U>({
     const { isTabFullsize } = useContext(TabFullsizeContext);
     const isLineageMode = useIsLineageMode();
     const isLineageV2 = useLineageV2();
-    const isHideSiblingMode = useIsSeparateSiblingsMode();
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const location = useLocation();
+    const routeMatch = useRouteMatch();
+
     const isInSearch = matchPath(location.pathname, PageRoutes.SEARCH_RESULTS) !== null;
     const [showAlert, setShowAlert] = useState(true);
     const entityState = useEntityState();
@@ -243,11 +242,13 @@ export const EntityProfile = <T, U>({
                 entityUrn: urn,
                 section: tabName.toLowerCase(),
             });
-            history[method](
-                getEntityPath(entityType, urn, entityRegistry, false, isHideSiblingMode, tabName, tabParams),
-            );
+            const currentParams = Object.fromEntries(new URLSearchParams(location.search));
+            history[method]({
+                pathname: generatePath(routeMatch.path, { ...routeMatch.params, tab: tabName }),
+                search: new URLSearchParams({ ...currentParams, ...tabParams }).toString(),
+            });
         },
-        [history, entityType, urn, entityRegistry, isHideSiblingMode],
+        [location, history, entityType, urn, routeMatch.path, routeMatch.params],
     );
 
     const { entityData, dataPossiblyCombinedWithSiblings, dataNotCombinedWithSiblings, loading, error, refetch } =

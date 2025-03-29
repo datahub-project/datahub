@@ -29,7 +29,7 @@ export default function AvatarsGroup({ users, groups, policies, roles, entityReg
                         <CustomAvatar
                             size={size}
                             name={entityRegistry.getDisplayName(EntityType.CorpUser, user)}
-                            url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${user?.urn}`}
+                            url={entityRegistry.getEntityUrl(EntityType.CorpUser, user?.urn)}
                             photoUrl={
                                 user?.editableProperties?.pictureLink || user?.editableInfo?.pictureLink || undefined
                             }
@@ -44,7 +44,7 @@ export default function AvatarsGroup({ users, groups, policies, roles, entityReg
                         <CustomAvatar
                             size={size}
                             name={entityRegistry.getDisplayName(EntityType.CorpGroup, group)}
-                            url={`/${entityRegistry.getPathName(EntityType.CorpGroup)}/${group.urn}`}
+                            url={entityRegistry.getEntityUrl(EntityType.CorpGroup, group.urn)}
                             isGroup
                         />
                     </div>

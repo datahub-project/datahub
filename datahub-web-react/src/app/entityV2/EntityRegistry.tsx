@@ -109,8 +109,17 @@ export default class EntityRegistry {
         return entity.getPathName();
     }
 
-    getEntityUrl(type: EntityType, urn: string, params?: Record<string, string | boolean>): string {
-        return `/${this.getPathName(type)}/${urlEncodeUrn(urn)}${params ? `?${dictToQueryStringParams(params)}` : ''}`;
+    getEntityUrl(type: EntityType, urn: string | undefined | null, params?: Record<string, string | boolean>): string {
+        if (!urn) {
+            return '';
+        }
+        let prefix = '/';
+        if (GLOSSARY_ENTITY_TYPES.includes(type)) {
+            prefix = '/glossary/';
+        } else if (type === EntityType.Domain) {
+            prefix = '/domain/';
+        }
+        return `${prefix}${urlEncodeUrn(urn)}${params ? `?${dictToQueryStringParams(params)}` : ''}`;
     }
 
     getTypeFromPathName(pathName: string): EntityType {

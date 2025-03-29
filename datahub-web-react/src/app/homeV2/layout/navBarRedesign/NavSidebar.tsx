@@ -132,9 +132,7 @@ export const NavSidebar = () => {
                         icon: <BookBookmark />,
                         selectedIcon: <BookBookmark weight="fill" />,
                         link: PageRoutes.GLOSSARY,
-                        additionalLinksForPathMatching: entityRegistry
-                            .getGlossaryEntities()
-                            .map((entity) => `/${entity.getPathName()}/:urn`),
+                        entityTypes: entityRegistry.getGlossaryEntities().map((entity) => entity.type),
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
@@ -143,7 +141,7 @@ export const NavSidebar = () => {
                         icon: <Globe />,
                         selectedIcon: <Globe weight="fill" />,
                         link: PageRoutes.DOMAINS,
-                        additionalLinksForPathMatching: [`/${entityRegistry.getPathName(EntityType.Domain)}/:urn`],
+                        entityTypes: [EntityType.Domain],
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
@@ -192,7 +190,7 @@ export const NavSidebar = () => {
                 icon: <UserCircle />,
                 selectedIcon: <UserCircle weight="fill" />,
                 key: 'profile',
-                link: `/${entityRegistry.getPathName(EntityType.CorpUser)}/${userContext.urn}`,
+                link: entityRegistry.getEntityUrl(EntityType.CorpUser, userContext.urn),
             },
             {
                 type: NavBarMenuItemTypes.Item,

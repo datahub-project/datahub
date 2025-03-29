@@ -1,12 +1,10 @@
 import React from 'react';
 
-import { useParams } from 'react-router';
 import { Divider, Typography } from 'antd';
 import { grey } from '@ant-design/colors';
 import styled from 'styled-components';
 
 import { Message } from '../../shared/Message';
-import { decodeUrn } from '../shared/utils';
 import { useGetExternalRoleQuery } from '../../../graphql/accessrole.generated';
 
 const PageContainer = styled.div`
@@ -16,10 +14,6 @@ const PageContainer = styled.div`
 const LoadingMessage = styled(Message)`
     margin-top: 10%;
 `;
-
-type RolePageParams = {
-    urn: string;
-};
 
 const TitleLabel = styled(Typography.Text)`
     &&& {
@@ -54,9 +48,11 @@ const TitleText = styled(Typography.Text)`
 
 const { Paragraph } = Typography;
 
-export default function RoleEntityProfile() {
-    const { urn: encodedUrn } = useParams<RolePageParams>();
-    const urn = decodeUrn(encodedUrn);
+interface Props {
+    urn: string;
+}
+
+export default function RoleEntityProfile({ urn }: Props) {
     const { data, loading } = useGetExternalRoleQuery({ variables: { urn } });
 
     return (

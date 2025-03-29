@@ -1,11 +1,11 @@
 import React, { useCallback, useState } from 'react';
 import { Alert, Divider } from 'antd';
 import { MutationHookOptions, MutationTuple, QueryHookOptions, QueryResult } from '@apollo/client/react/types/types';
+import { useLocation, useRouteMatch } from 'react-router-dom';
 import styled from 'styled-components/macro';
-import { useHistory } from 'react-router';
+import { generatePath, useHistory } from 'react-router';
 import { EntityType, Exact } from '../../../../../types.generated';
 import {
-    getEntityPath,
     getOnboardingStepIdsForEntityType,
     sortEntityProfileTabs,
     useRoutedTab,
@@ -31,7 +31,6 @@ import CompactContext from '../../../../shared/CompactContext';
 import DynamicTab from '../../tabs/Entity/weaklyTypedAspects/DynamicTab';
 import analytics, { EventType } from '../../../../analytics';
 import { EntityMenuItems } from '../../EntityDropdown/EntityDropdown';
-import { useIsSeparateSiblingsMode } from '../../siblingUtils';
 import { EntityActionItem } from '../../entity/EntityActions';
 import { ErrorSection } from '../../../../shared/error/ErrorSection';
 import { EntityHead } from '../../../../shared/EntityHead';
@@ -160,9 +159,11 @@ export const EntityProfile = <T, U>({
     const { config } = useAppConfig();
     const { erModelRelationshipFeatureEnabled } = config.featureFlags;
     const isLineageMode = useIsLineageMode();
-    const isHideSiblingMode = useIsSeparateSiblingsMode();
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
+    const location = useLocation();
+    const routeMatch = useRouteMatch();
+
     const appConfig = useAppConfig();
     const isCompact = React.useContext(CompactContext);
     const tabsWithDefaults = tabs.map((tab) => ({ ...tab, display: { ...defaultTabDisplayConfig, ...tab.display } }));
@@ -206,11 +207,13 @@ export const EntityProfile = <T, U>({
                 entityUrn: urn,
                 section: tabName.toLowerCase(),
             });
-            history[method](
-                getEntityPath(entityType, urn, entityRegistry, false, isHideSiblingMode, tabName, tabParams),
-            );
+            const currentParams = Object.fromEntries(new URLSearchParams(location.search));
+            history[method]({
+                pathname: generatePath(routeMatch.path, { ...routeMatch.params, tab: tabName }),
+                search: new URLSearchParams({ ...currentParams, ...tabParams }).toString(),
+            });
         },
-        [history, entityType, urn, entityRegistry, isHideSiblingMode],
+        [location, history, entityType, urn, routeMatch.path, routeMatch.params],
     );
 
     const { entityData, dataPossiblyCombinedWithSiblings, dataNotCombinedWithSiblings, loading, error, refetch } =
