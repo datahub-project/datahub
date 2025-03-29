@@ -96,15 +96,19 @@ if __name__ == "__main__":
         end_timestamp=1628580001000,
     )
     # Create datasets
-    input_dataset_urn = client.create_dataset(
-        platform="snowflake",
-        name="iris_input",
-    )
+    input_dataset_urns = [
+        client.create_dataset(
+            platform="snowflake",
+            name="iris_input",
+        )
+    ]
 
-    output_dataset_urn = client.create_dataset(
-        platform="snowflake",
-        name="iris_ouptut",
-    )
+    output_dataset_urns = [
+        client.create_dataset(
+            platform="snowflake",
+            name="iris_ouptut",
+        )
+    ]
 
     # Add run to experiment
     client.add_run_to_experiment(run_urn=run_urn, experiment_urn=experiment_urn)
@@ -125,10 +129,6 @@ if __name__ == "__main__":
     )
 
     # Add input and output datasets to run
-    client.add_input_datasets_to_run(
-        run_urn=run_urn, dataset_urns=[str(input_dataset_urn)]
-    )
+    client.add_input_datasets_to_run(run_urn=run_urn, dataset_urns=input_dataset_urns)
 
-    client.add_output_datasets_to_run(
-        run_urn=run_urn, dataset_urns=[str(output_dataset_urn)]
-    )
+    client.add_output_datasets_to_run(run_urn=run_urn, dataset_urns=output_dataset_urns)

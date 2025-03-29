@@ -57,6 +57,7 @@ authorization:
   # Enables authorization of reads, writes, and deletes on REST APIs.
   restApiAuthorization: ${REST_API_AUTHORIZATION_ENABLED:true}
   view:
+    # Controls whether entity pages can limit access based on policies. If disabled, all entity pages are visible. Does not control if entities show up in search or browse.
     enabled: ${VIEW_AUTHORIZATION_ENABLED:false}
     recommendations:
       # Currently limited to the actor only, see TODO: DataHubAuthorizer
@@ -154,6 +155,7 @@ visualConfig:
     faviconUrl: ${REACT_APP_FAVICON_URL:/assets/icons/favicon.ico}
   appTitle: ${REACT_APP_TITLE:}
   hideGlossary: ${REACT_APP_HIDE_GLOSSARY:false}
+  showFullTitleInLineage: ${REACT_APP_SHOW_FULL_TITLE_IN_LINEAGE:false}
   entityProfile:
     # we only support default tab for domains right now. In order to implement for other entities, update React code
     domainDefaultTab: ${DOMAIN_DEFAULT_TAB:} # set to DOCUMENTATION_TAB to show documentation tab first
@@ -504,6 +506,7 @@ featureFlags:
   showNavBarRedesign: ${SHOW_NAV_BAR_REDESIGN:true} # If turned on, show the newly designed nav bar in the V2 experience
   showAutoCompleteResults: ${SHOW_AUTO_COMPLETE_RESULTS:true} # If turned on, show the auto complete results in the search bar
   entityVersioning: ${ENTITY_VERSIONING_ENABLED:false} # Enables entity versioning APIs, validators, and side effects
+  showHasSiblingsFilter: ${SHOW_HAS_SIBLINGS_FILTER:false} # If turned on, the "has siblings" filter will be visible in search results page
   showSearchBarAutocompleteRedesign: ${SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN:false} # If turned on, show the redesigned search bar's autocomplete
 
 entityChangeEvents:

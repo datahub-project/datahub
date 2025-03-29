@@ -130,7 +130,7 @@ class PermissiveConfigModel(ConfigModel):
     # It is usually used for argument bags that are passed through to third-party libraries.
 
     class Config:
-        if PYDANTIC_VERSION_2:
+        if PYDANTIC_VERSION_2:  # noqa: SIM108
             extra = "allow"
         else:
             extra = Extra.allow
@@ -196,6 +196,14 @@ class ConfigurationError(MetaError):
 
 class IgnorableError(MetaError):
     """An error that can be ignored."""
+
+
+class TraceTimeoutError(OperationalError):
+    """Failure to complete an API Trace within the timeout."""
+
+
+class TraceValidationError(OperationalError):
+    """Failure to complete the expected write operation."""
 
 
 @runtime_checkable

@@ -610,6 +610,16 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                         )
                     ).scalar()
                 )
+            elif self.dataset.engine.dialect.name.lower() == DATABRICKS:
+                column_profile.median = str(
+                    self.dataset.engine.execute(
+                        sa.select(
+                            sa.text(
+                                f"approx_percentile(`{column}`, 0.5) as approx_median"
+                            )
+                        ).select_from(self.dataset._table)
+                    ).scalar()
+                )
             elif self.dataset.engine.dialect.name.lower() == BIGQUERY:
                 column_profile.median = str(
                     self.dataset.engine.execute(
