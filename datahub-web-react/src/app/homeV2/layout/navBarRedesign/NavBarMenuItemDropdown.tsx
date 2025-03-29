@@ -3,6 +3,7 @@ import { Dropdown, MenuItemProps } from 'antd';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 import { colors, Text } from '@src/alchemy-components';
+import analytics, { EventType } from '@src/app/analytics';
 import NavBarMenuItem from './NavBarMenuItem';
 import { NavBarMenuDropdownItem } from './types';
 
@@ -44,6 +45,7 @@ export default function NavBarMenuItemDropdown({ item, isCollapsed, isSelected, 
     const dropdownItems = item.items?.filter((subItem) => !subItem.isHidden);
 
     const onItemClick = (key) => {
+        analytics.event({ type: EventType.NavBarItemClick, label: item.title });
         const clickedItem = item.items?.filter((dropdownItem) => dropdownItem.key === key)?.[0];
         if (!clickedItem) return null;
 

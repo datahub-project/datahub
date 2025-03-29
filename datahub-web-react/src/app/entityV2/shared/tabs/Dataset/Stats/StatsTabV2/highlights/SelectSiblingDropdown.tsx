@@ -1,6 +1,8 @@
 import { SimpleSelect } from '@src/alchemy-components';
 import { Dataset } from '@src/types.generated';
 import React, { useMemo } from 'react';
+import analytics, { EventType } from '@src/app/analytics';
+import { extractPlatformNameFromAssetUrn } from '@src/app/entityV2/shared/utils';
 import { useGetSiblingsOptions } from './useGetSiblingsOptions';
 
 interface Props {
@@ -13,8 +15,10 @@ const SelectSiblingDropdown = ({ baseEntity, selectedSiblingUrn, setSelectedSibl
     const options = useGetSiblingsOptions({ baseEntityData: baseEntity });
     const siblingOptions = useMemo(() => options, [options]);
 
-    const handleOptionClick = (value: string) => {
-        setSelectedSiblingUrn(value);
+    const handleOptionClick = (siblingUrn: string) => {
+        const platform = extractPlatformNameFromAssetUrn(siblingUrn);
+        analytics.event({ type: EventType.FilterStatsPage, platform });
+        setSelectedSiblingUrn(siblingUrn);
     };
 
     return (

@@ -3,6 +3,7 @@ import { Menu, MenuItemProps, Tooltip } from 'antd';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 import { colors, Badge, Text } from '@src/alchemy-components';
+import analytics, { EventType } from '@src/app/analytics';
 import { NavBarMenuBaseItem } from './types';
 
 const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
@@ -112,6 +113,7 @@ export default function NavBarMenuItem({ item, isCollapsed, isSelected, iconSize
     const history = useHistory();
 
     const onClick = () => {
+        analytics.event({ type: EventType.NavBarItemClick, label: item.title });
         if (item.link) return history.push(item.link);
         if (item.onClick) return item.onClick();
         return null;

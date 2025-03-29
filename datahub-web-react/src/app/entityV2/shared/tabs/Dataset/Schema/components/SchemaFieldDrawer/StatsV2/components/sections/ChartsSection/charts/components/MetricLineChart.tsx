@@ -76,8 +76,9 @@ export default function MetricLineChart({
                     <TimeRangeSelect
                         options={timeRangeOptions}
                         values={lookbackWindow ? [lookbackWindow] : []}
-                        onUpdate={(values) => setLookbackWindow(values[0])}
+                        onUpdate={setLookbackWindow}
                         loading={loading}
+                        chartName={title} // SaaS only prop
                     />
                 </>
             )}

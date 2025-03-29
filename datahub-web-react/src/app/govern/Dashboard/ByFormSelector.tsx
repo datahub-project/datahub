@@ -1,12 +1,14 @@
 import { Select } from 'antd';
 import React, { useEffect } from 'react';
 import { useLocation } from 'react-router';
+import analytics, { EventType } from '@src/app/analytics';
 import { useFormAnalyticsContext } from './FormAnalyticsContext';
 import { StyledSelect } from './components';
 import { getEntityInfo, mergeRowAndHeaderData } from './utils';
 
 export const ByFormSelector = () => {
     const {
+        tabs: { selectedTab },
         byForm: { forms, hasForms, selectedForm, setSelectedForm },
     } = useFormAnalyticsContext();
     const location = useLocation();
@@ -46,13 +48,18 @@ export const ByFormSelector = () => {
         return undefined;
     };
 
+    function handleChange(value: any) {
+        analytics.event({ type: EventType.FormAnalyticsTabFilter, selectedTab });
+        setSelectedForm(value);
+    }
+
     return (
         <StyledSelect
             showSearch
             filterOption
             placeholder="Select a form"
             optionFilterProp="label"
-            onChange={(value: any) => setSelectedForm(value)}
+            onChange={handleChange}
             options={options}
             value={getDefaultValue()}
             size="large"

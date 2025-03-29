@@ -324,6 +324,10 @@ export default function DescriptionField({
                         <InferDescriptionButton
                             type="text"
                             onClick={(e) => {
+                                analytics.event({
+                                    type: EventType.InferDocsClickEvent,
+                                    surface: 'schema-table',
+                                });
                                 if (onInferDescription) {
                                     setIsInlineInferring(true);
                                     onInferDescription().finally(() => setIsInlineInferring(false));

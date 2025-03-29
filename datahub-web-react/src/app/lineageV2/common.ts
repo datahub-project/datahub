@@ -8,8 +8,9 @@ import EntityRegistry from '../entityV2/EntityRegistry';
 import { DBT_CLOUD_URN } from '../ingest/source/builder/constants';
 import { hashString } from '../shared/avatar/getAvatarColor';
 import { FineGrainedOperation } from '../sharedV2/EntitySidebarContext';
-import { getEntityTypeFromEntityUrn, getPlatformUrnFromEntityUrn } from './lineageUtils';
+import { getEntityTypeFromEntityUrn } from './lineageUtils';
 import { FetchedEntityV2 } from './types';
+import { getPlatformUrnFromEntityUrn } from '../entityV2/shared/utils';
 
 export const TRANSITION_DURATION_MS = 200;
 export const LINEAGE_FILTER_PAGINATION = 4;

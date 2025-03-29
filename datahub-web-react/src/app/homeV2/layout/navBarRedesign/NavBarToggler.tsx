@@ -2,6 +2,7 @@ import { Sidebar } from '@phosphor-icons/react';
 import React from 'react';
 import styled from 'styled-components';
 import { colors } from '@src/alchemy-components';
+import analytics, { EventType } from '@src/app/analytics';
 import { useNavBarContext } from './NavBarContext';
 
 const Toggler = styled.button<{ $isCollapsed?: boolean }>`
@@ -27,10 +28,15 @@ const Toggler = styled.button<{ $isCollapsed?: boolean }>`
 `;
 
 export default function NavBarToggler() {
-    const { toggle } = useNavBarContext();
+    const { toggle, isCollapsed } = useNavBarContext();
+
+    function handleToggle() {
+        analytics.event({ type: EventType.NavBarExpandCollapse, isExpanding: isCollapsed });
+        toggle();
+    }
 
     return (
-        <Toggler onClick={toggle} aria-label="Navbar toggler">
+        <Toggler onClick={handleToggle} aria-label="Navbar toggler">
             <Sidebar />
         </Toggler>
     );

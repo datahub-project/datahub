@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { Select } from 'antd';
+import analytics, { EventType } from '@src/app/analytics';
 
 import { mergeRowAndHeaderData, getEntityInfo } from './utils';
 
@@ -9,6 +10,7 @@ import { StyledSelect } from './components';
 
 export const ByAssigneeSelector = () => {
     const {
+        tabs: { selectedTab },
         byAssignee: { assignees, hasAssignees, selectedAssignee, setSelectedAssignee },
     } = useFormAnalyticsContext();
 
@@ -38,13 +40,18 @@ export const ByAssigneeSelector = () => {
         return undefined;
     };
 
+    function handleChange(value: any) {
+        analytics.event({ type: EventType.FormAnalyticsTabFilter, selectedTab });
+        setSelectedAssignee(value);
+    }
+
     return (
         <StyledSelect
             showSearch
             filterOption
             placeholder="Select an assignee"
             optionFilterProp="label"
-            onChange={(value: any) => setSelectedAssignee(value)}
+            onChange={handleChange}
             options={options}
             defaultValue={getDefaultValue()}
             size="large"

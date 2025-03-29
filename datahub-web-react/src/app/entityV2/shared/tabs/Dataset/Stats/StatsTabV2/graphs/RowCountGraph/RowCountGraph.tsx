@@ -49,22 +49,25 @@ export default function RowCountGraph() {
         if (rangeType) setLookbackWindow(GRAPH_LOOKBACK_WINDOWS[rangeType]);
     }, [rangeType, setLookbackWindow]);
 
+    const chartName = 'Row Count';
+
     return (
         <GraphCard
-            title="Row Count"
+            title={chartName}
             isEmpty={data.length === 0 || !canViewDatasetProfile}
             emptyContent={!canViewDatasetProfile && <NoPermission statName="row count" />}
             loading={loading}
             graphHeight="290px"
             renderControls={() => (
                 <>
-                    <AddAssertionButton assertionType={AssertionType.Volume} />
+                    <AddAssertionButton assertionType={AssertionType.Volume} chartName={chartName} />
 
                     <TimeRangeSelect
                         options={timeRangeOptions}
                         values={rangeType ? [rangeType] : []}
-                        onUpdate={(values) => setRangeType(values[0])}
+                        onUpdate={setRangeType}
                         loading={loading}
+                        chartName={chartName}
                     />
                 </>
             )}

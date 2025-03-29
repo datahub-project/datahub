@@ -10,8 +10,10 @@ import { DataPlatform, EntityPrivileges } from '@src/types.generated';
 import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
 import TabToolbar from '@src/app/entity/shared/components/styled/TabToolbar';
 import { getColor } from '@src/alchemy-components/theme/utils';
+import analytics, { EventType } from '@src/app/analytics';
 import { useSiblingOptionsForAssertionBuilder } from './AssertionList/utils';
 import { EntityStagedForAssertion } from './AssertionList/types';
+import { extractPlatformNameFromPlatformUrn } from '../../../utils';
 
 const SiblingSelectionDropdownLink = styled.div`
     margin-bottom: 4px;
@@ -45,6 +47,7 @@ type CreateAssertionButtonProps = {
     onCreateAssertion: (params: EntityStagedForAssertion) => void;
     renderCustomButton?: (props: RenderButtonProps) => React.ReactNode;
     className?: string;
+    chartName?: string; // used for analytics when clicking to create an assertion from there
 };
 
 export const CreateAssertionButton = ({
@@ -52,6 +55,7 @@ export const CreateAssertionButton = ({
     onCreateAssertion,
     renderCustomButton,
     className,
+    chartName,
 }: CreateAssertionButtonProps) => {
     const primaryEntityData = useEntityData();
     const { entityData } = primaryEntityData;
@@ -87,6 +91,8 @@ export const CreateAssertionButton = ({
             console.error(`Params missing necessary data to author assertions: ${JSON.stringify(params)}`);
             return;
         }
+        const platformName = extractPlatformNameFromPlatformUrn(params.platform.urn);
+        analytics.event({ type: EventType.ClickCreateAssertion, platform: platformName, chartName });
         onCreateAssertion({
             urn: params.urn,
             platform: params.platform,

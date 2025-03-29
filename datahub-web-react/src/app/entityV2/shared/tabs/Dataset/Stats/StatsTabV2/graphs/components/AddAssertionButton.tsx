@@ -18,9 +18,10 @@ const StyledCreateAssertionButton = styled(CreateAssertionButton)`
 
 type AddAssertionButtonProps = {
     assertionType: AssertionType;
+    chartName: string;
 };
 
-export default function AddAssertionButton({ assertionType }: AddAssertionButtonProps) {
+export default function AddAssertionButton({ assertionType, chartName }: AddAssertionButtonProps) {
     const [authorAssertionForEntity, setAuthorAssertionForEntity] = useState<EntityStagedForAssertion>();
 
     const { entityData } = useEntityData();
@@ -36,6 +37,7 @@ export default function AddAssertionButton({ assertionType }: AddAssertionButton
                         Assertion
                     </Button>
                 )}
+                chartName={chartName}
             />
             {authorAssertionForEntity &&
                 createPortal(

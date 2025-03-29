@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { useGlobalSettingsContext } from '@src/app/context/GlobalSettings/GlobalSettingsContext';
 import { colors } from '@src/alchemy-components';
+import analytics, { EventType } from '@src/app/analytics';
 import NavBarToggler from './NavBarToggler';
 import { useNavBarContext } from './NavBarContext';
 
@@ -65,7 +66,7 @@ export default function NavBarHeader({ logotype }: Props) {
 
     return (
         <Container>
-            <StyledLink to="/">
+            <StyledLink to="/" onClick={() => analytics.event({ type: EventType.NavBarItemClick, label: 'Home' })}>
                 <Logotype>{logotype}</Logotype>
                 {!isCollapsed ? <Title>{customName || 'DataHub'}</Title> : null}
             </StyledLink>

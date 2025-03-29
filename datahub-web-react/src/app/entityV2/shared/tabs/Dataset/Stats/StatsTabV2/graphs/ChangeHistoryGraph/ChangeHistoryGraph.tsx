@@ -112,10 +112,12 @@ export default function ChangeHistoryGraph() {
         }
     }, [buckets, loading, sections.changes, setSectionState, canViewDatasetOperations]);
 
+    const chartName = 'Change History';
+
     return (
         <>
             <GraphCard
-                title="Change History"
+                title={chartName}
                 subTitle={
                     <Subtitle
                         summary={summary}
@@ -127,7 +129,7 @@ export default function ChangeHistoryGraph() {
                 emptyContent={!canViewDatasetOperations && <NoPermission statName="change history" />}
                 renderControls={() => (
                     <>
-                        <AddAssertionButton assertionType={AssertionType.Freshness} />
+                        <AddAssertionButton assertionType={AssertionType.Freshness} chartName={chartName} />
 
                         <TypesSelect
                             options={operationTypesOptions}

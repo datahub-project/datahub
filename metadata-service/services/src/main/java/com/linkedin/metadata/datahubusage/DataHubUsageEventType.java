@@ -135,6 +135,20 @@ public enum DataHubUsageEventType {
   DELETE_FORM_EVENT("DeleteFormEvent"),
   CREATE_QUESTION_EVENT("CreateQuestionEvent"),
   EDIT_QUESTION_EVENT("EditQuestionEvent"),
+  NAV_BAR_EXPAND_COLLAPSE_EVENT("NavBarExpandCollapseEvent"),
+  NAV_BAR_ITEM_CLICK_EVENT("NavBarItemClickEvent"),
+  FORM_BY_ENTITY_NAVIGATE_EVENT("FormByEntityNavigateEvent"),
+  FORM_VIEW_TOGGLE_EVENT("FormViewToggleEvent"),
+  FORM_ANALYTICS_TAB_SELECT_EVENT("FormAnalyticsTabSelectEvent"),
+  FORM_ANALYTICS_DOWNLOAD_CSV_EVENT("FormAnalyticsDownloadCsvEvent"),
+  FORM_ANALYTICS_TAB_FILTER_EVENT("FormAnalyticsTabFilterEvent"),
+  FILTER_STATS_PAGE_EVENT("FilterStatsPageEvent"),
+  FILTER_STATS_CHART_LOOK_BACK_EVENT("FilterStatsChartLookBackEvent"),
+  CLICK_CREATE_ASSERTION_EVENT("ClickCreateAssertionEvent"),
+  CLICK_USER_PROFILE_EVENT("ClickUserProfileEvent"),
+  ACCEPT_INFERRED_DOCS_EVENT("AcceptInferredDocsEvent"),
+  DECLINE_INFERRED_DOCS_EVENT("DeclineInferredDocsEvent"),
+  CLICK_VIEW_DOCUMENTATION_EVENT("ClickViewDocumentationEvent"),
   SSO_CONFIGURATION_EVENT("SSOConfigurationEvent");
 
   private final String type;

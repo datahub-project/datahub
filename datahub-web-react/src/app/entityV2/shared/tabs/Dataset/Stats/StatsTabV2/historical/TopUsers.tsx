@@ -7,6 +7,7 @@ import { Maybe, UserUsageCounts } from '@src/types.generated';
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+import analytics, { EventType } from '@src/app/analytics';
 import { useStatsSectionsContext } from '../StatsSectionsContext';
 import NoPermission from '../graphs/NoPermission';
 import MoreInfoModalContent from '../graphs/components/MoreInfoModalContent';
@@ -50,6 +51,10 @@ const TopUsers = ({ users }: Props) => {
         return entityRegistry.getDisplayName(user.type, user);
     };
 
+    function sendAnalytics() {
+        analytics.event({ type: EventType.ClickUserProfile, location: 'statsTabTopUsers' });
+    }
+
     const topUsersTableColumns = [
         {
             title: 'Name',
@@ -60,7 +65,10 @@ const TopUsers = ({ users }: Props) => {
 
                 return (
                     <HoverEntityTooltip entity={userEntity} showArrow={false}>
-                        <Link to={`${entityRegistry.getEntityUrl(userEntity.type, userEntity.urn)}`}>
+                        <Link
+                            to={`${entityRegistry.getEntityUrl(userEntity.type, userEntity.urn)}`}
+                            onClick={sendAnalytics}
+                        >
                             <Avatar name={getUserOrGroupName(userEntity)} imageUrl={avatarUrl} size="md" showInPill />
                         </Link>
                     </HoverEntityTooltip>

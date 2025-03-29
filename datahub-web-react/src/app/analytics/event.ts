@@ -148,6 +148,8 @@ export enum EventType {
     FilterLineageColumnsEvent,
     DrillDownLineageEvent,
     InferDocsClickEvent,
+    AcceptInferredDocs,
+    DeclineInferredDocs,
     CreateFormClickEvent,
     SaveFormAsDraftEvent,
     PublishFormEvent,
@@ -162,6 +164,18 @@ export enum EventType {
     LinkAssetVersionEvent,
     UnlinkAssetVersionEvent,
     ShowAllVersionsEvent,
+    NavBarExpandCollapse,
+    NavBarItemClick,
+    FormByEntityNavigate,
+    FormViewToggle,
+    FormAnalyticsTabSelect,
+    FormAnalyticsDownloadCsv,
+    FormAnalyticsTabFilter,
+    FilterStatsPage,
+    FilterStatsChartLookBack,
+    ClickCreateAssertion,
+    ClickUserProfile,
+    ClickViewDocumentation,
 }
 
 /**
@@ -1157,6 +1171,14 @@ export interface InferDocsClickEvent extends BaseEvent {
         | 'query-builder-form';
 }
 
+export interface AcceptInferredDocsEvent extends BaseEvent {
+    type: EventType.AcceptInferredDocs;
+}
+
+export interface DeclineInferredDocsEvent extends BaseEvent {
+    type: EventType.DeclineInferredDocs;
+}
+
 export type ObfuscatedOidcSettings = { [k in keyof Partial<OidcSettings>]: boolean | string };
 export interface SSOConfigurationEvent extends BaseEvent {
     type: EventType.SSOConfigurationEvent;
@@ -1188,6 +1210,69 @@ export interface ShowAllVersionsEvent extends BaseEvent {
     entityType: EntityType;
     numVersions?: number;
     uiLocation: 'preview' | 'more-options';
+}
+
+export interface NavBarExpandCollapseEvent extends BaseEvent {
+    type: EventType.NavBarExpandCollapse;
+    isExpanding: boolean; // whether this action is expanding or collapsing the nav bar
+}
+
+export interface NavBarItemClickEvent extends BaseEvent {
+    type: EventType.NavBarItemClick;
+    label: string; // the label of the item that is clicks from the nav sidebar
+}
+
+export interface FormByEntityNavigateEvent extends BaseEvent {
+    type: EventType.FormByEntityNavigate;
+    direction: 'forward' | 'backward';
+}
+
+export interface FormViewToggleEvent extends BaseEvent {
+    type: EventType.FormViewToggle;
+    formView: 'byAsset' | 'byQuestion';
+}
+
+export interface FormAnalyticsTabSelectEvent extends BaseEvent {
+    type: EventType.FormAnalyticsTabSelect;
+    tabName: string;
+}
+
+export interface FormAnalyticsDownloadCsvEvent extends BaseEvent {
+    type: EventType.FormAnalyticsDownloadCsv;
+    selectedTab: string;
+}
+
+export interface FormAnalyticsTabFilterEvent extends BaseEvent {
+    type: EventType.FormAnalyticsTabFilter;
+    selectedTab: string;
+}
+
+export interface FilterStatsPageEvent extends BaseEvent {
+    type: EventType.FilterStatsPage;
+    platform: string | null;
+}
+
+export interface FilterStatsChartLookBackEvent extends BaseEvent {
+    type: EventType.FilterStatsChartLookBack;
+    lookBackValue: string;
+    chartName: string;
+}
+
+export interface ClickCreateAssertionEvent extends BaseEvent {
+    type: EventType.ClickCreateAssertion;
+    platform?: string | null;
+    chartName?: string | null;
+}
+
+export interface ClickUserProfileEvent extends BaseEvent {
+    type: EventType.ClickUserProfile;
+    location?: 'statsTabTopUsers'; // add more locations here
+}
+
+export interface ClickViewDocumentationEvent extends BaseEvent {
+    type: EventType.ClickViewDocumentation;
+    link: string;
+    location: 'statsTab'; // add more locations here
 }
 
 /**
@@ -1306,6 +1391,8 @@ export type Event =
     | FilterLineageColumnsEvent
     | DrillDownLineageEvent
     | InferDocsClickEvent
+    | AcceptInferredDocsEvent
+    | DeclineInferredDocsEvent
     | CreateFormClickEvent
     | SaveFormAsDraftEvent
     | PublishFormEvent
@@ -1328,4 +1415,16 @@ export type Event =
     | ProposeOwnersEvent
     | LinkAssetVersionEvent
     | UnlinkAssetVersionEvent
-    | ShowAllVersionsEvent;
+    | ShowAllVersionsEvent
+    | NavBarExpandCollapseEvent
+    | NavBarItemClickEvent
+    | FormByEntityNavigateEvent
+    | FormViewToggleEvent
+    | FormAnalyticsTabSelectEvent
+    | FormAnalyticsDownloadCsvEvent
+    | FormAnalyticsTabFilterEvent
+    | FilterStatsPageEvent
+    | FilterStatsChartLookBackEvent
+    | ClickCreateAssertionEvent
+    | ClickUserProfileEvent
+    | ClickViewDocumentationEvent;

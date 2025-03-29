@@ -4,6 +4,7 @@ import React from 'react';
 import * as QueryString from 'query-string';
 import styled from 'styled-components';
 import { useHistory, useLocation } from 'react-router';
+import analytics, { EventType } from '@src/app/analytics';
 import { FormView, useEntityFormContext } from '../EntityFormContext';
 import { WhiteButton } from '../../../../shared/components';
 import { FORM_QUESTION_VIEW_BUTTON } from '../../../../onboarding/config/FormOnboardingConfig';
@@ -47,10 +48,12 @@ export default function FormViewToggle() {
 
     function toggleFormView() {
         if (formView === FormView.BY_ENTITY) {
+            analytics.event({ type: EventType.FormViewToggle, formView: 'byQuestion' });
             setFormView(FormView.BY_QUESTION);
             const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
             history.push({ search: QueryString.stringify({ ...params, page: 0 }) });
         } else if (formView === FormView.BY_QUESTION) {
+            analytics.event({ type: EventType.FormViewToggle, formView: 'byAsset' });
             refetch();
             setFormView(FormView.BY_ENTITY);
         }

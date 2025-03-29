@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { Select } from 'antd';
+import analytics, { EventType } from '@src/app/analytics';
 
 import { mergeRowAndHeaderData, getEntityInfo } from './utils';
 
@@ -11,6 +12,7 @@ import { StyledSelect } from './components';
 
 export const ByDomainSelector = () => {
     const {
+        tabs: { selectedTab },
         byDomain: { domains, hasDomains, selectedDomain, setSelectedDomain },
     } = useFormAnalyticsContext();
 
@@ -48,13 +50,18 @@ export const ByDomainSelector = () => {
         return undefined;
     };
 
+    function handleChange(value: any) {
+        analytics.event({ type: EventType.FormAnalyticsTabFilter, selectedTab });
+        setSelectedDomain(value);
+    }
+
     return (
         <StyledSelect
             showSearch
             filterOption
             placeholder="Select a domain"
             optionFilterProp="label"
-            onChange={(value: any) => setSelectedDomain(value)}
+            onChange={handleChange}
             options={options}
             defaultValue={getDefaultValue()}
             size="large"

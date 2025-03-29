@@ -52,9 +52,11 @@ export default function StorageSizeGraph() {
         return `${formatNumberWithoutAbbreviation(formattedBytes.number)} ${formattedBytes.unit}`;
     };
 
+    const chartName = 'Storage Size';
+
     return (
         <GraphCard
-            title="Storage Size"
+            title={chartName}
             isEmpty={data.length === 0 || !canViewDatasetProfile}
             emptyContent={!canViewDatasetProfile && <NoPermission statName="storage size" />}
             loading={loading}
@@ -64,8 +66,9 @@ export default function StorageSizeGraph() {
                     <TimeRangeSelect
                         options={timeRangeOptions}
                         values={rangeType ? [rangeType] : []}
-                        onUpdate={(values) => setRangeType(values[0])}
+                        onUpdate={setRangeType}
                         loading={loading}
+                        chartName={chartName}
                     />
                 </>
             )}

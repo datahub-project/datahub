@@ -62,9 +62,11 @@ const QueryCountChart = () => {
         );
     };
 
+    const chartName = 'Daily Query Count';
+
     return (
         <GraphCard
-            title="Daily Query Count"
+            title={chartName}
             renderGraph={renderBarChart}
             renderControls={() => (
                 <>
@@ -72,7 +74,8 @@ const QueryCountChart = () => {
                         options={timeRangeOptions}
                         values={timeRange ? [timeRange] : []}
                         loading={loading}
-                        onUpdate={(values) => handleFilterChange(values[0] as TimeRange)}
+                        onUpdate={(value) => handleFilterChange(value as TimeRange)}
+                        chartName={chartName}
                     />
                 </>
             )}

@@ -2,7 +2,7 @@ import { Button, message, Skeleton, Typography } from 'antd';
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { Sparkle } from 'phosphor-react';
-import { InferDocsClickEvent } from '@src/app/analytics';
+import analytics, { EventType, InferDocsClickEvent } from '@src/app/analytics';
 import { ANTD_GRAY } from '../../constants';
 import { useInferDocumentationForItem, useIsDocumentationInferenceEnabled } from './utils';
 import { Editor } from '../../tabs/Documentation/components/editor/Editor';
@@ -127,6 +127,7 @@ export default function InferDocsPanel({
     };
 
     const onClose = () => {
+        analytics.event({ type: EventType.DeclineInferredDocs });
         if (collapseOnInsert) {
             setIsPanelExpanded(false);
         }
@@ -167,6 +168,7 @@ export default function InferDocsPanel({
                     <InsertButton
                         disabled={isLoading || hasInserted}
                         onClick={() => {
+                            analytics.event({ type: EventType.AcceptInferredDocs });
                             onInsertDescription(`\n\n\n${generatedDescription}`);
                             onClose();
                         }}

@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { pluralize } from '@src/app/shared/textUtil';
+import analytics, { EventType } from '@src/app/analytics';
 import { useEntityFormContext } from '../EntityFormContext';
 import { Entity } from '../../../../../types.generated';
 import { ArrowLeft, ArrowRight, BulkNavigationWrapper, NavigationWrapper } from './components';
@@ -17,6 +18,7 @@ export default function EntityNavigation() {
         entitiesForForm?.findIndex((entity) => selectedEntity && entity.urn === selectedEntity?.urn) || 0;
 
     function navigateLeft() {
+        analytics.event({ type: EventType.FormByEntityNavigate, direction: 'backward' });
         if (currentEntityIndex === 0) {
             setSelectedEntity(entitiesForForm?.[(entitiesForForm?.length || 0) - 1] as Entity);
         } else {
@@ -25,6 +27,7 @@ export default function EntityNavigation() {
     }
 
     function navigateRight() {
+        analytics.event({ type: EventType.FormByEntityNavigate, direction: 'forward' });
         if (currentEntityIndex === (entitiesForForm?.length || 0) - 1) {
             setSelectedEntity(entitiesForForm?.[0] as Entity);
         } else {

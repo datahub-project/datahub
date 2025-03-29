@@ -5,6 +5,7 @@ import { Tooltip } from '@components';
 import dayjs from 'dayjs';
 import { json2csv } from 'json-2-csv';
 import React, { useEffect, useState } from 'react';
+import analytics, { EventType } from '@src/app/analytics';
 import { useFormAnalyticsQuery } from '../../../graphql/analytics.generated';
 import { useAppConfig } from '../../useAppConfig';
 import { useIsThemeV2 } from '../../useIsThemeV2';
@@ -71,7 +72,10 @@ const AnalyticsTab = () => {
     ];
 
     // Handle changing the tab
-    const handleSetTab = (t: any) => setSelectedTab(t);
+    const handleSetTab = (t: any) => {
+        analytics.event({ type: EventType.FormAnalyticsTabSelect, tabName: t });
+        setSelectedTab(t);
+    };
 
     // Get charts for selected tab
     const thisTab = tabs.find((t) => t.key === selectedTab) as Tab;
@@ -88,6 +92,7 @@ const AnalyticsTab = () => {
 
     // Handle download CSV
     const handleDownloadCSV = (e) => {
+        analytics.event({ type: EventType.FormAnalyticsDownloadCsv, selectedTab });
         e.preventDefault();
         e.stopPropagation();
         setIsDownloadingCSV(true);
