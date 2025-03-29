@@ -12,6 +12,7 @@ fragment incidentsFields on EntityIncidentsResult {
         startedAt
         status {
             state
+            stage
             message
             lastUpdated {
                 time
@@ -20,6 +21,9 @@ fragment incidentsFields on EntityIncidentsResult {
         }
         source {
             type
+            source {
+                ...assertionDetails
+            }
         }
         created {
             time
@@ -27,6 +31,25 @@ fragment incidentsFields on EntityIncidentsResult {
         }
         tags {
             ...globalTagsFields
+        }
+        priority
+        assignees {
+            ... on CorpUser {
+                urn
+                type
+                username
+                status
+                properties {
+                    displayName
+                }
+            }
+        }
+        linkedAssets: relationships(input: { types: ["IncidentOn"], direction: OUTGOING, start: 0, count: 1000 }) {
+            relationships {
+                entity {
+                    ...entityPreview
+                }
+            }
         }
     }
 }

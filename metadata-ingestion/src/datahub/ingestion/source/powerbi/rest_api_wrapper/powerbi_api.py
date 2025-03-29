@@ -115,7 +115,7 @@ class PowerBiAPI:
         if scan_result is None:
             return results
 
-        for scanned_dashboard in scan_result.get(Constant.DASHBOARDS, []):
+        for scanned_dashboard in scan_result.get(Constant.DASHBOARDS) or []:
             # Iterate through response and create a list of PowerBiAPI.Dashboard
             dashboard_id = scanned_dashboard.get("id")
             tags = self._parse_endorsement(
@@ -133,17 +133,17 @@ class PowerBiAPI:
         if scan_result is None:
             return results
 
-        reports: List[dict] = scan_result.get(Constant.REPORTS, [])
+        reports: List[dict] = scan_result.get(Constant.REPORTS) or []
 
         for report in reports:
-            report_id = report.get(Constant.ID, None)
+            report_id = report.get(Constant.ID)
             if report_id is None:
                 logger.warning(
                     f"Report id is none. Skipping endorsement tag for report instance {report}"
                 )
                 continue
             endorsements = self._parse_endorsement(
-                report.get(Constant.ENDORSEMENT_DETAIL, None)
+                report.get(Constant.ENDORSEMENT_DETAIL)
             )
             results[report_id] = endorsements
 
@@ -339,7 +339,7 @@ class PowerBiAPI:
         if not endorsements:
             return []
 
-        endorsement = endorsements.get(Constant.ENDORSEMENT, None)
+        endorsement = endorsements.get(Constant.ENDORSEMENT)
         if not endorsement:
             return []
 
@@ -396,7 +396,7 @@ class PowerBiAPI:
 
             if self.__config.extract_endorsements_to_tags:
                 dataset_instance.tags = self._parse_endorsement(
-                    dataset_dict.get(Constant.ENDORSEMENT_DETAIL, None)
+                    dataset_dict.get(Constant.ENDORSEMENT_DETAIL)
                 )
 
             dataset_map[dataset_instance.id] = dataset_instance
@@ -407,7 +407,7 @@ class PowerBiAPI:
                 else dataset_instance.id
             )
             logger.debug(f"dataset_dict = {dataset_dict}")
-            for table in dataset_dict.get(Constant.TABLES, []):
+            for table in dataset_dict.get(Constant.TABLES) or []:
                 expression: Optional[str] = (
                     table[Constant.SOURCE][0][Constant.EXPRESSION]
                     if table.get(Constant.SOURCE) is not None
@@ -430,10 +430,10 @@ class PowerBiAPI:
                                 column["dataType"], FIELD_TYPE_MAPPING["Null"]
                             ),
                         )
-                        for column in table.get("columns", [])
+                        for column in table.get("columns") or []
                     ],
                     measures=[
-                        Measure(**measure) for measure in table.get("measures", [])
+                        Measure(**measure) for measure in table.get("measures") or []
                     ],
                     dataset=dataset_instance,
                     row_count=None,
@@ -480,7 +480,7 @@ class PowerBiAPI:
                     )
                 )
                 if app_id is None:  # In PowerBI one workspace can have one app
-                    app_id = report.get(Constant.APP_ID)
+                    app_id = report[Constant.APP_ID]
 
         raw_app_dashboards: List[Dict] = []
         # Filter app dashboards
@@ -488,7 +488,7 @@ class PowerBiAPI:
             if dashboard.get(Constant.APP_ID):
                 raw_app_dashboards.append(dashboard)
                 if app_id is None:  # In PowerBI, one workspace contains one app
-                    app_id = report[Constant.APP_ID]
+                    app_id = dashboard[Constant.APP_ID]
 
         # workspace doesn't have an App. Above two loops can be avoided
         # if app_id is available at root level in workspace_metadata

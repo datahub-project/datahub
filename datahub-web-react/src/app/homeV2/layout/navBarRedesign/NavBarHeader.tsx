@@ -45,7 +45,7 @@ const Title = styled.div`
 `;
 
 const StyledLink = styled(Link)`
-    display: flex
+    display: flex;
     height: 40px;
     align-items: center;
     gap: 8px;

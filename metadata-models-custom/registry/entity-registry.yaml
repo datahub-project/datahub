@@ -17,6 +17,8 @@ plugins:
         - entityName: 'dataset'
           aspectName: customDataQualityRules
     - className: 'com.linkedin.metadata.aspect.plugins.spring.validation.CustomDataQualityRulesValidator'
+      packageScan:
+        - com.linkedin.metadata.aspect.plugins.spring.validation
       enabled: true
       supportedOperations:
         - UPSERT
@@ -25,8 +27,6 @@ plugins:
           aspectName: customDataQualityRules
       spring:
         enabled: true
-        packageScan:
-          - com.linkedin.metadata.aspect.plugins.spring.validation
   mutationHooks:
     - className: 'com.linkedin.metadata.aspect.plugins.hooks.CustomDataQualityRulesMutator'
       enabled: true

@@ -34,11 +34,8 @@ jobs:
         include:
           # Note: this should be kept in sync with tox.ini.
           - python-version: "3.8"
-            extra_pip_requirements: "apache-airflow~=2.3.4"
-            extra_pip_extras: test-airflow23
-          - python-version: "3.10"
-            extra_pip_requirements: "apache-airflow~=2.4.3"
-            extra_pip_extras: test-airflow24
+            extra_pip_extras: test-airflow25
+            # extra_pip_requirements: "apache-airflow~=2.5.3 -c https://raw.githubusercontent.com/apache/airflow/constraints-2.5.3/constraints-3.8.txt"
           - python-version: "3.10"
             extra_pip_requirements: "apache-airflow~=2.6.3 -c https://raw.githubusercontent.com/apache/airflow/constraints-2.6.3/constraints-3.10.txt"
           - python-version: "3.10"

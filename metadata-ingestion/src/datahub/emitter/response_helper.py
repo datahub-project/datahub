@@ -1,16 +1,20 @@
 import json
 import logging
+import warnings
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Sequence, Union
 
 from requests import Response
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.errors import APITracingWarning
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeProposal,
 )
 
 logger = logging.getLogger(__name__)
+
+_TRACE_HEADER_NAME = "traceparent"
 
 
 @dataclass
@@ -25,14 +29,11 @@ class TraceData:
             raise TypeError("data must be a dictionary")
 
 
-def _extract_trace_id(
-    response: Response, trace_header: str = "traceparent"
-) -> Optional[str]:
+def _extract_trace_id(response: Response) -> Optional[str]:
     """
     Extract trace ID from response headers.
     Args:
         response: HTTP response object
-        trace_header: Name of the trace header to use
     Returns:
         Trace ID if found and response is valid, None otherwise
     """
@@ -40,9 +41,17 @@ def _extract_trace_id(
         logger.debug(f"Invalid status code: {response.status_code}")
         return None
 
-    trace_id = response.headers.get(trace_header)
+    trace_id = response.headers.get(_TRACE_HEADER_NAME)
     if not trace_id:
-        logger.debug(f"Missing trace header: {trace_header}")
+        # This will only be printed if
+        # 1. we're in async mode (checked by the caller)
+        # 2. the server did not return a trace ID
+        logger.debug(f"Missing trace header: {_TRACE_HEADER_NAME}")
+        warnings.warn(
+            "No trace ID found in response headers. API tracing is not active - likely due to an outdated server version.",
+            APITracingWarning,
+            stacklevel=3,
+        )
         return None
 
     return trace_id
@@ -51,20 +60,19 @@ def _extract_trace_id(
 def extract_trace_data(
     response: Response,
     aspects_to_trace: Optional[List[str]] = None,
-    trace_header: str = "traceparent",
 ) -> Optional[TraceData]:
-    """
-    Extract trace data from a response object.
+    """Extract trace data from a response object.
+
+    If we run into a JSONDecodeError, we'll log an error and return None.
+
     Args:
         response: HTTP response object
         aspects_to_trace: Optional list of aspect names to extract. If None, extracts all aspects.
-        trace_header: Name of the trace header to use (default: "traceparent")
+
     Returns:
         TraceData object if successful, None otherwise
-    Raises:
-        JSONDecodeError: If response body cannot be decoded as JSON
     """
-    trace_id = _extract_trace_id(response, trace_header)
+    trace_id = _extract_trace_id(response)
     if not trace_id:
         return None
 
@@ -104,19 +112,18 @@ def extract_trace_data_from_mcps(
     response: Response,
     mcps: Sequence[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
     aspects_to_trace: Optional[List[str]] = None,
-    trace_header: str = "traceparent",
 ) -> Optional[TraceData]:
-    """
-    Extract trace data from a response object and populate data from provided MCPs.
+    """Extract trace data from a response object and populate data from provided MCPs.
+
     Args:
         response: HTTP response object used only for trace_id extraction
         mcps: List of MCP URN and aspect data
         aspects_to_trace: Optional list of aspect names to extract. If None, extracts all aspects.
-        trace_header: Name of the trace header to use (default: "traceparent")
+
     Returns:
         TraceData object if successful, None otherwise
     """
-    trace_id = _extract_trace_id(response, trace_header)
+    trace_id = _extract_trace_id(response)
     if not trace_id:
         return None
 

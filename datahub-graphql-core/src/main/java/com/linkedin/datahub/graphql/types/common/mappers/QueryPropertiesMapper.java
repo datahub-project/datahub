@@ -1,27 +1,32 @@
 package com.linkedin.datahub.graphql.types.common.mappers;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.GetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.*;
-import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.mappers.EmbeddedModelMapper;
 import com.linkedin.query.QueryProperties;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class QueryPropertiesMapper
-    implements ModelMapper<
+    implements EmbeddedModelMapper<
         QueryProperties, com.linkedin.datahub.graphql.generated.QueryProperties> {
 
   public static final QueryPropertiesMapper INSTANCE = new QueryPropertiesMapper();
 
   public static com.linkedin.datahub.graphql.generated.QueryProperties map(
-      @Nullable final QueryContext context, @Nonnull final QueryProperties input) {
-    return INSTANCE.apply(context, input);
+      @Nullable final QueryContext context,
+      @Nonnull final QueryProperties input,
+      @Nonnull Urn entityUrn) {
+    return INSTANCE.apply(context, input, entityUrn);
   }
 
   @Override
   public com.linkedin.datahub.graphql.generated.QueryProperties apply(
-      @Nullable final QueryContext context, @Nonnull final QueryProperties input) {
+      @Nullable final QueryContext context,
+      @Nonnull final QueryProperties input,
+      @Nonnull Urn entityUrn) {
 
     final com.linkedin.datahub.graphql.generated.QueryProperties result =
         new com.linkedin.datahub.graphql.generated.QueryProperties();
@@ -55,6 +60,8 @@ public class QueryPropertiesMapper
     lastModified.setTime(input.getLastModified().getTime());
     lastModified.setActor(input.getLastModified().getActor(GetMode.NULL).toString());
     result.setLastModified(lastModified);
+
+    result.setCustomProperties(CustomPropertiesMapper.map(input.getCustomProperties(), entityUrn));
 
     return result;
   }

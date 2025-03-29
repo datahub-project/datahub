@@ -44,6 +44,7 @@ from datahub_airflow_plugin._airflow_shims import (
 from datahub_airflow_plugin._config import DatahubLineageConfig, get_lineage_config
 from datahub_airflow_plugin._datahub_ol_adapter import translate_ol_to_datahub_urn
 from datahub_airflow_plugin._extractors import SQL_PARSING_RESULT_KEY, ExtractorManager
+from datahub_airflow_plugin._version import __package_name__, __version__
 from datahub_airflow_plugin.client.airflow_generator import AirflowGenerator
 from datahub_airflow_plugin.entities import (
     _Entity,
@@ -94,7 +95,9 @@ def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
 
         if plugin_config.enabled:
             _airflow_listener = DataHubListener(config=plugin_config)
-
+            logger.info(
+                f"DataHub plugin v2 (package: {__package_name__} and version: {__version__}) listener initialized with config: {plugin_config}"
+            )
             telemetry.telemetry_instance.ping(
                 "airflow-plugin-init",
                 {
@@ -168,7 +171,7 @@ def _render_templates(task_instance: "TaskInstance") -> "TaskInstance":
         return task_instance_copy
     except Exception as e:
         logger.info(
-            f"Error rendering templates in DataHub listener. Jinja-templated variables will not be extracted correctly: {e}"
+            f"Error rendering templates in DataHub listener. Jinja-templated variables will not be extracted correctly: {e}. Template rendering improves SQL parsing accuracy. If this causes issues, you can disable it by setting `render_templates` to `false` in the DataHub plugin configuration."
         )
         return task_instance
 
@@ -639,7 +642,7 @@ class DataHubListener:
         if dag.dag_id == _DATAHUB_CLEANUP_DAG:
             assert self.graph
 
-            logger.debug("Initiating the cleanup of obsselete data from datahub")
+            logger.debug("Initiating the cleanup of obsolete data from datahub")
 
             # get all ingested dataflow and datajob
             ingested_dataflow_urns = list(

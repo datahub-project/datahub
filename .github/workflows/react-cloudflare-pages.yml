@@ -1,0 +1,62 @@
+name: Frontend Preview
+on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+  pull_request:
+    branches:
+      - "**"
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+  release:
+    types: [published]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  setup:
+    runs-on: ubuntu-22.04
+    outputs:
+      frontend_change: ${{ steps.ci-optimize.outputs.frontend-change == 'true' }}
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@v3
+      - uses: ./.github/actions/ci-optimization
+        id: ci-optimize
+
+  deploy:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      deployments: write
+    timeout-minutes: 30
+    needs: setup
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@v3
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: 17
+      - uses: gradle/gradle-build-action@v2
+      - name: Gradle build for frontend
+        if: ${{ needs.setup.outputs.frontend_change == 'true' }}
+        run: |
+          ./gradlew :datahub-web-react:build -x test -x check --parallel
+      - name: Publish
+        if: ${{ needs.setup.outputs.frontend_change == 'true' }}
+        uses: cloudflare/pages-action@1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: datahub-project-web-react
+          workingDirectory: datahub-web-react
+          directory: dist
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}

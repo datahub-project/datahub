@@ -140,3 +140,84 @@ export function getStructuredPropertyValue(value: PropertyValue) {
     }
     return null;
 }
+
+// Utility for formatting any casing of type to the expected casing for the API
+export function formatEntityType(type: string): string {
+    if (!type) return '';
+
+    switch (type.toLowerCase()) {
+        case 'dataset':
+            return EntityType.Dataset;
+        case 'role':
+            return EntityType.Role;
+        case 'corpuser':
+            return EntityType.CorpUser;
+        case 'corpgroup':
+            return EntityType.CorpGroup;
+        case 'dataplatform':
+            return EntityType.DataPlatform;
+        case 'dashboard':
+            return EntityType.Dashboard;
+        case 'chart':
+            return EntityType.Chart;
+        case 'tag':
+            return EntityType.Tag;
+        case 'dataflow':
+            return EntityType.DataFlow;
+        case 'datajob':
+            return EntityType.DataJob;
+        case 'glossaryterm':
+            return EntityType.GlossaryTerm;
+        case 'glossarynode':
+            return EntityType.GlossaryNode;
+        case 'mlmodel':
+            return EntityType.Mlmodel;
+        case 'mlmodelgroup':
+            return EntityType.MlmodelGroup;
+        case 'mlfeaturetable':
+            return EntityType.MlfeatureTable;
+        case 'mlfeature':
+            return EntityType.Mlfeature;
+        case 'mlprimarykey':
+            return EntityType.MlprimaryKey;
+        case 'container':
+            return EntityType.Container;
+        case 'domain':
+            return EntityType.Domain;
+        case 'notebook':
+            return EntityType.Notebook;
+        case 'dataplatforminstance':
+            return EntityType.DataPlatformInstance;
+        case 'test':
+            return EntityType.Test;
+        case 'schemafield':
+            return EntityType.SchemaField;
+
+        // these are const in the java app
+        case 'dataprocessinstance': // Constants.DATA_PROCESS_INSTANCE_ENTITY_NAME
+            return EntityType.DataProcessInstance;
+        case 'datahubview': // Constants.DATAHUB_VIEW_ENTITY_NAME
+            return EntityType.DatahubView;
+        case 'dataproduct': // Constants.DATA_PRODUCT_ENTITY_NAME
+            return EntityType.DataProduct;
+        case 'datahubconnection': // Constants.DATAHUB_CONNECTION_ENTITY_NAME
+            return EntityType.DatahubConnection;
+        case 'structuredproperty': // Constants.STRUCTURED_PROPERTY_ENTITY_NAME
+            return EntityType.StructuredProperty;
+        case 'assertion': // Constants.ASSERTION_ENTITY_NAME
+            return EntityType.Assertion;
+
+        default:
+            return '';
+    }
+}
+
+// Utility for getting entity type from urn if it's in the 3rd position
+export function extractTypeFromUrn(urn: string): EntityType {
+    const regex = /[^:]+:[^:]+:([^:]+):/;
+    const match = urn.match(regex);
+
+    if (match && match[1]) return formatEntityType(match[1]) as EntityType;
+
+    return '' as EntityType;
+}

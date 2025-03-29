@@ -35,6 +35,11 @@ const ShowMoreButton = styled.div`
     }
 `;
 
+const EntityListContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+`;
+
 type Props = {
     loading: boolean;
     title?: string;
@@ -44,6 +49,7 @@ type Props = {
     showMoreComponent?: React.ReactNode;
     showMoreCount?: number;
     showHealthIcon?: boolean;
+    showDeprecatedIcon?: boolean;
     empty?: React.ReactNode;
     onClickMore?: () => void;
     onClickTitle?: () => void;
@@ -59,6 +65,7 @@ export const EntityLinkList = ({
     showMore = false,
     showMoreCount,
     showHealthIcon = false,
+    showDeprecatedIcon = false,
     empty,
     onClickMore,
     onClickTitle,
@@ -73,7 +80,7 @@ export const EntityLinkList = ({
     }
 
     return (
-        <>
+        <EntityListContainer>
             {title && (
                 <Title hasAction={onClickTitle !== undefined} onClick={onClickTitle}>
                     <Tooltip title={tip} showArrow={false} placement="right">
@@ -94,6 +101,7 @@ export const EntityLinkList = ({
                                 }
                                 render={render}
                                 showHealthIcon={showHealthIcon}
+                                showDeprecatedIcon={showDeprecatedIcon}
                             />
                         );
                     })) || <>{empty || <DefaultEmptyEntityList />}</>}
@@ -103,6 +111,6 @@ export const EntityLinkList = ({
                     {showMoreComponent || (showMoreCount && <>show {showMoreCount} more</>) || <>show more</>}
                 </ShowMoreButton>
             )}
-        </>
+        </EntityListContainer>
     );
 };

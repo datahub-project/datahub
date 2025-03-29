@@ -43,6 +43,7 @@ dependencies {
   implementation externalDependency.springWebMVC
   implementation externalDependency.springBootAutoconfigure
   implementation externalDependency.servletApi
+  runtimeOnly externalDependency.opentelemetryExporter
 
   implementation spec.product.pegasus.restliDocgen
   implementation spec.product.pegasus.restliSpringBridge

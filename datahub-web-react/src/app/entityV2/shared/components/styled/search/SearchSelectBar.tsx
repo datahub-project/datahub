@@ -96,6 +96,7 @@ export const SearchSelectBar = ({
                         onChangeSelectAll(e.target.checked as boolean);
                         setAreAllEntitiesSelected?.(false);
                     }}
+                    id="search-select-bar"
                     disabled={limit !== undefined && limit > 0}
                 />
                 <Typography.Text strong type="secondary">

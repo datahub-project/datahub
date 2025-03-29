@@ -38,13 +38,13 @@ record DataProcessInstanceOutput {
   @Relationship = {
     "/*/destinationUrn": {
       "name": "DataProcessInstanceProduces",
-      "entityTypes": [ "dataset", "mlModel" ],
+      "entityTypes": [ "dataset", "mlModel", "dataProcessInstance" ],
       "isUpstream": false,
       "isLineage": true,
-      "createdOn": "outputEdges/*/created/time"
-      "createdActor": "outputEdges/*/created/actor"
-      "updatedOn": "outputEdges/*/lastModified/time"
-      "updatedActor": "outputEdges/*/lastModified/actor"
+      "createdOn": "outputEdges/*/created/time",
+      "createdActor": "outputEdges/*/created/actor",
+      "updatedOn": "outputEdges/*/lastModified/time",
+      "updatedActor": "outputEdges/*/lastModified/actor",
       "properties": "outputEdges/*/properties"
     }
   }

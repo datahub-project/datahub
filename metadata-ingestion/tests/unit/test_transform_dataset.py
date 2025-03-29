@@ -117,14 +117,10 @@ def make_generic_dataset(
 
 def make_generic_dataset_mcp(
     entity_urn: str = "urn:li:dataset:(urn:li:dataPlatform:bigquery,example1,PROD)",
-    aspect_name: str = "status",
     aspect: Any = models.StatusClass(removed=False),
 ) -> MetadataChangeProposalWrapper:
     return MetadataChangeProposalWrapper(
         entityUrn=entity_urn,
-        entityType=Urn.from_string(entity_urn).get_type(),
-        aspectName=aspect_name,
-        changeType="UPSERT",
         aspect=aspect,
     )
 
@@ -138,7 +134,7 @@ def make_generic_container_mcp(
         aspect = models.StatusClass(removed=False)
     return MetadataChangeProposalWrapper(
         entityUrn=entity_urn,
-        entityType=Urn.from_string(entity_urn).get_type(),
+        entityType=Urn.from_string(entity_urn).entity_type,
         aspectName=aspect_name,
         changeType="UPSERT",
         aspect=aspect,
@@ -497,7 +493,6 @@ def test_mark_status_dataset(tmp_path):
     assert status_aspect.removed is False
 
     mcp = make_generic_dataset_mcp(
-        aspect_name="datasetProperties",
         aspect=DatasetPropertiesClass(description="Test dataset"),
     )
     events_file = create_and_run_test_pipeline(
@@ -597,7 +592,6 @@ def test_mark_status_dataset(tmp_path):
         events=[
             make_generic_dataset(aspects=[test_status_aspect]),
             make_generic_dataset_mcp(
-                aspect_name="datasetProperties",
                 aspect=DatasetPropertiesClass(description="test dataset"),
             ),
         ],
@@ -633,7 +627,7 @@ def test_mark_status_dataset(tmp_path):
     events_file = create_and_run_test_pipeline(
         events=[
             make_generic_dataset(aspects=[test_dataset_props_aspect]),
-            make_generic_dataset_mcp(aspect_name="globalTags", aspect=test_mcp_aspect),
+            make_generic_dataset_mcp(aspect=test_mcp_aspect),
         ],
         transformers=[{"type": "mark_dataset_status", "config": {"removed": True}}],
         path=tmp_path,
@@ -1834,7 +1828,6 @@ def test_mcp_add_tags_missing(mock_time):
 
 def test_mcp_add_tags_existing(mock_time):
     dataset_mcp = make_generic_dataset_mcp(
-        aspect_name="globalTags",
         aspect=GlobalTagsClass(
             tags=[TagAssociationClass(tag=builder.make_tag_urn("Test"))]
         ),
@@ -2074,7 +2067,6 @@ class SuppressingTransformer(BaseTransformer, SingleAspectTransformer):
 def test_supression_works():
     dataset_mce = make_generic_dataset()
     dataset_mcp = make_generic_dataset_mcp(
-        aspect_name="datasetProperties",
         aspect=DatasetPropertiesClass(description="supressable description"),
     )
     transformer = SuppressingTransformer.create(
@@ -2305,9 +2297,8 @@ def run_dataset_transformer_pipeline(
         )
     else:
         assert aspect
-        dataset = make_generic_dataset_mcp(
-            aspect=aspect, aspect_name=transformer.aspect_name()
-        )
+        assert transformer.aspect_name() == aspect.ASPECT_NAME
+        dataset = make_generic_dataset_mcp(aspect=aspect)
 
     outputs = list(
         transformer.transform(
@@ -2910,7 +2901,7 @@ def test_pattern_container_and_dataset_domain_transformation(
     pipeline_context.graph.get_aspect = fake_get_aspect  # type: ignore
 
     with_domain_aspect = make_generic_dataset_mcp(
-        aspect=models.DomainsClass(domains=[datahub_domain]), aspect_name="domains"
+        aspect=models.DomainsClass(domains=[datahub_domain])
     )
     no_domain_aspect = make_generic_dataset_mcp(
         entity_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,example2,PROD)"
@@ -3008,7 +2999,7 @@ def test_pattern_container_and_dataset_domain_transformation_with_no_container(
     pipeline_context.graph.get_aspect = fake_get_aspect  # type: ignore
 
     with_domain_aspect = make_generic_dataset_mcp(
-        aspect=models.DomainsClass(domains=[datahub_domain]), aspect_name="domains"
+        aspect=models.DomainsClass(domains=[datahub_domain])
     )
     no_domain_aspect = make_generic_dataset_mcp(
         entity_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,example2,PROD)"

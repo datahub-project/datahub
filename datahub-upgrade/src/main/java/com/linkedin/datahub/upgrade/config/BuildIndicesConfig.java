@@ -12,10 +12,12 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 
 @Configuration
 @Conditional(SystemUpdateCondition.BlockingSystemUpdateCondition.class)
 public class BuildIndicesConfig {
+  @Order(1)
   @Bean(name = "buildIndices")
   public BlockingSystemUpgrade buildIndices(
       final SystemMetadataService systemMetadataService,

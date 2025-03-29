@@ -430,10 +430,22 @@ class Dataset(
     HasDomain,
     Entity,
 ):
+    """Represents a dataset in DataHub.
+
+    A dataset represents a collection of data, such as a table, view, or file.
+    This class provides methods for managing dataset metadata including schema,
+    lineage, and various aspects like ownership, tags, and terms.
+    """
+
     __slots__ = ()
 
     @classmethod
     def get_urn_type(cls) -> Type[DatasetUrn]:
+        """Get the URN type for datasets.
+
+        Returns:
+            The DatasetUrn class.
+        """
         return DatasetUrn
 
     def __init__(
@@ -466,6 +478,31 @@ class Dataset(
         schema: Optional[SchemaFieldsInputType] = None,
         upstreams: Optional[models.UpstreamLineageClass] = None,
     ):
+        """Initialize a new Dataset instance.
+
+        Args:
+            platform: The platform this dataset belongs to (e.g. "mysql", "snowflake").
+            name: The name of the dataset.
+            platform_instance: Optional platform instance identifier.
+            env: The environment this dataset belongs to (default: DEFAULT_ENV).
+            description: Optional description of the dataset.
+            display_name: Optional display name for the dataset.
+            qualified_name: Optional qualified name for the dataset.
+            external_url: Optional URL to external documentation or source.
+            custom_properties: Optional dictionary of custom properties.
+            created: Optional creation timestamp.
+            last_modified: Optional last modification timestamp.
+            parent_container: Optional parent container for this dataset.
+            subtype: Optional subtype of the dataset.
+            owners: Optional list of owners.
+            links: Optional list of links.
+            tags: Optional list of tags.
+            terms: Optional list of glossary terms.
+            domain: Optional domain this dataset belongs to.
+            extra_aspects: Optional list of additional aspects.
+            schema: Optional schema definition for the dataset.
+            upstreams: Optional upstream lineage information.
+        """
         urn = DatasetUrn.create_from_ids(
             platform_id=platform,
             table_name=name,
@@ -539,6 +576,11 @@ class Dataset(
 
     @property
     def description(self) -> Optional[str]:
+        """Get the description of the dataset.
+
+        Returns:
+            The description if set, None otherwise.
+        """
         editable_props = self._get_editable_props()
         return first_non_null(
             [
@@ -548,6 +590,15 @@ class Dataset(
         )
 
     def set_description(self, description: str) -> None:
+        """Set the description of the dataset.
+
+        Args:
+            description: The description to set.
+
+        Note:
+            If called during ingestion, this will warn if overwriting
+            a non-ingestion description.
+        """
         if is_ingestion_attribution():
             editable_props = self._get_editable_props()
             if editable_props is not None and editable_props.description is not None:
@@ -565,41 +616,96 @@ class Dataset(
 
     @property
     def display_name(self) -> Optional[str]:
+        """Get the display name of the dataset.
+
+        Returns:
+            The display name if set, None otherwise.
+        """
         return self._ensure_dataset_props().name
 
     def set_display_name(self, display_name: str) -> None:
+        """Set the display name of the dataset.
+
+        Args:
+            display_name: The display name to set.
+        """
         self._ensure_dataset_props().name = display_name
 
     @property
     def qualified_name(self) -> Optional[str]:
+        """Get the qualified name of the dataset.
+
+        Returns:
+            The qualified name if set, None otherwise.
+        """
         return self._ensure_dataset_props().qualifiedName
 
     def set_qualified_name(self, qualified_name: str) -> None:
+        """Set the qualified name of the dataset.
+
+        Args:
+            qualified_name: The qualified name to set.
+        """
         self._ensure_dataset_props().qualifiedName = qualified_name
 
     @property
     def external_url(self) -> Optional[str]:
+        """Get the external URL of the dataset.
+
+        Returns:
+            The external URL if set, None otherwise.
+        """
         return self._ensure_dataset_props().externalUrl
 
     def set_external_url(self, external_url: str) -> None:
+        """Set the external URL of the dataset.
+
+        Args:
+            external_url: The external URL to set.
+        """
         self._ensure_dataset_props().externalUrl = external_url
 
     @property
     def custom_properties(self) -> Dict[str, str]:
+        """Get the custom properties of the dataset.
+
+        Returns:
+            Dictionary of custom properties.
+        """
         return self._ensure_dataset_props().customProperties
 
     def set_custom_properties(self, custom_properties: Dict[str, str]) -> None:
+        """Set the custom properties of the dataset.
+
+        Args:
+            custom_properties: Dictionary of custom properties to set.
+        """
         self._ensure_dataset_props().customProperties = custom_properties
 
     @property
     def created(self) -> Optional[datetime]:
+        """Get the creation timestamp of the dataset.
+
+        Returns:
+            The creation timestamp if set, None otherwise.
+        """
         return parse_time_stamp(self._ensure_dataset_props().created)
 
     def set_created(self, created: datetime) -> None:
+        """Set the creation timestamp of the dataset.
+
+        Args:
+            created: The creation timestamp to set.
+        """
         self._ensure_dataset_props().created = make_time_stamp(created)
 
     @property
     def last_modified(self) -> Optional[datetime]:
+        """Get the last modification timestamp of the dataset.
+
+        Returns:
+            The last modification timestamp if set, None otherwise.
+        """
         return parse_time_stamp(self._ensure_dataset_props().lastModified)
 
     def set_last_modified(self, last_modified: datetime) -> None:
@@ -614,6 +720,11 @@ class Dataset(
     @property
     def schema(self) -> List[SchemaField]:
         # TODO: Add some caching here to avoid iterating over the schema every time.
+        """Get the schema fields of the dataset.
+
+        Returns:
+            List of SchemaField objects representing the dataset's schema.
+        """
         schema_dict = self._schema_dict()
         return [SchemaField(self, field_path) for field_path in schema_dict]
 
@@ -669,6 +780,17 @@ class Dataset(
 
     def __getitem__(self, field_path: str) -> SchemaField:
         # TODO: Automatically deal with field path v2?
+        """Get a schema field by its path.
+
+        Args:
+            field_path: The path of the field to retrieve.
+
+        Returns:
+            A SchemaField instance.
+
+        Raises:
+            SchemaFieldKeyError: If the field is not found.
+        """
         schema_dict = self._schema_dict()
         if field_path not in schema_dict:
             raise SchemaFieldKeyError(f"Field {field_path} not found in schema")

@@ -178,3 +178,17 @@ WHERE
     statements = [statement.strip() for statement in split_statements(test_sql)]
     expected = [test_sql]
     assert statements == expected
+
+
+def test_split_statement_with_merge_query():
+    test_sql = """\
+MERGE INTO myTable AS t
+USING myTable2 AS s
+ON t.a = s.a
+WHEN MATCHED THEN
+    UPDATE SET t.b = s.b
+WHEN NOT MATCHED THEN
+    INSERT (a, b) VALUES (s.a, s.b)"""
+    statements = [statement.strip() for statement in split_statements(test_sql)]
+    expected = [test_sql]
+    assert statements == expected

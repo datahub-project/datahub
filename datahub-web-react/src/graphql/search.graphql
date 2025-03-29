@@ -535,6 +535,7 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
     }
     ... on Dashboard {
+        tool
         dashboardId
         properties {
             name
@@ -685,6 +686,7 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
     }
     ... on DataFlow {
+        orchestrator
         flowId
         cluster
         properties {
