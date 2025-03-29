@@ -52,7 +52,7 @@ The following code snippet shows you how to add a Schema containing 3 fields to 
 
 ### Tags and Glossary Terms
 
-Datasets can have Tags or Terms attached to them. Read [this blog](https://blog.datahubproject.io/tags-and-terms-two-powerful-datahub-features-used-in-two-different-scenarios-b5b4791e892e) to understand the difference between tags and terms so you understand when you should use which.
+Datasets can have Tags or Terms attached to them. Read [this blog](https://medium.com/datahub-project/tags-and-terms-two-powerful-datahub-features-used-in-two-different-scenarios-b5b4791e892e) to understand the difference between tags and terms so you understand when you should use which.
 
 #### Adding Tags or Glossary Terms at the top-level to a dataset
 

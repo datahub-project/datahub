@@ -75,7 +75,7 @@ Looking for an example of how to use `searchAcrossLineage` to read data lineage?
 
 ### DataHub Blog
 
-* [Dependency Impact Analysis, Data Validation Outcomes, and MORE! - Highlights from DataHub v0.8.27 & v.0.8.28](https://blog.datahubproject.io/dependency-impact-analysis-data-validation-outcomes-and-more-1302604da233)
+* [Dependency Impact Analysis, Data Validation Outcomes, and MORE! - Highlights from DataHub v0.8.27 & v.0.8.28](https://medium.com/datahub-project/dependency-impact-analysis-data-validation-outcomes-and-more-1302604da233)
 
 
 ### FAQ and Troubleshooting
