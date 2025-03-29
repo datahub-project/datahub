@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import { Plus, PencilSimple } from '@phosphor-icons/react';
 import { Modal, message } from 'antd';
 import { useEntityData } from '../../../../../../entity/shared/EntityContext';
 import { EMPTY_MESSAGES } from '../../../../constants';
@@ -95,7 +94,13 @@ export default function DataProductSection({ readOnly }: Props) {
                 }
                 extra={
                     <SectionActionButton
-                        button={dataProduct ? <EditOutlinedIcon /> : <AddRoundedIcon />}
+                        button={
+                            dataProduct ? (
+                                <PencilSimple size={16} weight="regular" />
+                            ) : (
+                                <Plus size={16} weight="regular" />
+                            )
+                        }
                         onClick={(event) => {
                             setIsModalVisible(true);
                             event.stopPropagation();

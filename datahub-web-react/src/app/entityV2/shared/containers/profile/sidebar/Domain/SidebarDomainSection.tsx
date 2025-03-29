@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Modal, message } from 'antd';
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import { Plus, PencilSimple } from '@phosphor-icons/react';
 import { EMPTY_MESSAGES } from '../../../../constants';
 import { useEntityData, useMutationUrn, useRefetch } from '../../../../../../entity/shared/EntityContext';
 import { SetDomainModal } from './SetDomainModal';
@@ -102,7 +101,9 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                 }
                 extra={
                     <SectionActionButton
-                        button={domain ? <EditOutlinedIcon /> : <AddRoundedIcon />}
+                        button={
+                            domain ? <PencilSimple size={16} weight="regular" /> : <Plus size={16} weight="regular" />
+                        }
                         onClick={(event) => {
                             setShowModal(true);
                             event.stopPropagation();

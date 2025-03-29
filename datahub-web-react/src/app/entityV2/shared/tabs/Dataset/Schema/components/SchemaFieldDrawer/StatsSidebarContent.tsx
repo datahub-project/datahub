@@ -35,8 +35,7 @@ const StatLabel = styled.div`
     padding-top: 12px;
     padding-bottom: 12px;
     :not(:last-child) {
-        border-bottom: 1px dashed;
-        border-color: rgba(0, 0, 0, 0.3);
+        border-bottom: 1px solid rgb(213, 213, 213);
     }
 `;
 

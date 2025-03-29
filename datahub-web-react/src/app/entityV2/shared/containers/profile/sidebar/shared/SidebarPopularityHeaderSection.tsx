@@ -1,7 +1,7 @@
 import React from 'react';
 import { Popover } from '@components';
 import styled from 'styled-components';
-import { ConsoleSqlOutlined, UserOutlined, ToolOutlined, EyeOutlined } from '@ant-design/icons';
+import { FileSql, User, Wrench, Eye } from '@phosphor-icons/react';
 import { useEntityData } from '../../../../../../entity/shared/EntityContext';
 import {
     getBarsStatusFromPopularityTier,
@@ -30,28 +30,28 @@ const Insight = styled.div`
     }
 `;
 
-const StyledEyeOutlined = styled(EyeOutlined)`
+const StyledEyeOutlined = styled(Eye)`
     && {
         font-size: 20px;
         margin-right: 12px;
     }
 `;
 
-const StyledConsoleSqlOutlined = styled(ConsoleSqlOutlined)`
+const StyledConsoleSqlOutlined = styled(FileSql)`
     && {
         font-size: 20px;
         margin-right: 12px;
     }
 `;
 
-const StyledUserOutlined = styled(UserOutlined)`
+const StyledUserOutlined = styled(User)`
     && {
         font-size: 20px;
         margin-right: 12px;
     }
 `;
 
-const StyledToolOutlined = styled(ToolOutlined)`
+const StyledToolOutlined = styled(Wrench)`
     && {
         font-size: 20px;
         margin-right: 12px;

@@ -33,7 +33,7 @@ export default function StatsSection({ fieldProfile, setSelectedTabName }: Props
                 extra={<ViewAll onClick={() => setSelectedTabName('Statistics')}>View all</ViewAll>}
                 content={<StatsSummaryRow fieldProfile={fieldProfile} />}
             />
-            <StyledDivider dashed />
+            <StyledDivider />
         </>
     );
 }
