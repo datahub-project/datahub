@@ -654,21 +654,30 @@ class OracleSource(SQLAlchemySource):
     def create(cls, config_dict, ctx):
         config = OracleConfig.parse_obj(config_dict)
         return cls(config, ctx)
-
+  
     def get_db_name(self, inspector: Inspector) -> str:
         """
+
         This overwrites the default implementation, which only tries to read
         database name from Connection URL, which does not work when using
         service instead of database.
         In that case, it tries to retrieve the database name by sending a query to the DB.
+
         """
 
         # call default implementation first
         db_name = super().get_db_name(inspector)
-
-        if db_name == "" and isinstance(inspector, OracleInspectorObjectWrapper):
-            db_name = inspector.get_db_name()
-
+        if not db_name:
+            try:
+                with inspector.engine.connect() as connection:
+                    db_name_result = connection.execute(
+                        sql.text("SELECT sys_context('USERENV','DB_NAME') FROM dual")
+                    ).scalar()
+                db_name = str(db_name_result) if db_name_result else ""
+            except Exception as e:
+                logger.error(f"Error retrieving database name: {e}")
+                db_name = ""
+        logger.info(f'db_name: "{db_name}".')
         return db_name
 
     def get_inspectors(self) -> Iterable[Inspector]:
