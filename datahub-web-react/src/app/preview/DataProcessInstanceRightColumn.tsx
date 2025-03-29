@@ -18,6 +18,8 @@ const StatContainer = styled.div`
     padding-left: 20px;
     color: ${colors.gray[500]};
     width: 150px;
+    align-items: center;
+    justify-content: center;
 `;
 
 const PopoverContent = styled.div`
