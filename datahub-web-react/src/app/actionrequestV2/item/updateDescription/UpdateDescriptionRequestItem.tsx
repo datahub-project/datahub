@@ -1,8 +1,8 @@
 import { blue } from '@ant-design/colors';
 import { DiffOutlined } from '@ant-design/icons';
-import { Text } from '@components';
+import { colors, Modal, Text } from '@components';
 import MDEditor from '@uiw/react-md-editor';
-import { Button, Modal } from 'antd';
+import { Button } from 'antd';
 import DOMPurify from 'dompurify';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
@@ -65,6 +65,7 @@ function UpdateDescriptionRequestItem({ actionRequest }: Props) {
                     oldDescription={oldDescription}
                     newDescription={newDescription}
                     closeModal={() => setIsDiffModalVisible(false)}
+                    actionRequest={actionRequest}
                 />
             )}
             {isDescriptionModalVisible && (
@@ -75,7 +76,7 @@ function UpdateDescriptionRequestItem({ actionRequest }: Props) {
                     width={750}
                     title="Update Description Proposal"
                 >
-                    <MDEditor.Markdown style={{ fontWeight: 400 }} source={newDescription} />
+                    <MDEditor.Markdown style={{ fontWeight: 400, color: colors.gray[500] }} source={newDescription} />
                 </Modal>
             )}
         </ContentWrapper>

@@ -228,6 +228,7 @@ export default function SchemaFieldDrawer({
                 fieldPath: expandedField?.fieldPath,
                 fieldUrn: expandedField?.schemaFieldEntity?.urn,
                 fieldProperties: expandedField?.schemaFieldEntity?.structuredProperties,
+                fieldEntity: expandedField?.schemaFieldEntity,
                 refetch,
             },
         },

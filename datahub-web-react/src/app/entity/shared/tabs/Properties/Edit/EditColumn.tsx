@@ -4,7 +4,7 @@ import { MenuItem } from '@src/app/govern/structuredProperties/styledComponents'
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { showToastMessage, ToastType } from '@src/app/sharedV2/toastMessageUtils';
 import { useRemoveStructuredPropertiesMutation } from '@src/graphql/structuredProperties.generated';
-import { EntityType, StructuredPropertyEntity } from '@src/types.generated';
+import { EntityType, Maybe, SchemaFieldEntity, StructuredPropertyEntity } from '@src/types.generated';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { Dropdown } from 'antd';
 import React, { useState } from 'react';
@@ -36,9 +36,10 @@ interface Props {
     values?: (string | number | null)[];
     refetch?: () => void;
     isAddMode?: boolean;
+    fieldEntity?: Maybe<SchemaFieldEntity>;
 }
 
-export function EditColumn({ structuredProperty, associatedUrn, values, refetch, isAddMode }: Props) {
+export function EditColumn({ structuredProperty, associatedUrn, values, refetch, isAddMode, fieldEntity }: Props) {
     const entityRegistry = useEntityRegistry();
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
     const { refetch: entityRefetch } = useEntityContext();
@@ -133,6 +134,7 @@ export function EditColumn({ structuredProperty, associatedUrn, values, refetch,
                 closeModal={() => setIsEditModalVisible(false)}
                 refetch={refetch}
                 isAddMode={isAddMode}
+                fieldEntity={fieldEntity}
             />
             <ConfirmationModal
                 isOpen={showConfirmRemove}

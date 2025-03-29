@@ -1,5 +1,5 @@
 import { EditColumn } from '@src/app/entity/shared/tabs/Properties/Edit/EditColumn';
-import { Maybe, StructuredProperties } from '@src/types.generated';
+import { Maybe, SchemaFieldEntity, StructuredProperties } from '@src/types.generated';
 import { Empty, Table } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
@@ -40,6 +40,7 @@ interface Props {
         fieldPath?: string;
         fieldUrn?: string;
         fieldProperties?: Maybe<StructuredProperties>;
+        fieldEntity?: Maybe<SchemaFieldEntity>;
         refetch?: () => void;
     };
     renderType?: TabRenderType;
@@ -49,6 +50,7 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
     const fieldPath = properties?.fieldPath;
     const fieldUrn = properties?.fieldUrn;
     const fieldProperties = properties?.fieldProperties;
+    const fieldEntity = properties?.fieldEntity;
     const refetch = properties?.refetch;
     const [filterText, setFilterText] = useState('');
     const { entityData } = useEntityData();
@@ -110,6 +112,7 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
                     associatedUrn={propertyRow.associatedUrn}
                     values={propertyRow.values?.map((v) => v.value) || []}
                     refetch={refetch}
+                    fieldEntity={fieldEntity}
                 />
             ),
         } as any);
