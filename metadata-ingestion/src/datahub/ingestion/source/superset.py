@@ -1,5 +1,7 @@
 import json
 import logging
+import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import lru_cache
@@ -208,6 +210,11 @@ class SupersetConfig(
 
     timeout: int = Field(
         default=10, description="Timeout of single API call to superset."
+    )
+
+    max_threads: int = Field(
+        default_factory=lambda: os.cpu_count() or 40,
+        description="Max parallelism for Looker API calls. Defaults to cpuCount or 40",
     )
 
     # TODO: Check and remove this if no longer needed.
@@ -502,17 +509,16 @@ class SupersetSource(StatefulIngestionSourceBase):
         return dashboard_snapshot
 
     def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
-        for dashboard_data in self.paginate_entity_api_results("dashboard/", PAGE_SIZE):
+        def process_dashboard(dashboard_data):
+            dashboard_title = ""
             try:
                 dashboard_id = str(dashboard_data.get("id"))
                 dashboard_title = dashboard_data.get("dashboard_title", "")
-
                 if not self.config.dashboard_pattern.allowed(dashboard_title):
                     self.report.report_dropped(
                         f"Dashboard '{dashboard_title}' (id: {dashboard_id}) filtered by dashboard_pattern"
                     )
-                    continue
-
+                    return []
                 dashboard_snapshot = self.construct_dashboard_from_api_data(
                     dashboard_data
                 )
@@ -520,14 +526,27 @@ class SupersetSource(StatefulIngestionSourceBase):
                 self.report.warning(
                     f"Failed to construct dashboard snapshot. Dashboard name: {dashboard_data.get('dashboard_title')}. Error: \n{e}"
                 )
-                continue
-            # Emit the dashboard
+                return []
             mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
-            yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
-            yield from self._get_domain_wu(
-                title=dashboard_title,
-                entity_urn=dashboard_snapshot.urn,
+            work_units = [MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)]
+            work_units.extend(
+                self._get_domain_wu(
+                    title=dashboard_title, entity_urn=dashboard_snapshot.urn
+                )
             )
+            return work_units
+
+        with ThreadPoolExecutor(max_workers=self.config.max_threads) as executor:
+            future_to_dashboard = {
+                executor.submit(process_dashboard, dashboard_data): dashboard_data
+                for dashboard_data in self.paginate_entity_api_results(
+                    "dashboard/", PAGE_SIZE
+                )
+            }
+            for future in as_completed(future_to_dashboard):
+                work_units = future.result()
+                for work_unit in work_units:
+                    yield work_unit
 
     def build_input_fields(
         self,
@@ -763,18 +782,16 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
 
     def emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
-        for chart_data in self.paginate_entity_api_results("chart/", PAGE_SIZE):
+        def process_chart(chart_data):
+            chart_name = ""
             try:
                 chart_id = str(chart_data.get("id"))
                 chart_name = chart_data.get("slice_name", "")
-
                 if not self.config.chart_pattern.allowed(chart_name):
                     self.report.report_dropped(
                         f"Chart '{chart_name}' (id: {chart_id}) filtered by chart_pattern"
                     )
-                    continue
-
-                # Emit a warning if charts use data from a dataset that will be filtered out
+                    return []
                 if self.config.dataset_pattern != AllowDenyPattern.allow_all():
                     datasource_id = chart_data.get("datasource_id")
                     if datasource_id:
@@ -782,20 +799,29 @@ class SupersetSource(StatefulIngestionSourceBase):
                         dataset_name = dataset_response.get("result", {}).get(
                             "table_name", ""
                         )
-
                         if dataset_name and not self.config.dataset_pattern.allowed(
                             dataset_name
                         ):
                             self.report.warning(
                                 f"Chart '{chart_name}' (id: {chart_id}) uses dataset '{dataset_name}' which is filtered by dataset_pattern"
                             )
+                return list(self.construct_chart_from_chart_data(chart_data))
 
-                yield from self.construct_chart_from_chart_data(chart_data)
             except Exception as e:
                 self.report.warning(
                     f"Failed to construct chart snapshot. Chart name: {chart_name}. Error: \n{e}"
                 )
-                continue
+                return []
+
+        with ThreadPoolExecutor(max_workers=self.config.max_threads) as executor:
+            future_to_chart = {
+                executor.submit(process_chart, chart_data): chart_data
+                for chart_data in self.paginate_entity_api_results("chart/", PAGE_SIZE)
+            }
+            for future in as_completed(future_to_chart):
+                work_units = future.result()
+                for work_unit in work_units:
+                    yield work_unit
 
     def gen_schema_fields(self, column_data: List[Dict[str, str]]) -> List[SchemaField]:
         schema_fields: List[SchemaField] = []
@@ -1024,17 +1050,15 @@ class SupersetSource(StatefulIngestionSourceBase):
         return dataset_snapshot
 
     def emit_dataset_mces(self) -> Iterable[MetadataWorkUnit]:
-        for dataset_data in self.paginate_entity_api_results("dataset/", PAGE_SIZE):
+        def process_dataset(dataset_data):
+            dataset_name = ""
             try:
                 dataset_name = dataset_data.get("table_name", "")
-
-                # Check if dataset should be filtered by dataset name
                 if not self.config.dataset_pattern.allowed(dataset_name):
                     self.report.report_dropped(
                         f"Dataset '{dataset_name}' filtered by dataset_pattern"
                     )
-                    continue
-
+                    return []
                 dataset_snapshot = self.construct_dataset_from_dataset_data(
                     dataset_data
                 )
@@ -1043,13 +1067,27 @@ class SupersetSource(StatefulIngestionSourceBase):
                 self.report.warning(
                     f"Failed to construct dataset snapshot. Dataset name: {dataset_data.get('table_name')}. Error: \n{e}"
                 )
-                continue
-            # Emit the dataset
-            yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
-            yield from self._get_domain_wu(
-                title=dataset_data.get("table_name", ""),
-                entity_urn=dataset_snapshot.urn,
+                return []
+            work_units = [MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)]
+            work_units.extend(
+                self._get_domain_wu(
+                    title=dataset_data.get("table_name", ""),
+                    entity_urn=dataset_snapshot.urn,
+                )
             )
+            return work_units
+
+        with ThreadPoolExecutor(max_workers=self.config.max_threads) as executor:
+            future_to_dataset = {
+                executor.submit(process_dataset, dataset_data): dataset_data
+                for dataset_data in self.paginate_entity_api_results(
+                    "dataset/", PAGE_SIZE
+                )
+            }
+            for future in as_completed(future_to_dataset):
+                work_units = future.result()
+                for work_unit in work_units:
+                    yield work_unit
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.config.ingest_dashboards:
