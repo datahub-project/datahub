@@ -126,12 +126,12 @@ export const SearchIcon = styled(Icon)({
 // Styled components for SelectValue (Selected value display)
 export const SelectValue = styled.span({
     ...inputValueTextStyles(),
-    color: colors.gray[600],
+    color: colors.gray[500],
 });
 
 export const Placeholder = styled.span({
     ...inputPlaceholderTextStyles,
-    color: colors.gray[1800],
+    color: colors.gray[500],
 });
 
 export const ActionButtonsContainer = styled.div({
@@ -257,7 +257,7 @@ export const ClearIcon = styled.span({
 
 export const ArrowIcon = styled.span<{ isOpen: boolean }>(({ isOpen }) => ({
     marginLeft: 'auto',
-    border: 'solid black',
+    border: `solid ${colors.gray[1800]}`,
     borderWidth: '0 1px 1px 0',
     display: 'inline-block',
     padding: '3px',
@@ -272,24 +272,30 @@ export const StyledCheckbox = styled(Checkbox)({
 });
 
 export const StyledBubbleButton = styled(Button)({
-    backgroundColor: colors.gray[200],
+    backgroundColor: colors.gray[100],
     border: `1px solid ${colors.gray[200]}`,
-    color: colors.black,
+    color: colors.gray[100],
     padding: '1px',
 });
 
 export const CountBadge = styled.div({
-    backgroundColor: colors.gray[200],
-    color: colors.black,
-    padding: '3px 5px',
-    borderRadius: 50,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.gray[100],
+    color: colors.gray[500],
+    padding: '4px 6px',
+    borderRadius: 100,
     fontSize: typography.fontSizes.sm,
 });
 
-export const HighlightedLabel = styled.span`
-    background-color: ${colors.gray[100]};
-    padding: 4px 6px;
-    border-radius: 8px;
-    font-size: ${typography.fontSizes.sm};
-    color: ${colors.gray[500]};
-`;
+export const HighlightedLabel = styled.div({
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.gray[100],
+    color: colors.gray[500],
+    padding: '4px 6px',
+    borderRadius: 100,
+    fontSize: typography.fontSizes.sm,
+});

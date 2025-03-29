@@ -161,7 +161,8 @@ export const NestedOption = ({
                                     loadData?.(option);
                                 }
                             }}
-                            icon="ChevronLeft"
+                            icon="CaretLeft"
+                            source="phosphor"
                             rotate={isOpen ? '90' : '270'}
                             size="xl"
                             color="gray"

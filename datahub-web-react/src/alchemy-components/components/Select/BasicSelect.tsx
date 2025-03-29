@@ -39,7 +39,7 @@ const SelectActionButtons = ({
             {showClear && selectedValues.length > 0 && !isDisabled && !isReadOnly && (
                 <StyledClearButton icon="Close" isCircle onClick={handleClearSelection} iconSize="lg" />
             )}
-            <StyledIcon icon="ChevronLeft" rotate={isOpen ? '90' : '270'} size="lg" />
+            <StyledIcon icon="CaretLeft" source="phosphor" rotate={isOpen ? '90' : '270'} size="lg" />
         </ActionButtonsContainer>
     );
 };
