@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
-import { Button } from 'antd';
-import { Tooltip } from '@components';
-import { PlusCircleOutlined } from '@ant-design/icons';
+import { Tooltip, Button } from '@components';
 import styled from 'styled-components/macro';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 import useSidebarWidth from '../sharedV2/sidebar/useSidebarWidth';
@@ -26,26 +24,24 @@ const SidebarTitleWrapper = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px 12px 10px 12px;
+    padding: 12px;
     border-bottom: 1px solid ${REDESIGN_COLORS.BORDER_3};
     height: 50px;
-
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
     font-size: 20px;
-`;
-
-const StyledButton = styled(Button)`
-    padding: 0;
-    border: none;
-    box-shadow: none;
-    color: inherit;
-    font-size: inherit;
 `;
 
 const GlossaryTitle = styled.div`
     font-size: 16px;
     font-weight: bold;
     color: #374066;
+`;
+
+const StyledButton = styled(Button)`
+    padding: 2px;
+    svg {
+        width: 20px;
+        height: 20px;
+    }
 `;
 
 type Props = {
@@ -74,9 +70,14 @@ export default function GlossarySidebar({ isEntityProfile }: Props) {
                 <SidebarTitleWrapper>
                     <GlossaryTitle>Business Glossary</GlossaryTitle>
                     <Tooltip title="Create Glossary" placement="left" showArrow={false}>
-                        <StyledButton onClick={() => setIsCreateNodeModalVisible(true)}>
-                            <PlusCircleOutlined style={{ fontSize: 'inherit' }} />
-                        </StyledButton>
+                        <StyledButton
+                            variant="filled"
+                            color="violet"
+                            isCircle
+                            icon="Plus"
+                            iconSource="phosphor"
+                            onClick={() => setIsCreateNodeModalVisible(true)}
+                        />
                     </Tooltip>
                 </SidebarTitleWrapper>
                 <GlossarySearch />

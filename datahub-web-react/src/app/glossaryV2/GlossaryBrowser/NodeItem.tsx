@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LoadingOutlined } from '@ant-design/icons';
+import { colors } from '@components';
 import { KeyboardArrowDownRounded, KeyboardArrowRightRounded } from '@mui/icons-material';
 import styled from 'styled-components/macro';
 import { Entity, EntityType, GlossaryNode, GlossaryTerm } from '../../../types.generated';
@@ -83,15 +84,18 @@ const LoadingWrapper = styled.div`
 `;
 
 const ChildrenCount = styled.div`
-    padding: 1px 8px;
-    display: flex;
+    padding: 0 8px;
+    display: inline-flex;
+    align-items: center;
     justify-content: center;
-    border-radius: 10px;
-    background-color: #eeecfa;
-    color: #434863;
-    font-size: 10px;
+    border-radius: 20px;
+    background-color: ${colors.gray[100]};
+    color: ${colors.gray[1700]};
+    font-size: 12px;
+    height: 22px;
+    min-width: 28px;
     font-weight: 400;
-    margin-right: 13px;
+    margin-right: 12px;
 `;
 
 const StyledDivider = styled.div<{ depth: number }>`
