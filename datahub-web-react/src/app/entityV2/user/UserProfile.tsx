@@ -1,6 +1,6 @@
 import { Col } from 'antd';
 import React, { useContext, useState } from 'react';
-import { ReadOutlined } from '@ant-design/icons';
+import { BookOpen } from '@phosphor-icons/react';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 import { matchPath } from 'react-router';
 import { useLocation } from 'react-router-dom';
@@ -160,7 +160,7 @@ export default function UserProfile({ urn }: Props) {
     const finalTabs = [
         {
             name: 'About',
-            icon: ReadOutlined,
+            icon: BookOpen,
             component: EntitySidebarSectionsTab,
             display: {
                 ...defaultTabDisplayConfig,

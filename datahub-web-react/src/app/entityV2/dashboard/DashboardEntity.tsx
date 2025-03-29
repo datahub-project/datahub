@@ -9,6 +9,7 @@ import {
     UnorderedListOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
+import { ListBullets, TreeStructure } from '@phosphor-icons/react';
 import * as React from 'react';
 import {
     GetDashboardQuery,
@@ -242,7 +243,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             name: 'Lineage',
             component: LineageTab,
             description: "View this data asset's upstream and downstream dependencies",
-            icon: PartitionOutlined,
+            icon: TreeStructure,
             properties: {
                 defaultDirection: LineageDirection.Upstream,
                 actionType: SidebarTitleActionType.LineageExplore,
@@ -252,7 +253,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             name: 'Properties',
             component: PropertiesTab,
             description: 'View additional properties about this asset',
-            icon: UnorderedListOutlined,
+            icon: ListBullets,
         },
     ];
 
