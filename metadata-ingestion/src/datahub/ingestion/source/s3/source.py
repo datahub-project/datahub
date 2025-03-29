@@ -605,6 +605,16 @@ class S3Source(StatefulIngestionSourceBase):
             maxPartition=max_partition_summary, minPartition=min_partition_summary
         )
 
+    def get_external_url(self, table_data: TableData) -> Optional[str]:
+        if self.is_s3_platform() and self.source_config.aws_config:
+            # Get region from AWS config, default to us-east-1 if not specified
+            region = self.source_config.aws_config.aws_region or "us-east-1"
+            bucket_name = get_bucket_name(table_data.table_path)
+            key_prefix = get_bucket_relative_path(table_data.table_path)
+            external_url = f"https://{region}.console.aws.amazon.com/s3/buckets/{bucket_name}?prefix={key_prefix}"
+            return external_url
+        return None
+
     def ingest_table(
         self, table_data: TableData, path_spec: PathSpec
     ) -> Iterable[MetadataWorkUnit]:
@@ -674,6 +684,7 @@ class S3Source(StatefulIngestionSourceBase):
                 if max_partition
                 else None
             ),
+            externalUrl=self.get_external_url(table_data),
         )
         aspects.append(dataset_properties)
         if table_data.size_in_bytes > 0:
