@@ -72,6 +72,7 @@ public class Constants {
   public static final String ML_FEATURE_TABLE_ENTITY_NAME = "mlFeatureTable";
   public static final String ML_MODEL_ENTITY_NAME = "mlModel";
   public static final String ML_MODEL_GROUP_ENTITY_NAME = "mlModelGroup";
+  public static final String ML_MODEL_DEPLOYMENT_ENTITY_NAME = "mlModelDeployment";
   public static final String ML_PRIMARY_KEY_ENTITY_NAME = "mlPrimaryKey";
   public static final String POLICY_ENTITY_NAME = "dataHubPolicy";
   public static final String TAG_ENTITY_NAME = "tag";
@@ -256,6 +257,10 @@ public class Constants {
   public static final String ML_PRIMARY_KEY_PROPERTIES_ASPECT_NAME = "mlPrimaryKeyProperties";
   public static final String ML_PRIMARY_KEY_EDITABLE_PROPERTIES_ASPECT_NAME =
       "editableMlPrimaryKeyProperties";
+
+  // ML Model Deployment
+  public static final String ML_MODEL_DEPLOYMENT_KEY_ASPECT_NAME = "mlModelDeploymentKey";
+  public static final String ML_MODEL_DEPLOYMENT_PROPERTIES_ASPECT_NAME = "mlModelDeploymentProperties";
 
   // Policy
   public static final String DATAHUB_POLICY_INFO_ASPECT_NAME = "dataHubPolicyInfo";
