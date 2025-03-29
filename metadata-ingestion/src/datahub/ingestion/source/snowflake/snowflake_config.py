@@ -325,6 +325,16 @@ class SnowflakeV2Config(
         " Map of share name -> details of share.",
     )
 
+    skip_standard_edition_check: bool = Field(
+        default=False,
+        description="If set to True, assumes this is Datahub Enterprise Edition, and skips the check for standard edition.",
+    )
+
+    warn_no_datasets: bool = Field(
+        default=True,
+        description="If True, warns when no datasets are found during ingestion. If False, ingestion fails when no datasets are found.",
+    )
+    
     include_assertion_results: bool = Field(
         default=False,
         description="Whether to ingest assertion run results for assertions created using Datahub"
