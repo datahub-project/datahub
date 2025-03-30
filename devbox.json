@@ -1,0 +1,33 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.13.6/.schema/devbox.schema.json",
+  "packages": {
+    "jdk17": {
+      "version": "latest"
+    },
+    "python3": {
+      "version": "3.10",
+      "disable_plugin": true
+    },
+    "nodejs": {
+      "version": "22"
+    },
+    "uv": {
+      "version": "latest"
+    }
+  },
+  "env": {
+    "DATAHUB_LOCAL_COMMON_ENV": "${HOME}/.datahub/docker/common/env.local",
+    "LDFLAGS": "-L/opt/homebrew/opt/openldap/lib -L/opt/homebrew/opt/cyrus-sasl/lib",
+    "CPPFLAGS": "-I/opt/homebrew/opt/openldap/include -I/opt/homebrew/opt/cyrus-sasl/include"
+  },
+  "shell": {
+    "scripts": {
+      "venv": ["./gradlew :metadata-ingestion:installDev"],
+      "compile": ["./gradlew assemble"],
+      "fullBuild": ["./gradlew build -x test -x :metadata-ingestion:docGen -x :metadata-ingestion:testQuick -x :docs-website:yarnBuild -x :metadata-ingestion-modules:airflow-plugin:testQuick -x :metadata-ingestion-modules:gx-plugin:testQuick -x :metadata-ingestion-modules:dagster-plugin:build"],
+      "clean": ["./gradlew clean"],
+      "quickstart": ["./gradlew quickstart"],
+      "nuke": ["./gradlew quickstartNuke"]
+    }
+  }
+}
