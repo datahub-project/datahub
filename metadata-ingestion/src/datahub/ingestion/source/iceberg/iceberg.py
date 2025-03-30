@@ -365,6 +365,7 @@ class IcebergSource(StatefulIngestionSourceBase):
             return
 
         try:
+            stamping_processor = TimeStampMetadata(self.ctx)
             namespace_ids = self._get_namespaces(catalog)
             namespaces: List[Tuple[Identifier, str]] = []
             for namespace in namespace_ids:
@@ -380,9 +381,11 @@ class IcebergSource(StatefulIngestionSourceBase):
                 )
                 namespaces.append((namespace, namespace_urn))
                 for aspect in self._create_iceberg_namespace_aspects(namespace):
-                    yield MetadataChangeProposalWrapper(
-                        entityUrn=namespace_urn, aspect=aspect
-                    ).as_workunit()
+                    yield stamping_processor.stamp_wu(
+                        MetadataChangeProposalWrapper(
+                            entityUrn=namespace_urn, aspect=aspect
+                        ).as_workunit()
+                    )
             LOGGER.debug("Namespaces ingestion completed")
         except Exception as e:
             self.report.report_failure(
