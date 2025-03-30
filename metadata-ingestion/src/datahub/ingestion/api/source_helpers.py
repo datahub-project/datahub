@@ -555,12 +555,15 @@ class TimeStampMetadata:
 
     def stamp(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:
         for wu in stream:
-            if self.set_system_metadata:
-                if not wu.metadata.systemMetadata:
-                    wu.metadata.systemMetadata = SystemMetadataClass()
-                wu.metadata.systemMetadata.runId = self.ctx.run_id
-                if not wu.metadata.systemMetadata.lastObserved:
-                    wu.metadata.systemMetadata.lastObserved = get_sys_time()
-                if self.set_pipeline_name:
-                    wu.metadata.systemMetadata.pipelineName = self.ctx.pipeline_name
-            yield wu
+            yield self.stamp_wu(wu)
+
+    def stamp_wu(self, wu: MetadataWorkUnit) -> MetadataWorkUnit:
+        if self.set_system_metadata:
+            if not wu.metadata.systemMetadata:
+                wu.metadata.systemMetadata = SystemMetadataClass()
+            wu.metadata.systemMetadata.runId = self.ctx.run_id
+            if not wu.metadata.systemMetadata.lastObserved:
+                wu.metadata.systemMetadata.lastObserved = get_sys_time()
+            if self.set_pipeline_name:
+                wu.metadata.systemMetadata.pipelineName = self.ctx.pipeline_name
+        return wu
