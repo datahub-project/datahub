@@ -39,6 +39,7 @@ from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source_helpers import (
+    TimeStampMetadata,
     auto_browse_path_v2,
     auto_fix_duplicate_schema_field_paths,
     auto_fix_empty_field_paths,
@@ -461,6 +462,7 @@ class Source(Closeable, metaclass=ABCMeta):
             partial(auto_workunit_reporter, self.get_report()),
             auto_patch_last_modified,
             EnsureAspectSizeProcessor(self.get_report()).ensure_aspect_size,
+            TimeStampMetadata(self.ctx).stamp,
         ]
 
     @staticmethod

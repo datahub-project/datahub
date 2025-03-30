@@ -13,9 +13,14 @@ from typing import (
 )
 
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
-from datahub.emitter.mce_builder import make_dataplatform_instance_urn, parse_ts_millis
+from datahub.emitter.mce_builder import (
+    get_sys_time,
+    make_dataplatform_instance_urn,
+    parse_ts_millis,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import entity_supports_aspect
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
@@ -536,3 +541,26 @@ def _prepend_platform_instance(
         return [BrowsePathEntryClass(id=urn, urn=urn)] + entries
 
     return entries
+
+
+class TimeStampMetadata:
+    def __init__(self, ctx: PipelineContext):
+        self.ctx = ctx
+        if not self.ctx.pipeline_config:
+            raise ValueError("Pipeline config is required for system metadata")
+        self.set_system_metadata = self.ctx.pipeline_config.flags.set_system_metadata
+        self.set_pipeline_name = (
+            self.ctx.pipeline_config.flags.set_system_metadata_pipeline_name
+        )
+
+    def stamp(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:
+        for wu in stream:
+            if self.set_system_metadata:
+                if not wu.metadata.systemMetadata:
+                    wu.metadata.systemMetadata = SystemMetadataClass()
+                wu.metadata.systemMetadata.runId = self.ctx.run_id
+                if not wu.metadata.systemMetadata.lastObserved:
+                    wu.metadata.systemMetadata.lastObserved = get_sys_time()
+                if self.set_pipeline_name:
+                    wu.metadata.systemMetadata.pipelineName = self.ctx.pipeline_name
+            yield wu
