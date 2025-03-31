@@ -176,7 +176,7 @@ class VertexAISource(Source):
             parent_container_key=self._get_project_container(),
             container_key=ExperimentKey(
                 platform=self.platform,
-                experiment_id=self._make_vertexai_experiment_name(experiment.name),
+                id=self._make_vertexai_experiment_name(experiment.name),
             ),
             name=experiment.name,
             sub_types=[MLAssetSubTypes.VERTEX_EXPERIMENT],
@@ -312,7 +312,7 @@ class VertexAISource(Source):
     ) -> Iterable[MetadataChangeProposalWrapper]:
         experiment_key = ExperimentKey(
             platform=self.platform,
-            experiment_id=self._make_vertexai_experiment_name(experiment.name),
+            id=self._make_vertexai_experiment_name(experiment.name),
         )
         run_urn = self._make_experiment_run_urn(experiment, run)
         created_time, duration = self._get_run_timestamps(run)

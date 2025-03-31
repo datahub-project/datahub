@@ -130,7 +130,7 @@ class ProjectIdKey(ContainerKey):
 
 
 class ExperimentKey(ContainerKey):
-    experiment_id: str
+    id: str
 
 
 class MetastoreKey(ContainerKey):

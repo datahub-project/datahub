@@ -232,7 +232,7 @@ class MLflowSource(StatefulIngestionSourceBase):
         experiment_container = Container(
             container_key=ExperimentKey(
                 platform=str(DataPlatformUrn(platform_name=self.platform)),
-                experiment_id=experiment.name,
+                id=experiment.name,
             ),
             subtype=MLAssetSubTypes.MLFLOW_EXPERIMENT,
             display_name=experiment.name,
@@ -449,7 +449,7 @@ class MLflowSource(StatefulIngestionSourceBase):
         self, experiment: Experiment, run: Run
     ) -> Iterable[MetadataWorkUnit]:
         experiment_key = ExperimentKey(
-            platform=str(DataPlatformUrn(self.platform)), experiment_id=experiment.name
+            platform=str(DataPlatformUrn(self.platform)), id=experiment.name
         )
 
         data_process_instance = DataProcessInstance(
