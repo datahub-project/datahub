@@ -356,6 +356,7 @@ export const EditOwnersModal = ({
                     }
                 }, 3000);
 
+                setShowProposeModal(false);
                 message.destroy();
                 message.success('Successfully proposed owners. It is pending approval.');
                 onModalClose();

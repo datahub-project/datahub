@@ -354,6 +354,7 @@ export default function EditTagTermsModal({
                         content: `${'Proposed'} ${type === EntityType.GlossaryTerm ? 'Term' : 'Tag'}!`,
                         duration: 2,
                     });
+                    setShowProposeModal(false);
                     analytics.event({
                         type: EventType.EntityActionEvent,
                         actionType: EntityActionType.ProposalCreated,

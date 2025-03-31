@@ -1,21 +1,12 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { message, Button } from 'antd';
 import { Tooltip } from '@components';
 import styled from 'styled-components';
 import lodash from 'lodash';
-import {
-    DataContract,
-    AssertionType,
-    DataContractProposalOperationType,
-    ActionRequestType,
-    EntityType,
-} from '../../../../../../../../types.generated';
+import { DataContract, AssertionType } from '../../../../../../../../types.generated';
 import { DataContractBuilderState, DataContractCategoryType, DEFAULT_BUILDER_STATE } from './types';
-import { buildUpsertDataContractMutationVariables, buildProposeDataContractMutationVariables } from './utils';
-import {
-    useProposeDataContractMutation,
-    useUpsertDataContractMutation,
-} from '../../../../../../../../graphql/contract.generated';
+import { buildUpsertDataContractMutationVariables } from './utils';
+import { useUpsertDataContractMutation } from '../../../../../../../../graphql/contract.generated';
 import { useGetDatasetAssertionsWithMonitorsQuery } from '../../../../../../../../graphql/monitor.generated';
 import {
     AssertionWithMonitorDetails,
@@ -25,7 +16,6 @@ import {
 import { DataContractAssertionGroupSelect } from './DataContractAssertionGroupSelect';
 import { ANTD_GRAY } from '../../../../../constants';
 import { DATA_QUALITY_ASSERTION_TYPES } from '../utils';
-import analytics, { EntityActionType, EventType } from '../../../../../../../analytics';
 
 const AssertionsSection = styled.div`
     border: 0.5px solid ${ANTD_GRAY[4]};
@@ -59,9 +49,10 @@ type Props = {
     entityUrn: string;
     initialState?: DataContractBuilderState;
     onSubmit?: (contract: DataContract) => void;
-    onPropose?: () => void;
     onCancel?: () => void;
-    entityType?: EntityType;
+    builderState: DataContractBuilderState;
+    setBuilderState: React.Dispatch<React.SetStateAction<DataContractBuilderState>>;
+    setShowProposeModal: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
 /**
@@ -69,11 +60,17 @@ type Props = {
  *
  * In order to build a data contract, we simply list all dataset assertions and allow the user to choose.
  */
-export const DataContractBuilder = ({ entityUrn, entityType, initialState, onSubmit, onPropose, onCancel }: Props) => {
+export const DataContractBuilder = ({
+    entityUrn,
+    initialState,
+    onSubmit,
+    onCancel,
+    builderState,
+    setBuilderState,
+    setShowProposeModal,
+}: Props) => {
     const isEdit = !!initialState;
-    const [builderState, setBuilderState] = useState(initialState || DEFAULT_BUILDER_STATE);
     const [upsertDataContractMutation] = useUpsertDataContractMutation();
-    const [proposeDataContractMutation] = useProposeDataContractMutation();
 
     // note that for contracts, we do not allow the use of sibling node assertions, for clarity.
     const { data: assertionData } = useGetDatasetAssertionsWithMonitorsQuery({
@@ -109,39 +106,6 @@ export const DataContractBuilder = ({ entityUrn, entityType, initialState, onSub
             .catch(() => {
                 message.destroy();
                 message.error({ content: 'Failed to create Data Contract! An unexpected error occurred' });
-            });
-    };
-
-    /**
-     * Proposes the upsert to the Data Contract for an entity
-     */
-    const proposeUpsertDataContract = () => {
-        return proposeDataContractMutation({
-            variables: buildProposeDataContractMutationVariables(
-                DataContractProposalOperationType.Overwrite,
-                entityUrn,
-                builderState,
-            ),
-        })
-            .then(({ errors }) => {
-                if (!errors) {
-                    analytics.event({
-                        type: EventType.EntityActionEvent,
-                        actionType: EntityActionType.ProposalCreated,
-                        actionQualifier: ActionRequestType.DataContract,
-                        entityType,
-                        entityUrn,
-                    });
-                    message.success({
-                        content: `Proposed Data Contract!`,
-                        duration: 3,
-                    });
-                    onPropose?.();
-                }
-            })
-            .catch(() => {
-                message.destroy();
-                message.error({ content: 'Failed to propose Data Contract! An unexpected error occurred' });
             });
     };
 
@@ -237,7 +201,7 @@ export const DataContractBuilder = ({ entityUrn, entityType, initialState, onSub
                 <CancelButton onClick={onCancel}>Cancel</CancelButton>
                 <div>
                     <Tooltip title="Propose changes to this asset's contract">
-                        <ProposeButton disabled={editDisabled} onClick={proposeUpsertDataContract}>
+                        <ProposeButton disabled={editDisabled} onClick={() => setShowProposeModal(true)}>
                             Propose
                         </ProposeButton>
                     </Tooltip>

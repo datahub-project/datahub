@@ -18,6 +18,7 @@ import {
     useIsDocumentationInferenceEnabled,
     useShouldShowInferDocumentationButton,
 } from '../../../components/inferredDocs/utils';
+import ProposalDescriptionModal from '../../../containers/profile/sidebar/ProposalDescriptionModal';
 
 const PROPOSAL_ENTITY_TYPES = [EntityType.GlossaryTerm, EntityType.GlossaryNode, EntityType.Dataset];
 
@@ -78,6 +79,8 @@ export const DescriptionEditor = ({ inferOnMount, onComplete }: DescriptionEdito
     );
     const hasUnsavedChangesRef = useRef(isDescriptionUpdated);
     hasUnsavedChangesRef.current = isDescriptionUpdated;
+
+    const [showProposeModal, setShowProposeModal] = useState(false);
 
     /**
      * Auto-Save the description edits to local storage every 5 seconds.
@@ -163,13 +166,14 @@ export const DescriptionEditor = ({ inferOnMount, onComplete }: DescriptionEdito
         refetch?.();
     };
 
-    function proposeUpdate() {
+    function proposeUpdate(proposalNote?: string) {
         const sanitizedDescription = sanitizeRichText(updatedDescription);
         proposeUpdateDescription({
             variables: {
                 input: {
                     description: sanitizedDescription,
                     resourceUrn: mutationUrn,
+                    proposalNote,
                 },
             },
         })
@@ -179,6 +183,7 @@ export const DescriptionEditor = ({ inferOnMount, onComplete }: DescriptionEdito
                 const editedDescriptionsLocal = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
                 delete editedDescriptionsLocal[mutationUrn];
                 localStorage.setItem(EDITED_DESCRIPTIONS_CACHE_NAME, JSON.stringify(editedDescriptionsLocal));
+                setShowProposeModal(false);
                 if (onComplete) onComplete();
             })
             .catch((e) => {
@@ -267,11 +272,14 @@ export const DescriptionEditor = ({ inferOnMount, onComplete }: DescriptionEdito
             </EditorSourceWrapper>
             <DescriptionEditorToolbar
                 onSave={handleSave}
-                onPropose={proposeUpdate}
+                onPropose={() => setShowProposeModal(true)}
                 onCancel={handleCancel}
                 disableSave={!isDescriptionUpdated}
                 showPropose={shouldShowProposeButton}
             />
+            {showProposeModal && (
+                <ProposalDescriptionModal onPropose={proposeUpdate} onCancel={() => setShowProposeModal(false)} />
+            )}
         </>
     ) : null;
 };

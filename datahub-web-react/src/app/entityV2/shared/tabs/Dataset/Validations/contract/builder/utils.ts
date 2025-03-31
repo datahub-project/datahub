@@ -45,6 +45,7 @@ export const buildProposeDataContractMutationVariables = (
     operationType: DataContractProposalOperationType,
     entityUrn: string,
     state: DataContractBuilderState,
+    description?: string,
 ) => {
     return {
         input: {
@@ -53,6 +54,7 @@ export const buildProposeDataContractMutationVariables = (
             freshness: (state.freshness && [state.freshness]) || [],
             schema: (state.schema && [state.schema]) || [],
             dataQuality: state.dataQuality || [],
+            description,
         },
     };
 };

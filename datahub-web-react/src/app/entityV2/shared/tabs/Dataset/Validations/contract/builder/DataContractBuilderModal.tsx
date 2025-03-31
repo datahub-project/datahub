@@ -1,9 +1,18 @@
-import React from 'react';
-import { Modal, Typography } from 'antd';
-import { DataContract, EntityType } from '../../../../../../../../types.generated';
+import React, { useState } from 'react';
+import { message, Modal, Typography } from 'antd';
+import ProposalDescriptionModal from '@src/app/entityV2/shared/containers/profile/sidebar/ProposalDescriptionModal';
+import { useProposeDataContractMutation } from '@src/graphql/contract.generated';
+import analytics, { EntityActionType, EventType } from '@src/app/analytics';
+import {
+    ActionRequestType,
+    DataContract,
+    DataContractProposalOperationType,
+    EntityType,
+} from '../../../../../../../../types.generated';
 import ClickOutside from '../../../../../../../shared/ClickOutside';
-import { DataContractBuilderState } from './types';
+import { DataContractBuilderState, DEFAULT_BUILDER_STATE } from './types';
 import { DataContractBuilder } from './DataContractBuilder';
+import { buildProposeDataContractMutationVariables } from './utils';
 
 const modalStyle = {};
 const modalBodyStyle = {
@@ -38,6 +47,12 @@ export const DataContractBuilderModal = ({
     const isEditing = initialState !== undefined;
     const titleText = isEditing ? 'Edit Data Contract' : 'New Data Contract';
 
+    const [builderState, setBuilderState] = useState(initialState || DEFAULT_BUILDER_STATE);
+
+    const [proposeDataContractMutation] = useProposeDataContractMutation();
+
+    const [showProposeModal, setShowProposeModal] = useState(false);
+
     const modalClosePopup = () => {
         Modal.confirm({
             title: 'Exit Editor',
@@ -52,27 +67,71 @@ export const DataContractBuilderModal = ({
         });
     };
 
+    /**
+     * Proposes the upsert to the Data Contract for an entity
+     */
+    const proposeUpsertDataContract = (description?: string) => {
+        return proposeDataContractMutation({
+            variables: buildProposeDataContractMutationVariables(
+                DataContractProposalOperationType.Overwrite,
+                entityUrn,
+                builderState,
+                description,
+            ),
+        })
+            .then(({ errors }) => {
+                if (!errors) {
+                    analytics.event({
+                        type: EventType.EntityActionEvent,
+                        actionType: EntityActionType.ProposalCreated,
+                        actionQualifier: ActionRequestType.DataContract,
+                        entityType,
+                        entityUrn,
+                    });
+                    message.success({
+                        content: `Proposed Data Contract!`,
+                        duration: 3,
+                    });
+                    onPropose?.();
+                    setShowProposeModal(false);
+                }
+            })
+            .catch(() => {
+                message.destroy();
+                message.error({ content: 'Failed to propose Data Contract! An unexpected error occurred' });
+            });
+    };
+
     return (
         <ClickOutside onClickOutside={modalClosePopup} wrapperClassName="data-contract-builder-modal">
-            <Modal
-                wrapClassName="data-contract-builder-modal"
-                width={800}
-                footer={null}
-                title={<Typography.Text>{titleText}</Typography.Text>}
-                style={modalStyle}
-                bodyStyle={modalBodyStyle}
-                visible
-                onCancel={onCancel}
-            >
-                <DataContractBuilder
-                    entityUrn={entityUrn}
-                    entityType={entityType}
-                    initialState={initialState}
-                    onSubmit={onSubmit}
-                    onPropose={onPropose}
+            {!showProposeModal && (
+                <Modal
+                    wrapClassName="data-contract-builder-modal"
+                    width={800}
+                    footer={null}
+                    title={<Typography.Text>{titleText}</Typography.Text>}
+                    style={modalStyle}
+                    bodyStyle={modalBodyStyle}
+                    visible
                     onCancel={onCancel}
+                >
+                    <DataContractBuilder
+                        entityUrn={entityUrn}
+                        initialState={initialState}
+                        onSubmit={onSubmit}
+                        onCancel={onCancel}
+                        builderState={builderState}
+                        setBuilderState={setBuilderState}
+                        setShowProposeModal={setShowProposeModal}
+                    />
+                </Modal>
+            )}
+            {showProposeModal && (
+                <ProposalDescriptionModal
+                    onPropose={proposeUpsertDataContract}
+                    onCancel={() => setShowProposeModal(false)}
                 />
-            </Modal>
+            )}
         </ClickOutside>
     );
 };

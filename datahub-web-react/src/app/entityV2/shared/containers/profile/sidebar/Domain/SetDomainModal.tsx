@@ -126,6 +126,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                     }
                 }, 3000);
 
+                setShowProposeModal(false);
                 message.destroy();
                 message.success('Successfully proposed domain. It is pending approval.');
                 onModalClose();

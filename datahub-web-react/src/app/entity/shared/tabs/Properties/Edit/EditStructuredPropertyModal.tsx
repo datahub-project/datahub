@@ -115,6 +115,7 @@ export default function EditStructuredPropertyModal({
                 message.destroy();
                 message.success(`Successfully ${isAddMode ? 'added' : 'updated'} structured property!`);
                 closeModal();
+                setShowProposeModal(false);
             })
             .catch((error) => {
                 handleGraphQLError({
