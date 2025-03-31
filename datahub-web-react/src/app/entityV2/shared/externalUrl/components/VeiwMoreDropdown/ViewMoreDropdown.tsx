@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Dropdown } from 'antd';
-import { Text } from '@src/alchemy-components';
+import { colors, Text } from '@src/alchemy-components';
 import { CaretDown } from '@phosphor-icons/react';
 import { LinkItem } from '../../types';
 import OptionLabel from './OptionLabel';
@@ -34,10 +34,14 @@ export default function ViewMoreDropdown<T extends LinkItem>({ linkItems }: Prop
                     onClick: () => onLinkItemClick(item),
                 })),
             }}
+            // FYI: zIndex 1200 to handle the case when dropdown shown in tooltip `HoverEntityTooltip`
+            overlayStyle={{ zIndex: 1200 }}
         >
             <DropdownBase>
-                <Text size="sm">View more</Text>
-                <CaretDown size={12} />
+                <Text size="sm" color="gray" colorLevel={1700}>
+                    View more
+                </Text>
+                <CaretDown size={12} color={colors.gray[1700]} />
             </DropdownBase>
         </Dropdown>
     );
