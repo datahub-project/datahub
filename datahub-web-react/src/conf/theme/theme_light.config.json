@@ -6,7 +6,7 @@
         "layout-header-background": "white",
         "layout-header-color": "#434343",
         "layout-body-background": "white",
-        "component-background": "black",
+        "component-background": "white",
         "body-background": "white",
         "border-color-base": "#ececec",
         "text-color": "fade(black, 85%)",
