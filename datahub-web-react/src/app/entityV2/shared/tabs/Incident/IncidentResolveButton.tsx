@@ -33,10 +33,10 @@ export const IncidentResolveButton = ({
     privileges,
 }: {
     incident: IncidentTableRow;
+    refetch: () => void;
     privileges?: EntityPrivileges;
 }) => {
     const canEditIncidents = privileges?.canEditIncidents || false;
-
     const me = useUserContext();
     const [showResolvePopup, setShowResolvePopup] = useState(false);
     const [incidentResolver, setIncidentResolver] = useState<CorpUser | any>(null);
@@ -45,6 +45,7 @@ export const IncidentResolveButton = ({
         me?.urn === incidentResolver?.urn
             ? ME
             : incidentResolver?.properties?.displayName || incidentResolver?.username;
+
     useEffect(() => {
         if (incident?.lastUpdated?.actor) {
             getAssigneeEntities({
@@ -132,7 +133,9 @@ export const IncidentResolveButton = ({
                 showPopoverWithResolver
             )}
 
-            {showResolvePopup && <IncidentResolutionPopup incident={incident} handleClose={handleShowPopup} />}
+            {showResolvePopup && (
+                <IncidentResolutionPopup incident={incident} refetch={refetch} handleClose={handleShowPopup} />
+            )}
         </Container>
     );
 };

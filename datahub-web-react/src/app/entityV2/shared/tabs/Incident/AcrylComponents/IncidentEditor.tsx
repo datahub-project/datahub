@@ -60,7 +60,6 @@ export const IncidentEditor = ({
         incidentUrn,
         mode,
         onSubmit,
-        onClose,
         user,
         assignees: cachedAssignees,
         linkedAssets: cachedLinkedAssets,

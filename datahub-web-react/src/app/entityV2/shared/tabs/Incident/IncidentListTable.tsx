@@ -4,7 +4,7 @@ import { Table } from '@src/alchemy-components';
 import { SortingState } from '@src/alchemy-components/components/Table/types';
 import { EntityPrivileges } from '@src/types.generated';
 import { IncidentDetailDrawer } from './AcrylComponents/IncidentDetailDrawer';
-import { IncidentListFilter, IncidentTable, IncidentTableRow } from './types';
+import { IncidentListFilter, IncidentTable } from './types';
 import { useIncidentsTableColumns, useOpenIncidentDetailModal } from './hooks';
 import { getSiblingWithUrn } from '../Dataset/Validations/acrylUtils';
 import { StyledTableContainer } from './styledComponents';
@@ -31,40 +31,28 @@ export const IncidentListTable = ({ incidentData, filter, refetch, privileges }:
     );
 
     // get columns data from the custom hooks
-    const incidentsTableCols = useIncidentsTableColumns(privileges);
+    const incidentsTableCols = useIncidentsTableColumns(refetch, privileges);
     const [sortedOptions, setSortedOptions] = useState<{ sortColumn: string; sortOrder: SortingState }>({
         sortColumn: '',
         sortOrder: SortingState.ORIGINAL,
     });
 
     const [focusIncidentUrn, setFocusIncidentUrn] = useState<string | null>(null);
-    const [focusIncidentData, setFocusIncidentData] = useState<IncidentTableRow>();
 
     const focusedIncident = incidentData.incidents.find((incident) => incident.urn === focusIncidentUrn);
     const focusedEntityUrn = focusedIncident ? entityData?.urn : undefined;
+    const focusedIncidentEntity =
+        focusedEntityUrn && entityData ? getSiblingWithUrn(entityData, focusedEntityUrn) : undefined;
 
     const getGroupData = () => {
         return (incidentData?.groupBy && incidentData?.groupBy[groupBy]) || [];
     };
 
-    const updateIncidentData = (selectedURN: string) => {
-        const data = groupBy ? getGroupData() : incidentData.incidents || [];
-        const urnExists = data
-            .map((item) => item.incidents)
-            .flat()
-            .filter((incident) => selectedURN.includes(incident.urn));
-        setFocusIncidentData(urnExists[0]);
-    };
-
-    useOpenIncidentDetailModal(setFocusIncidentUrn, updateIncidentData);
-
-    const focusedIncidentEntity =
-        focusedEntityUrn && entityData ? getSiblingWithUrn(entityData, focusedEntityUrn) : undefined;
+    useOpenIncidentDetailModal(setFocusIncidentUrn);
 
     useEffect(() => {
         if (focusIncidentUrn && !focusedIncident) {
             setFocusIncidentUrn(null);
-            setFocusIncidentData(undefined);
         }
     }, [focusIncidentUrn, focusedIncident]);
 
@@ -84,7 +72,6 @@ export const IncidentListTable = ({ incidentData, filter, refetch, privileges }:
     };
 
     const onRowClick = (record) => {
-        setFocusIncidentData(record);
         setFocusIncidentUrn(record.urn);
     };
 
@@ -139,14 +126,13 @@ export const IncidentListTable = ({ incidentData, filter, refetch, privileges }:
                 <IncidentDetailDrawer
                     urn={focusIncidentUrn}
                     mode={IncidentAction.EDIT}
-                    incident={focusIncidentData}
+                    incident={focusIncident}
                     privileges={privileges}
                     onCancel={() => setFocusIncidentUrn(null)}
                     onSubmit={() => {
                         setTimeout(() => {
                             refetch();
-                        }, 2000);
-                        setFocusIncidentUrn(null);
+                        }, 3000);
                     }}
                 />
             )}

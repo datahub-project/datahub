@@ -70,7 +70,7 @@ export const getCacheIncident = ({
     return newIncident;
 };
 
-export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, onClose, user, assignees, linkedAssets, entity }) => {
+export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, user, assignees, linkedAssets, entity }) => {
     const [raiseIncidentMutation] = useRaiseIncidentMutation();
     const [updateIncidentMutation] = useUpdateIncidentMutation();
     const [form] = Form.useForm();
@@ -118,7 +118,6 @@ export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, onClose, user,
 
     const finalizeSubmission = () => {
         onSubmit?.();
-        onClose?.();
     };
 
     const handleSubmissionError = (error: any) => {
