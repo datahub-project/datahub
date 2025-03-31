@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import lru_cache
@@ -335,7 +334,6 @@ class SupersetSource(StatefulIngestionSourceBase):
         return requests_session
 
     def paginate_entity_api_results(self, entity_type, page_size=100):
-        logger.info(f'was here in paginate_entity_api_results for {entity_type}')
         current_page = 0
         total_items = page_size
 
@@ -521,9 +519,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                     f"Dashboard '{dashboard_title}' (id: {dashboard_id}) filtered by dashboard_pattern"
                 )
                 return
-            dashboard_snapshot = self.construct_dashboard_from_api_data(
-                dashboard_data
-            )
+            dashboard_snapshot = self.construct_dashboard_from_api_data(dashboard_data)
         except Exception as e:
             self.report.warning(
                 f"Failed to construct dashboard snapshot. Dashboard name: {dashboard_data.get('dashboard_title')}. Error: \n{e}"
@@ -536,14 +532,17 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
 
     def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
-        dashboard_data_list = [(dashboard_data,) for dashboard_data in self.paginate_entity_api_results("dashboard/", PAGE_SIZE)]
-        
-        logger.info(f'dashboard_data_list: {dashboard_data_list}')
-        
+        dashboard_data_list = [
+            (dashboard_data,)
+            for dashboard_data in self.paginate_entity_api_results(
+                "dashboard/", PAGE_SIZE
+            )
+        ]
+
         yield from ThreadedIteratorExecutor.process(
             worker_func=self._process_dashboard,
             args_list=dashboard_data_list,
-            max_workers=self.config.max_threads
+            max_workers=self.config.max_threads,
         )
 
     def build_input_fields(
@@ -810,11 +809,14 @@ class SupersetSource(StatefulIngestionSourceBase):
             return
 
     def emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
-        chart_data_list = [(chart_data,) for chart_data in self.paginate_entity_api_results("chart/", PAGE_SIZE)]
+        chart_data_list = [
+            (chart_data,)
+            for chart_data in self.paginate_entity_api_results("chart/", PAGE_SIZE)
+        ]
         yield from ThreadedIteratorExecutor.process(
             worker_func=self._process_chart,
             args_list=chart_data_list,
-            max_workers=self.config.max_threads
+            max_workers=self.config.max_threads,
         )
 
     def gen_schema_fields(self, column_data: List[Dict[str, str]]) -> List[SchemaField]:
@@ -1052,9 +1054,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                     f"Dataset '{dataset_name}' filtered by dataset_pattern"
                 )
                 return
-            dataset_snapshot = self.construct_dataset_from_dataset_data(
-                dataset_data
-            )
+            dataset_snapshot = self.construct_dataset_from_dataset_data(dataset_data)
             mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         except Exception as e:
             self.report.warning(
@@ -1068,11 +1068,14 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
 
     def emit_dataset_mces(self) -> Iterable[MetadataWorkUnit]:
-        dataset_data_list = [(dataset_data,) for dataset_data in self.paginate_entity_api_results("dataset/", PAGE_SIZE)]
+        dataset_data_list = [
+            (dataset_data,)
+            for dataset_data in self.paginate_entity_api_results("dataset/", PAGE_SIZE)
+        ]
         yield from ThreadedIteratorExecutor.process(
             worker_func=self._process_dataset,
             args_list=dataset_data_list,
-            max_workers=self.config.max_threads
+            max_workers=self.config.max_threads,
         )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
