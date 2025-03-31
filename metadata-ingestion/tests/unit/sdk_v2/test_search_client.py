@@ -184,7 +184,7 @@ def test_unsupported_not() -> None:
         F.not_(env_filter)
 
 
-_default_soft_deleted_filter = {
+_default_status_filter = {
     "field": "removed",
     "condition": "EQUAL",
     "values": ["true"],
@@ -232,7 +232,7 @@ def test_compile_filters() -> None:
                     "condition": "EQUAL",
                     "values": ["urn:li:dataPlatform:snowflake"],
                 },
-                _default_soft_deleted_filter,
+                _default_status_filter,
             ]
         },
         {
@@ -247,13 +247,39 @@ def test_compile_filters() -> None:
                     "condition": "EQUAL",
                     "values": ["urn:li:dataPlatform:snowflake"],
                 },
-                _default_soft_deleted_filter,
+                _default_status_filter,
             ]
         },
     ]
     types, compiled = compile_filters(filter)
     assert types is None
     assert compiled == expected_filters
+
+
+def test_compile_no_default_status() -> None:
+    filter = F.and_(
+        F.platform("snowflake"), F.soft_deleted(RemovedStatusFilter.ONLY_SOFT_DELETED)
+    )
+
+    _, compiled = compile_filters(filter)
+
+    # Check that no status filter was added.
+    assert compiled == [
+        {
+            "and": [
+                {
+                    "condition": "EQUAL",
+                    "field": "platform.keyword",
+                    "values": ["urn:li:dataPlatform:snowflake"],
+                },
+                {
+                    "condition": "EQUAL",
+                    "field": "removed",
+                    "values": ["true"],
+                },
+            ],
+        },
+    ]
 
 
 def test_generate_filters() -> None:
@@ -273,7 +299,7 @@ def test_generate_filters() -> None:
                     "condition": "EQUAL",
                     "values": ["urn:li:dataPlatform:snowflake"],
                 },
-                _default_soft_deleted_filter,
+                _default_status_filter,
             ]
         }
     ]
@@ -291,7 +317,7 @@ def test_generate_filters() -> None:
             "and": [
                 # This filter appears twice - once from the compiled filters, and once
                 # from the status arg to generate_filter.
-                _default_soft_deleted_filter,
+                _default_status_filter,
                 {
                     "field": "_entityType",
                     "condition": "EQUAL",
@@ -302,7 +328,7 @@ def test_generate_filters() -> None:
                     "condition": "EQUAL",
                     "values": ["urn:li:dataPlatform:snowflake"],
                 },
-                _default_soft_deleted_filter,
+                _default_status_filter,
             ]
         }
     ]
