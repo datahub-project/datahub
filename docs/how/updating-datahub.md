@@ -19,7 +19,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ## Next
 
 ### Breaking Changes
-- #5219: Enabled URN lowercasing by default for SQL-based connectors (Athena, BigQuery, ClickHouse, CockroachDB, Druid, HANA, Hive, Hive Metastore, MariaDB, MySQL, Oracle, PostgreSQL, Presto, Redshift, Teradata, Trino, Vertica) to improve lineage detection and reference integrity, with UI ingestions automatically upgraded through a bootstrap script while other ingestions may need manual configuration changes.
+- #13038: Enabled URN lowercasing by default for SQL-based connectors (Athena, BigQuery, ClickHouse, CockroachDB, Druid, HANA, Hive, Hive Metastore, MariaDB, MySQL, Oracle, PostgreSQL, Presto, Redshift, Teradata, Trino, Vertica) to improve lineage detection and reference integrity, with UI ingestions automatically upgraded through a bootstrap script while other ingestions may need manual configuration changes.
 
 - #13004: The `acryl-datahub-airflow-plugin` dropped support for Airflow 2.3 and 2.4.
 
