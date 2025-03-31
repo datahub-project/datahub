@@ -248,7 +248,7 @@ export function ActionsColumn({
             )}
             {record.lastExecStatus !== RUNNING && (
                 <Button
-                    variant="text"
+                    variant="outline"
                     size="sm"
                     disabled={record.cliIngestion}
                     onClick={() => onExecute(record.urn)}
