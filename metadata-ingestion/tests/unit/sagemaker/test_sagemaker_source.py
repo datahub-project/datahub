@@ -5,6 +5,11 @@ from freezegun import freeze_time
 
 import datahub.ingestion.source.aws.sagemaker_processors.models
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.run.pipeline_config import (
+    FlagsConfig,
+    PipelineConfig,
+    SourceConfig,
+)
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.aws.sagemaker import (
     SagemakerSource,
@@ -47,7 +52,13 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 
 def sagemaker_source() -> SagemakerSource:
     return SagemakerSource(
-        ctx=PipelineContext(run_id="sagemaker-source-test"),
+        ctx=PipelineContext(
+            run_id="sagemaker-source-test",
+            pipeline_config=PipelineConfig(
+                source=SourceConfig(type="sagemaker"),
+                flags=FlagsConfig(generate_browse_path_v2=False),
+            ),
+        ),
         config=SagemakerSourceConfig(aws_region="us-west-2"),
     )
 
