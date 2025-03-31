@@ -108,7 +108,7 @@ class HexSourceConfig(
     )
     include_lineage: bool = Field(
         default=True,
-        description="Include Hex lineage, being fetched from DataHub",
+        description='Include Hex lineage, being fetched from DataHub. See "Limitations" section in the docs for more details about the limitations of this feature.',
     )
     lineage_start_time: Optional[Union[str, datetime]] = Field(
         default=None,
