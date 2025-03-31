@@ -50,6 +50,7 @@ const commonPaginationStyles = `
     margin: 0;
     padding: 12px 16px;
     background: #fff;
+    border-top: none;
 `;
 
 const commonSorterStyles = `
@@ -259,6 +260,14 @@ export const StyledTable = styled(Table)`
     &&& .ant-pagination,
     &&& .ant-table-expanded-row .ant-pagination {
         border-top: none;
+    }
+
+    &&& .ant-table-pagination-holder {
+        border-top: none;
+    }
+
+    &&& span {
+        border-top: none !important;
     }
 ` as typeof Table;
 // this above line preserves the Table component's generic-ness
