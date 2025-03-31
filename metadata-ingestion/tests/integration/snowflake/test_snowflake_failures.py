@@ -127,10 +127,8 @@ def test_snowflake_no_databases_with_access_causes_pipeline_failure(
 
 
 @freeze_time(FROZEN_TIME)  
-def test_snowflake_no_tables_causes_pipeline_failure(  
-    pytestconfig,  
-    snowflake_pipeline_config,  
-):  
+def test_snowflake_no_tables_causes_pipeline_failure(pytestconfig, snowflake_pipeline_config):  
+    # Mock Snowflake connection  
     with mock.patch("snowflake.connector.connect") as mock_connect:  
         sf_connection = mock.MagicMock()  
         sf_cursor = mock.MagicMock()  
@@ -155,20 +153,20 @@ def test_snowflake_no_tables_causes_pipeline_failure(
         )  
   
         # Configure the pipeline to fail on no datasets  
-        snowflake_pipeline_config["source"]["config"]["warn_no_datasets"] = False
+        snowflake_pipeline_config.source.config.warn_no_datasets = False  # Access via dot notation  
   
         pipeline = Pipeline(snowflake_pipeline_config)  
         pipeline.run()  
-   
+  
+        # Verify that a failure is reported  
         assert "permission-error" in [  
             failure.message for failure in pipeline.source.get_report().failures  
         ]  
   
+  
 @freeze_time(FROZEN_TIME)  
-def test_snowflake_no_tables_warns_on_no_datasets(  
-    pytestconfig,  
-    snowflake_pipeline_config,  
-):  
+def test_snowflake_no_tables_warns_on_no_datasets(pytestconfig, snowflake_pipeline_config):  
+    # Mock Snowflake connection  
     with mock.patch("snowflake.connector.connect") as mock_connect:  
         sf_connection = mock.MagicMock()  
         sf_cursor = mock.MagicMock()  
@@ -193,7 +191,7 @@ def test_snowflake_no_tables_warns_on_no_datasets(
         )  
   
         # Configure the pipeline to warn on no datasets  
-        snowflake_pipeline_config["source"]["config"]["warn_no_datasets"] = True
+        snowflake_pipeline_config.source.config.warn_no_datasets = True  # Access via dot notation  
   
         pipeline = Pipeline(snowflake_pipeline_config)  
         pipeline.run()  
@@ -202,7 +200,7 @@ def test_snowflake_no_tables_warns_on_no_datasets(
         assert "No tables/views/streams found. Verify dataset permissions if Snowflake source is not empty." in [  
             warning.message for warning in pipeline.source.get_report().warnings  
         ]  
-        assert len(pipeline.source.get_report().failures) == 0
+        assert len(pipeline.source.get_report().failures) == 0  
 
 
 @freeze_time(FROZEN_TIME)
