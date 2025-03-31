@@ -4,8 +4,10 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.AssertJUnit.assertNotNull;
 
+import com.linkedin.datahub.upgrade.system.BlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.SystemUpdateBlocking;
 import com.linkedin.datahub.upgrade.system.bootstrapmcps.BootstrapMCPStep;
+import com.linkedin.datahub.upgrade.system.elasticsearch.BuildIndices;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.inject.Named;
@@ -24,6 +26,14 @@ public class DatahubUpgradeBlockingTest extends AbstractTestNGSpringContextTests
   @Autowired
   @Named("systemUpdateBlocking")
   private SystemUpdateBlocking systemUpdateBlocking;
+
+  @Autowired private List<BlockingSystemUpgrade> blockingSystemUpgrades;
+
+  @Test
+  public void testBuildIndicesOrder() {
+    assertNotNull(blockingSystemUpgrades);
+    assertTrue(blockingSystemUpgrades.get(0) instanceof BuildIndices);
+  }
 
   @Test
   public void testNBlockingBootstrapMCP() {
