@@ -1,4 +1,4 @@
-import { FacetFilter, FacetFilterInput, FacetMetadata } from '../../../../types.generated';
+import { AppConfig, FacetFilter, FacetFilterInput, FacetMetadata } from '../../../../types.generated';
 
 /**
  * The scenario in which filter rendering is required.
@@ -25,5 +25,6 @@ export interface FilterRenderProps {
     scenario: FilterScenarioType;
     filter: FacetMetadata;
     activeFilters: FacetFilterInput[];
+    config?: AppConfig;
     onChangeFilters: (newFilters: FacetFilter[]) => void;
 }

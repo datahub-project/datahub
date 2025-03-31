@@ -16,6 +16,7 @@ from datahub.emitter.rest_emitter import (
     DatahubRestEmitter,
     logger,
 )
+from datahub.errors import APITracingWarning
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     Status,
 )
@@ -514,10 +515,14 @@ def test_openapi_emitter_missing_trace_header(openapi_emitter):
             aspect=Status(removed=False),
         )
 
-        # Should not raise exception but log warning
-        openapi_emitter.emit_mcp(
-            item, async_flag=True, trace_flag=True, trace_timeout=timedelta(seconds=10)
-        )
+        # Should not raise exception but log a warning.
+        with pytest.warns(APITracingWarning):
+            openapi_emitter.emit_mcp(
+                item,
+                async_flag=True,
+                trace_flag=True,
+                trace_timeout=timedelta(seconds=10),
+            )
 
 
 def test_openapi_emitter_invalid_status_code(openapi_emitter):
