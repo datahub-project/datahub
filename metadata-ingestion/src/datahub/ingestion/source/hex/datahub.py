@@ -1,4 +1,3 @@
-import json
 import logging
 import re
 from dataclasses import dataclass, field
@@ -17,6 +16,9 @@ from datahub.metadata.urns import DatasetUrn, QueryUrn, SchemaFieldUrn
 from datahub.sdk.main_client import DataHubClient
 
 logger = logging.getLogger(__name__)
+
+# Pattern to extract both project_id and workspace_name from Hex metadata in SQL comments
+HEX_METADATA_PATTERN = r'-- Hex query metadata: \{.*?"project_id": "([^"]+)".*?"project_url": "https?://[^/]+/([^/]+)/hex/.*?\}'
 
 
 @dataclass
@@ -318,63 +320,17 @@ class HexQueryFetcher:
             A tuple of (project_id, workspace_name) if both are successfully extracted
             None if extraction fails for any reason
         """
+        # Extract both project_id and workspace name in a single regex operation
+        match = re.search(HEX_METADATA_PATTERN, sql_statement)
 
-        # Look for Hex metadata comment using simple string finding
-        metadata_marker = "-- Hex query metadata:"
-        marker_pos = sql_statement.find(metadata_marker)
-
-        if marker_pos == -1:
-            return None
-
-        # Find the JSON part starting after the marker
-        json_start = marker_pos + len(metadata_marker)
-
-        # Find the opening and closing braces for the JSON object
-        open_brace = sql_statement.find("{", json_start)
-        if open_brace == -1:
-            return None
-
-        # Find the closing brace - simple approach for single line JSON
-        close_brace = sql_statement.find("}", open_brace)
-        if close_brace == -1:
+        if not match:
             return None
 
         try:
-            # Extract and parse the JSON metadata
-            metadata_json = sql_statement[open_brace : close_brace + 1]
-            metadata = json.loads(metadata_json)
-
-            if "project_id" not in metadata:
-                logger.debug("Found Hex metadata but missing project_id")
-                return None
-
-            project_id = metadata["project_id"]
-
-            # Extract workspace name from URL
-            if "project_url" not in metadata:
-                logger.debug("Found Hex metadata but missing project_url")
-                return None
-
-            url = metadata["project_url"]
-            # Extract workspace name from URL using regex
-            # Pattern matches URLs like:
-            # - https://app.hex.tech/workspace-name/hex/...
-            # - https://custom-domain.hex.tech/workspace-name/hex/...
-            # - http://app.hex.tech/workspace-name/hex/...
-            workspace_pattern = r"https?://[^/]+/([^/]+)/hex/"
-            match = re.search(workspace_pattern, url)
-
-            if not match:
-                logger.debug(
-                    f"Invalid project_url format - could not extract workspace name: {url}"
-                )
-                return None
-
-            workspace_name = match.group(1)
-
+            project_id = match.group(1)
+            workspace_name = match.group(2)
             return project_id, workspace_name
-
-        except (json.JSONDecodeError, KeyError) as e:
+        except (IndexError, AttributeError) as e:
             self.report.warning(
                 title="Failed to extract information from Hex metadata",
                 message="Failed to extract information from Hex metadata will result on missing lineage",
