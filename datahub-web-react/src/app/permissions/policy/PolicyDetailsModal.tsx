@@ -213,7 +213,7 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                                 })) || <PoliciesTag>All</PoliciesTag>}
                         </div>
                         <div>
-                        <Typography.Title level={5}>Containers</Typography.Title>
+                            <Typography.Title level={5}>Containers</Typography.Title>
                             <ThinDivider />
                             {(containers?.length &&
                                 containers.map((value, key) => {
