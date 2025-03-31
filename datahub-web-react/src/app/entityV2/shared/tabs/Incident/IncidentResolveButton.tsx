@@ -30,6 +30,7 @@ const ResolveButton = styled(Button)`
 
 export const IncidentResolveButton = ({
     incident,
+    refetch,
     privileges,
 }: {
     incident: IncidentTableRow;
