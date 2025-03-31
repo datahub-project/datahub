@@ -1,7 +1,8 @@
 import { blue } from '@ant-design/colors';
-import { CodeOutlined, CopyOutlined, DeleteOutlined } from '@ant-design/icons';
-import { Button, Image, Typography } from 'antd';
-import { Tooltip } from '@components';
+import { Dropdown, Image, Typography } from 'antd';
+import { Tooltip, Button } from '@components';
+import { colors, typography } from '@src/alchemy-components';
+import { Copy, PencilSimple, Trash, DotsThreeVertical, Code } from 'phosphor-react';
 import cronstrue from 'cronstrue';
 import React from 'react';
 import styled from 'styled-components/macro';
@@ -37,6 +38,47 @@ const StatusButton = styled(Button)`
 const ActionButtonContainer = styled.div`
     display: flex;
     justify-content: right;
+    gap: 16px;
+    align-items: center;
+`;
+
+const StyledDotsThreeVertical = styled(DotsThreeVertical)`
+    color: ${colors.gray[1800]};
+    cursor: pointer;
+    transition: color 0.2s ease-in-out;
+
+    &:hover {
+        color: ${colors.violet[500]};
+    }
+`;
+
+const MenuItem = styled.div`
+    display: flex;
+    padding: 5px 12px 5px 5px;
+    font-size: 14px;
+    font-weight: 400;
+    color: ${colors.gray[600]};
+    font-family: ${typography.fonts.body};
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+
+    &.danger {
+        color: ${colors.red[1200]};
+    }
+
+    &:hover {
+        cursor: pointer;
+    }
+
+    svg {
+        color: ${colors.gray[1800]};
+        font-size: 16px;
+    }
+
+    &.danger svg {
+        color: ${colors.red[1200]};
+    }
 `;
 
 const TypeWrapper = styled.div`
@@ -91,7 +133,7 @@ export function TypeColumn({ type, record }: TypeColumnProps) {
             {record.cliIngestion && (
                 <Tooltip title="This source is ingested from the command-line interface (CLI)">
                     <CliBadge>
-                        <CodeOutlined />
+                        <Code size={16} />
                         CLI
                     </CliBadge>
                 </Tooltip>
@@ -128,15 +170,16 @@ interface LastStatusProps {
 }
 
 export function LastStatusColumn({ status, record, setFocusExecutionUrn }: LastStatusProps) {
-    const Icon = getExecutionRequestStatusIcon(status);
+    const StatusIcon = getExecutionRequestStatusIcon(status);
     const text = getExecutionRequestStatusDisplayText(status);
     const color = getExecutionRequestStatusDisplayColor(status);
     return (
         <StatusContainer>
-            {Icon && <Icon style={{ color, fontSize: 14 }} />}
+            {StatusIcon && <StatusIcon style={{ color, fontSize: 14 }} />}
             <StatusButton
                 data-testid="ingestion-source-table-status"
-                type="link"
+                variant="text"
+                size="sm"
                 onClick={() => setFocusExecutionUrn(record.lastExecUrn)}
             >
                 <StatusText color={color}>{text || 'Pending...'}</StatusText>
@@ -162,56 +205,70 @@ export function ActionsColumn({
     onExecute,
     onDelete,
 }: ActionsColumnProps) {
+    const items = [
+        {
+            key: 'copy',
+            label: (
+                <MenuItem onClick={() => navigator.clipboard?.writeText(record.urn)} data-test-id="copy-urn-action">
+                    <Copy weight="regular" size={16} />
+                    Copy URN
+                </MenuItem>
+            ),
+        },
+    ];
+
+    if (!record.cliIngestion) {
+        items.push({
+            key: 'edit',
+            label: (
+                <MenuItem onClick={() => onEdit(record.urn)} data-test-id="edit-action">
+                    <PencilSimple weight="regular" size={16} />
+                    Edit
+                </MenuItem>
+            ),
+        });
+    }
+
+    items.push({
+        key: 'delete',
+        label: (
+            <MenuItem className="danger" onClick={() => onDelete(record.urn)} data-test-id="delete-action">
+                <Trash weight="regular" size={16} />
+                Delete
+            </MenuItem>
+        ),
+    });
+
     return (
         <ActionButtonContainer>
-            {navigator.clipboard && (
-                <Tooltip title="Copy Ingestion Source URN">
-                    <Button
-                        style={{ marginRight: 16 }}
-                        icon={<CopyOutlined />}
-                        onClick={() => {
-                            navigator.clipboard.writeText(record.urn);
-                        }}
-                    />
-                </Tooltip>
-            )}
-            {!record.cliIngestion && (
-                <Button
-                    data-testid="ingestion-source-table-edit-button"
-                    style={{ marginRight: 16 }}
-                    onClick={() => onEdit(record.urn)}
-                >
-                    EDIT
-                </Button>
-            )}
             {record.cliIngestion && (
-                <Button style={{ marginRight: 16 }} onClick={() => onView(record.urn)}>
+                <Button variant="text" onClick={() => onView(record.urn)} data-test-id="view-action">
                     VIEW
                 </Button>
             )}
             {record.lastExecStatus !== RUNNING && (
                 <Button
+                    variant="text"
+                    size="sm"
                     disabled={record.cliIngestion}
-                    style={{ marginRight: 16 }}
                     onClick={() => onExecute(record.urn)}
+                    data-test-id="run-action"
                 >
                     RUN
                 </Button>
             )}
             {record.lastExecStatus === RUNNING && (
-                <Button style={{ marginRight: 16 }} onClick={() => setFocusExecutionUrn(record.lastExecUrn)}>
+                <Button
+                    variant="text"
+                    onClick={() => setFocusExecutionUrn(record.lastExecUrn)}
+                    data-test-id="details-action"
+                >
                     DETAILS
                 </Button>
             )}
-            <Button
-                data-testid={`delete-ingestion-source-${record.name}`}
-                onClick={() => onDelete(record.urn)}
-                type="text"
-                shape="circle"
-                danger
-            >
-                <DeleteOutlined />
-            </Button>
+            <Dropdown menu={{ items }} trigger={['click']} placement="bottomRight">
+                <StyledDotsThreeVertical weight="bold" size={20} data-test-id="more-actions" />
+            </Dropdown>
         </ActionButtonContainer>
     );
 }

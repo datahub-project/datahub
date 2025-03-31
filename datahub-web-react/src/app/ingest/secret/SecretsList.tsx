@@ -4,8 +4,7 @@ import { PencilSimpleLine, Trash } from 'phosphor-react';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
-import { Table } from '@src/alchemy-components';
-import { SearchBar } from '@components';
+import { SearchBar, Table, colors } from '@components';
 import {
     useCreateSecretMutation,
     useDeleteSecretMutation,
@@ -24,12 +23,11 @@ const DeleteButtonContainer = styled.div`
     gap: 8px;
 
     button {
-        border: 1px solid #d9d9d9;
-        border-radius: 20px;
+        border: none;
         width: 28px;
         height: 28px;
         padding: 4px;
-        color: #595959;
+        color: ${colors.gray[1800]};
         display: flex;
         align-items: center;
         justify-content: center;
@@ -37,14 +35,12 @@ const DeleteButtonContainer = styled.div`
         cursor: pointer;
         :hover {
             color: #262626;
-            border-color: #262626;
         }
 
         &.delete-action {
             color: #ff4d4f;
             :hover {
                 color: #cf1322;
-                border-color: #262626;
             }
         }
     }
