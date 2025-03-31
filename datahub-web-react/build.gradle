@@ -80,6 +80,19 @@ task yarnServe(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
 task yarnTest(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   // Explicitly runs in non-watch mode.
   args = ['run', project.hasProperty('withCoverage') ? 'test-coverage' : 'test', 'run']
+  def test_sentinel = "${buildDir}/.yarn-test-sentinel"
+  outputs.file(test_sentinel)
+  inputs.files(project.fileTree(dir: 'src', include: ['**/*.ts', '**/*.tsx']))
+  doLast {
+    // touch a file with name yarn-lint.txt in the build directory
+    def file = file(test_sentinel)
+    if (!file.exists()) {
+      file.createNewFile()
+    } else {
+      file.setLastModified(System.currentTimeMillis())
+    }
+  }
+  outputs.cacheIf { true }
 }
 
 task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
@@ -90,6 +103,19 @@ test.dependsOn([yarnInstall, yarnTest, yarnLint])
 
 task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   args = ['run', 'lint-fix']
+  def lint_sentinel = "${buildDir}/.yarn-lint-sentinel"
+  outputs.file(lint_sentinel)
+  inputs.files(project.fileTree(dir: 'src', include: ['**/*.ts', '**/*.tsx']))
+  doLast {
+    // touch a file with name yarn-lint.txt in the build directory
+    def file = file(lint_sentinel)
+    if (!file.exists()) {
+      file.createNewFile()
+    } else {
+      file.setLastModified(System.currentTimeMillis())
+    }
+  }
+  outputs.cacheIf { true }
 }
 
 task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
