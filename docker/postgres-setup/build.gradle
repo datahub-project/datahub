@@ -13,7 +13,6 @@ ext {
 
 docker {
     name "${docker_registry}/${docker_repo}:v${version}"
-    // version "v${version}"
     dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
     files fileTree(rootProject.projectDir) {
         include '.dockerignore'
@@ -22,11 +21,6 @@ docker {
         i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
     }
     additionalTag("Debug", "${docker_registry}/${docker_repo}:debug")
-
-    // platform('linux/arm64', 'linux/amd64')
-    // buildx(true)
-    // load(true)
-    // push(false)
 
     // Add build args if they are defined (needed for some CI or enterprise environments)
     def dockerBuildArgs = [:]
