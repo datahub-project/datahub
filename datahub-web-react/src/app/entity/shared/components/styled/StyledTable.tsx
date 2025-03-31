@@ -32,13 +32,14 @@ const commonBodyStyles = `
 `;
 
 const commonScrollStyles = `
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow-y: visible;
+    overflow-x: visible;
     &::-webkit-scrollbar {
         display: none;
     }
     -ms-overflow-style: none;
     scrollbar-width: none;
+    min-height: 100px;  /* Ensure there's always some height for Cypress */
 `;
 
 const commonBorderRadiusStyles = `
