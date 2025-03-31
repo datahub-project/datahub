@@ -1,6 +1,11 @@
 import logging
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.run.pipeline_config import (
+    FlagsConfig,
+    PipelineConfig,
+    SourceConfig,
+)
 from datahub.ingestion.source.file import GenericFileSource
 
 logger = logging.getLogger(__name__)
@@ -8,7 +13,14 @@ logger = logging.getLogger(__name__)
 
 def check_mce_file(filepath: str) -> str:
     mce_source = GenericFileSource.create(
-        {"filename": filepath}, PipelineContext(run_id="json-file")
+        {"filename": filepath},
+        PipelineContext(
+            run_id="json-file",
+            pipeline_config=PipelineConfig(
+                source=SourceConfig(type="file"),
+                flags=FlagsConfig(generate_browse_path_v2=False),
+            ),
+        ),
     )
     for _ in mce_source.get_workunits():
         pass
