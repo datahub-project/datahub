@@ -107,7 +107,11 @@ export const useIncidentsTableColumns = (refetch: () => void, privileges?: Entit
                 key: 'actions',
                 width: '15%',
                 render: (record) => {
-                    return !record.groupName && <IncidentResolveButton incident={record} privileges={privileges} refetch={refetch} />;
+                    return (
+                        !record.groupName && (
+                            <IncidentResolveButton incident={record} privileges={privileges} refetch={refetch} />
+                        )
+                    );
                 },
                 alignment: 'right' as AlignmentOptions,
             },

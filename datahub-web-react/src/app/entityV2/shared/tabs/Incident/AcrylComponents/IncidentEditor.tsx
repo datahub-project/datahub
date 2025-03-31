@@ -34,7 +34,6 @@ export const IncidentEditor = ({
     incidentUrn,
     onSubmit,
     data,
-    onClose,
     mode = IncidentAction.CREATE,
     entity,
 }: IncidentEditorProps) => {
