@@ -38,7 +38,7 @@ export default function ViewInPlatform({
         const links = [...externalLinks, ...platformLinks];
 
         return links.map((link) => ({
-            key: link.url,
+            key: `${link.url}-${link.label}`,
             url: link.url,
             description: link.label,
             node: <ExternalLink href={link.url} label={link.label} className={link.className} onClick={link.onClick} />,
