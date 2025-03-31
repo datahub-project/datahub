@@ -32,7 +32,7 @@ export default function ViewInPlatform({
     shouldFillAllAvailableSpace = true,
 }: Props) {
     const externalLinks = useExternalLinks(urn, data);
-    const platformLinks = usePlatrofmLinks(urn, data, !!hideSiblingActions, suffix ?? '', className);
+    const platformLinks = usePlatrofmLinks(urn, data, hideSiblingActions, suffix ?? '', className);
 
     const linkItems: LinkItem[] = useMemo(() => {
         const links = [...externalLinks, ...platformLinks];

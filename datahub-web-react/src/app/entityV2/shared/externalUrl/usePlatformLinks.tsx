@@ -18,7 +18,7 @@ interface Action {
 export default function usePlatrofmLinks(
     urn: string,
     genericEntityData: GenericEntityProperties | null,
-    hideSiblingActions: boolean,
+    hideSiblingActions: boolean | undefined,
     suffix: string,
     className: string | undefined,
 ): LinkAttributes[] {
