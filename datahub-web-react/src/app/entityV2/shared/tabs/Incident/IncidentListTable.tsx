@@ -126,7 +126,7 @@ export const IncidentListTable = ({ incidentData, filter, refetch, privileges }:
                 <IncidentDetailDrawer
                     urn={focusIncidentUrn}
                     mode={IncidentAction.EDIT}
-                    incident={focusIncident}
+                    incident={focusedIncident}
                     privileges={privileges}
                     onCancel={() => setFocusIncidentUrn(null)}
                     onSubmit={() => {
