@@ -24,6 +24,11 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.run.pipeline_config import (
+    FlagsConfig,
+    PipelineConfig,
+    SourceConfig,
+)
 from datahub.ingestion.source.kafka.kafka import KafkaSource, KafkaSourceConfig
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
@@ -35,6 +40,17 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     SchemaMetadataClass,
 )
+
+
+@pytest.fixture
+def ctx() -> PipelineContext:
+    return PipelineContext(
+        "test",
+        pipeline_config=PipelineConfig(
+            source=SourceConfig(type="kafka"),
+            flags=FlagsConfig(generate_browse_path_v2=False),
+        ),
+    )
 
 
 @pytest.fixture
@@ -57,13 +73,12 @@ def test_kafka_source_configuration(mock_kafka):
 
 
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
-def test_kafka_source_workunits_wildcard_topic(mock_kafka, mock_admin_client):
+def test_kafka_source_workunits_wildcard_topic(mock_kafka, mock_admin_client, ctx):
     mock_kafka_instance = mock_kafka.return_value
     mock_cluster_metadata = MagicMock()
     mock_cluster_metadata.topics = {"foobar": None, "bazbaz": None}
     mock_kafka_instance.list_topics.return_value = mock_cluster_metadata
 
-    ctx = PipelineContext(run_id="test")
     kafka_source = KafkaSource(
         KafkaSourceConfig.parse_obj({"connection": {"bootstrap": "localhost:9092"}}),
         ctx,
@@ -78,13 +93,12 @@ def test_kafka_source_workunits_wildcard_topic(mock_kafka, mock_admin_client):
 
 
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
-def test_kafka_source_workunits_topic_pattern(mock_kafka, mock_admin_client):
+def test_kafka_source_workunits_topic_pattern(mock_kafka, mock_admin_client, ctx):
     mock_kafka_instance = mock_kafka.return_value
     mock_cluster_metadata = MagicMock()
     mock_cluster_metadata.topics = {"test": None, "foobar": None, "bazbaz": None}
     mock_kafka_instance.list_topics.return_value = mock_cluster_metadata
 
-    ctx = PipelineContext(run_id="test1")
     kafka_source = KafkaSource.create(
         {
             "topic_patterns": {"allow": ["test"]},
@@ -99,7 +113,6 @@ def test_kafka_source_workunits_topic_pattern(mock_kafka, mock_admin_client):
     assert len(workunits) == 2
 
     mock_cluster_metadata.topics = {"test": None, "test2": None, "bazbaz": None}
-    ctx = PipelineContext(run_id="test2")
     kafka_source = KafkaSource.create(
         {
             "topic_patterns": {"allow": ["test.*"]},
@@ -112,7 +125,9 @@ def test_kafka_source_workunits_topic_pattern(mock_kafka, mock_admin_client):
 
 
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
-def test_kafka_source_workunits_with_platform_instance(mock_kafka, mock_admin_client):
+def test_kafka_source_workunits_with_platform_instance(
+    mock_kafka, mock_admin_client, ctx
+):
     PLATFORM_INSTANCE = "kafka_cluster"
     PLATFORM = "kafka"
     TOPIC_NAME = "test"
@@ -122,7 +137,6 @@ def test_kafka_source_workunits_with_platform_instance(mock_kafka, mock_admin_cl
     mock_cluster_metadata.topics = {TOPIC_NAME: None}
     mock_kafka_instance.list_topics.return_value = mock_cluster_metadata
 
-    ctx = PipelineContext(run_id="test1")
     kafka_source = KafkaSource.create(
         {
             "connection": {"bootstrap": "localhost:9092"},
@@ -164,7 +178,9 @@ def test_kafka_source_workunits_with_platform_instance(mock_kafka, mock_admin_cl
 
 
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
-def test_kafka_source_workunits_no_platform_instance(mock_kafka, mock_admin_client):
+def test_kafka_source_workunits_no_platform_instance(
+    mock_kafka, mock_admin_client, ctx
+):
     PLATFORM = "kafka"
     TOPIC_NAME = "test"
 
@@ -173,7 +189,6 @@ def test_kafka_source_workunits_no_platform_instance(mock_kafka, mock_admin_clie
     mock_cluster_metadata.topics = {TOPIC_NAME: None}
     mock_kafka_instance.list_topics.return_value = mock_cluster_metadata
 
-    ctx = PipelineContext(run_id="test1")
     kafka_source = KafkaSource.create(
         {"connection": {"bootstrap": "localhost:9092"}},
         ctx,
@@ -228,7 +243,7 @@ def test_close(mock_kafka, mock_admin_client):
 )
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_workunits_schema_registry_subject_name_strategies(
-    mock_kafka_consumer, mock_schema_registry_client, mock_admin_client
+    mock_kafka_consumer, mock_schema_registry_client, mock_admin_client, ctx
 ):
     # Setup the topic to key/value schema mappings for all types of schema registry subject name strategies.
     # <key=topic_name, value=(<key_schema>,<value_schema>)
@@ -332,7 +347,6 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
         },
         "ingest_schemas_as_entities": True,
     }
-    ctx = PipelineContext(run_id="test")
     kafka_source = KafkaSource.create(source_config, ctx)
     workunits = list(kafka_source.get_workunits())
 
@@ -425,6 +439,7 @@ def test_kafka_ignore_warnings_on_schema_type(
     mock_schema_registry_client,
     mock_admin_client,
     ignore_warnings_on_schema_type,
+    ctx,
 ):
     # define the key and value schemas for topic1
     topic1_key_schema = RegisteredSchema(
@@ -475,7 +490,6 @@ def test_kafka_ignore_warnings_on_schema_type(
         "connection": {"bootstrap": "localhost:9092"},
         "ignore_warnings_on_schema_type": f"{ignore_warnings_on_schema_type}",
     }
-    ctx = PipelineContext(run_id="test")
     kafka_source = KafkaSource.create(source_config, ctx)
 
     workunits = list(kafka_source.get_workunits())
@@ -489,7 +503,7 @@ def test_kafka_ignore_warnings_on_schema_type(
 @patch("datahub.ingestion.source.kafka.kafka.AdminClient", autospec=True)
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_succeeds_with_admin_client_init_error(
-    mock_kafka, mock_kafka_admin_client
+    mock_kafka, mock_kafka_admin_client, ctx
 ):
     mock_kafka_instance = mock_kafka.return_value
     mock_cluster_metadata = MagicMock()
@@ -498,7 +512,6 @@ def test_kafka_source_succeeds_with_admin_client_init_error(
 
     mock_kafka_admin_client.side_effect = Exception()
 
-    ctx = PipelineContext(run_id="test1")
     kafka_source = KafkaSource.create(
         {
             "topic_patterns": {"allow": ["test"]},
@@ -519,7 +532,7 @@ def test_kafka_source_succeeds_with_admin_client_init_error(
 @patch("datahub.ingestion.source.kafka.kafka.AdminClient", autospec=True)
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_succeeds_with_describe_configs_error(
-    mock_kafka, mock_kafka_admin_client
+    mock_kafka, mock_kafka_admin_client, ctx
 ):
     mock_kafka_instance = mock_kafka.return_value
     mock_cluster_metadata = MagicMock()
@@ -529,7 +542,6 @@ def test_kafka_source_succeeds_with_describe_configs_error(
     mock_admin_client_instance = mock_kafka_admin_client.return_value
     mock_admin_client_instance.describe_configs.side_effect = Exception()
 
-    ctx = PipelineContext(run_id="test1")
     kafka_source = KafkaSource.create(
         {
             "topic_patterns": {"allow": ["test"]},
@@ -555,7 +567,7 @@ def test_kafka_source_succeeds_with_describe_configs_error(
 )
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_topic_meta_mappings(
-    mock_kafka_consumer, mock_schema_registry_client, mock_admin_client
+    mock_kafka_consumer, mock_schema_registry_client, mock_admin_client, ctx
 ):
     # Setup the topic to key/value schema mappings for all types of schema registry subject name strategies.
     # <key=topic_name, value=(<key_schema>,<value_schema>)
@@ -618,7 +630,6 @@ def test_kafka_source_topic_meta_mappings(
         mock_get_latest_version
     )
 
-    ctx = PipelineContext(run_id="test1")
     kafka_source = KafkaSource.create(
         {
             "connection": {"bootstrap": "localhost:9092"},

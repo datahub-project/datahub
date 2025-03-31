@@ -5,6 +5,7 @@ import pytest
 from pydantic import ValidationError
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
 from datahub.ingestion.source.nifi import (
     BidirectionalComponentGraph,
     NifiComponent,
@@ -14,6 +15,13 @@ from datahub.ingestion.source.nifi import (
     NifiSourceConfig,
     NifiType,
 )
+
+
+@pytest.fixture
+def ctx() -> PipelineContext:
+    return PipelineContext(
+        "nifi-run", pipeline_config=PipelineConfig(source=SourceConfig(type="nifi"))
+    )
 
 
 @typing.no_type_check
@@ -318,7 +326,7 @@ def test_client_cert_auth_without_client_cert_file():
         )
 
 
-def test_single_user_auth_failed_to_get_token():
+def test_single_user_auth_failed_to_get_token(ctx):
     config = NifiSourceConfig(
         site_url="https://localhost:12345",  # will never work
         username="username",
@@ -327,7 +335,7 @@ def test_single_user_auth_failed_to_get_token():
     )
     source = NifiSource(
         config=config,
-        ctx=PipelineContext("nifi-run"),
+        ctx=ctx,
     )
 
     # No exception
@@ -340,14 +348,14 @@ def test_single_user_auth_failed_to_get_token():
     ]
 
 
-def test_kerberos_auth_failed_to_get_token():
+def test_kerberos_auth_failed_to_get_token(ctx):
     config = NifiSourceConfig(
         site_url="https://localhost:12345",  # will never work
         auth="KERBEROS",
     )
     source = NifiSource(
         config=config,
-        ctx=PipelineContext("nifi-run"),
+        ctx=ctx,
     )
 
     # No exception
@@ -359,7 +367,7 @@ def test_kerberos_auth_failed_to_get_token():
     ]
 
 
-def test_client_cert_auth_failed():
+def test_client_cert_auth_failed(ctx):
     config = NifiSourceConfig(
         site_url="https://localhost:12345",  # will never work
         auth="CLIENT_CERT",
@@ -367,7 +375,7 @@ def test_client_cert_auth_failed():
     )
     source = NifiSource(
         config=config,
-        ctx=PipelineContext("nifi-run"),
+        ctx=ctx,
     )
 
     # No exception
@@ -379,7 +387,7 @@ def test_client_cert_auth_failed():
     ]
 
 
-def test_failure_to_create_nifi_flow():
+def test_failure_to_create_nifi_flow(ctx):
     with patch("datahub.ingestion.source.nifi.NifiSource.authenticate"):
         config = NifiSourceConfig(
             site_url="https://localhost:12345",  # will never work
@@ -387,7 +395,7 @@ def test_failure_to_create_nifi_flow():
         )
         source = NifiSource(
             config=config,
-            ctx=PipelineContext("nifi-run"),
+            ctx=ctx,
         )
 
         # No exception
@@ -399,14 +407,13 @@ def test_failure_to_create_nifi_flow():
         ]
 
 
-def test_site_url_no_context():
+def test_site_url_no_context(ctx):
     supported_urls = [
         "https://localhost:8443",
         "https://localhost:8443/",
         "https://localhost:8443/nifi",
         "https://localhost:8443/nifi/",
     ]
-    ctx = PipelineContext("run-id")
 
     for url in supported_urls:
         config = NifiSourceConfig(
@@ -421,14 +428,13 @@ def test_site_url_no_context():
         )
 
 
-def test_site_url_with_context():
+def test_site_url_with_context(ctx):
     supported_urls = [
         "https://host/context",
         "https://host/context/",
         "https://host/context/nifi",
         "https://host/context/nifi/",
     ]
-    ctx = PipelineContext("run-id")
 
     for url in supported_urls:
         config = NifiSourceConfig(
