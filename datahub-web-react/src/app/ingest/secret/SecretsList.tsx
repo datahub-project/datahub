@@ -265,7 +265,12 @@ export const SecretsList = ({
             key: 'actions',
             render: (record: TableDataType) => (
                 <DeleteButtonContainer>
-                    <button type="button" onClick={() => onEditSecret(record)} aria-label="Edit secret">
+                    <button
+                        type="button"
+                        onClick={() => onEditSecret(record)}
+                        aria-label="Edit secret"
+                        data-testid="edit-secret-action"
+                    >
                         <PencilSimpleLine size={16} />
                     </button>
                     <button
@@ -273,7 +278,7 @@ export const SecretsList = ({
                         className="delete-action"
                         onClick={() => onDeleteSecret(record.urn)}
                         aria-label="Delete secret"
-                        data-test-id="delete-secret-action"
+                        data-testid="delete-secret-action"
                         data-icon="delete"
                     >
                         <Trash size={16} />

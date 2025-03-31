@@ -209,7 +209,7 @@ export function ActionsColumn({
         {
             key: 'copy',
             label: (
-                <MenuItem onClick={() => navigator.clipboard?.writeText(record.urn)} data-test-id="copy-urn-action">
+                <MenuItem onClick={() => navigator.clipboard?.writeText(record.urn)} data-testid="copy-urn-action">
                     <Copy weight="regular" size={16} />
                     Copy URN
                 </MenuItem>
@@ -221,7 +221,7 @@ export function ActionsColumn({
         items.push({
             key: 'edit',
             label: (
-                <MenuItem onClick={() => onEdit(record.urn)} data-test-id="edit-action">
+                <MenuItem onClick={() => onEdit(record.urn)} data-testid="ingestion-source-table-edit-button">
                     <PencilSimple weight="regular" size={16} />
                     Edit
                 </MenuItem>
@@ -232,7 +232,7 @@ export function ActionsColumn({
     items.push({
         key: 'delete',
         label: (
-            <MenuItem className="danger" onClick={() => onDelete(record.urn)} data-test-id="delete-action">
+            <MenuItem className="danger" onClick={() => onDelete(record.urn)} data-testid="delete-action">
                 <Trash weight="regular" size={16} />
                 Delete
             </MenuItem>
@@ -242,7 +242,7 @@ export function ActionsColumn({
     return (
         <ActionButtonContainer>
             {record.cliIngestion && (
-                <Button variant="text" onClick={() => onView(record.urn)} data-test-id="view-action">
+                <Button variant="text" onClick={() => onView(record.urn)} data-testid="view-action">
                     VIEW
                 </Button>
             )}
@@ -252,7 +252,7 @@ export function ActionsColumn({
                     size="sm"
                     disabled={record.cliIngestion}
                     onClick={() => onExecute(record.urn)}
-                    data-test-id="run-action"
+                    data-testid="run-action"
                 >
                     RUN
                 </Button>
@@ -261,13 +261,18 @@ export function ActionsColumn({
                 <Button
                     variant="text"
                     onClick={() => setFocusExecutionUrn(record.lastExecUrn)}
-                    data-test-id="details-action"
+                    data-testid="details-action"
                 >
                     DETAILS
                 </Button>
             )}
-            <Dropdown menu={{ items }} trigger={['click']} placement="bottomRight">
-                <StyledDotsThreeVertical weight="bold" size={20} data-test-id="more-actions" />
+            <Dropdown
+                menu={{ items }}
+                trigger={['click']}
+                placement="bottomRight"
+                data-testid="ingestion-source-actions-dropdown"
+            >
+                <StyledDotsThreeVertical size={20} />
             </Dropdown>
         </ActionButtonContainer>
     );
