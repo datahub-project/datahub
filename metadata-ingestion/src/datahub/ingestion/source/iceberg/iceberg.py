@@ -159,6 +159,14 @@ class IcebergSource(StatefulIngestionSourceBase):
         return cls(config, ctx)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        # This source needs to overwrite standard `get_workunit_processor`, because it is unique in terms of usage
+        # of parallelism. Because of this, 2 processors won't work as expected:
+        # 1. browse_path_processor - it needs aspects for a single entity to be continuous - which is not guaranteed
+        #    in this source
+        # 2. automatic stamping with systemMetadata - in current implementation of the Source class this processor
+        #    would have been applied in a thread (single) shared between the source, processors and transformers.
+        #    Since the metadata scraping happens in separate threads, this could lead to difference between
+        #    time used by systemMetadata and actual time at which metadata was read
         auto_lowercase_dataset_urns: Optional[MetadataWorkUnitProcessor] = None
         if (
             self.ctx.pipeline_config
