@@ -6,7 +6,6 @@ from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
-# Test resources and constants
 FROZEN_TIME = "2025-03-25 12:00:00"
 
 pytestmark = pytest.mark.integration_batch_2

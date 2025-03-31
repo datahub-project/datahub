@@ -1,11 +1,12 @@
 from dataclasses import dataclass
-from datetime import datetime, timedelta
-from typing import Any, Dict, Iterable, List, Optional
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 from pydantic import Field, SecretStr
 from typing_extensions import assert_never
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.datetimes import parse_user_datetime
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -50,6 +51,10 @@ from datahub.sdk.main_client import DataHubClient
 class HexSourceConfig(
     StatefulIngestionConfigBase, PlatformInstanceConfigMixin, EnvConfigMixin
 ):
+    def __init__(self, **data):
+        data = self._set_lineage_times(data)
+        super().__init__(**data)
+
     workspace_name: str = Field(
         description="Hex workspace name. You can find this name in your Hex home page URL: https://app.hex.tech/<workspace_name>",
     )
@@ -105,14 +110,59 @@ class HexSourceConfig(
         default=True,
         description="Include Hex lineage, being fetched from DataHub",
     )
-    lineage_lookback_days: int = Field(
-        default=7,
-        description="Number of days to look back for lineage",
+    lineage_start_time: Optional[Union[str, datetime]] = Field(
+        default=None,
+        description="Earliest date of lineage to consider. Default: 1 day before lineage end time. You can specify absolute time like '2023-01-01' or relative time like '-7 days' or '-7d'.",
+    )
+    lineage_end_time: Optional[Union[str, datetime]] = Field(
+        default=None,
+        description="Latest date of lineage to consider. Default: Current time in UTC. You can specify absolute time like '2023-01-01' or relative time like '-1 day' or '-1d'.",
     )
     datahub_page_size: int = Field(
         default=DATAHUB_API_PAGE_SIZE_DEFAULT,
         description="Number of items to fetch per DataHub API call.",
     )
+
+    def _set_lineage_times(cls, data: Dict[str, Any]) -> Dict[str, Any]:
+        # lineage_end_time default = now
+        if "lineage_end_time" not in data or data["lineage_end_time"] is None:
+            data["lineage_end_time"] = datetime.now(tz=timezone.utc)
+        # if string is given, parse it
+        if isinstance(data["lineage_end_time"], str):
+            data["lineage_end_time"] = parse_user_datetime(data["lineage_end_time"])
+        # if no timezone is given, assume UTC
+        if data["lineage_end_time"].tzinfo is None:
+            data["lineage_end_time"] = data["lineage_end_time"].replace(
+                tzinfo=timezone.utc
+            )
+        # at this point, we ensure there is a non null datetime with UTC timezone for lineage_end_time
+        assert (
+            data["lineage_end_time"]
+            and isinstance(data["lineage_end_time"], datetime)
+            and data["lineage_end_time"].tzinfo is not None
+            and data["lineage_end_time"].tzinfo == timezone.utc
+        )
+
+        # lineage_start_time default = lineage_end_time - 1 day
+        if "lineage_start_time" not in data or data["lineage_start_time"] is None:
+            data["lineage_start_time"] = data["lineage_end_time"] - timedelta(days=1)
+        # if string is given, parse it
+        if isinstance(data["lineage_start_time"], str):
+            data["lineage_start_time"] = parse_user_datetime(data["lineage_start_time"])
+        # if no timezone is given, assume UTC
+        if data["lineage_start_time"].tzinfo is None:
+            data["lineage_start_time"] = data["lineage_start_time"].replace(
+                tzinfo=timezone.utc
+            )
+        # at this point, we ensure there is a non null datetime with UTC timezone for lineage_start_time
+        assert (
+            data["lineage_start_time"]
+            and isinstance(data["lineage_start_time"], datetime)
+            and data["lineage_start_time"].tzinfo is not None
+            and data["lineage_start_time"].tzinfo == timezone.utc
+        )
+
+        return data
 
 
 @dataclass
@@ -162,14 +212,18 @@ class HexSource(StatefulIngestionSourceBase):
         self.query_fetcher: Optional[HexQueryFetcher] = None
         if self.source_config.include_lineage:
             assert ctx.graph, "Graph is required for lineage ingestion"
+            assert self.source_config.lineage_start_time and isinstance(
+                self.source_config.lineage_start_time, datetime
+            )
+            assert self.source_config.lineage_end_time and isinstance(
+                self.source_config.lineage_end_time, datetime
+            )
             self.datahub_client = DataHubClient(graph=ctx.graph)
             self.query_fetcher = HexQueryFetcher(
                 datahub_client=self.datahub_client,
                 workspace_name=self.source_config.workspace_name,
-                start_datetime=(
-                    datetime.now()
-                    - timedelta(days=self.source_config.lineage_lookback_days)
-                ),
+                start_datetime=self.source_config.lineage_start_time,
+                end_datetime=self.source_config.lineage_end_time,
                 report=self.report,
                 page_size=self.source_config.datahub_page_size,
             )

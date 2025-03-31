@@ -33,6 +33,8 @@ class QueryResponse:
 
 @dataclass
 class HexQueryFetcherReport(SourceReport):
+    start_datetime: Optional[datetime] = None
+    end_datetime: Optional[datetime] = None
     fetched_query_urns: int = 0
     fetched_query_objects: int = 0
     filtered_out_queries_missing_metadata: int = 0
@@ -116,14 +118,19 @@ class HexQueryFetcher:
         datahub_client: DataHubClient,
         workspace_name: str,
         start_datetime: datetime,
+        end_datetime: datetime,
         report: HexQueryFetcherReport,
         page_size: int = DATAHUB_API_PAGE_SIZE_DEFAULT,
     ):
         self.datahub_client = datahub_client
         self.workspace_name = workspace_name
         self.start_datetime = start_datetime
+        self.end_datetime = end_datetime
         self.report = report
         self.page_size = page_size
+
+        self.report.start_datetime = start_datetime
+        self.report.end_datetime = end_datetime
 
     def fetch(self) -> Generator[QueryResponse, None, None]:
         try:
@@ -136,6 +143,7 @@ class HexQueryFetcher:
                         dict(
                             workspace_name=self.workspace_name,
                             start_datetime=self.start_datetime,
+                            end_datetime=self.end_datetime,
                         )
                     ),
                 )
@@ -155,6 +163,7 @@ class HexQueryFetcher:
                     dict(
                         workspace_name=self.workspace_name,
                         start_datetime=self.start_datetime,
+                        end_datetime=self.end_datetime,
                     )
                 ),
                 exc=e,
@@ -268,12 +277,13 @@ class HexQueryFetcher:
                 F.custom_filter(
                     "lastModifiedAt",
                     "GREATER_THAN",
-                    [str(last_modified_at_millis)],
+                    [str(last_modified_start_at_millis)],
                 ),
             ),
         )
         """
-        last_modified_at_millis = int(self.start_datetime.timestamp() * 1000)
+        last_modified_start_at_millis = int(self.start_datetime.timestamp() * 1000)
+        last_modified_end_at_millis = int(self.end_datetime.timestamp() * 1000)
 
         query_urn_strs = self.datahub_client._graph.get_urns_by_filter(
             entity_types=[QueryUrn.ENTITY_TYPE],
@@ -287,9 +297,17 @@ class HexQueryFetcher:
                 },
                 {
                     "field": "lastModifiedAt",
-                    "condition": "GREATER_THAN",
+                    "condition": "GREATER_THAN_OR_EQUAL_TO",
                     "values": [
-                        last_modified_at_millis,
+                        last_modified_start_at_millis,
+                    ],
+                    "negated": False,
+                },
+                {
+                    "field": "lastModifiedAt",
+                    "condition": "LESS_THAN_OR_EQUAL_TO",
+                    "values": [
+                        last_modified_end_at_millis,
                     ],
                     "negated": False,
                 },

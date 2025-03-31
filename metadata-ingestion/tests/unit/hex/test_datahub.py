@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 from datahub.ingestion.source.hex.constants import HEX_PLATFORM_URN
@@ -31,6 +31,7 @@ class TestHexQueryFetcherExtractHexMetadata(unittest.TestCase):
             datahub_client=self.mock_client,
             workspace_name=self.workspace_name,
             start_datetime=self.start_datetime,
+            end_datetime=self.start_datetime - timedelta(days=1),
             report=self.report,
         )
 
@@ -202,6 +203,7 @@ class TestHexQueryFetcherFetch(unittest.TestCase):
             datahub_client=self.mock_client,
             workspace_name=self.workspace_name,
             start_datetime=self.start_datetime,
+            end_datetime=self.start_datetime - timedelta(days=1),
             report=self.report,
         )
 
