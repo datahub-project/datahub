@@ -31,8 +31,8 @@ source:
     # If set to True, assumes this is Datahub Enterprise Edition, and skips the check for standard edition. Default is False.
     skip_standard_edition_check: True
 
-    # If set to True, allows schemas with no tables or views to be processed, without reporting generic permissions error. Default is False.
-    allow_empty_schemas: True
+    # If True, warns when no datasets are found during ingestion. If False, ingestion fails when no datasets are found. Default is True.
+    warn_no_datasets: True
 
     # (Optional) Uncomment and update this section to filter profiled tables
     # profile_pattern:
