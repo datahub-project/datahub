@@ -27,10 +27,10 @@
         "highlight-border-color": "#BAE0FF"
     },
     "assets": {
-        "logoUrl": "/assets/logo.png"
+        "logoUrl": "/assets/datahublogo.png"
     },
     "content": {
-        "title": "DataHub",
+        "title": "Pathways Technologies",
         "homepage": {
             "homepageMessage": "Find data you can count on"
         },
