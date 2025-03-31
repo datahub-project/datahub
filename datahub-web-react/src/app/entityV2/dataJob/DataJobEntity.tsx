@@ -1,12 +1,5 @@
-import {
-    ConsoleSqlOutlined,
-    FileOutlined,
-    PartitionOutlined,
-    ShareAltOutlined,
-    SyncOutlined,
-    UnorderedListOutlined,
-    WarningOutlined,
-} from '@ant-design/icons';
+import { ConsoleSqlOutlined } from '@ant-design/icons';
+import { ListBullets, TreeStructure, FileText, Share, ArrowsClockwise, WarningCircle } from '@phosphor-icons/react';
 import * as React from 'react';
 import { GetDataJobQuery, useGetDataJobQuery, useUpdateDataJobMutation } from '../../../graphql/dataJob.generated';
 import { DataJob, EntityType, SearchResult } from '../../../types.generated';
@@ -116,27 +109,27 @@ export class DataJobEntity implements Entity<DataJob> {
                 {
                     name: 'Documentation',
                     component: DocumentationTab,
-                    icon: FileOutlined,
+                    icon: FileText,
                 },
                 {
                     name: 'Pipeline',
                     component: DataJobFlowTab,
-                    icon: ShareAltOutlined,
+                    icon: Share,
                 },
                 {
                     name: 'Lineage',
                     component: LineageTab,
-                    icon: PartitionOutlined,
+                    icon: TreeStructure,
                 },
                 {
                     name: 'Properties',
                     component: PropertiesTab,
-                    icon: UnorderedListOutlined,
+                    icon: ListBullets,
                 },
                 {
                     name: 'Runs',
                     component: RunsTab,
-                    icon: SyncOutlined,
+                    icon: ArrowsClockwise,
                     display: {
                         visible: (_, _1) => true,
                         enabled: (_, dataJob: GetDataJobQuery) => (dataJob?.dataJob?.runs?.total || 0) !== 0,
@@ -144,7 +137,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 },
                 {
                     name: 'Incidents',
-                    icon: WarningOutlined,
+                    icon: WarningCircle,
                     component: IncidentTab,
                     getDynamicName: (_, dataJob, loading) => {
                         const activeIncidentCount = dataJob?.dataJob?.activeIncidents?.total;
@@ -180,7 +173,7 @@ export class DataJobEntity implements Entity<DataJob> {
             name: 'Lineage',
             component: LineageTab,
             description: "View this data asset's upstream and downstream dependencies",
-            icon: PartitionOutlined,
+            icon: TreeStructure,
             properties: {
                 actionType: SidebarTitleActionType.LineageExplore,
             },
@@ -189,7 +182,7 @@ export class DataJobEntity implements Entity<DataJob> {
             name: 'Properties',
             component: PropertiesTab,
             description: 'View additional properties about this asset',
-            icon: UnorderedListOutlined,
+            icon: ListBullets,
         },
     ];
 
