@@ -1,11 +1,12 @@
 import datetime
+import json
 import os
 import subprocess
 from typing import List
 
 import pytest
 
-from conftest import get_batch_start_end
+from conftest import bin_pack_tasks
 from tests.setup.lineage.ingest_time_lineage import (
     get_time_lineage_urns,
     ingest_time_lineage,
@@ -196,10 +197,25 @@ def _get_cypress_tests_batch():
     """
     all_tests = _get_js_files("tests/cypress/cypress/e2e")
 
-    batch_start, batch_end = get_batch_start_end(num_tests=len(all_tests))
+    tests_with_weights = []
 
-    return all_tests[batch_start:batch_end]
-    # return test_batches[int(batch_number)]  #if BATCH_NUMBER was set, we this test just runs that one batch.
+    with open("tests/cypress/test_weights.json") as f:
+        weights_data = json.load(f)
+
+    # File has file path relative to cypress/e2e folder and duration in seconds (with s suffix), pulled from codecov report.
+    # Use some other method to automate finding the weights - may be use junits directly
+    test_weights = {
+        item["filePath"]: float(item["duration"][:-1]) for item in weights_data
+    }
+
+    for test in all_tests:
+        if test in test_weights:
+            tests_with_weights.append((test, test_weights[test]))
+        else:
+            tests_with_weights.append(test)
+
+    test_batches = bin_pack_tasks(tests_with_weights, int(os.getenv("BATCH_COUNT", 1)))
+    return test_batches[int(os.getenv("BATCH_NUMBER", 0))]
 
 
 def test_run_cypress(auth_session):
