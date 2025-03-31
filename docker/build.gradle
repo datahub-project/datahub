@@ -166,13 +166,44 @@ quickstart_configs.each { taskName, config ->
 
 // Register all quickstart tasks
 quickstart_configs.each { taskName, config ->
-    tasks.register("${taskName}PrepareAll")
+    tasks.register("prepareAll${taskName}"){
+        group = 'quickstart-ci'
+    }
 }
 
 quickstart_configs.each { taskName, config ->
     if (config.modules) {
-        tasks.getByName("${taskName}PrepareAll").dependsOn(
+        tasks.getByName("prepareAll${taskName}").dependsOn(
             config.modules.collect { it + ':dockerPrepare' }
+        )
+    }
+}
+
+quickstart_configs.each { taskName, config ->
+    tasks.register("buildImagesFromCache${taskName}") {
+        group = 'quickstart-ci'
+    }
+}
+
+quickstart_configs.each { taskName, config ->
+    if (config.modules) {
+        tasks.getByName("buildImagesFromCache${taskName}").dependsOn(
+            config.modules.collect { it + ':dockerFromCache' }
+        )
+    }
+}
+
+
+quickstart_configs.each { taskName, config ->
+    tasks.register("buildImages${taskName}") {
+        group = 'quickstart-ci'
+    }
+}
+
+quickstart_configs.each { taskName, config ->
+    if (config.modules) {
+        tasks.getByName("buildImages${taskName}").dependsOn(
+            config.modules.collect { it + ':dockerTag' }
         )
     }
 }
@@ -207,7 +238,7 @@ quickstart_configs.each { taskName, config ->
     if (config.isDebug) {
         def reloadTaskName = taskName.replaceFirst(/^quickstart/, "")
         tasks.register("${reloadTaskName}Reload", Exec) {
-            dependsOn tasks.named("${taskName}PrepareAll")
+            dependsOn tasks.named("prepareAll${taskName}")
             group = 'quickstart'
             description = "Build and reload only changed containers for the ${taskName} task"
             doFirst {

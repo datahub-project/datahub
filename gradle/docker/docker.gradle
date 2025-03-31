@@ -95,11 +95,16 @@ class DockerPluginExtension {
 def extension = project.extensions.create("docker", DockerPluginExtension)
 
 project.afterEvaluate {
+  def buildContext = "${rootProject.buildDir}/dockerBuildContext/${rootProject.relativePath(project.projectDir)}/docker"
+  // ensure this directory exists
+  new File(buildContext).mkdirs()
+  println("buildContext: ${buildContext}")
+
   tasks.register("dockerPrepare", Sync) {
     group "docker"
     with extension.copySpec
     from extension.dockerfile
-    into "${buildDir}/docker"
+    into buildContext
     dependsOn extension.dependencies.get()
   }
 
@@ -108,9 +113,7 @@ project.afterEvaluate {
     description "Builds the docker image and applies all tags defined"
     dependsOn dockerPrepare
 
-    def buildContext = "${buildDir}/docker"
-
-    def marker = "${buildDir}/imageCreated-${name}.json"
+    def marker = "${buildContext}/../imageCreated-${name}.json"
 
     inputs.file(extension.dockerfile)
     inputs.dir(buildContext)
@@ -135,7 +138,7 @@ project.afterEvaluate {
       dockerCmd += ["-t", tag]
     }
 
-    dockerCmd << "${buildDir}/docker"
+    dockerCmd << buildContext
 
     // Some projects use a Dockerfile with the non-default name.
     dockerCmd += ["--file", extension.dockerfile.get().toPath()]
@@ -172,6 +175,23 @@ project.afterEvaluate {
       }
     }
   }
+
+  project.tasks.register("dockerFromCache") {
+    // This task is same as docker but without the dockerPrepare dependency. This is useful in CI where a
+    // github workflow can run multiple jobs in parallel which all share the docker build context root folder.
+    // This is faster than uploading and downloading all images together.
+    group "docker"
+    description "Builds the docker image from cache and applies all tags defined but without the dependencies."
+    // Reference the docker original task's configuration and run it but without its dependencies
+    doLast {
+      def originalTaskInstance = tasks.named('docker').get()
+      project.exec {
+        commandLine originalTaskInstance.commandLine
+        workingDir originalTaskInstance.workingDir
+      }
+    }
+  }
+
   extension.tags.get().each { taskName, tag ->
     // For backward compatibility, can be removed if we dont really have a need post migration
     // TODO: Choice of task names is to retain current names so that downstream dependencies in quickstart still work
