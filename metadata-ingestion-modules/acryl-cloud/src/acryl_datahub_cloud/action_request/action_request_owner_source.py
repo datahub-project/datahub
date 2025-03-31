@@ -31,6 +31,7 @@ class ActionRequestOwnerSourceReport(SourceReport):
     correct_assignees_not_found = 0
     correct_proposal_owners = 0
     incorrect_proposal_owners = 0
+    missing_entity_owners = 0
     action_request_info_not_found = 0
 
 
@@ -81,7 +82,10 @@ class ActionRequestOwnerSource(Source):
         action_request_urn = action_request.get("urn")
         action_type = action_request.get("type")
         action_request_entity = action_request.get("entity")
-        assert action_request_entity is not None
+        if action_request_entity is None:
+            logger.error(f"Action request entity not found for {action_request_urn}")
+            self.report.missing_entity_owners += 1
+            return None
         resource_urn = action_request_entity.get("urn")
         sub_resource = action_request.get("subResource")
         sub_resource_type = action_request.get("subResourceType")
@@ -122,6 +126,8 @@ class ActionRequestOwnerSource(Source):
         ):
             self.report.correct_proposal_owners += 1
             return None
+        else:
+            self.report.incorrect_proposal_owners += 1
         action_request_info = self.graph.get_aspect_v2(
             entity_urn=str(action_request_urn),
             aspect="actionRequestInfo",
