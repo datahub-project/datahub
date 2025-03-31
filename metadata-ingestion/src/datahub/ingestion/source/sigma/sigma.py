@@ -162,14 +162,17 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
     def _get_allowed_workspaces(self) -> List[Workspace]:
         all_workspaces = self.sigma_api.workspaces.values()
-        allowed_workspaces = [
-            workspace
-            for workspace in all_workspaces
-            if self.config.workspace_pattern.allowed(workspace.name)
-        ]
         logger.info(f"Number of workspaces = {len(all_workspaces)}")
-        self.reporter.report_number_of_workspaces(len(all_workspaces))
+        self.reporter.number_of_workspaces = len(all_workspaces)
+
+        allowed_workspaces = []
+        for workspace in all_workspaces:
+            if self.config.workspace_pattern.allowed(workspace.name):
+                allowed_workspaces.append(workspace)
+            else:
+                self.reporter.workspaces.dropped(workspace.workspaceId)
         logger.info(f"Number of allowed workspaces = {len(allowed_workspaces)}")
+
         return allowed_workspaces
 
     def _gen_workspace_workunit(
@@ -658,6 +661,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             yield from self._gen_workbook_workunit(workbook)
 
         for workspace in self._get_allowed_workspaces():
+            self.reporter.workspaces.processed(workspace.workspaceId)
             yield from self._gen_workspace_workunit(workspace)
         yield from self._gen_sigma_dataset_upstream_lineage_workunit()
 
