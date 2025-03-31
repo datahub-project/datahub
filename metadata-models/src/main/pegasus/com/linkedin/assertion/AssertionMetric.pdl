@@ -1,0 +1,13 @@
+namespace com.linkedin.assertion
+
+record AssertionMetric {
+    /**
+     * The timestamp associated with the metric sampling time in milliseconds since epoch
+     */
+    timestampMs: long
+
+    /**
+     * The value of the metric that was sampled
+     */
+     value: float
+}

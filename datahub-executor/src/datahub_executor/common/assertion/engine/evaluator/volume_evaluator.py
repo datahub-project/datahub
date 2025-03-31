@@ -323,8 +323,11 @@ class VolumeAssertionEvaluator(AssertionEvaluator):
         logger.debug("About to evaluate assertion...")
 
         # Stage 2: Perform final evaluation
-        return self._evaluate_assertion_step(
+        result = self._evaluate_assertion_step(
             row_count=int(row_count_metric.value),
             assertion=assertion,
             context=context,
         )
+        # Append the metric that was used for context.
+        result.metric = row_count_metric
+        return result

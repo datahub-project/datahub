@@ -1158,6 +1158,8 @@ class TestFieldEvaluator:
                 # Set up return values
                 metric = Mock(spec=Metric)
                 metric.value = 10.0
+                metric.timestamp_ms = 123
+
                 mock_collection.return_value = metric
                 mock_evaluation.return_value = AssertionEvaluationResult(
                     AssertionResultType.SUCCESS
@@ -1170,6 +1172,10 @@ class TestFieldEvaluator:
 
                 # Verify the result
                 assert result.type == AssertionResultType.SUCCESS
+                # Ensure metric context is appended.
+                assert result.metric
+                assert result.metric.value == 10.0
+                assert result.metric.timestamp_ms == 123
 
                 # Verify the mocks were called
                 mock_collection.assert_called_once()

@@ -2,6 +2,7 @@ namespace com.linkedin.anomaly
 
 import com.linkedin.common.AuditStamp
 import com.linkedin.common.Urn
+import com.linkedin.assertion.AssertionMetric
 
 /**
  * Ad-hoc properties about an anomaly source.
@@ -14,7 +15,7 @@ record AnomalySourceProperties {
   assertionRunEventTime: optional long
 
   /**
-   * The timestamp associated with the metric cube value that triggered the anomaly.
+   * The monitor metric associated with the anomaly, if generated from an assertion monitor (the norm).
    */
-  metricCubeTimestamp: optional long
+  assertionMetric: optional AssertionMetric
 }

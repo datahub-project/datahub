@@ -7,6 +7,10 @@ import pydantic
 from acryl.executor.request.execution_request import ExecutionRequest
 from pydantic import BaseModel, Field, root_validator, validator
 
+from datahub_executor.common.metric.types import (
+    Metric,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -1405,10 +1409,12 @@ class AssertionEvaluationResult:
         type: AssertionResultType,
         parameters: Optional[dict] = None,
         error: Optional[AssertionEvaluationResultError] = None,
+        metric: Optional[Metric] = None,
     ):
         self.type = type
         self.parameters = parameters
         self.error = error
+        self.metric = metric
 
 
 class ConnectionDetails:

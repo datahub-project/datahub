@@ -61,4 +61,11 @@ record AssertionResult includes AssertionWithoutAnnotations, BaseAssertionWithou
     */
   assertionInferenceDetails: optional AssertionInferenceDetails
 
+  /**
+   * Information about the metric that was sampled & used when evaluating the assertion.
+   *
+   * Currently, this is only populated for Volume & Field Metric Assertions and used for anomaly
+   * logging for Smart Assertions.
+   */
+   metric: optional AssertionMetric
 }

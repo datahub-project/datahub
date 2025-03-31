@@ -240,6 +240,10 @@ class TestVolumeEvaluator:
         assert result.parameters == {
             "row_count": 999,
         }
+        # Ensure metric context is appended.
+        assert result.metric
+        assert result.metric.value == 999
+        assert result.metric.timestamp_ms is not None
 
     def test_evaluate_row_count_total_failure(self) -> None:
         volume_assertion = VolumeAssertion(
@@ -529,6 +533,10 @@ class TestVolumeEvaluator:
         assert result.parameters == {
             "row_count": 999,
         }
+        # Ensure metric context is appended.
+        assert result.metric
+        assert result.metric.value == 999
+        assert result.metric.timestamp_ms is not None
 
     def test_evaluate_row_count_change_dataset_profile_no_previous_state(self) -> None:
         evaluation_params = AssertionEvaluationParameters(

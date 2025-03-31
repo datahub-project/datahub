@@ -425,11 +425,14 @@ class FieldAssertionEvaluator(AssertionEvaluator):
         logger.debug("About to evaluate field metric assertion...")
 
         # Stage 2: Perform final evaluation
-        return self._evaluate_field_metric_assertion_step(
+        result = self._evaluate_field_metric_assertion_step(
             metric_value=field_metric_value.value,
             assertion=assertion,
             context=context,
         )
+        # Add the metric context.
+        result.metric = field_metric_value
+        return result
 
     def _evaluate_field_metric_collection_step(
         self,

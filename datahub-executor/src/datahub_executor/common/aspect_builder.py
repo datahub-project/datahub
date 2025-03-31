@@ -8,6 +8,7 @@ from datahub.metadata.schema_classes import (
     AssertionDryRunResultClass,
     AssertionEvaluationParametersClass,
     AssertionInfoClass,
+    AssertionMetricClass,
     AssertionResultClass,
     AssertionResultErrorClass,
     AssertionResultTypeClass,
@@ -112,6 +113,11 @@ def build_assertion_result(
             get_assertion_info(context.base_assertion_info) if context else None
         ),
         parameters=get_parameters_from_context(context),
+        metric=AssertionMetricClass(
+            value=result.metric.value, timestampMs=result.metric.timestamp_ms
+        )
+        if result.metric
+        else None,
     )
 
 

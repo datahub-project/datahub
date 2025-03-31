@@ -7,6 +7,7 @@ from datahub.metadata.schema_classes import AssertionRunEventClass
 from datahub_executor.common.assertion.result.assertion_run_event_handler import (
     AssertionRunEventResultHandler,
 )
+from datahub_executor.common.metric.types import Metric
 from datahub_executor.common.types import (
     Assertion,
     AssertionEntity,
@@ -86,7 +87,11 @@ context_nonparseable = AssertionEvaluationContext(
         payload='{"freshnessAssertion":{"type":"DATASET_CHANGE","schedule":{"type":"CRON","cron":{"cron":"0 */6 * * *","timezone":"Asia/Calcutta"}},"entity":"urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"},"source":{"type":"NATIVE"}}',
     ),
 )
-result = AssertionEvaluationResult(type=AssertionResultType.SUCCESS, parameters=None)
+result = AssertionEvaluationResult(
+    type=AssertionResultType.SUCCESS,
+    parameters=None,
+    metric=Metric(timestamp_ms=124, value=12.0),
+)
 
 
 def test_handle_assertion_run_event() -> None:
@@ -110,6 +115,9 @@ def test_handle_assertion_run_event() -> None:
     assert mcpw.aspect.result.assertion
     assert mcpw.aspect.result.parameters
     assert mcpw.aspect.result.baseAssertion
+    assert mcpw.aspect.result.metric
+    assert mcpw.aspect.result.metric.value == 12.0
+    assert mcpw.aspect.result.metric.timestampMs == 124
 
 
 def test_handle_assertion_run_event_parse_failure() -> None:
