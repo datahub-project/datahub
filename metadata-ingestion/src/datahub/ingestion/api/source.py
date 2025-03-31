@@ -462,7 +462,6 @@ class Source(Closeable, metaclass=ABCMeta):
             partial(auto_workunit_reporter, self.get_report()),
             auto_patch_last_modified,
             EnsureAspectSizeProcessor(self.get_report()).ensure_aspect_size,
-            TimeStampMetadata(self.ctx).stamp,
         ]
 
     @staticmethod
@@ -476,8 +475,10 @@ class Source(Closeable, metaclass=ABCMeta):
         return stream
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        workunit_processors = self.get_workunit_processors()
+        workunit_processors.append(TimeStampMetadata(self.ctx).stamp)
         return self._apply_workunit_processors(
-            self.get_workunit_processors(), auto_workunit(self.get_workunits_internal())
+            workunit_processors, auto_workunit(self.get_workunits_internal())
         )
 
     def get_workunits_internal(
