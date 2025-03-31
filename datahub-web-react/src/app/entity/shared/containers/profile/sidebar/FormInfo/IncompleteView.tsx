@@ -45,7 +45,7 @@ export default function IncompleteView({
                 )}
                 {!isUserAssigned && <StyledIcon component={GrayVerificationIcon} />}
                 <div>
-                    <Title>Awaiting {showVerificationStyles ? 'Verification' : 'Documentation'}</Title>
+                    <Title>Pending {showVerificationStyles ? 'Verification' : 'Compliance'} Tasks</Title>
                     {isUserAssigned && (
                         <>
                             You are being asked to complete a set of requirements for this entity.
@@ -57,7 +57,7 @@ export default function IncompleteView({
             </FlexWrapper>
             {!!openFormModal && isUserAssigned && (
                 <StyledButton type="primary" onClick={openFormModal}>
-                    {showVerificationStyles ? 'Complete Verification' : 'Complete Documentation'}
+                    Complete
                 </StyledButton>
             )}
         </CTAWrapper>
