@@ -120,7 +120,7 @@ def _wait_for_dag_finish(
     retry=tenacity.retry_if_exception_type(NotReadyError),
 )
 def _wait_for_dag_to_load(airflow_instance: AirflowInstance, dag_id: str) -> None:
-    print("Checking if DAG was loaded")
+    print(f"Checking if DAG {dag_id} was loaded")
     res = airflow_instance.session.get(
         url=f"{airflow_instance.airflow_url}/api/v1/dags",
         timeout=5,
@@ -373,6 +373,7 @@ test_cases = [
     DagTestCase("snowflake_operator", success=False, v2_only=True),
     DagTestCase("sqlite_operator", v2_only=True),
     DagTestCase("custom_operator_dag", v2_only=True),
+    DagTestCase("custom_operator_sql_parsing", v2_only=True),
     DagTestCase("datahub_emitter_operator_jinja_template_dag", v2_only=True),
     DagTestCase("athena_operator", v2_only=True),
 ]
@@ -561,5 +562,4 @@ if __name__ == "__main__":
         multiple_connections=False,
     ) as airflow_instance:
         # input("Press enter to exit...")
-        breakpoint()
         print("quitting airflow")

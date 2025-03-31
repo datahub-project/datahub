@@ -1,6 +1,10 @@
+import { Dispatch, SetStateAction } from 'react';
 import {
     AuditStamp,
     CorpUser,
+    DataPlatform,
+    EntityPrivileges,
+    EntityType,
     Incident,
     IncidentPriority,
     IncidentSource,
@@ -96,6 +100,7 @@ export type IncidentEditorProps = {
     onClose?: () => void;
     data?: IncidentTableRow;
     mode?: IncidentAction;
+    entity?: EntityStagedForIncident;
 };
 
 export type IncidentLinkedAssetsListProps = {
@@ -118,3 +123,20 @@ export enum IncidentConstant {
     CATEGORY = 'category',
     STATE = 'state',
 }
+
+export type EntityStagedForIncident = {
+    urn: string;
+    platform: DataPlatform;
+    entityType: EntityType;
+};
+
+export type IncidentBuilderSiblingOptions = {
+    title: string;
+    disabled?: boolean;
+} & Partial<EntityStagedForIncident>;
+
+export type CreateIncidentButtonProps = {
+    privileges: EntityPrivileges;
+    setShowIncidentBuilder: Dispatch<SetStateAction<boolean>>;
+    setEntity: Dispatch<SetStateAction<EntityStagedForIncident | undefined>>;
+};

@@ -1,4 +1,5 @@
 import json
+import os
 import time
 from dataclasses import dataclass
 from typing import Any, Callable, Iterable, List, Optional, Tuple, TypeVar, Union
@@ -115,6 +116,13 @@ class MLflowConfig(StatefulIngestionConfigBase, EnvConfigMixin):
         default=None, description="Mapping of source type to datahub platform"
     )
 
+    username: Optional[str] = Field(
+        default=None, description="Username for MLflow authentication"
+    )
+    password: Optional[str] = Field(
+        default=None, description="Password for MLflow authentication"
+    )
+
 
 @dataclass
 class MLflowRegisteredModelStageInfo:
@@ -161,7 +169,17 @@ class MLflowSource(StatefulIngestionSourceBase):
         self.ctx = ctx
         self.config = config
         self.report = StaleEntityRemovalSourceReport()
-        self.client = MlflowClient(
+        self.client = self._configure_client()
+
+    def _configure_client(self) -> MlflowClient:
+        if bool(self.config.username) != bool(self.config.password):
+            raise ValueError("Both username and password must be set together")
+
+        if self.config.username and self.config.password:
+            os.environ["MLFLOW_TRACKING_USERNAME"] = self.config.username
+            os.environ["MLFLOW_TRACKING_PASSWORD"] = self.config.password
+
+        return MlflowClient(
             tracking_uri=self.config.tracking_uri,
             registry_uri=self.config.registry_uri,
         )

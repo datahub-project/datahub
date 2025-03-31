@@ -9,6 +9,7 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.ingestion.api.report import EntityFilterReport
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -54,15 +55,13 @@ class Constant:
 
 @dataclass
 class SigmaSourceReport(StaleEntityRemovalSourceReport):
-    number_of_workspaces: int = 0
+    workspaces: EntityFilterReport = EntityFilterReport.field(type="workspace")
+    number_of_workspaces: Optional[int] = None
     non_accessible_workspaces_count: int = 0
     shared_entities_count: int = 0
     number_of_datasets: int = 0
     number_of_workbooks: int = 0
     number_of_files_metadata: Dict[str, int] = field(default_factory=dict)
-
-    def report_number_of_workspaces(self, number_of_workspaces: int) -> None:
-        self.number_of_workspaces = number_of_workspaces
 
 
 class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):

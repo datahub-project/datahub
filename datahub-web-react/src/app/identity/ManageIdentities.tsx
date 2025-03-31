@@ -47,7 +47,11 @@ enum TabType {
 }
 const ENABLED_TAB_TYPES = [TabType.Users, TabType.Groups];
 
-export const ManageIdentities = () => {
+interface Props {
+    version?: string; // used to help with cypress tests bouncing between versions. wait till correct version loads
+}
+
+export const ManageIdentities = ({ version }: Props) => {
     /**
      * Determines which view should be visible: users or groups list.
      */
@@ -78,7 +82,7 @@ export const ManageIdentities = () => {
 
     return (
         <PageContainer>
-            <PageHeaderContainer>
+            <PageHeaderContainer data-testid={`manage-users-groups-${version}`}>
                 <PageTitle level={3}>Manage Users & Groups</PageTitle>
                 <Typography.Paragraph type="secondary">
                     View your DataHub users & groups. Take administrative actions.

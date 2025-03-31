@@ -6,13 +6,22 @@ import static org.testng.Assert.assertNull;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.query.QueryLanguage;
 import com.linkedin.query.QueryProperties;
 import com.linkedin.query.QuerySource;
 import com.linkedin.query.QueryStatement;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class QueryPropertiesMapperTest {
+
+  private Urn _queryUrn;
+
+  @BeforeMethod
+  public void BeforeMethod() throws Exception {
+    _queryUrn = Urn.createFromString("urn:li:query:1");
+  }
 
   @Test
   public void testMapWithRequiredFields() throws Exception {
@@ -41,7 +50,7 @@ public class QueryPropertiesMapperTest {
 
     // Map the object
     com.linkedin.datahub.graphql.generated.QueryProperties result =
-        QueryPropertiesMapper.map(null, input);
+        QueryPropertiesMapper.map(null, input, _queryUrn);
 
     // Verify required fields
     assertNotNull(result);
@@ -91,10 +100,14 @@ public class QueryPropertiesMapperTest {
     input.setName("Test Query");
     input.setDescription("Test Description");
     input.setOrigin(originUrn);
+    StringMap customProps = new StringMap();
+    customProps.put("key1", "value1");
+    customProps.put("key2", "value2");
+    input.setCustomProperties(customProps);
 
     // Map the object
     com.linkedin.datahub.graphql.generated.QueryProperties result =
-        QueryPropertiesMapper.map(null, input);
+        QueryPropertiesMapper.map(null, input, _queryUrn);
 
     // Verify required fields
     assertNotNull(result);
@@ -113,5 +126,14 @@ public class QueryPropertiesMapperTest {
     assertEquals(result.getDescription(), "Test Description");
     assertNotNull(result.getOrigin());
     assertEquals(result.getOrigin().getUrn(), originUrn.toString());
+    assertNotNull(result.getCustomProperties());
+    assertEquals(result.getCustomProperties().size(), 2);
+    assertEquals(result.getCustomProperties().get(0).getKey(), "key1");
+    assertEquals(result.getCustomProperties().get(0).getValue(), "value1");
+    assertEquals(result.getCustomProperties().get(0).getAssociatedUrn(), _queryUrn.toString());
+    assertEquals(result.getCustomProperties().get(1).getKey(), "key2");
+    assertEquals(result.getCustomProperties().get(1).getValue(), "value2");
+    assertEquals(result.getCustomProperties().get(1).getAssociatedUrn(), _queryUrn.toString());
+    ;
   }
 }

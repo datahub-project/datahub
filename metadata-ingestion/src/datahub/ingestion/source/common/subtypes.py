@@ -45,6 +45,7 @@ class DatasetContainerSubTypes(StrEnum):
     GCS_BUCKET = "GCS bucket"
     ABS_CONTAINER = "ABS container"
     KEYSPACE = "Keyspace"  # Cassandra
+    NAMESPACE = "Namespace"  # Iceberg
 
 
 class BIContainerSubTypes(StrEnum):
@@ -69,7 +70,7 @@ class FlowContainerSubTypes(StrEnum):
 class JobContainerSubTypes(StrEnum):
     NIFI_PROCESS_GROUP = "Process Group"
     MSSQL_JOBSTEP = "Job Step"
-    MSSQL_STORED_PROCEDURE = "Stored Procedure"
+    STORED_PROCEDURE = "Stored Procedure"
 
 
 class BIAssetSubTypes(StrEnum):
@@ -93,6 +94,10 @@ class BIAssetSubTypes(StrEnum):
     # SAP Analytics Cloud
     SAC_STORY = "Story"
     SAC_APPLICATION = "Application"
+
+    # Hex
+    HEX_PROJECT = "Project"
+    HEX_COMPONENT = "Component"
 
 
 class MLAssetSubTypes(StrEnum):

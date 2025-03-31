@@ -48,7 +48,9 @@ logger = logging.getLogger(__name__)
 
 
 def auto_workunit(
-    stream: Iterable[Union[MetadataChangeEventClass, MetadataChangeProposalWrapper]],
+    stream: Iterable[
+        Union[MetadataChangeEventClass, MetadataChangeProposalWrapper, MetadataWorkUnit]
+    ],
 ) -> Iterable[MetadataWorkUnit]:
     """Convert a stream of MCEs and MCPs to a stream of :class:`MetadataWorkUnit`s."""
 
@@ -58,8 +60,10 @@ def auto_workunit(
                 id=MetadataWorkUnit.generate_workunit_id(item),
                 mce=item,
             )
-        else:
+        elif isinstance(item, MetadataChangeProposalWrapper):
             yield item.as_workunit()
+        else:
+            yield item
 
 
 def create_dataset_props_patch_builder(

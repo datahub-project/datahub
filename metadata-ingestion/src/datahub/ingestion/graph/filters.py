@@ -1,6 +1,8 @@
 import dataclasses
 import enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
+
+from typing_extensions import TypeAlias
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -10,11 +12,29 @@ from datahub.utilities.urns.urn import guess_entity_type
 
 RawSearchFilterRule = Dict[str, Any]
 
+# Mirrors our GraphQL enum: https://datahubproject.io/docs/graphql/enums#filteroperator
+FilterOperator: TypeAlias = Literal[
+    "CONTAIN",
+    "EQUAL",
+    "IEQUAL",
+    "IN",
+    "EXISTS",
+    "GREATER_THAN",
+    "GREATER_THAN_OR_EQUAL_TO",
+    "LESS_THAN",
+    "LESS_THAN_OR_EQUAL_TO",
+    "START_WITH",
+    "END_WITH",
+    "DESCENDANTS_INCL",
+    "ANCESTORS_INCL",
+    "RELATED_INCL",
+]
+
 
 @dataclasses.dataclass
 class SearchFilterRule:
     field: str
-    condition: str  # TODO: convert to an enum
+    condition: FilterOperator
     values: List[str]
     negated: bool = False
 

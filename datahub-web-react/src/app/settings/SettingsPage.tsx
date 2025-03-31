@@ -82,7 +82,7 @@ const NewTag = styled.span`
  */
 const PATHS = [
     { path: 'tokens', content: <AccessTokens /> },
-    { path: 'identities', content: <ManageIdentities /> },
+    { path: 'identities', content: <ManageIdentities version="v1" /> },
     { path: 'permissions', content: <ManagePermissions /> },
     { path: 'preferences', content: <Preferences /> },
     { path: 'views', content: <ManageViews /> },
