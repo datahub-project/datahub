@@ -2,6 +2,7 @@ import { ButtonHTMLAttributes } from 'react';
 
 import type { IconNames } from '@components';
 import type { SizeOptions, ColorOptions, FontSizeOptions } from '@components/theme/config';
+import { IconSource } from '../Icon/types';
 
 export type ButtonVariant = 'filled' | 'outline' | 'text';
 
@@ -21,6 +22,8 @@ export interface ButtonProps
         Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'color'> {
     icon?: IconNames;
     iconSize?: FontSizeOptions;
+    iconSource?: IconSource;
+    iconColor?: ColorOptions;
 }
 
 export type ButtonStyleProps = Omit<ButtonPropsDefaults, 'iconPosition'>;

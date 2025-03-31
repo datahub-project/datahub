@@ -230,7 +230,8 @@ class RedshiftSqlLineageV2(Closeable):
             )
 
         # Populate lineage for external tables.
-        self._process_external_tables(all_tables=all_tables, db_schemas=db_schemas)
+        if not self.config.skip_external_tables:
+            self._process_external_tables(all_tables=all_tables, db_schemas=db_schemas)
 
     def _populate_lineage_agg(
         self,

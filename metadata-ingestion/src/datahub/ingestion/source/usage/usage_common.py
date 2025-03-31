@@ -12,11 +12,9 @@ from typing import (
     Optional,
     Tuple,
     TypeVar,
-    Union,
 )
 
 import pydantic
-from deprecated import deprecated
 from pydantic.fields import Field
 
 import datahub.emitter.mce_builder as builder
@@ -28,19 +26,13 @@ from datahub.configuration.time_window_config import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetUsageStatistics
 from datahub.metadata.schema_classes import (
-    CalendarIntervalClass,
     DatasetFieldUsageCountsClass,
     DatasetUsageStatisticsClass,
     DatasetUserUsageCountsClass,
     TimeWindowSizeClass,
-    UsageAggregationClass,
-    WindowDurationClass,
 )
 from datahub.utilities.sql_formatter import format_sql_query, trim_query
-from datahub.utilities.urns.dataset_urn import DatasetUrn
-from datahub.utilities.urns.urn import guess_entity_type
 
 logger = logging.getLogger(__name__)
 
@@ -295,60 +287,3 @@ class UsageAggregator(Generic[ResourceType]):
                     user_urn_builder=user_urn_builder,
                     queries_character_limit=self.config.queries_character_limit,
                 )
-
-
-@deprecated
-def convert_usage_aggregation_class(
-    obj: UsageAggregationClass,
-) -> MetadataChangeProposalWrapper:
-    # Legacy usage aggregation only supported dataset usage stats
-    if guess_entity_type(obj.resource) == DatasetUrn.ENTITY_TYPE:
-        aspect = DatasetUsageStatistics(
-            timestampMillis=obj.bucket,
-            eventGranularity=TimeWindowSizeClass(
-                unit=convert_window_to_interval(obj.duration)
-            ),
-            uniqueUserCount=obj.metrics.uniqueUserCount,
-            totalSqlQueries=obj.metrics.totalSqlQueries,
-            topSqlQueries=obj.metrics.topSqlQueries,
-            userCounts=(
-                [
-                    DatasetUserUsageCountsClass(
-                        user=u.user, count=u.count, userEmail=u.userEmail
-                    )
-                    for u in obj.metrics.users
-                    if u.user is not None
-                ]
-                if obj.metrics.users
-                else None
-            ),
-            fieldCounts=(
-                [
-                    DatasetFieldUsageCountsClass(fieldPath=f.fieldName, count=f.count)
-                    for f in obj.metrics.fields
-                ]
-                if obj.metrics.fields
-                else None
-            ),
-        )
-        return MetadataChangeProposalWrapper(entityUrn=obj.resource, aspect=aspect)
-    else:
-        raise Exception(
-            f"Skipping unsupported usage aggregation - invalid entity type: {obj}"
-        )
-
-
-@deprecated
-def convert_window_to_interval(window: Union[str, WindowDurationClass]) -> str:
-    if window == WindowDurationClass.YEAR:
-        return CalendarIntervalClass.YEAR
-    elif window == WindowDurationClass.MONTH:
-        return CalendarIntervalClass.MONTH
-    elif window == WindowDurationClass.WEEK:
-        return CalendarIntervalClass.WEEK
-    elif window == WindowDurationClass.DAY:
-        return CalendarIntervalClass.DAY
-    elif window == WindowDurationClass.HOUR:
-        return CalendarIntervalClass.HOUR
-    else:
-        raise Exception(f"Unsupported window duration: {window}")

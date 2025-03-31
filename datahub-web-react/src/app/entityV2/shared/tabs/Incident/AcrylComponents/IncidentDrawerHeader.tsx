@@ -1,12 +1,11 @@
 import React from 'react';
-import styled from 'styled-components';
-import { Link as LinkIcon, PencilSimpleLine, X } from '@phosphor-icons/react';
+import { Button } from '@src/alchemy-components';
 import { Tooltip2 } from '@src/alchemy-components/components/Tooltip2';
 import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
 import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
-import { DataPlatform } from '@src/types.generated';
+import { DataPlatform, EntityPrivileges } from '@src/types.generated';
 import { useIncidentURNCopyLink } from '../hooks';
-import { IncidentAction } from '../constant';
+import { IncidentAction, noPermissionsMessage } from '../constant';
 import { IncidentTableRow } from '../types';
 import {
     ForPlatformWrapper,
@@ -16,24 +15,6 @@ import {
     StyledTitle,
 } from './styledComponents';
 
-const EditButton = styled(PencilSimpleLine)`
-    :hover {
-        cursor: pointer;
-    }
-`;
-
-const CloseButton = styled(X)`
-    :hover {
-        cursor: pointer;
-    }
-`;
-
-const LinkButton = styled(LinkIcon)`
-    :hover {
-        cursor: pointer;
-    }
-`;
-
 type IncidentDrawerHeaderProps = {
     mode: IncidentAction;
     onClose?: () => void;
@@ -41,6 +22,7 @@ type IncidentDrawerHeaderProps = {
     setIsEditActive: React.Dispatch<React.SetStateAction<boolean>>;
     data?: IncidentTableRow;
     platform?: DataPlatform;
+    privileges?: EntityPrivileges;
 };
 
 export const IncidentDrawerHeader = ({
@@ -50,12 +32,18 @@ export const IncidentDrawerHeader = ({
     setIsEditActive,
     data,
     platform,
+    privileges,
 }: IncidentDrawerHeaderProps) => {
     const handleIncidentLinkCopy = useIncidentURNCopyLink(data ? data?.urn : '');
+
+    const canEditIncidents = privileges?.canEditIncidents || false;
+
     return (
         <StyledHeader>
             <StyledHeaderTitleContainer>
-                <StyledTitle>{mode === IncidentAction.CREATE ? 'Create New Incident' : data?.title}</StyledTitle>
+                <StyledTitle data-testid="drawer-header-title">
+                    {mode === IncidentAction.CREATE ? 'Create New Incident' : data?.title}
+                </StyledTitle>
                 {platform && (
                     <ForPlatformWrapper>
                         <PlatformIcon platform={platform} size={16} styles={{ marginRight: 4 }} />
@@ -66,19 +54,41 @@ export const IncidentDrawerHeader = ({
             <StyledHeaderActions>
                 {mode === IncidentAction.EDIT && isEditActive === false && (
                     <>
-                        <Tooltip2 title="Edit Incident">
-                            <EditButton
-                                size={20}
-                                onClick={() => setIsEditActive(!isEditActive)}
-                                data-testid="edit-incident-icon"
-                            />
+                        <Tooltip2 title={canEditIncidents ? 'Edit Incident' : noPermissionsMessage}>
+                            <span>
+                                <Button
+                                    icon="PencilSimpleLine"
+                                    variant="text"
+                                    iconColor="gray"
+                                    iconSource="phosphor"
+                                    onClick={() => setIsEditActive(!isEditActive)}
+                                    disabled={!canEditIncidents}
+                                    data-testid="edit-incident-icon"
+                                    size="xl"
+                                />
+                            </span>
                         </Tooltip2>
                         <Tooltip2 title="Copy Link">
-                            <LinkButton size={20} onClick={handleIncidentLinkCopy} />
+                            <Button
+                                icon="Link"
+                                variant="text"
+                                iconColor="gray"
+                                iconSource="phosphor"
+                                onClick={handleIncidentLinkCopy}
+                                size="xl"
+                            />
                         </Tooltip2>
                     </>
                 )}
-                <CloseButton size={20} onClick={() => onClose?.()} data-testid="incident-drawer-close-button" />
+                <Button
+                    icon="X"
+                    variant="text"
+                    iconColor="gray"
+                    iconSource="phosphor"
+                    onClick={() => onClose?.()}
+                    data-testid="incident-drawer-close-button"
+                    size="xl"
+                />
             </StyledHeaderActions>
         </StyledHeader>
     );
