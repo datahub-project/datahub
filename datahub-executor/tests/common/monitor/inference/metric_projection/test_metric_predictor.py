@@ -192,18 +192,18 @@ class TestMetricPredictor:
         # Test with lowest sensitivity
         config1 = predictor._build_metric_forecaster_config(1)
         assert isinstance(config1, MetricProjectorConfig)
-        assert round(config1.BUFFER_FACTOR, 1) == 3.0  # Max buffer for min sensitivity
+        assert round(config1.BUFFER_FACTOR, 1) == 1.0  # Max buffer for min sensitivity
 
         # Test with highest sensitivity
         config10 = predictor._build_metric_forecaster_config(10)
         assert isinstance(config10, MetricProjectorConfig)
-        assert round(config10.BUFFER_FACTOR, 1) == 0.3  # Min buffer for max sensitivity
+        assert round(config10.BUFFER_FACTOR, 1) == 0.1  # Min buffer for max sensitivity
 
         # Test a middle value
         config5 = predictor._build_metric_forecaster_config(5)
         assert isinstance(config5, MetricProjectorConfig)
         # Should be in between the min and max values
-        assert 0.3 < config5.BUFFER_FACTOR < 3.0
+        assert 0.1 < config5.BUFFER_FACTOR < 1.0
 
     def test_extract_metric_timestamps_and_values(
         self, predictor: MetricPredictor, sample_metrics: List[Metric]

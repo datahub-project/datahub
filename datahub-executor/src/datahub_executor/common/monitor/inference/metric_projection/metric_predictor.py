@@ -62,6 +62,7 @@ class MetricPredictor:
     # Constants for sensitivity validation
     MIN_SENSITIVITY_LEVEL = 1
     MAX_SENSITIVITY_LEVEL = 10
+    BUFFER_FACTOR_MULTIPLIER = 1
 
     def __init__(self, user_config: Optional[Dict] = None):
         """
@@ -190,9 +191,9 @@ class MetricPredictor:
         normalized_sensitivity = (sensitivity_level - self.MIN_SENSITIVITY_LEVEL) / (
             self.MAX_SENSITIVITY_LEVEL - self.MIN_SENSITIVITY_LEVEL
         )
-        config["BUFFER_FACTOR"] = 3 * (
+        config["BUFFER_FACTOR"] = self.BUFFER_FACTOR_MULTIPLIER * (
             1 - normalized_sensitivity * 0.9
-        )  # Scaling to range [0.3, 3]
+        )  # Scaling to range (BUFFER_FACTOR_MULTIPLIER x [0.1, 1])
 
         return MetricProjectorConfig(**config)
 
