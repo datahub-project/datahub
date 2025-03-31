@@ -12,6 +12,11 @@ import datahub.metadata.schema_classes as models
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.run.pipeline_config import (
+    FlagsConfig,
+    PipelineConfig,
+    SourceConfig,
+)
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.aws.glue import (
     GlueProfilingConfig,
@@ -84,7 +89,13 @@ def glue_source(
     include_column_lineage: bool = False,
     extract_transforms: bool = True,
 ) -> GlueSource:
-    pipeline_context = PipelineContext(run_id="glue-source-tes")
+    pipeline_context = PipelineContext(
+        run_id="glue-source-tes",
+        pipeline_config=PipelineConfig(
+            source=SourceConfig(type="glue"),
+            flags=FlagsConfig(generate_browse_path_v2=False),
+        ),
+    )
     if mock_datahub_graph_instance:
         pipeline_context.graph = mock_datahub_graph_instance
     return GlueSource(
@@ -125,7 +136,13 @@ def glue_source_with_profiling(
     )
 
     return GlueSource(
-        ctx=PipelineContext(run_id="glue-source-test"),
+        ctx=PipelineContext(
+            run_id="glue-source-test",
+            pipeline_config=PipelineConfig(
+                source=SourceConfig(type="glue"),
+                flags=FlagsConfig(generate_browse_path_v2=False),
+            ),
+        ),
         config=GlueSourceConfig(
             aws_region="us-west-2",
             extract_transforms=False,
