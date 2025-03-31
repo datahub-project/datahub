@@ -48,7 +48,7 @@ class DatasetSourceConfigMixin(PlatformInstanceConfigMixin, EnvConfigMixin):
 
 class LowerCaseDatasetUrnConfigMixin(ConfigModel):
     convert_urns_to_lowercase: bool = Field(
-        default=False,
+        default=True,
         description="Whether to convert dataset urns to lowercase.",
     )
 

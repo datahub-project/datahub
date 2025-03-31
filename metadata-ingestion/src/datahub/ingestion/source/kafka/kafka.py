@@ -147,6 +147,11 @@ class KafkaSourceConfig(
         description="Enables ingesting schemas from schema registry as separate entities, in addition to the topics",
     )
 
+    convert_urns_to_lowercase: bool = pydantic.Field(
+        default=False,
+        description="Whether to convert dataset urns to lowercase.",
+    )
+
 
 def get_kafka_consumer(
     connection: KafkaConsumerConnectionConfig,

@@ -272,6 +272,11 @@ class UnityCatalogSourceConfig(
         description="Details about the delta lake, incase to emit siblings",
     )
 
+    convert_urns_to_lowercase: bool = Field(
+        default=False,
+        description="Whether to convert dataset urns to lowercase.",
+    )
+
     scheme: str = DATABRICKS
 
     def get_sql_alchemy_url(self, database: Optional[str] = None) -> str:
