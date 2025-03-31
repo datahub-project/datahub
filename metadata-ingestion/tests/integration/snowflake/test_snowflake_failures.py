@@ -126,38 +126,83 @@ def test_snowflake_no_databases_with_access_causes_pipeline_failure(
         ]
 
 
-@freeze_time(FROZEN_TIME)
-def test_snowflake_no_tables_causes_pipeline_failure(
-    pytestconfig,
-    snowflake_pipeline_config,
-):
-    with mock.patch("snowflake.connector.connect") as mock_connect:
-        sf_connection = mock.MagicMock()
-        sf_cursor = mock.MagicMock()
-        mock_connect.return_value = sf_connection
-        sf_connection.cursor.return_value = sf_cursor
-
-        # Error in listing databases
-        no_tables_fn = query_permission_response_override(
-            default_query_results,
-            [SnowflakeQuery.tables_for_schema("TEST_SCHEMA", "TEST_DB")],
-            [],
-        )
-        no_views_fn = query_permission_response_override(
-            no_tables_fn,
-            [SnowflakeQuery.show_views_for_database("TEST_DB")],
-            [],
-        )
-        sf_cursor.execute.side_effect = query_permission_response_override(
-            no_views_fn,
-            [SnowflakeQuery.streams_for_database("TEST_DB")],
-            [],
-        )
-        pipeline = Pipeline(snowflake_pipeline_config)
-        pipeline.run()
-        assert "permission-error" in [
-            failure.message for failure in pipeline.source.get_report().failures
-        ]
+@freeze_time(FROZEN_TIME)  
+def test_snowflake_no_tables_causes_pipeline_failure(  
+    pytestconfig,  
+    snowflake_pipeline_config,  
+):  
+    with mock.patch("snowflake.connector.connect") as mock_connect:  
+        sf_connection = mock.MagicMock()  
+        sf_cursor = mock.MagicMock()  
+        mock_connect.return_value = sf_connection  
+        sf_connection.cursor.return_value = sf_cursor  
+  
+        # Simulate no tables, views, or streams  
+        no_tables_fn = query_permission_response_override(  
+            default_query_results,  
+            [SnowflakeQuery.tables_for_schema("TEST_SCHEMA", "TEST_DB")],  
+            [],  
+        )  
+        no_views_fn = query_permission_response_override(  
+            no_tables_fn,  
+            [SnowflakeQuery.show_views_for_database("TEST_DB")],  
+            [],  
+        )  
+        sf_cursor.execute.side_effect = query_permission_response_override(  
+            no_views_fn,  
+            [SnowflakeQuery.streams_for_database("TEST_DB")],  
+            [],  
+        )  
+  
+        # Configure the pipeline to fail on no datasets  
+        snowflake_pipeline_config["source"]["config"]["warn_no_datasets"] = False
+  
+        pipeline = Pipeline(snowflake_pipeline_config)  
+        pipeline.run()  
+   
+        assert "permission-error" in [  
+            failure.message for failure in pipeline.source.get_report().failures  
+        ]  
+  
+@freeze_time(FROZEN_TIME)  
+def test_snowflake_no_tables_warns_on_no_datasets(  
+    pytestconfig,  
+    snowflake_pipeline_config,  
+):  
+    with mock.patch("snowflake.connector.connect") as mock_connect:  
+        sf_connection = mock.MagicMock()  
+        sf_cursor = mock.MagicMock()  
+        mock_connect.return_value = sf_connection  
+        sf_connection.cursor.return_value = sf_cursor  
+  
+        # Simulate no tables, views, or streams  
+        no_tables_fn = query_permission_response_override(  
+            default_query_results,  
+            [SnowflakeQuery.tables_for_schema("TEST_SCHEMA", "TEST_DB")],  
+            [],  
+        )  
+        no_views_fn = query_permission_response_override(  
+            no_tables_fn,  
+            [SnowflakeQuery.show_views_for_database("TEST_DB")],  
+            [],  
+        )  
+        sf_cursor.execute.side_effect = query_permission_response_override(  
+            no_views_fn,  
+            [SnowflakeQuery.streams_for_database("TEST_DB")],  
+            [],  
+        )  
+  
+        # Configure the pipeline to warn on no datasets  
+        snowflake_pipeline_config["source"]["config"]["warn_no_datasets"] = True
+  
+        pipeline = Pipeline(snowflake_pipeline_config)  
+        pipeline.run()  
+  
+        # Verify that a warning is reported, but no failure  
+        assert "No tables/views/streams found. Verify dataset permissions if Snowflake source is not empty." in [  
+            warning.message for warning in pipeline.source.get_report().warnings  
+        ]  
+        assert len(pipeline.source.get_report().failures) == 0
 
 
 @freeze_time(FROZEN_TIME)
