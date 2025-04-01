@@ -20,7 +20,7 @@ In order to configure ingestion from Snowflake, you'll first have to ensure you 
 2. Create a DataHub-specific user by executing the following queries. Replace `<your-password>` with a strong password. Replace `<your-warehouse>` with the same warehouse used above.
 
    ```sql
-   create user datahub_user display_name = 'DataHub' password='<your-password>' default_role = datahub_role default_warehouse = '<your-warehouse>';
+   create user datahub_user display_name = 'DataHub' password='<your-password>' default_role = datahub_role type='LEGACY_SERVICE' default_warehouse = '<your-warehouse>';
    -- Grant access to the DataHub role created above
    grant role datahub_role to user datahub_user;
    ```

@@ -1,4 +1,3 @@
-import { Icon } from '@components';
 import React from 'react';
 import { pluralize } from '@src/app/shared/textUtil';
 import { MatchLabelText, SearchContainer, StyledInput } from './styledComponents';
@@ -28,15 +27,14 @@ export const InlineListSearch: React.FC<InlineListSearchProps> = ({
     return (
         <SearchContainer>
             <StyledInput
-                bordered={false}
                 value={searchText}
                 placeholder={options?.placeholder || 'Search...'}
                 onChange={debouncedSetFilterText}
-                allowClear
-                prefix={!options?.hidePrefix && <Icon icon="MagnifyingGlass" source="phosphor" />}
+                icon={options?.hidePrefix ? undefined : { icon: 'MagnifyingGlass', source: 'phosphor' }}
+                label=""
             />
             {searchText && !options?.hideMatchCountText && (
-                <MatchLabelText>
+                <MatchLabelText data-testid="inline-search-matched-result-text">
                     Matched {matchResultCount} {pluralize(matchResultCount, entityTypeName)} of {numRows}
                 </MatchLabelText>
             )}

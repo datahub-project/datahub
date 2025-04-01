@@ -6,7 +6,7 @@ import { Pill } from '../Pills';
 export const PageTitle = ({ title, subTitle, pillLabel, variant = 'pageHeader' }: PageTitleProps) => {
     return (
         <Container>
-            <Title variant={variant}>
+            <Title data-testid="page-title" variant={variant}>
                 {title}
                 {pillLabel ? <Pill label={pillLabel} size="sm" clickable={false} /> : null}
             </Title>

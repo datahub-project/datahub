@@ -72,7 +72,7 @@ export default function PostItemMenu({ title, urn, onDelete, onEdit }: Props) {
 
     return (
         <Dropdown trigger={['click']} menu={{ items }}>
-            <MenuIcon data-testid={`dropdown-menu-${urn}`} fontSize={20} />
+            <MenuIcon data-testid={`dropdown-menu-${title}`} fontSize={20} />
         </Dropdown>
     );
 }

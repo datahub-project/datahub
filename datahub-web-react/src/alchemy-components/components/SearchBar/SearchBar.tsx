@@ -27,6 +27,7 @@ export const SearchBar = ({
             prefix={<Icon icon="MagnifyingGlass" source="phosphor" />}
             allowClear={allowClear}
             $width={width}
+            data-testid="search-bar-input"
             {...props}
         />
     );

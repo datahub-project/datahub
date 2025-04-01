@@ -135,6 +135,7 @@ export interface SelectProps {
     showCount?: boolean;
     shouldAlwaysSyncParentValues?: boolean;
     hideParentCheckbox?: boolean;
+    implicitlySelectChildren?: boolean;
 }
 
 export const selectDefaults: SelectProps = {
@@ -171,6 +172,7 @@ export const NestedSelect = ({
     showCount = false,
     shouldAlwaysSyncParentValues = false,
     hideParentCheckbox = false,
+    implicitlySelectChildren = true,
     ...props
 }: SelectProps) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -330,23 +332,30 @@ export const NestedSelect = ({
                         </SearchInputContainer>
                     )}
                     <OptionList>
-                        {rootOptions.map((option) => (
-                            <NestedOption
-                                key={option.value}
-                                selectedOptions={selectedOptions}
-                                option={option}
-                                parentValueToOptions={parentValueToOptions}
-                                handleOptionChange={handleOptionChange}
-                                addOptions={addOptions}
-                                removeOptions={removeOptions}
-                                loadData={loadData}
-                                isMultiSelect={isMultiSelect}
-                                setSelectedOptions={setSelectedOptions}
-                                areParentsSelectable={areParentsSelectable}
-                                isLoadingParentChildList={isLoadingParentChildList}
-                                hideParentCheckbox={hideParentCheckbox}
-                            />
-                        ))}
+                        {rootOptions.map((option) => {
+                            const isParentOptionLabelExpanded = selectedOptions.find(
+                                (opt) => opt.parentValue === option.value,
+                            );
+                            return (
+                                <NestedOption
+                                    key={option.value}
+                                    selectedOptions={selectedOptions}
+                                    option={option}
+                                    parentValueToOptions={parentValueToOptions}
+                                    handleOptionChange={handleOptionChange}
+                                    addOptions={addOptions}
+                                    removeOptions={removeOptions}
+                                    loadData={loadData}
+                                    isMultiSelect={isMultiSelect}
+                                    setSelectedOptions={setSelectedOptions}
+                                    areParentsSelectable={areParentsSelectable}
+                                    isLoadingParentChildList={isLoadingParentChildList}
+                                    hideParentCheckbox={hideParentCheckbox}
+                                    isParentOptionLabelExpanded={!!isParentOptionLabelExpanded}
+                                    implicitlySelectChildren={implicitlySelectChildren}
+                                />
+                            );
+                        })}
                     </OptionList>
                 </Dropdown>
             )}

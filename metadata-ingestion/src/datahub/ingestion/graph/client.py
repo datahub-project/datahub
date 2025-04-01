@@ -23,16 +23,22 @@ from typing import (
 )
 
 from avro.schema import RecordSchema
-from deprecated import deprecated
 from pydantic import BaseModel
 from requests.models import HTTPError
+from typing_extensions import deprecated
 
 from datahub.cli import config_utils
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.emitter.rest_emitter import (
+    DEFAULT_REST_EMITTER_ENDPOINT,
+    DEFAULT_REST_TRACE_MODE,
+    DatahubRestEmitter,
+    RestSinkEndpoint,
+    RestTraceMode,
+)
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.ingestion.graph.config import (
     DatahubClientConfig as DatahubClientConfig,
@@ -43,6 +49,7 @@ from datahub.ingestion.graph.connections import (
 )
 from datahub.ingestion.graph.entity_versioning import EntityVersioningAPI
 from datahub.ingestion.graph.filters import (
+    RawSearchFilter,
     RawSearchFilterRule,
     RemovedStatusFilter,
     generate_filter,
@@ -69,10 +76,11 @@ from datahub.metadata.schema_classes import (
     SystemMetadataClass,
     TelemetryClientIdClass,
 )
+from datahub.metadata.urns import CorpUserUrn, Urn
 from datahub.telemetry.telemetry import telemetry_instance
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.str_enum import StrEnum
-from datahub.utilities.urns.urn import Urn, guess_entity_type
+from datahub.utilities.urns.urn import guess_entity_type
 
 if TYPE_CHECKING:
     from datahub.ingestion.sink.datahub_rest import (
@@ -110,7 +118,7 @@ def entity_type_to_graphql(entity_type: str) -> str:
     """Convert the entity types into GraphQL "EntityType" enum values."""
 
     # Hard-coded special cases.
-    if entity_type == "corpuser":
+    if entity_type == CorpUserUrn.ENTITY_TYPE:
         return "CORP_USER"
 
     # Convert camelCase to UPPER_UNDERSCORE.
@@ -127,6 +135,14 @@ def entity_type_to_graphql(entity_type: str) -> str:
     return entity_type
 
 
+def flexible_entity_type_to_graphql(entity_type: str) -> str:
+    if entity_type.upper() == entity_type:
+        # Assume that we were passed a graphql EntityType enum value,
+        # so no conversion is needed.
+        return entity_type
+    return entity_type_to_graphql(entity_type)
+
+
 class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
     def __init__(self, config: DatahubClientConfig) -> None:
         self.config = config
@@ -141,6 +157,8 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             ca_certificate_path=self.config.ca_certificate_path,
             client_certificate_path=self.config.client_certificate_path,
             disable_ssl_verification=self.config.disable_ssl_verification,
+            openapi_ingestion=DEFAULT_REST_EMITTER_ENDPOINT == RestSinkEndpoint.OPENAPI,
+            default_trace_mode=DEFAULT_REST_TRACE_MODE == RestTraceMode.ENABLED,
         )
 
         self.server_id = _MISSING_SERVER_ID
@@ -322,7 +340,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                 f"Failed to find {aspect_type_name} in response {response_json}"
             )
 
-    @deprecated(reason="Use get_aspect instead which makes aspect string name optional")
+    @deprecated("Use get_aspect instead which makes aspect string name optional")
     def get_aspect_v2(
         self,
         entity_urn: str,
@@ -347,7 +365,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
     def get_schema_metadata(self, entity_urn: str) -> Optional[SchemaMetadataClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=SchemaMetadataClass)
 
-    @deprecated(reason="Use get_aspect directly.")
+    @deprecated("Use get_aspect directly.")
     def get_domain_properties(self, entity_urn: str) -> Optional[DomainPropertiesClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=DomainPropertiesClass)
 
@@ -368,7 +386,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
     def get_domain(self, entity_urn: str) -> Optional[DomainsClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=DomainsClass)
 
-    @deprecated(reason="Use get_aspect directly.")
+    @deprecated("Use get_aspect directly.")
     def get_browse_path(self, entity_urn: str) -> Optional[BrowsePathsClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=BrowsePathsClass)
 
@@ -497,7 +515,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         return response.json()
 
     @deprecated(
-        reason="Use get_aspect for a single aspect or get_entity_semityped for a full entity."
+        "Use get_aspect for a single aspect or get_entity_semityped for a full entity."
     )
     def get_aspects_for_entity(
         self,
@@ -627,9 +645,6 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
     def _aspect_count_endpoint(self):
         return f"{self.config.server}/aspects?action=getCount"
 
-    # def _session(self) -> Session:
-    #    return super()._session
-
     def get_domain_urn_by_name(self, domain_name: str) -> Optional[str]:
         """Retrieve a domain urn based on its name. Returns None if there is no match found"""
 
@@ -741,9 +756,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
 
         assert res["upsertConnection"]["urn"] == urn
 
-    @deprecated(
-        reason='Use get_urns_by_filter(entity_types=["container"], ...) instead'
-    )
+    @deprecated('Use get_urns_by_filter(entity_types=["container"], ...) instead')
     def get_container_urns_by_filter(
         self,
         env: Optional[str] = None,
@@ -782,9 +795,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         results: Dict = self._post_generic(url, search_body)
         num_entities = results["value"]["numEntities"]
         logger.debug(f"Matched {num_entities} containers")
-        entities_yielded: int = 0
         for x in results["value"]["entities"]:
-            entities_yielded += 1
             logger.debug(f"yielding {x['entity']}")
             yield x["entity"]
 
@@ -804,7 +815,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
 
         :return: An iterable of (urn, schema info) tuple that match the filters.
         """
-        types = [entity_type_to_graphql("dataset")]
+        types = self._get_types(["dataset"])
 
         # Add the query default of * if no query is specified.
         query = query or "*"
@@ -872,10 +883,10 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         env: Optional[str] = None,
         query: Optional[str] = None,
         container: Optional[str] = None,
-        status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
+        status: Optional[RemovedStatusFilter] = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 10000,
         extraFilters: Optional[List[RawSearchFilterRule]] = None,
-        extra_or_filters: Optional[List[Dict[str, List[RawSearchFilterRule]]]] = None,
+        extra_or_filters: Optional[RawSearchFilter] = None,
     ) -> Iterable[str]:
         """Fetch all urns that match all of the given filters.
 
@@ -967,7 +978,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 10000,
         extra_and_filters: Optional[List[RawSearchFilterRule]] = None,
-        extra_or_filters: Optional[List[Dict[str, List[RawSearchFilterRule]]]] = None,
+        extra_or_filters: Optional[RawSearchFilter] = None,
         extra_source_fields: Optional[List[str]] = None,
         skip_cache: bool = False,
     ) -> Iterable[dict]:
@@ -1120,7 +1131,8 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                 )
 
             types = [
-                entity_type_to_graphql(entity_type) for entity_type in entity_types
+                flexible_entity_type_to_graphql(entity_type)
+                for entity_type in entity_types
             ]
         return types
 

@@ -121,6 +121,9 @@ public class PoliciesConfig {
   public static final Privilege MANAGE_TAGS_PRIVILEGE =
       Privilege.of("MANAGE_TAGS", "Manage Tags", "Create and remove Tags.");
 
+  public static final Privilege VIEW_MANAGE_TAGS_PRIVILEGE =
+      Privilege.of("VIEW_MANAGE_TAGS", "View Manage Tags", "View the 'Manage Tags' page.");
+
   public static final Privilege CREATE_TAGS_PRIVILEGE =
       Privilege.of("CREATE_TAGS", "Create Tags", "Create new Tags.");
 
@@ -210,6 +213,7 @@ public class PoliciesConfig {
           MANAGE_GLOSSARIES_PRIVILEGE,
           MANAGE_USER_CREDENTIALS_PRIVILEGE,
           MANAGE_TAGS_PRIVILEGE,
+          VIEW_MANAGE_TAGS_PRIVILEGE,
           CREATE_TAGS_PRIVILEGE,
           CREATE_DOMAINS_PRIVILEGE,
           CREATE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE,
