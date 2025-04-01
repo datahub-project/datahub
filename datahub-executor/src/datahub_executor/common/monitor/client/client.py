@@ -1,6 +1,7 @@
 import logging
 import time
-from typing import Optional
+from datetime import datetime, timedelta, timezone
+from typing import List, Optional
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -16,16 +17,20 @@ from datahub.metadata.schema_classes import (
     DatasetFreshnessAssertionParametersClass,
     DatasetVolumeAssertionParametersClass,
     FreshnessFieldSpecClass,
+    MonitorAnomalyEventClass,
     MonitorErrorClass,
     MonitorStateClass,
     MonitorTypeClass,
     SystemMetadataClass,
 )
 
+from datahub_executor.common.metric.types import Metric
 from datahub_executor.common.monitor.client.patch_builder import MonitorPatchBuilder
-from datahub_executor.common.types import AssertionEvaluationSpec
+from datahub_executor.common.types import Anomaly, AssertionEvaluationSpec
 
 logger = logging.getLogger(__name__)
+
+_DEFAULT_ANOMALY_LIMIT = 200
 
 
 class MonitorClient:
@@ -36,6 +41,66 @@ class MonitorClient:
 
     def __init__(self, graph: DataHubGraph) -> None:
         self.graph = graph
+
+    def fetch_monitor_anomalies(
+        self,
+        urn: str,
+        lookback: timedelta,
+        limit: int,
+    ) -> List[Anomaly]:
+        """
+        Fetch anomaly events for a given monitor urn.
+        """
+        end_time = datetime.now(timezone.utc)
+        start_time = end_time - lookback
+
+        return self.fetch_monitor_anomalies_by_time(
+            urn,
+            start_time=start_time,
+            end_time=end_time,
+            limit=limit,
+        )
+
+    def fetch_monitor_anomalies_by_time(
+        self,
+        monitor_urn: str,
+        start_time: datetime,
+        end_time: datetime,
+        limit: int = _DEFAULT_ANOMALY_LIMIT,
+    ) -> List[Anomaly]:
+        """
+        Fetch anomaly events for a given monitor urn.
+
+        Args:
+            monitor_urn (str): The monitor's URN.
+            start_time_ms (int): Start timestamp (milliseconds).
+            end_time_ms (int): End timestamp (milliseconds).
+
+        Returns:
+            List[Anomaly]: A list of anomalies, if there are any.
+        """
+        logger.info("Fetching historical anomalies for monitor %s", monitor_urn)
+
+        monitor_event_aspects = self.graph.get_timeseries_values(
+            entity_urn=monitor_urn,
+            aspect_type=MonitorAnomalyEventClass,
+            filter={
+                "or": [
+                    {
+                        "and": self._build_timeseries_filter(start_time, end_time),
+                    }
+                ]
+            },
+            limit=limit,
+        )
+
+        return [
+            Anomaly(
+                timestamp_ms=monitor_event.timestampMillis,
+                metric=self._get_monitor_anomaly_event_metric(monitor_event),
+            )
+            for monitor_event in monitor_event_aspects or []
+        ]
 
     def update_assertion_info(
         self,
@@ -356,3 +421,36 @@ class MonitorClient:
             ),
             context=assertion_evaluation_context,
         )
+
+    @classmethod
+    def _build_timeseries_filter(
+        cls, start_time: datetime, end_time: datetime
+    ) -> list[dict]:
+        # TODO: Migrate this to use the new Search SDK filters dsl once that's available in acryl-main.
+        return [
+            {
+                "field": "timestampMillis",
+                "condition": "GREATER_THAN_OR_EQUAL_TO",
+                "value": str(int(start_time.timestamp() * 1000)),
+            },
+            {
+                "field": "timestampMillis",
+                "condition": "LESS_THAN_OR_EQUAL_TO",
+                "value": str(int(end_time.timestamp() * 1000)),
+            },
+        ]
+
+    def _get_monitor_anomaly_event_metric(
+        self, monitor_anomaly_event: MonitorAnomalyEventClass
+    ) -> Optional[Metric]:
+        if (
+            monitor_anomaly_event.source
+            and monitor_anomaly_event.source.properties
+            and monitor_anomaly_event.source.properties.assertionMetric
+        ):
+            value = monitor_anomaly_event.source.properties.assertionMetric.value
+            timestamp_ms = (
+                monitor_anomaly_event.source.properties.assertionMetric.timestampMs
+            )
+            return Metric(value=value, timestamp_ms=timestamp_ms)
+        return None

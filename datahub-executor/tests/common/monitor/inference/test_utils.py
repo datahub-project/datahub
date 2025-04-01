@@ -10,6 +10,7 @@ from datahub.metadata.schema_classes import (
     EmbeddedAssertionClass,
 )
 
+from datahub_executor.common.metric.types import Metric
 from datahub_executor.common.monitor.inference.metric_projection.metric_predictor import (
     MetricBoundary,
 )
@@ -17,7 +18,9 @@ from datahub_executor.common.monitor.inference.utils import (
     build_std_parameters,
     create_embedded_assertion,
     create_inference_source,
+    is_metric_anomaly,
 )
+from datahub_executor.common.types import Anomaly
 
 
 @pytest.fixture
@@ -96,3 +99,36 @@ def test_create_inference_source() -> None:
     # Assert
     assert isinstance(result, AssertionSourceClass)
     assert result.type == AssertionSourceTypeClass.INFERRED
+
+
+def test_is_metric_anomaly() -> None:
+    """Test detecting whether a metric is an anomaly"""
+    # Case 1: Metric is an anomaly.
+    anomalies = [
+        Anomaly(timestamp_ms=0, metric=Metric(value=123, timestamp_ms=1)),
+        Anomaly(timestamp_ms=1, metric=Metric(value=124, timestamp_ms=2)),
+    ]
+
+    metric = Metric(value=123, timestamp_ms=1)
+
+    assert is_metric_anomaly(metric, anomalies) is True
+
+    # Case 2: Metric is not an anomaly, does not match value.
+    anomalies = [Anomaly(timestamp_ms=0, metric=Metric(value=123, timestamp_ms=1))]
+
+    metric = Metric(value=124, timestamp_ms=1)
+
+    assert is_metric_anomaly(metric, anomalies) is False
+
+    # Case 2: Metric is not an anomaly, does not match timestamp.
+    anomalies = [Anomaly(timestamp_ms=0, metric=Metric(value=123, timestamp_ms=1))]
+
+    metric = Metric(value=123, timestamp_ms=2)
+
+    assert is_metric_anomaly(metric, anomalies) is False
+
+    # Case 3: Empty anomalies.
+    anomalies = []
+    metric = Metric(value=123, timestamp_ms=1)
+
+    assert is_metric_anomaly(metric, anomalies) is False

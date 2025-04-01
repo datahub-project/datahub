@@ -1,4 +1,5 @@
 import logging
+from typing import List
 
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
@@ -11,9 +12,11 @@ from datahub.metadata.schema_classes import (
     TimeWindowSizeClass,
 )
 
+from datahub_executor.common.metric.types import Metric
 from datahub_executor.common.monitor.inference.metric_projection.metric_predictor import (
     MetricBoundary,
 )
+from datahub_executor.common.types import Anomaly
 
 logger = logging.getLogger(__name__)
 
@@ -57,3 +60,19 @@ def create_inference_source() -> AssertionSourceClass:
     Create an assertion source indicating it was inferred.
     """
     return AssertionSourceClass(type=AssertionSourceTypeClass.INFERRED)
+
+
+def is_metric_anomaly(metric: Metric, anomalies: List[Anomaly]) -> bool:
+    """
+    Simply checks whether the metric is in the set of anomalies reported.
+    """
+    for anomaly in anomalies:
+        if anomaly.metric:
+            anomaly_metric = anomaly.metric
+            # If the anomaly is the same as the metric, filter it out!
+            if (
+                anomaly_metric.timestamp_ms == metric.timestamp_ms
+                and anomaly_metric.value == metric.value
+            ):
+                return True
+    return False

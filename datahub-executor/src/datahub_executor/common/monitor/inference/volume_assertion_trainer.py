@@ -24,6 +24,7 @@ from datahub_executor.common.monitor.inference.utils import (
     build_std_parameters,
     create_embedded_assertion,
     create_inference_source,
+    is_metric_anomaly,
 )
 from datahub_executor.common.types import (
     Assertion,
@@ -101,11 +102,25 @@ class VolumeAssertionTrainer(BaseAssertionTrainer[Metric]):
         training_window_duration = timedelta(days=lookback_days)
 
         # Fetch metrics
-        return self.metrics_client.fetch_metric_values(
+        metrics = self.metrics_client.fetch_metric_values(
             metric_cube_urn,
             lookback=training_window_duration,
             limit=2000,
         )
+
+        # Fetch anomalies
+        anomalies = self.monitor_client.fetch_monitor_anomalies(
+            urn=monitor.urn,
+            lookback=training_window_duration,
+            limit=2000,
+        )
+
+        # Filter out anomalies to avoid using in training
+        metrics_without_anomalies = [
+            metric for metric in metrics if not is_metric_anomaly(metric, anomalies)
+        ]
+
+        return metrics_without_anomalies
 
     def remove_inferred_assertion(
         self,

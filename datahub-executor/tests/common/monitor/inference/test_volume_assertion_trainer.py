@@ -28,6 +28,7 @@ from datahub_executor.common.monitor.inference.volume_assertion_trainer import (
     VolumeAssertionTrainer,
 )
 from datahub_executor.common.types import (
+    Anomaly,
     Assertion,
     AssertionAdjustmentSettings,
     AssertionEvaluationSpec,
@@ -109,14 +110,25 @@ def mock_metrics_data() -> List[Metric]:
     metrics: List[Metric] = []
     for i in range(10):
         metric = Mock(spec=Metric)
-        metric.timestamp_ms = (
-            int(time.time() * 1000) - i * 3600 * 1000
-        )  # Each 1 hour apart
-        metric.metric_type = "ROW_COUNT"
-        metric.metric_value = 1000 + i * 100
+        metric.timestamp_ms = i * 3600 * 1000  # Each 1 hour apart
+        metric.value = 1000 + i * 100
         metrics.append(cast(Metric, metric))
 
     return metrics
+
+
+@pytest.fixture
+def mock_anomalies_data() -> List[Anomaly]:
+    """Create mock anomalies data for testing."""
+    anomalies: List[Anomaly] = []
+    for i in range(5):
+        anomaly = Mock(spec=Anomaly)
+        timestamp_ms = i * 3600 * 1000
+        anomaly.timestamp_ms = timestamp_ms
+        anomaly.metric = Metric(value=1000 + i * 100, timestamp_ms=timestamp_ms)
+        anomalies.append(cast(Anomaly, anomaly))
+
+    return anomalies
 
 
 @pytest.fixture
@@ -310,6 +322,46 @@ def test_get_metric_data(
     mock_get_metric_cube_urn.assert_called_once_with(mock_monitor.urn)
     mock_dependencies["metrics_client"].fetch_metric_values.assert_called_once()
     assert result == mock_metrics_data
+
+
+@patch(
+    "datahub_executor.common.monitor.inference.base_assertion_trainer.BaseAssertionTrainer.get_metric_cube_urn"
+)
+def test_get_metric_data_with_anomalies(
+    mock_get_metric_cube_urn: MagicMock,
+    trainer: VolumeAssertionTrainer,
+    mock_dependencies: Dict[str, Union[MagicMock, Mock]],
+    mock_monitor: Mock,
+    mock_assertion: Mock,
+    mock_metrics_data: List[Metric],
+    mock_anomalies_data: List[Anomaly],
+) -> None:
+    """Test that get_metric_data correctly filters out anomalies."""
+    # Arrange
+    mock_get_metric_cube_urn.return_value = (
+        "urn:li:dataHubMetricCube:encoded-monitor-urn"
+    )
+    mock_dependencies[
+        "metrics_client"
+    ].fetch_metric_values.return_value = mock_metrics_data
+    mock_dependencies[
+        "monitor_client"
+    ].fetch_monitor_anomalies.return_value = mock_anomalies_data
+
+    # Act
+    result = trainer.get_metric_data(
+        cast(Monitor, mock_monitor),
+        cast(Assertion, mock_assertion),
+        None,
+    )
+
+    # Assert
+    mock_get_metric_cube_urn.assert_called_once_with(mock_monitor.urn)
+    mock_dependencies["metrics_client"].fetch_metric_values.assert_called_once()
+    mock_dependencies["monitor_client"].fetch_monitor_anomalies.assert_called_once()
+
+    # The first 5 will be filtered as anomalies.
+    assert result == mock_metrics_data[5:]
 
 
 def test_remove_inferred_assertion(

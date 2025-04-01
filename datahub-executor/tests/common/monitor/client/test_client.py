@@ -1,18 +1,29 @@
+from datetime import datetime, timedelta, timezone
+from typing import List
 from unittest.mock import MagicMock, patch
 
 import pytest
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
+    AnomalySourceClass,
+    AnomalySourcePropertiesClass,
     AssertionEvaluationContextClass,
     AssertionInfoClass,
+    AssertionMetricClass,
     FreshnessFieldSpecClass,
+    MonitorAnomalyEventClass,
     MonitorErrorClass,
     MonitorStateClass,
     MonitorTypeClass,
+    TimeStampClass,
 )
 
+from datahub_executor.common.metric.types import (
+    Metric,
+)
 from datahub_executor.common.monitor.client.client import MonitorClient
+from datahub_executor.common.types import Anomaly
 
 
 @pytest.fixture
@@ -51,6 +62,26 @@ def test_evaluation_context() -> AssertionEvaluationContextClass:
     return AssertionEvaluationContextClass(
         embeddedAssertions=None, inferenceDetails=None, stdDev=None
     )
+
+
+@pytest.fixture
+def sample_anomalies() -> List[Anomaly]:
+    """Create sample anomaly data for testing."""
+    now = int(datetime.now(timezone.utc).timestamp() * 1000)
+    return [
+        Anomaly(
+            timestamp_ms=now - 3600000,
+            metric=Metric(value=100.0, timestamp_ms=now - 3600000),
+        ),  # 1 hour ago
+        Anomaly(
+            timestamp_ms=now - 7200000,
+            metric=Metric(value=200.0, timestamp_ms=now - 7200000),
+        ),  # 2 hours ago
+        Anomaly(
+            timestamp_ms=now - 10800000,
+            metric=Metric(value=300.0, timestamp_ms=now - 10800000),
+        ),  # 3 hours ago
+    ]
 
 
 class TestMonitorClient:
@@ -402,3 +433,111 @@ class TestMonitorClient:
         assert builder == mock_builder
         mock_patch_builder_class.assert_called_with(urn="test_urn")
         mock_builder.set_type.assert_called_with(MonitorTypeClass.ASSERTION)
+
+    def test_fetch_monitor_anomalies(
+        self,
+        monitor_client: MonitorClient,
+        test_monitor_urn: str,
+        mock_graph: MagicMock,
+        sample_anomalies: List[Anomaly],
+    ) -> None:
+        """Test fetching metric values with lookback."""
+        # Setup mock response
+        mock_anomaly_events = [
+            self._create_monitor_anomaly_event(anomaly) for anomaly in sample_anomalies
+        ]
+        mock_graph.get_timeseries_values.return_value = mock_anomaly_events
+
+        # Test
+        with patch("datetime.datetime", wraps=datetime) as mock_datetime:
+            # Mock now() to return a fixed time
+            fixed_now = datetime(2022, 1, 1, tzinfo=timezone.utc)
+            mock_datetime.now.return_value = fixed_now
+
+            result = monitor_client.fetch_monitor_anomalies(
+                test_monitor_urn,
+                lookback=timedelta(days=7),
+                limit=200,
+            )
+
+        # Verify the result
+        assert len(result) == len(sample_anomalies)
+        for i, anomaly in enumerate(result):
+            assert anomaly.timestamp_ms == sample_anomalies[i].timestamp_ms
+            assert anomaly.metric.value == sample_anomalies[i].metric.value  # type: ignore
+            assert (
+                anomaly.metric.timestamp_ms == sample_anomalies[i].metric.timestamp_ms  # type: ignore
+            )  # type: ignore
+
+        # Verify that get_timeseries_values was called with correct params
+        mock_graph.get_timeseries_values.assert_called_once()
+        call_args = mock_graph.get_timeseries_values.call_args[1]
+        assert call_args["entity_urn"] == test_monitor_urn
+        assert call_args["aspect_type"] == MonitorAnomalyEventClass
+        assert call_args["limit"] == 200
+
+    def test_fetch_monitor_anomalies_by_time(
+        self,
+        monitor_client: MonitorClient,
+        test_monitor_urn: str,
+        mock_graph: MagicMock,
+        sample_anomalies: List[Anomaly],
+    ) -> None:
+        """Test fetching anomalies by specific time range."""
+        # Setup mock response
+        mock_anomaly_events = [
+            self._create_monitor_anomaly_event(anomaly) for anomaly in sample_anomalies
+        ]
+        mock_graph.get_timeseries_values.return_value = mock_anomaly_events
+
+        # Test with specific time range
+        start_time = datetime(2022, 1, 1, tzinfo=timezone.utc)
+        end_time = datetime(2022, 1, 7, tzinfo=timezone.utc)
+        result = monitor_client.fetch_monitor_anomalies_by_time(
+            test_monitor_urn, start_time=start_time, end_time=end_time, limit=100
+        )
+
+        # Verify the result
+        assert len(result) == len(sample_anomalies)
+        for i, anomaly in enumerate(result):
+            assert anomaly.timestamp_ms == sample_anomalies[i].timestamp_ms
+            assert anomaly.metric.value == sample_anomalies[i].metric.value  # type: ignore
+            assert (
+                anomaly.metric.timestamp_ms == sample_anomalies[i].metric.timestamp_ms  # type: ignore
+            )  # type: ignore
+
+        # Verify that get_timeseries_values was called with correct params
+        mock_graph.get_timeseries_values.assert_called_once()
+        call_args = mock_graph.get_timeseries_values.call_args[1]
+        assert call_args["entity_urn"] == test_monitor_urn
+        assert call_args["aspect_type"] == MonitorAnomalyEventClass
+        assert call_args["limit"] == 100
+
+        # Verify time filter
+        time_filter = call_args["filter"]["or"][0]["and"]
+        assert time_filter[0]["field"] == "timestampMillis"
+        assert time_filter[0]["condition"] == "GREATER_THAN_OR_EQUAL_TO"
+        assert time_filter[0]["value"] == str(int(start_time.timestamp() * 1000))
+        assert time_filter[1]["field"] == "timestampMillis"
+        assert time_filter[1]["condition"] == "LESS_THAN_OR_EQUAL_TO"
+        assert time_filter[1]["value"] == str(int(end_time.timestamp() * 1000))
+
+    def _create_monitor_anomaly_event(
+        self, anomaly: Anomaly
+    ) -> MonitorAnomalyEventClass:
+        return MonitorAnomalyEventClass(
+            timestampMillis=anomaly.timestamp_ms,
+            source=AnomalySourceClass(
+                type="INFERRED_ASSERTION_FAILURE",
+                properties=AnomalySourcePropertiesClass(
+                    assertionMetric=AssertionMetricClass(
+                        timestampMs=anomaly.metric.timestamp_ms,  # type: ignore
+                        value=anomaly.metric.value,  # type: ignore
+                    )
+                ),
+            ),
+            state="CONFIRMED",
+            # TODO: Determine whether we really need these audit fields.
+            created=TimeStampClass(time=0),
+            lastUpdated=TimeStampClass(time=0),
+        )

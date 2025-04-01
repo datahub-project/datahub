@@ -1498,3 +1498,12 @@ class SweeperAction(PermissiveBaseModel):
     description: str
     args: Dict[str, Any]
     errors_fatal: bool = False
+
+
+class Anomaly(PermissiveBaseModel):
+    """
+    Model representing a metric or operation anomaly.
+    """
+
+    timestamp_ms: int
+    metric: Optional[Metric]
