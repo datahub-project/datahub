@@ -208,14 +208,10 @@ class VertexAISource(Source):
             yield from self._get_pipeline_mcps(pipeline_meta)
             yield from self._gen_pipeline_task_mcps(pipeline_meta)
 
-    def _get_pipeline_metadata(self, pipeline: PipelineJob) -> PipelineMetadata:
-        dataflow_urn = DataFlowUrn.create_from_ids(
-            orchestrator=self.platform,
-            env=self.config.env,
-            flow_id=self._make_vertexai_pipeline_name(pipeline.name),
-            platform_instance=self.platform,
-        )
-        tasks = []
+    def _get_pipeline_tasks_metadata(
+        self, pipeline: PipelineJob, pipeline_urn: DataFlowUrn
+    ) -> List[PipelineTaskMetadata]:
+        tasks: List[PipelineTaskMetadata] = list()
         task_map: Dict[str, PipelineTaskDetail] = dict()
         for task in pipeline.task_details:
             task_map[task.task_name] = task
@@ -224,7 +220,7 @@ class VertexAISource(Source):
         if isinstance(resource, PipelineJobType):
             for task_name in resource.pipeline_spec["root"]["dag"]["tasks"]:
                 task_urn = DataJobUrn.create_from_ids(
-                    data_flow_urn=str(dataflow_urn),
+                    data_flow_urn=str(pipeline_urn),
                     job_id=self._make_vertexai_pipeline_task_name(task_name),
                 )
                 task_meta = PipelineTaskMetadata(name=task_name, urn=task_urn)
@@ -237,7 +233,7 @@ class VertexAISource(Source):
                     ]["dependentTasks"]
                     upstream_urls = [
                         DataJobUrn.create_from_ids(
-                            data_flow_urn=str(dataflow_urn),
+                            data_flow_urn=str(pipeline_urn),
                             job_id=self._make_vertexai_pipeline_task_name(
                                 upstream_task
                             ),
@@ -263,6 +259,18 @@ class VertexAISource(Source):
                         )
 
                 tasks.append(task_meta)
+        return tasks
+
+    def _get_pipeline_metadata(self, pipeline: PipelineJob) -> PipelineMetadata:
+        dataflow_urn = DataFlowUrn.create_from_ids(
+            orchestrator=self.platform,
+            env=self.config.env,
+            flow_id=self._make_vertexai_pipeline_name(pipeline.name),
+            platform_instance=self.platform,
+        )
+        tasks = self._get_pipeline_tasks_metadata(
+            pipeline=pipeline, pipeline_urn=dataflow_urn
+        )
 
         pipeline_meta = PipelineMetadata(
             name=pipeline.name,
