@@ -62,8 +62,8 @@ export const INCIDENT_CATEGORIES = [
 ];
 
 export enum IncidentAction {
-    ADD = 'add',
-    VIEW = 'view',
+    CREATE = 'create',
+    EDIT = 'edit',
 }
 
 interface IncidentPriorityInterface {
@@ -220,3 +220,5 @@ export const STAGE_ORDER = [
 export const STATE_ORDER = [INCIDENT_STATE_NAME_MAP.ACTIVE, INCIDENT_STATE_NAME_MAP.RESOLVED];
 
 export const MAX_VISIBLE_ASSIGNEE = 5;
+
+export const noPermissionsMessage = 'You do not have permission to edit incidents for this asset.';

@@ -1,0 +1,16 @@
+version: '3'
+services:
+  hex-mock-api:
+    image: python:3.9-alpine
+    container_name: hex-mock-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./hex_projects_response.json:/app/hex_projects_response.json
+      - ./mock_server.py:/app/mock_server.py
+    command: ["python", "/app/mock_server.py"]
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
