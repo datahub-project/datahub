@@ -436,7 +436,6 @@ class IcebergSource(StatefulIngestionSourceBase):
             custom_properties["manifest-list"] = table.current_snapshot().manifest_list
             if not last_modified:
                 last_modified = int(table.current_snapshot().timestamp_ms)
-        print(f"last modified value: {last_modified}")
         if "created-at" in custom_properties:
             try:
                 dt = dateutil_parser.isoparse(custom_properties["created-at"])
