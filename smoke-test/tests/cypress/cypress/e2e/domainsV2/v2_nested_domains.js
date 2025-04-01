@@ -75,7 +75,7 @@ const verifyEditAndPerformAddAndRemoveActionForDomain = (
   entity,
   action,
   text,
-  body
+  body,
 ) => {
   cy.clickOptionWithText(entity);
   cy.clickOptionWithText(action);
@@ -206,7 +206,7 @@ describe("Verify nested domains test functionalities", () => {
     cy.clickOptionWithTestId("addOwner");
     cy.enterTextInTestId(
       "edit-owners-modal-find-actors-input",
-      Cypress.env("ADMIN_DISPLAYNAME") || "DataHub"
+      Cypress.env("ADMIN_DISPLAYNAME") || "DataHub",
     );
 
     // Select the admin user from the dropdown
@@ -258,7 +258,7 @@ describe("Verify nested domains test functionalities", () => {
     cy.goToDomainList();
     cy.get('[class^="ManageDomainsPageV2__PageWrapper"]').should(
       "contain.text",
-      domainName
+      domainName,
     );
     cy.clickOptionWithText(domainName);
     deleteFromDomainDropdown();
@@ -298,7 +298,7 @@ describe("Verify nested domains test functionalities", () => {
       "Tags",
       "Add tags",
       "Cypress",
-      "Add Tags"
+      "Add Tags",
     );
     cy.clickOptionWithText("Baz Chart 2");
     cy.waitTextVisible("Cypress");
@@ -312,7 +312,7 @@ describe("Verify nested domains test functionalities", () => {
       "Tags",
       "Remove tags",
       "Cypress",
-      "Remove Tags"
+      "Remove Tags",
     );
     cy.clickTextOptionWithClass(".ant-dropdown-trigger", "Domain");
     cy.clickOptionWithText("Unset Domain");
