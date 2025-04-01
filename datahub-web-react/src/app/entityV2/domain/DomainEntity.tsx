@@ -1,4 +1,5 @@
 import { AppstoreOutlined, FileDoneOutlined, FileOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { ListBullets } from '@phosphor-icons/react';
 import * as React from 'react';
 import { useGetDomainQuery } from '../../../graphql/domain.generated';
 import { Domain, EntityType, SearchResult } from '../../../types.generated';
@@ -171,7 +172,7 @@ export class DomainEntity implements Entity<Domain> {
             name: 'Properties',
             component: PropertiesTab,
             description: 'View additional properties about this asset',
-            icon: UnorderedListOutlined,
+            icon: ListBullets,
         },
     ];
 

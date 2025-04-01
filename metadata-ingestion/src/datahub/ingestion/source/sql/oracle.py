@@ -31,7 +31,9 @@ from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     make_sqlalchemy_type,
 )
-from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
+from datahub.ingestion.source.sql.sql_config import (
+    BasicSQLAlchemyConfig,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -71,10 +73,12 @@ class OracleConfig(BasicSQLAlchemyConfig):
         description="Will be set automatically to default value.",
     )
     service_name: Optional[str] = Field(
-        default=None, description="Oracle service name. If using, omit `database`."
+        default=None,
+        description="Oracle service name. If using, omit `database`.",
     )
     database: Optional[str] = Field(
-        default=None, description="If using, omit `service_name`."
+        default=None,
+        description="If using, omit `service_name`.",
     )
     add_database_name_to_urn: Optional[bool] = Field(
         default=False,
@@ -631,7 +635,6 @@ class OracleSource(SQLAlchemySource):
     - Table, row, and column statistics via optional SQL profiling
 
     Using the Oracle source requires that you've also installed the correct drivers; see the [cx_Oracle docs](https://cx-oracle.readthedocs.io/en/latest/user_guide/installation.html). The easiest one is the [Oracle Instant Client](https://www.oracle.com/database/technologies/instant-client.html).
-
     """
 
     config: OracleConfig
@@ -661,6 +664,8 @@ class OracleSource(SQLAlchemySource):
         database name from Connection URL, which does not work when using
         service instead of database.
         In that case, it tries to retrieve the database name by sending a query to the DB.
+
+        Note: This is used as a fallback if database is not specified in the config.
         """
 
         # call default implementation first
@@ -687,7 +692,49 @@ class OracleSource(SQLAlchemySource):
                 # To silent the mypy lint error
                 yield cast(Inspector, inspector)
 
+    def get_db_schema(self, dataset_identifier: str) -> Tuple[Optional[str], str]:
+        """
+        Override the get_db_schema method to ensure proper schema name extraction.
+        This method is used during view lineage extraction to determine the default schema
+        for unqualified table names in view definitions.
+        """
+        try:
+            # Try to get the schema from the dataset identifier
+            parts = dataset_identifier.split(".")
+
+            # Handle the identifier format differently based on add_database_name_to_urn flag
+            if self.config.add_database_name_to_urn:
+                if len(parts) >= 3:
+                    # Format is: database.schema.view when add_database_name_to_urn=True
+                    db_name = parts[-3]
+                    schema_name = parts[-2]
+                    return db_name, schema_name
+                elif len(parts) >= 2:
+                    # Handle the case where database might be missing even with flag enabled
+                    # If we have a database in the config, use that
+                    db_name = str(self.config.database)
+                    schema_name = parts[-2]
+                    return db_name, schema_name
+            else:
+                # Format is: schema.view when add_database_name_to_urn=False
+                if len(parts) >= 2:
+                    # When add_database_name_to_urn is False, don't include database in the result
+                    db_name = None
+                    schema_name = parts[-2]
+                    return db_name, schema_name
+        except Exception as e:
+            logger.warning(
+                f"Error extracting schema from identifier {dataset_identifier}: {e}"
+            )
+
+        # Fall back to parent implementation if our approach fails
+        db_name, schema_name = super().get_db_schema(dataset_identifier)
+        return db_name, schema_name
+
     def get_workunits(self):
+        """
+        Override get_workunits to patch Oracle dialect for custom types.
+        """
         with patch.dict(
             "sqlalchemy.dialects.oracle.base.OracleDialect.ischema_names",
             {klass.__name__: klass for klass in extra_oracle_types},

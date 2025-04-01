@@ -132,6 +132,11 @@ type PlatformPrivileges {
   manageTags: Boolean!
 
   """
+  Whether the user should be able to view the tags management page.
+  """
+  viewManageTags: Boolean!
+
+  """
   Whether the user should be able to create, update, and delete global views.
   """
   manageGlobalViews: Boolean!
@@ -608,6 +613,12 @@ type FeatureFlagsConfig {
   If turned on, show the redesigned search bar's autocomplete
   """
   showSearchBarAutocompleteRedesign: Boolean!
+
+  """
+  If enabled, users will be able to view the tags management experience
+  """
+  showManageTags: Boolean!
+
 }
 
 """
