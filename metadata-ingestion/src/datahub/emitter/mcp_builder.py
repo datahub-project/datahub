@@ -117,6 +117,14 @@ class ContainerKey(DatahubKey):
 PlatformKey = ContainerKey
 
 
+class NamespaceKey(ContainerKey):
+    """
+    For Iceberg namespaces (databases/schemas)
+    """
+
+    namespace: str
+
+
 class DatabaseKey(ContainerKey):
     database: str
 
