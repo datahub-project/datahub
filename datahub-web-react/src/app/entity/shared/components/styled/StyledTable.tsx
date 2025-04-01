@@ -1,3 +1,4 @@
+import React from 'react';
 import { Table } from 'antd';
 import styled from 'styled-components';
 import { colors, typography } from '@src/alchemy-components/theme';
@@ -53,11 +54,19 @@ const commonLastColumnStyles = `
     padding-right: 16px;
 `;
 
-export const StyledTable = styled(Table)`
+const TableWrapper = styled.div`
     margin-top: 16px;
     margin-left: 20px;
     margin-right: 20px;
-    width: calc(100% - 40px); /* Account for left and right margins */
+    width: calc(100% - 40px);
+    border: 1px solid ${colors.gray[1400]};
+    border-radius: 12px;
+    overflow: hidden;
+`;
+
+const BaseStyledTable = styled(Table)`
+    overflow: inherit;
+    height: inherit;
 
     /* Container styles */
     &&& .ant-table {
@@ -65,18 +74,18 @@ export const StyledTable = styled(Table)`
     }
 
     &&& .ant-table-container {
-        border: 1px solid ${colors.gray[1400]};
-        border-radius: 12px;
-        overflow: auto;
         width: 100%;
+        overflow: inherit;
     }
 
     &&& .ant-table-content {
         width: 100%;
+        overflow: inherit;
     }
 
     &&& .ant-table-body {
         ${commonScrollStyles}
+        overflow: inherit;
     }
 
     &&& .ant-table-cell {
@@ -168,4 +177,9 @@ export const StyledTable = styled(Table)`
         border-top: none !important;
     }
 ` as typeof Table;
-// this above line preserves the Table component's generic-ness
+
+export const StyledTable = (props: any) => (
+    <TableWrapper data-testid="styled-table-wrapper">
+        <BaseStyledTable {...props} />
+    </TableWrapper>
+);
