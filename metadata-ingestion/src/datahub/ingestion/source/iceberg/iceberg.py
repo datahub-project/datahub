@@ -65,7 +65,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
 from datahub.ingestion.api.source_helpers import (
-    TimeStampMetadata,
+    AutoSystemMetadata,
     auto_fix_duplicate_schema_field_paths,
     auto_fix_empty_field_paths,
     auto_lowercase_urns,
@@ -269,7 +269,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                     LOGGER.debug(
                         f"Didn't find stamping_processor in thread_local ({thread_local}), initializing new workunit processor"
                     )
-                    thread_local.stamping_processor = TimeStampMetadata(self.ctx)
+                    thread_local.stamping_processor = AutoSystemMetadata(self.ctx)
 
                 with PerfTimer() as timer:
                     table = thread_local.local_catalog.load_table(dataset_path)
@@ -373,7 +373,7 @@ class IcebergSource(StatefulIngestionSourceBase):
             return
 
         try:
-            stamping_processor = TimeStampMetadata(self.ctx)
+            stamping_processor = AutoSystemMetadata(self.ctx)
             namespace_ids = self._get_namespaces(catalog)
             namespaces: List[Tuple[Identifier, str]] = []
             for namespace in namespace_ids:

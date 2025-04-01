@@ -551,7 +551,7 @@ def _prepend_platform_instance(
     return entries
 
 
-class TimeStampMetadata:
+class AutoSystemMetadata:
     def __init__(self, ctx: PipelineContext):
         self.ctx = ctx
         if not self.ctx.pipeline_config:
