@@ -3,9 +3,7 @@ import styled from 'styled-components';
 import { colors, typography } from '@src/alchemy-components/theme';
 
 const commonTableStyles = `
-    border-radius: 12px;
-    border: 1px solid ${colors.gray[1400]};
-    overflow: clip; /* Modern alternative to hidden that maintains visibility */
+    width: 100%;
 `;
 
 const commonCellStyles = `
@@ -22,6 +20,8 @@ const commonHeaderStyles = `
     border-right: 1px solid ${colors.gray[1400]};
     padding: 0 16px;
     height: 42px;
+    position: sticky;
+    top: 0;
 `;
 
 const commonBodyStyles = `
@@ -32,20 +32,7 @@ const commonBodyStyles = `
 `;
 
 const commonScrollStyles = `
-    overflow-y: auto;
-    overflow-x: hidden;
-    &::-webkit-scrollbar {
-        display: none;
-    }
-    -ms-overflow-style: none;
-    scrollbar-width: none;
     min-height: 100px;  /* Ensure there's always some height for Cypress */
-    position: relative; /* Create stacking context */
-`;
-
-const commonBorderRadiusStyles = `
-    border-radius: 12px;
-    overflow: clip; /* Modern alternative to hidden that maintains visibility */
 `;
 
 const commonPaginationStyles = `
@@ -53,12 +40,6 @@ const commonPaginationStyles = `
     padding: 12px 16px;
     background: #fff;
     border-top: none;
-`;
-
-const commonSorterStyles = `
-    font-size: 10px;
-    transform: scale(0.8);
-    color: ${colors.gray[1800]};
 `;
 
 const commonFirstColumnStyles = `
@@ -73,30 +54,29 @@ const commonLastColumnStyles = `
 `;
 
 export const StyledTable = styled(Table)`
-    margin: 16px 20px 0px 20px;
-    position: relative;
-    z-index: 1;
+    margin-top: 16px;
+    margin-left: 20px;
+    margin-right: 20px;
+    width: calc(100% - 40px); /* Account for left and right margins */
 
-    /* Main table styles */
+    /* Container styles */
     &&& .ant-table {
         ${commonTableStyles}
     }
 
-    &&& .ant-table-container,
+    &&& .ant-table-container {
+        border: 1px solid ${colors.gray[1400]};
+        border-radius: 12px;
+        overflow: auto;
+        width: 100%;
+    }
+
     &&& .ant-table-content {
-        ${commonBorderRadiusStyles}
-        position: relative;
+        width: 100%;
     }
 
     &&& .ant-table-body {
         ${commonScrollStyles}
-    }
-
-    &&& .ant-table-scroll,
-    &&& .ant-table-scrollbar {
-        overflow: clip;
-        display: block;
-        position: relative;
     }
 
     &&& .ant-table-cell {
@@ -124,17 +104,6 @@ export const StyledTable = styled(Table)`
         border-top-right-radius: 12px;
     }
 
-    &&& .ant-table-column-title,
-    &&& .ant-table-column-sorter {
-        font-size: 12px;
-        font-weight: 700;
-        color: ${colors.gray[1700]};
-    }
-
-    &&& .ant-table-column-sorter-inner {
-        ${commonSorterStyles}
-    }
-
     &&& .ant-table-tbody td,
     &&& .ant-table-tbody .ant-table-cell {
         ${commonBodyStyles}
@@ -146,14 +115,6 @@ export const StyledTable = styled(Table)`
 
     &&& .ant-table-tbody > tr > td:first-child {
         ${commonFirstColumnStyles}
-    }
-
-    &&& .ant-table-tbody > tr:last-child > td:first-child {
-        border-bottom-left-radius: 12px;
-    }
-
-    &&& .ant-table-tbody > tr:last-child > td:last-child {
-        border-bottom-right-radius: 12px;
     }
 
     &&& tr {
@@ -169,93 +130,23 @@ export const StyledTable = styled(Table)`
     }
 
     /* Expanded table styles */
-    &&& .ant-table-expanded-row .ant-table-wrapper {
-        margin: 8px 0;
-    }
+    &&& .ant-table-expanded-row {
+        &&& .ant-table-cell {
+            ${commonCellStyles}
+        }
 
-    &&& .ant-table-expanded-row .ant-table {
-        ${commonTableStyles}
-    }
+        &&& .ant-table-thead .ant-table-cell {
+            ${commonHeaderStyles}
+        }
 
-    &&& .ant-table-expanded-row .ant-table-container,
-    &&& .ant-table-expanded-row .ant-table-content {
-        ${commonBorderRadiusStyles}
-    }
+        &&& .ant-table-tbody td,
+        &&& .ant-table-tbody .ant-table-cell {
+            ${commonBodyStyles}
+        }
 
-    &&& .ant-table-expanded-row .ant-table-body {
-        ${commonScrollStyles}
-    }
-
-    &&& .ant-table-expanded-row .ant-table-scroll,
-    &&& .ant-table-expanded-row .ant-table-scrollbar {
-        overflow: clip;
-        display: block;
-        position: relative;
-    }
-
-    &&& .ant-table-expanded-row .ant-table-cell {
-        ${commonCellStyles}
-    }
-
-    &&& .ant-table-expanded-row .ant-table-thead .ant-table-cell {
-        ${commonHeaderStyles}
-    }
-
-    &&& .ant-table-expanded-row .ant-table-thead .ant-table-cell:last-child {
-        ${commonLastColumnStyles}
-        border-right: none;
-    }
-
-    &&& .ant-table-expanded-row .ant-table-thead .ant-table-cell::before {
-        display: none !important;
-    }
-
-    &&& .ant-table-expanded-row .ant-table-thead .ant-table-cell:first-child {
-        border-top-left-radius: 12px;
-    }
-
-    &&& .ant-table-expanded-row .ant-table-thead .ant-table-cell:last-child {
-        border-top-right-radius: 12px;
-    }
-
-    &&& .ant-table-expanded-row .ant-table-column-title,
-    &&& .ant-table-expanded-row .ant-table-column-sorter {
-        font-size: 12px;
-        font-weight: 700;
-        color: ${colors.gray[1700]};
-    }
-
-    &&& .ant-table-expanded-row .ant-table-column-sorter-inner {
-        ${commonSorterStyles}
-    }
-
-    &&& .ant-table-expanded-row .ant-table-tbody td,
-    &&& .ant-table-expanded-row .ant-table-tbody .ant-table-cell {
-        ${commonBodyStyles}
-    }
-
-    &&& .ant-table-expanded-row .ant-table-tbody > tr > td:first-child {
-        ${commonFirstColumnStyles}
-    }
-
-    &&& .ant-table-expanded-row .ant-table-tbody > tr:last-child > td:first-child {
-        border-bottom-left-radius: 12px;
-    }
-
-    &&& .ant-table-expanded-row .ant-table-tbody > tr:last-child > td:last-child {
-        border-bottom-right-radius: 12px;
-    }
-
-    &&& .ant-table-expanded-row tr {
-        height: 32px;
-    }
-
-    &&& .ant-table-expanded-row .ant-table-tbody > tr > td {
-        border-bottom: 1px solid ${colors.gray[1400]};
-    }
-
-    &&& .ant-table-expanded-row .ant-table-tbody > tr:last-child > td {
-        border-bottom: none;
+        &&& .ant-table-tbody > tr > td:first-child {
+            ${commonFirstColumnStyles}
+        }
     }
 
     /* Pagination styles */
