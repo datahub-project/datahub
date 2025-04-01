@@ -433,6 +433,7 @@ export const IngestionSourceList = ({
             okText: 'Execute',
             maskClosable: true,
             closable: true,
+            zIndex: 1051,
         });
     };
 
@@ -447,6 +448,7 @@ export const IngestionSourceList = ({
             okText: 'Yes',
             maskClosable: true,
             closable: true,
+            zIndex: 1051,
         });
     };
 
