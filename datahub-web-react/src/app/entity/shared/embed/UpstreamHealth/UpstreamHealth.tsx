@@ -42,7 +42,7 @@ export default function UpstreamHealth() {
             start: incidentsDataStart,
             includeAssertions: false,
             includeIncidents: true,
-            skip: !lineageEnabled,
+            skip: !lineageEnabled || !urn,
         }),
     );
 
@@ -58,7 +58,7 @@ export default function UpstreamHealth() {
             start: assertionsDataStart,
             includeAssertions: true,
             includeIncidents: false,
-            skip: !lineageEnabled,
+            skip: !lineageEnabled || !urn,
         }),
     );
 
