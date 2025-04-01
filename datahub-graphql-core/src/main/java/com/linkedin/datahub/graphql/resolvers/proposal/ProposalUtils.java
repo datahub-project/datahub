@@ -749,6 +749,9 @@ public class ProposalUtils {
     }
 
     UrnArray tagUrnArray = proposals.getProposedTags();
+    if (tagUrnArray == null || tagUrnArray.isEmpty()) {
+      return;
+    }
     tagUrnArray.removeAll(tagUrns);
     proposals.setProposedTags(tagUrnArray);
 
@@ -784,6 +787,9 @@ public class ProposalUtils {
 
     SchemaProposal schemaProposal = schemaProposalOptional.get();
     UrnArray tagUrnArray = schemaProposal.getProposedSchemaTags();
+    if (tagUrnArray == null || tagUrnArray.isEmpty()) {
+      return;
+    }
     tagUrnArray.removeAll(tagUrns);
     schemaProposal.setProposedSchemaTags(tagUrnArray);
 
@@ -901,6 +907,9 @@ public class ProposalUtils {
     }
 
     UrnArray glossaryTermUrnArray = proposals.getProposedGlossaryTerms();
+    if (glossaryTermUrnArray == null || glossaryTermUrnArray.isEmpty()) {
+      return;
+    }
     glossaryTermUrnArray.removeAll(termUrns);
     proposals.setProposedGlossaryTerms(glossaryTermUrnArray);
 
@@ -937,6 +946,9 @@ public class ProposalUtils {
     SchemaProposal schemaProposal = schemaProposalOptional.get();
 
     UrnArray glossaryTermUrnArray = schemaProposal.getProposedSchemaGlossaryTerms();
+    if (glossaryTermUrnArray == null || glossaryTermUrnArray.isEmpty()) {
+      return;
+    }
     glossaryTermUrnArray.removeAll(termUrns);
     schemaProposal.setProposedSchemaGlossaryTerms(glossaryTermUrnArray);
 
