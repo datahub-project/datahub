@@ -343,7 +343,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     List<SystemAspect> systemAspects =
         EntityUtils.toSystemAspects(
-            opContext.getRetrieverContext(), batchGetResults.values(), false);
+            opContext.getRetrieverContext(), batchGetResults.values());
 
     systemAspects.stream()
         // for now, don't add the key aspect here we have already added it above
@@ -372,7 +372,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         getLatestAspect(opContext, new HashSet<>(Arrays.asList(urn)), aspectNames, forUpdate);
 
     return EntityUtils.toSystemAspects(
-            opContext.getRetrieverContext(), batchGetResults.values(), false)
+            opContext.getRetrieverContext(), batchGetResults.values())
         .stream()
         .map(
             systemAspect -> Pair.of(systemAspect.getAspectName(), systemAspect.getRecordTemplate()))
@@ -802,7 +802,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     }
 
     return new ListResult<>(
-        EntityUtils.toSystemAspects(opContext.getRetrieverContext(), entityAspects, false).stream()
+        EntityUtils.toSystemAspects(opContext.getRetrieverContext(), entityAspects).stream()
             .map(SystemAspect::getRecordTemplate)
             .collect(Collectors.toList()),
         aspectMetadataList.getMetadata(),
@@ -1676,8 +1676,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   List<SystemAspect> systemAspects =
                       EntityUtils.toSystemAspectFromEbeanAspects(
                           opContext.getRetrieverContext(),
-                          batch.collect(Collectors.toList()),
-                          false);
+                          batch.collect(Collectors.toList()));
 
                   RestoreIndicesResult result =
                       restoreIndices(opContext, systemAspects, logger, args.createDefaultAspects());
@@ -1730,8 +1729,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         List<SystemAspect> systemAspects =
             EntityUtils.toSystemAspects(
                 opContext.getRetrieverContext(),
-                getLatestAspect(opContext, entityBatch.getValue(), aspectNames, false).values(),
-                false);
+                getLatestAspect(opContext, entityBatch.getValue(), aspectNames, false).values());
         long timeSqlQueryMs = System.currentTimeMillis() - startTime;
 
         RestoreIndicesResult result =
@@ -2839,7 +2837,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     final Map<EntityAspectIdentifier, EntityAspect> dbEntries = aspectDao.batchGet(dbKeys, false);
 
     List<SystemAspect> envelopedAspects =
-        EntityUtils.toSystemAspects(opContext.getRetrieverContext(), dbEntries.values(), false);
+        EntityUtils.toSystemAspects(opContext.getRetrieverContext(), dbEntries.values());
 
     return envelopedAspects.stream()
         .collect(
