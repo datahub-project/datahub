@@ -4,16 +4,22 @@ import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.kafka.hook.EntityRegistryTestUtil.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.anomaly.AnomalySource;
+import com.linkedin.anomaly.AnomalySourceType;
+import com.linkedin.anomaly.MonitorAnomalyEvent;
 import com.linkedin.assertion.AssertionAction;
 import com.linkedin.assertion.AssertionActionArray;
 import com.linkedin.assertion.AssertionActionType;
 import com.linkedin.assertion.AssertionActions;
 import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionMetric;
 import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.AssertionResultType;
 import com.linkedin.assertion.AssertionRunEvent;
@@ -25,6 +31,9 @@ import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.DatasetAssertionInfo;
 import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.EntityRelationship;
+import com.linkedin.common.EntityRelationshipArray;
+import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.FabricType;
 import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
@@ -49,6 +58,7 @@ import com.linkedin.incident.IncidentType;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -62,6 +72,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nonnull;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -940,6 +951,309 @@ public class AssertionActionsHookTest {
         .deleteEntity(any(OperationContext.class), Mockito.eq(TEST_INCIDENT_URN));
     Mockito.verify(entityClient, Mockito.times(1))
         .deleteEntityReferences(any(OperationContext.class), Mockito.eq(TEST_INCIDENT_URN));
+  }
+
+  @Test
+  public void testInvokeInferredAssertionRunEventFailureProducesAnomalyEvent() throws Exception {
+    // Mock a monitor URN that should be returned when looking for the monitor associated with the
+    // assertion
+    final Urn testMonitorUrn = UrnUtils.getUrn("urn:li:dataMonitor:test-monitor");
+
+    // Create a mock entity client
+    SystemEntityClient entityClient = mock(SystemEntityClient.class);
+
+    // Setup the mock entity client to return assertion info for the test assertion
+    AssertionInfo assertionInfo =
+        new AssertionInfo()
+            .setType(AssertionType.DATASET)
+            .setSource(
+                new AssertionSource().setType(AssertionSourceType.INFERRED)) // Inferred Assertion!
+            .setDatasetAssertion(
+                new DatasetAssertionInfo()
+                    .setDataset(TEST_DATASET_URN)
+                    .setScope(DatasetAssertionScope.DATASET_COLUMN));
+
+    when(entityClient.getV2(
+            any(OperationContext.class),
+            eq(ASSERTION_ENTITY_NAME),
+            eq(TEST_ASSERTION_URN),
+            eq(
+                ImmutableSet.of(
+                    ASSERTION_INFO_ASPECT_NAME,
+                    ASSERTION_ACTIONS_ASPECT_NAME,
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME))))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(TEST_ASSERTION_URN)
+                .setEntityName(ASSERTION_ENTITY_NAME)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            ASSERTION_INFO_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setName(ASSERTION_INFO_ASPECT_NAME)
+                                .setValue(new Aspect(assertionInfo.data()))))));
+
+    // Create a mock graph client that will return our test monitor URN
+    GraphClient mockGraphClient = mock(GraphClient.class);
+
+    // Create entities relationship result with a monitor URN
+    EntityRelationships relationships = new EntityRelationships();
+    EntityRelationship relationship = new EntityRelationship();
+    relationship.setEntity(testMonitorUrn);
+    relationships.setRelationships(new EntityRelationshipArray(ImmutableList.of(relationship)));
+
+    // Setup mock to return the relationship when queried
+    when(mockGraphClient.getRelatedEntities(
+            eq(TEST_ASSERTION_URN.toString()),
+            eq(ImmutableList.of("Evaluates")),
+            eq(RelationshipDirection.INCOMING),
+            eq(0),
+            eq(1),
+            anyString()))
+        .thenReturn(relationships);
+
+    // Create an instance of the hook with our mocked GraphClient
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(
+                entityClient, mockGraphClient, true, mock(OpenApiClient.class), objectMapper)
+            .init(mockOperationContext());
+
+    // Create a failure event for the inferred assertion with a metric value
+    AssertionRunEvent testEvent =
+        buildAssertionRunEvent(
+            TEST_ASSERTION_URN, AssertionRunStatus.COMPLETE, AssertionResultType.FAILURE);
+    AssertionMetric assertionMetric = new AssertionMetric().setValue(1.0f).setTimestampMs(1);
+    testEvent.getResult().setMetric(assertionMetric); // Set a metric value to test its propagation
+
+    MetadataChangeLog event =
+        buildMetadataChangeLog(
+            TEST_ASSERTION_URN, ASSERTION_RUN_EVENT_ASPECT_NAME, ChangeType.UPSERT, testEvent);
+
+    // Invoke the hook with our event
+    hook.invoke(event);
+
+    // Verify that the graph client was called to find related entities
+    verify(mockGraphClient, times(1))
+        .getRelatedEntities(
+            eq(TEST_ASSERTION_URN.toString()),
+            eq(ImmutableList.of("Evaluates")),
+            eq(RelationshipDirection.INCOMING),
+            eq(0),
+            eq(1),
+            anyString());
+
+    // Verify that a monitor anomaly event was created
+    ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    verify(entityClient, times(1))
+        .ingestProposal(any(OperationContext.class), proposalCaptor.capture(), eq(true));
+
+    // Validate the monitor anomaly event properties
+    MetadataChangeProposal proposal = proposalCaptor.getValue();
+    assertEquals(testMonitorUrn, proposal.getEntityUrn());
+    assertEquals(MONITOR_ANOMALY_EVENT_ASPECT_NAME, proposal.getAspectName());
+
+    // Extract and validate the anomaly event
+    MonitorAnomalyEvent anomalyEvent =
+        GenericRecordUtils.deserializeAspect(
+            proposal.getAspect().getValue(),
+            proposal.getAspect().getContentType(),
+            MonitorAnomalyEvent.class);
+
+    assertEquals(testEvent.getTimestampMillis(), anomalyEvent.getTimestampMillis());
+    assertEquals(testEvent.getTimestampMillis(), anomalyEvent.getCreated().getTime());
+    assertEquals(testEvent.getTimestampMillis(), anomalyEvent.getLastUpdated().getTime());
+
+    // Check the source properties
+    AnomalySource source = anomalyEvent.getSource();
+    assertEquals(TEST_ASSERTION_URN, source.getSourceUrn());
+    assertEquals(AnomalySourceType.INFERRED_ASSERTION_FAILURE, source.getType());
+    assertTrue(source.hasProperties());
+    assertEquals(
+        assertionMetric.getTimestampMs(),
+        source.getProperties().getAssertionMetric().getTimestampMs());
+    assertEquals(
+        assertionMetric.getValue(), source.getProperties().getAssertionMetric().getValue());
+  }
+
+  @Test
+  public void testInvokeNonInferredAssertionRunEventFailureDoesNotProduceAnomalyEvent()
+      throws Exception {
+    // Create a mock entity client
+    SystemEntityClient entityClient = mock(SystemEntityClient.class);
+
+    // Setup the mock entity client to return assertion info without inferred source
+    AssertionInfo assertionInfo =
+        new AssertionInfo()
+            .setType(AssertionType.DATASET)
+            // Note: No source means it's not an inferred assertion
+            .setDatasetAssertion(
+                new DatasetAssertionInfo()
+                    .setDataset(TEST_DATASET_URN)
+                    .setScope(DatasetAssertionScope.DATASET_COLUMN));
+
+    when(entityClient.getV2(
+            any(OperationContext.class),
+            eq(ASSERTION_ENTITY_NAME),
+            eq(TEST_ASSERTION_URN),
+            eq(
+                ImmutableSet.of(
+                    ASSERTION_INFO_ASPECT_NAME,
+                    ASSERTION_ACTIONS_ASPECT_NAME,
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME))))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(TEST_ASSERTION_URN)
+                .setEntityName(ASSERTION_ENTITY_NAME)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            ASSERTION_INFO_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setName(ASSERTION_INFO_ASPECT_NAME)
+                                .setValue(new Aspect(assertionInfo.data()))))));
+
+    // Mock graph client but it should not be used for non-inferred assertions
+    GraphClient mockGraphClient = mock(GraphClient.class);
+
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(
+                entityClient, mockGraphClient, true, mock(OpenApiClient.class), objectMapper)
+            .init(mockOperationContext());
+
+    // Create a failure event for the non-inferred assertion
+    AssertionRunEvent testEvent =
+        buildAssertionRunEvent(
+            TEST_ASSERTION_URN, AssertionRunStatus.COMPLETE, AssertionResultType.FAILURE);
+
+    MetadataChangeLog event =
+        buildMetadataChangeLog(
+            TEST_ASSERTION_URN, ASSERTION_RUN_EVENT_ASPECT_NAME, ChangeType.UPSERT, testEvent);
+
+    // Invoke the hook with our event
+    hook.invoke(event);
+
+    // Verify that we looked up the assertion info
+    verify(entityClient, times(2))
+        .getV2(
+            any(OperationContext.class),
+            eq(ASSERTION_ENTITY_NAME),
+            eq(TEST_ASSERTION_URN),
+            eq(
+                ImmutableSet.of(
+                    ASSERTION_INFO_ASPECT_NAME,
+                    ASSERTION_ACTIONS_ASPECT_NAME,
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME)));
+
+    // Verify that the graph client was NOT called since this is not an inferred assertion
+    verify(mockGraphClient, times(0))
+        .getRelatedEntities(
+            anyString(),
+            anyList(),
+            any(RelationshipDirection.class),
+            anyInt(),
+            anyInt(),
+            anyString());
+
+    // Verify that NO monitor anomaly event was created
+    verify(entityClient, times(0))
+        .ingestProposal(
+            any(OperationContext.class),
+            argThat(
+                proposal ->
+                    proposal != null
+                        && MONITOR_ANOMALY_EVENT_ASPECT_NAME.equals(proposal.getAspectName())),
+            anyBoolean());
+  }
+
+  @Test
+  public void testMonitorUrnNotFound() throws Exception {
+    // Create a mock entity client
+    SystemEntityClient entityClient = mock(SystemEntityClient.class);
+
+    // Setup the mock entity client to return assertion info for the test assertion
+    AssertionInfo assertionInfo =
+        new AssertionInfo()
+            .setType(AssertionType.DATASET)
+            .setSource(new AssertionSource().setType(AssertionSourceType.INFERRED))
+            .setDatasetAssertion(
+                new DatasetAssertionInfo()
+                    .setDataset(TEST_DATASET_URN)
+                    .setScope(DatasetAssertionScope.DATASET_COLUMN));
+
+    when(entityClient.getV2(
+            any(OperationContext.class),
+            eq(ASSERTION_ENTITY_NAME),
+            eq(TEST_ASSERTION_URN),
+            eq(
+                ImmutableSet.of(
+                    ASSERTION_INFO_ASPECT_NAME,
+                    ASSERTION_ACTIONS_ASPECT_NAME,
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME))))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(TEST_ASSERTION_URN)
+                .setEntityName(ASSERTION_ENTITY_NAME)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            ASSERTION_INFO_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setName(ASSERTION_INFO_ASPECT_NAME)
+                                .setValue(new Aspect(assertionInfo.data()))))));
+
+    // Create a mock graph client that will return an empty relationship list
+    GraphClient mockGraphClient = mock(GraphClient.class);
+
+    // Return empty relationships to simulate no monitor found
+    EntityRelationships emptyRelationships = new EntityRelationships();
+    emptyRelationships.setRelationships(new EntityRelationshipArray());
+
+    when(mockGraphClient.getRelatedEntities(
+            eq(TEST_ASSERTION_URN.toString()),
+            eq(ImmutableList.of("Evaluates")),
+            eq(RelationshipDirection.INCOMING),
+            eq(0),
+            eq(1),
+            anyString()))
+        .thenReturn(emptyRelationships);
+
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(
+                entityClient, mockGraphClient, true, mock(OpenApiClient.class), objectMapper)
+            .init(mockOperationContext());
+
+    // Create a failure event for the inferred assertion
+    AssertionRunEvent testEvent =
+        buildAssertionRunEvent(
+            TEST_ASSERTION_URN, AssertionRunStatus.COMPLETE, AssertionResultType.FAILURE);
+
+    MetadataChangeLog event =
+        buildMetadataChangeLog(
+            TEST_ASSERTION_URN, ASSERTION_RUN_EVENT_ASPECT_NAME, ChangeType.UPSERT, testEvent);
+
+    // Invoke the hook with our event
+    hook.invoke(event);
+
+    // Verify that the graph client was called to search for relationships
+    verify(mockGraphClient, times(1))
+        .getRelatedEntities(
+            eq(TEST_ASSERTION_URN.toString()),
+            eq(ImmutableList.of("Evaluates")),
+            eq(RelationshipDirection.INCOMING),
+            eq(0),
+            eq(1),
+            anyString());
+
+    // Verify that NO monitor anomaly event was created since no monitor was found
+    verify(entityClient, times(0))
+        .ingestProposal(
+            any(OperationContext.class), any(MetadataChangeProposal.class), anyBoolean());
   }
 
   private SystemEntityClient mockSystemEntityClient(

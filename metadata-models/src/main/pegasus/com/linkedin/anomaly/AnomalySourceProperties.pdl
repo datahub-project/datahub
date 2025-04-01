@@ -9,12 +9,6 @@ import com.linkedin.assertion.AssertionMetric
  */
 record AnomalySourceProperties {
   /**
-  * The timestampMillis field of the AssertionRunEvent which altered the anomaly status the anomaly (if applicable).
-  */
-  @TimeseriesField = {}
-  assertionRunEventTime: optional long
-
-  /**
    * The monitor metric associated with the anomaly, if generated from an assertion monitor (the norm).
    */
   assertionMetric: optional AssertionMetric

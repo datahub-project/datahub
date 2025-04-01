@@ -6,6 +6,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.anomaly.AnomalySource;
+import com.linkedin.anomaly.AnomalySourceProperties;
+import com.linkedin.anomaly.AnomalySourceType;
+import com.linkedin.anomaly.MonitorAnomalyEvent;
 import com.linkedin.assertion.AssertionAction;
 import com.linkedin.assertion.AssertionActions;
 import com.linkedin.assertion.AssertionInfo;
@@ -15,6 +19,7 @@ import com.linkedin.assertion.AssertionRunStatus;
 import com.linkedin.assertion.AssertionSourceType;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.common.Status;
+import com.linkedin.common.TimeStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.client.EntityClient;
@@ -26,6 +31,7 @@ import com.linkedin.incident.IncidentSource;
 import com.linkedin.incident.IncidentSourceType;
 import com.linkedin.incident.IncidentState;
 import com.linkedin.incident.IncidentType;
+import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.hook.HookUtils;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
@@ -68,6 +74,9 @@ import org.springframework.stereotype.Component;
  * <p>a) Incidents: When an Assertion fails, this hook will inspect whether the assertion has been
  * configured to raise incidents. If yes, then the generator will auto-raise an incident related to
  * this assertion. If no, then the generator will skip the assertion.
+ *
+ * <p>b) Monitor Anomaly: For inferred assertions, the hook will always attempt to produce a monitor
+ * anomaly event, which is used to filter out metrics used to train the anomaly detection model.
  *
  * <p>Case 3: An Assertion is Hard Deleted.
  *
@@ -225,11 +234,17 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
       @Nonnull final Urn assertionUrn,
       @Nonnull final AssertionRunEvent runEvent,
       @Nonnull final AssertionInfo info) {
-    // 1. Fetch the assertion info to retrieve any actions
+    // 1. For assertion failures, always attempt to produce a monitor anomaly event if
+    // assertion is inferred.
+    if (isInferredAssertion(info)) {
+      produceMonitorAnomalyEvent(assertionUrn, runEvent);
+    }
+
+    // 2. Fetch the assertion info to retrieve any actions
     final AssertionActions actions =
         assertionService.getAssertionActions(systemOpContext, assertionUrn);
 
-    // 2. Ensure that assertion exists & has actions
+    // 3. Ensure that assertion exists & has actions
     if (actions != null && actions.hasOnFailure()) {
       actions
           .getOnFailure()
@@ -391,6 +406,77 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
               entityUrn, assertionUrn),
           e);
     }
+  }
+
+  /**
+   * Produces a monitor anomaly event for a failed assertion run result (if the assertion is
+   * inferred).
+   *
+   * @param assertionUrn urn of the assertion that failed.
+   * @param runEvent the run event that failed.
+   */
+  private void produceMonitorAnomalyEvent(
+      @Nonnull final Urn assertionUrn, @Nonnull final AssertionRunEvent runEvent) {
+    try {
+
+      final Urn monitorUrn =
+          assertionService.getMonitorUrnForAssertion(systemOpContext, assertionUrn);
+
+      if (monitorUrn == null) {
+        log.warn(
+            String.format(
+                "Could not find monitor urn for assertion urn %s. Skipping producing monitor anomaly event!",
+                assertionUrn));
+        return;
+      }
+
+      // Now, create the monitor anomaly event.
+      produceMonitorAnomalyEvent(monitorUrn, assertionUrn, runEvent);
+
+    } catch (Exception e) {
+      // Simply log for now. Not worth throwing & breaking the hook
+      log.error(
+          String.format(
+              "Caught exception while attempting to produce monitor anomaly event for assertion urn %s! This means that the monitor may not be trained on the correct data!",
+              assertionUrn),
+          e);
+    }
+  }
+
+  private void produceMonitorAnomalyEvent(
+      @Nonnull final Urn monitorUrn,
+      @Nonnull final Urn assertionUrn,
+      @Nonnull final AssertionRunEvent runEvent) {
+    try {
+      MonitorAnomalyEvent event = new MonitorAnomalyEvent();
+      event.setTimestampMillis(runEvent.getTimestampMillis());
+      event.setCreated(new TimeStamp().setTime(runEvent.getTimestampMillis()));
+      event.setLastUpdated(new TimeStamp().setTime(runEvent.getTimestampMillis()));
+      event.setSource(buildMonitorAnomalySource(assertionUrn, runEvent));
+      this.entityClient.ingestProposal(
+          systemOpContext,
+          AspectUtils.buildMetadataChangeProposal(
+              monitorUrn, MONITOR_ANOMALY_EVENT_ASPECT_NAME, event),
+          true);
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format(
+              "Failed to produce monitor anomaly event for monitor %s! This means that the monitor may not be updated.",
+              monitorUrn),
+          e);
+    }
+  }
+
+  private AnomalySource buildMonitorAnomalySource(
+      @Nonnull final Urn assertionUrn, @Nonnull final AssertionRunEvent runEvent) {
+    AnomalySource source = new AnomalySource();
+    source.setSourceUrn(assertionUrn);
+    source.setType(AnomalySourceType.INFERRED_ASSERTION_FAILURE);
+    if (runEvent.hasResult() && runEvent.getResult().hasMetric()) {
+      source.setProperties(
+          new AnomalySourceProperties().setAssertionMetric(runEvent.getResult().getMetric()));
+    }
+    return source;
   }
 
   private void tryDeleteActiveIncidents(@Nonnull final Urn assertionUrn) {

@@ -87,6 +87,8 @@ public class AssertionService extends BaseService {
   static final List<String> ENTITY_TYPES_WITH_ASSERTION_SUMMARIES =
       ImmutableList.of(Constants.DATASET_ENTITY_NAME);
   private static final String ASSERTS_RELATIONSHIP_NAME = "Asserts";
+  private static final String MONITOR_EVALUATES_RELATIONSHIP_NAME = "Evaluates";
+
   private static final int MAX_ASSERTIONS_TO_LIST = 1000;
   private final GraphClient _graphClient;
   private final Clock _clock;
@@ -262,6 +264,36 @@ public class AssertionService extends BaseService {
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to retrieve entity for assertion with urn %s", assertionUrn), e);
+    }
+    return null;
+  }
+
+  /**
+   * Retrieves the monitor associated with the assertion
+   *
+   * @param opContext the operation context
+   * @param assertionUrn the urn of the assertion to retrieve monitor for
+   * @return Entity urn associated with the assertion
+   */
+  public @Nullable Urn getMonitorUrnForAssertion(
+      @Nonnull OperationContext opContext, @Nonnull final Urn assertionUrn) {
+    try {
+      // Fetch the entity associated with the assertion from the Graph
+      final EntityRelationships relationships =
+          _graphClient.getRelatedEntities(
+              assertionUrn.toString(),
+              ImmutableList.of(MONITOR_EVALUATES_RELATIONSHIP_NAME),
+              RelationshipDirection.INCOMING,
+              0,
+              1,
+              opContext.getActorContext().getActorUrn().toString());
+
+      if (relationships.hasRelationships() && !relationships.getRelationships().isEmpty()) {
+        return relationships.getRelationships().get(0).getEntity();
+      }
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to retrieve monitor for assertion with urn %s", assertionUrn), e);
     }
     return null;
   }

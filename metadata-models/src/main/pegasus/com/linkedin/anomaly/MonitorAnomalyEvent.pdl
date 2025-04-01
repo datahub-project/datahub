@@ -18,7 +18,7 @@ record MonitorAnomalyEvent includes TimeseriesAspectBase {
    * If this is not present, then the Anomaly has not yet been reviewed.
    */
   @TimeseriesField = {}
-  state: enum AnomalyReviewState {
+  state: optional enum AnomalyReviewState {
     /**
      * The anomaly has been confirmed by a human reviewer. This means the anomaly was validated.
      */
