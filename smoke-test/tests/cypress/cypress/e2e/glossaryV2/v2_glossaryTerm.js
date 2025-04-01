@@ -45,7 +45,7 @@ const elementVisibility = () => {
 
 const enterKeyInSearchBox = (text) => {
   cy.get('[data-testid="search-input"]')
-    .eq(2)
+    .last()
     .should("be.visible")
     .click()
     .type(`${text}{enter}`);
@@ -69,7 +69,7 @@ describe("glossaryTerm", () => {
     cy.waitTextVisible("Added Glossary Term to entities!");
     cy.clickTextOptionWithClass(".ant-tabs-tab", "Related Assets");
     invokeTextFromElement(
-      '[data-testid^="preview-urn:"] div[data-testid="entity-title"]',
+      '[data-testid^="preview-urn:"] div[data-testid="entity-title"]'
     ).then((assetText) => {
       enterKeyInSearchBox(assetText);
       cy.wait(2000);
