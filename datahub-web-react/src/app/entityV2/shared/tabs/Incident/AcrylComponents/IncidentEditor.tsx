@@ -30,13 +30,7 @@ import { IncidentSelectField } from './IncidentSelectedField';
 import { IncidentAssigneeSelector } from './IncidentAssigneeSelector';
 import { useIncidentHandler } from './hooks/useIncidentHandler';
 
-export const IncidentEditor = ({
-    incidentUrn,
-    onSubmit,
-    data,
-    onClose,
-    mode = IncidentAction.CREATE,
-}: IncidentEditorProps) => {
+export const IncidentEditor = ({ incidentUrn, onSubmit, data, mode = IncidentAction.CREATE }: IncidentEditorProps) => {
     const assigneeValues = data?.assignees && getAssigneeWithURN(data.assignees);
     const isFormValid = Boolean(
         data?.title?.length &&
@@ -59,7 +53,6 @@ export const IncidentEditor = ({
         incidentUrn,
         mode,
         onSubmit,
-        onClose,
         user,
         assignees: cachedAssignees,
         linkedAssets: cachedLinkedAssets,

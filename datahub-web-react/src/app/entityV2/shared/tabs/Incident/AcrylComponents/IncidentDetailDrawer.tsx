@@ -22,7 +22,8 @@ type IncidentDetailDrawerProps = {
 export const IncidentDetailDrawer = ({ mode, onCancel, onSubmit, incident }: IncidentDetailDrawerProps) => {
     const [isEditView, setIsEditView] = useState<boolean>(false);
     const showEditor = isEditView || mode === IncidentAction.CREATE;
-    const modalClosePopup = () => {
+
+    const onCloseModal = () => {
         if (showEditor) {
             Modal.confirm({
                 title: 'Exit Editor',
@@ -39,15 +40,21 @@ export const IncidentDetailDrawer = ({ mode, onCancel, onSubmit, incident }: Inc
             onCancel?.();
         }
     };
+
+    const handleSubmit = (i?: Incident) => {
+        setIsEditView(false);
+        onSubmit?.(i);
+    };
+
     return (
-        <ClickOutside onClickOutside={modalClosePopup} wrapperClassName="incident-monitor-builder-modal">
+        <ClickOutside onClickOutside={onCloseModal} wrapperClassName="incident-monitor-builder-modal">
             <Drawer
                 width={600}
                 placement="right"
                 closable={false}
                 visible
                 bodyStyle={modalBodyStyle}
-                onClose={modalClosePopup}
+                onClose={onCloseModal}
             >
                 <IncidentDrawerHeader
                     mode={mode}
@@ -57,13 +64,7 @@ export const IncidentDetailDrawer = ({ mode, onCancel, onSubmit, incident }: Inc
                     data={incident}
                 />
                 {showEditor ? (
-                    <IncidentEditor
-                        onClose={onCancel}
-                        data={incident}
-                        mode={mode}
-                        incidentUrn={incident?.urn}
-                        onSubmit={onSubmit}
-                    />
+                    <IncidentEditor data={incident} mode={mode} incidentUrn={incident?.urn} onSubmit={handleSubmit} />
                 ) : (
                     <IncidentView incident={incident as IncidentTableRow} />
                 )}

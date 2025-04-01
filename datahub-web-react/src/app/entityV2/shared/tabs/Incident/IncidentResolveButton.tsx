@@ -26,7 +26,7 @@ const ResolveButton = styled(Button)`
     padding: 0px;
 `;
 
-export const IncidentResolveButton = ({ incident }: { incident: IncidentTableRow }) => {
+export const IncidentResolveButton = ({ incident, refetch }: { incident: IncidentTableRow; refetch: () => void }) => {
     const me = useUserContext();
     const [showResolvePopup, setShowResolvePopup] = useState(false);
     const [incidentResolver, setIncidentResolver] = useState<CorpUser | any>(null);
@@ -35,6 +35,7 @@ export const IncidentResolveButton = ({ incident }: { incident: IncidentTableRow
         me?.urn === incidentResolver?.urn
             ? ME
             : incidentResolver?.properties?.displayName || incidentResolver?.username;
+
     useEffect(() => {
         if (incident?.lastUpdated?.actor) {
             getAssigneeEntities({
@@ -120,7 +121,9 @@ export const IncidentResolveButton = ({ incident }: { incident: IncidentTableRow
                 showPopoverWithResolver
             )}
 
-            {showResolvePopup && <IncidentResolutionPopup incident={incident} handleClose={handleShowPopup} />}
+            {showResolvePopup && (
+                <IncidentResolutionPopup incident={incident} refetch={refetch} handleClose={handleShowPopup} />
+            )}
         </Container>
     );
 };
