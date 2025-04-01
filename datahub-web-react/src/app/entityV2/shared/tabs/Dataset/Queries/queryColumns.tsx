@@ -27,11 +27,9 @@ const TruncatedTextWrapper = styled.div`
 `;
 
 const QueryDescriptionWrapper = styled.div`
-    margin-top: 10px;
     max-height: 300px;
     overflow-y: auto;
     overflow-x: hidden;
-    padding-right: 10px;
 `;
 
 interface DescriptionProps {
