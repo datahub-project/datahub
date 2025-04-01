@@ -12,13 +12,14 @@
       timezone: '{{schedule.timezone}}{{^schedule.timezone}}UTC{{/schedule.timezone}}'
       interval: '{{schedule.interval}}{{^schedule.interval}}0 1 * * *{{/schedule.interval}}'
     config:
-      version: '{{&ingestion.version}}{{^ingestion.version}}0.14.1.7rc2{{/ingestion.version}}'
+      version: '{{&ingestion.version}}{{^ingestion.version}}1.0.0{{/ingestion.version}}'
       recipe:
         source:
           type: 'datahub-action-request-owner'
           config:
             batch_size: {{batch_size}}{{^batch_size}}20{{/batch_size}}
-      extraArgs: {}
+      extraArgs:
+        extra_pip_requirements: '{{&ingestion.extra_pip_requirements}}{{^ingestion.extra_pip_requirements}}["{{&ingestion.acryl-cloud-package}}{{^ingestion.acryl-cloud-package}}acryl-datahub-cloud[datahub-action-request-owner]@/acryl-cloud{{/ingestion.acryl-cloud-package}}"]{{/ingestion.extra_pip_requirements}}'
       debugMode: false
       executorId: default
     source:

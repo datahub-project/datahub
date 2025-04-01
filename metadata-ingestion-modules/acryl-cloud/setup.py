@@ -32,6 +32,7 @@ plugins = {
         "termcolor==2.5.0",
     },
     "datahub-metadata-sharing": {"tenacity"},
+    "datahub-action-request-owner": {"tenacity"},
     "acryl-cs-issues": {"zenpy", "openai", "jinja2", "slack-sdk"},
 }
 
@@ -44,6 +45,7 @@ dev_requirements = {
             "datahub-reporting-forms",
             "datahub-reporting-extract-graph",
             "datahub-reporting-extract-sql",
+            "datahub-action-request-owner",
             "datahub-lineage-features",
             "datahub-usage-reporting",
             "datahub-metadata-sharing",
