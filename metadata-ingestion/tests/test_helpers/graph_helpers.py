@@ -2,6 +2,7 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Type, Union
 
+from datahub._codegen.aspect import _Aspect
 from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
@@ -127,6 +128,24 @@ class MockDataHubGraph(DataHubGraph):
         trace_timeout: Optional[timedelta] = timedelta(seconds=3600),
     ) -> None:
         self.emitted.append(mcp)
+
+    def get_entities_v3(
+        self,
+        entity_name: str,
+        urns: List[str],
+        aspects: Optional[List[str]] = None,
+    ) -> Dict[str, Dict[str, _Aspect]]:
+        result: Dict[str, Dict[str, _Aspect]] = {}
+        for urn, entity in self.entity_graph.items():
+            if urn not in urns:
+                continue
+            if urn not in result:
+                result[urn] = {}
+            for aspect_name, aspect in entity.items():
+                if aspects and aspect_name not in aspects:
+                    continue
+                result[urn][aspect_name] = aspect
+        return result
 
     def get_emitted(
         self,
