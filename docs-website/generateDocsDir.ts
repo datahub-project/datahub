@@ -519,10 +519,13 @@ custom_edit_url: https://github.com/datahub-project/datahub/blob/master/docs-web
 
 ## Summary\n\n`);
 
-  const releases_list = await octokit.rest.repos.listReleases({
+  const releases_list_full = await octokit.rest.repos.listReleases({
     owner: "datahub-project",
     repo: "datahub",
   });
+  const releases_list = releases_list_full.data.filter(
+    (release) => !release.prerelease && !release.draft
+  );
 
   // We only embed release notes for releases in the last 3 months.
   const release_notes_date_cutoff = new Date(
@@ -533,10 +536,7 @@ custom_edit_url: https://github.com/datahub-project/datahub/blob/master/docs-web
   const releaseNoteVersions = new Set();
   contents.content += "| Version | Release Date | Links |\n";
   contents.content += "| ------- | ------------ | ----- |\n";
-  for (const release of releases_list.data) {
-    if (release.prerelease || release.draft) {
-      continue;
-    }
+  for (const release of releases_list) {
     const release_date = new Date(Date.parse(release.created_at));
 
     let row = `| **${release.tag_name}** | ${pretty_format_date(
@@ -553,7 +553,7 @@ custom_edit_url: https://github.com/datahub-project/datahub/blob/master/docs-web
   contents.content += "\n\n";
 
   // Full details
-  for (const release of releases_list.data) {
+  for (const release of releases_list) {
     let body: string;
     if (releaseNoteVersions.has(release.tag_name)) {
       body = release.body ?? "";
