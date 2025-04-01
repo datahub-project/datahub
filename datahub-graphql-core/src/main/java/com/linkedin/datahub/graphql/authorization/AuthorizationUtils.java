@@ -101,6 +101,11 @@ public class AuthorizationUtils {
         context.getOperationContext(), PoliciesConfig.MANAGE_TAGS_PRIVILEGE);
   }
 
+  public static boolean canViewManageTags(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorized(
+        context.getOperationContext(), PoliciesConfig.VIEW_MANAGE_TAGS_PRIVILEGE);
+  }
+
   public static boolean canDeleteEntity(@Nonnull Urn entityUrn, @Nonnull QueryContext context) {
     return AuthUtil.isAuthorizedEntityUrns(
         context.getOperationContext(), DELETE, List.of(entityUrn));
