@@ -106,7 +106,7 @@ export const RemoteExecutorPoolsTable = ({
                     ) : (
                         ''
                     )}
-                    {record.status !== RemoteExecutorPoolStatus.Ready ? (
+                    {record.status !== RemoteExecutorPoolStatus.Ready && !record.isDataHubCloud ? (
                         <ProvisioningStatusButton type="text" onClick={() => viewPoolProvisioningStatus(record.urn)}>
                             See status
                         </ProvisioningStatusButton>
