@@ -11,11 +11,7 @@ import { HorizontalListSkeletons } from '../../../../HorizontalListSkeletons';
 import { Section } from '../Section';
 import { INSIGHT_CARD_MIN_WIDTH } from './cards/SearchListInsightCard';
 import { InsightStatusProvider } from './InsightStatusProvider';
-import { MOST_FREQUENTLY_UPDATED_ID, MostFrequentlyUpdated } from './cards/MostFrequentlyUpdated';
-import { MOST_QUERIED_ID, MostQueriedCard } from './cards/MostQueriedCard';
 import { MOST_ROWS_ID, MostRowsCard } from './cards/MostRowsCard';
-import { MOST_USERS_ID, MostUsersCard } from './cards/MostUsersCard';
-import { MOST_VIEWED_DASHBOARDS_ID, MostViewedDashboardsCard } from './cards/MostViewedDashboards';
 import { POPULAR_GLOSSARY_TERMS_ID, PopularGlossaryTerms } from './cards/PopularGlossaryTerms';
 import { RECENTLY_CREATED_DATASETS_ID, RecentlyCreatedDatasetsCard } from './cards/RecentlyCreatedDatasetsCard';
 import { RECENTLY_UPDATED_ID, RecentlyUpdatedDatasetsCard } from './cards/RecentlyUpdatedDatasetsCard';
@@ -31,27 +27,6 @@ type InsightSection = {
 
 const ALL_INSIGHTS: InsightSection[] = [
     {
-        id: MOST_USERS_ID,
-        component: MostUsersCard,
-        personas: [
-            PersonaType.TECHNICAL_USER,
-            PersonaType.DATA_ENGINEER,
-            PersonaType.DATA_STEWARD,
-            PersonaType.DATA_LEADER,
-        ],
-    },
-    {
-        id: MOST_VIEWED_DASHBOARDS_ID,
-        component: MostViewedDashboardsCard,
-        personas: [
-            PersonaType.BUSINESS_USER,
-            PersonaType.DATA_STEWARD,
-            PersonaType.DATA_LEADER,
-            PersonaType.TECHNICAL_USER,
-            PersonaType.DATA_ENGINEER,
-        ],
-    },
-    {
         id: POPULAR_GLOSSARY_TERMS_ID,
         component: PopularGlossaryTerms,
         personas: [
@@ -60,27 +35,6 @@ const ALL_INSIGHTS: InsightSection[] = [
             PersonaType.DATA_STEWARD,
             PersonaType.DATA_LEADER,
             PersonaType.BUSINESS_USER,
-        ],
-    },
-    {
-        id: MOST_QUERIED_ID,
-        component: MostQueriedCard,
-        personas: [
-            PersonaType.BUSINESS_USER,
-            PersonaType.TECHNICAL_USER,
-            PersonaType.DATA_ENGINEER,
-            PersonaType.DATA_STEWARD,
-            PersonaType.DATA_LEADER,
-        ],
-    },
-    {
-        id: MOST_FREQUENTLY_UPDATED_ID,
-        component: MostFrequentlyUpdated,
-        personas: [
-            PersonaType.TECHNICAL_USER,
-            PersonaType.DATA_ENGINEER,
-            PersonaType.DATA_STEWARD,
-            PersonaType.DATA_LEADER,
         ],
     },
     {

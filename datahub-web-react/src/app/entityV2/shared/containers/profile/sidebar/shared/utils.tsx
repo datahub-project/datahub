@@ -85,19 +85,6 @@ export const getChartPopularityTier = (viewCountPercentileLast30Days, uniqueUser
     return PopularityTier.TIER_4;
 };
 
-export const getQueryPopularityTier = (runsPercentileLast30days: number) => {
-    if (runsPercentileLast30days > 80) {
-        return PopularityTier.TIER_1;
-    }
-    if (runsPercentileLast30days > 30) {
-        return PopularityTier.TIER_2;
-    }
-    if (runsPercentileLast30days > 0) {
-        return PopularityTier.TIER_3;
-    }
-    return PopularityTier.TIER_4;
-};
-
 /**
  * Returns true if the user "exists", e.g. there exists some information about
  * the user in DataHub already.
