@@ -14,6 +14,7 @@ from datahub.ingestion.source.hex.constants import (
 from datahub.metadata._schema_classes import QueryPropertiesClass, QuerySubjectsClass
 from datahub.metadata.urns import DatasetUrn, QueryUrn, SchemaFieldUrn
 from datahub.sdk.main_client import DataHubClient
+from datahub.sdk.search_filters import FilterDsl as F
 
 logger = logging.getLogger(__name__)
 
@@ -268,54 +269,27 @@ class HexQueryFetcher:
         return entities_by_urn
 
     def _fetch_query_urns_filter_hex_and_last_modified(self) -> List[QueryUrn]:
-        """
-        This could be implemented as follows, but search sdk still requires some fixes.
-        query_urns = self.datahub_client.search.get_urns(
+        last_modified_start_at_millis = int(self.start_datetime.timestamp() * 1000)
+        last_modified_end_at_millis = int(self.end_datetime.timestamp() * 1000)
+
+        urns = self.datahub_client.search.get_urns(
             filter=F.and_(
                 F.entity_type(QueryUrn.ENTITY_TYPE),
                 F.custom_filter("origin", "EQUAL", [HEX_PLATFORM_URN.urn()]),
                 F.custom_filter(
                     "lastModifiedAt",
-                    "GREATER_THAN",
+                    "GREATER_THAN_OR_EQUAL_TO",
                     [str(last_modified_start_at_millis)],
+                ),
+                F.custom_filter(
+                    "lastModifiedAt",
+                    "LESS_THAN_OR_EQUAL_TO",
+                    [str(last_modified_end_at_millis)],
                 ),
             ),
         )
-        """
-        last_modified_start_at_millis = int(self.start_datetime.timestamp() * 1000)
-        last_modified_end_at_millis = int(self.end_datetime.timestamp() * 1000)
-
-        query_urn_strs = self.datahub_client._graph.get_urns_by_filter(
-            entity_types=[QueryUrn.ENTITY_TYPE],
-            batch_size=self.page_size,
-            extraFilters=[
-                {
-                    "field": "origin",
-                    "condition": "EQUAL",
-                    "values": [HEX_PLATFORM_URN.urn()],
-                    "negated": False,
-                },
-                {
-                    "field": "lastModifiedAt",
-                    "condition": "GREATER_THAN_OR_EQUAL_TO",
-                    "values": [
-                        last_modified_start_at_millis,
-                    ],
-                    "negated": False,
-                },
-                {
-                    "field": "lastModifiedAt",
-                    "condition": "LESS_THAN_OR_EQUAL_TO",
-                    "values": [
-                        last_modified_end_at_millis,
-                    ],
-                    "negated": False,
-                },
-            ],
-        )
-        query_urns = [QueryUrn.from_string(urn_str) for urn_str in query_urn_strs]
-        logger.debug(f"Get URNS by filter: {query_urns}")
-        return query_urns
+        logger.debug(f"Get URNS by filter: {urns}")
+        return [QueryUrn.from_string(urn.urn()) for urn in urns]
 
     def _extract_hex_metadata(self, sql_statement: str) -> Optional[tuple[str, str]]:
         """
