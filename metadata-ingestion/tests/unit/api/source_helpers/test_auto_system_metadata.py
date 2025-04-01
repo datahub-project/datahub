@@ -14,7 +14,7 @@ from datahub.metadata._schema_classes import SystemMetadataClass
 
 FROZEN_TIME = datetime.fromisoformat("2023-01-01 00:00:00+00:00")
 FROZEN_TIME_TS = int(FROZEN_TIME.timestamp() * 1000)
-DUMMY_URN = "urn:li:dataset:(snowflake, test.dummy, PROD)"
+DUMMY_URN = "urn:li:dataset:(snowflake,test.dummy,PROD)"
 
 
 def get_ctx(flags: FlagsConfig) -> PipelineContext:
