@@ -27,6 +27,7 @@ from pydantic import BaseModel
 from requests.models import HTTPError
 from typing_extensions import deprecated
 
+from datahub._codegen.aspect import _Aspect
 from datahub.cli import config_utils
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
@@ -1735,6 +1736,89 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                     retval.setdefault(entity_urn, {})
                     retval[entity_urn][aspect_key] = aspect_value
         return retval
+
+    def get_entities_v3(
+        self,
+        entity_name: str,
+        urns: List[str],
+        aspects: Optional[List[str]] = None,
+    ) -> Dict[str, Dict[str, _Aspect]]:
+        """
+        Get entities using the OpenAPI v3 endpoint, deserializing aspects into typed objects.
+
+        Args:
+            entity_name: The entity type name
+            urns: List of entity URNs to fetch
+            aspects: Optional list of aspect names to fetch. If None, all aspects will be fetched.
+
+        Returns:
+            A dictionary mapping URNs to a dictionary of aspect name to typed aspect objects
+        """
+        aspects = aspects or []
+
+        request_payload = []
+        for urn in urns:
+            entity_request: Dict[str, Any] = {"urn": urn}
+            for aspect_name in aspects:
+                entity_request[aspect_name] = {}
+            request_payload.append(entity_request)
+
+        headers: Dict[str, Any] = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+
+        url = f"{self.config.server}/openapi/v3/entity/{entity_name}/batchGet"
+
+        response = self._session.post(
+            url, data=json.dumps(request_payload), headers=headers
+        )
+        response.raise_for_status()
+        entities = response.json()
+
+        result: Dict[str, Dict[str, _Aspect]] = {}
+        for entity in entities:
+            entity_urn = entity.get("urn")
+            if entity_urn is None:
+                logger.warning(
+                    f"Missing URN in entity response: {entity}, skipping deserialization"
+                )
+                continue
+
+            entity_aspects: Dict[str, _Aspect] = {}
+
+            for aspect_name, aspect_obj in entity.items():
+                if aspect_name == "urn":
+                    continue
+
+                aspect_class = ASPECT_NAME_MAP.get(aspect_name)
+                if aspect_class is None:
+                    logger.warning(
+                        f"Unknown aspect type {aspect_name}, skipping deserialization"
+                    )
+                    continue
+
+                aspect_value = aspect_obj.get("value")
+                if aspect_value is None:
+                    logger.warning(
+                        f"Unknown aspect value for aspect {aspect_name}, skipping deserialization"
+                    )
+                    continue
+
+                try:
+                    post_json_obj = post_json_transform(aspect_value)
+                    typed_aspect = aspect_class.from_obj(post_json_obj)
+                    assert isinstance(typed_aspect, aspect_class) and isinstance(
+                        typed_aspect, _Aspect
+                    )
+                    entity_aspects[aspect_name] = typed_aspect
+                except Exception as e:
+                    logger.error(f"Error deserializing aspect {aspect_name}: {e}")
+
+            if entity_aspects:
+                result[entity_urn] = entity_aspects
+
+        return result
 
     def upsert_custom_assertion(
         self,
