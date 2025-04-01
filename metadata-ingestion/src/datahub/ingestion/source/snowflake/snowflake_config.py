@@ -334,7 +334,7 @@ class SnowflakeV2Config(
         default=True,
         description="If True, warns when no datasets are found during ingestion. If False, ingestion fails when no datasets are found.",
     )
-    
+
     include_assertion_results: bool = Field(
         default=False,
         description="Whether to ingest assertion run results for assertions created using Datahub"
@@ -430,20 +430,18 @@ class SnowflakeV2Config(
                     assert all(
                         consumer.platform_instance != share_details.platform_instance
                         for consumer in share_details.consumers
-                    ), (
-                        "Share's platform_instance can not be same as consumer's platform instance. Self-sharing not supported in Snowflake."
-                    )
+                    ), "Share's platform_instance can not be same as consumer's platform instance. Self-sharing not supported in Snowflake."
 
                 databases_included_in_share.append(shared_db)
                 databases_created_from_share.extend(share_details.consumers)
 
             for db_from_share in databases_created_from_share:
-                assert db_from_share not in databases_included_in_share, (
-                    "Database included in a share can not be present as consumer in any share."
-                )
-                assert databases_created_from_share.count(db_from_share) == 1, (
-                    "Same database can not be present as consumer in more than one share."
-                )
+                assert (
+                    db_from_share not in databases_included_in_share
+                ), "Database included in a share can not be present as consumer in any share."
+                assert (
+                    databases_created_from_share.count(db_from_share) == 1
+                ), "Same database can not be present as consumer in more than one share."
 
         return shares
 
