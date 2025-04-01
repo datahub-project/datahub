@@ -124,11 +124,11 @@ const BrowseSidebar = ({ visible }: Props) => {
                 id="browse-v2"
             >
                 <Controls isCollapsed={isClosed}>
-                    {!isClosed && (
+                    {!isClosed ? (
                         <NavigateTitle level={5} isClosed={isClosed}>
                             Navigate
                         </NavigateTitle>
-                    )}
+                    ) : null}
                     <Button
                         variant="text"
                         color="gray"
