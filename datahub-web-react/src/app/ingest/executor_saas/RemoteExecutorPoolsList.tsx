@@ -132,6 +132,7 @@ export const RemoteExecutorPoolsList = ({ onSwitchTab }: Props) => {
         variables: {
             urn: showPoolProvisioningStatusForUrn || '',
         },
+        skip: !showPoolProvisioningStatusForUrn,
     });
 
     const onViewPoolProvisioningStatus = (urn: string) => {
