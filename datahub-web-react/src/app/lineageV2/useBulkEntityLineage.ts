@@ -65,7 +65,7 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
                 hideTransformations
             ) {
                 newUrnsToFetch = Array.from(nodes.values())
-                    .filter((node) => isTransformational(node) && !node.entity)
+                    .filter((node) => isTransformational(node, rootType) && !node.entity)
                     .map((node) => node.urn);
             }
             if (JSON.stringify(oldUrnsToFetch) !== JSON.stringify(newUrnsToFetch)) {
@@ -101,7 +101,7 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
     const entityRegistry = useEntityRegistryV2();
 
     useEffect(() => {
-        const smallContext = { nodes, edges, adjacencyList, setDisplayVersion };
+        const smallContext = { nodes, edges, adjacencyList, setDisplayVersion, rootType };
         let changed = false;
         data?.entities?.forEach((rawEntity) => {
             if (!rawEntity) return;
@@ -123,7 +123,7 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
                     entity.upstreamRelationships?.forEach((relationship) => {
                         processEdge(node, relationship, LineageDirection.Upstream, smallContext);
                     });
-                    pruneAllDuplicateEdges(node.urn, null, smallContext, entityRegistry);
+                    pruneAllDuplicateEdges(node.urn, null, smallContext);
                 }
             }
         });
@@ -131,7 +131,7 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
             setDataVersion((version) => version + 1);
             setDisplayVersion(([version, n]) => [version + 1, n]); // TODO: Also remove with above todo
         }
-    }, [data, nodes, edges, adjacencyList, entityRegistry, setDataVersion, setDisplayVersion, flags]);
+    }, [data, nodes, edges, adjacencyList, rootType, entityRegistry, setDataVersion, setDisplayVersion, flags]);
 
     return useCallback(
         (urn: string) =>

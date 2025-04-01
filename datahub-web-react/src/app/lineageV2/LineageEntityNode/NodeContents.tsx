@@ -238,6 +238,7 @@ interface Props {
     entity?: FetchedEntityV2;
     transitionDuration: number;
     rootUrn: string;
+    rootType: EntityType;
     searchQuery: string;
     setHoveredNode: (urn: string | null) => void;
     showColumns: boolean;
@@ -267,6 +268,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         isExpanded,
         transitionDuration,
         rootUrn,
+        rootType,
         searchQuery,
         setHoveredNode,
         showColumns,
@@ -299,7 +301,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         (showColumns && paginatedColumns.length && extraHighlightedColumns.length ? 9 : 0) + // Column divider
         (showColumns && numFilteredColumns > NUM_COLUMNS_PER_PAGE ? 38 : 0); // Pagination
 
-    useAvoidIntersections(urn, expandHeight);
+    useAvoidIntersections(urn, expandHeight, rootType);
 
     const platformName = entityRegistry.getDisplayName(EntityType.DataPlatform, entity?.platform);
     const [nodeColor] = getNodeColor(type);

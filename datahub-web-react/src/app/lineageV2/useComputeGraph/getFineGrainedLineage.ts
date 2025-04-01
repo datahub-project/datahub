@@ -1,4 +1,3 @@
-import EntityRegistry from '@app/entityV2/EntityRegistry';
 import {
     ColumnRef,
     createColumnRef,
@@ -32,16 +31,13 @@ interface TentativeEdge {
  * Piece together column-level lineage directly from aspects,
  * e.g. dataset upstreamLineage, chart inputFields, and datajob dataJobInputOutput
  *
- *
- * @param context
- * @param entityRegistry
+ * @param context Lineage node context
  * @return A map of column -> column edges, enhanced with information about the query for each edge.
  */
 export default function getFineGrainedLineage(
-    context: Pick<NodeContext, 'nodes' | 'edges'>,
-    entityRegistry: EntityRegistry,
+    context: Pick<NodeContext, 'nodes' | 'edges' | 'rootType'>,
 ): FineGrainedLineageData {
-    const { nodes, edges } = context;
+    const { nodes, edges, rootType } = context;
 
     const indirect: FineGrainedLineage = { downstream: new Map(), upstream: new Map() };
     const fineGrainedOperations: Map<FineGrainedOperationRef, FineGrainedOperation> = new Map();
@@ -113,7 +109,7 @@ export default function getFineGrainedLineage(
     tentativeEdges
         .filter(
             ({ upstreamRef, downstreamRef }) =>
-                !isTransformationalPath(indirect.downstream, upstreamRef, downstreamRef, entityRegistry),
+                !isTransformationalPath(indirect.downstream, upstreamRef, downstreamRef, rootType),
         )
         .forEach(({ upstreamRef, downstreamRef, queryRef, operationRef }) => {
             addFineGrainedEdges(indirect, upstreamRef, downstreamRef, queryRef, operationRef);
@@ -147,7 +143,7 @@ function isTransformationalPath(
     downstreamMap: FineGrainedLineageMap,
     upstreamRef: ColumnRef,
     downstreamRef: ColumnRef,
-    entityRegistry: EntityRegistry,
+    rootType: EntityType,
 ): boolean {
     const stack = [upstreamRef];
     const seen = new Set<string>(stack);
@@ -156,7 +152,7 @@ function isTransformationalPath(
             if (childRef === downstreamRef) return true;
             if (!seen.has(childRef)) {
                 const [childUrn] = parseColumnRef(childRef);
-                if (isUrnTransformational(childUrn, entityRegistry)) {
+                if (isUrnTransformational(childUrn, rootType)) {
                     stack.push(childRef);
                     seen.add(childRef);
                 }

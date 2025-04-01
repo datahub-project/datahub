@@ -1,4 +1,3 @@
-import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { TENTATIVE_EDGE_NAME } from '@app/lineageV2/LineageEdge/TentativeEdge';
 import { useContext, useEffect, useMemo } from 'react';
 import { Edge, MarkerType, useReactFlow } from 'reactflow';
@@ -20,7 +19,6 @@ import {
     setDefault,
     setDifference,
 } from './common';
-import { useEntityRegistryV2 } from '../useEntityRegistry';
 
 export default function useColumnHighlighting(
     selectedColumn: ColumnRef | null,
@@ -31,7 +29,6 @@ export default function useColumnHighlighting(
     cllHighlightedNodes: Map<string, Set<FineGrainedOperationRef> | null>;
     highlightedColumns: HighlightedColumns;
 } {
-    const entityRegistry = useEntityRegistryV2();
     const { setEdges } = useReactFlow();
     const {
         nodes,
@@ -58,12 +55,11 @@ export default function useColumnHighlighting(
             adjacencyList,
             displayedNodeIds,
             validQueryIds,
-            entityRegistry,
             rootUrn,
             rootType,
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [columnEdgeVersion, selectedColumn, hoveredColumn, nodes, edges, fineGrainedLineage, shownUrns, entityRegistry]);
+    }, [columnEdgeVersion, selectedColumn, hoveredColumn, nodes, edges, fineGrainedLineage, shownUrns]);
 
     useEffect(() => {
         // TODO: Figure out how to only add edges once columns are rendered? For now, just use timeout
@@ -93,7 +89,6 @@ interface ArgumentBundle {
     adjacencyList: NodeContext['adjacencyList'];
     displayedNodeIds: Set<string>;
     validQueryIds: Set<string>;
-    entityRegistry: EntityRegistry;
     rootUrn: string;
     rootType: EntityType;
 }
@@ -111,16 +106,7 @@ function processColumnHighlights(
 
 function computeSingleColumnHighlights(
     column: ColumnRef | null,
-    {
-        fineGrainedLineage,
-        nodes,
-        adjacencyList,
-        displayedNodeIds,
-        validQueryIds,
-        entityRegistry,
-        rootUrn,
-        rootType,
-    }: ArgumentBundle,
+    { fineGrainedLineage, nodes, adjacencyList, displayedNodeIds, validQueryIds, rootUrn, rootType }: ArgumentBundle,
     stroke: string,
 ): {
     cllHighlightedNodes: Map<string, Set<FineGrainedOperationRef> | null>;
@@ -158,7 +144,7 @@ function computeSingleColumnHighlights(
             const fromDirection = nodes.get(fromUrn)?.direction;
             const toDirection = nodes.get(toUrn)?.direction;
             if (fromDirection && toDirection && fromDirection !== toDirection) {
-                const isRootTransformation = isTransformational({ urn: rootUrn, type: rootType });
+                const isRootTransformation = isTransformational({ urn: rootUrn, type: rootType }, rootType);
                 const throughRoot =
                     adjacencyList.UPSTREAM.get(rootUrn)?.has(fromUrn) &&
                     adjacencyList.DOWNSTREAM.get(rootUrn)?.has(toUrn);
@@ -219,7 +205,7 @@ function computeSingleColumnHighlights(
 
                 if (displayedNodeIds.has(childUrn)) {
                     addEdge(ref, childRef);
-                } else if (!isUrnQuery(childUrn, entityRegistry) || validQueryIds.has(childUrn)) {
+                } else if (!isUrnQuery(childUrn) || validQueryIds.has(childUrn)) {
                     // Compute parents of missing nodes; don't add any edges through them
                     setDefault(missingNodeParents, childRef, new Set()).add(ref);
                 }

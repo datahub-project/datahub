@@ -1,4 +1,3 @@
-import EntityRegistry from '@app/entityV2/EntityRegistry';
 import {
     createEdgeId,
     getEdgeId,
@@ -6,14 +5,14 @@ import {
     isUrnTransformational,
     NodeContext,
 } from '@app/lineageV2/common';
-import { LineageDirection } from '@types';
+import { EntityType, LineageDirection } from '@types';
 
 enum HideOption {
     TRANSFORMATIONS = 'transformations',
     DATA_PROCESS_INSTANCES = 'dataProcessInstances',
 }
 
-const hideOptionIncludeUrnFunctions: Record<HideOption, (urn: string, entityRegistry: EntityRegistry) => boolean> = {
+const hideOptionIncludeUrnFunctions: Record<HideOption, (urn: string, rootType: EntityType) => boolean> = {
     [HideOption.TRANSFORMATIONS]: isUrnTransformational,
     [HideOption.DATA_PROCESS_INSTANCES]: isUrnDataProcessInstance,
 };
@@ -25,17 +24,15 @@ const hideOptionIncludeUrnFunctions: Record<HideOption, (urn: string, entityRegi
  * @param urn Urn for which to remove parent edges.
  * @param direction Direction to look for parents.
  * @param context Lineage node context.
- * @param entityRegistry EntityRegistry, used to get EntityType from an urn.
  */
 export default function pruneAllDuplicateEdges(
     urn: string,
     direction: LineageDirection | null,
-    context: Pick<NodeContext, 'adjacencyList' | 'edges' | 'setDisplayVersion'>,
-    entityRegistry: EntityRegistry,
+    context: Pick<NodeContext, 'adjacencyList' | 'edges' | 'setDisplayVersion' | 'rootType'>,
 ) {
     let changed = false;
     Object.values(HideOption).forEach((hideOption) => {
-        changed ||= pruneDuplicateEdges(urn, direction, hideOption, context, entityRegistry);
+        changed ||= pruneDuplicateEdges(urn, direction, hideOption, context);
     });
     if (changed) {
         context.setDisplayVersion(([version, nodes]) => [version + 1, nodes]);
@@ -49,20 +46,19 @@ export function pruneDuplicateEdges(
     urn: string,
     direction: LineageDirection | null,
     hideOption: HideOption,
-    context: Pick<NodeContext, 'adjacencyList' | 'edges'>,
-    entityRegistry: EntityRegistry,
+    context: Pick<NodeContext, 'adjacencyList' | 'edges' | 'rootType'>,
 ): boolean {
-    const { edges } = context;
+    const { edges, rootType } = context;
     const neighbors: Record<LineageDirection, Set<string>> = {
         [LineageDirection.Downstream]: new Set(),
         [LineageDirection.Upstream]: new Set(),
     };
 
     const includeUrn = hideOptionIncludeUrnFunctions[hideOption];
-    const isUrnIncluded = includeUrn(urn, entityRegistry);
+    const isUrnIncluded = includeUrn(urn, rootType);
 
     function getNeighbors(d: LineageDirection) {
-        return getNeighborsByFunction(urn, d, includeUrn, context, entityRegistry);
+        return getNeighborsByFunction(urn, d, includeUrn, context);
     }
 
     if (direction) {
@@ -104,24 +100,23 @@ export function pruneDuplicateEdges(
  * @param direction Direction to look for neighbors.
  * @param includeUrn Function to determine if a node should be included, based on its urn.
  * @param adjacencyList Adjacency list of the lineage graph.
- * @param entityRegistry EntityRegistry, used to get EntityType from an urn.
+ * @param rootType Entity type of the home node.
  */
 function getNeighborsByFunction(
     urn: string,
     direction: LineageDirection,
-    includeUrn: (urn: string, entityRegistry: EntityRegistry) => boolean,
-    { adjacencyList }: Pick<NodeContext, 'adjacencyList'>,
-    entityRegistry: EntityRegistry,
+    includeUrn: (urn: string, rootType: EntityType) => boolean,
+    { adjacencyList, rootType }: Pick<NodeContext, 'adjacencyList' | 'rootType'>,
 ) {
     const neighbors = new Set<string>();
     // If urn is included, then direct neighbors can be included
-    const stack = includeUrn(urn, entityRegistry)
+    const stack = includeUrn(urn, rootType)
         ? [urn]
-        : Array.from(adjacencyList[direction].get(urn) || []).filter((p) => includeUrn(p, entityRegistry));
+        : Array.from(adjacencyList[direction].get(urn) || []).filter((p) => includeUrn(p, rootType));
     const seen = new Set<string>(stack);
     for (let u = stack.pop(); u; u = stack.pop()) {
         Array.from(adjacencyList[direction].get(u) || []).forEach((parent) => {
-            if (includeUrn(parent, entityRegistry)) {
+            if (includeUrn(parent, rootType)) {
                 if (!seen.has(parent)) {
                     stack.push(parent);
                     seen.add(parent);

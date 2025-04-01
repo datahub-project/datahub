@@ -1,11 +1,11 @@
 import { GenericEntityProperties } from '@app/entity/shared/types';
+import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
 import { useAppConfig } from '@app/useAppConfig';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React, { Dispatch, SetStateAction } from 'react';
 import { Entity, EntityType, LineageDirection, SchemaFieldRef } from '../../types.generated';
-import EntityRegistry from '../entityV2/EntityRegistry';
-import { DBT_CLOUD_URN } from '../ingest/source/builder/constants';
+import { DBT_CLOUD_URN, DBT_URN } from '../ingest/source/builder/constants';
 import { hashString } from '../shared/avatar/getAvatarColor';
 import { FineGrainedOperation } from '../sharedV2/EntitySidebarContext';
 import { getEntityTypeFromEntityUrn, getPlatformUrnFromEntityUrn } from './lineageUtils';
@@ -109,33 +109,43 @@ export function isQuery(node: Pick<LineageNode, 'type'>): boolean {
     return node.type === EntityType.Query;
 }
 
+export function generateIgnoreAsHops(homeType: EntityType) {
+    const base = [
+        {
+            entityType: EntityType.Dataset,
+            platforms: [DBT_URN],
+        },
+        {
+            entityType: EntityType.SchemaField,
+            platforms: [DBT_URN],
+        },
+        { entityType: EntityType.DataProcessInstance },
+    ];
+
+    if (homeType === EntityType.DataJob) return base;
+    return [...base, { entityType: EntityType.DataJob }];
+}
+
 // TODO: Replace with value from search-across-lineage, once it's available
-// Must be kept in sync with useSearchAcrossLineage
-export function isTransformational(node: Pick<LineageNode, 'urn' | 'type'>): boolean {
+// Must be kept in sync with generateIgnoreAsHops
+export function isTransformational(node: Pick<LineageNode, 'urn' | 'type'>, rootType: EntityType): boolean {
+    if (rootType === EntityType.DataJob && node.type === EntityType.DataJob) return false;
     return TRANSFORMATION_TYPES.includes(node.type) || isDbt(node);
 }
 
-export function isUrnDbt(urn: string, entityRegistry: EntityRegistry): boolean {
-    const type = getEntityTypeFromEntityUrn(urn, entityRegistry);
-    return (
-        (type === EntityType.Dataset || type === EntityType.SchemaField) &&
-        getPlatformUrnFromEntityUrn(urn) === DBT_CLOUD_URN
-    );
-}
-
-export function isUrnQuery(urn: string, entityRegistry: EntityRegistry): boolean {
-    const type = getEntityTypeFromEntityUrn(urn, entityRegistry);
+export function isUrnQuery(urn: string): boolean {
+    const type = getEntityTypeFromEntityUrn(urn, globalEntityRegistryV2);
     return type === EntityType.Query;
 }
 
-export function isUrnDataProcessInstance(urn: string, entityRegistry: EntityRegistry): boolean {
-    const type = getEntityTypeFromEntityUrn(urn, entityRegistry);
+export function isUrnDataProcessInstance(urn: string): boolean {
+    const type = getEntityTypeFromEntityUrn(urn, globalEntityRegistryV2);
     return type === EntityType.DataProcessInstance;
 }
 
-export function isUrnTransformational(urn: string, entityRegistry: EntityRegistry): boolean {
-    const type = getEntityTypeFromEntityUrn(urn, entityRegistry);
-    return (!!type && TRANSFORMATION_TYPES.includes(type)) || isUrnDbt(urn, entityRegistry);
+export function isUrnTransformational(urn: string, rootType: EntityType): boolean {
+    const type = getEntityTypeFromEntityUrn(urn, globalEntityRegistryV2);
+    return !!type && isTransformational({ urn, type }, rootType);
 }
 
 export type ColumnRef = string;

@@ -38,6 +38,7 @@ export default function LineageSearchFilters() {
     const {
         nodes,
         rootUrn,
+        rootType,
         nodeVersion,
         hideTransformations,
         setHideTransformations,
@@ -48,7 +49,7 @@ export default function LineageSearchFilters() {
     } = useContext(LineageNodesContext);
 
     const hasTransformations = useMemo(
-        () => Array.from(nodes.values()).some((node) => node.urn !== rootUrn && isTransformational(node)), // eslint-disable-next-line react-hooks/exhaustive-deps
+        () => Array.from(nodes.values()).some((node) => node.urn !== rootUrn && isTransformational(node, rootType)), // eslint-disable-next-line react-hooks/exhaustive-deps
         [nodes, nodeVersion],
     );
     return (

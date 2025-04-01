@@ -33,11 +33,11 @@ interface Output {
 export default function getDisplayedNodes(
     urn: string,
     orderedNodes: Record<LineageDirection, LineageEntity[]>,
-    context: Pick<NodeContext, 'adjacencyList' | 'nodes' | 'edges'>,
+    context: Pick<NodeContext, 'adjacencyList' | 'nodes' | 'edges' | 'rootType'>,
 ): Output {
     const parents = new Map<string, Set<string>>();
 
-    const { nodes } = context;
+    const { nodes, rootType } = context;
     const rootNode = nodes.get(urn);
     if (!rootNode) {
         return { displayedNodes: [], parents };
@@ -69,7 +69,7 @@ export default function getDisplayedNodes(
                         }
                     }
 
-                    if (!isTransformational(child) && child.isExpanded[direction]) {
+                    if (!isTransformational(child, rootType) && child.isExpanded[direction]) {
                         queue.push(child.id);
                     }
                 }
@@ -88,7 +88,7 @@ function applyFilters(
     direction: LineageDirection,
     orderedNodes: LineageEntity[],
     parents: Map<string, Set<string>>,
-    context: Pick<NodeContext, 'adjacencyList' | 'nodes' | 'edges'>,
+    context: Pick<NodeContext, 'adjacencyList' | 'nodes' | 'edges' | 'rootType'>,
 ): LineageNode[] {
     const { adjacencyList, nodes } = context;
     const node = nodes.get(urn);
@@ -174,12 +174,12 @@ function applyFilters(
 function getChildrenToFilter(
     parent: LineageEntity,
     direction: LineageDirection,
-    context: Pick<NodeContext, 'adjacencyList' | 'nodes'>,
+    context: Pick<NodeContext, 'adjacencyList' | 'nodes' | 'rootType'>,
 ): {
     allChildren: Set<string>;
     childrenToFilter: Set<string>;
 } {
-    const { adjacencyList, nodes } = context;
+    const { adjacencyList, nodes, rootType } = context;
     const seen = new Set<string>();
     const childrenToFilter = new Set<string>();
     const queue = [parent];
@@ -197,7 +197,7 @@ function getChildrenToFilter(
             const child = nodes.get(childUrn);
             if (!child || seen.has(childUrn)) return;
 
-            if (isTransformational(child)) {
+            if (isTransformational(child, rootType)) {
                 queue.push(child);
                 seen.add(childUrn);
             } else {
@@ -221,9 +221,9 @@ function getTransformationalNodes(
     root: LineageEntity,
     leaves: LineageEntity[],
     direction: LineageDirection,
-    context: Pick<NodeContext, 'adjacencyList' | 'nodes' | 'edges'>,
+    context: Pick<NodeContext, 'adjacencyList' | 'nodes' | 'edges' | 'rootType'>,
 ): LineageEntity[] {
-    const { nodes, edges, adjacencyList } = context;
+    const { nodes, edges, adjacencyList, rootType } = context;
 
     const leafUrns = new Set<string>(leaves.map((leaf) => leaf.urn));
     const nodesInBetween = new Set<string>();
@@ -231,7 +231,12 @@ function getTransformationalNodes(
     for (let node = nodesToRoot.pop(); node; node = nodesToRoot.pop()) {
         getParents(node, adjacencyList).forEach((parentUrn) => {
             const parent = nodes.get(parentUrn);
-            if (parentUrn !== root.urn && !nodesInBetween.has(parentUrn) && parent && isTransformational(parent)) {
+            if (
+                parentUrn !== root.urn &&
+                !nodesInBetween.has(parentUrn) &&
+                parent &&
+                isTransformational(parent, rootType)
+            ) {
                 nodesToRoot.push(parent);
                 nodesInBetween.add(parentUrn);
             }

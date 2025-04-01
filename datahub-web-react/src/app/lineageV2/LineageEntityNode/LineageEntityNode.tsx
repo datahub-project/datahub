@@ -39,7 +39,7 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
     const { data, selected, dragging } = props;
     const { urn, type, entity, id, fetchStatus, isExpanded, filters } = data;
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
-    const { rootUrn } = useContext(LineageNodesContext);
+    const { rootUrn, rootType } = useContext(LineageNodesContext);
     const { shownUrns, setHoveredNode } = useContext(LineageDisplayContext);
     const { searchQuery, searchedEntity } = useContext(LineageVisualizationContext);
 
@@ -87,6 +87,7 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
                 filters={filters}
                 transitionDuration={transitionDuration}
                 rootUrn={rootUrn}
+                rootType={rootType}
                 searchQuery={searchQuery}
                 setHoveredNode={setHoveredNode}
                 showColumns={showColumns}

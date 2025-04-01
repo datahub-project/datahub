@@ -1,6 +1,5 @@
-import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import { isUrnTransformational, LineageEntity, NodeContext } from '@app/lineageV2/common';
-import { LineageDirection } from '@types';
+import { EntityType, LineageDirection } from '@types';
 
 /**
  * Orders nodes in BFS order, starting from the root node.
@@ -13,8 +12,9 @@ import { LineageDirection } from '@types';
 export default function orderNodes(
     urn: string,
     direction: LineageDirection,
-    { nodes, adjacencyList }: Pick<NodeContext, 'adjacencyList' | 'nodes'>,
+    { nodes, adjacencyList, rootType }: Pick<NodeContext, 'adjacencyList' | 'nodes' | 'rootType'>,
 ): LineageEntity[] {
+    const compareNodes = generateCompareNodesFunction(rootType);
     const orderedNodes: string[] = [];
     const seenNodes = new Set<string>([urn]);
     const queue = [urn]; // Note: uses array for queue, slow for large graphs
@@ -32,10 +32,12 @@ export default function orderNodes(
     return orderedNodes.map((id) => nodes.get(id)).filter((node): node is LineageEntity => !!node);
 }
 
-function compareNodes(a: string, b: string): number {
-    const isATransformation = isUrnTransformational(a, globalEntityRegistryV2);
-    const isBTransformation = isUrnTransformational(b, globalEntityRegistryV2);
-    if (isATransformation && !isBTransformation) return 1;
-    if (!isATransformation && isBTransformation) return -1;
-    return a.localeCompare(b);
+function generateCompareNodesFunction(rootType: EntityType) {
+    return function compareNodes(a: string, b: string): number {
+        const isATransformation = isUrnTransformational(a, rootType);
+        const isBTransformation = isUrnTransformational(b, rootType);
+        if (isATransformation && !isBTransformation) return 1;
+        if (!isATransformation && isBTransformation) return -1;
+        return a.localeCompare(b);
+    };
 }

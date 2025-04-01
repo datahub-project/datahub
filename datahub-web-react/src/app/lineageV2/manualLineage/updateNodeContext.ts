@@ -18,7 +18,7 @@ export default function updateNodeContext(
     entitiesToAdd: Entity[],
     entitiesToRemove: Entity[],
 ) {
-    const { nodes, edges, adjacencyList, setNodeVersion } = context;
+    const { nodes, edges, adjacencyList, rootType, setNodeVersion } = context;
 
     const node = nodes.get(urn);
     if (node) {
@@ -35,7 +35,7 @@ export default function updateNodeContext(
     setTimeout(() => {
         entitiesToAdd.forEach((entity) => {
             const n = setDefault(nodes, entity.urn, entityNodeDefault(entity.urn, entity.type, direction));
-            if (isTransformational(entity)) n.fetchStatus[direction] = FetchStatus.LOADING;
+            if (isTransformational(entity, rootType)) n.fetchStatus[direction] = FetchStatus.LOADING;
             addToAdjacencyList(adjacencyList, direction, urn, entity.urn);
             edges.set(getEdgeId(urn, entity.urn, direction), {
                 isManual: true,
