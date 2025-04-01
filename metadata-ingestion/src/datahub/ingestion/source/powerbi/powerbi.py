@@ -3,6 +3,7 @@
 # Meta Data Ingestion From the Power BI Source
 #
 #########################################################
+import functools
 import logging
 from datetime import datetime
 from typing import Iterable, List, Optional, Tuple, Union
@@ -24,6 +25,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.incremental_lineage_helper import (
+    auto_incremental_lineage,
     convert_dashboard_info_to_patch,
 )
 from datahub.ingestion.api.source import (
@@ -92,7 +94,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
-from datahub.metadata.urns import ChartUrn
+from datahub.metadata.urns import ChartUrn, DatasetUrn
 from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo
 from datahub.utilities.dedup_list import deduplicate_list
 from datahub.utilities.urns.urn_iter import lowercase_dataset_urn
@@ -237,6 +239,10 @@ class Mapper:
 
         upstream: List[UpstreamClass] = []
         cll_lineage: List[FineGrainedLineage] = []
+
+        logger.debug(
+            f"Extracting lineage for table {table.full_name} in dataset {table.dataset.name if table.dataset else None}"
+        )
 
         upstream_lineage: List[
             datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
@@ -1077,6 +1083,7 @@ class Mapper:
         report: powerbi_data_classes.Report,
         chart_mcps: List[MetadataChangeProposalWrapper],
         user_mcps: List[MetadataChangeProposalWrapper],
+        dataset_edges: List[EdgeClass],
     ) -> List[MetadataChangeProposalWrapper]:
         """
         Map PowerBi report to Datahub dashboard
@@ -1098,6 +1105,7 @@ class Mapper:
             charts=chart_urn_list,
             lastModified=ChangeAuditStamps(),
             dashboardUrl=report.webUrl,
+            datasetEdges=dataset_edges,
         )
 
         info_mcp = self.new_mcp(
@@ -1191,12 +1199,23 @@ class Mapper:
         ds_mcps = self.to_datahub_dataset(report.dataset, workspace)
         chart_mcps = self.pages_to_chart(report.pages, workspace, ds_mcps)
 
+        # collect all upstream datasets; using a set to retain unique urns
+        dataset_urns = {
+            dataset.entityUrn
+            for dataset in ds_mcps
+            if dataset.entityType == DatasetUrn.ENTITY_TYPE and dataset.entityUrn
+        }
+        dataset_edges = [
+            EdgeClass(destinationUrn=dataset_urn) for dataset_urn in dataset_urns
+        ]
+
         # Let's convert report to datahub dashboard
         report_mcps = self.report_to_dashboard(
             workspace=workspace,
             report=report,
             chart_mcps=chart_mcps,
             user_mcps=user_mcps,
+            dataset_edges=dataset_edges,
         )
 
         # Now add MCPs in sequence
@@ -1306,7 +1325,9 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
         allowed_workspaces = []
         for workspace in all_workspaces:
-            if not self.source_config.workspace_id_pattern.allowed(workspace.id):
+            if not self.source_config.workspace_id_pattern.allowed(
+                workspace.id
+            ) or not self.source_config.workspace_name_pattern.allowed(workspace.name):
                 self.reporter.filtered_workspace_names.append(
                     f"{workspace.id} - {workspace.name}"
                 )
@@ -1522,6 +1543,9 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         else:
             return [
                 *super().get_workunit_processors(),
+                functools.partial(
+                    auto_incremental_lineage, self.source_config.incremental_lineage
+                ),
                 self.stale_entity_removal_handler.workunit_processor,
             ]
 

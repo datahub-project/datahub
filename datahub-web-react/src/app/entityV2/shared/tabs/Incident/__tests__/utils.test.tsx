@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { SortingState } from '@src/alchemy-components/components/Table/types';
+import { EntityType } from '@src/types.generated';
 import {
     getFilteredTransformedIncidentData,
     getLinkedAssetsCount,
@@ -10,6 +11,7 @@ import {
     validateForm,
     getSortedIncidents,
     getExistingIncidents,
+    useSiblingOptionsForIncidentBuilder,
 } from '../utils';
 import { IncidentListFilter } from '../types';
 
@@ -118,5 +120,123 @@ describe('Utility Functions', () => {
             },
         };
         expect(getExistingIncidents(currData)).toEqual([{ id: 1 }, { id: 2 }]);
+    });
+
+    test('should return main entity data in options', () => {
+        const mockEntityData = {
+            urn: 'urn:li:dataset:(urn:li:dataPlatform:bigquery,my_table,PROD)',
+            platform: {
+                properties: {
+                    displayName: 'BigQuery',
+                },
+                name: 'bigquery',
+                urn: 'urn:li:dataPlatform:bigquery',
+            },
+            dataPlatformInstance: {
+                platform: {
+                    name: 'BigQueryInstance',
+                },
+            },
+            siblingsSearch: {
+                searchResults: [
+                    {
+                        entity: {
+                            urn: 'urn:li:dataset:(urn:li:dataPlatform:snowflake,my_table,PROD)',
+                            platform: {
+                                properties: {
+                                    displayName: 'Snowflake',
+                                },
+                                name: 'snowflake',
+                                urn: 'urn:li:dataPlatform:snowflake',
+                            },
+                            dataPlatformInstance: {
+                                platform: {
+                                    name: 'SnowflakeInstance',
+                                },
+                            },
+                        },
+                    },
+                ],
+            },
+        } as any;
+        const result = useSiblingOptionsForIncidentBuilder(
+            mockEntityData,
+            'urn:li:dataset:main',
+            'DATASET' as EntityType,
+        );
+        expect(result[0]).toEqual({
+            title: 'BigQuery',
+            urn: 'urn:li:dataset:main',
+            platform: mockEntityData.platform,
+            entityType: 'DATASET',
+        });
+    });
+
+    test('should include siblings data in options', () => {
+        const mockEntityData = {
+            urn: 'urn:li:dataset:(urn:li:dataPlatform:bigquery,my_table,PROD)',
+            platform: {
+                properties: { displayName: 'BigQuery' },
+                name: 'bigquery',
+                urn: 'urn:li:dataPlatform:bigquery',
+            },
+            dataPlatformInstance: {
+                platform: { name: 'BigQueryInstance' },
+            },
+            siblingsSearch: {
+                searchResults: [
+                    {
+                        entity: {
+                            urn: 'urn:li:dataset:(urn:li:dataPlatform:snowflake,my_table1,PROD)',
+                            platform: {
+                                properties: { displayName: 'Snowflake' },
+                                name: 'snowflake',
+                                urn: 'urn:li:dataPlatform:snowflake',
+                            },
+                            dataPlatformInstance: { platform: { name: 'SnowflakeInstance' } },
+                            type: 'DATASET',
+                        },
+                    },
+                    {
+                        entity: {
+                            urn: 'urn:li:dataset:(urn:li:dataPlatform:redshift,my_table2,PROD)',
+                            platform: {
+                                properties: { displayName: 'Redshift' },
+                                name: 'redshift',
+                                urn: 'urn:li:dataPlatform:redshift',
+                            },
+                            dataPlatformInstance: { platform: { name: 'RedshiftInstance' } },
+                            type: 'DATASET',
+                        },
+                    },
+                ],
+            },
+        } as any;
+
+        const result = useSiblingOptionsForIncidentBuilder(mockEntityData, mockEntityData.urn, 'DATASET' as EntityType);
+
+        // Expect 1 main entity + 2 siblings
+        expect(result.length).toBe(3);
+
+        expect(result[0]).toEqual({
+            urn: mockEntityData.urn,
+            title: 'BigQuery',
+            platform: mockEntityData.platform,
+            entityType: 'DATASET',
+        });
+
+        expect(result[1]).toEqual({
+            urn: 'urn:li:dataset:(urn:li:dataPlatform:snowflake,my_table1,PROD)',
+            title: 'Snowflake',
+            platform: mockEntityData.siblingsSearch.searchResults[0].entity.platform,
+            entityType: 'DATASET',
+        });
+
+        expect(result[2]).toEqual({
+            urn: 'urn:li:dataset:(urn:li:dataPlatform:redshift,my_table2,PROD)',
+            title: 'Redshift',
+            platform: mockEntityData.siblingsSearch.searchResults[1].entity.platform,
+            entityType: 'DATASET',
+        });
     });
 });
