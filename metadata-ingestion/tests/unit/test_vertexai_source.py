@@ -39,7 +39,6 @@ from datahub.metadata.schema_classes import (
     MLModelDeploymentPropertiesClass,
     StatusClass,
     SubTypesClass,
-    TagAssociationClass,
     TimeStampClass,
     VersionPropertiesClass,
     VersionTagClass,
@@ -672,12 +671,14 @@ def test_get_pipeline_mcps(
                 env=source.config.env,
                 name=mock_pipeline.name,
                 customProperties={
-                    "display_name": mock_pipeline.name,
                     "resource_name": mock_pipeline.resource_name,
                     "create_time": mock_pipeline.create_time.isoformat(),
                     "update_time": mock_pipeline.update_time.isoformat(),
                     "duration": source._format_pipeline_duration(duration),
                     "location": mock_pipeline.location,
+                    "labels": ",".join(
+                        [f"{k}:{v}" for k, v in mock_pipeline.labels.items()]
+                    ),
                 },
                 externalUrl=source._make_pipeline_external_url(mock_pipeline.name),
             ),
@@ -697,9 +698,7 @@ def test_get_pipeline_mcps(
 
         mcp_pipeline_tag = MetadataChangeProposalWrapper(
             entityUrn=expected_pipeline_urn,
-            aspect=GlobalTagsClass(
-                tags=[TagAssociationClass(tag=builder.make_tag_urn("key1_value1"))]
-            ),
+            aspect=GlobalTagsClass(tags=[]),
         )
 
         mcp_task_input = MetadataChangeProposalWrapper(
@@ -719,7 +718,6 @@ def test_get_pipeline_mcps(
             aspect=DataJobInfoClass(
                 name="reverse",
                 customProperties={
-                    "display_name": "reverse",
                     "created_time": "",
                     "started_time": "",
                     "completed_time": "",
@@ -748,9 +746,7 @@ def test_get_pipeline_mcps(
 
         mcp_task_tag = MetadataChangeProposalWrapper(
             entityUrn=expected_task_urn,
-            aspect=GlobalTagsClass(
-                tags=[TagAssociationClass(tag=builder.make_tag_urn("key1_value1"))]
-            ),
+            aspect=GlobalTagsClass(tags=[]),
         )
 
         assert len(actual_mcps) == 13

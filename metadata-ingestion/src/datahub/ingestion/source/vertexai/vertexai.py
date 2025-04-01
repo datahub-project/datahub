@@ -306,11 +306,6 @@ class VertexAISource(Source):
                 properties=self._get_pipeline_task_properties(task),
                 owners={"urn:li:corpuser:datahub"},
                 upstream_urns=task.upstreams if task.upstreams else [],
-                tags=(
-                    set(f"{k}_{v}" for k, v in pipeline.labels.items())
-                    if pipeline.labels
-                    else set()
-                ),
                 url=self._make_pipeline_external_url(pipeline.name),
             )
             yield from MetadataChangeProposalWrapper.construct_many(
@@ -345,7 +340,6 @@ class VertexAISource(Source):
         self, task: PipelineTaskMetadata
     ) -> Dict[str, str]:
         return {
-            "display_name": task.name,
             "created_time": (
                 task.create_time.strftime("%Y-%m-%d %H:%M:%S")
                 if task.create_time
@@ -365,7 +359,6 @@ class VertexAISource(Source):
 
     def _get_pipeline_properties(self, pipeline: PipelineMetadata) -> Dict[str, str]:
         return {
-            "display_name": pipeline.name,
             "resource_name": pipeline.resource_name if pipeline.resource_name else "",
             "create_time": (
                 pipeline.create_time.isoformat() if pipeline.create_time else ""
@@ -379,6 +372,9 @@ class VertexAISource(Source):
                 else ""
             ),
             "location": (pipeline.region if pipeline.region else ""),
+            "labels": ",".join([f"{k}:{v}" for k, v in pipeline.labels.items()])
+            if pipeline.labels
+            else "",
         }
 
     def _get_pipeline_mcps(
@@ -391,9 +387,6 @@ class VertexAISource(Source):
             name=pipeline.name,
             platform_instance=self.platform,
             properties=self._get_pipeline_properties(pipeline),
-            tags=set(f"{k}_{v}" for k, v in pipeline.labels.items())
-            if pipeline.labels
-            else set(),
             owners={"urn:li:corpuser:datahub"},
             url=self._make_pipeline_external_url(pipeline_name=pipeline.name),
         )
