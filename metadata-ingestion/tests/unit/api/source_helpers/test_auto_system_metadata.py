@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 
 from freezegun import freeze_time
 
@@ -33,7 +34,8 @@ def test_stamping_without_existing_metadata():
     out = [*proc.stamp([mcpw.as_workunit()])]
 
     assert len(out) == 1
-    system_metadata: SystemMetadataClass = out[0].metadata.systemMetadata
+    system_metadata: Optional[SystemMetadataClass] = out[0].metadata.systemMetadata
+    assert system_metadata
     assert system_metadata.runId == "auto-source-test"
     assert system_metadata.pipelineName == "dummy-pipeline"
     assert system_metadata.lastObserved == FROZEN_TIME_TS
@@ -52,7 +54,8 @@ def test_stamping_with_existing_metadata():
     out = [*proc.stamp([mcpw.as_workunit()])]
 
     assert len(out) == 1
-    system_metadata: SystemMetadataClass = out[0].metadata.systemMetadata
+    system_metadata: Optional[SystemMetadataClass] = out[0].metadata.systemMetadata
+    assert system_metadata
     assert system_metadata.runId == "auto-source-test"  # runId is overwritten
     assert system_metadata.pipelineName == "dummy-pipeline"
     assert (
@@ -73,7 +76,8 @@ def test_not_stamping_with_existing_metadata():
     out = [*proc.stamp([mcpw.as_workunit()])]
 
     assert len(out) == 1
-    system_metadata: SystemMetadataClass = out[0].metadata.systemMetadata
+    system_metadata: Optional[SystemMetadataClass] = out[0].metadata.systemMetadata
+    assert system_metadata
     assert system_metadata.runId == "other-run-id"  # runId is not changed
     assert system_metadata.pipelineName is None  # pipeline name is not set
     assert (
