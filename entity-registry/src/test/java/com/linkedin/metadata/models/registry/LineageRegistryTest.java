@@ -15,6 +15,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.testng.annotations.Test;
 
 public class LineageRegistryTest {
@@ -76,6 +77,65 @@ public class LineageRegistryTest {
             .contains(
                 new LineageRegistry.EdgeInfo(
                     "Consumes", RelationshipDirection.INCOMING, "dataJob")));
+  }
+
+  @Test
+  public void testGetEntitiesWithLineageToEntityType() {
+    Map<String, EntitySpec> mockEntitySpecs = new HashMap<>();
+
+    // Create dataset spec with lineage relationships
+    EntitySpec mockDatasetSpec = mock(EntitySpec.class);
+    List<RelationshipFieldSpec> datasetRelations =
+        ImmutableList.of(
+            buildSpec("DownstreamOf", ImmutableList.of("dataset"), true, true),
+            buildSpec("Produces", ImmutableList.of("dataJob"), false, true));
+    when(mockDatasetSpec.getRelationshipFieldSpecs()).thenReturn(datasetRelations);
+    when(mockDatasetSpec.getName()).thenReturn("dataset");
+    mockEntitySpecs.put("dataset", mockDatasetSpec);
+
+    // Create dataJob spec with lineage relationships
+    EntitySpec mockJobSpec = mock(EntitySpec.class);
+    List<RelationshipFieldSpec> jobRelations =
+        ImmutableList.of(
+            buildSpec("Produces", ImmutableList.of("dataset"), false, true),
+            buildSpec("Consumes", ImmutableList.of("dataset"), true, true));
+    when(mockJobSpec.getRelationshipFieldSpecs()).thenReturn(jobRelations);
+    when(mockJobSpec.getName()).thenReturn("dataJob");
+    mockEntitySpecs.put("datajob", mockJobSpec);
+
+    // Create chart spec with lineage relationships
+    EntitySpec mockChartSpec = mock(EntitySpec.class);
+    List<RelationshipFieldSpec> chartRelations =
+        ImmutableList.of(buildSpec("Consumes", ImmutableList.of("dataset"), true, true));
+    when(mockChartSpec.getRelationshipFieldSpecs()).thenReturn(chartRelations);
+    when(mockChartSpec.getName()).thenReturn("chart");
+    mockEntitySpecs.put("chart", mockChartSpec);
+
+    EntityRegistry entityRegistry = mock(EntityRegistry.class);
+    when(entityRegistry.getEntitySpecs()).thenReturn(mockEntitySpecs);
+
+    LineageRegistry lineageRegistry = new LineageRegistry(entityRegistry);
+
+    // Test getting entities with lineage to dataset
+    Set<String> entitiesWithLineage = lineageRegistry.getEntitiesWithLineageToEntityType("dataset");
+    assertEquals(entitiesWithLineage.size(), 3);
+    assertTrue(entitiesWithLineage.contains("dataset"));
+    assertTrue(entitiesWithLineage.contains("dataJob"));
+    assertTrue(entitiesWithLineage.contains("chart"));
+
+    // Test getting entities with lineage to dataJob
+    entitiesWithLineage = lineageRegistry.getEntitiesWithLineageToEntityType("dataJob");
+    assertEquals(entitiesWithLineage.size(), 3);
+    assertTrue(entitiesWithLineage.contains("dataset"));
+    assertTrue(entitiesWithLineage.contains("dataJob"));
+    assertTrue(entitiesWithLineage.contains("chart"));
+
+    // Test getting entities with lineage to chart
+    entitiesWithLineage = lineageRegistry.getEntitiesWithLineageToEntityType("chart");
+    assertEquals(entitiesWithLineage.size(), 3);
+    assertTrue(entitiesWithLineage.contains("dataset"));
+    assertTrue(entitiesWithLineage.contains("dataJob"));
+    assertTrue(entitiesWithLineage.contains("chart"));
   }
 
   private RelationshipFieldSpec buildSpec(

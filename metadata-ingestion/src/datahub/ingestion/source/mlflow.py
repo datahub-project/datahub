@@ -1,4 +1,5 @@
 import json
+import os
 import time
 from dataclasses import dataclass
 from typing import Any, Callable, Iterable, List, Optional, Tuple, TypeVar, Union
@@ -15,7 +16,7 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
 )
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import ContainerKey
+from datahub.emitter.mcp_builder import ExperimentKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -76,10 +77,6 @@ from datahub.sdk.dataset import Dataset
 T = TypeVar("T")
 
 
-class ContainerKeyWithId(ContainerKey):
-    id: str
-
-
 class MLflowConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     tracking_uri: Optional[str] = Field(
         default=None,
@@ -113,6 +110,13 @@ class MLflowConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     )
     source_mapping_to_platform: Optional[dict] = Field(
         default=None, description="Mapping of source type to datahub platform"
+    )
+
+    username: Optional[str] = Field(
+        default=None, description="Username for MLflow authentication"
+    )
+    password: Optional[str] = Field(
+        default=None, description="Password for MLflow authentication"
     )
 
 
@@ -161,7 +165,17 @@ class MLflowSource(StatefulIngestionSourceBase):
         self.ctx = ctx
         self.config = config
         self.report = StaleEntityRemovalSourceReport()
-        self.client = MlflowClient(
+        self.client = self._configure_client()
+
+    def _configure_client(self) -> MlflowClient:
+        if bool(self.config.username) != bool(self.config.password):
+            raise ValueError("Both username and password must be set together")
+
+        if self.config.username and self.config.password:
+            os.environ["MLFLOW_TRACKING_USERNAME"] = self.config.username
+            os.environ["MLFLOW_TRACKING_PASSWORD"] = self.config.password
+
+        return MlflowClient(
             tracking_uri=self.config.tracking_uri,
             registry_uri=self.config.registry_uri,
         )
@@ -234,7 +248,7 @@ class MLflowSource(StatefulIngestionSourceBase):
         self, experiment: Experiment
     ) -> Iterable[MetadataWorkUnit]:
         experiment_container = Container(
-            container_key=ContainerKeyWithId(
+            container_key=ExperimentKey(
                 platform=str(DataPlatformUrn(platform_name=self.platform)),
                 id=experiment.name,
             ),
@@ -452,7 +466,7 @@ class MLflowSource(StatefulIngestionSourceBase):
     def _get_run_workunits(
         self, experiment: Experiment, run: Run
     ) -> Iterable[MetadataWorkUnit]:
-        experiment_key = ContainerKeyWithId(
+        experiment_key = ExperimentKey(
             platform=str(DataPlatformUrn(self.platform)), id=experiment.name
         )
 

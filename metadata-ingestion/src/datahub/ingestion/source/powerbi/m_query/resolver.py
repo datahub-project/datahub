@@ -361,6 +361,9 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         )
 
         if output_variable is None:
+            logger.debug(
+                f"Table: {self.table.full_name}: output-variable not found in tree"
+            )
             self.reporter.report_warning(
                 f"{self.table.full_name}-output-variable",
                 "output-variable not found in table expression",
@@ -374,6 +377,9 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
 
         # Each item is data-access function
         for f_detail in table_links:
+            logger.debug(
+                f"Processing data-access-function {f_detail.data_access_function_name}"
+            )
             # Get & Check if we support data-access-function available in M-Query
             supported_resolver = SupportedPattern.get_pattern_handler(
                 f_detail.data_access_function_name
@@ -390,6 +396,10 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
 
             # From supported_resolver enum get respective handler like AmazonRedshift or Snowflake or Oracle or NativeQuery and create instance of it
             # & also pass additional information that will be need to generate lineage
+            logger.debug(
+                f"Creating instance of {supported_resolver.handler().__name__} "
+                f"for data-access-function {f_detail.data_access_function_name}"
+            )
             pattern_handler: AbstractLineage = supported_resolver.handler()(
                 ctx=ctx,
                 table=self.table,
