@@ -425,23 +425,22 @@ class IcebergSource(StatefulIngestionSourceBase):
     def _get_dataset_properties_aspect(
         self, dataset_name: str, table: Table
     ) -> DatasetPropertiesClass:
-        additional_properties = {}
+        created: Optional[TimeStampClass] = None
         custom_properties = table.metadata.properties.copy()
         custom_properties["location"] = table.metadata.location
         custom_properties["format-version"] = str(table.metadata.format_version)
         custom_properties["partition-spec"] = str(self._get_partition_aspect(table))
+        last_modified: Optional[int] = table.metadata.last_updated_ms
         if table.current_snapshot():
             custom_properties["snapshot-id"] = str(table.current_snapshot().snapshot_id)
             custom_properties["manifest-list"] = table.current_snapshot().manifest_list
-            additional_properties["lastModified"] = TimeStampClass(
-                int(table.current_snapshot().timestamp_ms)
-            )
+            if not last_modified:
+                last_modified = int(table.current_snapshot().timestamp_ms)
+        print(f"last modified value: {last_modified}")
         if "created-at" in custom_properties:
             try:
                 dt = dateutil_parser.isoparse(custom_properties["created-at"])
-                additional_properties["created"] = TimeStampClass(
-                    int(dt.timestamp() * 1000)
-                )
+                created = TimeStampClass(int(dt.timestamp() * 1000))
             except Exception as ex:
                 LOGGER.warning(
                     f"Exception while trying to parse creation date {custom_properties['created-at']}, ignoring: {ex}"
@@ -451,8 +450,10 @@ class IcebergSource(StatefulIngestionSourceBase):
             name=table.name()[-1],
             description=table.metadata.properties.get("comment", None),
             customProperties=custom_properties,
-            lastModified=additional_properties.get("lastModified"),
-            created=additional_properties.get("created"),
+            lastModified=TimeStampClass(last_modified)
+            if last_modified is not None
+            else None,
+            created=created,
             qualifiedName=dataset_name,
         )
 
