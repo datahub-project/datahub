@@ -372,9 +372,7 @@ class MetricPredictor:
 
         logger.info(f"Generated fixed interval buffer ratio of {buffer_ratio}")
 
-        timestamps = self._extract_operation_timestamps(operations)
-
-        prediction_result = self._predict_fixed_interval(timestamps, buffer_ratio)
+        prediction_result = self._predict_fixed_interval(operations, buffer_ratio)
 
         logger.info(
             f"Fixed interval schedule prediction result is: {prediction_result}"
@@ -434,8 +432,24 @@ class MetricPredictor:
         """
         return [operation.timestamp_ms for operation in operations]
 
+    def _extract_anomaly_operation_timestamps(
+        self, operations: List[Operation]
+    ) -> List[int]:
+        """
+        Extracts timestamps from operations where the operation is an anomaly window close.
+
+        Args:
+            operations: List of operations to extract from.
+
+        Returns:
+            List of timestamps for any operations marked as anomaly.
+        """
+        return [
+            operation.timestamp_ms for operation in operations if operation.is_anomaly
+        ]
+
     def _predict_fixed_interval(
-        self, timestamps: List[int], buffer_ratio: float
+        self, operations: List[Operation], buffer_ratio: float
     ) -> MaxNormalIntervalResult:
         """
         Uses a prediction model to estimate the maximum normal interval.
@@ -448,8 +462,14 @@ class MetricPredictor:
             MaxNormalIntervalResult with prediction results.
         """
         try:
+            timestamps = self._extract_operation_timestamps(operations)
+            known_anomaly_timestamps = self._extract_anomaly_operation_timestamps(
+                operations
+            )
             return predict_max_normal_interval(
-                timestamps=timestamps, buffer_ratio=buffer_ratio
+                timestamps=timestamps,
+                buffer_ratio=buffer_ratio,
+                known_anomaly_timestamps=known_anomaly_timestamps,
             )
         except Exception as e:
             logger.exception("Failed to predict fixed interval")

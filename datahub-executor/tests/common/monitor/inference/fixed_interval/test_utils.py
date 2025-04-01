@@ -28,7 +28,7 @@ class TestPreprocessData(unittest.TestCase):
             1672747200000,  # 2023-01-03 12:00:00
         ]
 
-        result = preprocess_data(timestamps)
+        result = preprocess_data(timestamps, [])
 
         self.assertIsInstance(result, pd.DataFrame)
         self.assertEqual(len(result), 3)
@@ -60,7 +60,7 @@ class TestPreprocessData(unittest.TestCase):
             datetime.datetime(2023, 1, 3, 12, 0),
         ]
 
-        result = preprocess_data(timestamps)
+        result = preprocess_data(timestamps, [])
 
         self.assertIsInstance(result, pd.DataFrame)
         self.assertEqual(len(result), 3)
@@ -81,7 +81,7 @@ class TestPreprocessData(unittest.TestCase):
             pd.Timestamp("2023-01-03 12:00:00"),
         ]
 
-        result = preprocess_data(timestamps)
+        result = preprocess_data(timestamps, [])
 
         self.assertIsInstance(result, pd.DataFrame)
         self.assertEqual(len(result), 3)
@@ -102,7 +102,7 @@ class TestPreprocessData(unittest.TestCase):
             1672660800000,  # 2023-01-02 12:00:00
         ]
 
-        result = preprocess_data(timestamps)
+        result = preprocess_data(timestamps, [])
 
         # Should remove duplicates
         self.assertEqual(len(result), 2)
@@ -121,13 +121,173 @@ class TestPreprocessData(unittest.TestCase):
             1672660800000,  # 2023-01-02 12:00:00
         ]
 
-        result = preprocess_data(timestamps)
+        result = preprocess_data(timestamps, [])
 
         # Should sort by date
         self.assertEqual(len(result), 3)
         self.assertEqual(result.iloc[0]["date"], datetime.date(2023, 1, 1))
         self.assertEqual(result.iloc[1]["date"], datetime.date(2023, 1, 2))
         self.assertEqual(result.iloc[2]["date"], datetime.date(2023, 1, 3))
+
+    def test_preprocess_with_known_anomalies(self, mock_config: MagicMock) -> None:
+        """Test that intervals ending with known anomalies are filtered correctly."""
+        from datahub_executor.common.monitor.inference.fixed_interval.utils import (
+            preprocess_data,
+        )
+
+        # Test data: timestamps at hourly intervals
+        timestamps: List[int] = [
+            1672574400000,  # 2023-01-01 12:00:00
+            1672578000000,  # 2023-01-01 13:00:00
+            1672581600000,  # 2023-01-01 14:00:00 - known anomaly
+            1672585200000,  # 2023-01-01 15:00:00
+            1672588800000,  # 2023-01-01 16:00:00
+        ]
+
+        # Mark one timestamp as an anomaly
+        known_anomaly_timestamps = [1672581600000]  # 2023-01-01 14:00:00
+
+        result = preprocess_data(timestamps, known_anomaly_timestamps)
+
+        # Validate that:
+        # 1. All timestamps are still in the dataframe
+        self.assertEqual(len(result), 5)
+
+        # 2. The time_delta for the anomalous timestamp is NaN
+        self.assertTrue(np.isnan(result.iloc[2]["time_delta"]))
+
+        # 4. Other time_deltas are not NaN
+        self.assertTrue(
+            np.isnan(result.iloc[0]["time_delta"])
+        )  # First row is always NaN
+        self.assertFalse(np.isnan(result.iloc[1]["time_delta"]))
+        self.assertFalse(np.isnan(result.iloc[3]["time_delta"]))
+        self.assertFalse(np.isnan(result.iloc[4]["time_delta"]))
+
+    def test_preprocess_with_multiple_known_anomalies(
+        self, mock_config: MagicMock
+    ) -> None:
+        """Test filtering with multiple known anomalies."""
+        from datahub_executor.common.monitor.inference.fixed_interval.utils import (
+            preprocess_data,
+        )
+
+        # Test data: timestamps at 30-minute intervals
+        timestamps: List[int] = [
+            1672574400000,  # 2023-01-01 12:00:00
+            1672576200000,  # 2023-01-01 12:30:00
+            1672578000000,  # 2023-01-01 13:00:00 - known anomaly
+            1672579800000,  # 2023-01-01 13:30:00
+            1672581600000,  # 2023-01-01 14:00:00 - known anomaly
+            1672583400000,  # 2023-01-01 14:30:00
+        ]
+
+        # Mark two timestamps as anomalies
+        known_anomaly_timestamps = [1672578000000, 1672581600000]
+
+        result = preprocess_data(timestamps, known_anomaly_timestamps)
+
+        # Validate results
+        self.assertEqual(len(result), 6)
+
+        # Time deltas that should be NaN:
+        # - First row (always NaN)
+        # - Anomalous rows themselves (idx 2, 4)
+        self.assertTrue(np.isnan(result.iloc[0]["time_delta"]))  # First row
+        self.assertTrue(np.isnan(result.iloc[2]["time_delta"]))  # Anomaly itself
+        self.assertTrue(np.isnan(result.iloc[4]["time_delta"]))  # Anomaly itself
+
+        # Other time deltas should be preserved
+        self.assertFalse(np.isnan(result.iloc[1]["time_delta"]))
+        self.assertFalse(np.isnan(result.iloc[3]["time_delta"]))
+        self.assertFalse(np.isnan(result.iloc[5]["time_delta"]))
+
+    def test_preprocess_with_consecutive_anomalies(
+        self, mock_config: MagicMock
+    ) -> None:
+        """Test filtering with consecutive known anomalies."""
+        from datahub_executor.common.monitor.inference.fixed_interval.utils import (
+            preprocess_data,
+        )
+
+        # Test data: timestamps at hourly intervals with consecutive anomalies
+        timestamps: List[int] = [
+            1672574400000,  # 2023-01-01 12:00:00
+            1672578000000,  # 2023-01-01 13:00:00
+            1672581600000,  # 2023-01-01 14:00:00 - known anomaly
+            1672585200000,  # 2023-01-01 15:00:00 - known anomaly (consecutive)
+            1672588800000,  # 2023-01-01 16:00:00
+        ]
+
+        known_anomaly_timestamps = [1672581600000, 1672585200000]
+
+        result = preprocess_data(timestamps, known_anomaly_timestamps)
+
+        # Validate that the right intervals are filtered
+        self.assertEqual(len(result), 5)
+
+        # Should have NaN time_deltas for:
+        # - First row (always NaN)
+        # - Row leading to first anomaly (idx 1)
+        # - Both anomalous rows (idx 2, 3)
+        self.assertTrue(np.isnan(result.iloc[0]["time_delta"]))  # First row
+        self.assertTrue(np.isnan(result.iloc[2]["time_delta"]))  # First anomaly
+        self.assertTrue(np.isnan(result.iloc[3]["time_delta"]))  # Second anomaly
+
+        # Other time deltas should be preserved
+        self.assertFalse(np.isnan(result.iloc[1]["time_delta"]))
+        self.assertFalse(np.isnan(result.iloc[4]["time_delta"]))
+
+    def test_preprocess_with_empty_known_anomalies(
+        self, mock_config: MagicMock
+    ) -> None:
+        """Test that function works correctly with empty known_anomaly_timestamps."""
+        from datahub_executor.common.monitor.inference.fixed_interval.utils import (
+            preprocess_data,
+        )
+
+        # Test data: three consecutive days at noon
+        timestamps: List[int] = [
+            1672574400000,  # 2023-01-01 12:00:00
+            1672660800000,  # 2023-01-02 12:00:00
+            1672747200000,  # 2023-01-03 12:00:00
+        ]
+
+        # Empty list of known anomalies
+        known_anomaly_timestamps: List[int] = []
+
+        result = preprocess_data(timestamps, known_anomaly_timestamps)
+
+        # Should behave like the original function
+        self.assertEqual(len(result), 3)
+        self.assertTrue(np.isnan(result.iloc[0]["time_delta"]))
+        self.assertAlmostEqual(result.iloc[1]["time_delta"], 1440.0)
+        self.assertAlmostEqual(result.iloc[2]["time_delta"], 1440.0)
+
+    def test_preprocess_with_non_matching_anomalies(
+        self, mock_config: MagicMock
+    ) -> None:
+        """Test behavior when known anomalies don't match any timestamps."""
+        from datahub_executor.common.monitor.inference.fixed_interval.utils import (
+            preprocess_data,
+        )
+
+        timestamps: List[int] = [
+            1672574400000,  # 2023-01-01 12:00:00
+            1672578000000,  # 2023-01-01 13:00:00
+            1672581600000,  # 2023-01-01 14:00:00
+        ]
+
+        # Anomaly timestamp that doesn't match any in the list
+        known_anomaly_timestamps = [1672592400000]  # 2023-01-01 17:00:00
+
+        result = preprocess_data(timestamps, known_anomaly_timestamps)
+
+        # Should not filter any intervals since the anomaly doesn't match
+        self.assertEqual(len(result), 3)
+        self.assertTrue(np.isnan(result.iloc[0]["time_delta"]))  # First row always NaN
+        self.assertFalse(np.isnan(result.iloc[1]["time_delta"]))
+        self.assertFalse(np.isnan(result.iloc[2]["time_delta"]))
 
 
 @patch(

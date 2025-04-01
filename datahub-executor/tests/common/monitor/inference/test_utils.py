@@ -10,11 +10,12 @@ from datahub.metadata.schema_classes import (
     EmbeddedAssertionClass,
 )
 
-from datahub_executor.common.metric.types import Metric
+from datahub_executor.common.metric.types import Metric, Operation
 from datahub_executor.common.monitor.inference.metric_projection.metric_predictor import (
     MetricBoundary,
 )
 from datahub_executor.common.monitor.inference.utils import (
+    annotate_operations_with_anomalies,
     build_std_parameters,
     create_embedded_assertion,
     create_inference_source,
@@ -132,3 +133,110 @@ def test_is_metric_anomaly() -> None:
     metric = Metric(value=123, timestamp_ms=1)
 
     assert is_metric_anomaly(metric, anomalies) is False
+
+
+def test_annotate_operations_with_anomalies() -> None:
+    # Case 1: There are no anomalies.
+    # Operations should remain unchanged.
+    operations = [
+        Operation(type="INSERT", timestamp_ms=0, is_anomaly=False),
+        Operation(type="INSERT", timestamp_ms=1, is_anomaly=False),
+        Operation(type="INSERT", timestamp_ms=2, is_anomaly=False),
+    ]
+
+    anomalies: list[Anomaly] = []
+
+    annotated_operations = annotate_operations_with_anomalies(operations, anomalies)
+
+    assert operations == annotated_operations
+
+    # Case 2: There are anomalies at the beginning
+    # First operation should be marked as an anomaly.
+    operations = [
+        Operation(type="INSERT", timestamp_ms=0, is_anomaly=False),
+        Operation(type="INSERT", timestamp_ms=1, is_anomaly=False),
+        Operation(type="INSERT", timestamp_ms=2, is_anomaly=False),
+    ]
+
+    anomalies = [
+        Anomaly(timestamp_ms=-1, metric=None),
+        Anomaly(timestamp_ms=-2, metric=None),
+    ]
+
+    annotated_operations = annotate_operations_with_anomalies(operations, anomalies)
+
+    # Only the first should be marked an anomaly
+    assert annotated_operations[0].is_anomaly is True
+    for operation in annotated_operations[1:]:
+        assert operation.is_anomaly is False
+
+    # Case 3: There are anomalies at the end
+    # Operations should remain unchanged.
+    operations = [
+        Operation(type="INSERT", timestamp_ms=0, is_anomaly=False),
+        Operation(type="INSERT", timestamp_ms=1, is_anomaly=False),
+        Operation(type="INSERT", timestamp_ms=2, is_anomaly=False),
+    ]
+
+    anomalies = [
+        Anomaly(timestamp_ms=4, metric=None),
+        Anomaly(timestamp_ms=5, metric=None),
+    ]
+
+    annotated_operations = annotate_operations_with_anomalies(operations, anomalies)
+
+    assert operations == annotated_operations
+
+    # Case 4: There is single anomalies in the middle - none equal to the exact times.
+    operations = [
+        Operation(type="INSERT", timestamp_ms=0, is_anomaly=False),
+        Operation(type="INSERT", timestamp_ms=4, is_anomaly=False),
+        Operation(type="INSERT", timestamp_ms=6, is_anomaly=False),
+    ]
+
+    anomalies = [
+        Anomaly(timestamp_ms=1, metric=None),
+        Anomaly(timestamp_ms=3, metric=None),
+    ]
+
+    annotated_operations = annotate_operations_with_anomalies(operations, anomalies)
+    assert annotated_operations[0].is_anomaly is False
+    assert annotated_operations[1].is_anomaly is True
+    assert annotated_operations[2].is_anomaly is False
+
+    # Case 5: There are multiple anomalies in the middle.
+    operations = [
+        Operation(type="INSERT", timestamp_ms=0, is_anomaly=False),
+        Operation(type="INSERT", timestamp_ms=4, is_anomaly=False),
+        Operation(type="INSERT", timestamp_ms=6, is_anomaly=False),
+    ]
+
+    anomalies = [
+        Anomaly(timestamp_ms=1, metric=None),
+        Anomaly(timestamp_ms=3, metric=None),
+        Anomaly(timestamp_ms=5, metric=None),
+    ]
+
+    annotated_operations = annotate_operations_with_anomalies(operations, anomalies)
+    assert annotated_operations[0].is_anomaly is False
+    assert annotated_operations[1].is_anomaly is True
+    assert annotated_operations[2].is_anomaly is True
+
+    # Case 6: If the anomaly happened at the exact same time as the operation,
+    # it was probably a timing fluke. Either way to be safe, we do mark as an anomaly.
+    operations = [
+        Operation(type="INSERT", timestamp_ms=0, is_anomaly=False),
+        Operation(type="INSERT", timestamp_ms=4, is_anomaly=False),
+        Operation(type="INSERT", timestamp_ms=6, is_anomaly=False),
+    ]
+
+    anomalies = [
+        Anomaly(timestamp_ms=0, metric=None),
+        Anomaly(timestamp_ms=4, metric=None),
+        Anomaly(timestamp_ms=6, metric=None),
+    ]
+
+    annotated_operations = annotate_operations_with_anomalies(operations, anomalies)
+    assert annotated_operations[0].is_anomaly is True
+    assert annotated_operations[1].is_anomaly is True
+    assert annotated_operations[2].is_anomaly is True

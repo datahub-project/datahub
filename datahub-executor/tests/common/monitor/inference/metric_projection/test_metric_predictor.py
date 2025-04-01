@@ -110,9 +110,9 @@ class TestMetricPredictor:
         """Return a list of sample operations."""
         return [
             Operation(timestamp_ms=1000, type="CREATE"),
-            Operation(timestamp_ms=2000, type="UPDATE"),
+            Operation(timestamp_ms=2000, type="UPDATE", is_anomaly=True),
             Operation(timestamp_ms=3000, type="UPDATE"),
-            Operation(timestamp_ms=4000, type="UPDATE"),
+            Operation(timestamp_ms=4000, type="UPDATE", is_anomaly=True),
             Operation(timestamp_ms=5000, type="DELETE"),
         ]
 
@@ -513,6 +513,13 @@ class TestMetricPredictor:
         timestamps = predictor._extract_operation_timestamps(sample_operations)
         assert timestamps == [1000, 2000, 3000, 4000, 5000]
 
+    def test_extract_anomaly_operation_timestamps(
+        self, predictor: MetricPredictor, sample_operations: List[Operation]
+    ) -> None:
+        """Test extracting timestamps from operations."""
+        timestamps = predictor._extract_anomaly_operation_timestamps(sample_operations)
+        assert timestamps == [2000, 4000]
+
     @patch(
         "datahub_executor.common.monitor.inference.metric_projection.metric_predictor.predict_max_normal_interval"
     )
@@ -529,14 +536,17 @@ class TestMetricPredictor:
 
         # Call method
         result = predictor._predict_fixed_interval(
-            timestamps=[1000, 2000, 3000],
+            operations=[
+                Operation(type="INSERT", timestamp_ms=1000),
+                Operation(type="INSERT", timestamp_ms=2000),
+                Operation(type="INSERT", timestamp_ms=3000),
+            ],
             buffer_ratio=0.5,
         )
 
         # Verify mock was called with correct parameters
         mock_predict.assert_called_once_with(
-            timestamps=[1000, 2000, 3000],
-            buffer_ratio=0.5,
+            timestamps=[1000, 2000, 3000], buffer_ratio=0.5, known_anomaly_timestamps=[]
         )
 
         # Verify result
@@ -556,7 +566,11 @@ class TestMetricPredictor:
         # Call method and verify exception
         with pytest.raises(Exception) as excinfo:
             predictor._predict_fixed_interval(
-                timestamps=[1000, 2000, 3000],
+                operations=[
+                    Operation(type="INSERT", timestamp_ms=1000),
+                    Operation(type="INSERT", timestamp_ms=2000),
+                    Operation(type="INSERT", timestamp_ms=3000),
+                ],
                 buffer_ratio=0.5,
             )
 

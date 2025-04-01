@@ -18,16 +18,20 @@ logger = logging.getLogger(__name__)
 
 def preprocess_data(
     timestamps: Sequence[Union[int, pd.Timestamp, datetime.datetime]],
+    known_anomaly_timestamps: Sequence[int],
 ) -> pd.DataFrame:
     """
     This function performs the following tasks:
-        Convert timestamps to dataframe
-        Remove duplicates.
-        Create diff feature from the ordered timestamps
-    :param timestamps:
-                Type: list of integer/pd.Timestamp/datetime object
-    :return: pd.DataFrame, dataframe with timestamps and time differences.
+        - Convert timestamps to dataframe
+        - Remove duplicates
+        - Create diff feature from the ordered timestamps
+        - Filter out intervals that end with known anomalies
+
+    :param timestamps: List of integer/pd.Timestamp/datetime object
+    :param known_anomaly_timestamps: List of known anomalous timestamps (in milliseconds)
+    :return: pd.DataFrame, dataframe with timestamps and time differences (with anomalies filtered out)
     """
+    # Convert timestamps to DataFrame
     if all(isinstance(n, int) for n in timestamps):
         ts = (
             pd.DataFrame(pd.to_datetime(timestamps, unit="ms"), columns=["ds"])
@@ -38,10 +42,26 @@ def preprocess_data(
         ts = pd.DataFrame(timestamps, columns=["ds"])
         ts["ds"] = pd.to_datetime(ts.ds)
         ts = ts.sort_values("ds").drop_duplicates().reset_index(drop=True)
-    # ts = create_date_features(ts)
+
+    # Create time delta feature
     ts["time_delta"] = ts["ds"].diff().apply(lambda x: x.total_seconds() / 60)
     ts["date"] = ts.ds.dt.date
-    # ts['date_diff'] = ts['date'].diff().apply(lambda x: int(x.days) if not np.isnan(x.days) else x)
+
+    # Filter out intervals that end with known anomalies
+    if known_anomaly_timestamps and len(known_anomaly_timestamps) > 0:
+        # Convert known anomalies to datetime
+        known_anomalies_dt = pd.to_datetime(known_anomaly_timestamps, unit="ms")
+
+        # Mask timestamps that are anomalies
+        is_anomaly = ts["ds"].isin(known_anomalies_dt)
+
+        # Set time_delta to NaN only where timestamp is an anomaly (i.e., filter interval ending here)
+        ts.loc[is_anomaly, "time_delta"] = np.nan
+
+        logger.info(
+            f"Filtered out {len(known_anomaly_timestamps)} intervals that end with known anomalies"
+        )
+
     return ts
 
 

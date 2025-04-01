@@ -18,6 +18,9 @@ from datahub_executor.common.metric.types import Operation
 from datahub_executor.common.monitor.inference.base_assertion_trainer import (
     BaseAssertionTrainer,
 )
+from datahub_executor.common.monitor.inference.utils import (
+    annotate_operations_with_anomalies,
+)
 from datahub_executor.common.types import (
     Assertion,
     AssertionAdjustmentSettings,
@@ -34,6 +37,10 @@ logger = logging.getLogger(__name__)
 
 # Operations to ignore during freshness training
 FRESHNESS_OPERATION_TYPES_TO_IGNORE = ["DELETE", "DROP", "SELECT"]
+
+# TODO: We need to dynamically update the run interval based on the predicted
+# interval - We must run at least as frequently as the predicted interval.
+# For our anomaly strategy to hold, this must be the case.
 
 
 class FreshnessAssertionTrainer(BaseAssertionTrainer[Operation]):
@@ -100,12 +107,23 @@ class FreshnessAssertionTrainer(BaseAssertionTrainer[Operation]):
         )
 
         # Fetch operations
-        return self.metrics_client.fetch_operations(
+        operations = self.metrics_client.fetch_operations(
             entity_urn=entity_urn,
             lookback=training_window_duration,
             limit=2000,
             ignore_types=FRESHNESS_OPERATION_TYPES_TO_IGNORE,
         )
+
+        # Fetch anomalies
+        anomalies = self.monitor_client.fetch_monitor_anomalies(
+            urn=monitor.urn,
+            lookback=training_window_duration,
+            limit=2000,
+        )
+
+        # Now, merge the anomalies and the operations
+        # to mark operations following anomaly intervals.
+        return annotate_operations_with_anomalies(operations, anomalies)
 
     def remove_inferred_assertion(
         self,

@@ -12,7 +12,7 @@ from datahub.metadata.schema_classes import (
     TimeWindowSizeClass,
 )
 
-from datahub_executor.common.metric.types import Metric
+from datahub_executor.common.metric.types import Metric, Operation
 from datahub_executor.common.monitor.inference.metric_projection.metric_predictor import (
     MetricBoundary,
 )
@@ -76,3 +76,49 @@ def is_metric_anomaly(metric: Metric, anomalies: List[Anomaly]) -> bool:
             ):
                 return True
     return False
+
+
+def annotate_operations_with_anomalies(
+    operations: List[Operation], anomalies: List[Anomaly]
+) -> List[Operation]:
+    """
+    This method annotates operations that come directly AFTER an anomaly event was recorded.
+
+    When an anomaly is recorded, it means that the table did NOT updated when it should have -
+    it was missing an operation.
+
+    Thus, we need to mark the "closing operation" or the next subsequent operation after
+    an anomaly as anomalous, indicating that it was "too late". Later on, we used this
+    to filter out anomalies delta's of time between subsequent updates so that they are
+    not included as "normal" when predicting the normal update interval.
+
+    Example:
+        If O is operation, A is anomaly:
+
+        O1 A1 O2 -> O2 will be marked as an anomaly.
+        O1 O2 A1 O3 -> O3 will be marked as an anomaly.
+        Q1 A1 Q2 A2 O3 -> O2 and O3 will be marked as anomalies.
+    """
+
+    # First, make sure both operations and anomalies are sorted in ASC order (default)
+    operations.sort(key=lambda op: op.timestamp_ms)
+    anomalies.sort(key=lambda an: an.timestamp_ms)
+
+    operation_idx = 0
+    anomaly_idx = 0
+
+    while operation_idx < len(operations) and anomaly_idx < len(anomalies):
+        operation = operations[operation_idx]
+        anomaly = anomalies[anomaly_idx]
+
+        if anomaly.timestamp_ms <= operation.timestamp_ms:
+            # We've found an operation that needs to be marked as an anomaly.
+            # Mutate the operation in place.
+            operation.is_anomaly = True
+            anomaly_idx = anomaly_idx + 1
+        else:
+            # Current anomaly timestamp is higher, let's increment the operations.
+            operation_idx = operation_idx + 1
+
+    # That't it, we've mutated the operations in place.
+    return operations

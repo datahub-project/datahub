@@ -48,6 +48,14 @@ class Operation(BaseModel):
     timestamp_ms: int
     type: str
 
+    # This flag is used to indicate whether this update
+    # follows a window of time (interval) that would be
+    # considered anomalous for freshness purposes.
+    #
+    # Meaning, there should have been an update BEFORE this operation,
+    # but there was not. Only used for smart assertions.
+    is_anomaly: bool = False
+
     def __repr__(self) -> str:
         return f"Operation(timestamp_ms={self.timestamp_ms}, type={self.type})"
 

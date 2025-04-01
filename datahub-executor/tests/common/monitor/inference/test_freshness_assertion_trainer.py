@@ -25,6 +25,7 @@ from datahub_executor.common.monitor.inference.metric_projection.metric_predicto
     MetricPredictor,
 )
 from datahub_executor.common.types import (
+    Anomaly,
     Assertion,
     AssertionAdjustmentSettings,
     AssertionEvaluationSpec,
@@ -106,13 +107,26 @@ def mock_operations_data() -> List[Mock]:
     operations: List[Mock] = []
     for i in range(10):
         operation = Mock(spec=Operation)
-        operation.timestamp_ms = (
-            int(time.time() * 1000) - i * 3600 * 1000
-        )  # Each 1 hour apart
-        operation.operation_type = "INSERT"  # Not in ignore list
+        operation.timestamp_ms = i * 3600 * 1000  # Each 1 hour apart
+        operation.type = "INSERT"  # Not in ignore list
         operations.append(operation)
 
     return operations
+
+
+@pytest.fixture
+def mock_anomalies_data() -> List[Anomaly]:
+    """Create mock anomalies data for testing."""
+    anomalies: List[Anomaly] = []
+    for i in range(5):
+        anomaly = Mock(spec=Anomaly)
+        timestamp_ms = (
+            i * 3600 * 1000 - 10
+        )  # Subtract to ensure the operation is marked.
+        anomaly.timestamp_ms = timestamp_ms
+        anomalies.append(cast(Anomaly, anomaly))
+
+    return anomalies
 
 
 @pytest.fixture
@@ -271,6 +285,51 @@ def test_get_metric_data(
     assert call_args["ignore_types"] == FRESHNESS_OPERATION_TYPES_TO_IGNORE
 
     assert result == mock_operations_data
+
+
+def test_get_metric_data_with_anomalies(
+    trainer: FreshnessAssertionTrainer,
+    mock_dependencies: Dict[str, Union[MagicMock, Mock]],
+    mock_monitor: Mock,
+    mock_assertion: Mock,
+    mock_operations_data: List[Mock],
+    mock_anomalies_data: List[Anomaly],
+) -> None:
+    """Test that get_metric_data correct applies anomaly status to operations."""
+    # Arrange
+    mock_dependencies[
+        "metrics_client"
+    ].fetch_operations.return_value = mock_operations_data
+    mock_dependencies[
+        "monitor_client"
+    ].fetch_monitor_anomalies.return_value = mock_anomalies_data
+
+    # Act
+    result = trainer.get_metric_data(
+        cast(Monitor, mock_monitor),
+        cast(Assertion, mock_assertion),
+        None,
+    )
+
+    # Assert
+    mock_dependencies["metrics_client"].fetch_operations.assert_called_once()
+    mock_dependencies["monitor_client"].fetch_monitor_anomalies.assert_called_once()
+
+    # Check that the entity_urn and ignore_types parameters are correct
+    call_args = mock_dependencies["metrics_client"].fetch_operations.call_args[1]
+
+    assert call_args["entity_urn"] == mock_assertion.entity.urn
+    assert call_args["ignore_types"] == FRESHNESS_OPERATION_TYPES_TO_IGNORE
+
+    # For the first 5 operations, ensure they are marked as anomalous.
+    # And ensure the rest is unchanged.
+    for i in range(0, 5):
+        assert result[i].is_anomaly is True
+        assert result[i].timestamp_ms == mock_operations_data[i].timestamp_ms
+        assert result[i].type == mock_operations_data[i].type
+
+    # Assert that the second half of operations remained untouched.
+    assert result[5:] == mock_operations_data[5:]
 
 
 def test_remove_inferred_assertion(

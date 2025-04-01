@@ -118,6 +118,9 @@ logger = logging.getLogger(__name__)
 def predict_max_normal_interval(
     timestamps: Sequence[Union[int, pd.Timestamp, datetime.datetime]],
     buffer_ratio: Optional[float] = None,
+    known_anomaly_timestamps: Optional[
+        Sequence[int]
+    ] = None,  # Known anomalous end of time windows.
 ) -> MaxNormalIntervalResult:
     unit = "minutes"
     score = 1.0
@@ -125,7 +128,7 @@ def predict_max_normal_interval(
         assert len(timestamps) > 2, "minimum 2 timestamps are required!!!"
 
         # Preprocess Data:
-        ts = preprocess_data(timestamps)
+        ts = preprocess_data(timestamps, known_anomaly_timestamps or [])
 
         # Compute Time Span Penalty
         time_delta = ts.ds.iloc[-1] - ts.ds.iloc[0]
