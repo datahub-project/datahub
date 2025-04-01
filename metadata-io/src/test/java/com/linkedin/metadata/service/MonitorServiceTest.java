@@ -8,6 +8,8 @@ import static org.mockito.Mockito.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.assertion.AssertionAdjustmentSettings;
+import com.linkedin.assertion.AssertionMonitorSensitivity;
 import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.AssertionResultType;
 import com.linkedin.assertion.AssertionStdOperator;
@@ -45,6 +47,7 @@ import com.linkedin.monitor.AssertionEvaluationParametersType;
 import com.linkedin.monitor.AssertionEvaluationSpec;
 import com.linkedin.monitor.AssertionEvaluationSpecArray;
 import com.linkedin.monitor.AssertionMonitor;
+import com.linkedin.monitor.AssertionMonitorSettings;
 import com.linkedin.monitor.AuditLogSpec;
 import com.linkedin.monitor.DatasetFieldAssertionParameters;
 import com.linkedin.monitor.DatasetFieldAssertionSourceType;
@@ -58,6 +61,7 @@ import com.linkedin.monitor.MonitorStatus;
 import com.linkedin.monitor.MonitorType;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.parseq.retry.backoff.BackoffPolicy;
+import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.schema.OtherSchema;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaFieldArray;
@@ -74,9 +78,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.http.HttpEntity;
 import org.apache.http.ProtocolVersion;
+import org.apache.http.StatusLine;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.entity.BasicHttpEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.message.BasicStatusLine;
@@ -1085,5 +1092,501 @@ public class MonitorServiceTest {
         "localhost:9004/assertions/evaluate_assertion_urns",
         request.getURI().getAuthority() + request.getURI().getPath());
     assertNull(result);
+  }
+
+  @Test
+  public void testShouldRetrainMonitor() throws Exception {
+    // Create test service
+    MonitorService service =
+        new MonitorService(
+            TEST_HOST,
+            TEST_PORT,
+            false,
+            mock(SystemEntityClient.class),
+            mock(CloseableHttpClient.class),
+            new ExponentialBackoff(2),
+            3,
+            mock(OpenApiClient.class),
+            objectMapper);
+
+    // Get access to private method using reflection
+    java.lang.reflect.Method shouldRetrainMethod =
+        MonitorService.class.getDeclaredMethod(
+            "shouldRetrainMonitor", MonitorInfo.class, AssertionMonitorSettings.class);
+    shouldRetrainMethod.setAccessible(true);
+
+    // Case 1: When existingInfo is null, should not retrain
+    boolean result1 =
+        (boolean) shouldRetrainMethod.invoke(service, null, new AssertionMonitorSettings());
+    assertFalse(result1);
+
+    // Case 2: When existingMonitor has no assertionMonitor, should not retrain
+    MonitorInfo infoNoAssertionMonitor =
+        new MonitorInfo()
+            .setType(MonitorType.ASSERTION)
+            .setStatus(new MonitorStatus().setMode(MonitorMode.ACTIVE));
+    boolean result2 =
+        (boolean)
+            shouldRetrainMethod.invoke(
+                service, infoNoAssertionMonitor, new AssertionMonitorSettings());
+    assertFalse(result2);
+
+    // Case 3: When existingSettings is null but new settings is not null, but no inference
+    // settings, should not retrain
+    MonitorInfo infoNoSettings =
+        new MonitorInfo()
+            .setType(MonitorType.ASSERTION)
+            .setStatus(new MonitorStatus().setMode(MonitorMode.ACTIVE))
+            .setAssertionMonitor(new AssertionMonitor());
+    boolean result3 =
+        (boolean)
+            shouldRetrainMethod.invoke(service, infoNoSettings, new AssertionMonitorSettings());
+    assertFalse(result3);
+
+    // Case 4: When existingSettings is not null but new settings is null, should not retrain
+    AssertionMonitorSettings existingSettings =
+        new AssertionMonitorSettings()
+            .setAdjustmentSettings(
+                new AssertionAdjustmentSettings()
+                    .setSensitivity(new AssertionMonitorSensitivity().setLevel(5)));
+    MonitorInfo infoWithSettings =
+        new MonitorInfo()
+            .setType(MonitorType.ASSERTION)
+            .setStatus(new MonitorStatus().setMode(MonitorMode.ACTIVE))
+            .setAssertionMonitor(new AssertionMonitor().setSettings(existingSettings));
+    boolean result4 = (boolean) shouldRetrainMethod.invoke(service, infoWithSettings, null);
+    assertFalse(result4);
+
+    // Case 5: When settings are the same, should not retrain
+    boolean result5 =
+        (boolean) shouldRetrainMethod.invoke(service, infoWithSettings, existingSettings);
+    assertFalse(result5);
+
+    // Case 6: When settings are different, should retrain
+    AssertionMonitorSettings differentSettings =
+        new AssertionMonitorSettings()
+            .setAdjustmentSettings(
+                new AssertionAdjustmentSettings()
+                    .setSensitivity(new AssertionMonitorSensitivity().setLevel(6)));
+
+    boolean result6 =
+        (boolean) shouldRetrainMethod.invoke(service, infoWithSettings, differentSettings);
+    assertTrue(result6);
+
+    // Case 7: When new assertion adjustment settings, but null existing settings, should retrain.
+    AssertionMonitorSettings newSettings =
+        new AssertionMonitorSettings()
+            .setAdjustmentSettings(
+                new AssertionAdjustmentSettings()
+                    .setSensitivity(new AssertionMonitorSensitivity().setLevel(6)));
+
+    boolean result7 = (boolean) shouldRetrainMethod.invoke(service, infoNoSettings, newSettings);
+    assertTrue(result7);
+  }
+
+  @Test
+  public void testRetrainMonitorSuccess() throws Exception {
+    // Set up mocks
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    CloseableHttpClient mockHttpClient = mock(CloseableHttpClient.class);
+
+    MonitorService service =
+        new MonitorService(
+            TEST_HOST,
+            TEST_PORT,
+            false,
+            mockClient,
+            mockHttpClient,
+            new ExponentialBackoff(2),
+            3,
+            mock(OpenApiClient.class),
+            objectMapper);
+
+    // Mock HTTP response
+    CloseableHttpResponse mockResponse = mock(CloseableHttpResponse.class);
+    StatusLine mockStatusLine = new BasicStatusLine(new ProtocolVersion("HTTP", 1, 1), 200, "OK");
+    when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
+    HttpEntity mockEntity = mock(HttpEntity.class);
+    when(mockEntity.getContent()).thenReturn(new ByteArrayInputStream("{}".getBytes()));
+    when(mockResponse.getEntity()).thenReturn(mockEntity);
+    when(mockHttpClient.execute(any(HttpUriRequest.class))).thenReturn(mockResponse);
+
+    // Execute
+    service.retrainAssertionMonitor(TEST_MONITOR_URN);
+
+    // Verify
+    ArgumentCaptor<HttpPost> requestCaptor = ArgumentCaptor.forClass(HttpPost.class);
+    verify(mockHttpClient).execute(requestCaptor.capture());
+
+    HttpPost capturedRequest = requestCaptor.getValue();
+    assertEquals(
+        TEST_HOST + ":" + TEST_PORT + "/assertions/train_assertion_monitor",
+        capturedRequest.getURI().getAuthority() + capturedRequest.getURI().getPath());
+  }
+
+  @Test(expectedExceptions = RuntimeException.class)
+  public void testRetrainMonitorServerError() throws Exception {
+    // Set up mocks
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    CloseableHttpClient mockHttpClient = mock(CloseableHttpClient.class);
+
+    MonitorService service =
+        new MonitorService(
+            TEST_HOST,
+            TEST_PORT,
+            false,
+            mockClient,
+            mockHttpClient,
+            new ExponentialBackoff(2),
+            3,
+            mock(OpenApiClient.class),
+            objectMapper);
+
+    // Mock HTTP response with 500 error
+    CloseableHttpResponse mockResponse = mock(CloseableHttpResponse.class);
+    StatusLine mockStatusLine =
+        new BasicStatusLine(new ProtocolVersion("HTTP", 1, 1), 500, "Internal Server Error");
+    when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
+    when(mockHttpClient.execute(any(HttpUriRequest.class))).thenReturn(mockResponse);
+
+    // Execute - should throw RuntimeException
+    service.retrainAssertionMonitor(TEST_MONITOR_URN);
+  }
+
+  @Test(expectedExceptions = RuntimeException.class)
+  public void testRetrainMonitorConnectionFailure() throws Exception {
+    // Set up mocks
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    CloseableHttpClient mockHttpClient = mock(CloseableHttpClient.class);
+
+    MonitorService service =
+        new MonitorService(
+            TEST_HOST,
+            TEST_PORT,
+            false,
+            mockClient,
+            mockHttpClient,
+            new ExponentialBackoff(2),
+            // Set retryCount to 1 to fail faster in test
+            1,
+            mock(OpenApiClient.class),
+            objectMapper);
+
+    // Mock HTTP client to throw an exception
+    when(mockHttpClient.execute(any(HttpUriRequest.class)))
+        .thenThrow(new java.io.IOException("Connection refused"));
+
+    // Execute - should throw RuntimeException after retries
+    service.retrainAssertionMonitor(TEST_MONITOR_URN);
+  }
+
+  @Test
+  public void testUpsertAssertionMonitorNoRetrainingRequired() throws Exception {
+    // Set up mocks
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    CloseableHttpClient mockHttpClient = mock(CloseableHttpClient.class);
+
+    MonitorService service =
+        new MonitorService(
+            TEST_HOST,
+            TEST_PORT,
+            false,
+            mockClient,
+            mockHttpClient,
+            new ExponentialBackoff(2),
+            3,
+            mock(OpenApiClient.class),
+            objectMapper);
+
+    MonitorService spyService = spy(service);
+
+    Urn entityUrn = TEST_ENTITY_URN;
+    Urn assertionUrn = TEST_ASSERTION_URN;
+    Urn monitorUrn = TEST_MONITOR_URN;
+    CronSchedule schedule =
+        new CronSchedule().setCron("0 0 * * * ?").setTimezone("America/Los_Angeles");
+    AssertionEvaluationParameters parameters = new AssertionEvaluationParameters();
+    MonitorMode mode = MonitorMode.ACTIVE;
+
+    // Mock validateEntity to do nothing
+    doNothing().when(spyService).validateEntity(any(OperationContext.class), any(Urn.class));
+
+    // Mock existing monitor info with NO settings
+    MonitorInfo existingInfo =
+        new MonitorInfo()
+            .setType(MonitorType.ASSERTION)
+            .setStatus(new MonitorStatus().setMode(MonitorMode.ACTIVE))
+            .setAssertionMonitor(
+                new AssertionMonitor()
+                    .setAssertions(
+                        new AssertionEvaluationSpecArray(
+                            List.of(new AssertionEvaluationSpec().setAssertion(assertionUrn)))));
+
+    doReturn(existingInfo)
+        .when(spyService)
+        .getMonitorInfo(any(OperationContext.class), eq(monitorUrn));
+
+    // Execute
+    Urn result =
+        spyService.upsertAssertionMonitor(
+            mock(OperationContext.class),
+            monitorUrn,
+            assertionUrn,
+            entityUrn,
+            schedule,
+            parameters,
+            mode,
+            null,
+            null);
+
+    // Verify
+    assertNotNull(result);
+    assertEquals(result.toString(), TEST_MONITOR_URN.toString());
+
+    // Verify that batchIngestProposals was called
+    verify(mockClient, times(1))
+        .batchIngestProposals(any(OperationContext.class), any(), eq(false));
+
+    // Verify that retrainMonitor was NOT called
+    verify(spyService, never()).retrainAssertionMonitor(any(Urn.class));
+  }
+
+  @Test
+  public void testUpsertAssertionMonitorRetrainingRequired() throws Exception {
+    // Set up mocks
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    CloseableHttpClient mockHttpClient = mock(CloseableHttpClient.class);
+
+    MonitorService service =
+        new MonitorService(
+            TEST_HOST,
+            TEST_PORT,
+            false,
+            mockClient,
+            mockHttpClient,
+            new ExponentialBackoff(2),
+            3,
+            mock(OpenApiClient.class),
+            objectMapper);
+
+    MonitorService spyService = spy(service);
+
+    Urn entityUrn = TEST_ENTITY_URN;
+    Urn assertionUrn = TEST_ASSERTION_URN;
+    Urn monitorUrn = TEST_MONITOR_URN;
+    CronSchedule schedule =
+        new CronSchedule().setCron("0 0 * * * ?").setTimezone("America/Los_Angeles");
+    AssertionEvaluationParameters parameters = new AssertionEvaluationParameters();
+    MonitorMode mode = MonitorMode.ACTIVE;
+
+    // Create existing settings
+    AssertionMonitorSettings existingSettings =
+        new AssertionMonitorSettings()
+            .setAdjustmentSettings(
+                new AssertionAdjustmentSettings()
+                    .setSensitivity(new AssertionMonitorSensitivity().setLevel(5)));
+
+    // Create new settings with different values
+    AssertionMonitorSettings newSettings =
+        new AssertionMonitorSettings()
+            .setAdjustmentSettings(
+                new AssertionAdjustmentSettings()
+                    .setSensitivity(new AssertionMonitorSensitivity().setLevel(6)));
+
+    // Mock validateEntity to do nothing
+    doNothing().when(spyService).validateEntity(any(OperationContext.class), any(Urn.class));
+
+    // Mock existing monitor info with settings
+    MonitorInfo existingInfo =
+        new MonitorInfo()
+            .setType(MonitorType.ASSERTION)
+            .setStatus(new MonitorStatus().setMode(MonitorMode.ACTIVE))
+            .setAssertionMonitor(
+                new AssertionMonitor()
+                    .setAssertions(
+                        new AssertionEvaluationSpecArray(
+                            List.of(new AssertionEvaluationSpec().setAssertion(assertionUrn))))
+                    .setSettings(existingSettings));
+
+    doReturn(existingInfo)
+        .when(spyService)
+        .getMonitorInfo(any(OperationContext.class), eq(monitorUrn));
+
+    // Mock HTTP response for retrainMonitor
+    CloseableHttpResponse mockResponse = mock(CloseableHttpResponse.class);
+    StatusLine mockStatusLine = new BasicStatusLine(new ProtocolVersion("HTTP", 1, 1), 200, "OK");
+    when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
+    HttpEntity mockEntity = mock(HttpEntity.class);
+    when(mockEntity.getContent()).thenReturn(new ByteArrayInputStream("{}".getBytes()));
+    when(mockResponse.getEntity()).thenReturn(mockEntity);
+    when(mockHttpClient.execute(any(HttpUriRequest.class))).thenReturn(mockResponse);
+
+    // Execute
+    Urn result =
+        spyService.upsertAssertionMonitor(
+            mock(OperationContext.class),
+            monitorUrn,
+            assertionUrn,
+            entityUrn,
+            schedule,
+            parameters,
+            mode,
+            null,
+            newSettings);
+
+    // Sleep a short time to allow the async operation to complete
+    Thread.sleep(100);
+
+    // Verify
+    assertNotNull(result);
+    assertEquals(result.toString(), TEST_MONITOR_URN.toString());
+
+    // Verify that batchIngestProposals was called
+    verify(mockClient, times(1))
+        .batchIngestProposals(any(OperationContext.class), any(), eq(false));
+
+    // Verify that retrainMonitor was called
+    verify(spyService, times(1)).retrainAssertionMonitor(eq(monitorUrn));
+  }
+
+  @Test
+  public void testUpsertAssertionMonitorNewSettingsNoExistingSettings() throws Exception {
+    // Set up mocks
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    CloseableHttpClient mockHttpClient = mock(CloseableHttpClient.class);
+
+    MonitorService service =
+        new MonitorService(
+            TEST_HOST,
+            TEST_PORT,
+            false,
+            mockClient,
+            mockHttpClient,
+            new ExponentialBackoff(2),
+            3,
+            mock(OpenApiClient.class),
+            objectMapper);
+
+    MonitorService spyService = spy(service);
+
+    Urn entityUrn = TEST_ENTITY_URN;
+    Urn assertionUrn = TEST_ASSERTION_URN;
+    Urn monitorUrn = TEST_MONITOR_URN;
+    CronSchedule schedule =
+        new CronSchedule().setCron("0 0 * * * ?").setTimezone("America/Los_Angeles");
+    AssertionEvaluationParameters parameters = new AssertionEvaluationParameters();
+    MonitorMode mode = MonitorMode.ACTIVE;
+
+    // Create new settings
+    AssertionMonitorSettings newSettings =
+        new AssertionMonitorSettings()
+            .setAdjustmentSettings(
+                new AssertionAdjustmentSettings()
+                    .setSensitivity(new AssertionMonitorSensitivity().setLevel(6)));
+
+    // Mock validateEntity to do nothing
+    doNothing().when(spyService).validateEntity(any(OperationContext.class), any(Urn.class));
+
+    // Mock existing monitor info with NO settings
+    MonitorInfo existingInfo =
+        new MonitorInfo()
+            .setType(MonitorType.ASSERTION)
+            .setStatus(new MonitorStatus().setMode(MonitorMode.ACTIVE))
+            .setAssertionMonitor(
+                new AssertionMonitor()
+                    .setAssertions(
+                        new AssertionEvaluationSpecArray(
+                            List.of(new AssertionEvaluationSpec().setAssertion(assertionUrn)))));
+    // no settings
+
+    doReturn(existingInfo)
+        .when(spyService)
+        .getMonitorInfo(any(OperationContext.class), eq(monitorUrn));
+
+    // Execute
+    Urn result =
+        spyService.upsertAssertionMonitor(
+            mock(OperationContext.class),
+            monitorUrn,
+            assertionUrn,
+            entityUrn,
+            schedule,
+            parameters,
+            mode,
+            null,
+            newSettings);
+
+    // Sleep a short time to allow the async operation to complete
+    Thread.sleep(100);
+
+    // Verify
+    assertNotNull(result);
+    assertEquals(result.toString(), TEST_MONITOR_URN.toString());
+
+    // Verify that batchIngestProposals was called
+    verify(mockClient, times(1))
+        .batchIngestProposals(any(OperationContext.class), any(), eq(false));
+
+    // Verify that retrainMonitor was called
+    verify(spyService, times(1)).retrainAssertionMonitor(eq(monitorUrn));
+  }
+
+  @Test
+  public void testUpsertAssertionMonitorNoExistingMonitor() throws Exception {
+    // Set up mocks
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    CloseableHttpClient mockHttpClient = mock(CloseableHttpClient.class);
+
+    MonitorService service =
+        new MonitorService(
+            TEST_HOST,
+            TEST_PORT,
+            false,
+            mockClient,
+            mockHttpClient,
+            new ExponentialBackoff(2),
+            3,
+            mock(OpenApiClient.class),
+            objectMapper);
+
+    MonitorService spyService = spy(service);
+
+    Urn entityUrn = TEST_ENTITY_URN;
+    Urn assertionUrn = TEST_ASSERTION_URN;
+    Urn monitorUrn = TEST_MONITOR_URN;
+    CronSchedule schedule =
+        new CronSchedule().setCron("0 0 * * * ?").setTimezone("America/Los_Angeles");
+    AssertionEvaluationParameters parameters = new AssertionEvaluationParameters();
+    MonitorMode mode = MonitorMode.ACTIVE;
+
+    // Mock validateEntity to do nothing
+    doNothing().when(spyService).validateEntity(any(OperationContext.class), any(Urn.class));
+
+    // Mock that no existing monitor exists
+    doReturn(null).when(spyService).getMonitorInfo(any(OperationContext.class), eq(monitorUrn));
+
+    // Execute
+    Urn result =
+        spyService.upsertAssertionMonitor(
+            mock(OperationContext.class),
+            monitorUrn,
+            assertionUrn,
+            entityUrn,
+            schedule,
+            parameters,
+            mode,
+            null,
+            null);
+
+    // Verify
+    assertNotNull(result);
+    assertEquals(result.toString(), TEST_MONITOR_URN.toString());
+
+    // Verify that batchIngestProposals was called
+    verify(mockClient, times(1))
+        .batchIngestProposals(any(OperationContext.class), any(), eq(false));
+
+    // Verify that retrainMonitor was NOT called since there's no previous monitor
+    verify(spyService, never()).retrainAssertionMonitor(any(Urn.class));
   }
 }

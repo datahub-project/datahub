@@ -62,12 +62,12 @@ class FieldAssertionTrainer(BaseAssertionTrainer[Metric]):
         """
         # Check if this is a field metric assertion that requires inference
         if not is_field_metric_assertion(assertion):
-            logger.info(
+            logger.debug(
                 f"Skipping training for non-field-metric assertion {assertion.urn}"
             )
             return
 
-        logger.info(
+        logger.debug(
             f"Performing training for field metric assertion {assertion.urn} under monitor {monitor.urn}"
         )
         self.perform_training(monitor, assertion, evaluation_spec)
@@ -205,7 +205,7 @@ class FieldAssertionTrainer(BaseAssertionTrainer[Metric]):
         # 7) Return updated assertion
         updated_assertion = self._rebuild_assertion(assertion, assertion_info)
 
-        logger.info(
+        logger.debug(
             f"Trained & updated field metric assertion {assertion.urn}, new boundaries: "
             f"[{current_boundary.lower_bound.value}, {current_boundary.upper_bound.value}]"
         )

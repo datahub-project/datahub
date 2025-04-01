@@ -755,7 +755,7 @@ def test_generate_training_tasks_inferred(mock_inferred_monitor: Monitor) -> Non
         return_value=False,
     ):
         with patch(
-            "datahub_executor.common.client.fetcher.monitors.mapper.get_monitor_training_schedule_with_jitter"
+            "datahub_executor.common.client.fetcher.monitors.mapper.get_hourly_monitor_training_schedule_with_jitter"
         ) as mock_jitter:
             mock_jitter.return_value = "30 * * * *"
             with patch(

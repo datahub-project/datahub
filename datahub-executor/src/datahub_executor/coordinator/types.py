@@ -226,6 +226,10 @@ class EvaluateAssertionUrnInputSchema(BaseModel):
         return dry_run
 
 
+class TrainAssertionMonitorInputSchema(BaseModel):
+    monitorUrn: str
+
+
 class AssertionResultErrorSchema(BaseModel):
     type: str
     properties: Optional[Dict[str, str]]
@@ -255,3 +259,7 @@ class AssertionsResultItemSchema(BaseModel):
 
 class AssertionsResultSchema(BaseModel):
     results: List[AssertionsResultItemSchema]
+
+
+class TrainAssertionMonitorResultSchema(BaseModel):
+    success: bool

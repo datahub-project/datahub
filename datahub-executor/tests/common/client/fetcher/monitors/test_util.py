@@ -1,17 +1,17 @@
 import hashlib
 
 from datahub_executor.common.client.fetcher.monitors.util import (
-    get_monitor_training_schedule_with_jitter,
+    get_hourly_monitor_training_schedule_with_jitter,
 )
 
 
-def test_get_monitor_training_schedule_with_jitter() -> None:
+def test_get_hourly_monitor_training_schedule_with_jitter() -> None:
     """Test that jitter function generates correct cron schedules."""
     # Given
     monitor_urn = "urn:li:monitor:test-monitor"
 
     # When
-    cron_schedule = get_monitor_training_schedule_with_jitter(monitor_urn)
+    cron_schedule = get_hourly_monitor_training_schedule_with_jitter(monitor_urn)
 
     # Then
     # Calculate expected minute based on hash

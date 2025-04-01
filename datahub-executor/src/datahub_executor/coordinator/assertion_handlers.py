@@ -11,6 +11,8 @@ from datahub_executor.common.assertion.engine.engine import AssertionEngine
 from datahub_executor.common.client.fetcher.monitors.graphql.query import (
     GRAPHQL_GET_ASSERTION_QUERY,
     GRAPHQL_GET_DATASET_QUERY,
+    GRAPHQL_GET_MONITOR_OPERATION,
+    GRAPHQL_LIST_MONITORS_QUERY,
 )
 from datahub_executor.common.constants import (
     DATAHUB_EXECUTOR_EMBEDDED_POOL_ID,
@@ -19,6 +21,7 @@ from datahub_executor.common.constants import (
 from datahub_executor.common.helpers import (
     create_assertion_engine,
     create_datahub_graph,
+    create_monitor_training_engine,
 )
 from datahub_executor.common.tp import ThreadPoolExecutorWithQueueSizeLimit
 from datahub_executor.common.types import (
@@ -29,6 +32,7 @@ from datahub_executor.common.types import (
     AssertionEvaluationSpec,
     AssertionSourceType,
     CronSchedule,
+    Monitor,
 )
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED,
@@ -50,6 +54,8 @@ from .types import (
     EvaluateAssertionInputSchema,
     EvaluateAssertionUrnInputSchema,
     EvaluateAssertionUrnsInputSchema,
+    TrainAssertionMonitorInputSchema,
+    TrainAssertionMonitorResultSchema,
 )
 
 logger = logging.getLogger(__name__)
@@ -57,6 +63,8 @@ logger = logging.getLogger(__name__)
 
 graph = create_datahub_graph()
 engine = None
+training_engine = create_monitor_training_engine(graph)
+
 tp = ThreadPoolExecutorWithQueueSizeLimit(
     max_workers=DATAHUB_EXECUTOR_MONITORS_MAX_WORKERS,
     name="assertions_api",
@@ -275,8 +283,11 @@ def handle_post_evaluate_assertion_urn(
     engine: AssertionEngine,
     async_flag: bool,
 ) -> Optional[AssertionResultSchema]:
-    if not assertion.source_type == AssertionSourceType.NATIVE:
-        logger.error(f"Cannot evaluate non-native assertion {assertion.urn}")
+    if (
+        not assertion.source_type == AssertionSourceType.NATIVE
+        and not assertion.source_type == AssertionSourceType.INFERRED
+    ):
+        logger.error(f"Cannot evaluate non DataHub assertion {assertion.urn}")
         raise fastapi.HTTPException(
             status_code=422, detail="Can only evaluate native defined assertions"
         )
@@ -323,6 +334,54 @@ def handle_evaluate_assertion_urn(
     return handle_post_evaluate_assertion_urn(
         assertion, assertion_urn_input, engine, async_flag
     )
+
+
+def handle_train_assertion_monitor(
+    train_assertion_input: TrainAssertionMonitorInputSchema,
+) -> TrainAssertionMonitorResultSchema:
+    global graph, training_engine
+
+    logger.debug(
+        f"Attempting to train assertion monitor {train_assertion_input.monitorUrn}"
+    )
+
+    if training_engine is None:
+        raise fastapi.HTTPException(
+            status_code=500,
+            detail="Monitor training engine is not initialized",
+        )
+
+    result = graph.execute_graphql(
+        query=GRAPHQL_LIST_MONITORS_QUERY,
+        operation_name=GRAPHQL_GET_MONITOR_OPERATION,
+        variables={"urn": train_assertion_input.monitorUrn},
+    )
+
+    if not result or "entity" not in result or result["entity"] is None:
+        raise fastapi.HTTPException(status_code=404)  # Failed to find monitor
+
+    logger.debug(
+        f"Successfully fetched details for monitor {train_assertion_input.monitorUrn}"
+    )
+
+    try:
+        monitor = Monitor.parse_obj(result["entity"])
+    except Exception as e:
+        logger.warning(e)
+        raise fastapi.HTTPException(status_code=500)  # Failed to parse monitor
+
+    try:
+        # Train the monitor.
+        training_engine.train(monitor)
+        logger.debug(
+            f"Successfully retrained monitor {train_assertion_input.monitorUrn}"
+        )
+        return TrainAssertionMonitorResultSchema(success=True)
+    except Exception:
+        logger.exception(
+            f"Failed to train monitor {monitor}. This might indicate that assertion is outdated!"
+        )
+        raise fastapi.HTTPException(status_code=500)  # Failed to train the monitor
 
 
 def async_queue_worker() -> None:

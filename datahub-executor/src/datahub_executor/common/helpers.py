@@ -45,6 +45,12 @@ from datahub_executor.common.metric.resolver.resolver import (
 from datahub_executor.common.monitor.client.client import (
     MonitorClient,
 )
+from datahub_executor.common.monitor.inference.metric_projection.metric_predictor import (
+    MetricPredictor,
+)
+from datahub_executor.common.monitor.inference.monitor_training_engine import (
+    MonitorTrainingEngine,
+)
 from datahub_executor.common.source.provider import SourceProvider
 from datahub_executor.common.state.datahub_monitor_state_provider import (
     DataHubMonitorStateProvider,
@@ -198,4 +204,13 @@ def create_assertion_engine(graph: DataHubGraph) -> AssertionEngine:
     # Create assertion engine
     return AssertionEngine(
         evaluators, result_handlers=result_handlers, transformers=assertion_transformers
+    )
+
+
+def create_monitor_training_engine(graph: DataHubGraph) -> MonitorTrainingEngine:
+    return MonitorTrainingEngine(
+        graph,
+        MetricClient(graph),
+        MetricPredictor(),
+        MonitorClient(graph),
     )

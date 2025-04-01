@@ -6,15 +6,7 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub_executor.common.constants import RUN_MONITOR_TRAINING_TASK_NAME
 from datahub_executor.common.helpers import (
     create_datahub_graph,
-)
-from datahub_executor.common.metric.client.client import (
-    MetricClient,
-)
-from datahub_executor.common.monitor.client.client import (
-    MonitorClient,
-)
-from datahub_executor.common.monitor.inference.metric_projection.metric_predictor import (
-    MetricPredictor,
+    create_monitor_training_engine,
 )
 from datahub_executor.common.monitor.inference.monitor_training_engine import (
     MonitorTrainingEngine,
@@ -36,12 +28,7 @@ class MonitorExecutor:
 
     def __init__(self) -> None:
         self.graph = create_datahub_graph()
-        self.engine = MonitorTrainingEngine(
-            self.graph,
-            MetricClient(self.graph),
-            MetricPredictor(),
-            MonitorClient(self.graph),
-        )
+        self.engine = create_monitor_training_engine(self.graph)
         self.stop = False
         self.tp = ThreadPoolExecutorWithQueueSizeLimit(
             max_workers=DATAHUB_EXECUTOR_MONITORS_MAX_WORKERS,  # Same limit as assertion evaluation, for now.

@@ -7,6 +7,7 @@ from .assertion_handlers import (
     handle_evaluate_assertion,
     handle_evaluate_assertion_urn,
     handle_evaluate_assertion_urns,
+    handle_train_assertion_monitor,
 )
 from .types import (
     AssertionResultSchema,
@@ -14,6 +15,8 @@ from .types import (
     EvaluateAssertionInputSchema,
     EvaluateAssertionUrnInputSchema,
     EvaluateAssertionUrnsInputSchema,
+    TrainAssertionMonitorInputSchema,
+    TrainAssertionMonitorResultSchema,
 )
 
 logger = logging.getLogger(__name__)
@@ -46,6 +49,13 @@ def evaluate_assertion_urn(
     assertion_urn_input: EvaluateAssertionUrnInputSchema,
 ) -> AssertionResultSchema:
     return handle_evaluate_assertion_urn(assertion_urn_input, False)
+
+
+@assertions_router.post("/train_assertion_monitor")
+def evaluate_train_assertion_monitor(
+    train_assertion_monitor_input: TrainAssertionMonitorInputSchema,
+) -> TrainAssertionMonitorResultSchema:
+    return handle_train_assertion_monitor(train_assertion_monitor_input)
 
 
 if __name__ == "__main__":

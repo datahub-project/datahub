@@ -44,7 +44,7 @@ def build_filters(config: FetcherConfig) -> List[Any]:
     return or_filters
 
 
-def get_monitor_training_schedule_with_jitter(monitor_urn: str) -> str:
+def get_hourly_monitor_training_schedule_with_jitter(monitor_urn: str) -> str:
     """
     Creates a cron schedule that runs every hour at a minute determined by the monitor urn.
     The goal is to spread training out so not all training runs at once.

@@ -78,13 +78,13 @@ class MonitorTrainingEngine:
         """
         Train a monitor's assertions by delegating to the appropriate trainers.
         """
-        logger.info(f"Starting training run for monitor {monitor.urn}")
+        logger.debug(f"Starting training run for monitor {monitor.urn}")
 
         # Validate monitor has assertions
         if not monitor.assertion_monitor or not len(
             monitor.assertion_monitor.assertions
         ):
-            logger.info("Training Monitor is missing assertions! Skipping training...")
+            logger.debug("Training Monitor is missing assertions! Skipping training...")
             return None
 
         # Iterate over all of the assertions in the monitor
@@ -93,14 +93,14 @@ class MonitorTrainingEngine:
 
             # Check if assertion is set for inference
             if not is_training_required(assertion):
-                logger.info(
+                logger.debug(
                     f"Skipping training for assertion {assertion.urn}, not marked for inference."
                 )
                 continue
 
             # Check if we have a trainer for this assertion type
             if assertion.type not in self._trainers:
-                logger.info(
+                logger.warning(
                     f"Training is not supported for assertion of type {assertion.type}"
                 )
                 continue

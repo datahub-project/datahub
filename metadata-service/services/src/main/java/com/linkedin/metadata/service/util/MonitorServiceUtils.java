@@ -657,5 +657,12 @@ public class MonitorServiceUtils {
     return assertionResult;
   }
 
+  public static String buildRetrainMonitorBodyJson(@Nonnull final Urn monitorUrn) throws Exception {
+    final ObjectMapper objectMapper = new ObjectMapper();
+    final ObjectNode objectNode = objectMapper.createObjectNode();
+    objectNode.put("monitorUrn", monitorUrn.toString());
+    return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectNode);
+  }
+
   private MonitorServiceUtils() {}
 }

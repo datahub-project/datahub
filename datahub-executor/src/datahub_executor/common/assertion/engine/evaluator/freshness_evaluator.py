@@ -649,6 +649,10 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
 
                 if not last_inferred_at or last_inferred_at <= 0:
                     return AssertionEvaluationResult(AssertionResultType.INIT)
+            else:
+                logger.warning(
+                    "No evaluation spec found for assertion.. proceeding with run!"
+                )
 
         # Perform the evaluation.
         return self._evaluate_assertion_step(

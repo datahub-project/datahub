@@ -122,7 +122,7 @@ class BaseAssertionTrainer(Generic[Event], ABC):
 
         # Check if enough time has passed for re-training
         if not self.should_perform_inference(evaluation_spec):
-            logger.info(
+            logger.debug(
                 f"Skipping retraining for assertion.. Already retrained within the retraining time window {assertion.urn}"
             )
             return
@@ -139,7 +139,7 @@ class BaseAssertionTrainer(Generic[Event], ABC):
             monitor, assertion, maybe_adjustment_settings
         )
 
-        logger.info(
+        logger.debug(
             f"Fetched {len(historical_data)} training samples before applying exclusions"
         )
 
@@ -148,7 +148,7 @@ class BaseAssertionTrainer(Generic[Event], ABC):
             historical_data, maybe_adjustment_settings
         )
 
-        logger.info(
+        logger.debug(
             f"Fetched {len(filtered_data)} training samples after applying exclusions."
         )
 

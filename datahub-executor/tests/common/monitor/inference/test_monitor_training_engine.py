@@ -349,30 +349,3 @@ def test_train_handles_trainer_exception(
 
     # Assert - should have tried to call the trainer despite the exception
     engine._trainers[AssertionType.VOLUME].train.assert_called_once()  # type: ignore
-
-
-@patch("datahub_executor.common.monitor.inference.monitor_training_engine.logger")
-@patch(
-    "datahub_executor.common.monitor.inference.monitor_training_engine.is_training_required"
-)
-def test_train_logs_properly(
-    mock_is_training_required: MagicMock,
-    mock_logger: MagicMock,
-    engine: MonitorTrainingEngine,
-    volume_monitor: Mock,
-) -> None:
-    """Test train method logs properly."""
-    # Arrange
-    mock_is_training_required.return_value = True
-
-    # Act
-    engine.train(volume_monitor)
-
-    # Assert
-    # Check for log messages
-    mock_logger.info.assert_any_call(
-        f"Starting training run for monitor {volume_monitor.urn}"
-    )
-    mock_logger.info.assert_any_call(
-        f"Completed training run for monitor {volume_monitor.urn}!"
-    )

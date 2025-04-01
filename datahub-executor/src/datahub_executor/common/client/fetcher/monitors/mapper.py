@@ -4,7 +4,7 @@ from typing import Dict, List
 from acryl.executor.request.execution_request import ExecutionRequest
 
 from datahub_executor.common.client.fetcher.monitors.util import (
-    get_monitor_training_schedule_with_jitter,
+    get_hourly_monitor_training_schedule_with_jitter,
     is_dry_run_mode,
 )
 from datahub_executor.common.constants import (
@@ -179,7 +179,7 @@ def generate_training_tasks(monitor: Monitor) -> List[ExecutionRequestSchedule]:
             monitor_training_schedule = (
                 MINUTE_SCHEDULE
                 if IS_LOCAL_DEV
-                else get_monitor_training_schedule_with_jitter(monitor.urn)
+                else get_hourly_monitor_training_schedule_with_jitter(monitor.urn)
             )
 
             logger.debug(

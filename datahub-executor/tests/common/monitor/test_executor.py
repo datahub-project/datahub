@@ -5,12 +5,7 @@ from acryl.executor.request.execution_request import ExecutionRequest
 from datahub.ingestion.graph.client import DataHubGraph
 
 from datahub_executor.common.constants import RUN_MONITOR_TRAINING_TASK_NAME
-from datahub_executor.common.metric.client.client import MetricClient
-from datahub_executor.common.monitor.client.client import MonitorClient
 from datahub_executor.common.monitor.executor import MonitorExecutor
-from datahub_executor.common.monitor.inference.metric_projection.metric_predictor import (
-    MetricPredictor,
-)
 from datahub_executor.common.monitor.inference.monitor_training_engine import (
     MonitorTrainingEngine,
 )
@@ -67,14 +62,14 @@ class TestMonitorExecutor:
     """Tests for the MonitorExecutor class."""
 
     @patch("datahub_executor.common.monitor.executor.create_datahub_graph")
-    @patch("datahub_executor.common.monitor.executor.MonitorTrainingEngine")
+    @patch("datahub_executor.common.monitor.executor.create_monitor_training_engine")
     @patch(
         "datahub_executor.common.monitor.executor.ThreadPoolExecutorWithQueueSizeLimit"
     )
     def test_init(
         self,
         mock_thread_pool_class: MagicMock,
-        mock_engine_class: MagicMock,
+        mock_create_training_engine: MagicMock,
         mock_create_graph: MagicMock,
         mock_graph: MagicMock,
         mock_engine: MagicMock,
@@ -83,7 +78,7 @@ class TestMonitorExecutor:
         """Test initialization of the MonitorExecutor class."""
         # Setup mocks
         mock_create_graph.return_value = mock_graph
-        mock_engine_class.return_value = mock_engine
+        mock_create_training_engine.return_value = mock_engine
         mock_thread_pool_class.return_value = mock_thread_pool
 
         # Create executor
@@ -94,15 +89,12 @@ class TestMonitorExecutor:
         assert executor.graph == mock_graph
 
         # Verify engine creation
-        mock_engine_class.assert_called_once()
+        mock_create_training_engine.assert_called_once()
         assert executor.engine == mock_engine
 
         # Verify expected arguments to engine constructor
-        args, kwargs = mock_engine_class.call_args
+        args, kwargs = mock_create_training_engine.call_args
         assert args[0] == mock_graph
-        assert isinstance(args[1], MetricClient)
-        assert isinstance(args[2], MetricPredictor)
-        assert isinstance(args[3], MonitorClient)
 
         # Verify thread pool creation
         mock_thread_pool_class.assert_called_once()

@@ -203,10 +203,12 @@ public class AssertionUtils {
       @Nonnull final Urn assertionUrn, @Nonnull final AssertionInfo info) {
     final AssertionSource assertionSource = info.getSource(GetMode.NULL);
 
-    if (assertionSource == null || !AssertionSourceType.NATIVE.equals(assertionSource.getType())) {
+    if (assertionSource == null
+        || (!AssertionSourceType.NATIVE.equals(assertionSource.getType())
+            && !AssertionSourceType.INFERRED.equals(assertionSource.getType()))) {
       throw new IllegalArgumentException(
           String.format(
-              "Failed to update Assertion. Assertion with urn %s is not a valid native assertion.",
+              "Failed to update Assertion. Assertion with urn %s is not a valid DataHub assertion.",
               assertionUrn));
     }
   }

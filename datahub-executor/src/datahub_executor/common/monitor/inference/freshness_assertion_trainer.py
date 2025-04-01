@@ -50,7 +50,7 @@ class FreshnessAssertionTrainer(BaseAssertionTrainer[Operation]):
         """
         Train a freshness assertion.
         """
-        logger.info(
+        logger.debug(
             f"Performing training for freshness assertion {assertion.urn} under monitor {monitor.urn}"
         )
         self.perform_training(monitor, assertion, evaluation_spec)
@@ -95,7 +95,7 @@ class FreshnessAssertionTrainer(BaseAssertionTrainer[Operation]):
         )
         training_window_duration = timedelta(days=lookback_days)
 
-        logger.info(
+        logger.debug(
             f"Fetching historical operations for the past {lookback_days} days, ignoring {FRESHNESS_OPERATION_TYPES_TO_IGNORE} for entity {entity_urn}"
         )
 
@@ -157,7 +157,7 @@ class FreshnessAssertionTrainer(BaseAssertionTrainer[Operation]):
         )
         assertion_info.freshnessAssertion = new_freshness_assertion
 
-        logger.info(
+        logger.debug(
             f"Saving assertion info for urn {assertion.urn} {assertion_info.freshnessAssertion}"
         )
 
@@ -174,7 +174,7 @@ class FreshnessAssertionTrainer(BaseAssertionTrainer[Operation]):
         # 7) Return updated assertion
         updated_assertion = self._rebuild_assertion(assertion, assertion_info)
 
-        logger.info(
+        logger.debug(
             f"Trained & updated assertion {assertion.urn}, new fixed interval predicted: "
             f"{fixed_interval}"
         )

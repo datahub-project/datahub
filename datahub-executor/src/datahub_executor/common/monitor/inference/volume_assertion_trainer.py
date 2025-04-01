@@ -55,7 +55,7 @@ class VolumeAssertionTrainer(BaseAssertionTrainer[Metric]):
         """
         Train a volume assertion.
         """
-        logger.info(
+        logger.debug(
             f"Performing training for volume assertion {assertion.urn} under monitor {monitor.urn}"
         )
         self.perform_training(monitor, assertion, evaluation_spec)
@@ -189,7 +189,7 @@ class VolumeAssertionTrainer(BaseAssertionTrainer[Metric]):
         # 7) Return updated assertion
         updated_assertion = self._rebuild_assertion(assertion, assertion_info)
 
-        logger.info(
+        logger.debug(
             f"Trained & updated assertion {assertion.urn}, new boundaries: "
             f"[{current_boundary.lower_bound.value}, {current_boundary.upper_bound.value}]"
         )

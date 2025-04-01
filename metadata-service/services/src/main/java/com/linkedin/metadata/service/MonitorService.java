@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -62,6 +63,8 @@ public class MonitorService extends BaseService {
   private static final MonitorType DEFAULT_MONITOR_TYPE = MonitorType.ASSERTION;
   private static final String TEST_ASSERTION_ENDPOINT = "assertions/evaluate_assertion";
   private static final String RUN_ASSERTIONS_ENDPOINT = "assertions/evaluate_assertion_urns";
+  private static final String TRAIN_ASSERTION_MONITOR_ENDPOINT =
+      "assertions/train_assertion_monitor";
 
   private final String monitorServiceHost;
   private final Integer monitorServicePort;
@@ -337,6 +340,7 @@ public class MonitorService extends BaseService {
 
     try {
       this.entityClient.batchIngestProposals(opContext, aspects, false);
+      performPostUpsertActions(monitorUrn, maybeExistingInfo, monitorSettings);
       return monitorUrn;
     } catch (Exception e) {
       throw new RuntimeException(
@@ -387,83 +391,6 @@ public class MonitorService extends BaseService {
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to upsert Monitor Mode for monitor with urn %s", monitorUrn), e);
-    }
-  }
-
-  public void validateEntity(@Nonnull OperationContext opContext, @Nonnull final Urn entityUrn)
-      throws Exception {
-    if (!this.entityClient.exists(opContext, entityUrn)) {
-      throw new IllegalArgumentException(
-          String.format(
-              "Failed to edit Monitor. %s with urn %s does not exist.",
-              entityUrn.getEntityType(), entityUrn));
-    }
-  }
-
-  @Nonnull
-  public Urn generateMonitorUrn(@Nonnull final Urn entityUrn) {
-    final MonitorKey key = new MonitorKey();
-    final String id = UUID.randomUUID().toString();
-    key.setEntity(entityUrn);
-    key.setId(id);
-    return EntityKeyUtils.convertEntityKeyToUrn(key, Constants.MONITOR_ENTITY_NAME);
-  }
-
-  private CloseableHttpResponse executeRequest(@Nonnull final HttpUriRequest request)
-      throws Exception {
-    int attemptCount = 0;
-    while (attemptCount < this.retryCount) {
-      try {
-        return httpClient.execute(request);
-      } catch (Exception ex) {
-        MetricUtils.counter(
-                MonitorService.class,
-                "exception" + MetricUtils.DELIMITER + ex.getClass().getName().toLowerCase())
-            .inc();
-        if (attemptCount == this.retryCount - 1) {
-          throw ex;
-        } else {
-          attemptCount = attemptCount + 1;
-          Thread.sleep(this.backoffPolicy.nextBackoff(attemptCount, ex) * 1000);
-        }
-      }
-    }
-    // Should never hit this line.
-    throw new RuntimeException("Failed to execute request to integrations service!");
-  }
-
-  private void addRequestHeaders(@Nonnull final HttpUriRequest request) {
-    // Add authorization header with DataHub frontend system id and secret.
-    // request.addHeader("Authorization", this.systemAuthentication.getCredentials());
-    request.addHeader("Content-Type", "application/json");
-  }
-
-  public Map<Urn, AssertionResult> runAssertions(
-      @Nonnull final List<Urn> assertionUrns,
-      final boolean dryRun,
-      final @Nonnull Map<String, String> parameters,
-      final boolean async) {
-    try {
-      String jsonBody =
-          MonitorServiceUtils.buildRunAssertionsBodyJson(assertionUrns, dryRun, parameters, async);
-      return executeRunAssertions(assertionUrns, jsonBody);
-    } catch (Exception e) {
-      throw new RuntimeException("Received exception while attempting to run assertions!", e);
-    }
-  }
-
-  @Nullable
-  private Map<Urn, AssertionResult> executeRunAssertions(
-      @Nonnull List<Urn> assertionUrns, @Nonnull final String jsonBody) {
-    try {
-      String maybeJsonResponse = executeRequest(RUN_ASSERTIONS_ENDPOINT, jsonBody);
-      if (maybeJsonResponse != null) {
-        return MonitorServiceUtils.buildRunAssertionsResult(assertionUrns, maybeJsonResponse);
-      }
-      log.warn("Received empty body response from Monitors Service!");
-      return null;
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to run assertions against the Monitors Service.", e);
     }
   }
 
@@ -591,6 +518,178 @@ public class MonitorService extends BaseService {
     }
   }
 
+  /**
+   * Runs the specified assertions on demand by invoking an executor service endpoint.
+   *
+   * @param assertionUrns the list of assertion urns to run
+   * @param dryRun whether to run the assertions in dry run mode
+   * @param parameters the parameters to pass to the assertions
+   * @param async whether to run the assertions asynchronously
+   * @return a map of assertion urns to their corresponding assertion results
+   */
+  public Map<Urn, AssertionResult> runAssertions(
+      @Nonnull final List<Urn> assertionUrns,
+      final boolean dryRun,
+      final @Nonnull Map<String, String> parameters,
+      final boolean async) {
+    try {
+      String jsonBody =
+          MonitorServiceUtils.buildRunAssertionsBodyJson(assertionUrns, dryRun, parameters, async);
+      return executeRunAssertions(assertionUrns, jsonBody);
+    } catch (Exception e) {
+      throw new RuntimeException("Received exception while attempting to run assertions!", e);
+    }
+  }
+
+  /**
+   * Retrains the monitor with the specified urn on demand by invoking an executor service endpoint.
+   *
+   * @param monitorUrn the urn of the monitor to retrain
+   */
+  public void retrainAssertionMonitor(@Nonnull final Urn monitorUrn) {
+    try {
+      String jsonBody = MonitorServiceUtils.buildRetrainMonitorBodyJson(monitorUrn);
+      executeRetrainAssertionMonitor(monitorUrn, jsonBody);
+    } catch (Exception e) {
+      throw new RuntimeException(
+          "Caught exception while attempting to train assertion monitor! This may mean that the monitor was not retrained successfully.",
+          e);
+    }
+  }
+
+  public void validateEntity(@Nonnull OperationContext opContext, @Nonnull final Urn entityUrn)
+      throws Exception {
+    if (!this.entityClient.exists(opContext, entityUrn)) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Failed to edit Monitor. %s with urn %s does not exist.",
+              entityUrn.getEntityType(), entityUrn));
+    }
+  }
+
+  @Nonnull
+  public Urn generateMonitorUrn(@Nonnull final Urn entityUrn) {
+    final MonitorKey key = new MonitorKey();
+    final String id = UUID.randomUUID().toString();
+    key.setEntity(entityUrn);
+    key.setId(id);
+    return EntityKeyUtils.convertEntityKeyToUrn(key, Constants.MONITOR_ENTITY_NAME);
+  }
+
+  private void performPostUpsertActions(
+      @Nonnull Urn monitorUrn,
+      @Nullable final MonitorInfo maybeExistingInfo,
+      @Nullable AssertionMonitorSettings monitorSettings) {
+    // If there is an existing monitor, but the inference settings have changed, we need to retrain
+    // the monitor on demand.
+    if (shouldRetrainMonitor(maybeExistingInfo, monitorSettings)) {
+      log.info(
+          String.format(
+              "Inference settings have changed for monitor with urn %s. Making a call to kick off retraining.",
+              monitorUrn));
+      // To do this we will execute a request to the integrations service.
+      // This will trigger the monitor to retrain on the next scheduled run.
+      // We will not wait for the retraining to complete.
+      try {
+        // Execute retraining async
+        CompletableFuture.runAsync(
+            () -> {
+              try {
+                retrainAssertionMonitor(monitorUrn);
+              } catch (Exception e) {
+                log.error(
+                    String.format(
+                        "Failed to retrain monitor with urn %s. This may indicate that the monitor was not successfully retrained!",
+                        monitorUrn),
+                    e);
+              }
+            });
+      } catch (Exception e) {
+        log.error(
+            String.format(
+                "Failed to retrain monitor with urn %s. This may indicate that the monitor was not successfully retrained!",
+                monitorUrn),
+            e);
+      }
+    }
+  }
+
+  private boolean shouldRetrainMonitor(
+      @Nullable final MonitorInfo maybeExistingInfo,
+      @Nullable AssertionMonitorSettings newMonitorSettings) {
+
+    if (maybeExistingInfo == null
+        || newMonitorSettings == null
+        || !newMonitorSettings.hasAdjustmentSettings()) {
+      return false; // No existing monitor or no valid new settings → No retrain
+    }
+
+    AssertionMonitor existingMonitor = maybeExistingInfo.getAssertionMonitor();
+    if (existingMonitor == null) {
+      return false; // No existing assertion monitor → No retrain
+    }
+
+    AssertionMonitorSettings existingSettings = existingMonitor.getSettings();
+    return existingSettings == null
+        || !existingSettings.hasAdjustmentSettings()
+        || !existingSettings
+            .getAdjustmentSettings()
+            .equals(newMonitorSettings.getAdjustmentSettings());
+  }
+
+  private CloseableHttpResponse executeRequest(@Nonnull final HttpUriRequest request)
+      throws Exception {
+    int attemptCount = 0;
+    while (attemptCount < this.retryCount) {
+      try {
+        return httpClient.execute(request);
+      } catch (Exception ex) {
+        MetricUtils.counter(
+                MonitorService.class,
+                "exception" + MetricUtils.DELIMITER + ex.getClass().getName().toLowerCase())
+            .inc();
+        if (attemptCount == this.retryCount - 1) {
+          throw ex;
+        } else {
+          attemptCount = attemptCount + 1;
+          Thread.sleep(this.backoffPolicy.nextBackoff(attemptCount, ex) * 1000);
+        }
+      }
+    }
+    // Should never hit this line.
+    throw new RuntimeException("Failed to execute request to integrations service!");
+  }
+
+  private void addRequestHeaders(@Nonnull final HttpUriRequest request) {
+    // Add authorization header with DataHub frontend system id and secret.
+    // request.addHeader("Authorization", this.systemAuthentication.getCredentials());
+    request.addHeader("Content-Type", "application/json");
+  }
+
+  private void executeRetrainAssertionMonitor(
+      @Nonnull final Urn monitorUrn, final String jsonBody) {
+    try {
+      executeRequest(TRAIN_ASSERTION_MONITOR_ENDPOINT, jsonBody);
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to retrain monitor with urn " + monitorUrn, e);
+    }
+  }
+
+  @Nullable
+  private Map<Urn, AssertionResult> executeRunAssertions(
+      @Nonnull List<Urn> assertionUrns, @Nonnull final String jsonBody) {
+    try {
+      String maybeJsonResponse = executeRequest(RUN_ASSERTIONS_ENDPOINT, jsonBody);
+      if (maybeJsonResponse != null) {
+        return MonitorServiceUtils.buildRunAssertionsResult(assertionUrns, maybeJsonResponse);
+      }
+      log.warn("Received empty body response from Monitors Service!");
+      return null;
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to run assertions against the Monitors Service.", e);
+    }
+  }
+
   @Nullable
   private AssertionResult testAssertion(@Nonnull final String jsonBody) {
     try {
@@ -632,8 +731,7 @@ public class MonitorService extends BaseService {
               "Failed to run query against the Monitors Service. Bad response received from the service. %s",
               response.getStatusLine().toString()));
     } catch (Exception e) {
-      log.error("Failed to execute request to monitors service.", e);
-      return null;
+      throw new RuntimeException("Failed to execute request to monitors service", e);
     } finally {
       try {
         if (response != null) {
