@@ -11,6 +11,9 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin, PlatformDetail
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
+from datahub.ingestion.api.incremental_lineage_helper import (
+    IncrementalLineageConfigMixin,
+)
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
@@ -19,6 +22,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.utilities.global_warning_util import add_global_warning
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
 
@@ -183,6 +187,11 @@ class SupportedDataPlatform(Enum):
         datahub_data_platform_name="databricks",
     )
 
+    MYSQL = DataPlatformPair(
+        powerbi_data_platform_name="MySQL",
+        datahub_data_platform_name="mysql",
+    )
+
 
 @dataclass
 class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
@@ -275,7 +284,7 @@ class PowerBiProfilingConfig(ConfigModel):
 
 
 class PowerBiDashboardSourceConfig(
-    StatefulIngestionConfigBase, DatasetSourceConfigMixin
+    StatefulIngestionConfigBase, DatasetSourceConfigMixin, IncrementalLineageConfigMixin
 ):
     platform_name: str = pydantic.Field(
         default=Constant.PLATFORM_NAME, hidden_from_docs=True
@@ -297,7 +306,15 @@ class PowerBiDashboardSourceConfig(
     # PowerBi workspace identifier
     workspace_id_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns to filter PowerBI workspaces in ingestion."
+        description="Regex patterns to filter PowerBI workspaces in ingestion by ID."
+        " By default all IDs are allowed unless they are filtered by name using 'workspace_name_pattern'."
+        " Note: This field works in conjunction with 'workspace_type_filter' and both must be considered when filtering workspaces.",
+    )
+    # PowerBi workspace name
+    workspace_name_pattern: AllowDenyPattern = pydantic.Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns to filter PowerBI workspaces in ingestion by name."
+        " By default all names are allowed unless they are filtered by ID using 'workspace_id_pattern'."
         " Note: This field works in conjunction with 'workspace_type_filter' and both must be considered when filtering workspaces.",
     )
 
@@ -373,8 +390,9 @@ class PowerBiDashboardSourceConfig(
     )
     # Enable/Disable extracting dataset schema
     extract_dataset_schema: bool = pydantic.Field(
-        default=False,
-        description="Whether to ingest PBI Dataset Table columns and measures",
+        default=True,
+        description="Whether to ingest PBI Dataset Table columns and measures."
+        " Note: this setting must be `true` for schema extraction and column lineage to be enabled.",
     )
     # Enable/Disable extracting lineage information of PowerBI Dataset
     extract_lineage: bool = pydantic.Field(
@@ -510,6 +528,7 @@ class PowerBiDashboardSourceConfig(
             "native_query_parsing",
             "enable_advance_lineage_sql_construct",
             "extract_lineage",
+            "extract_dataset_schema",
         ]
 
         if (
@@ -574,4 +593,12 @@ class PowerBiDashboardSourceConfig(
                 "dataset_type_mapping is deprecated. Use server_to_platform_instance only."
             )
 
+        return values
+
+    @root_validator(skip_on_failure=True)
+    def validate_extract_dataset_schema(cls, values: Dict) -> Dict:
+        if values.get("extract_dataset_schema") is False:
+            add_global_warning(
+                "Please use `extract_dataset_schema: true`, otherwise dataset schema extraction will be skipped."
+            )
         return values

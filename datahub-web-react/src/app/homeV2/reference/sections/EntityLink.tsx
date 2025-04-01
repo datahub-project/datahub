@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled, { CSSObject } from 'styled-components';
 import HealthIcon from '@src/app/previewV2/HealthIcon';
+import { DeprecationIcon } from '@src/app/entityV2/shared/components/styled/DeprecationIcon';
 import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
 import PlatformHeaderIcons from '@src/app/entityV2/shared/containers/profile/header/PlatformContent/PlatformHeaderIcons';
 import { getEntityPlatforms } from '@src/app/entityV2/shared/containers/profile/header/utils';
@@ -32,7 +33,7 @@ const Container = styled.div<{ showHover: boolean; entity: GenericEntityProperti
 `;
 
 const IconWrapper = styled.div`
-    padding-right: 4px;
+    padding-right: 8px;
 `;
 
 const LinkButton = styled(Link)<{ includePadding: boolean }>`
@@ -82,9 +83,18 @@ type Props = {
     render?: (entity: GenericEntityProperties) => React.ReactNode;
     onClick?: (e) => void;
     showHealthIcon?: boolean;
+    showDeprecatedIcon?: boolean;
 };
 
-export const EntityLink = ({ entity, styles, render, displayTextStyle, onClick, showHealthIcon = false }: Props) => {
+export const EntityLink = ({
+    entity,
+    styles,
+    render,
+    displayTextStyle,
+    onClick,
+    showHealthIcon = false,
+    showDeprecatedIcon = true,
+}: Props) => {
     const entityRegistry = useEntityRegistry();
     const linkProps = useEmbeddedProfileLinkProps();
 
@@ -134,7 +144,17 @@ export const EntityLink = ({ entity, styles, render, displayTextStyle, onClick, 
                             </DisplayNameText>
                         </LinkButton>
                     </HoverEntityTooltip>
-                    {entity?.health && showHealthIcon && (
+                    {entity?.deprecation?.deprecated && showDeprecatedIcon ? (
+                        <IconWrapper>
+                            <DeprecationIcon
+                                urn={entity?.urn}
+                                deprecation={entity?.deprecation}
+                                showUndeprecate={false}
+                                showText={false}
+                            />
+                        </IconWrapper>
+                    ) : null}
+                    {entity?.health && showHealthIcon ? (
                         <IconWrapper>
                             <HealthIcon
                                 urn={entity?.urn}
@@ -142,7 +162,7 @@ export const EntityLink = ({ entity, styles, render, displayTextStyle, onClick, 
                                 baseUrl={entityRegistry.getEntityUrl(entity.type, entity.urn)}
                             />
                         </IconWrapper>
-                    )}
+                    ) : null}
                 </>
             )}
         </Container>

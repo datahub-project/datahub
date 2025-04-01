@@ -125,9 +125,7 @@ def parse_ts_millis(ts: Optional[float]) -> Optional[datetime]:
 
 
 def make_data_platform_urn(platform: str) -> str:
-    if platform.startswith("urn:li:dataPlatform:"):
-        return platform
-    return DataPlatformUrn.create_from_id(platform).urn()
+    return DataPlatformUrn(platform).urn()
 
 
 def make_dataset_urn(platform: str, name: str, env: str = DEFAULT_ENV) -> str:

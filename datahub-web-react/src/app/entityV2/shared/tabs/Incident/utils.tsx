@@ -1,10 +1,19 @@
 import React from 'react';
-import { Incident, IncidentPriority, IncidentStage, IncidentState, IncidentType } from '@src/types.generated';
+import {
+    EntityType,
+    Incident,
+    IncidentPriority,
+    IncidentStage,
+    IncidentState,
+    IncidentType,
+} from '@src/types.generated';
 import Fuse from 'fuse.js';
+import { format } from 'date-fns';
 import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
 import { SortingState } from '@src/alchemy-components/components/Table/types';
-import { format } from 'date-fns';
+import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import {
+    IncidentBuilderSiblingOptions,
     IncidentFilterOptions,
     IncidentGroup,
     IncidentGroupBy,
@@ -26,6 +35,7 @@ import {
     STAGE_ORDER,
     STATE_ORDER,
 } from './constant';
+import { getPlatformName } from '../../utils';
 
 //  Fuse.js setup for search functionality
 const fuse = new Fuse<any>([], {
@@ -498,4 +508,50 @@ export const getExistingIncidents = (currData) => {
         ...(currData?.entity?.incidents?.incidents || []),
         ...(currData?.entity?.siblingsSearch?.searchResults[0]?.entity?.incidents?.incidents || []),
     ];
+};
+
+/**
+ * Gets sibling options that a user can author incident with
+ * This includes direct links that will open the respective siblings' incident builder UI
+ * @param entityData
+ * @param urn
+ * @param entityType
+ * @returns {IncidentBuilderSiblingOptions[]}
+ */
+export const useSiblingOptionsForIncidentBuilder = (
+    entityData: GenericEntityProperties | null,
+    urn: string,
+    entityType: EntityType,
+): IncidentBuilderSiblingOptions[] => {
+    const optionsToAuthorOn: IncidentBuilderSiblingOptions[] = [];
+    // push main entity data
+    optionsToAuthorOn.push({
+        title:
+            entityData?.platform?.properties?.displayName ??
+            entityData?.platform?.name ??
+            entityData?.dataPlatformInstance?.platform.name ??
+            entityData?.platform?.urn ??
+            urn,
+        urn,
+        platform: entityData?.platform ?? entityData?.dataPlatformInstance?.platform,
+        entityType,
+    });
+    // push siblings data
+    const siblings: GenericEntityProperties[] = entityData?.siblingsSearch?.searchResults?.map((r) => r.entity) || [];
+    siblings.forEach((sibling) => {
+        if (sibling.urn === urn || !sibling.urn) {
+            return;
+        }
+        optionsToAuthorOn.push({
+            urn: sibling.urn,
+            title:
+                getPlatformName(sibling) ??
+                sibling?.dataPlatformInstance?.platform.name ??
+                sibling?.platform?.urn ??
+                sibling.urn,
+            platform: sibling?.platform ?? sibling?.dataPlatformInstance?.platform,
+            entityType: sibling.type,
+        });
+    });
+    return optionsToAuthorOn;
 };
