@@ -16,7 +16,7 @@ from slack_bolt import Ack, Respond, Say
 from slack_bolt.adapter.fastapi import SlackRequestHandler
 from slack_sdk.oauth import AuthorizeUrlGenerator
 
-from datahub_integrations.app import DATAHUB_FRONTEND_URL, EXTERNAL_STATIC_PATH, graph
+from datahub_integrations.app import DATAHUB_FRONTEND_URL, graph
 from datahub_integrations.graphql.incidents import (
     UPDATE_INCIDENT_PRIORITY_MUTATION,
     UPDATE_INCIDENT_STATUS_MUTATION,
@@ -26,15 +26,24 @@ from datahub_integrations.graphql.subscription import (
     CREATE_SUBSCRIPTION,
     DELETE_SUBSCRIPTION,
 )
+from datahub_integrations.notifications.constants import (
+    DATAHUB_SLACK_AT_MENTION_ENABLED,
+)
 from datahub_integrations.slack.app_manifest import (
     create_app_with_manifest,
     get_slack_app_manifest,
     slack_bot_scopes,
     update_app_with_manifest,
 )
+from datahub_integrations.slack.command.mention import (
+    DATAHUB_MENTION_FEEDBACK_BUTTON_ID,
+    DATAHUB_MENTION_FOLLOWUP_QUESTION_BUTTON_ID,
+    process_app_chat_event_and_send_message,
+)
 from datahub_integrations.slack.command.router import handle_command
 from datahub_integrations.slack.command.search import search
 from datahub_integrations.slack.config import SLACK_PROXY, SlackConnection, slack_config
+from datahub_integrations.slack.constants import ACRYL_SLACK_ICON_URL
 from datahub_integrations.slack.context import (
     IncidentContext,
     IncidentSelectOption,
@@ -67,7 +76,6 @@ from datahub_integrations.slack.utils.entity_extract import (
 # 7 days because admins may take some time to approve
 _state_store = InMemoryStateStore(expiration_seconds=60 * 60 * 24 * 7)
 
-ACRYL_SLACK_ICON_URL = f"{EXTERNAL_STATIC_PATH}/acryl-slack-icon.png"
 
 private_router = fastapi.APIRouter()
 public_router = fastapi.APIRouter()
@@ -309,10 +317,98 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
     @app.event("app_mention")
     def handle_app_mention_events(event: dict, say: Say) -> None:
         logger.info(event)
-        say(
-            f"Hey <@{event['user']}>! DataHub commands are coming soon!",
-            icon_url=ACRYL_SLACK_ICON_URL,
-        )
+        # Check if the feature flag is disabled
+        if DATAHUB_SLACK_AT_MENTION_ENABLED != "true":
+            say(
+                text="The @datahub mention is currently disabled. Please use /acryl or /datahub commands instead.",
+                icon_url=ACRYL_SLACK_ICON_URL,
+                thread_ts=event.get("ts"),  # Reply in the thread
+            )
+            return
+        process_app_chat_event_and_send_message(app, event)
+
+    @app.action(re.compile(f"{DATAHUB_MENTION_FOLLOWUP_QUESTION_BUTTON_ID}.*"))
+    def handle_followup_question(
+        ack: Ack, respond: Respond, action: dict, body: dict
+    ) -> None:
+        logger.debug(f"action: {action}")
+        logger.debug(f"body: {body}")
+        ack()
+
+        # Extract the question and thread_ts from the button value
+        value = json.loads(action["value"])
+        question = value["question"]
+        thread_ts = value["thread_ts"]
+
+        # First, send the selected question into the thread so the user knows what they selected
+        try:
+            app.client.chat_postMessage(
+                channel=body["channel"]["id"],
+                thread_ts=thread_ts,
+                text=f"*{question}* 🤔",
+                icon_url=ACRYL_SLACK_ICON_URL,
+                mrkdwn=True,
+            )
+        except Exception as e:
+            logger.error(f"Failed to send question confirmation message: {str(e)}")
+
+        # Create an event object similar to app_mention
+        event = {
+            "text": question,
+            "channel": body["channel"]["id"],
+            "thread_ts": thread_ts,
+            "user": body["user"]["id"],
+        }
+
+        process_app_chat_event_and_send_message(app, event)
+
+    @app.action(re.compile(f"{DATAHUB_MENTION_FEEDBACK_BUTTON_ID}.*"))
+    def handle_feedback(ack: Ack, respond: Respond, action: dict, body: dict) -> None:
+        # Extract feedback data from the button value
+        value = json.loads(action["value"])
+        thread_ts = value.get("thread_ts")
+        feedback = value.get("feedback")
+
+        # Log the feedback
+        # Get the original message content if possible
+        try:
+            # Fetch the message history to get the original message
+            result = app.client.conversations_history(
+                channel=body["channel"]["id"], latest=thread_ts, limit=1, inclusive=True
+            )
+
+            if result["ok"] and result["messages"]:
+                message_content = result["messages"][0].get("text", "No content")
+                logger.info(
+                    f"Received {feedback} feedback on message: '{message_content}'"
+                )
+            else:
+                # Fall back to thread_ts if we can't get the message
+                logger.info(
+                    f"Received {feedback} feedback on message {thread_ts}. Could not fetch actual message."
+                )
+
+            # If feedback is negative, prompt for improvement
+            if feedback == "negative":
+                app.client.chat_postMessage(
+                    channel=body["channel"]["id"],
+                    thread_ts=thread_ts,
+                    text="What was missing or incorrect in my response? I'd like to help you better! 🤔",
+                    icon_url=ACRYL_SLACK_ICON_URL,
+                    mrkdwn=True,
+                )
+            elif feedback == "positive":
+                # For positive feedback, just acknowledge with a reaction
+                app.client.reactions_add(
+                    channel=body["channel"]["id"], timestamp=thread_ts, name="thumbsup"
+                )
+
+        except Exception as e:
+            logger.error(f"Failed to handle feedback: {str(e)}")
+            logger.info(f"Received {feedback} feedback on message {thread_ts}")
+
+        # Acknowledge the button click
+        ack()
 
     @app.command(re.compile(r"^/acryl.*"))
     def handle_command_acryl(ack: Ack, respond: Respond, command: dict) -> None:

@@ -9,6 +9,11 @@ SLACK_SINK_ENABLED = os.environ.get(
     "SLACK_SINK_ENABLED", "true"
 )  # Enable if slack messages are not being sent by GMS or MAE consumer services.
 
+# Control whether the @datahub mention is enabled
+DATAHUB_SLACK_AT_MENTION_ENABLED = os.environ.get(
+    "DATAHUB_SLACK_AT_MENTION_ENABLED", "false"
+)
+
 MAX_NOTIFICATION_RETRIES = int(os.environ.get("MAX_NOTIFICATION_RETRIES", 3))
 
 # Email

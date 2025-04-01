@@ -63,6 +63,7 @@ dev = [
 	# Iteration
 	"papermill",
 	"json5",
+	"streamlit",
 	"types-requests>=2.28.11.6,<=2.31.0.3"
 ]
 

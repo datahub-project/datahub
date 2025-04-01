@@ -1,0 +1,35 @@
+from datahub_integrations.chat.linkify import linkify_slack
+
+
+def test_linkify() -> None:
+    base_url = "https://example.com"
+    text1 = "For urn:li:dataset:(urn:li:dataPlatform:bigquery,staging.long_tail_companions.adoption.pet_profiles,PROD) the owner is Donald Duck."
+    text2 = "For the MongoDB version (urn:li:dataset:(urn:li:dataPlatform:mongodb,adoption.pet_profiles,PROD)): Business Owner: Admin (DataHub Root User)"
+    text3 = (
+        "The urn:li:container:b8ffe773179f6b1b1b5193419714dc19 schema has 25 tables."
+    )
+    text4 = (
+        "The `urn:li:container:b8ffe773179f6b1b1b5193419714dc19` schema has 25 tables."
+    )
+    text5 = "Full Path: <urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.pet_details,PROD)|long_tail_companions.analytics.pet_details> Description"
+
+    # TODO: Add a test for urns with spaces
+
+    assert (
+        linkify_slack(base_url, text1)
+        == "For <https://example.com/dataset/urn:li:dataset:(urn:li:dataPlatform:bigquery,staging.long_tail_companions.adoption.pet_profiles,PROD)/|staging.long_tail_companions.adoption.pet_profiles> the owner is Donald Duck."
+    )
+    assert (
+        linkify_slack(base_url, text2)
+        == "For the MongoDB version (<https://example.com/dataset/urn:li:dataset:(urn:li:dataPlatform:mongodb,adoption.pet_profiles,PROD)/|adoption.pet_profiles>): Business Owner: Admin (DataHub Root User)"
+    )
+    assert (
+        linkify_slack(base_url, text3)
+        == "The <https://example.com/container/urn:li:container:b8ffe773179f6b1b1b5193419714dc19/|urn:li:container:b8ffe773179f6b1b1b5193419714dc19> schema has 25 tables."
+    )
+    assert linkify_slack(base_url, text4) == text4
+
+    assert (
+        linkify_slack(base_url, text5)
+        == "Full Path: <https://example.com/dataset/urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.pet_details,PROD)/|long_tail_companions.analytics.pet_details> Description"
+    )

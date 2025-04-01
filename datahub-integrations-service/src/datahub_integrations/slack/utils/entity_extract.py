@@ -332,6 +332,7 @@ def get_type_display_name(entity_type: str) -> str:
 
 
 def get_type_url(entity_type: str, entity_urn: str) -> Optional[str]:
+    # TODO: Replace with: return get_url_for_urn(DATAHUB_FRONTEND_URL, entity_urn)
     if entity_type == "DATASET":
         return f"{DATAHUB_FRONTEND_URL}/dataset/{entity_urn}/"
     elif entity_type == "CHART":

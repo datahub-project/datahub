@@ -672,7 +672,7 @@ featureFlags:
   metadataShareEnabled: ${METADATA_SHARE_ENABLED:false} # Enables the metadata sharing feature to share entities between instances
   documentationFormsEnabled: ${FEATURE_DOCUMENTATION_FORMS_ENABLED:true} # Enables the documentation forms feature and shows/hides everything for it in the UI
   emailNotificationsEnabled: ${EMAIL_NOTIFICATIONS_ENABLED:false} # Enables the email notifications feature.
-  slackBotTokensConfigEnabled: ${SLACK_BOT_TOKENS_CONFIG_ENABLED:false} # Enables the ability to configure slack bot tokens via the integrations settings UI
+  slackBotTokensConfigEnabled: ${SLACK_BOT_TOKENS_CONFIG_ENABLED:true} # Enables the ability to configure slack bot tokens via the integrations settings UI
   slackBotTokensObfuscationEnabled: ${SLACK_BOT_TOKENS_OBFUSCATION_ENABLED:true} # Obfuscates sensitive tokens in graphQL endpoints where connection details are surfaced
   broadcastNewIncidentUpdatesEnabled: ${BROADCAST_NEW_INCIDENT_UPDATES_ENABLED:true} # Enables stateful updating of active incidents in 3rd party destinations.
   separateSiblingsLineageByDefault: ${SEPARATE_SIBLINGS_LINEAGE_BY_DEFAULT:false} # Whether siblings lineage should be separate from each other or not
