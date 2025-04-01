@@ -47,6 +47,10 @@ query listRemoteExecutorPools($start: Int!, $count: Int!, $query: String) {
             createdAt
             isDefault
             isEmbedded
+            state {
+                status
+                message
+            }
             # we query for 10k executors since customers usually only have 1 in a pool, rarely scale to even 10
             remoteExecutors(start: 0, count: 10000) {
                 total
