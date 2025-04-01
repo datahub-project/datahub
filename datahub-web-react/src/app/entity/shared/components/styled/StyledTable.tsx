@@ -5,7 +5,7 @@ import { colors, typography } from '@src/alchemy-components/theme';
 const commonTableStyles = `
     border-radius: 12px;
     border: 1px solid ${colors.gray[1400]};
-    overflow: hidden;
+    overflow: clip; /* Modern alternative to hidden that maintains visibility */
 `;
 
 const commonCellStyles = `
@@ -32,19 +32,20 @@ const commonBodyStyles = `
 `;
 
 const commonScrollStyles = `
-    overflow-y: visible;
-    overflow-x: visible;
+    overflow-y: auto;
+    overflow-x: hidden;
     &::-webkit-scrollbar {
         display: none;
     }
     -ms-overflow-style: none;
     scrollbar-width: none;
     min-height: 100px;  /* Ensure there's always some height for Cypress */
+    position: relative; /* Create stacking context */
 `;
 
 const commonBorderRadiusStyles = `
     border-radius: 12px;
-    overflow: hidden;
+    overflow: clip; /* Modern alternative to hidden that maintains visibility */
 `;
 
 const commonPaginationStyles = `
@@ -73,6 +74,8 @@ const commonLastColumnStyles = `
 
 export const StyledTable = styled(Table)`
     margin: 16px 20px 0px 20px;
+    position: relative;
+    z-index: 1;
 
     /* Main table styles */
     &&& .ant-table {
@@ -82,6 +85,7 @@ export const StyledTable = styled(Table)`
     &&& .ant-table-container,
     &&& .ant-table-content {
         ${commonBorderRadiusStyles}
+        position: relative;
     }
 
     &&& .ant-table-body {
@@ -90,8 +94,9 @@ export const StyledTable = styled(Table)`
 
     &&& .ant-table-scroll,
     &&& .ant-table-scrollbar {
-        overflow: hidden;
-        display: none;
+        overflow: clip;
+        display: block;
+        position: relative;
     }
 
     &&& .ant-table-cell {
@@ -183,8 +188,9 @@ export const StyledTable = styled(Table)`
 
     &&& .ant-table-expanded-row .ant-table-scroll,
     &&& .ant-table-expanded-row .ant-table-scrollbar {
-        overflow: hidden;
-        display: none;
+        overflow: clip;
+        display: block;
+        position: relative;
     }
 
     &&& .ant-table-expanded-row .ant-table-cell {
