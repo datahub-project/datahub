@@ -342,8 +342,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     }
 
     List<SystemAspect> systemAspects =
-        EntityUtils.toSystemAspects(
-            opContext.getRetrieverContext(), batchGetResults.values());
+        EntityUtils.toSystemAspects(opContext.getRetrieverContext(), batchGetResults.values());
 
     systemAspects.stream()
         // for now, don't add the key aspect here we have already added it above
@@ -371,8 +370,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     Map<EntityAspectIdentifier, EntityAspect> batchGetResults =
         getLatestAspect(opContext, new HashSet<>(Arrays.asList(urn)), aspectNames, forUpdate);
 
-    return EntityUtils.toSystemAspects(
-            opContext.getRetrieverContext(), batchGetResults.values())
+    return EntityUtils.toSystemAspects(opContext.getRetrieverContext(), batchGetResults.values())
         .stream()
         .map(
             systemAspect -> Pair.of(systemAspect.getAspectName(), systemAspect.getRecordTemplate()))
@@ -1675,8 +1673,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                 try {
                   List<SystemAspect> systemAspects =
                       EntityUtils.toSystemAspectFromEbeanAspects(
-                          opContext.getRetrieverContext(),
-                          batch.collect(Collectors.toList()));
+                          opContext.getRetrieverContext(), batch.collect(Collectors.toList()));
 
                   RestoreIndicesResult result =
                       restoreIndices(opContext, systemAspects, logger, args.createDefaultAspects());

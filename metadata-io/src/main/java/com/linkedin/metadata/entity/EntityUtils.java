@@ -215,8 +215,7 @@ public class EntityUtils {
 
   @Nonnull
   public static List<SystemAspect> toSystemAspectFromEbeanAspects(
-      @Nonnull RetrieverContext retrieverContext,
-      @Nonnull Collection<EbeanAspectV2> rawAspects) {
+      @Nonnull RetrieverContext retrieverContext, @Nonnull Collection<EbeanAspectV2> rawAspects) {
     return toSystemAspects(
         retrieverContext,
         rawAspects.stream().map(EbeanAspectV2::toEntityAspect).collect(Collectors.toList()));
