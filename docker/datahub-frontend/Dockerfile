@@ -25,17 +25,11 @@ RUN apk --no-cache --update-cache --available upgrade \
 
 ENV LD_LIBRARY_PATH="/lib:/lib64"
 
-FROM base AS unpack
-
-COPY ./datahub-frontend.zip /
-RUN unzip datahub-frontend.zip -d /tmp/out \
-   && mv /tmp/out/main /datahub-frontend
-COPY ./docker/monitoring/client-prometheus-config.yaml /datahub-frontend/
-RUN chown -R datahub:datahub /datahub-frontend && chmod 755 /datahub-frontend
-
 FROM base AS prod-install
 
-COPY --from=unpack /datahub-frontend/ /datahub-frontend/
+COPY --chown=datahub:datahub --chmod=755 ./docker/monitoring/client-prometheus-config.yaml /datahub-frontend/
+COPY --chown=datahub:datahub --chmod=755 ./docker/datahub-frontend/start.sh /
+COPY --chown=datahub:datahub --chmod=755 ./main /datahub-frontend/
 
 FROM base AS dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
@@ -43,7 +37,6 @@ FROM base AS dev-install
 VOLUME [ "/datahub-frontend" ]
 
 FROM ${APP_ENV}-install AS final
-COPY --chown=datahub:datahub --chmod=755 ./docker/datahub-frontend/start.sh /
 USER datahub
 
 ENV OTEL_EXPORTER_OTLP_MAX_PAYLOAD_SIZE=4194304 \
