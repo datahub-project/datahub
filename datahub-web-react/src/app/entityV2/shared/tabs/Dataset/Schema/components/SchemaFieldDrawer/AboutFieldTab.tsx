@@ -81,7 +81,7 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
                             notes={notes}
                             refetch={delayedRefetchNotes}
                         />
-                        {!!notes?.length && <StyledDivider dashed />}
+                        {!!notes?.length && <StyledDivider />}
                         <FieldDescription
                             expandedField={expandedField}
                             editableFieldInfo={editableFieldInfo}

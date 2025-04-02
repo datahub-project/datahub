@@ -17,7 +17,7 @@ const FieldHeaderWrapper = styled.div`
     padding: 16px;
     display: flex;
     justify-content: space-between;
-    border-bottom: 1px solid rgb(213, 213, 213);
+    border-bottom: 1px solid ${colors.gray[100]};
 `;
 
 const NameTypesWrapper = styled.div`

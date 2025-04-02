@@ -23,7 +23,7 @@ export default function SampleValuesSection({ fieldProfile }: Props) {
                         <SampleValueTag value={value} />
                     ))}
             />
-            <StyledDivider dashed />
+            <StyledDivider />
         </>
     );
 }
