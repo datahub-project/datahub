@@ -12,12 +12,12 @@ def mock_datahub_graph(pytestconfig):
     return graph
 
 
-def test_get_entities_v3(mock_datahub_graph):
+def test_get_entities(mock_datahub_graph):
     aspect_name = "datasetProperties"
     urn_1 = "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_aha.hospital_beds,PROD)"
     urn_2 = "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_geotab_mobility_impact.city_congestion,PROD)"
 
-    entities = mock_datahub_graph.get_entities_v3(
+    entities = mock_datahub_graph.get_entities(
         entity_name="dataset",
         urns=[
             urn_1,  # misses datasetProperties aspect

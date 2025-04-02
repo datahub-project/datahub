@@ -129,7 +129,7 @@ class MockDataHubGraph(DataHubGraph):
     ) -> None:
         self.emitted.append(mcp)
 
-    def get_entities_v3(
+    def get_entities(
         self,
         entity_name: str,
         urns: List[str],

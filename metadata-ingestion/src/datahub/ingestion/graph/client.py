@@ -1698,6 +1698,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
 
         return res["runAssertionsForAsset"]
 
+    @deprecated("Use get_entities instead which returns typed aspects")
     def get_entities_v2(
         self,
         entity_name: str,
@@ -1737,7 +1738,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                     retval[entity_urn][aspect_key] = aspect_value
         return retval
 
-    def get_entities_v3(
+    def get_entities(
         self,
         entity_name: str,
         urns: List[str],

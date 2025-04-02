@@ -46,7 +46,7 @@ if __name__ == "__main__":
         )
     )
 
-    response = client.get_entities_v3(
+    response = client.get_entities(
         entity_name=args.entity_name,
         urns=args.urns,
         aspects=args.aspects,
