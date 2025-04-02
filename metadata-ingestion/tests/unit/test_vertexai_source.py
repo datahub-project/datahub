@@ -8,11 +8,11 @@ from google.cloud.aiplatform import Experiment, ExperimentRun
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import ExperimentKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 from datahub.ingestion.source.vertexai.vertexai import (
-    ContainerKeyWithId,
     ModelMetadata,
     TrainingJobMetadata,
     VertexAIConfig,
@@ -519,7 +519,7 @@ def test_get_experiment_mcps(
         if isinstance(mcp.metadata, MetadataChangeProposalWrapper)
     ]
 
-    expected_urn = ContainerKeyWithId(
+    expected_urn = ExperimentKey(
         platform=source.platform,
         id=source._make_vertexai_experiment_id(mock_experiment.name),
     ).as_urn()
@@ -563,8 +563,8 @@ def test_get_experiment_mcps(
 
     assert len(actual_wus) == 5
     assert len(actual_mcps) == 5
-    assert any(mcp_container_props == mcp for mcp in actual_mcps)
 
+    assert any(mcp_container_props == mcp for mcp in actual_mcps)
     assert any(mcp_subtype == mcp for mcp in actual_mcps)
     assert any(mcp_container == mcp for mcp in actual_mcps)
     assert any(mcp_dataplatform == mcp for mcp in actual_mcps)
@@ -581,7 +581,7 @@ def test_gen_experiment_run_mcps(
     assert hasattr(mock_list, "return_value")  # this check needed to go ground lint
     mock_list.return_value = [mock_exp_run]
 
-    expected_exp_urn = ContainerKeyWithId(
+    expected_exp_urn = ExperimentKey(
         platform=source.platform,
         id=source._make_vertexai_experiment_id(mock_exp.name),
     ).as_urn()

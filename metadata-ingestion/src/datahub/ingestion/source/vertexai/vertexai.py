@@ -30,7 +30,11 @@ from google.protobuf import timestamp_pb2
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataFlow, DataJob
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import ContainerKey, ProjectIdKey, gen_containers
+from datahub.emitter.mcp_builder import (
+    ExperimentKey,
+    ProjectIdKey,
+    gen_containers,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -109,11 +113,6 @@ class ModelMetadata:
     training_job_urn: Optional[str] = None
     endpoints: Optional[List[Endpoint]] = None
 
-
-class ContainerKeyWithId(ContainerKey):
-    id: str
-
-
 @dataclasses.dataclass
 class PipelineTaskMetadata:
     name: str
@@ -126,7 +125,6 @@ class PipelineTaskMetadata:
     end_time: Optional[timestamp_pb2.Timestamp] = None
     duration: Optional[timedelta] = None
     upstreams: Optional[List[DataJobUrn]] = None
-
 
 @dataclasses.dataclass
 class PipelineMetadata:
@@ -421,7 +419,7 @@ class VertexAISource(Source):
     ) -> Iterable[MetadataWorkUnit]:
         yield from gen_containers(
             parent_container_key=self._get_project_container(),
-            container_key=ContainerKeyWithId(
+            container_key=ExperimentKey(
                 platform=self.platform,
                 id=self._make_vertexai_experiment_id(experiment.name),
             ),
@@ -557,7 +555,7 @@ class VertexAISource(Source):
     def _gen_experiment_run_mcps(
         self, experiment: Experiment, run: ExperimentRun
     ) -> Iterable[MetadataChangeProposalWrapper]:
-        experiment_key = ContainerKeyWithId(
+        experiment_key = ExperimentKey(
             platform=self.platform,
             id=self._make_vertexai_experiment_id(experiment.name),
         )

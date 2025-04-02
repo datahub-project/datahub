@@ -16,6 +16,7 @@ import {
     TextColumns,
     TrendUp,
     UserCircle,
+    Tag,
 } from '@phosphor-icons/react';
 import styled, { useTheme } from 'styled-components';
 import useGetLogoutHandler from '@src/app/auth/useGetLogoutHandler';
@@ -135,6 +136,14 @@ export const NavSidebar = () => {
                         additionalLinksForPathMatching: entityRegistry
                             .getGlossaryEntities()
                             .map((entity) => `/${entity.getPathName()}/:urn`),
+                    },
+                    {
+                        type: NavBarMenuItemTypes.Item,
+                        title: 'Tags',
+                        key: 'tag',
+                        icon: <Tag />,
+                        selectedIcon: <Tag weight="fill" />,
+                        link: PageRoutes.MANAGE_TAGS,
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
