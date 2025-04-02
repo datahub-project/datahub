@@ -1,14 +1,12 @@
 import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
-import { Button, Divider, Typography } from 'antd';
-import { Tooltip } from '@components';
+import { Divider, Typography } from 'antd';
+import { colors, Button } from '@components';
 import { ProfileSidebarResizer } from '@src/app/entityV2/shared/containers/profile/sidebar/ProfileSidebarResizer';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import EntityBrowse from './EntityBrowse';
 import PlatformBrowse from './PlatformBrowse';
 import { useIsPlatformBrowseMode } from './BrowseContext';
-import { ANTD_GRAY } from '../../entityV2/shared/constants';
-import SidebarBackArrow from '../../../images/sidebarBackArrow.svg?react';
 import { SEARCH_RESULTS_BROWSE_SIDEBAR_ID } from '../../onboarding/config/SearchOnboardingConfig';
 
 const PLATFORM_BROWSE_TRANSITION_MS = 200;
@@ -61,31 +59,21 @@ const Controls = styled.div<{ isCollapsed: boolean }>`
     display: flex;
     align-items: center;
     justify-content: ${(props) => (props.isCollapsed ? 'center' : 'space-between')};
-    height: 40px;
-    padding: 8px;
+    height: 52px;
+    padding: 16px 12px;
     overflow: hidden;
 `;
 
 const NavigateTitle = styled(Typography.Title)<{ isClosed: boolean }>`
     && {
-        padding: 0px;
-        margin: 4px 0px 4px 8px;
+        padding: 0;
+        margin: 0;
         min-width: 140px;
-        opacity: ${(props) => (props.isClosed ? '0' : '1')};
-    }
-`;
-
-const CloseButton = styled(Button)<{ $isActive }>`
-    margin: 0px;
-    padding: 2px 6px;
-    display: flex;
-    align-items: center;
-
-    transform: ${(props) => (props.$isActive ? 'translateX(0)' : 'translateX(-75px)')};
-    transition: transform ${PLATFORM_BROWSE_TRANSITION_MS}ms ease;
-
-    && {
-        color: ${(props) => (props.$isActive ? ANTD_GRAY[9] : ANTD_GRAY[8])};
+        display: ${(props) => (props.isClosed ? 'none' : 'block')};
+        font-size: 14px;
+        line-height: 20px;
+        font-weight: bold;
+        color: ${colors.gray[1700]};
     }
 `;
 
@@ -95,7 +83,7 @@ const ThinDivider = styled(Divider)`
 `;
 
 const SidebarBody = styled.div`
-    height: calc(100% - 47px);
+    height: calc(100% - 53px);
     overflow: auto;
     white-space: nowrap;
     /* Hide scrollbar altoghether for Chrome, Safari, and Opera */
@@ -105,11 +93,6 @@ const SidebarBody = styled.div`
     scrollbar-gutter: stable;
     -moz-scrollbar-gutter: stable;
     -webkit-scrollbar-gutter: stable;
-`;
-
-const StyledSidebarBackArrow = styled(SidebarBackArrow)<{ direction: 'left' | 'right' }>`
-    cursor: pointer;
-    ${(props) => (props.direction === 'right' && 'transform: scaleX(-1);') || undefined}
 `;
 
 type Props = {
@@ -141,20 +124,21 @@ const BrowseSidebar = ({ visible }: Props) => {
                 id="browse-v2"
             >
                 <Controls isCollapsed={isClosed}>
-                    <NavigateTitle level={5} isClosed={isClosed}>
-                        Navigate
-                    </NavigateTitle>
-                    <Tooltip
-                        placement="left"
-                        showArrow={false}
-                        title={!isClosed ? 'Close navigator' : 'Open navigator'}
-                        mouseEnterDelay={0.7}
-                        mouseLeaveDelay={0}
-                    >
-                        <CloseButton $isActive={!isClosed} type="link" onClick={() => setIsClosed(!isClosed)}>
-                            <StyledSidebarBackArrow direction={isClosed ? 'left' : 'right'} />
-                        </CloseButton>
-                    </Tooltip>
+                    {!isClosed ? (
+                        <NavigateTitle level={5} isClosed={isClosed}>
+                            Navigate
+                        </NavigateTitle>
+                    ) : null}
+                    <Button
+                        variant="text"
+                        color="gray"
+                        size="lg"
+                        isCircle
+                        icon={isClosed ? 'ArrowLineRight' : 'ArrowLineLeft'}
+                        iconSource="phosphor"
+                        isActive={!isClosed}
+                        onClick={() => setIsClosed(!isClosed)}
+                    />
                 </Controls>
                 <StyledSidebar id={SEARCH_RESULTS_BROWSE_SIDEBAR_ID}>
                     <ThinDivider />
