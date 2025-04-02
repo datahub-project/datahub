@@ -16,11 +16,11 @@ import {
 } from '../../../graphql/actionRequest.generated';
 
 const ActionRequestsContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    ${(props) => props.$isShowNavBarRedesign && 'height: calc(100% - 200px);'}
+    ${(props) => props.$isShowNavBarRedesign && 'height: calc(100% - 20px);'}
 `;
 
 const Container = styled.div`
-    height: 100%;
+    height: calc(100% - 60px - 45px);
 `;
 
 const ActionRequestsTitle = styled(Typography.Title)`
@@ -249,7 +249,7 @@ export const ProposalList = ({ title, status, assignee }: Props) => {
                 />
                 <ActionRequestsPaginationContainer>
                     <Pagination
-                        style={{ margin: 40 }}
+                        style={{ margin: 20 }}
                         current={page}
                         pageSize={pageSize}
                         total={totalActionRequests}

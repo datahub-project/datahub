@@ -18,7 +18,6 @@ const StyledList = styled(List)<{ $isShowNavBarRedesign?: boolean }>`
         `
         overflow-x: hidden;
         overflow-y: auto;
-        height: calc(100% - 125px);
         border-radius: 0 0 ${props.theme.styles['border-radius-navbar-redesign']} ${props.theme.styles['border-radius-navbar-redesign']};
     `}
 
@@ -27,6 +26,7 @@ const StyledList = styled(List)<{ $isShowNavBarRedesign?: boolean }>`
         border-color: ${(props) => props.theme.styles['border-color-base']};
         flex: 1;
         overflow: auto;
+        height: 100%;
     }
 `;
 

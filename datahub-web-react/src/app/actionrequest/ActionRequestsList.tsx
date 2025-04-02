@@ -7,7 +7,10 @@ import { Message } from '../shared/Message';
 import { useListActionRequestsQuery } from '../../graphql/actionRequest.generated';
 import analytics, { EventType } from '../analytics';
 
-const ActionRequestsContainer = styled.div``;
+const ActionRequestsContainer = styled.div`
+    flex: 1;
+    overflow: auto;
+`;
 
 const ActionRequestsTitle = styled(Typography.Title)`
     && {
@@ -100,7 +103,7 @@ export const ActionRequestsList = ({ title, status, assignee }: Props) => {
                 />
                 <ActionRequestsPaginationContainer>
                     <Pagination
-                        style={{ margin: 40 }}
+                        style={{ margin: 20 }}
                         current={page}
                         pageSize={pageSize}
                         total={totalActionRequests}
