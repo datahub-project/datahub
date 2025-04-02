@@ -665,6 +665,17 @@ entities:
       - dataPlatformInstance
       - platformResourceInfo
       - status
+  - name: schema
+    category: core
+    keyAspect: schemaKey
+    aspects:
+      - ownership
+      - status
+      - domain
+      - subTypes
+      - schemaMetadata
+      - editableSchemaMetadata
+
 events:
 plugins:
   aspectPayloadValidators:
