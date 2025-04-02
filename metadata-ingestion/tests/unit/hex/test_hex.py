@@ -44,9 +44,9 @@ class TestHexSourceConfig(unittest.TestCase):
     def test_lineage_config(self):
         config = HexSourceConfig.parse_obj(self.minimum_input_config)
         assert config and config.include_lineage
-        config = HexSourceConfig.parse_obj(
-            self.minimum_input_config | {"include_lineage": False}
-        )
+
+        input_config = {**self.minimum_input_config, "include_lineage": False}
+        config = HexSourceConfig.parse_obj(input_config)
         assert config and not config.include_lineage
 
         # default values for lineage_start_time and lineage_end_time
@@ -67,13 +67,12 @@ class TestHexSourceConfig(unittest.TestCase):
             )
         )
         # set values for lineage_start_time and lineage_end_time
-        config = HexSourceConfig.parse_obj(
-            self.minimum_input_config
-            | {
-                "lineage_start_time": "2025-03-24 12:00:00",
-                "lineage_end_time": "2025-03-25 12:00:00",
-            }
-        )
+        input_config = {
+            **self.minimum_input_config,
+            "lineage_start_time": "2025-03-24 12:00:00",
+            "lineage_end_time": "2025-03-25 12:00:00",
+        }
+        config = HexSourceConfig.parse_obj(input_config)
         assert (
             config.lineage_start_time
             and isinstance(config.lineage_start_time, datetime)
@@ -91,9 +90,11 @@ class TestHexSourceConfig(unittest.TestCase):
             )
         )
         # set lineage_end_time only
-        config = HexSourceConfig.parse_obj(
-            self.minimum_input_config | {"lineage_end_time": "2025-03-25 12:00:00"}
-        )
+        input_config = {
+            **self.minimum_input_config,
+            "lineage_end_time": "2025-03-25 12:00:00",
+        }
+        config = HexSourceConfig.parse_obj(input_config)
         assert (
             config.lineage_start_time
             and isinstance(config.lineage_start_time, datetime)
@@ -112,9 +113,11 @@ class TestHexSourceConfig(unittest.TestCase):
             )
         )
         # set lineage_start_time only
-        config = HexSourceConfig.parse_obj(
-            self.minimum_input_config | {"lineage_start_time": "2025-03-25 12:00:00"}
-        )
+        input_config = {
+            **self.minimum_input_config,
+            "lineage_start_time": "2025-03-25 12:00:00",
+        }
+        config = HexSourceConfig.parse_obj(input_config)
         assert (
             config.lineage_start_time
             and isinstance(config.lineage_start_time, datetime)
@@ -131,10 +134,12 @@ class TestHexSourceConfig(unittest.TestCase):
             )
         )
         # set relative times for lineage_start_time and lineage_end_time
-        config = HexSourceConfig.parse_obj(
-            self.minimum_input_config
-            | {"lineage_start_time": "-3day", "lineage_end_time": "now"}
-        )
+        input_config = {
+            **self.minimum_input_config,
+            "lineage_start_time": "-3day",
+            "lineage_end_time": "now",
+        }
+        config = HexSourceConfig.parse_obj(input_config)
         assert (
             config.lineage_start_time
             and isinstance(config.lineage_start_time, datetime)

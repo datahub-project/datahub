@@ -2,7 +2,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, Generator, List, Optional
+from typing import Any, Dict, Generator, List, Optional, Tuple
 
 from pydantic import BaseModel
 
@@ -291,7 +291,7 @@ class HexQueryFetcher:
         logger.debug(f"Get URNS by filter: {urns}")
         return [QueryUrn.from_string(urn.urn()) for urn in urns]
 
-    def _extract_hex_metadata(self, sql_statement: str) -> Optional[tuple[str, str]]:
+    def _extract_hex_metadata(self, sql_statement: str) -> Optional[Tuple[str, str]]:
         """
         Extract project ID and workspace name from SQL statement.
 
