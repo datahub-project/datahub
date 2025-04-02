@@ -37,6 +37,7 @@ from datahub_executor.config import (
     FRESHNESS_DEFAULT_SENSITIVITY_LEVEL,
     FRESHNESS_MIN_TRAINING_INTERVAL_SECONDS,
     FRESHNESS_MIN_TRAINING_SAMPLES,
+    FRESHNESS_MIN_TRAINING_SAMPLES_TIMESPAN_SECONDS,
 )
 
 
@@ -253,6 +254,17 @@ def test_get_min_training_samples(
 
     # Assert
     assert result == FRESHNESS_MIN_TRAINING_SAMPLES
+
+
+def test_get_min_training_samples_timespan_seconds(
+    trainer: FreshnessAssertionTrainer,
+) -> None:
+    """Test that get_min_training_samples_timespan_seconds returns the correct constant."""
+    # Act
+    result = trainer.get_min_training_samples_timespan_seconds()
+
+    # Assert
+    assert result == FRESHNESS_MIN_TRAINING_SAMPLES_TIMESPAN_SECONDS
 
 
 def test_get_metric_data(

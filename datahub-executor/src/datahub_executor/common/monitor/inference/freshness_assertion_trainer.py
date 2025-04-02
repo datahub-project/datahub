@@ -31,6 +31,7 @@ from datahub_executor.config import (
     FRESHNESS_DEFAULT_SENSITIVITY_LEVEL,
     FRESHNESS_MIN_TRAINING_INTERVAL_SECONDS,
     FRESHNESS_MIN_TRAINING_SAMPLES,
+    FRESHNESS_MIN_TRAINING_SAMPLES_TIMESPAN_SECONDS,
 )
 
 logger = logging.getLogger(__name__)
@@ -85,6 +86,12 @@ class FreshnessAssertionTrainer(BaseAssertionTrainer[Operation]):
         """
         return FRESHNESS_MIN_TRAINING_SAMPLES
 
+    def get_min_training_samples_timespan_seconds(self) -> int:
+        """
+        Get the minimum number of samples required for training.
+        """
+        return FRESHNESS_MIN_TRAINING_SAMPLES_TIMESPAN_SECONDS
+
     def get_metric_data(
         self,
         monitor: Monitor,
@@ -101,6 +108,16 @@ class FreshnessAssertionTrainer(BaseAssertionTrainer[Operation]):
             adjustment_settings
         )
         training_window_duration = timedelta(days=lookback_days)
+        min_window_duration = timedelta(
+            seconds=self.get_min_training_samples_timespan_seconds() + 60 * 60
+        )  # Min timespan + 1 hr buffer
+
+        # Prevent User Error: Ensure that we always fetch a timespan larger than the minimum required to train!
+        final_window_duration = (
+            training_window_duration
+            if training_window_duration > min_window_duration
+            else min_window_duration
+        )
 
         logger.debug(
             f"Fetching historical operations for the past {lookback_days} days, ignoring {FRESHNESS_OPERATION_TYPES_TO_IGNORE} for entity {entity_urn}"
@@ -109,7 +126,7 @@ class FreshnessAssertionTrainer(BaseAssertionTrainer[Operation]):
         # Fetch operations
         operations = self.metrics_client.fetch_operations(
             entity_urn=entity_urn,
-            lookback=training_window_duration,
+            lookback=final_window_duration,
             limit=2000,
             ignore_types=FRESHNESS_OPERATION_TYPES_TO_IGNORE,
         )

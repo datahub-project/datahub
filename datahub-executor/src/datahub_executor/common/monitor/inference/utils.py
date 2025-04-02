@@ -16,6 +16,7 @@ from datahub_executor.common.metric.types import Metric, Operation
 from datahub_executor.common.monitor.inference.metric_projection.metric_predictor import (
     MetricBoundary,
 )
+from datahub_executor.common.monitor.inference.types import Event
 from datahub_executor.common.types import Anomaly
 
 logger = logging.getLogger(__name__)
@@ -60,6 +61,21 @@ def create_inference_source() -> AssertionSourceClass:
     Create an assertion source indicating it was inferred.
     """
     return AssertionSourceClass(type=AssertionSourceTypeClass.INFERRED)
+
+
+def get_event_timespan_seconds(events: List[Event]) -> int:
+    """
+    Returns the difference (in seconds) between the earliest and latest event timestamps.
+    """
+    if not events:
+        return 0
+
+    sorted_events = sorted(
+        events, key=lambda x: x.timestamp_ms
+    )  # Preserve original order
+    return (
+        sorted_events[-1].timestamp_ms - sorted_events[0].timestamp_ms
+    ) // 1000  # Convert to seconds
 
 
 def is_metric_anomaly(metric: Metric, anomalies: List[Anomaly]) -> bool:

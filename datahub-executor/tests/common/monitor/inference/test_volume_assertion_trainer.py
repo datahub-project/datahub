@@ -40,6 +40,7 @@ from datahub_executor.config import (
     VOLUME_DEFAULT_SENSITIVITY_LEVEL,
     VOLUME_MIN_TRAINING_INTERVAL_SECONDS,
     VOLUME_MIN_TRAINING_SAMPLES,
+    VOLUME_MIN_TRAINING_SAMPLES_TIMESPAN_SECONDS,
 )
 
 
@@ -289,6 +290,17 @@ def test_get_min_training_samples(
 
     # Assert
     assert result == VOLUME_MIN_TRAINING_SAMPLES
+
+
+def test_get_min_training_samples_timespan_seconds(
+    trainer: VolumeAssertionTrainer,
+) -> None:
+    """Test that get_min_training_samples_timespan_seconds returns the correct constant."""
+    # Act
+    result = trainer.get_min_training_samples_timespan_seconds()
+
+    # Assert
+    assert result == VOLUME_MIN_TRAINING_SAMPLES_TIMESPAN_SECONDS
 
 
 @patch(

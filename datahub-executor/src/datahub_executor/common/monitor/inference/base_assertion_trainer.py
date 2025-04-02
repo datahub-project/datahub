@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
-from typing import Generic, List, Optional, TypeVar
+from typing import Generic, List, Optional
 
 import pytz
 from datahub.ingestion.graph.client import DataHubGraph
@@ -11,11 +11,12 @@ from datahub.metadata.schema_classes import (
 )
 
 from datahub_executor.common.metric.client.client import MetricClient
-from datahub_executor.common.metric.types import Metric, Operation
 from datahub_executor.common.monitor.client.client import MonitorClient
 from datahub_executor.common.monitor.inference.metric_projection.metric_predictor import (
     MetricPredictor,
 )
+from datahub_executor.common.monitor.inference.types import Event
+from datahub_executor.common.monitor.inference.utils import get_event_timespan_seconds
 from datahub_executor.common.types import (
     Assertion,
     AssertionAdjustmentSettings,
@@ -28,9 +29,6 @@ from datahub_executor.config import (
 )
 
 logger = logging.getLogger(__name__)
-
-# Define a generic type for events (Metric or Operation)
-Event = TypeVar("Event", Metric, Operation)
 
 
 class BaseAssertionTrainer(Generic[Event], ABC):
@@ -70,6 +68,11 @@ class BaseAssertionTrainer(Generic[Event], ABC):
     @abstractmethod
     def get_min_training_samples(self) -> int:
         """Get the minimum number of samples required for training."""
+        pass
+
+    @abstractmethod
+    def get_min_training_samples_timespan_seconds(self) -> int:
+        """Get the minimum timespan between first & last sample required for training."""
         pass
 
     @abstractmethod
@@ -153,7 +156,11 @@ class BaseAssertionTrainer(Generic[Event], ABC):
         )
 
         # Check sample size
-        if len(filtered_data) < self.get_min_training_samples():
+        if (
+            len(filtered_data) < self.get_min_training_samples()
+            or get_event_timespan_seconds(filtered_data)
+            < self.get_min_training_samples_timespan_seconds()
+        ):
             # Not enough data: remove inferred assertions and go back to training state
             self.remove_inferred_assertion(monitor, assertion, evaluation_spec)
         else:

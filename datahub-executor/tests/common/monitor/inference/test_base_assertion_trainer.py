@@ -58,6 +58,10 @@ class TestableAssertionTrainer(BaseAssertionTrainer[Metric]):
         # For testing, we'll just return a value set during test setup
         return self.should_perform_inference_flag
 
+    def get_min_training_samples_timespan_seconds(self) -> int:
+        # For testing, return a fixed amount of seconds
+        return 5
+
     def get_min_training_samples(self) -> int:
         # For testing, return a fixed value
         return 5
@@ -192,9 +196,9 @@ def test_perform_training_not_enough_samples(
     trainer.should_perform_inference_flag = True
     # Create mock metrics with minimum data to be properly typed
     mock_metrics: List[Metric] = []
-    for _ in range(4):  # Less than min 5
+    for i in range(4):  # Less than min 5
         metric = Mock(spec=Metric)
-        metric.timestamp_ms = 1000  # Add required attribute
+        metric.timestamp_ms = 1000 * i  # Add required attribute
         mock_metrics.append(cast(Metric, metric))
 
     trainer.mock_metric_data = mock_metrics
@@ -211,7 +215,34 @@ def test_perform_training_not_enough_samples(
     assert not trainer.train_called
 
 
-def test_perform_training_enough_samples(
+def test_perform_training_not_enough_time_between_samples(
+    trainer: TestableAssertionTrainer, mock_data: Dict[str, Union[Mock, MagicMock]]
+) -> None:
+    """Test that remove_inferred_assertion is called if there's not enough training data."""
+    # Arrange
+    trainer.should_perform_inference_flag = True
+    # Create mock metrics with minimum data to be properly typed
+    mock_metrics: List[Metric] = []
+    for _ in range(4):  # Less than min 5
+        metric = Mock(spec=Metric)
+        metric.timestamp_ms = 1000  # All have the same timestamp!
+        mock_metrics.append(cast(Metric, metric))
+
+    trainer.mock_metric_data = mock_metrics
+
+    # Act
+    trainer.perform_training(
+        cast(Monitor, mock_data["monitor"]),
+        cast(Assertion, mock_data["assertion"]),
+        cast(AssertionEvaluationSpec, mock_data["evaluation_spec"]),
+    )
+
+    # Assert
+    assert trainer.remove_called
+    assert not trainer.train_called
+
+
+def test_perform_training_enough_samples_and_time(
     trainer: TestableAssertionTrainer, mock_data: Dict[str, Union[Mock, MagicMock]]
 ) -> None:
     """Test that train_and_update_assertion is called if there's enough training data."""
@@ -219,9 +250,11 @@ def test_perform_training_enough_samples(
     trainer.should_perform_inference_flag = True
     # Create mock metrics with minimum data to be properly typed
     mock_metrics: List[Metric] = []
-    for _ in range(10):  # More than min 5
+    for i in range(10):  # More than min 5
         metric = Mock(spec=Metric)
-        metric.timestamp_ms = 1000  # Add required attribute
+        metric.timestamp_ms = (
+            1000 * i
+        )  # Add time between samples, more than min 5 minutes
         mock_metrics.append(cast(Metric, metric))
 
     trainer.mock_metric_data = mock_metrics

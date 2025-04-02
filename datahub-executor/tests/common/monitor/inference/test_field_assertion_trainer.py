@@ -42,6 +42,7 @@ from datahub_executor.config import (
     FIELD_METRIC_DEFAULT_SENSITIVITY_LEVEL,
     FIELD_METRIC_MIN_TRAINING_INTERVAL_SECONDS,
     FIELD_METRIC_MIN_TRAINING_SAMPLES,
+    FIELD_METRIC_MIN_TRAINING_SAMPLES_TIMESPAN_SECONDS,
 )
 
 
@@ -352,6 +353,17 @@ def test_get_min_training_samples(
 
     # Assert
     assert result == FIELD_METRIC_MIN_TRAINING_SAMPLES
+
+
+def test_get_min_training_samples_timespan_seconds(
+    trainer: FieldAssertionTrainer,
+) -> None:
+    """Test that get_min_training_samples_timespan_seconds returns the correct constant."""
+    # Act
+    result = trainer.get_min_training_samples_timespan_seconds()
+
+    # Assert
+    assert result == FIELD_METRIC_MIN_TRAINING_SAMPLES_TIMESPAN_SECONDS
 
 
 @patch(

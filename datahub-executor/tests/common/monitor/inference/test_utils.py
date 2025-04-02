@@ -19,6 +19,7 @@ from datahub_executor.common.monitor.inference.utils import (
     build_std_parameters,
     create_embedded_assertion,
     create_inference_source,
+    get_event_timespan_seconds,
     is_metric_anomaly,
 )
 from datahub_executor.common.types import Anomaly
@@ -100,6 +101,53 @@ def test_create_inference_source() -> None:
     # Assert
     assert isinstance(result, AssertionSourceClass)
     assert result.type == AssertionSourceTypeClass.INFERRED
+
+
+def test_get_event_timespan_empty_list() -> None:
+    """Test with an empty event list."""
+    assert get_event_timespan_seconds([]) == 0
+
+
+def test_get_event_timespan_single_event() -> None:
+    """Test with a single event (should return 0)."""
+    events = [
+        Operation(timestamp_ms=1640995200000, type="INSERT")
+    ]  # Jan 1, 2022, 00:00:00 UTC
+    assert get_event_timespan_seconds(events) == 0
+
+
+def test_get_event_timespan_two_events() -> None:
+    """Test with two events."""
+    events = [
+        Operation(
+            timestamp_ms=1640995200000, type="INSERT"
+        ),  # Jan 1, 2022, 00:00:00 UTC
+        Operation(
+            timestamp_ms=1641002400000, type="INSERT"
+        ),  # Jan 1, 2022, 02:00:00 UTC (2 hours later)
+    ]
+    assert get_event_timespan_seconds(events) == 2 * 60 * 60  # 7200 seconds
+
+
+def test_get_event_timespan_multiple_unsorted_events() -> None:
+    """Test with multiple events in random order."""
+    events = [
+        Operation(timestamp_ms=1641024000000, type="INSERT"),  # 08:00 UTC
+        Operation(timestamp_ms=1640995200000, type="INSERT"),  # 00:00 UTC (Earliest)
+        Operation(timestamp_ms=1641016800000, type="INSERT"),  # 03:00 UTC
+    ]
+    assert get_event_timespan_seconds(events) == 8 * 60 * 60  # 28800 seconds
+
+
+def test_get_event_timespan_large_timespan() -> None:
+    """Test with events spanning several days."""
+    events = [
+        Operation(timestamp_ms=1640995200000, type="INSERT"),  # Jan 1, 2022
+        Operation(
+            timestamp_ms=1641600000000, type="INSERT"
+        ),  # Jan 8, 2022 (7 days later)
+    ]
+    assert get_event_timespan_seconds(events) == 7 * 24 * 60 * 60  # 604800 seconds
 
 
 def test_is_metric_anomaly() -> None:
