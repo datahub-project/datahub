@@ -1,20 +1,20 @@
 import unittest
 from datetime import datetime, timedelta
+from typing import Dict, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 from datahub.ingestion.source.hex.constants import HEX_PLATFORM_URN
 from datahub.ingestion.source.hex.datahub import (
-    AspectModel,
-    EntitiesResponse,
     HexQueryFetcher,
     HexQueryFetcherReport,
-    QueryProperties,
-    QueryPropertiesValue,
     QueryResponse,
-    QuerySubjectEntity,
-    QuerySubjects,
-    QuerySubjectsValue,
-    Statement,
+)
+from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    QueryPropertiesClass,
+    QueryStatementClass,
+    QuerySubjectClass,
+    QuerySubjectsClass,
 )
 from datahub.metadata.urns import DatasetUrn, QueryUrn
 
@@ -216,45 +216,41 @@ class TestHexQueryFetcherFetch(unittest.TestCase):
         self.dataset_urn_2 = DatasetUrn.from_string(
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,table1,PROD)"
         )
-        self.entities_data = EntitiesResponse.parse_obj(
-            {
-                self.query_urn_1.urn(): AspectModel(
-                    queryProperties=QueryProperties(
-                        value=QueryPropertiesValue(
-                            statement=Statement(
-                                value="""SELECT * FROM table -- Hex query metadata: {"project_id": "project1", "project_url": "https://app.hex.tech/workspace1/hex/project1"}"""
-                            ),
-                            source=HEX_PLATFORM_URN.urn(),
-                        )
+        # self.entities_data matches the return type of HexQueryFetcher._fetch_query_entities
+        self.entities_data: Dict[
+            QueryUrn,
+            Tuple[Optional[QueryPropertiesClass], Optional[QuerySubjectsClass]],
+        ] = {
+            self.query_urn_1: (
+                QueryPropertiesClass(
+                    created=AuditStampClass._construct_with_defaults(),
+                    lastModified=AuditStampClass._construct_with_defaults(),
+                    statement=QueryStatementClass(
+                        value="""SELECT * FROM table -- Hex query metadata: {"project_id": "project1", "project_url": "https://app.hex.tech/workspace1/hex/project1"}"""
                     ),
-                    querySubjects=QuerySubjects(
-                        value=QuerySubjectsValue(
-                            subjects=[
-                                QuerySubjectEntity(entity=self.dataset_urn_1.urn()),
-                                QuerySubjectEntity(entity=self.dataset_urn_2.urn()),
-                            ]
-                        )
-                    ),
+                    source=HEX_PLATFORM_URN.urn(),
                 ),
-                self.query_urn_2.urn(): AspectModel(
-                    queryProperties=QueryProperties(
-                        value=QueryPropertiesValue(
-                            statement=Statement(
-                                value="""SELECT * FROM table -- Hex query metadata: {"project_id": "project2", "project_url": "https://app.hex.tech/workspace1/hex/project2"}"""
-                            ),
-                            source=HEX_PLATFORM_URN.urn(),
-                        )
-                    ),
-                    querySubjects=QuerySubjects(
-                        value=QuerySubjectsValue(
-                            subjects=[
-                                QuerySubjectEntity(entity=self.dataset_urn_1.urn())
-                            ]
-                        )
-                    ),
+                QuerySubjectsClass(
+                    subjects=[
+                        QuerySubjectClass(entity=self.dataset_urn_1.urn()),
+                        QuerySubjectClass(entity=self.dataset_urn_2.urn()),
+                    ]
                 ),
-            }
-        )
+            ),
+            self.query_urn_2: (
+                QueryPropertiesClass(
+                    created=AuditStampClass._construct_with_defaults(),
+                    lastModified=AuditStampClass._construct_with_defaults(),
+                    statement=QueryStatementClass(
+                        value="""SELECT * FROM table -- Hex query metadata: {"project_id": "project2", "project_url": "https://app.hex.tech/workspace1/hex/project2"}"""
+                    ),
+                    source=HEX_PLATFORM_URN.urn(),
+                ),
+                QuerySubjectsClass(
+                    subjects=[QuerySubjectClass(entity=self.dataset_urn_1.urn())]
+                ),
+            ),
+        }
 
     @patch(
         "datahub.ingestion.source.hex.datahub.HexQueryFetcher._fetch_query_urns_filter_hex_and_last_modified"
@@ -285,7 +281,7 @@ class TestHexQueryFetcherFetch(unittest.TestCase):
         self, mock_fetch_query_entities, mock_fetch_query_urns
     ):
         # force fail in query_urn_2
-        self.entities_data[self.query_urn_2].queryProperties.value.statement.value = (  # type: ignore
+        self.entities_data[self.query_urn_2][0].statement.value = (  # type: ignore
             "SELECT * FROM table -- IT'S MISSING HERE"
         )
         mock_fetch_query_urns.return_value = [self.query_urn_1]
@@ -307,9 +303,9 @@ class TestHexQueryFetcherFetch(unittest.TestCase):
         self, mock_fetch_query_entities, mock_fetch_query_urns
     ):
         # force not match in query_urn_2
-        self.entities_data[  # type: ignore
-            self.query_urn_2
-        ].queryProperties.value.statement.value = """SELECT * FROM table -- Hex query metadata: {"project_id": "project1", "project_url": "https://app.hex.tech/YET_ANOTHER_WORKSPACE/hex/project1"}"""
+        self.entities_data[self.query_urn_2][0].statement.value = (  # type: ignore
+            """SELECT * FROM table -- Hex query metadata: {"project_id": "project1", "project_url": "https://app.hex.tech/YET_ANOTHER_WORKSPACE/hex/project1"}"""
+        )
         mock_fetch_query_urns.return_value = [self.query_urn_1]
         mock_fetch_query_entities.return_value = self.entities_data
 
@@ -329,9 +325,7 @@ class TestHexQueryFetcherFetch(unittest.TestCase):
         self, mock_fetch_query_entities, mock_fetch_query_urns
     ):
         # force no subjects query_urn_2
-        self.entities_data[  # type: ignore
-            self.query_urn_2
-        ].querySubjects.value.subjects = []
+        self.entities_data[self.query_urn_2][1].subjects = []  # type: ignore
         mock_fetch_query_urns.return_value = [self.query_urn_1]
         mock_fetch_query_entities.return_value = self.entities_data
 

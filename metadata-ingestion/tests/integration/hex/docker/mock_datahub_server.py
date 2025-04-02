@@ -12,11 +12,11 @@ from urllib.parse import urlparse
 PORT = 8010
 
 # Load the mock response data
-with open("/app/datahub_entities_v2_page1.json", "r") as f:
-    ENTITIES_V2_PAGE1_RESPONSE = f.read()
+with open("/app/datahub_entities_v3_page1.json", "r") as f:
+    ENTITIES_V3_PAGE1_RESPONSE = f.read()
 
-with open("/app/datahub_entities_v2_page2.json", "r") as f:
-    ENTITIES_V2_PAGE2_RESPONSE = f.read()
+with open("/app/datahub_entities_v3_page2.json", "r") as f:
+    ENTITIES_V3_PAGE2_RESPONSE = f.read()
 
 with open("/app/datahub_get_urns_by_filter_page1.json", "r") as f:
     URNS_BY_FILTER_PAGE1_RESPONSE = f.read()
@@ -68,18 +68,18 @@ class MockDataHubAPIHandler(http.server.SimpleHTTPRequestHandler):
         post_data = self.rfile.read(content_length)
         request_body = json.loads(post_data)
 
-        if path == "/openapi/v2/entity/batch/query":
+        if path == "/openapi/v3/entity/query/batchGet":
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-type", "application/json")
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
 
-            # Return the appropriate page of entity data
+            # Return the appropriate page of entity data in V3 format
             if not MockDataHubAPIHandler.first_entities_page_requested:
-                self.wfile.write(ENTITIES_V2_PAGE1_RESPONSE.encode())
+                self.wfile.write(ENTITIES_V3_PAGE1_RESPONSE.encode())
                 MockDataHubAPIHandler.first_entities_page_requested = True
             else:
-                self.wfile.write(ENTITIES_V2_PAGE2_RESPONSE.encode())
+                self.wfile.write(ENTITIES_V3_PAGE2_RESPONSE.encode())
             return
 
         if path == "/api/graphql":

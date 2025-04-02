@@ -2,9 +2,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, Generator, List, Optional, Tuple
-
-from pydantic import BaseModel
+from typing import Dict, Generator, List, Optional, Tuple
 
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.hex.constants import (
@@ -45,72 +43,6 @@ class HexQueryFetcherReport(SourceReport):
     total_dataset_subjects: int = 0
     total_schema_field_subjects: int = 0
     num_calls_fetch_query_entities: int = 0
-
-
-# The following models were Claude-generated from DataHubClient._graph.get_entities_v2 response
-# To be exclusively used internally for the deserialization
-# Everything is Optional because... who knows!
-
-
-class AuditStamp(BaseModel):
-    actor: Optional[str]
-    time: Optional[int]
-
-
-class Statement(BaseModel):
-    value: Optional[str]
-    language: Optional[str]
-
-
-class QueryPropertiesValue(BaseModel):
-    statement: Optional[Statement]
-    source: Optional[str]
-    lastModified: Optional[AuditStamp]
-    created: Optional[AuditStamp]
-
-
-class QuerySubjectEntity(BaseModel):
-    entity: Optional[str]
-
-
-class QuerySubjectsValue(BaseModel):
-    subjects: List[QuerySubjectEntity]
-
-
-class QueryProperties(BaseModel):
-    value: Optional[QueryPropertiesValue]
-
-
-class QuerySubjects(BaseModel):
-    value: Optional[QuerySubjectsValue]
-
-
-class AspectModel(BaseModel):
-    queryProperties: Optional[QueryProperties] = None
-    querySubjects: Optional[QuerySubjects] = None
-
-
-class EntitiesResponse(Dict[QueryUrn, AspectModel]):
-    """
-    It extends Dict[QueryUrn, AspectModel] and adds a parse_obj classmethod that
-    allows direct parsing from the dict response returned by DataHubClient._graph.get_entities_v2.
-
-    key = query urn
-    """
-
-    @classmethod
-    def parse_obj(cls, obj: Dict[str, Any]) -> "EntitiesResponse":
-        result = cls()
-        for urn, aspects_dict in obj.items():
-            try:
-                # Parse the aspects data with our model
-                aspects = AspectModel.parse_obj(aspects_dict)
-                # Add to our dictionary
-                result[QueryUrn.from_string(urn)] = aspects
-            except Exception as e:
-                logger.warning(f"Failed to parse aspects for {urn}: {e}")
-
-        return result
 
 
 class HexQueryFetcher:
@@ -170,28 +102,28 @@ class HexQueryFetcher:
                 exc=e,
             )
         else:
-            for query_urn, aspects in entities_by_urn.items():
+            for query_urn, (
+                query_properties,
+                query_subjects,
+            ) in entities_by_urn.items():
                 # Skip if missing required aspects
                 if (
-                    not aspects.queryProperties
-                    or not aspects.queryProperties.value
-                    or not aspects.queryProperties.value.statement
-                    or not aspects.queryProperties.value.statement.value
-                    or not aspects.querySubjects
-                    or not aspects.querySubjects.value
-                    or not aspects.querySubjects.value.subjects
+                    not query_properties
+                    or not query_properties.statement
+                    or not query_properties.statement.value
+                    or not query_subjects
+                    or query_subjects.subjects is None  # empty list is allowed
                 ):
                     logger.debug(
-                        f"Skipping query {query_urn} - missing required aspects or values: {aspects}"
+                        f"Skipping query {query_urn} - missing required fields: {(query_properties, query_subjects)}"
                     )
                     self.report.filtered_out_queries_missing_metadata += 1
                     continue
 
-                # Extract SQL statement to check for Hex metadata
-                sql_statement = aspects.queryProperties.value.statement.value
-
                 # Extract hex metadata (project_id and workspace_name)
-                metadata_result = self._extract_hex_metadata(sql_statement)
+                metadata_result = self._extract_hex_metadata(
+                    query_properties.statement.value
+                )
                 if not metadata_result:
                     logger.debug(
                         f"Skipping query {query_urn} - failed to extract Hex metadata"
@@ -212,7 +144,7 @@ class HexQueryFetcher:
                 # Extract subjects
                 dataset_subjects: List[DatasetUrn] = []
                 schema_field_subjects: List[SchemaFieldUrn] = []
-                for subject in aspects.querySubjects.value.subjects:
+                for subject in query_subjects.subjects:
                     if subject.entity and subject.entity.startswith("urn:li:dataset:"):
                         dataset_subjects.append(DatasetUrn.from_string(subject.entity))
                     elif subject.entity and subject.entity.startswith(
@@ -245,14 +177,20 @@ class HexQueryFetcher:
                 )
                 yield response
 
-    def _fetch_query_entities(self, query_urns: List[QueryUrn]) -> EntitiesResponse:
-        entities_by_urn = EntitiesResponse()
-
+    def _fetch_query_entities(
+        self, query_urns: List[QueryUrn]
+    ) -> Dict[
+        QueryUrn, Tuple[Optional[QueryPropertiesClass], Optional[QuerySubjectsClass]]
+    ]:
+        entities_by_urn: Dict[
+            QueryUrn,
+            Tuple[Optional[QueryPropertiesClass], Optional[QuerySubjectsClass]],
+        ] = {}
         for i in range(0, len(query_urns), self.page_size):
             batch = query_urns[i : i + self.page_size]
 
             logger.debug(f"Fetching query entities for {len(batch)} queries: {batch}")
-            response_json = self.datahub_client._graph.get_entities_v2(
+            entities = self.datahub_client._graph.get_entities(
                 entity_name="query",
                 urns=[urn.urn() for urn in batch],
                 aspects=[
@@ -262,9 +200,28 @@ class HexQueryFetcher:
                 with_system_metadata=False,
             )
             self.report.num_calls_fetch_query_entities += 1
-            logger.debug(f"Get entities v2 response: {response_json}")
-            batch_entities_by_urn = EntitiesResponse.parse_obj(response_json)
-            entities_by_urn.update(batch_entities_by_urn)
+            logger.debug(f"Get entities response: {entities}")
+
+            for urn, entity in entities.items():
+                query_urn = QueryUrn.from_string(urn)
+
+                properties_tuple = entity.get(
+                    QueryPropertiesClass.ASPECT_NAME, (None, None)
+                )
+                query_properties: Optional[QueryPropertiesClass] = None
+                if properties_tuple and properties_tuple[0]:
+                    assert isinstance(properties_tuple[0], QueryPropertiesClass)
+                    query_properties = properties_tuple[0]
+
+                subjects_tuple = entity.get(
+                    QuerySubjectsClass.ASPECT_NAME, (None, None)
+                )
+                query_subjects: Optional[QuerySubjectsClass] = None
+                if subjects_tuple and subjects_tuple[0]:
+                    assert isinstance(subjects_tuple[0], QuerySubjectsClass)
+                    query_subjects = subjects_tuple[0]
+
+                entities_by_urn[query_urn] = (query_properties, query_subjects)
 
         return entities_by_urn
 
