@@ -96,7 +96,7 @@ services:
     profiles:
       - debug-consumers
     depends_on:
-      system-update-debug:
+      system-update-debug-consumers:
         condition: service_completed_successfully
   frontend-debug-neo4j:
     <<: *datahub-frontend-service-dev
