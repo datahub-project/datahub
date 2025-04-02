@@ -1,13 +1,26 @@
 # How DataHub Cloud compares to DataHub
 
-DataHub is the #1 open source data catalog for developers.
+## DataHub Cloud: Intelligent AI + Data Management
 
-DataHub Cloud takes DataHub to the next level by offering features that allow
-you to roll out the product to the entire organization beyond your central data
-platform team.
+DataHub Cloud delivers a fully-managed version of DataHub's powerful metadata platform, offering enhanced capabilities for data discovery, observability, and governance that accelerate the production-readiness of your data and AI assets.
 
-We’ve organized this comparison using a few categories. We love well-organized
-checklists and we hope you love them too!
+### Enterprise-Grade Service
+- - **Proven Implementation Service** tailored to your organization's specific needs
+- **SLA-Backed Reliability** ensuring 99.5% uptime for critical operations
+- **Optimized Performance** with infrastructure fine-tuned and managed by experts
+- **Flexible Deployment Options** for the most sensitive data scenarios
+- **Enhanced Security Controls** meeting enterprise compliance requirements
+
+### Accelerated Adoption
+- **Comprehensive Team Training** to maximize platform utilization
+- **Expert Support** providing guidance through your data journey
+
+### Add-on Capabilities
+- **Enhanced Discovery & Understanding** with personalized user experiences, AI-generated documentation and propagation, and collaboration features
+- **Improved Data Quality Monitoring** with ability to run quality checks, use AI anomaly detection, and comprehensively monitor data assets
+- **Robust Governance Mechanisms** with dynamic compliance forms, certification & approval workflows, and enforced governance standards
+
+DataHub Cloud empowers organizations to unlock the full potential of their data assets through superior discovery capabilities, comprehensive observability, and robust governance—all within a managed, secure environment.
 
 ## Search and Discovery
 
@@ -39,9 +52,9 @@ out the datasets that seem to grow like weeds when no one's looking.
 | Feature                                                                   | DataHub | DataHub Cloud |
 | ------------------------------------------------------------------------- | ------- | ------------- |
 | Shift-Left governance                                                     | ✅      | ✅            |
-| Shift-Left automations (ie, source system sync back of metadata)          | ❌      | ✅            |
 | Dataset ownership management                                              | ✅      | ✅            |
 | Business glossary basics                                                  | ✅      | ✅            |
+| Shift-Left automations (i.e., source system sync back of metadata)        | ❌      | ✅            |
 | Human-assisted Asset Certification Workflows (data owners, stewards)      | ❌      | ✅            |
 | Dynamic Compliance Forms, with rich analytics                             | ❌      | ✅            |
 | Computational Governance standards as continuous tests                    | ❌      | ✅            |
