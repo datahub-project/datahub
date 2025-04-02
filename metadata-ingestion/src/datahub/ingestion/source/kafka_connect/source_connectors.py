@@ -11,6 +11,7 @@ from datahub.ingestion.source.kafka_connect.common import (
     BaseConnector,
     ConnectorManifest,
     KafkaConnectLineage,
+    fix_oracle_tibero_url,
     get_dataset_name,
     has_three_level_hierarchy,
     remove_prefix,
@@ -94,29 +95,6 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         query: str
         transforms: list
 
-    def _fix_oracle_tibero_url(self, jdbc_url: str) -> str:
-        """
-        Tibero & Oracle JDBC URL을 SQLAlchemy URL로 변환
-        """
-        # "jdbc:" 및 "thin:" 제거
-        clean_url = jdbc_url.replace("thin:", "")
-
-        # Oracle과 Tibero 구분
-        driver = "tibero+cx_oracle" if "tibero" in clean_url else "oracle+cx_oracle"
-
-        # SID 방식 → jdbc:oracle:thin:@host:port:SID
-        if clean_url.count(":") == 3:
-            _, host, port, sid = clean_url.split(":")
-            host = host.lstrip("@")
-            return f"{driver}://{host}:{port}/{sid}"
-
-        # Service Name 방식 → jdbc:oracle:thin:@//host:port/service
-        elif "@//" in clean_url:
-            host_port, service = clean_url.split("@//")[1].split("/")
-            return f"{driver}://{host_port}/?service_name={service}"
-
-        raise ValueError(f"Invalid Oracle/Tibero URL format: {jdbc_url}")
-
     def get_parser(
         self,
         connector_manifest: ConnectorManifest,
@@ -126,7 +104,7 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         )
         db_type = "external"
         if "tibero" in url or "oracle" in url:
-            url = self._fix_oracle_tibero_url(url)
+            url = fix_oracle_tibero_url(url)
             db_type = "tibero" if "tibero" in url else "oracle"
         url_instance = make_url(url)
         platform = get_platform_from_sqlalchemy_uri(str(url_instance))

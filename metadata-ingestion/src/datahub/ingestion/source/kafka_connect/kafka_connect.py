@@ -33,10 +33,12 @@ from datahub.ingestion.source.kafka_connect.common import (
 )
 from datahub.ingestion.source.kafka_connect.sink_connectors import (
     BIGQUERY_SINK_CONNECTOR_CLASS,
+    JDBC_SINK_CONNECTOR_CLASS,
     S3_SINK_CONNECTOR_CLASS,
     SNOWFLAKE_SINK_CONNECTOR_CLASS,
     BigQuerySinkConnector,
     ConfluentS3SinkConnector,
+    JdbcSinkConnector,
     SnowflakeSinkConnector,
 )
 from datahub.ingestion.source.kafka_connect.source_connectors import (
@@ -171,6 +173,8 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                     class_type = ConfluentS3SinkConnector
                 elif connector_class_value == SNOWFLAKE_SINK_CONNECTOR_CLASS:
                     class_type = SnowflakeSinkConnector
+                elif connector_class_value == JDBC_SINK_CONNECTOR_CLASS:
+                    class_type = JdbcSinkConnector
                 else:
                     self.report.report_dropped(connector_manifest.name)
                     self.report.warning(
