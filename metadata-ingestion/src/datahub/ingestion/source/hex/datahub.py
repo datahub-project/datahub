@@ -11,7 +11,7 @@ from datahub.ingestion.source.hex.constants import (
     DATAHUB_API_PAGE_SIZE_DEFAULT,
     HEX_PLATFORM_URN,
 )
-from datahub.metadata._schema_classes import QueryPropertiesClass, QuerySubjectsClass
+from datahub.metadata.schema_classes import QueryPropertiesClass, QuerySubjectsClass
 from datahub.metadata.urns import DatasetUrn, QueryUrn, SchemaFieldUrn
 from datahub.sdk.main_client import DataHubClient
 from datahub.sdk.search_filters import FilterDsl as F
