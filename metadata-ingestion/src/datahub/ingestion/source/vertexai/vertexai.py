@@ -219,6 +219,9 @@ class VertexAISource(Source):
         resource = pipeline.gca_resource
         if isinstance(resource, PipelineJobType):
             for task_name in resource.pipeline_spec["root"]["dag"]["tasks"]:
+                logger.debug(
+                    f"fetching pipeline task ({task_name}) in pipeline ({pipeline.name})"
+                )
                 task_urn = DataJobUrn.create_from_ids(
                     data_flow_urn=str(pipeline_urn),
                     job_id=self._make_vertexai_pipeline_task_id(task_name),
@@ -294,9 +297,6 @@ class VertexAISource(Source):
         dataflow_urn = pipeline.urn
 
         for task in pipeline.tasks:
-            logger.info(
-                f"fetching pipeline task ({task.name}) in pipeline ({pipeline.name})"
-            )
             datajob = DataJob(
                 id=self._make_vertexai_pipeline_task_id(task.name),
                 flow_urn=dataflow_urn,
