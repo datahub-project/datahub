@@ -32,6 +32,8 @@ dependencies {
     compileOnly externalDependency.lombok
     implementation externalDependency.logbackClassic
     runtimeOnly externalDependency.opentelemetryExporter
+    runtimeOnly externalDependency.openTelemetryExporterLogging
+    runtimeOnly externalDependency.openTelemetryExporterCommon
 
     runtimeOnly externalDependency.mariadbConnector
     runtimeOnly externalDependency.mysqlConnector

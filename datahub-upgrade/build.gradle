@@ -72,6 +72,8 @@ dependencies {
   implementation externalDependency.springCore
   implementation externalDependency.springKafka
   runtimeOnly externalDependency.opentelemetryExporter
+  runtimeOnly externalDependency.openTelemetryExporterLogging
+  runtimeOnly externalDependency.openTelemetryExporterCommon
 
   runtimeOnly externalDependency.logbackClassic
   runtimeOnly externalDependency.mariadbConnector
