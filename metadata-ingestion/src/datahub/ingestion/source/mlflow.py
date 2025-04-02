@@ -16,7 +16,7 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
 )
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import ContainerKey
+from datahub.emitter.mcp_builder import ExperimentKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -75,10 +75,6 @@ from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 
 T = TypeVar("T")
-
-
-class ContainerKeyWithId(ContainerKey):
-    id: str
 
 
 class MLflowConfig(StatefulIngestionConfigBase, EnvConfigMixin):
@@ -252,7 +248,7 @@ class MLflowSource(StatefulIngestionSourceBase):
         self, experiment: Experiment
     ) -> Iterable[MetadataWorkUnit]:
         experiment_container = Container(
-            container_key=ContainerKeyWithId(
+            container_key=ExperimentKey(
                 platform=str(DataPlatformUrn(platform_name=self.platform)),
                 id=experiment.name,
             ),
@@ -470,7 +466,7 @@ class MLflowSource(StatefulIngestionSourceBase):
     def _get_run_workunits(
         self, experiment: Experiment, run: Run
     ) -> Iterable[MetadataWorkUnit]:
-        experiment_key = ContainerKeyWithId(
+        experiment_key = ExperimentKey(
             platform=str(DataPlatformUrn(self.platform)), id=experiment.name
         )
 
