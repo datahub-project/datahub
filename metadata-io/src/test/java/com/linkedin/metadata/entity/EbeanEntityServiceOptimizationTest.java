@@ -279,29 +279,41 @@ public class EbeanEntityServiceOptimizationTest {
           statementMap.getOrDefault("UNKNOWN", List.of()).size(),
           0,
           String.format(
-              "(%s) Expected all SQL statements to be categorized: %s",
-              description, statementMap.get("UNKNOWN")));
+              "(%s) Expected all SQL statements to be categorized:\n%s",
+              description, formatUnknownStatements(statementMap.get("UNKNOWN"))));
       assertEquals(
           statementMap.getOrDefault("SELECT", List.of()).size(),
           expectedSelectCount,
           String.format(
-              "(%s) Expected SELECT SQL count mismatch filtering for (%s): %s",
-              description, mustInclude, statementMap.get("SELECT")));
+              "(%s) Expected SELECT SQL count mismatch filtering for (%s):\n%s",
+              description, mustInclude, formatUnknownStatements(statementMap.get("SELECT"))));
       assertEquals(
           statementMap.getOrDefault("INSERT", List.of()).size(),
           expectedInsertCount,
           String.format(
-              "(%s) Expected INSERT SQL count mismatch filtering for (%s): %s",
-              description, mustInclude, statementMap.get("INSERT")));
+              "(%s) Expected INSERT SQL count mismatch filtering for (%s):\n%s",
+              description, mustInclude, formatUnknownStatements(statementMap.get("INSERT"))));
       assertEquals(
           statementMap.getOrDefault("UPDATE", List.of()).size(),
           expectedUpdateCount,
           String.format(
-              "(%s), Expected UPDATE SQL count mismatch filtering for (%s): %s",
-              description, mustInclude, statementMap.get("UPDATE")));
+              "(%s), Expected UPDATE SQL count mismatch filtering for (%s):\n%s",
+              description, mustInclude, formatUnknownStatements(statementMap.get("UPDATE"))));
     } finally {
       // Ensure logging is stopped even if assertions fail
       LoggedSql.stop();
     }
+  }
+
+  private static String formatUnknownStatements(List<String> statements) {
+    if (statements == null || statements.isEmpty()) {
+      return "  No unknown statements";
+    }
+
+    StringBuilder builder = new StringBuilder();
+    for (int i = 0; i < statements.size(); i++) {
+      builder.append("  ").append(i + 1).append(". ").append(statements.get(i)).append("\n");
+    }
+    return builder.toString();
   }
 }
