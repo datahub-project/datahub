@@ -34,7 +34,6 @@ export const IncidentEditor = ({
     incidentUrn,
     onSubmit,
     data,
-    onClose,
     mode = IncidentAction.CREATE,
     entity,
 }: IncidentEditorProps) => {
@@ -60,7 +59,6 @@ export const IncidentEditor = ({
         incidentUrn,
         mode,
         onSubmit,
-        onClose,
         user,
         assignees: cachedAssignees,
         linkedAssets: cachedLinkedAssets,
