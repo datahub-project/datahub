@@ -12,13 +12,22 @@ interface Props {
     onChangeFilters: (newFilters: FacetFilterInput[]) => void;
     filterPredicates: FilterPredicate[];
     labelStyle?: CSSProperties;
+    shouldUseAggregationsFromFilter?: boolean;
 }
 
-export default function SearchFilter({ filter, filterPredicates, activeFilters, onChangeFilters, labelStyle }: Props) {
+export default function SearchFilter({
+    filter,
+    filterPredicates,
+    activeFilters,
+    onChangeFilters,
+    labelStyle,
+    shouldUseAggregationsFromFilter,
+}: Props) {
     const { finalAggregations, updateFilters, numActiveFilters, manuallyUpdateFilters } = useSearchFilterDropdown({
         filter,
         activeFilters,
         onChangeFilters,
+        shouldUseAggregationsFromFilter,
     });
     const filterIcon = getFilterDropdownIcon(filter.field);
 

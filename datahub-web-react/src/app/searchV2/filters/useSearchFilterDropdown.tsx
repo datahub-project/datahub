@@ -10,6 +10,7 @@ interface Props {
     activeFilters: FacetFilterInput[];
     onChangeFilters: (newFilters: FacetFilterInput[]) => void;
     aggregationsEntityTypes?: Array<EntityType>;
+    shouldUseAggregationsFromFilter?: boolean;
 }
 
 export default function useSearchFilterDropdown({
@@ -17,9 +18,10 @@ export default function useSearchFilterDropdown({
     activeFilters,
     onChangeFilters,
     aggregationsEntityTypes,
+    shouldUseAggregationsFromFilter,
 }: Props) {
     const numActiveFilters = getNumActiveFiltersForFilter(activeFilters, filter);
-    const shouldFetchAggregations: boolean = !!filter.field && numActiveFilters > 0;
+    const shouldFetchAggregations: boolean = !!filter.field && numActiveFilters > 0 && !shouldUseAggregationsFromFilter;
 
     const { entityFilters, query, orFilters, viewUrn } = useGetSearchQueryInputs(
         useMemo(() => [filter.field], [filter.field]),
