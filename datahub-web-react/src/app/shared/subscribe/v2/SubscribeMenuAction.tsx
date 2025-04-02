@@ -69,6 +69,8 @@ const PillsContainer = styled.div`
 `;
 
 const StyledTabs = styled(Tabs)`
+    max-width: 400px;
+
     .ant-tabs-nav {
         margin-bottom: 16px;
     }
@@ -213,7 +215,11 @@ export const SubscribeMenuAction = () => {
             {/* Header */}
             <Header>Subscribers</Header>
             {/* Tabs */}
-            <StyledTabs activeKey={activeTab} onChange={setActiveTab}>
+            <StyledTabs
+                activeKey={activeTab}
+                onChange={setActiveTab}
+                tabBarStyle={platformOptions.length > 1 ? undefined : { display: 'none' }}
+            >
                 {platformOptions.map((option) => (
                     <TabPane tab={option.title} key={option.urn}>
                         <Section>
