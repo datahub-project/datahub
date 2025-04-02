@@ -5,9 +5,6 @@ from enum import Enum
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
 import pandas as pd
-from pydantic import BaseModel
-
-from acryl_datahub_cloud.elasticsearch.graph_service import BaseModelRow
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.filters import RawSearchFilterRule
@@ -19,6 +16,9 @@ from datahub.metadata.schema_classes import (
     FormStateClass,
     FormTypeClass,
 )
+from pydantic import BaseModel
+
+from acryl_datahub_cloud.elasticsearch.graph_service import BaseModelRow
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ class FormReportingRow(BaseModelRow):
     assignee_urn: Optional[str]
     asset_urn: str
     platform_urn: str
-    platform_instance_urn: str
+    platform_instance_urn: Optional[str]
     domain_urn: Optional[str]
     parent_domain_urn: Optional[str]
     asset_verified: Optional[bool]
@@ -127,7 +127,7 @@ class DataHubFormReportingData(FormData):
         incompleteFormsCompletedPromptIds: List[str] = []
         incompleteFormsCompletedPromptResponseTimes: List[str] = []
         platform: str = ""
-        platformInstance: str = ""
+        platformInstance: Optional[str] = None
         domains: List[str] = []
 
     def __init__(self, graph: DataHubGraph, allowed_forms: Optional[List[str]] = None):
