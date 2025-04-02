@@ -78,8 +78,6 @@ export const IncidentList = () => {
         setSelectedFilters(filter);
     };
 
-    const privileges = (data?.entity as any)?.privileges as EntityPrivileges;
-
     const refetch = () => {
         refetchEntity();
         refetchIncidents();
@@ -102,6 +100,8 @@ export const IncidentList = () => {
         }
         return <Empty description="No incidents yet" image={Empty.PRESENTED_IMAGE_SIMPLE} />;
     };
+
+    const privileges = (data?.entity as any)?.privileges as EntityPrivileges;
 
     return (
         <>

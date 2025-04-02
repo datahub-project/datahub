@@ -194,6 +194,7 @@ def mock_assertion_info() -> AssertionInfoClass:
     return AssertionInfoClass(
         type="VOLUME",
         volumeAssertion=vol_assertion,
+        description="Test description",
     )
 
 
@@ -473,6 +474,7 @@ def test_train_and_update_assertion(
         mock_assertion.entity.urn,
         mock_boundaries[1:],  # Future boundaries
         mock_evaluation_spec,
+        "Test description",
     )
 
     # Check assertion info was updated
@@ -632,6 +634,7 @@ def test_update_volume_monitor_evaluation_context(
         entity_urn,
         cast(List[MetricBoundary], mock_boundaries),
         cast(AssertionEvaluationSpec, mock_evaluation_spec),
+        "test description",
     )
 
     # Assert

@@ -214,6 +214,7 @@ class FieldAssertionTrainer(BaseAssertionTrainer[Metric]):
             metric,
             future_boundaries,
             evaluation_spec,
+            assertion_info.description,
         )
 
         # 6) Persist the updated assertion info
@@ -295,6 +296,7 @@ class FieldAssertionTrainer(BaseAssertionTrainer[Metric]):
         metric: Union[str, FieldMetricTypeClass],
         boundaries: List[MetricBoundary],
         evaluation_spec: AssertionEvaluationSpec,
+        assertion_description: Optional[str],
     ) -> None:
         """
         Update the monitor's embedded assertions with future boundary predictions.
@@ -313,6 +315,7 @@ class FieldAssertionTrainer(BaseAssertionTrainer[Metric]):
             assertion_info = AssertionInfoClass(
                 type="FIELD",
                 fieldAssertion=field_metric_assertion_info,
+                description=assertion_description,
                 source=create_inference_source(),
             )
 

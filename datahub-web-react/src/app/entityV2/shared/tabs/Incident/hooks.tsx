@@ -61,7 +61,7 @@ export const useIncidentsTableColumns = (refetch: () => void) => {
                 width: '12%',
             },
             {
-                title: 'Opened ',
+                title: 'Opened',
                 dataIndex: 'created',
                 key: 'created',
                 render: (record) => {

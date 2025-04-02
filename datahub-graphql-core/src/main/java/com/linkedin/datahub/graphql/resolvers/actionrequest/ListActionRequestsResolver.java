@@ -136,9 +136,14 @@ public class ListActionRequestsResolver
                         .setField(CREATED_FIELD_NAME)
                         .setOrder(SortOrder.DESCENDING));
 
+            final com.linkedin.metadata.query.SearchFlags searchFlags =
+                new com.linkedin.metadata.query.SearchFlags();
+            searchFlags.setSkipCache(true);
+            searchFlags.setSkipHighlighting(true);
+
             final SearchResult searchResult =
                 _entityClient.searchAcrossEntities(
-                    context.getOperationContext(),
+                    context.getOperationContext().withSearchFlags(flags -> searchFlags),
                     getEntityNames(ImmutableList.of(EntityType.ACTION_REQUEST)),
                     "*",
                     filter,

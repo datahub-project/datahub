@@ -47,7 +47,6 @@ export const IncidentLinkedAssetsList = ({
     }, [linkedAssets]);
 
     const removeLinkedAsset = (asset) => {
-        console.log('Removing linked asset ');
         const selectedAssets = linkedAssets?.filter((existingAsset: any) => existingAsset.urn !== asset.urn);
         setLinkedAssets(selectedAssets as any);
     };
@@ -117,12 +116,11 @@ export const IncidentLinkedAssetsList = ({
                                     return (
                                         <Pill
                                             key={asset.urn}
-                                            label={asset?.properties?.name}
+                                            label={entityRegistry.getDisplayName(asset.type, asset)}
                                             rightIcon="Close"
                                             color="violet"
                                             variant="outline"
                                             onClickRightIcon={() => {
-                                                console.log('Clicked to remove');
                                                 removeLinkedAsset(asset);
                                             }}
                                             clickable

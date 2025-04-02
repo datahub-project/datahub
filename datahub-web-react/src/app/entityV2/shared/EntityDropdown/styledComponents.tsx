@@ -14,6 +14,7 @@ export const ActionMenuItem = styled(Button)<{ disabled?: boolean; fontSize?: nu
     width: ${(props) => (props.fontSize ? `${props.fontSize}px` : '28px')};
     height: ${(props) => (props.fontSize ? `${props.fontSize}px` : '28px')};
     padding: 0px;
+    margin-right: 8px;
     display: flex;
     align-items: center;
     justify-content: center;

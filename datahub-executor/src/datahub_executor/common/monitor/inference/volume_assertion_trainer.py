@@ -198,6 +198,7 @@ class VolumeAssertionTrainer(BaseAssertionTrainer[Metric]):
             assertion.entity.urn,
             future_boundaries,
             evaluation_spec,
+            assertion_info.description,
         )
 
         # 6) Persist the updated assertion info
@@ -264,6 +265,7 @@ class VolumeAssertionTrainer(BaseAssertionTrainer[Metric]):
         entity_urn: str,
         boundaries: List[MetricBoundary],
         evaluation_spec: AssertionEvaluationSpec,
+        assertion_description: Optional[str],
     ) -> None:
         """
         Update the monitor's embedded assertions with future boundary predictions.
@@ -280,6 +282,7 @@ class VolumeAssertionTrainer(BaseAssertionTrainer[Metric]):
             assertion_info = AssertionInfoClass(
                 type="VOLUME",
                 volumeAssertion=vol_assertion_info,
+                description=assertion_description,
                 source=create_inference_source(),
             )
 

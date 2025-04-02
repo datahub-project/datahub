@@ -37,6 +37,7 @@ from datahub_executor.common.types import (
     AssertionMonitorSensitivity,
     AssertionType,
     Monitor,
+    RawAspect,
 )
 from datahub_executor.config import (
     FIELD_METRIC_DEFAULT_SENSITIVITY_LEVEL,
@@ -99,7 +100,10 @@ def mock_field_assertion() -> Mock:
     assertion.entity = Mock()
     assertion.entity.urn = "urn:li:dataset:test-dataset"
     assertion.connection_urn = "urn:li:connection:test-connection"
-    assertion.raw_info_aspect = Mock()
+    assertion.raw_info_aspect = RawAspect(
+        aspectName="assertionInfo",
+        payload="{ 'type': 'FIELD', 'description': 'Test description'}",
+    )
 
     # Set up the raw_info_aspect to be recognized as a field metric assertion
     return assertion
@@ -217,8 +221,7 @@ def mock_field_assertion_info() -> AssertionInfoClass:
     )
 
     return AssertionInfoClass(
-        type="FIELD",
-        fieldAssertion=field_assertion,
+        type="FIELD", fieldAssertion=field_assertion, description="Test description"
     )
 
 
@@ -545,6 +548,7 @@ def test_train_and_update_assertion(
         FieldMetricTypeClass.EMPTY_COUNT,
         mock_boundaries[1:],  # Future boundaries
         mock_evaluation_spec,
+        "Test description",
     )
 
     # Check assertion info was updated
@@ -745,6 +749,7 @@ def test_update_field_metric_monitor_evaluation_context(
         metric,
         cast(List[MetricBoundary], mock_boundaries),
         cast(AssertionEvaluationSpec, mock_evaluation_spec),
+        "test description",
     )
 
     # Assert

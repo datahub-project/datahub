@@ -940,6 +940,9 @@ class AssertionInfo(PermissiveBaseModel):
     # How the assertion was sourced
     source_type: Optional[AssertionSourceType] = Field(alias="sourceType")
 
+    # Description for the assertion
+    description: Optional[str]
+
     @property
     def is_inferred(self) -> bool:
         return self.source_type == AssertionSourceType.INFERRED
