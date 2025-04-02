@@ -440,12 +440,21 @@ class DebeziumSourceConnector(BaseConnector):
         source_platform: str
         server_name: Optional[str]
         database_name: Optional[str]
+        table_name: list
 
     def get_server_name(self, connector_manifest: ConnectorManifest) -> str:
         if "topic.prefix" in connector_manifest.config:
             return connector_manifest.config["topic.prefix"]
         else:
             return connector_manifest.config.get("database.server.name", "")
+
+    def get_table_name(self, connector_manifest: ConnectorManifest) -> list:
+        table_name = (
+            connector_manifest.config.get("table.include.list")
+            or connector_manifest.config.get("collection.include.list")
+            or ""
+        )
+        return table_name.split(",") if table_name != "" else []
 
     def get_parser(
         self,
@@ -461,24 +470,28 @@ class DebeziumSourceConnector(BaseConnector):
                 source_platform="mysql",
                 server_name=self.get_server_name(connector_manifest),
                 database_name=None,
+                table_name=self.get_table_name(connector_manifest),
             )
         elif connector_class == "io.debezium.connector.mongodb.MongoDbConnector":
             parser = self.DebeziumParser(
                 source_platform="mongodb",
                 server_name=self.get_server_name(connector_manifest),
                 database_name=None,
+                table_name=self.get_table_name(connector_manifest),
             )
         elif connector_class == "io.debezium.connector.postgresql.PostgresConnector":
             parser = self.DebeziumParser(
                 source_platform="postgres",
                 server_name=self.get_server_name(connector_manifest),
                 database_name=connector_manifest.config.get("database.dbname"),
+                table_name=self.get_table_name(connector_manifest),
             )
         elif connector_class == "io.debezium.connector.oracle.OracleConnector":
             parser = self.DebeziumParser(
                 source_platform="oracle",
                 server_name=self.get_server_name(connector_manifest),
                 database_name=connector_manifest.config.get("database.dbname"),
+                table_name=self.get_table_name(connector_manifest),
             )
         elif connector_class == "io.debezium.connector.sqlserver.SqlServerConnector":
             database_name = connector_manifest.config.get(
@@ -494,18 +507,21 @@ class DebeziumSourceConnector(BaseConnector):
                 source_platform="mssql",
                 server_name=self.get_server_name(connector_manifest),
                 database_name=database_name,
+                table_name=self.get_table_name(connector_manifest),
             )
         elif connector_class == "io.debezium.connector.db2.Db2Connector":
             parser = self.DebeziumParser(
                 source_platform="db2",
                 server_name=self.get_server_name(connector_manifest),
                 database_name=connector_manifest.config.get("database.dbname"),
+                table_name=self.get_table_name(connector_manifest),
             )
         elif connector_class == "io.debezium.connector.vitess.VitessConnector":
             parser = self.DebeziumParser(
                 source_platform="vitess",
                 server_name=self.get_server_name(connector_manifest),
                 database_name=connector_manifest.config.get("vitess.keyspace"),
+                table_name=self.get_table_name(connector_manifest),
             )
         else:
             raise ValueError(f"Connector class '{connector_class}' is unknown.")
@@ -520,24 +536,36 @@ class DebeziumSourceConnector(BaseConnector):
             source_platform = parser.source_platform
             server_name = parser.server_name
             database_name = parser.database_name
+            table_names = parser.table_name
             topic_naming_pattern = rf"({server_name})\.(\w+\.\w+)"
 
             if not self.connector_manifest.topic_names:
                 return lineages
 
             for topic in self.connector_manifest.topic_names:
-                found = re.search(re.compile(topic_naming_pattern), topic)
+                if table_names:
+                    for table in table_names:
+                        table_name = get_dataset_name(database_name, table)
+                        lineage = KafkaConnectLineage(
+                            source_dataset=table_name,
+                            source_platform=source_platform,
+                            target_dataset=topic,
+                            target_platform=KAFKA,
+                        )
+                        lineages.append(lineage)
+                else:
+                    found = re.search(re.compile(topic_naming_pattern), topic)
 
-                if found:
-                    table_name = get_dataset_name(database_name, found.group(2))
+                    if found:
+                        table_name = get_dataset_name(database_name, found.group(2))
 
-                    lineage = KafkaConnectLineage(
-                        source_dataset=table_name,
-                        source_platform=source_platform,
-                        target_dataset=topic,
-                        target_platform=KAFKA,
-                    )
-                    lineages.append(lineage)
+                        lineage = KafkaConnectLineage(
+                            source_dataset=table_name,
+                            source_platform=source_platform,
+                            target_dataset=topic,
+                            target_platform=KAFKA,
+                        )
+                        lineages.append(lineage)
             return lineages
         except Exception as e:
             self.report.warning(
