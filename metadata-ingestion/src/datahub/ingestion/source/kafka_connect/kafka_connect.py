@@ -149,7 +149,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                     class_type = MongoSourceConnector
                 elif connector_class_value == KAFKA_MIRROR_SOURCE_CONNECTOR_CLASS:
                     class_type = KafkaMirrorSourceConnector
-                elif connector_class_value == VMETA_SOURCE_CONNECTOR_CLASS:
+                elif VMETA_SOURCE_CONNECTOR_CLASS in connector_class_value:
                     class_type = VMetaSourceConnector
                 elif any(
                     [
