@@ -214,7 +214,7 @@ class SupersetConfig(
 
     max_threads: int = Field(
         default_factory=lambda: os.cpu_count() or 40,
-        description="Max parallelism for Looker API calls. Defaults to cpuCount or 40",
+        description="Max parallelism for API calls. Defaults to cpuCount or 40",
     )
 
     # TODO: Check and remove this if no longer needed.
