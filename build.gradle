@@ -226,6 +226,7 @@ project.ext.externalDependency = [
     'opentelemetryApi': 'io.opentelemetry:opentelemetry-api:' + openTelemetryVersion,
     'opentelemetrySdk': 'io.opentelemetry:opentelemetry-sdk:' + openTelemetryVersion,
     'opentelemetrySdkTrace': 'io.opentelemetry:opentelemetry-sdk-trace:' + openTelemetryVersion,
+    'opentelemetrySdkMetrics': 'io.opentelemetry:opentelemetry-sdk-metrics:' + openTelemetryVersion,
     'opentelemetryAutoConfig': 'io.opentelemetry:opentelemetry-sdk-extension-autoconfigure:' + openTelemetryVersion,
     'opentelemetryExporter': 'io.opentelemetry:opentelemetry-exporter-otlp:' + openTelemetryVersion,
     'opentelemetryAnnotations': 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.11.0',
