@@ -95,7 +95,11 @@ class HDF5ContainerKey(ContainerKey):
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
-@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+@capability(
+    SourceCapability.DELETION_DETECTION,
+    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+    supported=True,
+)
 class HDF5Source(StatefulIngestionSourceBase):
     config: HDF5SourceConfig
     report: HDF5SourceReport
@@ -111,6 +115,9 @@ class HDF5Source(StatefulIngestionSourceBase):
         self.max_schema_size = (
             self.config.max_schema_size if self.config.max_schema_size else 100
         )
+
+        # if self.config.stateful_ingestion:
+        #     self.config.stateful_ingestion.remove_stale_metadata = False
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "HDF5Source":
@@ -303,7 +310,7 @@ class HDF5Source(StatefulIngestionSourceBase):
                             self.report.report_dropped(dspath)
                             continue
                         logger.info(f"Processing dataset {dataset.name}")
-                        path = f"/{filename}{dspath}"
+                        path = f"root/{filename}{dspath}"
                         logger.info(f"Processing path {path}")
                         yield from self.process_dataset(path, dataset)
 

@@ -6,6 +6,9 @@ from pydantic.types import PositiveInt
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StatefulStaleMetadataRemovalConfig,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
@@ -46,6 +49,11 @@ class HDF5SourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     profiling: GEProfilingConfig = Field(
         default=GEProfilingConfig(),
         description="Configuration for profiling",
+    )
+
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
+        default=None,
+        description="Configuration for stateful ingestion and stale metadata removal.",
     )
 
     def is_profiling_enabled(self) -> bool:

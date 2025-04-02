@@ -105,7 +105,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:ab4ee44332eff0657cee827af617ad11",
+    "entityUrn": "urn:li:container:176e9773250ff667273096beed205ea8",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -113,185 +113,10 @@
             "customProperties": {
                 "platform": "hdf5",
                 "env": "PROD",
-                "folder_abs_path": ""
+                "folder_abs_path": "root"
             },
-            "name": "",
+            "name": "root",
             "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "hdf5-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:ab4ee44332eff0657cee827af617ad11",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "hdf5-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:ab4ee44332eff0657cee827af617ad11",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:hdf5"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "hdf5-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:ab4ee44332eff0657cee827af617ad11",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Folder"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "hdf5-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:ab4ee44332eff0657cee827af617ad11",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "hdf5-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:2e6d53ed92d1d6a44c76aa707c3b7d35",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:ab4ee44332eff0657cee827af617ad11"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "hdf5-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:2e6d53ed92d1d6a44c76aa707c3b7d35",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "hdf5",
-                "env": "PROD",
-                "folder_abs_path": "/twodim"
-            },
-            "name": "twodim",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "hdf5-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:2e6d53ed92d1d6a44c76aa707c3b7d35",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "hdf5-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:2e6d53ed92d1d6a44c76aa707c3b7d35",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:hdf5"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "hdf5-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:2e6d53ed92d1d6a44c76aa707c3b7d35",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Folder"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "hdf5-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:2e6d53ed92d1d6a44c76aa707c3b7d35",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:ab4ee44332eff0657cee827af617ad11",
-                    "urn": "urn:li:container:ab4ee44332eff0657cee827af617ad11"
-                }
-            ]
         }
     },
     "systemMetadata": {
@@ -307,7 +132,23 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:2e6d53ed92d1d6a44c76aa707c3b7d35"
+            "container": "urn:li:container:d3e3075201e97dbd7177c870179bcca2"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:176e9773250ff667273096beed205ea8",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     },
     "systemMetadata": {
@@ -469,6 +310,38 @@
     }
 },
 {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:176e9773250ff667273096beed205ea8",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:176e9773250ff667273096beed205ea8",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:hdf5"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdf5,twodim,PROD)",
     "changeType": "UPSERT",
@@ -476,6 +349,24 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:176e9773250ff667273096beed205ea8",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
         }
     },
     "systemMetadata": {
@@ -493,12 +384,121 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:ab4ee44332eff0657cee827af617ad11",
-                    "urn": "urn:li:container:ab4ee44332eff0657cee827af617ad11"
+                    "id": "urn:li:container:176e9773250ff667273096beed205ea8",
+                    "urn": "urn:li:container:176e9773250ff667273096beed205ea8"
                 },
                 {
-                    "id": "urn:li:container:2e6d53ed92d1d6a44c76aa707c3b7d35",
-                    "urn": "urn:li:container:2e6d53ed92d1d6a44c76aa707c3b7d35"
+                    "id": "urn:li:container:d3e3075201e97dbd7177c870179bcca2",
+                    "urn": "urn:li:container:d3e3075201e97dbd7177c870179bcca2"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d3e3075201e97dbd7177c870179bcca2",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d3e3075201e97dbd7177c870179bcca2",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:176e9773250ff667273096beed205ea8"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d3e3075201e97dbd7177c870179bcca2",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d3e3075201e97dbd7177c870179bcca2",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "hdf5",
+                "env": "PROD",
+                "folder_abs_path": "root/twodim"
+            },
+            "name": "twodim",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d3e3075201e97dbd7177c870179bcca2",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:hdf5"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "hdf5-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d3e3075201e97dbd7177c870179bcca2",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:176e9773250ff667273096beed205ea8",
+                    "urn": "urn:li:container:176e9773250ff667273096beed205ea8"
                 }
             ]
         }
