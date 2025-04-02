@@ -46,7 +46,6 @@ export const RemoteExecutorPoolProvisioningPreviewModal = ({ getPool, pool, visi
 
     const isPending = pool?.getRemoteExecutorPool?.state?.status === RemoteExecutorPoolStatus.ProvisioningPending;
     const isInProgress = pool?.getRemoteExecutorPool?.state?.status === RemoteExecutorPoolStatus.ProvisioningInProgress;
-    const isNotStaged = pool?.getRemoteExecutorPool?.state?.status === undefined;
     const isPoolError = pool?.getRemoteExecutorPool?.state?.status === RemoteExecutorPoolStatus.ProvisioningFailed;
 
     const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -125,7 +124,7 @@ export const RemoteExecutorPoolProvisioningPreviewModal = ({ getPool, pool, visi
             cancelButtonProps={{ style: { display: 'none' } }}
             onOk={onClose}
             onCancel={onClose}
-            title="Success"
+            title="Pool Provisioning Status"
         >
             <div className="space-y-4 p-4">
                 <Content>{content}</Content>
