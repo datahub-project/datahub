@@ -23,7 +23,7 @@ import CreateRemoteExecutorPoolModal from './CreateRemoteExecutorPoolModal';
 import { RemoteExecutorPoolProvisioningPreviewModal } from './RemoteExecutorPoolProvisioningPreviewModal';
 
 const DEFAULT_PAGE_SIZE = 25;
-const REMOTE_EXECUTORS_CREATE_SOURCE_ID = 'REMOTE_EXECUTORS_CREATE_SOURCE_ID';
+export const REMOTE_EXECUTORS_CREATE_SOURCE_ID = 'REMOTE_EXECUTORS_CREATE_SOURCE_ID';
 const REMOTE_EXECUTORS_REFRESH_SOURCE_ID = 'REMOTE_EXECUTORS_REFRESH_SOURCE_ID';
 
 const ExecutorsContainer = styled.div``;
@@ -72,11 +72,12 @@ const PaginationContainer = styled.div`
 
 type Props = {
     onSwitchTab: (tab: string) => void;
+    showCreatePoolModal: boolean;
+    setShowCreatePoolModal: (show: boolean) => void;
 };
 
-export const RemoteExecutorPoolsList = ({ onSwitchTab }: Props) => {
+export const RemoteExecutorPoolsList = ({ onSwitchTab, showCreatePoolModal, setShowCreatePoolModal }: Props) => {
     const me = useUserContext();
-    const canManagePools = me.platformPrivileges?.manageIngestion;
 
     const defaultQuery = useQueryParamValue('pool');
 
@@ -120,7 +121,6 @@ export const RemoteExecutorPoolsList = ({ onSwitchTab }: Props) => {
     };
 
     // ---------------------- create pools ---------------------- //
-    const [showCreatePoolModal, setShowCreatePoolModal] = useState(false);
     const onCreatePool = () => {
         setShowCreatePoolModal(true);
     };
@@ -172,12 +172,6 @@ export const RemoteExecutorPoolsList = ({ onSwitchTab }: Props) => {
                         <StyledSearchBar placeholder="Search pools..." value={query || ''} onChange={handleSearch} />
                     </SearchContainer>
                     <RefreshButtonContainer>
-                        {canManagePools && (
-                            <Button id={REMOTE_EXECUTORS_CREATE_SOURCE_ID} variant="text" onClick={onCreatePool}>
-                                <PlusStyled />
-                                <span style={{ marginLeft: 4 }}>Create</span>
-                            </Button>
-                        )}
                         <Button id={REMOTE_EXECUTORS_REFRESH_SOURCE_ID} variant="text" onClick={onRefresh}>
                             <ArrowClockwiseStyled /> <span style={{ marginLeft: 4 }}>Refresh</span>
                         </Button>

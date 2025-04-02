@@ -45,6 +45,7 @@ export const RemoteExecutorPoolProvisioningPreviewModal = ({ getPool, pool, visi
     };
 
     const isPending = pool?.getRemoteExecutorPool?.state?.status === RemoteExecutorPoolStatus.ProvisioningPending;
+    const isInProgress = pool?.getRemoteExecutorPool?.state?.status === RemoteExecutorPoolStatus.ProvisioningInProgress;
     const isNotStaged = pool?.getRemoteExecutorPool?.state?.status === undefined;
     const isPoolError = pool?.getRemoteExecutorPool?.state?.status === RemoteExecutorPoolStatus.ProvisioningFailed;
 
@@ -77,12 +78,10 @@ export const RemoteExecutorPoolProvisioningPreviewModal = ({ getPool, pool, visi
 
     let content: JSX.Element | null = null;
 
-    if (isPending) {
+    if (isInProgress) {
         content = (
             <>
-                <Typography.Text>
-                    Pool is staged for provisioning. Please check back soon or contact support.
-                </Typography.Text>
+                <Typography.Text>Provisioning pool...</Typography.Text>
                 <Loading marginTop={0} justifyContent="flex-start" />
             </>
         );
@@ -98,7 +97,16 @@ export const RemoteExecutorPoolProvisioningPreviewModal = ({ getPool, pool, visi
                 </Button>
             </>
         );
-    } else if (isNotStaged) {
+    } else if (isPending) {
+        content = (
+            <>
+                <Typography.Text>
+                    Pool is staged for provisioning. Please check back soon or contact support.
+                </Typography.Text>
+                <Loading marginTop={0} justifyContent="flex-start" />
+            </>
+        );
+    } else {
         content = (
             <>
                 <Typography.Text>
@@ -109,17 +117,16 @@ export const RemoteExecutorPoolProvisioningPreviewModal = ({ getPool, pool, visi
                 </Button>
             </>
         );
-    } else {
-        content = (
-            <>
-                <Typography.Text>Provisioning pool...</Typography.Text>
-                <Loading marginTop={0} justifyContent="flex-start" />
-            </>
-        );
     }
 
     return (
-        <Modal open={visible} cancelButtonProps={{ style: { display: 'none' } }} onOk={onClose} title="Success">
+        <Modal
+            open={visible}
+            cancelButtonProps={{ style: { display: 'none' } }}
+            onOk={onClose}
+            onCancel={onClose}
+            title="Success"
+        >
             <div className="space-y-4 p-4">
                 <Content>{content}</Content>
             </div>

@@ -10,7 +10,7 @@ import { pluralize } from '@src/app/shared/textUtil';
 import { RemoteExecutorsList } from './RemoteExecutorsList';
 import { PoolDescriptionColumn, PoolStatusColumn } from './Columns';
 import { checkIsExecutionRequestRunning } from '../source/utils';
-import { checkIsPoolInDataHubCloud, getDisplayablePoolId } from './utils';
+import { checkIsPoolInDataHubCloud, getDisplayablePoolId, provisioningStatusToLabel } from './utils';
 
 const PAGE_HEADER_HEIGHT = 395;
 const ExecutorsTable = styled(StyledTable)`
@@ -108,7 +108,7 @@ export const RemoteExecutorPoolsTable = ({
                     )}
                     {record.status !== RemoteExecutorPoolStatus.Ready && !record.isDataHubCloud ? (
                         <ProvisioningStatusButton type="text" onClick={() => viewPoolProvisioningStatus(record.urn)}>
-                            See status
+                            {provisioningStatusToLabel(record.status)}
                         </ProvisioningStatusButton>
                     ) : null}
                 </Typography.Text>
