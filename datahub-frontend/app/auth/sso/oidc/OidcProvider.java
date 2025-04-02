@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory;
 public class OidcProvider implements SsoProvider<OidcConfigs> {
   private static final Logger logger = LoggerFactory.getLogger(OidcProvider.class);
   private static final String OIDC_CLIENT_NAME = "oidc";
+  public static final String OIDC_IMPLICIT_CLIENT_NAME = "oidc_implicit";
 
   private final OidcConfigs oidcConfigs;
   private final Client oidcClient; // Used primarily for redirecting to IdP.
@@ -59,6 +60,10 @@ public class OidcProvider implements SsoProvider<OidcConfigs> {
     oidcConfiguration.setClientAuthenticationMethodAsString(
         oidcConfigs.getClientAuthenticationMethod());
     oidcConfiguration.setScope(oidcConfigs.getScope());
+    oidcConfiguration.setDisablePkce(oidcConfigs.isImplicitFlow());
+    if (oidcConfigs.isImplicitFlow()) {
+      oidcConfiguration.setUseNonce(true);
+    }
     try {
       oidcConfiguration.setConnectTimeout(Integer.parseInt(oidcConfigs.getConnectTimeout()));
     } catch (NumberFormatException e) {
@@ -69,7 +74,7 @@ public class OidcProvider implements SsoProvider<OidcConfigs> {
     } catch (NumberFormatException e) {
       log.warn("Invalid read timeout configuration, defaulting to 5000ms");
     }
-    oidcConfigs.getResponseType().ifPresent(oidcConfiguration::setResponseType);
+    oidcConfiguration.setResponseType(oidcConfigs.getEffectiveResponseType());
     oidcConfigs.getResponseMode().ifPresent(oidcConfiguration::setResponseMode);
     oidcConfigs.getUseNonce().ifPresent(oidcConfiguration::setUseNonce);
     Map<String, String> customParamsMap = new HashMap<>();
@@ -91,8 +96,11 @@ public class OidcProvider implements SsoProvider<OidcConfigs> {
     oidcConfiguration.setWithState(true);
 
     final CustomOidcClient oidcClient = new CustomOidcClient(oidcConfiguration);
-    oidcClient.setName(OIDC_CLIENT_NAME);
-    oidcClient.setCallbackUrl(oidcConfigs.getAuthBaseUrl() + oidcConfigs.getAuthBaseCallbackPath());
+    oidcClient.setName(oidcConfigs.isImplicitFlow() ? OIDC_IMPLICIT_CLIENT_NAME : OIDC_CLIENT_NAME);
+    oidcClient.setCallbackUrl(
+        oidcConfigs.isImplicitFlow()
+            ? (oidcConfigs.getAuthBaseUrl() + oidcConfigs.getImplicitCallbackUrl())
+            : (oidcConfigs.getAuthBaseUrl() + oidcConfigs.getAuthBaseCallbackPath()));
     oidcClient.setCallbackUrlResolver(new PathParameterCallbackUrlResolver());
     oidcClient.addAuthorizationGenerator(
         new OidcAuthorizationGenerator(new OidcProfileDefinition(), oidcConfigs));

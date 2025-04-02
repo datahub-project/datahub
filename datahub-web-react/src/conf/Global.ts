@@ -42,6 +42,7 @@ export enum PageRoutes {
     BUSINESS_ATTRIBUTE = '/business-attribute',
     SETTINGS_HELP_LINK = '/settings/helpLink',
     INTRODUCE = '/introduce',
+    IMPLICIT_LOG_IN = '/login/oidc-implicit',
     // Temporary route to view all data products
     DATA_PRODUCTS = '/search?filter__entityType___false___EQUAL___0=DATA_PRODUCT&page=1&query=%2A&unionType=0',
 }

@@ -1,5 +1,7 @@
 package auth.sso.oidc.custom;
 
+import static auth.sso.oidc.OidcProvider.OIDC_IMPLICIT_CLIENT_NAME;
+
 import java.util.Map;
 import java.util.Optional;
 import org.pac4j.core.context.CallContext;
@@ -28,7 +30,10 @@ public class CustomOidcRedirectionActionBuilder extends OidcRedirectionActionBui
     WebContext context = ctx.webContext();
 
     Map<String, String> params = this.buildParams(context);
-    String computedCallbackUrl = this.client.computeFinalCallbackUrl(context);
+    String computedCallbackUrl =
+        this.client.getName().equals(OIDC_IMPLICIT_CLIENT_NAME)
+            ? this.client.getCallbackUrl()
+            : this.client.computeFinalCallbackUrl(context);
     params.put("redirect_uri", computedCallbackUrl);
     this.addStateAndNonceParameters(ctx, params);
     if (this.configuration.getMaxAge() != null) {

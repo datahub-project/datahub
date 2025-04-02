@@ -1,5 +1,7 @@
 package auth.sso;
 
+import static auth.sso.SsoConfigs.OIDC_ENABLED_CONFIG_PATH;
+
 import auth.sso.oidc.OidcConfigs;
 import auth.sso.oidc.OidcProvider;
 import com.datahub.authentication.Authentication;
@@ -51,7 +53,7 @@ public class SsoManager {
    * @return true if SSO logic is enabled, false otherwise.
    */
   public boolean isSsoEnabled() {
-    if (configs.hasPath("auth.oidc.enabled") && configs.getBoolean("auth.oidc.enabled")) {
+    if (configs.hasPath(OIDC_ENABLED_CONFIG_PATH) && configs.getBoolean(OIDC_ENABLED_CONFIG_PATH)) {
       return true;
     }
     refreshSsoProvider();

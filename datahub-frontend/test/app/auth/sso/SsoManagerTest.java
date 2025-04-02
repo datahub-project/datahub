@@ -1,6 +1,7 @@
 package app.auth.sso;
 
 import static auth.AuthUtils.*;
+import static auth.sso.SsoConfigs.OIDC_ENABLED_CONFIG_PATH;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -30,7 +31,6 @@ public class SsoManagerTest {
   public static final String OIDC_CLIENT_ID_CONFIG_PATH = "auth.oidc.clientId";
   public static final String OIDC_CLIENT_SECRET_CONFIG_PATH = "auth.oidc.clientSecret";
   public static final String OIDC_DISCOVERY_URI_CONFIG_PATH = "auth.oidc.discoveryUri";
-  public static final String OIDC_ENABLED_CONFIG_PATH = "auth.oidc.enabled";
 
   private SsoManager _ssoManager;
   private CloseableHttpResponse _httpResponse;
