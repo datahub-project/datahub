@@ -215,7 +215,7 @@ const buildFilterOptions = (key: string, value: Record<string, number>, filterOp
         let displayName;
         switch (key) {
             case 'type':
-                displayName = INCIDENT_TYPE_NAME_MAP[name] || name;
+                displayName = INCIDENT_TYPE_NAME_MAP[name] || getCapitalizeWord(name);
                 break;
             case 'stage':
                 displayName = INCIDENT_STAGE_NAME_MAP[name];
