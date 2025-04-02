@@ -1,4 +1,4 @@
-import { SearchOutlined } from '@ant-design/icons';
+import { Icon } from '@components';
 import { Maybe, StructuredProperties } from '@src/types.generated';
 import { Input } from 'antd';
 import React from 'react';
@@ -32,7 +32,7 @@ export default function TabHeader({ setFilterText, fieldUrn, fieldProperties, re
                 placeholder="Search in properties..."
                 onChange={(e) => setFilterText(e.target.value)}
                 allowClear
-                prefix={<SearchOutlined />}
+                prefix={<Icon icon="MagnifyingGlass" source="phosphor" />}
             />
             <AddPropertyButton fieldUrn={fieldUrn} fieldProperties={fieldProperties} refetch={refetch} />
         </TableHeader>
