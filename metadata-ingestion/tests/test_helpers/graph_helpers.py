@@ -1,7 +1,8 @@
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Type, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type, Union
 
+from datahub._codegen.aspect import _Aspect
 from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
@@ -22,6 +23,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
 from datahub.metadata.schema_classes import (
     ASPECT_NAME_MAP,
     DomainPropertiesClass,
+    SystemMetadataClass,
     UsageAggregationClass,
 )
 
@@ -139,6 +141,27 @@ class MockDataHubGraph(DataHubGraph):
         trace_timeout: Optional[timedelta] = timedelta(seconds=3600),
     ) -> None:
         self.emitted.append(mcp)
+
+    def get_entities(
+        self,
+        entity_name: str,
+        urns: List[str],
+        aspects: Optional[List[str]] = None,
+        with_system_metadata: bool = False,
+    ) -> Dict[str, Dict[str, Tuple[_Aspect, Optional[SystemMetadataClass]]]]:
+        result: Dict[str, Dict[str, Tuple[_Aspect, Optional[SystemMetadataClass]]]] = {}
+        for urn, entity in self.entity_graph.items():
+            if urn not in urns:
+                continue
+            if urn not in result:
+                result[urn] = {}
+            for aspect_name, aspect in entity.items():
+                if aspects and aspect_name not in aspects:
+                    continue
+                # Mock implementation always returns None for system metadata
+                system_metadata = None
+                result[urn][aspect_name] = (aspect, system_metadata)
+        return result
 
     def get_emitted(
         self,

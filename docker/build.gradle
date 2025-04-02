@@ -80,11 +80,25 @@ ext {
                     preserveVolumes: true
             ]
     ]
+
+    //  only for debug variants of quickstart to enable <variant>Reload tasks. 
+    // The actual service name needs the profile to be appended,  <container-name>-<profile>
+    moduleToContainer = [
+        ':metadata-service:war': 'datahub-gms',
+        ':datahub-frontend': 'frontend',
+        ':datahub-upgrade': 'system-update',
+        ':metadata-jobs:mce-consumer-job': 'datahub-mce-consumer',
+        ':metadata-jobs:mae-consumer-job': 'datahub-mae-consumer',
+
+    ]
 }
 
 // Register all quickstart tasks
 quickstart_configs.each { taskName, config ->
-    tasks.register(taskName)
+    tasks.register(taskName) {
+        group = 'quickstart'
+    }
+    
 }
 
 // Dynamically create all quickstart tasks and configurations
@@ -150,12 +164,57 @@ quickstart_configs.each { taskName, config ->
     }
 }
 
+// Register all quickstart tasks
+quickstart_configs.each { taskName, config ->
+    tasks.register("prepareAll${taskName}"){
+        group = 'quickstart-ci'
+    }
+}
+
+quickstart_configs.each { taskName, config ->
+    if (config.modules) {
+        tasks.getByName("prepareAll${taskName}").dependsOn(
+            config.modules.collect { it + ':dockerPrepare' }
+        )
+    }
+}
+
+quickstart_configs.each { taskName, config ->
+    tasks.register("buildImagesFromCache${taskName}") {
+        group = 'quickstart-ci'
+    }
+}
+
+quickstart_configs.each { taskName, config ->
+    if (config.modules) {
+        tasks.getByName("buildImagesFromCache${taskName}").dependsOn(
+            config.modules.collect { it + ':dockerFromCache' }
+        )
+    }
+}
+
+
+quickstart_configs.each { taskName, config ->
+    tasks.register("buildImages${taskName}") {
+        group = 'quickstart-ci'
+    }
+}
+
+quickstart_configs.each { taskName, config ->
+    if (config.modules) {
+        tasks.getByName("buildImages${taskName}").dependsOn(
+            config.modules.collect { it + ':dockerTag' }
+        )
+    }
+}
+
 tasks.register('minDockerCompose2.20', Exec) {
     executable 'bash'
     args '-c', 'echo -e "$(docker compose version --short)\n2.20"|sort --version-sort --check=quiet --reverse'
 }
 
 tasks.register('quickstartNuke') {
+    group = 'quickstart'
     doFirst {
         quickstart_configs.each { taskName, config ->
             dockerCompose."${taskName}".removeVolumes = !config.preserveVolumes
@@ -165,6 +224,7 @@ tasks.register('quickstartNuke') {
 }
 
 tasks.register('quickstartDown') {
+    group = 'quickstart'
     finalizedBy(tasks.withType(ComposeDownForced))
 }
 
@@ -173,12 +233,36 @@ tasks.withType(ComposeUp).configureEach {
     dependsOn tasks.named("minDockerCompose2.20")
 }
 
-task debugReload(type: Exec) {
-    def cmd = ['docker compose -p datahub --profile debug'] + ['-f', compose_base] + [
-            'restart',
-            'datahub-gms-debug',
-            'system-update-debug',
-            'frontend-debug'
-    ]
-    commandLine 'bash', '-c', cmd.join(" ")
+// Register all quickstart Reload tasks. For quickstartDebug, the reload task is DebugReload. (Taskname without quickstart prefix)
+quickstart_configs.each { taskName, config ->
+    if (config.isDebug) {
+        def reloadTaskName = taskName.replaceFirst(/^quickstart/, "")
+        tasks.register("${reloadTaskName}Reload", Exec) {
+            dependsOn tasks.named("prepareAll${taskName}")
+            group = 'quickstart'
+            description = "Build and reload only changed containers for the ${taskName} task"
+            doFirst {
+                def executedTasks = project.gradle.taskGraph.allTasks.findAll { it.state.executed }
+                def containersToRestart = []
+
+                moduleToContainer.each { modulePath, containerName ->
+                    def moduleProject = project.project(modulePath)
+                    def dockerPrepareTask = moduleProject.tasks.findByName('dockerPrepare')
+                    
+                    if (dockerPrepareTask && executedTasks.contains(dockerPrepareTask) && !dockerPrepareTask.state.upToDate) {
+                        containersToRestart << "${containerName}-${config.profile}"
+                    }
+                }
+                
+                // Only restart containers that had their modules rebuilt
+                if (containersToRestart) {
+                    def cmd = ["docker compose -p datahub --profile ${config.profile}"] + ['-f', compose_base] + ['restart'] + containersToRestart
+                    commandLine 'bash', '-c', cmd.join(" ")
+                } else {
+                    // If no containers need restart, make this a no-op
+                    commandLine 'bash', '-c', 'echo "No containers need restarting - all modules are up to date"'
+                }    
+            }
+        }
+    }
 }
