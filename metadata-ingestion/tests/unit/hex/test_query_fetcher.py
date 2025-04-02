@@ -4,7 +4,7 @@ from typing import Dict, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 from datahub.ingestion.source.hex.constants import HEX_PLATFORM_URN
-from datahub.ingestion.source.hex.datahub import (
+from datahub.ingestion.source.hex.query_fetcher import (
     HexQueryFetcher,
     HexQueryFetcherReport,
     QueryResponse,
@@ -253,9 +253,11 @@ class TestHexQueryFetcherFetch(unittest.TestCase):
         }
 
     @patch(
-        "datahub.ingestion.source.hex.datahub.HexQueryFetcher._fetch_query_urns_filter_hex_and_last_modified"
+        "datahub.ingestion.source.hex.query_fetcher.HexQueryFetcher._fetch_query_urns_filter_hex_and_last_modified"
     )
-    @patch("datahub.ingestion.source.hex.datahub.HexQueryFetcher._fetch_query_entities")
+    @patch(
+        "datahub.ingestion.source.hex.query_fetcher.HexQueryFetcher._fetch_query_entities"
+    )
     def test_fetch_with_valid_data(
         self, mock_fetch_query_entities, mock_fetch_query_urns
     ):
@@ -274,9 +276,11 @@ class TestHexQueryFetcherFetch(unittest.TestCase):
         assert results[1].dataset_subjects == [self.dataset_urn_1]
 
     @patch(
-        "datahub.ingestion.source.hex.datahub.HexQueryFetcher._fetch_query_urns_filter_hex_and_last_modified"
+        "datahub.ingestion.source.hex.query_fetcher.HexQueryFetcher._fetch_query_urns_filter_hex_and_last_modified"
     )
-    @patch("datahub.ingestion.source.hex.datahub.HexQueryFetcher._fetch_query_entities")
+    @patch(
+        "datahub.ingestion.source.hex.query_fetcher.HexQueryFetcher._fetch_query_entities"
+    )
     def test_fetch_with_missing_hex_query_metadata(
         self, mock_fetch_query_entities, mock_fetch_query_urns
     ):
@@ -296,9 +300,11 @@ class TestHexQueryFetcherFetch(unittest.TestCase):
         assert results[0].dataset_subjects == [self.dataset_urn_1, self.dataset_urn_2]
 
     @patch(
-        "datahub.ingestion.source.hex.datahub.HexQueryFetcher._fetch_query_urns_filter_hex_and_last_modified"
+        "datahub.ingestion.source.hex.query_fetcher.HexQueryFetcher._fetch_query_urns_filter_hex_and_last_modified"
     )
-    @patch("datahub.ingestion.source.hex.datahub.HexQueryFetcher._fetch_query_entities")
+    @patch(
+        "datahub.ingestion.source.hex.query_fetcher.HexQueryFetcher._fetch_query_entities"
+    )
     def test_fetch_with_missing_not_matching_workspace(
         self, mock_fetch_query_entities, mock_fetch_query_urns
     ):
@@ -318,9 +324,11 @@ class TestHexQueryFetcherFetch(unittest.TestCase):
         assert results[0].dataset_subjects == [self.dataset_urn_1, self.dataset_urn_2]
 
     @patch(
-        "datahub.ingestion.source.hex.datahub.HexQueryFetcher._fetch_query_urns_filter_hex_and_last_modified"
+        "datahub.ingestion.source.hex.query_fetcher.HexQueryFetcher._fetch_query_urns_filter_hex_and_last_modified"
     )
-    @patch("datahub.ingestion.source.hex.datahub.HexQueryFetcher._fetch_query_entities")
+    @patch(
+        "datahub.ingestion.source.hex.query_fetcher.HexQueryFetcher._fetch_query_entities"
+    )
     def test_fetch_with_no_subjects(
         self, mock_fetch_query_entities, mock_fetch_query_urns
     ):
@@ -338,7 +346,7 @@ class TestHexQueryFetcherFetch(unittest.TestCase):
         assert results[0].dataset_subjects == [self.dataset_urn_1, self.dataset_urn_2]
 
         @patch(
-            "datahub.ingestion.source.hex.datahub.HexQueryFetcher._fetch_query_urns_filter_hex_and_last_modified"
+            "datahub.ingestion.source.hex.query_fetcher.HexQueryFetcher._fetch_query_urns_filter_hex_and_last_modified"
         )
         def test_fetch_with_no_query_urns_found(self, mock_fetch_query_urns):
             mock_fetch_query_urns.return_value = []
@@ -348,10 +356,10 @@ class TestHexQueryFetcherFetch(unittest.TestCase):
             assert len(results) == 0
 
         @patch(
-            "datahub.ingestion.source.hex.datahub.HexQueryFetcher._fetch_query_urns_filter_hex_and_last_modified"
+            "datahub.ingestion.source.hex.query_fetcher.HexQueryFetcher._fetch_query_urns_filter_hex_and_last_modified"
         )
         @patch(
-            "datahub.ingestion.source.hex.datahub.HexQueryFetcher._fetch_query_entities"
+            "datahub.ingestion.source.hex.query_fetcher.HexQueryFetcher._fetch_query_entities"
         )
         def test_fetch_query_entities_fail(
             self, mock_fetch_query_entities, mock_fetch_query_urns
@@ -367,7 +375,7 @@ class TestHexQueryFetcherFetch(unittest.TestCase):
             assert self.report.errors == 1
 
         @patch(
-            "datahub.ingestion.source.hex.datahub.HexQueryFetcher._fetch_query_urns_filter_hex_and_last_modified"
+            "datahub.ingestion.source.hex.query_fetcher.HexQueryFetcher._fetch_query_urns_filter_hex_and_last_modified"
         )
         def test_fetch_query_urns_fail(self, mock_fetch_query_urns):
             mock_fetch_query_urns.side_effect = Exception("Failed to fetch query urns")

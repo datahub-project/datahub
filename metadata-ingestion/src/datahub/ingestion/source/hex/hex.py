@@ -29,12 +29,12 @@ from datahub.ingestion.source.hex.constants import (
     HEX_API_PAGE_SIZE_DEFAULT,
     HEX_PLATFORM_NAME,
 )
-from datahub.ingestion.source.hex.datahub import (
+from datahub.ingestion.source.hex.mapper import Mapper
+from datahub.ingestion.source.hex.model import Component, Project
+from datahub.ingestion.source.hex.query_fetcher import (
     HexQueryFetcher,
     HexQueryFetcherReport,
 )
-from datahub.ingestion.source.hex.mapper import Mapper
-from datahub.ingestion.source.hex.model import Component, Project
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
