@@ -233,10 +233,16 @@ public class EbeanEntityServiceOptimizationTest {
     try {
       entityService.ingestProposal(opContext, batch, false);
       // First collect all SQL statements that start with "txn[]"
-      List<String> allSqlStatements =
-          LoggedSql.collect().stream()
-              .filter(sql -> sql.startsWith("txn[]"))
-              .collect(Collectors.toList());
+      List<String> allSqlStatements = new ArrayList<>();
+      for (String sqlGroup : LoggedSql.collect()) {
+        // Split by "txn[]" but preserve the prefix
+        String[] parts = sqlGroup.split("(?=txn\\[\\])");
+        for (String part : parts) {
+          if (part.startsWith("txn[]")) {
+            allSqlStatements.add(part);
+          }
+        }
+      }
 
       // Then process them to fold comments into previous lines
       List<String> txnLog = new ArrayList<>();
