@@ -1743,7 +1743,8 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         entity_name: str,
         urns: List[str],
         aspects: Optional[List[str]] = None,
-    ) -> Dict[str, Dict[str, _Aspect]]:
+        with_system_metadata: bool = False,
+    ) -> Dict[str, Dict[str, Tuple[_Aspect, Optional[SystemMetadataClass]]]]:
         """
         Get entities using the OpenAPI v3 endpoint, deserializing aspects into typed objects.
 
@@ -1751,9 +1752,12 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             entity_name: The entity type name
             urns: List of entity URNs to fetch
             aspects: Optional list of aspect names to fetch. If None, all aspects will be fetched.
+            with_system_metadata: If True, return system metadata along with each aspect.
 
         Returns:
-            A dictionary mapping URNs to a dictionary of aspect name to typed aspect objects
+            A dictionary mapping URNs to a dictionary of aspect name to tuples of
+            (typed aspect object, system metadata). If with_system_metadata is False,
+            the system metadata in the tuple will be None.
         """
         aspects = aspects or []
 
@@ -1770,6 +1774,8 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         }
 
         url = f"{self.config.server}/openapi/v3/entity/{entity_name}/batchGet"
+        if with_system_metadata:
+            url += "?systemMetadata=true"
 
         response = self._session.post(
             url, data=json.dumps(request_payload), headers=headers
@@ -1777,7 +1783,8 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         response.raise_for_status()
         entities = response.json()
 
-        result: Dict[str, Dict[str, _Aspect]] = {}
+        result: Dict[str, Dict[str, Tuple[_Aspect, Optional[SystemMetadataClass]]]] = {}
+
         for entity in entities:
             entity_urn = entity.get("urn")
             if entity_urn is None:
@@ -1786,7 +1793,9 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                 )
                 continue
 
-            entity_aspects: Dict[str, _Aspect] = {}
+            entity_aspects: Dict[
+                str, Tuple[_Aspect, Optional[SystemMetadataClass]]
+            ] = {}
 
             for aspect_name, aspect_obj in entity.items():
                 if aspect_name == "urn":
@@ -1812,7 +1821,16 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                     assert isinstance(typed_aspect, aspect_class) and isinstance(
                         typed_aspect, _Aspect
                     )
-                    entity_aspects[aspect_name] = typed_aspect
+
+                    system_metadata = None
+                    if with_system_metadata:
+                        system_metadata_obj = aspect_obj.get("systemMetadata")
+                        if system_metadata_obj:
+                            system_metadata = SystemMetadataClass.from_obj(
+                                system_metadata_obj
+                            )
+
+                    entity_aspects[aspect_name] = (typed_aspect, system_metadata)
                 except Exception as e:
                     logger.error(f"Error deserializing aspect {aspect_name}: {e}")
                     raise

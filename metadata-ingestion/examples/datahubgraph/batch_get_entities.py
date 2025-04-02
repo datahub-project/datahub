@@ -5,7 +5,7 @@ from datahub.ingestion.graph.config import DatahubClientConfig
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Fetch entities from DataHub using get_entities_v3"
+        description="Fetch entities from DataHub using get_entities"
     )
     parser.add_argument("--token", required=False, help="DataHub access token")
     parser.add_argument(
@@ -32,13 +32,17 @@ if __name__ == "__main__":
         dest="aspects",
         help="Aspect name(s) to fetch. Can specify multiple times. If none provided, all aspects will be fetched.",
     )
+    parser.add_argument(
+        "--with-system-metadata",
+        action="store_true",
+        help="Include system metadata in the response.",
+    )
     args = parser.parse_args()
 
     # Validate that at least one URN is provided
     if not args.urns:
         parser.error("At least one --urn argument is required")
 
-    # Initialize the DataHub client
     client = DataHubGraph(
         config=DatahubClientConfig(
             server=args.server_url,
@@ -50,6 +54,7 @@ if __name__ == "__main__":
         entity_name=args.entity_name,
         urns=args.urns,
         aspects=args.aspects,
+        with_system_metadata=args.with_system_metadata,
     )
 
     print(f"Received {len(response)} entities")
@@ -61,8 +66,10 @@ if __name__ == "__main__":
             print("\tNo aspects found for this entity")
             continue
 
-        for aspect_name, aspect in entity.items():
+        for aspect_name, (aspect, system_metadata) in entity.items():
             print(f"\tAspect: {aspect_name} Type: {type(aspect).__name__}")
             print(f"\t\t{aspect}")
+            if system_metadata:
+                print(f"\tSystem Metadata: {system_metadata}")
 
         print()
