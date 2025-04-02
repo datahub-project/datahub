@@ -2,6 +2,7 @@ import React from 'react';
 import { List } from 'antd';
 import styled from 'styled-components';
 import { Button, colors } from '@src/alchemy-components';
+import analytics, { DocRequestCTASource, EventType } from '@src/app/analytics';
 import { FormType } from '../../../types.generated';
 import { pluralize } from '../../shared/textUtil';
 
@@ -41,6 +42,11 @@ export const RequestItem = ({ request, onClickOpenRequest }: Props) => {
 
     const displayedNumEntities = numEntitiesToComplete >= 10000 ? '10,000+' : numEntitiesToComplete;
 
+    function handleClickOpen() {
+        analytics.event({ type: EventType.ClickDocRequestCTA, source: DocRequestCTASource.TaskCenter });
+        onClickOpenRequest();
+    }
+
     return (
         <>
             <List.Item key={form.urn}>
@@ -53,7 +59,7 @@ export const RequestItem = ({ request, onClickOpenRequest }: Props) => {
                         </b>
                     </SubHeader>
                 </div>
-                <Button variant="text" onClick={onClickOpenRequest}>
+                <Button variant="text" onClick={handleClickOpen}>
                     Open in Compliance Center
                 </Button>
             </List.Item>

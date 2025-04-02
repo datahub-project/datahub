@@ -127,7 +127,6 @@ export default function InferDocsPanel({
     };
 
     const onClose = () => {
-        analytics.event({ type: EventType.DeclineInferredDocs });
         if (collapseOnInsert) {
             setIsPanelExpanded(false);
         }
@@ -161,7 +160,13 @@ export default function InferDocsPanel({
                 )}
             </InferencePanelBody>
             <InferencePanelFooter>
-                <CollapseButton type="button" onClick={onClose}>
+                <CollapseButton
+                    type="button"
+                    onClick={() => {
+                        analytics.event({ type: EventType.DeclineInferredDocs });
+                        onClose();
+                    }}
+                >
                     Dismiss
                 </CollapseButton>
                 {showInsert && (
