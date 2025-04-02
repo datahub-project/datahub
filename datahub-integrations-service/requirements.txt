@@ -706,9 +706,9 @@ six==1.16.0
     #   bleach
     #   mixpanel
     #   python-dateutil
-slack-bolt==1.18.1
+slack-bolt==1.23.0
     # via acryl-datahub-integrations
-slack-sdk==3.27.1
+slack-sdk==3.35.0
     # via slack-bolt
 smart-open==6.4.0
     # via

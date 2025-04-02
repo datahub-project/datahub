@@ -54,7 +54,7 @@ def get_entity(urn: str) -> dict:
 
     # Extract the entity data from the response
     if "entity" in result:
-        return result["entity"]
+        return _clean_gql_response(result["entity"])
 
     # Return empty dict if entity not found
     return {}
@@ -112,7 +112,7 @@ def search(
     # TODO: post process
     # e.g. strip all nulls?
 
-    return response
+    return _clean_gql_response(response)
 
 
 @mcp.tool(description="Use this tool to get the SQL queries associated with a dataset.")
@@ -126,7 +126,7 @@ def get_dataset_queries(dataset_urn: str, start: int = 0, count: int = 10) -> di
     result = client._graph.execute_graphql(
         query=queries_gql, variables=variables, operation_name="listQueries"
     )
-    return result["listQueries"]
+    return _clean_gql_response(result["listQueries"])
 
 
 class AssetLineageDirective(BaseModel):

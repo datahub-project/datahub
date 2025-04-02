@@ -24,17 +24,17 @@ router = fastapi.APIRouter()
 
 sinks: List[NotificationSink] = []
 
-if EMAIL_SINK_ENABLED == "true":
+if EMAIL_SINK_ENABLED:
     sinks.append(EmailNotificationSink())
 
-if SLACK_SINK_ENABLED == "true":
+if SLACK_SINK_ENABLED:
     sinks.append(SlackNotificationSink())
 
 sink_manager = NotificationSinkManager(
     sinks=sinks,
     mode=(
         NotificationManagerMode.ENABLED
-        if NOTIFICATIONS_ENABLED == "true"
+        if NOTIFICATIONS_ENABLED
         else NotificationManagerMode.DISABLED
     ),
 )

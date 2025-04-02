@@ -21,3 +21,21 @@ def get_last_updated_copy(last_updated_time: datetime) -> str:
     if delta.seconds < 3600:
         return f"{delta.seconds // 60} minutes ago"
     return f"{delta.seconds // 3600} hours ago"
+
+
+def slack_ts_to_datetime(ts: str) -> datetime:
+    """Converts a Slack timestamp to a datetime object.
+
+    Args:
+        ts: The Slack timestamp to convert.
+
+    Returns:
+        The datetime object.
+
+    Examples:
+        >>> import datetime
+        >>> slack_ts_to_datetime("1743560027.534299").isoformat()
+        '2025-04-02T02:13:47.534299+00:00'
+    """
+
+    return datetime.fromtimestamp(float(ts), tz=timezone.utc)

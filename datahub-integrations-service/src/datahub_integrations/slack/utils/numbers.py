@@ -1,11 +1,18 @@
 def abbreviate_number(number: int) -> str:
+    """Abbreviates a number to a human-readable format.
+
+    Examples:
+        >>> abbreviate_number(1000)
+        '1k'
+        >>> abbreviate_number(1200)
+        '1k'
+        >>> abbreviate_number(1000000)
+        '1M'
+        >>> abbreviate_number(1000000000)
+        '1B'
     """
-    Abbreviates a number to a human-readable format.
-    1000 -> 1k
-    1200 -> 1.2k
-    1000000 -> 1M
-    1000000000 -> 1B
-    """
+
+    # TODO: Ideally 1200 would become 1.2k, not 1k
     if number < 1000:
         return str(number)
     if number < 1000000:
@@ -16,9 +23,13 @@ def abbreviate_number(number: int) -> str:
 
 
 def format_number(number: int) -> str:
+    """Formats a number with commas.
+
+    Examples:
+        >>> format_number(1000)
+        '1,000'
+        >>> format_number(1000000)
+        '1,000,000'
     """
-    Formats a number with commas.
-    1000 -> 1,000
-    1000000 -> 1,000,000
-    """
+
     return f"{number:,}"

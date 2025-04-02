@@ -27,7 +27,9 @@ class BedrockModel(enum.Enum):
     CLAUDE_35_HAIKU = "anthropic.claude-3-5-haiku-20241022-v1:0"
     CLAUDE_35_SONNET_V2 = "anthropic.claude-3-5-sonnet-20241022-v2:0"
 
-    CLAUDE_37_SONNET = "anthropic.claude-3-7-sonnet-20250219-v1:0"
+    # The Claude 3.7 Sonnet model requires cross-region inference support.
+    # This is the system-defined inference profile name, not the model ID.
+    CLAUDE_37_SONNET = "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
 
 
 def get_bedrock_model_env_variable(
@@ -122,4 +124,4 @@ if __name__ == "__main__":
     import sys
 
     prompt = sys.argv[1]
-    logger.info(call_bedrock_llm(prompt, 100, BedrockModel.CLAUDE_35_HAIKU))
+    logger.info(call_bedrock_llm(prompt, 100, BedrockModel.CLAUDE_37_SONNET))

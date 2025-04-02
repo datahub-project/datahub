@@ -19,9 +19,9 @@ from pydantic import BaseModel
 from datahub_integrations.chat.mcp_server import mcp
 from datahub_integrations.chat.tool import Tool
 from datahub_integrations.gen_ai.bedrock import BedrockModel, get_bedrock_client
-from datahub_integrations.slack.constants import MESSAGE_LENGTH_SOFT_LIMIT
 
 MAX_TOOL_CALLS = 10
+MESSAGE_LENGTH_SOFT_LIMIT = 2000
 
 # Mapping of tool names to user-friendly progress messages
 PROGRESS_MESSAGES = {
@@ -231,7 +231,7 @@ class ChatSession:
         messages = [message.to_obj() for message in self._messages]
         tools = [tool.to_bedrock_spec() for tool in self.tools]
         response = bedrock_client.converse(
-            modelId=BedrockModel.CLAUDE_35_SONNET.value,
+            modelId=BedrockModel.CLAUDE_37_SONNET.value,
             messages=messages,  # type: ignore
             toolConfig={
                 "tools": tools,  # type: ignore
@@ -259,13 +259,15 @@ class ChatSession:
         if message is None:
             raise ChatSessionError(f"No message in response {response}")
         response_content = message["content"]
-        for content_block in response_content:
+        for i, content_block in enumerate(response_content):
             if "text" in content_block:
+                is_last_block = i == len(response_content) - 1
+                is_final_response = is_last_block and is_end_turn
                 self._add_message(
                     Message(
                         text=content_block["text"],
                         timestamp=datetime.now(timezone.utc),
-                        visibility="internal",
+                        visibility="assistant" if is_final_response else "internal",
                     )
                 )
             elif "toolUse" in content_block:
@@ -295,11 +297,6 @@ class ChatSession:
                     )
             else:
                 raise ChatSessionError(f"Unknown content block type {content_block}")
-
-        if is_end_turn:
-            # Convert the last message to a non-internal response.
-            assert isinstance(self._messages[-1], Message)
-            self._messages[-1].visibility = "assistant"
 
     def generate_next_message(self) -> NextMessage:
         for i in range(MAX_TOOL_CALLS):
