@@ -1815,6 +1815,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                     entity_aspects[aspect_name] = typed_aspect
                 except Exception as e:
                     logger.error(f"Error deserializing aspect {aspect_name}: {e}")
+                    raise
 
             if entity_aspects:
                 result[entity_urn] = entity_aspects
