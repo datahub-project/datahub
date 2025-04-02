@@ -1,7 +1,7 @@
 [
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.athena_operator,prod)",
+    "entityUrn": "urn:li:dataFlow:(airflow,athena_operator,prod)",
     "changeType": "UPSERT",
     "aspectName": "dataFlowInfo",
     "aspect": {
@@ -25,7 +25,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.athena_operator,prod)",
+    "entityUrn": "urn:li:dataFlow:(airflow,athena_operator,prod)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -36,7 +36,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.athena_operator,prod)",
+    "entityUrn": "urn:li:dataFlow:(airflow,athena_operator,prod)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -60,7 +60,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.athena_operator,prod)",
+    "entityUrn": "urn:li:dataFlow:(airflow,athena_operator,prod)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
@@ -71,7 +71,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.athena_operator,prod)",
+    "entityUrn": "urn:li:dataFlow:(airflow,athena_operator,prod)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -82,7 +82,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.athena_operator,prod),transform_cost_table)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,athena_operator,prod),transform_cost_table)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -93,16 +93,12 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.athena_operator,prod)",
+    "entityUrn": "urn:li:dataFlow:(airflow,athena_operator,prod)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
-                {
-                    "id": "myairflow",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,myairflow)"
-                },
                 {
                     "id": "athena_operator"
                 }
@@ -112,7 +108,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.athena_operator,prod),transform_cost_table)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,athena_operator,prod),transform_cost_table)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -129,7 +125,7 @@
                 "downstream_task_ids": "[]",
                 "inlets": "[]",
                 "outlets": "[]",
-                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.25.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        CREATE OR REPLACE TABLE processed_costs AS\\n        SELECT\\n            id,\\n            month,\\n            total_cost,\\n            area,\\n            total_cost / area as cost_per_area\\n        FROM costs\\n        \"}"
+                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        CREATE OR REPLACE TABLE processed_costs AS\\n        SELECT\\n            id,\\n            month,\\n            total_cost,\\n            area,\\n            total_cost / area as cost_per_area\\n        FROM costs\\n        \"}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=athena_operator&_flt_3_task_id=transform_cost_table",
             "name": "transform_cost_table",
@@ -142,7 +138,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.athena_operator,prod),transform_cost_table)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,athena_operator,prod),transform_cost_table)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -153,7 +149,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.athena_operator,prod),transform_cost_table)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,athena_operator,prod),transform_cost_table)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
@@ -254,7 +250,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.athena_operator,prod),transform_cost_table)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,athena_operator,prod),transform_cost_table)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -278,7 +274,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.athena_operator,prod),transform_cost_table)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,athena_operator,prod),transform_cost_table)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
@@ -315,7 +311,7 @@
             "name": "athena_operator_transform_cost_table_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1740760883179,
+                "time": 1743622480123,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -328,7 +324,7 @@
     "aspectName": "dataProcessInstanceRelationships",
     "aspect": {
         "json": {
-            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.athena_operator,prod),transform_cost_table)",
+            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(airflow,athena_operator,prod),transform_cost_table)",
             "upstreamInstances": []
         }
     }
@@ -392,7 +388,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1740760883179,
+            "timestampMillis": 1743622480123,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -409,20 +405,20 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1740760883509,
+            "timestampMillis": 1743622480414,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1740760883509
+            "lastUpdatedTimestamp": 1743622480414
         }
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.athena_operator,prod),transform_cost_table)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,athena_operator,prod),transform_cost_table)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -439,7 +435,7 @@
                 "downstream_task_ids": "[]",
                 "inlets": "[]",
                 "outlets": "[]",
-                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.25.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        CREATE OR REPLACE TABLE processed_costs AS\\n        SELECT\\n            id,\\n            month,\\n            total_cost,\\n            area,\\n            total_cost / area as cost_per_area\\n        FROM costs\\n        \"}"
+                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        CREATE OR REPLACE TABLE processed_costs AS\\n        SELECT\\n            id,\\n            month,\\n            total_cost,\\n            area,\\n            total_cost / area as cost_per_area\\n        FROM costs\\n        \"}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=athena_operator&_flt_3_task_id=transform_cost_table",
             "name": "transform_cost_table",
@@ -452,7 +448,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.athena_operator,prod),transform_cost_table)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,athena_operator,prod),transform_cost_table)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -463,7 +459,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.athena_operator,prod),transform_cost_table)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,athena_operator,prod),transform_cost_table)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
@@ -620,7 +616,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.athena_operator,prod),transform_cost_table)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,athena_operator,prod),transform_cost_table)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -644,7 +640,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.athena_operator,prod),transform_cost_table)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,athena_operator,prod),transform_cost_table)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
@@ -660,7 +656,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1740760883541,
+            "timestampMillis": 1743622480491,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
