@@ -132,7 +132,9 @@ export const createIncidentGroups = (incidents: Array<Incident>): IncidentGroupB
     incidents?.sort((a, b) => a?.created?.time - b?.created?.time);
 
     // Group incidents by type, stage, and priority
-    const typeToIncidents = groupIncidentsBy(incidents, (incident) => incident?.incidentType);
+    const typeToIncidents = groupIncidentsBy(incidents, (incident) =>
+        incident?.incidentType === IncidentType.Custom ? incident?.customType : incident?.incidentType,
+    );
     const stageToIncidents = groupIncidentsBy(incidents, (incident) => incident?.status?.stage);
     const stateToIncidents = groupIncidentsBy(incidents, (incident) => incident?.status?.state);
     const priorityToIncidents = groupIncidentsBy(incidents, (incident) => incident.priority);
@@ -213,7 +215,7 @@ const buildFilterOptions = (key: string, value: Record<string, number>, filterOp
         let displayName;
         switch (key) {
             case 'type':
-                displayName = INCIDENT_TYPE_NAME_MAP[name];
+                displayName = INCIDENT_TYPE_NAME_MAP[name] || name;
                 break;
             case 'stage':
                 displayName = INCIDENT_STAGE_NAME_MAP[name];
@@ -307,7 +309,11 @@ const extractFilterOptionListFromIncidents = (incidents: Incident[]) => {
             if (index > -1) {
                 remainingIncidentTypes.splice(index, 1);
             }
-            filterGroupCounts.type[type] = (filterGroupCounts.type[type] || 0) + 1;
+            if (type === IncidentType.Custom && incident.customType) {
+                filterGroupCounts.type[incident.customType] = (filterGroupCounts.type[incident.customType] || 0) + 1;
+            } else {
+                filterGroupCounts.type[type] = (filterGroupCounts.type[type] || 0) + 1;
+            }
         }
 
         // filter out tracked stages
@@ -387,7 +393,9 @@ const getFilteredIncidents = (incidents: Incident[], filter: IncidentListFilter)
 
     // Apply type, priority, and stage
     return incidents.filter((incident: Incident) => {
-        const matchesCategory = type.length === 0 || type.includes(incident.incidentType);
+        const category =
+            incident.incidentType === IncidentType.Custom ? incident.customType ?? '' : incident.incidentType ?? '';
+        const matchesCategory = type.length === 0 || type.includes(category);
         const matchesPriority = priority.length === 0 || priority.includes(incident.priority || 'None');
         const matchesStage = stage.length === 0 || stage.includes(incident.status.stage || 'None');
         const matchesState = state.length === 0 || state.includes(incident.status.state);

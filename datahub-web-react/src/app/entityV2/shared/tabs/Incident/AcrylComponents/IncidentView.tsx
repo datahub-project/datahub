@@ -13,6 +13,7 @@ import {
     EntityType,
     IncidentSourceType,
     IncidentState,
+    IncidentType,
 } from '@src/types.generated';
 import { Check, Warning } from '@phosphor-icons/react';
 import { IconLabel } from '@src/alchemy-components/components/IconLabel';
@@ -146,6 +147,7 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
                         actor: incidentResolver,
                         action: INCIDENT_STATE_TO_ACTIVITY.RESOLVED,
                         time: incident?.lastUpdated?.time,
+                        message: incident?.message,
                     },
                 ];
             }
@@ -171,6 +173,7 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
                 actor: incidentResolver,
                 action: INCIDENT_STATE_TO_ACTIVITY.RESOLVED,
                 time: incident?.lastUpdated?.time,
+                message: incident?.message,
             },
         ];
     })();
@@ -200,7 +203,11 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
             </DescriptionSection>
             <DetailsSection>
                 <DetailsLabel>Category</DetailsLabel>
-                <CategoryText>{incident?.type && getCapitalizeWord(incident?.type)}</CategoryText>
+                <CategoryText>
+                    {getCapitalizeWord(
+                        incident?.type === IncidentType.Custom ? incident.customType ?? '' : incident.type ?? '',
+                    )}
+                </CategoryText>
             </DetailsSection>
             <DetailsSection>
                 <DetailsLabel>Priority</DetailsLabel>

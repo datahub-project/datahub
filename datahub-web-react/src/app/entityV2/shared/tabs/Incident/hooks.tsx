@@ -8,7 +8,7 @@ import { IncidentPriorityLabel } from '@src/alchemy-components/components/Incide
 import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { CorpUser, EntityPrivileges } from '@src/types.generated';
+import { CorpUser, EntityPrivileges, IncidentType } from '@src/types.generated';
 import { getQueryParams } from '../Dataset/Validations/assertionUtils';
 import { getAssigneeNamesWithAvatarUrl, getLinkedAssetsCount } from './utils';
 import { IncidentResolveButton } from './IncidentResolveButton';
@@ -51,8 +51,15 @@ export const useIncidentsTableColumns = (privileges?: EntityPrivileges) => {
                 key: 'type',
                 render: (record) =>
                     !record.groupName && (
-                        <CategoryType data-testid="incident-category" title={getCapitalizeWord(String(record?.type))}>
-                            {getCapitalizeWord(String(record?.type))}
+                        <CategoryType
+                            data-testid="incident-category"
+                            title={getCapitalizeWord(
+                                record?.type === IncidentType.Custom ? record?.customType : record?.type,
+                            )}
+                        >
+                            {getCapitalizeWord(
+                                record?.type === IncidentType.Custom ? record?.customType : record?.type,
+                            )}
                         </CategoryType>
                     ),
                 sorter: (a, b) => {

@@ -115,6 +115,7 @@ export interface TimelineContentDetails extends BaseItemType {
     action: string;
     actor: CorpUser;
     time: number;
+    message?: string;
 }
 
 export enum IncidentConstant {
