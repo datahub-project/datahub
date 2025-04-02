@@ -11,7 +11,7 @@ import { SecretsList } from './secret/SecretsList';
 import { OnboardingTour } from '../onboarding/OnboardingTour';
 import { INGESTION_CREATE_SOURCE_ID } from '../onboarding/config/IngestionOnboardingConfig';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
-import { RemoteExecutorPoolsList } from './executor_saas/RemoteExecutorPoolsList';
+import { REMOTE_EXECUTORS_CREATE_SOURCE_ID, RemoteExecutorPoolsList } from './executor_saas/RemoteExecutorPoolsList';
 import { TabType } from './types';
 
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
@@ -75,6 +75,8 @@ export const ManageIngestionPage = () => {
     const showIngestionTab = isIngestionEnabled && me && me.platformPrivileges?.manageIngestion;
     const showSecretsTab = isIngestionEnabled && me && me.platformPrivileges?.manageSecrets;
 
+    const canManagePools = me.platformPrivileges?.manageIngestion;
+
     // TODO: For now remote executors privilege is tied to manage ingestion
     const showRemoteExecutorsTab =
         isIngestionEnabled && me && me.platformPrivileges?.manageIngestion && config.featureFlags.displayExecutorPools; // Saas only
@@ -82,6 +84,7 @@ export const ManageIngestionPage = () => {
     const [selectedTab, setSelectedTab] = useState<TabType>(TabType.Sources);
     const [showCreateSourceModal, setShowCreateSourceModal] = useState<boolean>(false);
     const [showCreateSecretModal, setShowCreateSecretModal] = useState<boolean>(false);
+    const [showCreatePoolModal, setShowCreatePoolModal] = useState(false);
     const isShowNavBarRedesign = useShowNavBarRedesign();
 
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
@@ -108,6 +111,10 @@ export const ManageIngestionPage = () => {
         setShowCreateSecretModal(true);
     };
 
+    const handleCreatePool = () => {
+        setShowCreatePoolModal(true);
+    };
+
     const TabTypeToListComponent = {
         [TabType.Sources]: (
             <IngestionSourceList
@@ -120,7 +127,13 @@ export const ManageIngestionPage = () => {
             <SecretsList showCreateModal={showCreateSecretModal} setShowCreateModal={setShowCreateSecretModal} />
         ),
         // SaaS only
-        [TabType.RemoteExecutors]: <RemoteExecutorPoolsList onSwitchTab={onSwitchTab} />,
+        [TabType.RemoteExecutors]: (
+            <RemoteExecutorPoolsList
+                onSwitchTab={onSwitchTab}
+                showCreatePoolModal={showCreatePoolModal}
+                setShowCreatePoolModal={setShowCreatePoolModal}
+            />
+        ),
     };
 
     return (
@@ -148,6 +161,17 @@ export const ManageIngestionPage = () => {
                     {selectedTab === TabType.Secrets && showSecretsTab && (
                         <Button variant="filled" onClick={handleCreateSecret} data-testid="create-secret-button">
                             <PlusOutlined style={{ marginRight: '4px' }} /> Create new secret
+                        </Button>
+                    )}
+
+                    {selectedTab === TabType.RemoteExecutors && showRemoteExecutorsTab && canManagePools && (
+                        <Button
+                            variant="filled"
+                            onClick={handleCreatePool}
+                            data-testid="create-pool-button"
+                            id={REMOTE_EXECUTORS_CREATE_SOURCE_ID}
+                        >
+                            <PlusOutlined style={{ marginRight: '4px' }} /> Create new pool
                         </Button>
                     )}
                 </HeaderActionsContainer>

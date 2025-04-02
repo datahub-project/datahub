@@ -11,6 +11,7 @@ import { CLI_EXECUTOR_ID, getIngestionSourceStatus } from './utils';
 import { LastStatusColumn, TypeColumn, ActionsColumn, ScheduleColumn } from './IngestionSourceTableColumns';
 import { IngestionSource } from '../../../types.generated';
 import { IngestionSourceExecutionList } from './executions/IngestionSourceExecutionList';
+import { getDisplayablePoolId } from '../executor_saas/utils';
 
 const PAGE_HEADER_HEIGHT = 395;
 
@@ -96,7 +97,7 @@ function IngestionSourceTable({
             source.executions?.executionRequests?.length > 0 &&
             getIngestionSourceStatus(source.executions?.executionRequests[0]?.result),
         cliIngestion: source.config?.executorId === CLI_EXECUTOR_ID,
-        poolName: source.config.executorId, // SaaS only
+        executorPoolId: source.config.executorId, // SaaS only
     }));
 
     const tableColumns = [
@@ -128,9 +129,9 @@ function IngestionSourceTable({
                       dataIndex: 'x',
                       key: 'x',
                       render: (_, record: (typeof tableData)[0]) =>
-                          record.poolName && !record.cliIngestion ? (
-                              <LinkButton onClick={() => saasProps.onViewPool(record.poolName)}>
-                                  {record.poolName}
+                          record.executorPoolId && !record.cliIngestion ? (
+                              <LinkButton onClick={() => saasProps.onViewPool(record.executorPoolId)}>
+                                  {getDisplayablePoolId({ executorPoolId: record.executorPoolId })}
                               </LinkButton>
                           ) : (
                               <span>{record.cliIngestion ? 'N/A' : 'Unknown'}</span>

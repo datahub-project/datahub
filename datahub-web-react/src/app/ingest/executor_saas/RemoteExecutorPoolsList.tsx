@@ -9,12 +9,11 @@ import {
 } from '@src/graphql/remote_executor.saas.generated';
 import { Button, SearchBar } from '@components';
 import { Pagination } from 'antd';
-import { ArrowClockwise, Plus } from 'phosphor-react';
+import { ArrowClockwise } from 'phosphor-react';
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { RemoteExecutorPool } from '@src/types.generated';
 import { useQueryParamValue } from '@src/app/entityV2/shared/useQueryParamValue';
-import { useUserContext } from '@src/app/context/useUserContext';
 import { useHistory } from 'react-router';
 import { INGESTION_TAB_QUERY_PARAMS } from '../constants';
 import { TabType } from '../types';
@@ -23,15 +22,11 @@ import CreateRemoteExecutorPoolModal from './CreateRemoteExecutorPoolModal';
 import { RemoteExecutorPoolProvisioningPreviewModal } from './RemoteExecutorPoolProvisioningPreviewModal';
 
 const DEFAULT_PAGE_SIZE = 25;
-const REMOTE_EXECUTORS_CREATE_SOURCE_ID = 'REMOTE_EXECUTORS_CREATE_SOURCE_ID';
+export const REMOTE_EXECUTORS_CREATE_SOURCE_ID = 'REMOTE_EXECUTORS_CREATE_SOURCE_ID';
 const REMOTE_EXECUTORS_REFRESH_SOURCE_ID = 'REMOTE_EXECUTORS_REFRESH_SOURCE_ID';
 
 const ExecutorsContainer = styled.div``;
 
-const PlusStyled = styled(Plus)`
-    position: relative;
-    top: 2px;
-`;
 const ArrowClockwiseStyled = styled(ArrowClockwise)`
     position: relative;
     top: 2px;
@@ -72,12 +67,11 @@ const PaginationContainer = styled.div`
 
 type Props = {
     onSwitchTab: (tab: string) => void;
+    showCreatePoolModal: boolean;
+    setShowCreatePoolModal: (show: boolean) => void;
 };
 
-export const RemoteExecutorPoolsList = ({ onSwitchTab }: Props) => {
-    const me = useUserContext();
-    const canManagePools = me.platformPrivileges?.manageIngestion;
-
+export const RemoteExecutorPoolsList = ({ onSwitchTab, showCreatePoolModal, setShowCreatePoolModal }: Props) => {
     const defaultQuery = useQueryParamValue('pool');
 
     // ---------------------- load & search data ---------------------- //
@@ -117,12 +111,6 @@ export const RemoteExecutorPoolsList = ({ onSwitchTab }: Props) => {
     const [updateDefaultPoolMutation] = useUpdateDefaultRemoteExecutorPoolMutation();
     const updateDefaultPool = (urn: string) => {
         updateDefaultPoolMutation({ variables: { urn } }).then(onRefresh);
-    };
-
-    // ---------------------- create pools ---------------------- //
-    const [showCreatePoolModal, setShowCreatePoolModal] = useState(false);
-    const onCreatePool = () => {
-        setShowCreatePoolModal(true);
     };
 
     // ---------------------- view pool provisioning status ---------------------- //
@@ -172,12 +160,6 @@ export const RemoteExecutorPoolsList = ({ onSwitchTab }: Props) => {
                         <StyledSearchBar placeholder="Search pools..." value={query || ''} onChange={handleSearch} />
                     </SearchContainer>
                     <RefreshButtonContainer>
-                        {canManagePools && (
-                            <Button id={REMOTE_EXECUTORS_CREATE_SOURCE_ID} variant="text" onClick={onCreatePool}>
-                                <PlusStyled />
-                                <span style={{ marginLeft: 4 }}>Create</span>
-                            </Button>
-                        )}
                         <Button id={REMOTE_EXECUTORS_REFRESH_SOURCE_ID} variant="text" onClick={onRefresh}>
                             <ArrowClockwiseStyled /> <span style={{ marginLeft: 4 }}>Refresh</span>
                         </Button>

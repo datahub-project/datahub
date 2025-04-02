@@ -1,5 +1,5 @@
 import { EMBEDDED_EXECUTOR_POOL_NAME } from '@src/app/shared/constants';
-import { RemoteExecutor, RemoteExecutorPool } from '@src/types.generated';
+import { RemoteExecutor, RemoteExecutorPool, RemoteExecutorPoolStatus } from '@src/types.generated';
 
 export const EXECUTOR_STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -30,4 +30,19 @@ export const checkIsExecutorStale = (
         !executor.executorStopped &&
         !executor.executorExpired
     );
+};
+
+export const provisioningStatusToLabel = (status?: RemoteExecutorPoolStatus) => {
+    switch (status) {
+        case RemoteExecutorPoolStatus.ProvisioningPending:
+            return 'Provisioning queued';
+        case RemoteExecutorPoolStatus.ProvisioningFailed:
+            return 'Provisioning failed';
+        case RemoteExecutorPoolStatus.ProvisioningInProgress:
+            return 'Provisioning...';
+        case RemoteExecutorPoolStatus.Ready:
+            return 'Provisioned';
+        default:
+            return 'Needs provisioning';
+    }
 };
