@@ -1,11 +1,9 @@
-import { blue } from '@ant-design/colors';
-import { DiffOutlined } from '@ant-design/icons';
-import { colors, Modal, Text } from '@components';
+import { Button, colors, Modal, Text } from '@components';
 import MDEditor from '@uiw/react-md-editor';
-import { Button } from 'antd';
 import DOMPurify from 'dompurify';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
+import { GitDiff } from 'phosphor-react';
 import { ActionRequest, ActionRequestStatus } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import CreatedByView from '../CreatedByView';
@@ -14,8 +12,6 @@ import DescriptionDifferenceModal from './DescriptionDifferenceModal';
 import { ContentWrapper } from '../styledComponents';
 
 export const ViewDocumentationButton = styled(Button)`
-    color: ${blue[5]};
-    margin-left: 5px;
     padding: 4px 8px;
 `;
 
@@ -56,9 +52,9 @@ function UpdateDescriptionRequestItem({ actionRequest }: Props) {
                 requests to update the description on {entityName}{' '}
             </Text>
             <RequestTargetEntityView actionRequest={actionRequest} />
-            <ViewDocumentationButton type="text" onClick={handleClick}>
-                <DiffOutlined />
-                {isRequestPending ? 'View difference' : 'View description'}
+            <ViewDocumentationButton variant="text" onClick={handleClick}>
+                <GitDiff size={16} color={colors.gray[500]} />
+                <Text color="gray">{isRequestPending ? 'View difference' : 'View description'}</Text>
             </ViewDocumentationButton>
             {isDiffModalVisible && (
                 <DescriptionDifferenceModal

@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { useEntityData } from '../../../../entity/shared/EntityContext';
 import TabHeader from '../../../../entity/shared/tabs/Properties/TabHeader';
-import { PropertyRow } from '../../../../entity/shared/tabs/Properties/types';
+import { PropertyRow, PropertyTableRow } from '../../../../entity/shared/tabs/Properties/types';
 import useUpdateExpandedRowsFromFilter from '../../../../entity/shared/tabs/Properties/useUpdateExpandedRowsFromFilter';
 import {
     getFilteredCustomProperties,
@@ -18,6 +18,8 @@ import NameColumn from './NameColumn';
 import ValuesColumn from './ValuesColumn';
 import { useHydratedEntityMap } from './useHydratedEntityMap';
 import useStructuredProperties from './useStructuredProperties';
+import { useGetProposedProperties } from './useGetProposedProperties';
+import { useGetOnlyProposalRows } from '../../useGetOnlyProposalRows';
 
 const StyledTable = styled(Table)`
     &&& .ant-table-cell-with-append {
@@ -65,36 +67,86 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
     // only show entity custom properties on entity level, not on field level
     const customProperties = !fieldPath ? getFilteredCustomProperties(filterText, entityData) || [] : [];
     const customPropertyRows = mapCustomPropertiesToPropertyRows(customProperties);
-    const dataSource: PropertyRow[] = structuredPropertyRows
+
+    const { proposedRows } = useGetProposedProperties({ fieldPath });
+
+    const dataSource: PropertyTableRow[] = structuredPropertyRows
         .concat(customPropertyRows)
-        .filter((row) => !row.structuredProperty?.settings?.isHidden);
+        .filter((row) => !row.structuredProperty?.settings?.isHidden)
+        .map((row) => {
+            const proposedPropertyRows = proposedRows.filter(
+                (proposedRow) => proposedRow?.structuredProperty?.urn === row?.structuredProperty?.urn,
+            );
+
+            return {
+                mainRow: row,
+                proposedRows: proposedPropertyRows,
+            };
+        });
+
+    const onlyProposedRowsData = useGetOnlyProposalRows(dataSource, proposedRows);
+
+    const finalDataSource = [...dataSource, ...onlyProposedRowsData];
 
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
     useUpdateExpandedRowsFromFilter({ expandedRowsFromFilter, setExpandedRows });
 
-    const entityUrnsToHydrate = structuredPropertyRowsRaw
-        .flatMap((row) => row?.values?.map((v) => (typeof v?.value === 'string' ? v.value : null)))
+    const entityUrnsToHydrate =
+        structuredPropertyRowsRaw.flatMap((row) => row?.values?.map((v) => v.entity?.urn)).filter(Boolean) ?? [];
+
+    const proposedEntityUrns = proposedRows
+        .flatMap((proposedRow) => {
+            const { values } = proposedRow;
+            return values.map((value) => value.entity?.urn);
+        })
         .filter(Boolean);
 
-    const hydratedEntityMap = useHydratedEntityMap(entityUrnsToHydrate);
+    const hydratedEntityMap = useHydratedEntityMap(entityUrnsToHydrate.concat(proposedEntityUrns));
 
     const propertyTableColumns = [
         {
             width: 210,
             title: 'Name',
-            render: (propertyRow: PropertyRow) => <NameColumn propertyRow={propertyRow} filterText={filterText} />,
+            render: (propertyRow: PropertyTableRow) => {
+                const doesExist = !!(propertyRow.mainRow || propertyRow.proposedRows);
+                return (
+                    <>
+                        {doesExist && (
+                            <NameColumn
+                                propertyRow={(propertyRow.mainRow || propertyRow.proposedRows?.[0]) as PropertyRow}
+                                filterText={filterText}
+                            />
+                        )}
+                    </>
+                );
+            },
         },
         {
             title: 'Value',
             ellipsis: true,
-            render: (propertyRow: PropertyRow) => (
-                <ValuesColumn
-                    propertyRow={propertyRow}
-                    filterText={filterText}
-                    hydratedEntityMap={hydratedEntityMap}
-                    renderType={renderType}
-                />
+            render: (propertyRow: PropertyTableRow) => (
+                <>
+                    {propertyRow.mainRow && (
+                        <ValuesColumn
+                            propertyRow={propertyRow.mainRow}
+                            filterText={filterText}
+                            hydratedEntityMap={hydratedEntityMap}
+                            renderType={renderType}
+                        />
+                    )}
+                    {propertyRow.proposedRows?.map((proposedRow) => {
+                        return (
+                            <ValuesColumn
+                                propertyRow={proposedRow}
+                                filterText={filterText}
+                                hydratedEntityMap={hydratedEntityMap}
+                                renderType={renderType}
+                                isProposed
+                            />
+                        );
+                    })}
+                </>
             ),
         },
     ];
@@ -106,15 +158,18 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
         propertyTableColumns.push({
             title: '',
             width: '10%',
-            render: (propertyRow: PropertyRow) => (
-                <EditColumn
-                    structuredProperty={propertyRow.structuredProperty}
-                    associatedUrn={propertyRow.associatedUrn}
-                    values={propertyRow.values?.map((v) => v.value) || []}
-                    refetch={refetch}
-                    fieldEntity={fieldEntity}
-                />
-            ),
+            render: (propertyRow: PropertyTableRow) => {
+                const row = propertyRow.mainRow || propertyRow.proposedRows?.[0];
+                return (
+                    <EditColumn
+                        structuredProperty={row?.structuredProperty}
+                        associatedUrn={row?.associatedUrn}
+                        values={propertyRow.mainRow?.values?.map((v) => v.value) || []}
+                        refetch={refetch}
+                        fieldEntity={fieldEntity}
+                    />
+                );
+            },
         } as any);
     }
 
@@ -132,7 +187,7 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
                 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                 // @ts-ignore
                 columns={propertyTableColumns}
-                dataSource={dataSource}
+                dataSource={finalDataSource}
                 locale={{
                     emptyText: <EmptyText description="No properties found" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                 }}
@@ -144,10 +199,21 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
                     expandIcon: (props) => <ExpandIcon {...props} isCompact />,
                     onExpand: (expanded, record) => {
                         if (expanded) {
-                            setExpandedRows((previousRows) => new Set(previousRows.add(record.qualifiedName)));
+                            setExpandedRows(
+                                (previousRows) =>
+                                    new Set(
+                                        previousRows.add(
+                                            record.mainRow?.qualifiedName ||
+                                                record.proposedRows?.[0]?.qualifiedName ||
+                                                '',
+                                        ),
+                                    ),
+                            );
                         } else {
                             setExpandedRows((previousRows) => {
-                                previousRows.delete(record.qualifiedName);
+                                previousRows.delete(
+                                    record.mainRow?.qualifiedName || record.proposedRows?.[0]?.qualifiedName || '',
+                                );
                                 return new Set(previousRows);
                             });
                         }

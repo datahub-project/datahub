@@ -1,8 +1,7 @@
 import { colors } from '@src/alchemy-components';
-import { CreatedByContainer } from '@src/app/govern/structuredProperties/styledComponents';
 import { CustomAvatar } from '@src/app/shared/avatar';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { ActionRequest, EntityType } from '@src/types.generated';
+import { ActionRequest, ActionRequestResult, EntityType } from '@src/types.generated';
 import { UsersThree } from 'phosphor-react';
 import React from 'react';
 import { Link } from 'react-router-dom';
@@ -26,6 +25,19 @@ const EntityName = styled.div`
     color: ${colors.gray[1700]};
 `;
 
+export const CreatedByContainer = styled.div<{ $isApproved?: boolean }>`
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px 2px 4px;
+    border-radius: 20px;
+    border: 1px ${(props) => (props.$isApproved ? 'solid' : 'dashed')} ${colors.gray[200]};
+
+    :hover {
+        cursor: pointer;
+    }
+`;
+
 interface Props {
     actionRequest: ActionRequest;
 }
@@ -45,7 +57,7 @@ const OwnerAssociationRequestItem = ({ actionRequest }: Props) => {
             primary: (
                 <Link to={`${entityRegistry.getEntityUrl(owner.type, owner?.urn)}`}>
                     {owner.type === EntityType.CorpUser ? (
-                        <CreatedByContainer>
+                        <CreatedByContainer $isApproved={actionRequest.result === ActionRequestResult.Accepted}>
                             <CustomAvatar
                                 size={16}
                                 photoUrl={avatarUrl}
@@ -55,7 +67,7 @@ const OwnerAssociationRequestItem = ({ actionRequest }: Props) => {
                             <EntityName>{entityRegistry.getDisplayName(owner.type, owner)}</EntityName>
                         </CreatedByContainer>
                     ) : (
-                        <CreatedByContainer>
+                        <CreatedByContainer $isApproved={actionRequest.result === ActionRequestResult.Accepted}>
                             <UsersThree size="14" color={colors.gray[1700]} />
                             <EntityName>{entityRegistry.getDisplayName(EntityType.CorpGroup, owner)}</EntityName>
                         </CreatedByContainer>

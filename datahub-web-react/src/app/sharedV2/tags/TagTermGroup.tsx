@@ -1,10 +1,11 @@
-import { ClockCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { PlusOutlined } from '@ant-design/icons';
 import { StyledTag } from '@app/entityV2/shared/components/styled/StyledTag';
 import { Tag as AntTag, Typography, message } from 'antd';
-import { Tooltip } from '@components';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
+import ProposedIcon from '@src/app/entityV2/shared/sidebarSection/ProposedIcon';
+import { colors } from '@src/alchemy-components';
 import { useAcceptProposalsMutation, useRejectProposalsMutation } from '../../../graphql/actionRequest.generated';
 import { ActionRequest, Domain as DomainEntity, EntityType, GlobalTags, GlossaryTerms } from '../../../types.generated';
 import { ANTD_GRAY, EMPTY_MESSAGES } from '../../entity/shared/constants';
@@ -79,7 +80,7 @@ const ProposedTermContainer = styled.div`
 
     .ant-tag.ant-tag {
         border-radius: 5px;
-        border: 1px dashed #ccd1dd;
+        border: 1px dashed ${colors.gray[200]};
     }
 `;
 
@@ -90,13 +91,17 @@ export const ProposedTerm = styled(AntTag)`
     color: ${REDESIGN_COLORS.TEXT_HEADING};
     position: relative;
     overflow: hidden;
-    border: 1px dashed;
+    border: 1px dashed ${colors.gray[200]};
     display: flex;
     align-items: center;
 `;
 
 export const ProposedTag = styled(StyledTag)`
-    border: 1px dashed;
+    border: 1px dashed ${colors.gray[200]};
+`;
+
+export const ProposedTagContent = styled.span`
+    display: flex;
 `;
 
 const ProposedTermText = styled.span`
@@ -284,6 +289,11 @@ export default function TagTermGroup({
                 );
             })}
             {proposedGlossaryTerms?.map((actionRequest) => {
+                renderedTerms += 1;
+                if (showOneAndCount && renderedTerms === 2) {
+                    return <Count>{`+${termsLength - 1}`}</Count>;
+                }
+                if (showOneAndCount && renderedTerms > 2) return null;
                 const proposedTerm =
                     actionRequest.params?.glossaryTermProposal?.glossaryTerm ||
                     actionRequest.params?.glossaryTermProposal?.glossaryTerms?.[0];
@@ -321,9 +331,7 @@ export default function TagTermGroup({
                                             proposedTerm,
                                         )}
                                     />
-                                    <Tooltip overlay="Proposed Term - Pending Approval" showArrow={false}>
-                                        <ClockCircleOutlined style={{ color: ANTD_GRAY[7], marginLeft: '5px' }} />
-                                    </Tooltip>
+                                    <ProposedIcon propertyName="Term" />
                                 </ProposedTerm>
                             </ProposedTermContainer>
                         )}
@@ -386,6 +394,12 @@ export default function TagTermGroup({
                 );
             })}
             {proposedTags?.map((actionRequest) => {
+                renderedTags += 1;
+                if (showOneAndCount && renderedTags === 2) {
+                    return <Count>{`+${tagsLength - 1}`}</Count>;
+                }
+                if (showOneAndCount && renderedTags > 2) return null;
+
                 const proposedTag =
                     actionRequest?.params?.tagProposal?.tag || actionRequest?.params?.tagProposal?.tags?.[0];
 
@@ -402,7 +416,7 @@ export default function TagTermGroup({
                                     setShowProposalDecisionModal(true);
                                 }}
                             >
-                                <span>
+                                <ProposedTagContent>
                                     {entityRegistry.getDisplayName(EntityType.Tag, proposedTag)}
                                     <ProposalModal
                                         actionRequest={actionRequest}
@@ -413,10 +427,8 @@ export default function TagTermGroup({
                                         onActionRequestUpdate={onActionRequestUpdate}
                                         elementName={proposedTag?.properties?.name}
                                     />
-                                    <Tooltip overlay="Proposed Tag - Pending Approval" showArrow={false}>
-                                        <ClockCircleOutlined style={{ color: ANTD_GRAY[7], marginLeft: '5px' }} />
-                                    </Tooltip>
-                                </span>
+                                    <ProposedIcon propertyName="Tag" />
+                                </ProposedTagContent>
                             </ProposedTag>
                         )}
                     </>

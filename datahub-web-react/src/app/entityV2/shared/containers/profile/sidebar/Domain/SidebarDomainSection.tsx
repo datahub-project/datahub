@@ -7,6 +7,7 @@ import { getProposedItemsByType } from '@src/app/entityV2/shared/utils';
 import { ActionRequestType, EntityType } from '@src/types.generated';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { colors } from '@src/alchemy-components';
+import ProposedIcon from '@src/app/entityV2/shared/sidebarSection/ProposedIcon';
 import { EMPTY_MESSAGES } from '../../../../constants';
 import { useEntityData, useMutationUrn, useRefetch } from '../../../../../../entity/shared/EntityContext';
 import { SetDomainModal } from './SetDomainModal';
@@ -23,22 +24,19 @@ const Content = styled.div`
     justify-content: start;
     flex-wrap: wrap;
     text-wrap: wrap;
+    gap: 8px;
 `;
 
 const DomainLinkWrapper = styled.div`
-    margin-right: 12px;
-    margin-bottom: 4px;
     display: flex;
     align-items: center;
 `;
 
 const ProposedDomain = styled.div`
-    margin-right: 12px;
-    margin-bottom: 4px;
     display: flex;
     align-items: center;
     padding: 3px;
-    border-radius: 8px;
+    border-radius: 12px;
     border: 1px dashed ${colors.gray[200]};
     color: ${colors.gray[500]};
 `;
@@ -127,6 +125,7 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                                         closable={false}
                                         iconSize={24}
                                     />
+                                    <ProposedIcon propertyName="Domain" />
                                 </ProposedDomain>
                             );
                         })}

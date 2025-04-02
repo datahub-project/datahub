@@ -58,7 +58,7 @@ export function DomainContent({ domain, name, closable, onClose, tagStyle, fontS
 
     return (
         <StyledTag style={tagStyle} fontSize={fontSize}>
-            <DomainColoredIcon domain={domain} size={iconSize || 28} />
+            <DomainColoredIcon domain={domain} size={iconSize || 28} fontSize={16} />
             {displayName}
             {closable && (
                 <CloseButton onClick={onClose}>

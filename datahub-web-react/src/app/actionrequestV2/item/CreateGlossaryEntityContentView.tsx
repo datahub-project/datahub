@@ -1,15 +1,14 @@
-import { FileTextOutlined } from '@ant-design/icons';
-import { Text } from '@components';
+import { colors, Text } from '@components';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { ActionRequest, EntityType, GlossaryNode } from '@src/types.generated';
 import MDEditor from '@uiw/react-md-editor';
 import { Modal } from 'antd';
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
+import { FileText } from 'phosphor-react';
 import CreatedByView from './CreatedByView';
 import { ViewDocumentationButton } from './updateDescription/UpdateDescriptionRequestItem';
-import { ContentWrapper } from './styledComponents';
+import { ContentWrapper, StyledLink } from './styledComponents';
 
 const NameWrapper = styled.span`
     font-weight: bold;
@@ -38,17 +37,16 @@ function CreateGlossaryEntityContentView({ proposedName, actionRequest, entityNa
                 <Text color="gray">
                     {' '}
                     under parent&nbsp;
-                    <Link to={`/${entityRegistry.getPathName(EntityType.GlossaryNode)}/${parentNode.urn}`}>
-                        <Text weight="bold" type="span">
-                            {entityRegistry.getDisplayName(EntityType.GlossaryNode, parentNode)}
-                        </Text>
-                    </Link>
+                    <StyledLink to={`/${entityRegistry.getPathName(EntityType.GlossaryNode)}/${parentNode.urn}`}>
+                        <Text type="span">{entityRegistry.getDisplayName(EntityType.GlossaryNode, parentNode)}</Text>
+                    </StyledLink>
                 </Text>
             )}
             {!parentNode && <Text color="gray"> at the root level</Text>}
             {description && (
-                <ViewDocumentationButton type="text" onClick={() => setIsDocumentationModalVisible(true)}>
-                    <FileTextOutlined /> View documentation
+                <ViewDocumentationButton variant="text" onClick={() => setIsDocumentationModalVisible(true)}>
+                    <FileText size={16} color={colors.gray[500]} />
+                    <Text color="gray"> View documentation</Text>
                 </ViewDocumentationButton>
             )}
             {isDocumentationModalVisible && (

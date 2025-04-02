@@ -11,6 +11,7 @@ interface Props {
     filterText?: string;
     hydratedEntityMap?: Record<string, Entity>;
     renderType: TabRenderType;
+    isProposed?: boolean;
 }
 
 const ValuesContainerFlex = styled.div<{ renderType: TabRenderType }>`
@@ -26,7 +27,7 @@ const ValueContainer = styled.div`
     flex: 0 1 auto;
 `;
 
-export default function ValuesColumn({ propertyRow, filterText, hydratedEntityMap, renderType }: Props) {
+export default function ValuesColumn({ propertyRow, filterText, hydratedEntityMap, renderType, isProposed }: Props) {
     const { values } = propertyRow;
     const isRichText = propertyRow.dataType?.info?.type === StdDataType.RichText;
 
@@ -40,6 +41,7 @@ export default function ValuesColumn({ propertyRow, filterText, hydratedEntityMa
                             isRichText={isRichText}
                             filterText={filterText}
                             hydratedEntityMap={hydratedEntityMap}
+                            isProposed={isProposed}
                         />
                     </ValueContainer>
                 ))

@@ -1,6 +1,7 @@
 import { Tag } from 'antd';
 import styled, { css } from 'styled-components';
 import ColorHash from 'color-hash';
+import { colors } from '@src/alchemy-components';
 import { REDESIGN_COLORS } from '../../../../entityV2/shared/constants';
 
 export const generateColor = new ColorHash({
@@ -13,11 +14,12 @@ export const StyledTag = styled(Tag)<{
     fontSize?: number;
     $highlightTag?: boolean;
     noMargin?: boolean;
+    $isApproved?: boolean;
 }>`
     display: inline-flex;
     align-items: center;
     border-radius: 5px !important;
-    border: 1px dashed #ccd1dd;
+    border: 1px ${(props) => (props.$isApproved ? 'solid' : 'dashed')} ${colors.gray[200]};
     padding: 2px 8px;
     ${(props) => !props.noMargin && `margin-bottom: 7px;`}
     > span {

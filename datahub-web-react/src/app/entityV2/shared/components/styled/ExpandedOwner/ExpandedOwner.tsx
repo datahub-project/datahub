@@ -11,6 +11,7 @@ import analytics, { EventType, EntityActionType } from '../../../../../analytics
 import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import OwnerContent from './OwnerContent';
 import { useEmbeddedProfileLinkProps } from '../../../../../shared/useEmbeddedProfileLinkProps';
+import ProposedIcon from '../../../sidebarSection/ProposedIcon';
 
 const OwnerTag = styled(Tag)<{ $isProposedOwner?: boolean }>`
     padding: 1px;
@@ -20,7 +21,7 @@ const OwnerTag = styled(Tag)<{ $isProposedOwner?: boolean }>`
     display: inline-flex;
     align-items: center;
     font-weight: 600;
-    border-color: #9da7c0 !important;
+    border-color: ${colors.gray[200]} !important;
     padding: 2px 6px 2px 3px;
     max-width: inherit;
     border: ${(props) => props.$isProposedOwner && `1px dashed ${colors.gray[200]} !important`};
@@ -124,6 +125,7 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
                     />
                 </StyledLink>
             )}
+            {isProposedOwner && <ProposedIcon propertyName="Owner" />}
         </OwnerTag>
     );
 };

@@ -6,12 +6,14 @@ import { Typography } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
+import { colors } from '@src/alchemy-components';
 import ExternalLink from '../../../../../images/link-out.svg?react';
 import EntityIcon from '../../../../entity/shared/components/styled/EntityIcon';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import { ANTD_GRAY } from '../../constants';
 import CompactMarkdownViewer from '../Documentation/components/CompactMarkdownViewer';
 import { ValueColumnData } from './types';
+import ProposedIcon from '../../sidebarSection/ProposedIcon';
 
 const ValueText = styled(Typography.Text)<{ size: number }>`
     font-family: 'Manrope';
@@ -34,9 +36,40 @@ const IconWrapper = styled.span`
     display: flex;
 `;
 
-const EntityWrapper = styled.div`
+const EntityWrapper = styled.div<{ $isProposed?: boolean }>`
     display: flex;
     align-items: center;
+    ${(props) =>
+        props.$isProposed &&
+        `
+    border: 1px dashed ${colors.gray[200]};
+    padding: 2px 4px;
+    margin: 2px 0;
+    border-radius: 200px;
+    background-color: ${colors.white};
+    `}
+`;
+
+const BorderedContainer = styled.div<{ $isProposed?: boolean }>`
+    ${(props) =>
+        props.$isProposed &&
+        `
+        display: inline-flex;
+        border: 1px dashed ${colors.gray[200]};
+        padding: 2px 6px;
+        margin: 2px 0;
+        border-radius: 200px;
+        background-color: ${colors.white};
+        max-width: 100%;
+        `}
+`;
+
+const Container = styled.div`
+    display: inline-flex;
+`;
+
+const ViewerContainer = styled.div`
+    max-width: calc(100% - 16px);
 `;
 
 const EntityName = styled(Typography.Text)`
@@ -68,6 +101,7 @@ interface Props {
     isFieldColumn?: boolean;
     size?: number;
     hydratedEntityMap?: Record<string, Entity>;
+    isProposed?: boolean;
 }
 
 export default function StructuredPropertyValue({
@@ -78,6 +112,7 @@ export default function StructuredPropertyValue({
     isFieldColumn,
     size = 12,
     hydratedEntityMap,
+    isProposed,
 }: Props) {
     const entityRegistry = useEntityRegistry();
 
@@ -90,17 +125,22 @@ export default function StructuredPropertyValue({
     if (value.entity) {
         if (hydratedEntityMap && hydratedEntityMap[value.entity.urn]) {
             valueEntityRender = (
-                <CompactEntityNameComponent entity={hydratedEntityMap[value.entity.urn]} showFullTooltip />
+                <CompactEntityNameComponent
+                    entity={hydratedEntityMap[value.entity.urn]}
+                    showFullTooltip={!isProposed}
+                    isProposed={isProposed}
+                />
             );
         } else {
             valueEntityRender = (
-                <EntityWrapper>
+                <EntityWrapper $isProposed={isProposed}>
                     <IconWrapper>
                         <EntityIcon entity={value.entity} size={size} />
                     </IconWrapper>
                     <EntityName ellipsis={{ tooltip: true }}>
                         {entityRegistry.getDisplayName(value.entity.type, value.entity)}
                     </EntityName>
+                    {isProposed && <ProposedIcon propertyName="Entity" />}
                     <Typography.Link href={getEntityLink(value.entity)} target="_blank" rel="noopener noreferrer">
                         <StyledIcon component={ExternalLink} />
                     </Typography.Link>
@@ -114,14 +154,19 @@ export default function StructuredPropertyValue({
             {value.entity ? (
                 valueEntityRender
             ) : (
-                <>
+                <BorderedContainer $isProposed={isProposed}>
                     {isRichText ? (
-                        <CompactMarkdownViewer
-                            content={value.value?.toString() ?? ''}
-                            lineLimit={isFieldColumn ? 1 : undefined}
-                            hideShowMore={isFieldColumn}
-                            scrollableY={!isFieldColumn}
-                        />
+                        <Container>
+                            <ViewerContainer>
+                                <CompactMarkdownViewer
+                                    content={value.value?.toString() ?? ''}
+                                    lineLimit={isFieldColumn ? 1 : undefined}
+                                    hideShowMore={isFieldColumn}
+                                    scrollableY={!isFieldColumn}
+                                />
+                            </ViewerContainer>
+                            {isProposed && <ProposedIcon propertyName="property value" />}
+                        </Container>
                     ) : (
                         <>
                             {truncateText ? (
@@ -133,9 +178,10 @@ export default function StructuredPropertyValue({
                                     {value.value?.toString() || <div style={{ minHeight: 22 }} />}
                                 </StyledHighlight>
                             )}
+                            {isProposed && <ProposedIcon propertyName="property value" />}
                         </>
                     )}
-                </>
+                </BorderedContainer>
             )}
         </ValueText>
     );

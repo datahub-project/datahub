@@ -40,7 +40,7 @@ export const useGetColumns = ({ onActionRequestUpdate, showPendingView }: Props)
             render: (record) => {
                 return <>{record.description}</>;
             },
-            width: '25%',
+            width: '20%',
         },
         {
             title: '',

@@ -8,7 +8,7 @@ export const useGetStructuredPropColumns = (properties: SearchResult[] | undefin
         return properties?.map((prop) => {
             const name = getDisplayName(prop.entity as StructuredPropertyEntity);
             return {
-                width: 120,
+                width: 150,
                 title: name,
                 dataIndex: 'schemaFieldEntity',
                 key: prop.entity.urn,

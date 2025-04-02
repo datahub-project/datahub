@@ -1,42 +1,50 @@
-import { Tooltip } from '@components';
+import { colors, Tooltip } from '@components';
 import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
 import { Divider, Image, Tag } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+import ProposedIcon from '@src/app/entityV2/shared/sidebarSection/ProposedIcon';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 
-const EntityTag = styled(Tag)`
+const EntityTag = styled(Tag)<{ $isProposed?: boolean }>`
     margin: 4px;
     max-width: inherit;
+    border-color: ${colors.gray[200]} !important;
+
+    ${(props) =>
+        props.$isProposed &&
+        `
+            border: 1px dashed ${colors.gray[200]};
+        `}
 `;
 
 const TitleContainer = styled.div`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 4px;
+    padding: 2px 4px;
     max-width: inherit;
 `;
 
 const IconContainer = styled.span`
-    padding-left: 4px;
-    padding-right: 4px;
+    padding-left: 3px;
+    padding-right: 3px;
     display: flex;
     align-items: center;
 `;
 
 const PlatformLogo = styled(Image)`
-    max-height: 16px;
+    max-height: 12px;
     width: auto;
     object-fit: contain;
     background-color: transparent;
 `;
 
 const DisplayNameContainer = styled.span`
-    padding-left: 4px;
-    padding-right: 4px;
+    padding-left: 2px;
+    padding-right: 2px;
     overflow: hidden;
     display: flex;
     align-items: center;
@@ -60,6 +68,11 @@ const StyledLink = styled(Link)`
     max-width: inherit;
 `;
 
+const ProposedIconContainer = styled.div`
+    display: flex;
+    align-items: center;
+`;
+
 type Props = {
     displayName: string;
     url: string;
@@ -70,6 +83,7 @@ type Props = {
     columnName?: string;
     dataTestId?: string;
     showNameTooltip?: boolean;
+    isProposed?: boolean;
 };
 
 const constructExternalUrl = (url) => {
@@ -91,13 +105,14 @@ export const EntityPreviewTag = ({
     columnName,
     dataTestId,
     showNameTooltip = true,
+    isProposed,
 }: Props) => {
     const externalUrl = constructExternalUrl(url);
     const linkProps = useEmbeddedProfileLinkProps();
 
-    return (
-        <StyledLink to={externalUrl} {...linkProps} onClick={onClick} data-testid={dataTestId}>
-            <EntityTag>
+    const renderTag = () => {
+        return (
+            <EntityTag $isProposed={isProposed}>
                 <TitleContainer>
                     <IconContainer>
                         {(!!platformLogoUrl && !platformLogoUrls && (
@@ -122,8 +137,28 @@ export const EntityPreviewTag = ({
                             </Tooltip>
                         )}
                     </DisplayNameContainer>
+                    <ProposedIconContainer>
+                        {isProposed && <ProposedIcon propertyName="Entity" />}
+                    </ProposedIconContainer>
                 </TitleContainer>
             </EntityTag>
-        </StyledLink>
+        );
+    };
+
+    return (
+        <>
+            {isProposed ? (
+                <>{renderTag()}</>
+            ) : (
+                <StyledLink
+                    to={externalUrl}
+                    {...linkProps}
+                    onClick={!isProposed ? onClick : undefined}
+                    data-testid={dataTestId}
+                >
+                    {renderTag()}
+                </StyledLink>
+            )}
+        </>
     );
 };

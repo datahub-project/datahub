@@ -24,3 +24,8 @@ export interface PropertyRow {
     structuredProperty?: StructuredPropertyEntity;
     associatedUrn?: string;
 }
+
+export interface PropertyTableRow {
+    mainRow?: PropertyRow;
+    proposedRows?: PropertyRow[];
+}

@@ -1,3 +1,5 @@
+import { colors } from '@src/alchemy-components';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 export const ContentWrapper = styled.div`
@@ -6,4 +8,12 @@ export const ContentWrapper = styled.div`
     align-items: center;
     flex-wrap: wrap;
     gap: 6px;
+`;
+
+export const StyledLink = styled(Link)`
+    color: ${colors.violet[500]};
+
+    :hover {
+        color: ${colors.violet[500]};
+    }
 `;

@@ -1,10 +1,8 @@
 import { Text } from '@components';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { ActionRequest } from '../../../types.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { ContentWrapper } from './styledComponents';
+import { ContentWrapper, StyledLink } from './styledComponents';
 
 interface Props {
     actionRequest: ActionRequest;
@@ -21,12 +19,9 @@ function RequestTargetEntityView({ actionRequest }: Props) {
 
     return (
         <ContentWrapper>
-            <Link
-                to={`/${entityRegistry.getPathName(requestTargetEntityType)}/${actionRequest.entity?.urn}`}
-                style={{ color: REDESIGN_COLORS.TITLE_PURPLE }}
-            >
+            <StyledLink to={`/${entityRegistry.getPathName(requestTargetEntityType)}/${actionRequest.entity?.urn}`}>
                 {requestTargetDisplayName}
-            </Link>
+            </StyledLink>
             {!!actionRequest.subResource && (
                 <>
                     <Text color="gray" type="span">

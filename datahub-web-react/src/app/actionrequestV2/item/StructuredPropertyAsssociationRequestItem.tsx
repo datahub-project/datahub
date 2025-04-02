@@ -3,10 +3,11 @@ import { colors } from '@src/alchemy-components';
 import StructuredPropertyValue from '@src/app/entityV2/shared/tabs/Properties/StructuredPropertyValue';
 import { mapStructuredPropertyValues } from '@src/app/entityV2/shared/tabs/Properties/useStructuredProperties';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { ActionRequest, ActionRequestOrigin, EntityType } from '@src/types.generated';
+import { ActionRequest, ActionRequestOrigin, ActionRequestResult, EntityType, StdDataType } from '@src/types.generated';
 import { Popover } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { useHydratedEntityMap } from '@src/app/entityV2/shared/tabs/Properties/useHydratedEntityMap';
 import AiActorLabel from './AiActorLabel';
 import CreatedByView from './CreatedByView';
 import RequestTargetEntityView from './RequestTargetEntityView';
@@ -24,13 +25,17 @@ const ValuesContainerFlex = styled.div`
     align-items: center;
 `;
 
-const ValueContainer = styled.div`
+const ValueContainer = styled.div<{ $isApproved?: boolean }>`
     overflow: hidden;
     display: flex;
     max-width: 200px;
-    border: 1px solid ${colors.gray[100]};
     border-radius: 200px;
     padding: 0px 8px;
+    ${(props) =>
+        !props.$isApproved &&
+        `
+        border: 1px solid ${colors.gray[200]};
+        `}
 `;
 
 const AndOthersText = styled(Text)`
@@ -51,16 +56,19 @@ const StructuredPropertyAssociationRequestItem = ({ actionRequest }: Props) => {
     // Extract structured property from the action request params
     const property = actionRequest.params?.structuredPropertyProposal?.structuredProperties?.[0]?.structuredProperty;
 
+    const proposedPropertyValues =
+        actionRequest.params?.structuredPropertyProposal?.structuredProperties.flatMap((p) => {
+            return mapStructuredPropertyValues(p);
+        }) || [];
+
+    const hydratedEntityMap = useHydratedEntityMap(proposedPropertyValues.map((val) => val.entity?.urn));
+
     // Get the display name for the property using the entity registry
     if (!property) {
         return null;
     }
 
     const propertyName = entityRegistry.getDisplayName(EntityType.StructuredProperty, property);
-    const proposedPropertyValues =
-        actionRequest.params?.structuredPropertyProposal?.structuredProperties.flatMap((p) => {
-            return mapStructuredPropertyValues(p);
-        }) || [];
 
     // Function to truncate the list of values to 1
     const getTruncatedValues = (values) => {
@@ -71,6 +79,9 @@ const StructuredPropertyAssociationRequestItem = ({ actionRequest }: Props) => {
     };
 
     const { firstValue, remainingCount } = getTruncatedValues(proposedPropertyValues);
+
+    const isApproved = actionRequest.result === ActionRequestResult.Accepted;
+    const isRichText = property.definition.valueType.info.type === StdDataType.RichText;
 
     return (
         <ContentWrapper>
@@ -88,8 +99,15 @@ const StructuredPropertyAssociationRequestItem = ({ actionRequest }: Props) => {
             <ValuesContainer>
                 <ValuesContainerFlex>
                     {firstValue && (
-                        <ValueContainer>
-                            <StructuredPropertyValue value={firstValue} size={14} truncateText />
+                        <ValueContainer $isApproved={!isApproved}>
+                            <StructuredPropertyValue
+                                value={firstValue}
+                                size={14}
+                                truncateText
+                                isRichText={isRichText}
+                                isProposed={!isApproved}
+                                hydratedEntityMap={hydratedEntityMap}
+                            />
                         </ValueContainer>
                     )}
                     {remainingCount > 0 && (
@@ -97,8 +115,14 @@ const StructuredPropertyAssociationRequestItem = ({ actionRequest }: Props) => {
                             content={
                                 <ValuesContainerFlex>
                                     {proposedPropertyValues.map((value) => (
-                                        <ValueContainer style={{ margin: 4 }}>
-                                            <StructuredPropertyValue value={value} size={14} />
+                                        <ValueContainer style={{ margin: 4 }} $isApproved={isApproved}>
+                                            <StructuredPropertyValue
+                                                value={value}
+                                                size={14}
+                                                isRichText={isRichText}
+                                                isProposed={!isApproved}
+                                                hydratedEntityMap={hydratedEntityMap}
+                                            />
                                         </ValueContainer>
                                     ))}
                                 </ValuesContainerFlex>

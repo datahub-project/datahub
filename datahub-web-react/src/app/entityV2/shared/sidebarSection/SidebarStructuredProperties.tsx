@@ -16,7 +16,6 @@ import {
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import {
-    ActionRequestType,
     EntityType,
     Maybe,
     SchemaFieldEntity,
@@ -25,8 +24,6 @@ import {
     StructuredPropertyEntity,
 } from '@src/types.generated';
 import React, { useState } from 'react';
-import { colors } from '@src/alchemy-components';
-import styled from 'styled-components';
 import { EMPTY_MESSAGES } from '../constants';
 import EmptySectionText from '../containers/profile/sidebar/EmptySectionText';
 import SectionActionButton from '../containers/profile/sidebar/SectionActionButton';
@@ -35,18 +32,7 @@ import { StyledDivider } from '../tabs/Dataset/Schema/components/SchemaFieldDraw
 import StructuredPropertyValue from '../tabs/Properties/StructuredPropertyValue';
 import { PropertyRow } from '../tabs/Properties/types';
 import { useHydratedEntityMap } from '../tabs/Properties/useHydratedEntityMap';
-import { getProposedItemsByType } from '../utils';
-import { mapStructuredPropertyToPropertyRow } from '../tabs/Properties/useStructuredProperties';
-
-const ProposedValue = styled.span`
-    border: 1px dashed ${colors.gray[200]};
-    border-radius: 8px;
-    padding: 2px 4px;
-    color: ${colors.gray[400]};
-    display: block;
-    width: fit-content;
-    margin: 3px 0;
-`;
+import { useGetProposedProperties } from '../tabs/Properties/useGetProposedProperties';
 
 interface FieldProperties {
     isSchemaSidebar?: boolean;
@@ -103,50 +89,48 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
         ? properties?.fieldEntity?.structuredProperties
         : entityData?.structuredProperties;
 
-    const proposedRequests = getProposedItemsByType(
-        entityData?.proposals || [],
-        ActionRequestType.StructuredPropertyAssociation,
-    );
-
-    const proposedProperties = isSchemaSidebar
-        ? proposedRequests.flatMap(
-              (request) =>
-                  (request.subResource &&
-                      request.subResource === properties?.fieldEntity?.fieldPath &&
-                      request.params?.structuredPropertyProposal?.structuredProperties) ||
-                  [],
-          )
-        : proposedRequests.flatMap(
-              (request) =>
-                  (!request.subResource && request.params?.structuredPropertyProposal?.structuredProperties) || [],
-          );
+    const { proposedRows } = useGetProposedProperties({
+        fieldPath: properties?.fieldEntity?.fieldPath,
+    });
 
     const selectedPropertyValues = selectedProperty
         ? getPropertyRowFromSearchResult(selectedProperty, allProperties)?.values
         : undefined;
 
-    const uniqueEntityUrnsToHydrate = entityTypeProperties?.flatMap((property) => {
-        const propertyRow: PropertyRow | undefined = getPropertyRowFromSearchResult(property, allProperties);
-        const values = propertyRow?.values;
-        return values?.map((value) => value?.entity?.urn);
-    });
+    const uniqueEntityUrnsToHydrate =
+        entityTypeProperties
+            ?.flatMap((property) => {
+                const propertyRow: PropertyRow | undefined = getPropertyRowFromSearchResult(property, allProperties);
+                const values = propertyRow?.values;
+                if (!values) return [];
+                return values?.map((value) => value?.entity?.urn);
+            })
+            .filter(Boolean) ?? [];
 
-    const hydratedEntityMap = useHydratedEntityMap(uniqueEntityUrnsToHydrate);
+    const proposedEntityUrns = proposedRows
+        .flatMap((row) => {
+            const { values } = row;
+            return values.map((value) => value.entity?.urn);
+        })
+        .filter(Boolean);
+
+    const hydratedEntityMap = useHydratedEntityMap(uniqueEntityUrnsToHydrate?.concat(proposedEntityUrns));
 
     return (
         <>
             {entityTypeProperties?.map((property) => {
                 const propertyRow: PropertyRow | undefined = getPropertyRowFromSearchResult(property, allProperties);
-                const isRichText = propertyRow?.dataType?.info?.type === StdDataType.RichText;
                 const values = propertyRow?.values;
                 const propertyName = getDisplayName(property.entity as StructuredPropertyEntity);
-                const proposedProperty = proposedProperties.find(
-                    (prop) => prop.structuredProperty.urn === property.entity.urn,
+                const proposedPropRows = proposedRows.filter(
+                    (row) => row.structuredProperty?.urn === property.entity.urn,
                 );
-                const proposedPropRow = proposedProperty
-                    ? mapStructuredPropertyToPropertyRow(proposedProperty)
-                    : undefined;
-                const proposedValues = proposedPropRow?.values;
+
+                const isRichText =
+                    propertyRow?.dataType?.info?.type === StdDataType.RichText ||
+                    proposedPropRows[0]?.dataType?.info?.type === StdDataType.RichText;
+
+                const proposedValues = proposedPropRows.flatMap((row) => row.values);
 
                 return (
                     <>
@@ -169,13 +153,12 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                                     {proposedValues && (
                                         <>
                                             {proposedValues.map((val) => (
-                                                <ProposedValue>
-                                                    <StructuredPropertyValue
-                                                        value={val}
-                                                        isRichText={isRichText}
-                                                        hydratedEntityMap={hydratedEntityMap}
-                                                    />
-                                                </ProposedValue>
+                                                <StructuredPropertyValue
+                                                    value={val}
+                                                    isRichText={isRichText}
+                                                    hydratedEntityMap={hydratedEntityMap}
+                                                    isProposed
+                                                />
                                             ))}
                                         </>
                                     )}

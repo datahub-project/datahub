@@ -1,6 +1,6 @@
 import { StyledTag } from '@src/app/entity/shared/components/styled/StyledTag';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { ActionRequest, EntityType } from '@src/types.generated';
+import { ActionRequest, ActionRequestResult, EntityType } from '@src/types.generated';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import AddContentView from './AddContentView';
@@ -19,6 +19,7 @@ const TagAssociationRequestItem = ({ actionRequest }: Props) => {
                 $color={tag?.properties?.colorHex}
                 $colorHash={tag.urn}
                 style={{ marginRight: 2, marginLeft: 2 }}
+                $isApproved={actionRequest.result === ActionRequestResult.Accepted}
             >
                 {entityRegistry.getDisplayName(EntityType.Tag, tag)}
             </StyledTag>
