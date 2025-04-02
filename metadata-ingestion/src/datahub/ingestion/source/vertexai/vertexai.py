@@ -113,6 +113,7 @@ class ModelMetadata:
     training_job_urn: Optional[str] = None
     endpoints: Optional[List[Endpoint]] = None
 
+
 @dataclasses.dataclass
 class PipelineTaskMetadata:
     name: str
@@ -125,6 +126,7 @@ class PipelineTaskMetadata:
     end_time: Optional[timestamp_pb2.Timestamp] = None
     duration: Optional[timedelta] = None
     upstreams: Optional[List[DataJobUrn]] = None
+
 
 @dataclasses.dataclass
 class PipelineMetadata:
