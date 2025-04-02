@@ -26,7 +26,7 @@ from datahub.metadata.schema_classes import (
 
 from datahub_executor.common.metric.types import Metric
 from datahub_executor.common.monitor.client.patch_builder import MonitorPatchBuilder
-from datahub_executor.common.types import Anomaly, AssertionEvaluationSpec
+from datahub_executor.common.types import Anomaly, AssertionEvaluationSpec, CronSchedule
 
 logger = logging.getLogger(__name__)
 
@@ -162,12 +162,13 @@ class MonitorClient:
         mcps = monitor_patch_builder.build()
         self.graph.emit_mcps(mcps)
 
-    def patch_freshness_monitor_evaluation_context(
+    def patch_freshness_monitor_evaluation_spec(
         self,
         monitor_urn: str,
         assertion_urn: str,
         new_assertion_evaluation_context: AssertionEvaluationContextClass,
-        evaluation_spec: AssertionEvaluationSpec,
+        new_schedule: CronSchedule,
+        current_evaluation_spec: AssertionEvaluationSpec,
     ) -> None:
         """
         Patch the evaluation context for the freshness monitor
@@ -177,13 +178,16 @@ class MonitorClient:
             new_assertion_evaluation_context,
         )
 
-        self._validate_freshness_evaluation_spec(evaluation_spec)
+        self._validate_freshness_evaluation_spec(current_evaluation_spec)
 
         # Build monitor patch builder and apply the patch
         monitor_patch_builder = self._create_base_monitor_patch_builder(monitor_urn)
 
         freshness_assertion_spec = self._build_freshness_assertion_evaluation_spec(
-            assertion_urn, evaluation_spec, new_assertion_evaluation_context
+            assertion_urn,
+            current_evaluation_spec,
+            new_schedule,
+            new_assertion_evaluation_context,
         )
 
         monitor_patch_builder.set_assertion_monitor_assertions(
@@ -352,6 +356,7 @@ class MonitorClient:
         self,
         assertion_urn: str,
         evaluation_spec: AssertionEvaluationSpec,
+        schedule: CronSchedule,
         assertion_evaluation_context: AssertionEvaluationContextClass,
     ) -> AssertionEvaluationSpecClass:
         """Build an assertion evaluation spec for freshness assertions"""
@@ -367,8 +372,8 @@ class MonitorClient:
         return AssertionEvaluationSpecClass(
             assertion=assertion_urn,
             schedule=CronScheduleClass(
-                cron=evaluation_spec.schedule.cron,
-                timezone=evaluation_spec.schedule.timezone,
+                cron=schedule.cron,
+                timezone=schedule.timezone,
             ),
             parameters=AssertionEvaluationParametersClass(
                 type=models.AssertionEvaluationParametersTypeClass.DATASET_FRESHNESS,

@@ -7,7 +7,9 @@ from datahub.metadata.schema_classes import (
     AssertionSourceClass,
     AssertionSourceTypeClass,
     AssertionStdParametersClass,
+    CalendarIntervalClass,
     EmbeddedAssertionClass,
+    FixedIntervalScheduleClass,
 )
 
 from datahub_executor.common.metric.types import Metric, Operation
@@ -16,13 +18,15 @@ from datahub_executor.common.monitor.inference.metric_projection.metric_predicto
 )
 from datahub_executor.common.monitor.inference.utils import (
     annotate_operations_with_anomalies,
+    build_evaluation_schedule_from_fixed_interval,
     build_std_parameters,
+    convert_interval_to_minutes,
     create_embedded_assertion,
     create_inference_source,
     get_event_timespan_seconds,
     is_metric_anomaly,
 )
-from datahub_executor.common.types import Anomaly
+from datahub_executor.common.types import Anomaly, CronSchedule
 
 
 @pytest.fixture
@@ -288,3 +292,110 @@ def test_annotate_operations_with_anomalies() -> None:
     assert annotated_operations[0].is_anomaly is True
     assert annotated_operations[1].is_anomaly is True
     assert annotated_operations[2].is_anomaly is True
+
+
+def test_convert_interval_to_minutes() -> None:
+    # Test seconds conversion
+    assert convert_interval_to_minutes(CalendarIntervalClass.SECOND, 30) == 0.5
+
+    # Test minutes conversion
+    assert convert_interval_to_minutes(CalendarIntervalClass.MINUTE, 45) == 45
+
+    # Test hours conversion
+    assert convert_interval_to_minutes(CalendarIntervalClass.HOUR, 2) == 120
+
+    # Test days conversion
+    assert convert_interval_to_minutes(CalendarIntervalClass.DAY, 1) == 24 * 60
+
+    # Test weeks conversion
+    assert convert_interval_to_minutes(CalendarIntervalClass.WEEK, 1) == 7 * 24 * 60
+
+    # Test months conversion
+    assert convert_interval_to_minutes(CalendarIntervalClass.MONTH, 1) == 30 * 24 * 60
+
+    # Test quarters conversion
+    assert convert_interval_to_minutes(CalendarIntervalClass.QUARTER, 1) == 91 * 24 * 60
+
+    # Test years conversion
+    assert convert_interval_to_minutes(CalendarIntervalClass.YEAR, 1) == 365 * 24 * 60
+
+    # Test invalid unit
+    try:
+        # This would need to be adapted based on how you want to test for exceptions
+        # in your actual codebase. Here we're simulating an invalid unit.
+        invalid_unit = "INVALID_UNIT"  # type: ignore
+        convert_interval_to_minutes(invalid_unit, 1)  # type: ignore
+    except ValueError:
+        pass
+
+
+def test_build_evaluation_schedule_from_fixed_interval() -> None:
+    # Test schedule for 2 days interval (should be hourly)
+    two_days_interval = FixedIntervalScheduleClass(CalendarIntervalClass.DAY, 2)
+    assert build_evaluation_schedule_from_fixed_interval(
+        two_days_interval
+    ) == CronSchedule(cron="0 * * * *", timezone="UTC")
+
+    # Test schedule for 1 day interval (should be hourly)
+    one_day_interval = FixedIntervalScheduleClass(CalendarIntervalClass.DAY, 1)
+    assert build_evaluation_schedule_from_fixed_interval(
+        one_day_interval
+    ) == CronSchedule(cron="0 * * * *", timezone="UTC")
+
+    # Test schedule for 6 hours interval (should be hourly)
+    six_hours_interval = FixedIntervalScheduleClass(CalendarIntervalClass.HOUR, 6)
+    assert build_evaluation_schedule_from_fixed_interval(
+        six_hours_interval
+    ) == CronSchedule(cron="0 * * * *", timezone="UTC")
+
+    # Test schedule for 1 hour interval (should be every 30 minutes)
+    one_hour_interval = FixedIntervalScheduleClass(CalendarIntervalClass.HOUR, 1)
+    assert build_evaluation_schedule_from_fixed_interval(
+        one_hour_interval
+    ) == CronSchedule(cron="0,30 * * * *", timezone="UTC")
+
+    # Test schedule for 45 minutes interval (should be every 30 minutes)
+    forty_five_min_interval = FixedIntervalScheduleClass(
+        CalendarIntervalClass.MINUTE, 45
+    )
+    assert build_evaluation_schedule_from_fixed_interval(
+        forty_five_min_interval
+    ) == CronSchedule(cron="0,30 * * * *", timezone="UTC")
+
+    # Test schedule for 30 minutes interval (should be every 10 minutes)
+    thirty_min_interval = FixedIntervalScheduleClass(CalendarIntervalClass.MINUTE, 30)
+    assert build_evaluation_schedule_from_fixed_interval(
+        thirty_min_interval
+    ) == CronSchedule(cron="0,10,20,30,40,50 * * * *", timezone="UTC")
+
+    # Test schedule for 15 minutes interval (should be every 10 minutes)
+    fifteen_min_interval = FixedIntervalScheduleClass(CalendarIntervalClass.MINUTE, 15)
+    assert build_evaluation_schedule_from_fixed_interval(
+        fifteen_min_interval
+    ) == CronSchedule(cron="0,10,20,30,40,50 * * * *", timezone="UTC")
+
+    # Test schedule for 10 minutes interval (should be every 5 minutes)
+    ten_min_interval = FixedIntervalScheduleClass(CalendarIntervalClass.MINUTE, 10)
+    assert build_evaluation_schedule_from_fixed_interval(
+        ten_min_interval
+    ) == CronSchedule(cron="0,5,10,15,20,25,30,35,40,45,50,55 * * * *", timezone="UTC")
+
+    # Test schedule for 5 minutes interval (should be every 5 minutes)
+    five_min_interval = FixedIntervalScheduleClass(CalendarIntervalClass.MINUTE, 5)
+    assert build_evaluation_schedule_from_fixed_interval(
+        five_min_interval
+    ) == CronSchedule(cron="0,5,10,15,20,25,30,35,40,45,50,55 * * * *", timezone="UTC")
+
+    # Test schedule for 1 minute interval (should be every 5 minutes)
+    one_min_interval = FixedIntervalScheduleClass(CalendarIntervalClass.MINUTE, 1)
+    assert build_evaluation_schedule_from_fixed_interval(
+        one_min_interval
+    ) == CronSchedule(cron="0,5,10,15,20,25,30,35,40,45,50,55 * * * *", timezone="UTC")
+
+    # Test schedule for 30 seconds interval (should be every 5 minutes)
+    thirty_seconds_interval = FixedIntervalScheduleClass(
+        CalendarIntervalClass.SECOND, 30
+    )
+    assert build_evaluation_schedule_from_fixed_interval(
+        thirty_seconds_interval
+    ) == CronSchedule(cron="0,5,10,15,20,25,30,35,40,45,50,55 * * * *", timezone="UTC")

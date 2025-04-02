@@ -20,14 +20,17 @@ from datahub_executor.common.monitor.inference.base_assertion_trainer import (
 )
 from datahub_executor.common.monitor.inference.utils import (
     annotate_operations_with_anomalies,
+    build_evaluation_schedule_from_fixed_interval,
 )
 from datahub_executor.common.types import (
     Assertion,
     AssertionAdjustmentSettings,
     AssertionEvaluationSpec,
+    CronSchedule,
     Monitor,
 )
 from datahub_executor.config import (
+    FRESHNESS_DEFAULT_EVALUATION_CRON_SCHEDULE,
     FRESHNESS_DEFAULT_SENSITIVITY_LEVEL,
     FRESHNESS_MIN_TRAINING_INTERVAL_SECONDS,
     FRESHNESS_MIN_TRAINING_SAMPLES,
@@ -158,9 +161,13 @@ class FreshnessAssertionTrainer(BaseAssertionTrainer[Operation]):
         # Create empty context to reset the generated_at time to 0
         new_context = self.create_empty_context(0)
 
-        # Update the assertion inference details
-        self.monitor_client.patch_freshness_monitor_evaluation_context(
-            monitor.urn, assertion.urn, new_context, evaluation_spec
+        # Update the assertion inference details. Reset run schedule to hourly.
+        new_schedule = CronSchedule(
+            cron=FRESHNESS_DEFAULT_EVALUATION_CRON_SCHEDULE,
+            timezone="UTC",
+        )
+        self.monitor_client.patch_freshness_monitor_evaluation_spec(
+            monitor.urn, assertion.urn, new_context, new_schedule, evaluation_spec
         )
 
     def train_and_update_assertion(
@@ -192,14 +199,18 @@ class FreshnessAssertionTrainer(BaseAssertionTrainer[Operation]):
         )
         assertion_info.freshnessAssertion = new_freshness_assertion
 
+        # 5) Build new run schedule from inferred freshness assertion
+        new_schedule = build_evaluation_schedule_from_fixed_interval(fixed_interval)
+
         logger.debug(
             f"Saving assertion info for urn {assertion.urn} {assertion_info.freshnessAssertion}"
         )
 
         # 5) Update the monitor evaluation context
-        self._update_freshness_monitor_evaluation_context(
+        self._update_freshness_monitor_evaluation_spec(
             monitor,
             assertion,
+            new_schedule,
             evaluation_spec,
         )
 
@@ -257,10 +268,11 @@ class FreshnessAssertionTrainer(BaseAssertionTrainer[Operation]):
             ),
         )
 
-    def _update_freshness_monitor_evaluation_context(
+    def _update_freshness_monitor_evaluation_spec(
         self,
         monitor: Monitor,
         assertion: Assertion,
+        new_schedule: CronSchedule,
         evaluation_spec: AssertionEvaluationSpec,
     ) -> None:
         """
@@ -268,16 +280,18 @@ class FreshnessAssertionTrainer(BaseAssertionTrainer[Operation]):
         """
         # Create evaluation context with current timestamp
         inference_details = self.create_inference_details(int(time.time() * 1000))
+
         new_context = AssertionEvaluationContextClass(
             embeddedAssertions=[],  # No embedded assertions for freshness monitors (yet)
             inferenceDetails=inference_details,
         )
 
         # Update the monitor's evaluation context
-        self.monitor_client.patch_freshness_monitor_evaluation_context(
+        self.monitor_client.patch_freshness_monitor_evaluation_spec(
             monitor.urn,
             assertion.urn,
             new_context,
+            new_schedule,
             evaluation_spec,
         )
 

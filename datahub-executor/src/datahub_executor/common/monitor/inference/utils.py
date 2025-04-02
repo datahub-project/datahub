@@ -7,7 +7,9 @@ from datahub.metadata.schema_classes import (
     AssertionSourceTypeClass,
     AssertionStdParameterClass,
     AssertionStdParametersClass,
+    CalendarIntervalClass,
     EmbeddedAssertionClass,
+    FixedIntervalScheduleClass,
     TimeWindowClass,
     TimeWindowSizeClass,
 )
@@ -17,7 +19,7 @@ from datahub_executor.common.monitor.inference.metric_projection.metric_predicto
     MetricBoundary,
 )
 from datahub_executor.common.monitor.inference.types import Event
-from datahub_executor.common.types import Anomaly
+from datahub_executor.common.types import Anomaly, CronSchedule
 
 logger = logging.getLogger(__name__)
 
@@ -138,3 +140,71 @@ def annotate_operations_with_anomalies(
 
     # That't it, we've mutated the operations in place.
     return operations
+
+
+def convert_interval_to_minutes(
+    unit: CalendarIntervalClass | str, multiple: int
+) -> float:
+    """Helper method to convert a time unit and multiple to minutes"""
+    # Convert the unit and multiple to minutes
+    if unit == CalendarIntervalClass.SECOND:
+        return multiple / 60
+    elif unit == CalendarIntervalClass.MINUTE:
+        return multiple
+    elif unit == CalendarIntervalClass.HOUR:
+        return multiple * 60
+    elif unit == CalendarIntervalClass.DAY:
+        return multiple * 24 * 60
+    elif unit == CalendarIntervalClass.WEEK:
+        return multiple * 7 * 24 * 60
+    elif unit == CalendarIntervalClass.MONTH:
+        # Approximation: 30 days in a month
+        return multiple * 30 * 24 * 60
+    elif unit == CalendarIntervalClass.QUARTER:
+        # Approximation: 91 days in a quarter (365/4)
+        return multiple * 91 * 24 * 60
+    elif unit == CalendarIntervalClass.YEAR:
+        # Approximation: 365 days in a year
+        return multiple * 365 * 24 * 60
+    else:
+        raise ValueError(f"Unsupported calendar interval unit: {unit}")
+
+
+def build_evaluation_schedule_from_fixed_interval(
+    fixed_interval: FixedIntervalScheduleClass,
+) -> CronSchedule:
+    """
+    Builds a cron schedule for a freshness interval.
+    This always schedules at a frequency lower than the interval.
+    The max run interval is every hour.
+    The min run interval is once every 5 minutes.
+
+    If the interval is 2 days, the check will run hourly.
+    If the interval is 1 day, the check will run hourly.
+    If the interval is 6 hours, the check will run hourly.
+    If the interval is 1 hour, the check will run every 30 minutes.
+    If the interval is 30 minutes, the check will run once every 10 minutes.
+    If the interval is 10 minutes, the check will run once every 5 minutes.
+    Any lower will also go to 5 minutes.
+    """
+    unit = fixed_interval.unit
+    multiple = fixed_interval.multiple
+
+    # Convert the interval to minutes for easier comparison
+    total_minutes = convert_interval_to_minutes(unit, multiple)
+
+    # Determine cron schedule based on the interval
+    if total_minutes > 60:  # More than 1 hour
+        return CronSchedule(cron="0 * * * *", timezone="UTC")  # Hourly
+    elif total_minutes > 30:  # More than 30 minutes but less than or equal to 1 hour
+        return CronSchedule(cron="0,30 * * * *", timezone="UTC")  # Every 30 minutes
+    elif (
+        total_minutes > 10
+    ):  # More than 10 minutes but less than or equal to 30 minutes
+        return CronSchedule(
+            cron="0,10,20,30,40,50 * * * *", timezone="UTC"
+        )  # Every 10 minutes
+    else:  # 10 minutes or less
+        return CronSchedule(
+            cron="0,5,10,15,20,25,30,35,40,45,50,55 * * * *", timezone="UTC"
+        )  # Every 5 minutes

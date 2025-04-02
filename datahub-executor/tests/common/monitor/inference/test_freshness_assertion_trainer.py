@@ -31,9 +31,11 @@ from datahub_executor.common.types import (
     AssertionEvaluationSpec,
     AssertionMonitorSensitivity,
     AssertionType,
+    CronSchedule,
     Monitor,
 )
 from datahub_executor.config import (
+    FRESHNESS_DEFAULT_EVALUATION_CRON_SCHEDULE,
     FRESHNESS_DEFAULT_SENSITIVITY_LEVEL,
     FRESHNESS_MIN_TRAINING_INTERVAL_SECONDS,
     FRESHNESS_MIN_TRAINING_SAMPLES,
@@ -100,6 +102,16 @@ def mock_evaluation_spec() -> Mock:
     evaluation_spec.context.inference_details.generated_at = None
 
     return evaluation_spec
+
+
+@pytest.fixture
+def mock_evaluation_schedule() -> Mock:
+    """Create a mock schedule for testing."""
+    schedule = Mock(spec=CronSchedule)
+    schedule.cron = Mock()
+    schedule.timezone = Mock()
+
+    return schedule
 
 
 @pytest.fixture
@@ -362,14 +374,21 @@ def test_remove_inferred_assertion(
     # Assert
     mock_dependencies[
         "monitor_client"
-    ].patch_freshness_monitor_evaluation_context.assert_called_once()
+    ].patch_freshness_monitor_evaluation_spec.assert_called_once()
 
     # Verify the context has been reset
     context_arg = mock_dependencies[
         "monitor_client"
-    ].patch_freshness_monitor_evaluation_context.call_args[0][2]
+    ].patch_freshness_monitor_evaluation_spec.call_args[0][2]
     assert isinstance(context_arg, AssertionEvaluationContextClass)
     assert context_arg.inferenceDetails.generatedAt == 0  # type: ignore
+
+    schedule_arg = mock_dependencies[
+        "monitor_client"
+    ].patch_freshness_monitor_evaluation_spec.call_args[0][3]
+    assert isinstance(schedule_arg, CronSchedule)
+    assert schedule_arg.cron == FRESHNESS_DEFAULT_EVALUATION_CRON_SCHEDULE
+    assert schedule_arg.timezone == "UTC"
 
 
 @patch(
@@ -379,7 +398,7 @@ def test_remove_inferred_assertion(
     "datahub_executor.common.monitor.inference.freshness_assertion_trainer.FreshnessAssertionTrainer._get_assertion_info"
 )
 @patch(
-    "datahub_executor.common.monitor.inference.freshness_assertion_trainer.FreshnessAssertionTrainer._update_freshness_monitor_evaluation_context"
+    "datahub_executor.common.monitor.inference.freshness_assertion_trainer.FreshnessAssertionTrainer._update_freshness_monitor_evaluation_spec"
 )
 @patch(
     "datahub_executor.common.monitor.inference.freshness_assertion_trainer.FreshnessAssertionTrainer._rebuild_assertion"
@@ -438,6 +457,7 @@ def test_train_and_update_assertion(
     mock_update_context.assert_called_once_with(
         mock_monitor,
         mock_assertion,
+        CronSchedule(cron="0 * * * *", timezone="UTC"),
         mock_evaluation_spec,
     )
 
@@ -550,13 +570,14 @@ def test_build_fixed_interval_freshness_assertion_info(
 @patch(
     "datahub_executor.common.monitor.inference.freshness_assertion_trainer.FreshnessAssertionTrainer.create_inference_details"
 )
-def test_update_freshness_monitor_evaluation_context(
+def test_update_freshness_monitor_evaluation_spec(
     mock_create_inference_details: MagicMock,
     trainer: FreshnessAssertionTrainer,
     mock_dependencies: Dict[str, Union[MagicMock, Mock]],
     mock_monitor: Mock,
     mock_assertion: Mock,
     mock_evaluation_spec: Mock,
+    mock_evaluation_schedule: Mock,
 ) -> None:
     """Test updating freshness monitor evaluation context."""
     # Arrange
@@ -564,9 +585,10 @@ def test_update_freshness_monitor_evaluation_context(
     mock_create_inference_details.return_value = inference_details
 
     # Act
-    trainer._update_freshness_monitor_evaluation_context(
+    trainer._update_freshness_monitor_evaluation_spec(
         cast(Monitor, mock_monitor),
         cast(Assertion, mock_assertion),
+        cast(CronSchedule, mock_evaluation_schedule),
         cast(AssertionEvaluationSpec, mock_evaluation_spec),
     )
 
@@ -577,12 +599,12 @@ def test_update_freshness_monitor_evaluation_context(
     # Check that context was updated
     mock_dependencies[
         "monitor_client"
-    ].patch_freshness_monitor_evaluation_context.assert_called_once()
+    ].patch_freshness_monitor_evaluation_spec.assert_called_once()
 
-    # Check arguments to patch_freshness_monitor_evaluation_context
+    # Check arguments to patch_freshness_monitor_evaluation_spec
     call_args = mock_dependencies[
         "monitor_client"
-    ].patch_freshness_monitor_evaluation_context.call_args[0]
+    ].patch_freshness_monitor_evaluation_spec.call_args[0]
     assert call_args[0] == mock_monitor.urn
     assert call_args[1] == mock_assertion.urn
     assert isinstance(call_args[2], AssertionEvaluationContextClass)
@@ -590,7 +612,8 @@ def test_update_freshness_monitor_evaluation_context(
     embedded_assertions = call_args[2].embeddedAssertions
     assert embedded_assertions is not None
     assert len(embedded_assertions) == 0
-    assert call_args[3] == mock_evaluation_spec
+    assert call_args[3] == mock_evaluation_schedule
+    assert call_args[4] == mock_evaluation_spec
 
 
 @patch(

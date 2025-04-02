@@ -23,7 +23,7 @@ from datahub_executor.common.metric.types import (
     Metric,
 )
 from datahub_executor.common.monitor.client.client import MonitorClient
-from datahub_executor.common.types import Anomaly
+from datahub_executor.common.types import Anomaly, CronSchedule
 
 
 @pytest.fixture
@@ -62,6 +62,12 @@ def test_evaluation_context() -> AssertionEvaluationContextClass:
     return AssertionEvaluationContextClass(
         embeddedAssertions=None, inferenceDetails=None, stdDev=None
     )
+
+
+@pytest.fixture
+def test_schedule() -> CronSchedule:
+    """Return a test schedule."""
+    return CronSchedule(cron="0 * * * *", timezone="UTC")
 
 
 @pytest.fixture
@@ -182,13 +188,14 @@ class TestMonitorClient:
         )
 
     @patch("datahub_executor.common.monitor.client.client.MonitorPatchBuilder")
-    def test_patch_freshness_monitor_evaluation_context(
+    def test_patch_freshness_monitor_evaluation_spec(
         self,
         mock_patch_builder_class: MagicMock,
         monitor_client: MonitorClient,
         test_monitor_urn: str,
         test_urn: str,
         test_evaluation_context: AssertionEvaluationContextClass,
+        test_schedule: CronSchedule,
         mock_graph: MagicMock,
     ) -> None:
         """Test patching freshness monitor evaluation context."""
@@ -215,10 +222,11 @@ class TestMonitorClient:
         mock_patch_builder.build.return_value = ["mock_mcp"]
 
         # Call method
-        monitor_client.patch_freshness_monitor_evaluation_context(
+        monitor_client.patch_freshness_monitor_evaluation_spec(
             test_monitor_urn,
             test_urn,
             test_evaluation_context,
+            test_schedule,
             mock_freshness_spec,
         )
 
@@ -241,12 +249,13 @@ class TestMonitorClient:
         # Verify graph.emit_mcps was called with the MCPs returned by the patch builder
         mock_graph.emit_mcps.assert_called_once_with(["mock_mcp"])
 
-    def test_patch_freshness_monitor_evaluation_context_missing_params(
+    def test_patch_freshness_monitor_evaluation_spec_missing_params(
         self,
         monitor_client: MonitorClient,
         test_monitor_urn: str,
         test_urn: str,
         test_evaluation_context: AssertionEvaluationContextClass,
+        test_schedule: CronSchedule,
     ) -> None:
         """Test that an exception is raised when freshness evaluation spec is missing required params."""
         # Create a mock with missing parameters
@@ -256,10 +265,11 @@ class TestMonitorClient:
 
         # Verify exception is raised
         with pytest.raises(Exception) as excinfo:
-            monitor_client.patch_freshness_monitor_evaluation_context(
+            monitor_client.patch_freshness_monitor_evaluation_spec(
                 test_monitor_urn,
                 test_urn,
                 test_evaluation_context,
+                test_schedule,
                 mock_incomplete_spec,
             )
 
