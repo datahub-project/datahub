@@ -521,7 +521,7 @@ def test_get_experiment_mcps(
 
     expected_urn = ContainerKeyWithId(
         platform=source.platform,
-        id=source._make_vertexai_experiment_name(mock_experiment.name),
+        id=source._make_vertexai_experiment_id(mock_experiment.name),
     ).as_urn()
 
     mcp_container = MetadataChangeProposalWrapper(
@@ -546,7 +546,7 @@ def test_get_experiment_mcps(
             name=mock_experiment.name,
             customProperties={
                 "platform": source.platform,
-                "id": source._make_vertexai_experiment_name(mock_experiment.name),
+                "id": source._make_vertexai_experiment_id(mock_experiment.name),
                 "name": mock_experiment.name,
                 "resourceName": mock_experiment.resource_name,
                 "dashboardURL": mock_experiment.dashboard_url
@@ -583,7 +583,7 @@ def test_gen_experiment_run_mcps(
 
     expected_exp_urn = ContainerKeyWithId(
         platform=source.platform,
-        id=source._make_vertexai_experiment_name(mock_exp.name),
+        id=source._make_vertexai_experiment_id(mock_exp.name),
     ).as_urn()
 
     expected_urn = source._make_experiment_run_urn(mock_exp, mock_exp_run)

@@ -221,7 +221,7 @@ class VertexAISource(Source):
             for task_name in resource.pipeline_spec["root"]["dag"]["tasks"]:
                 task_urn = DataJobUrn.create_from_ids(
                     data_flow_urn=str(pipeline_urn),
-                    job_id=self._make_vertexai_pipeline_task_name(task_name),
+                    job_id=self._make_vertexai_pipeline_task_id(task_name),
                 )
                 task_meta = PipelineTaskMetadata(name=task_name, urn=task_urn)
                 if (
@@ -234,9 +234,7 @@ class VertexAISource(Source):
                     upstream_urls = [
                         DataJobUrn.create_from_ids(
                             data_flow_urn=str(pipeline_urn),
-                            job_id=self._make_vertexai_pipeline_task_name(
-                                upstream_task
-                            ),
+                            job_id=self._make_vertexai_pipeline_task_id(upstream_task),
                         )
                         for upstream_task in upstream_tasks
                     ]
@@ -265,7 +263,7 @@ class VertexAISource(Source):
         dataflow_urn = DataFlowUrn.create_from_ids(
             orchestrator=self.platform,
             env=self.config.env,
-            flow_id=self._make_vertexai_pipeline_name(pipeline.name),
+            flow_id=self._make_vertexai_pipeline_id(pipeline.name),
             platform_instance=self.platform,
         )
         tasks = self._get_pipeline_tasks_metadata(
@@ -300,7 +298,7 @@ class VertexAISource(Source):
                 f"fetching pipeline task ({task.name}) in pipeline ({pipeline.name})"
             )
             datajob = DataJob(
-                id=self._make_vertexai_pipeline_task_name(task.name),
+                id=self._make_vertexai_pipeline_task_id(task.name),
                 flow_urn=dataflow_urn,
                 name=task.name,
                 properties=self._get_pipeline_task_properties(task),
@@ -382,7 +380,7 @@ class VertexAISource(Source):
     ) -> Iterable[MetadataChangeProposalWrapper]:
         dataflow = DataFlow(
             orchestrator=self.platform,
-            id=self._make_vertexai_pipeline_name(pipeline.name),
+            id=self._make_vertexai_pipeline_id(pipeline.name),
             env=self.config.env,
             name=pipeline.name,
             platform_instance=self.platform,
@@ -425,7 +423,7 @@ class VertexAISource(Source):
             parent_container_key=self._get_project_container(),
             container_key=ContainerKeyWithId(
                 platform=self.platform,
-                id=self._make_vertexai_experiment_name(experiment.name),
+                id=self._make_vertexai_experiment_id(experiment.name),
             ),
             name=experiment.name,
             sub_types=[MLAssetSubTypes.VERTEX_EXPERIMENT],
@@ -561,7 +559,7 @@ class VertexAISource(Source):
     ) -> Iterable[MetadataChangeProposalWrapper]:
         experiment_key = ContainerKeyWithId(
             platform=self.platform,
-            id=self._make_vertexai_experiment_name(experiment.name),
+            id=self._make_vertexai_experiment_id(experiment.name),
         )
         run_urn = self._make_experiment_run_urn(experiment, run)
         created_time, duration = self._get_run_timestamps(run)
@@ -1218,7 +1216,7 @@ class VertexAISource(Source):
     ) -> str:
         return f"{self.config.project_id}.job.{entity_id}"
 
-    def _make_vertexai_experiment_name(self, entity_id: Optional[str]) -> str:
+    def _make_vertexai_experiment_id(self, entity_id: Optional[str]) -> str:
         return f"{self.config.project_id}.experiment.{entity_id}"
 
     def _make_vertexai_experiment_run_name(self, entity_id: Optional[str]) -> str:
@@ -1227,10 +1225,10 @@ class VertexAISource(Source):
     def _make_vertexai_run_execution_name(self, entity_id: Optional[str]) -> str:
         return f"{self.config.project_id}.execution.{entity_id}"
 
-    def _make_vertexai_pipeline_name(self, entity_id: Optional[str]) -> str:
+    def _make_vertexai_pipeline_id(self, entity_id: Optional[str]) -> str:
         return f"{self.config.project_id}.pipeline.{entity_id}"
 
-    def _make_vertexai_pipeline_task_name(self, entity_id: Optional[str]) -> str:
+    def _make_vertexai_pipeline_task_id(self, entity_id: Optional[str]) -> str:
         return f"{self.config.project_id}.pipeline_task.{entity_id}"
 
     def _make_artifact_external_url(
