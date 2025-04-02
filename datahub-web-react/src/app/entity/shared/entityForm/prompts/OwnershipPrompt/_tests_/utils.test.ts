@@ -4,6 +4,7 @@ import {
     entityDataWithNoAllowedTypes,
     entityDataWithNoOwners,
     mockEntityData,
+    mockEntityData2,
     multipleRestrictedPrompt,
     multipleRestrictedWithTypesPrompt,
     multipleUnrestrictedPrompt,
@@ -11,6 +12,7 @@ import {
     multipleUnrestrictedWithTypesPrompt,
     ownershipTypeUrn1,
     ownershipTypeUrn2,
+    ownershipTypeUrn3,
     singleRestrictedPrompt,
     singleRestrictedWithTypesPrompt,
     singleUnrestrictedPrompt,
@@ -18,6 +20,7 @@ import {
     user1,
     user2,
     user3,
+    user4,
 } from './mocks';
 
 describe('get default owners based on different conditions', () => {
@@ -100,6 +103,22 @@ describe('get default ownership type urn', () => {
 
     test('get default ownership type urn with multiple cardinality and multiple allowed ownership types', () => {
         const defaultOwners = getDefaultOwnershipTypeUrn(mockEntityData, multipleUnrestrictedWithTypesPrompt, []);
+        expect(defaultOwners).toEqual(undefined);
+    });
+
+    test('get default ownership type urn when all the selected owners are of one type', () => {
+        const defaultOwners = getDefaultOwnershipTypeUrn(mockEntityData2, multipleUnrestrictedPrompt, [
+            user3.urn,
+            user4.urn,
+        ]);
+        expect(defaultOwners).toEqual(ownershipTypeUrn3);
+    });
+
+    test('get default ownership type urn when selected owners are of different types', () => {
+        const defaultOwners = getDefaultOwnershipTypeUrn(mockEntityData2, multipleUnrestrictedPrompt, [
+            user1.urn,
+            user4.urn,
+        ]);
         expect(defaultOwners).toEqual(undefined);
     });
 });

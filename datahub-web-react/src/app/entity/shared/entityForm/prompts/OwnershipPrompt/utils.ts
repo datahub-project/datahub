@@ -40,11 +40,17 @@ export const getDefaultOwnershipTypeUrn = (
     prompt: FormPrompt,
     initialValues: string[],
 ) => {
+    const initialOwners = entityData?.ownership?.owners?.filter((owner) => initialValues.includes(owner.owner.urn));
+    const distinctOwnershipTypes = [...new Set(initialOwners?.map((owner) => owner.ownershipType?.urn))];
+
     if (prompt.ownershipParams?.allowedOwnershipTypes && prompt.ownershipParams.allowedOwnershipTypes.length === 1) {
         return prompt.ownershipParams.allowedOwnershipTypes[0].urn;
     }
     if (prompt.ownershipParams?.cardinality === PromptCardinality.Single) {
         return entityData?.ownership?.owners?.find((owner) => owner.owner.urn === initialValues[0])?.ownershipType?.urn;
+    }
+    if (distinctOwnershipTypes.length === 1) {
+        return distinctOwnershipTypes[0];
     }
     return undefined;
 };

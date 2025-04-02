@@ -23,6 +23,12 @@ export const user3 = {
     username: 'user3',
 };
 
+export const user4 = {
+    urn: 'urn:li:corpuser:4',
+    type: EntityType.CorpUser,
+    username: 'user4',
+};
+
 export const owner1 = {
     __typename: 'Owner',
     owner: user1,
@@ -53,6 +59,16 @@ export const owner3 = {
     },
 };
 
+export const owner4 = {
+    __typename: 'Owner',
+    owner: user4,
+    associatedUrn: 'urn:li:dataset:1',
+    ownershipType: {
+        urn: ownershipTypeUrn3,
+        type: 'BUSINESS_OWNER',
+    },
+};
+
 const allowedOwners = [
     {
         urn: user2.urn,
@@ -74,6 +90,12 @@ const allowedOwnershipTypes = [
 export const mockEntityData = {
     ownership: {
         owners: [owner1, owner2, owner3],
+    },
+} as GenericEntityProperties;
+
+export const mockEntityData2 = {
+    ownership: {
+        owners: [owner1, owner2, owner3, owner4],
     },
 } as GenericEntityProperties;
 
