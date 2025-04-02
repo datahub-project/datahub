@@ -1,16 +1,27 @@
 import React from 'react';
-
-import { List, Typography, Button } from 'antd';
-
+import { List } from 'antd';
+import styled from 'styled-components';
+import { Button, colors } from '@src/alchemy-components';
 import { FormType } from '../../../types.generated';
 import { pluralize } from '../../shared/textUtil';
 
+const Title = styled.div`
+    color: ${colors.gray[800]};
+    font-weight: 600;
+    font-size: 14px;
+`;
+
+const SubHeader = styled.div`
+    color: ${colors.gray[1700]};
+    font-size: 14px;
+`;
+
 type Props = {
     request: any;
-    onClickOpenRequests: () => void;
+    onClickOpenRequest: () => void;
 };
 
-export const RequestItem = ({ request, onClickOpenRequests }: Props) => {
+export const RequestItem = ({ request, onClickOpenRequest }: Props) => {
     const { form, numEntitiesToComplete } = request;
     const { type, name } = form.info;
 
@@ -33,11 +44,18 @@ export const RequestItem = ({ request, onClickOpenRequests }: Props) => {
     return (
         <>
             <List.Item key={form.urn}>
-                <Typography.Text>
-                    <strong>{message}</strong> <br />
-                    Please complete {name} for {displayedNumEntities} {pluralize(numEntitiesToComplete, 'asset')}
-                </Typography.Text>
-                <Button onClick={onClickOpenRequests}>Open in Compliance Center</Button>
+                <div>
+                    <Title>{message}</Title>
+                    <SubHeader>
+                        Please complete {name} for{' '}
+                        <b>
+                            {displayedNumEntities} {pluralize(numEntitiesToComplete, 'asset')}
+                        </b>
+                    </SubHeader>
+                </div>
+                <Button variant="text" onClick={onClickOpenRequest}>
+                    Open in Compliance Center
+                </Button>
             </List.Item>
         </>
     );

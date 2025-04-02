@@ -81,7 +81,7 @@ export const Requests = () => {
                 }}
                 dataSource={requests}
                 renderItem={(item: any) => (
-                    <RequestItem request={item} onClickOpenRequests={() => selectForm(item.form.urn)} />
+                    <RequestItem request={item} onClickOpenRequest={() => selectForm(item.form.urn)} />
                 )}
                 $isShowNavBarRedesign={isShowNavBarRedesign}
             />
