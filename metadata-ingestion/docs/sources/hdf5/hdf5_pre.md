@@ -12,9 +12,11 @@ The HDF5 Source is designed to read datasets from HDF5 files and represent these
 
 ## Key Ingestion Concepts
 
+All HDF5 files are ingested under a container called `root`.
+
 ### Nested Groups
 Nested groups within an HDF5 file are represented in DataHub as hierarchical paths, which reflect their location from the file root.
-- Example: `/filename/group1/subgroup2/datasetA`
+- Example: `root/filename/group1/subgroup2/datasetA`
 
 ### Dataset Dimensionality Handling
 The ingestion behavior varies based on the dimensionality (`shape`) of the datasets:
@@ -39,7 +41,9 @@ The HDF5 source constructs schema metadata and fields based on data types and di
 Consider the given file hierarchy:
 
 ```
-datafile.h5
+root
+│
+datafile
 │
 ├── /group1
 │   ├── 1D_compound_dataset
@@ -51,9 +55,9 @@ datafile.h5
 ```
 
 The ingested metadata representation on DataHub would look as follows:
-- `/datafile/group1/1D_compound_dataset`: Compound fields become distinct schema columns.
-- `/datafile/group1/3D_numeric_dataset`: Only first two dimensions ingested.
-- `/datafile/group2/1D_numeric_dataset`: Single-column table (`col0`).
-- `/datafile/group2/2D_numeric_dataset`: Multiple columns derived from columns or rows.
+- `root/datafile/group1/1D_compound_dataset`: Compound fields become distinct schema columns.
+- `root/datafile/group1/3D_numeric_dataset`: Only first two dimensions ingested.
+- `root/datafile/group2/1D_numeric_dataset`: Single-column table (`col0`).
+- `root/datafile/group2/2D_numeric_dataset`: Multiple columns derived from columns or rows.
 
 ---
