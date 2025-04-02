@@ -139,7 +139,7 @@ export default function QueriesListSection({
      */
     const [hoveredQueryUrn, setHoveredQueryUrn] = useState<string | null>(null);
     const defaultPagination = usePagination(DEFAULT_PAGE_SIZE);
-    const { pageSize, page, setPage } = pagination || defaultPagination;
+    const { pageSize, page, setPage, setPageSize } = pagination || defaultPagination;
     const showPagination = totalQueries > pageSize;
 
     const {
@@ -191,6 +191,10 @@ export default function QueriesListSection({
               position: ['bottomCenter'],
               onChange: (newPage: number) => {
                   setPage(newPage);
+              },
+              pageSizeOptions: ['5', '10', '20', '50', '100'],
+              onShowSizeChange: (_, newPageSize: number) => {
+                  setPageSize(newPageSize);
               },
           } as TablePaginationConfig)
         : false;
