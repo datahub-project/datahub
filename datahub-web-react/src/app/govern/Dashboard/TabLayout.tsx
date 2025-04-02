@@ -3,7 +3,6 @@ import styled from 'styled-components';
 import { useHistory, useLocation } from 'react-router';
 import { Tabs } from 'antd';
 import { Button, Tooltip } from '@components';
-import { EntityType } from '@src/types.generated';
 import { PageTitle } from '@src/alchemy-components/components/PageTitle';
 import analytics, { EventType } from '@src/app/analytics';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
@@ -16,6 +15,7 @@ import { MissingPermissions } from './charts/AuxViews';
 import { Header, Layout } from './components';
 import FormsTab from './Forms/FormsTab';
 import { PageRoutes } from '../../../conf/Global';
+import { useGetFormsData } from './Forms/useGetFormsData';
 
 const StyledTabs = styled(Tabs)<{ isThemeV2: boolean }>`
     flex: 1;
@@ -85,6 +85,8 @@ export const TabLayout = () => {
 
     const searchParams = new URLSearchParams(location.search);
 
+    const { inputs, searchData } = useGetFormsData();
+
     // Get the current documentationTab parameter
     const initialTab = searchParams.get('documentationTab') || '';
 
@@ -130,14 +132,6 @@ export const TabLayout = () => {
     if (!platformPrivileges?.manageDocumentationForms && !platformPrivileges?.viewDocumentationFormsPage)
         return <MissingPermissions />;
 
-    const inputs = {
-        types: [EntityType.Form],
-        query: '*',
-        start: 0,
-        count: 200,
-        searchFlags: { skipCache: true },
-    };
-
     // Render the dashboard
     return (
         <Layout $isShowNavBarRedesign={isShowNavBarRedesign}>
@@ -165,7 +159,7 @@ export const TabLayout = () => {
                                         });
                                         history.push(PageRoutes.NEW_FORM, {
                                             inputs,
-                                            searchAcrossEntities: null,
+                                            searchAcrossEntities: searchData?.searchAcrossEntities,
                                         });
                                     }}
                                     disabled={!canEditForms}

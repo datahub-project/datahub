@@ -1,9 +1,8 @@
 import { SearchBar } from '@components';
-import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
-import { EntityType } from '@src/types.generated';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import FormsTable from './FormsTable';
+import { useGetFormsData } from './useGetFormsData';
 
 const Container = styled.div`
     display: flex;
@@ -36,27 +35,7 @@ const FormsContainer = styled.div`
 const FormsTab = () => {
     const [searchQuery, setSearchQuery] = useState<string>('');
 
-    const inputs = {
-        types: [EntityType.Form],
-        query: '*',
-        start: 0,
-        count: 200,
-        searchFlags: { skipCache: true },
-    };
-
-    // Execute search
-    const {
-        data: searchData,
-        loading,
-        refetch,
-        networkStatus,
-    } = useGetSearchResultsForMultipleQuery({
-        variables: {
-            input: inputs,
-        },
-        fetchPolicy: 'cache-first',
-        notifyOnNetworkStatusChange: true,
-    });
+    const { inputs, searchData, loading, refetch, networkStatus } = useGetFormsData();
 
     const handleSearch = (value) => {
         setSearchQuery(value);
