@@ -2198,8 +2198,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
           stream
               .map(
                   entityAspect ->
-                      EntityUtils.toSystemAspect(
-                              opContext.getRetrieverContext(), entityAspect, false)
+                      EntityUtils.toSystemAspect(opContext.getRetrieverContext(), entityAspect)
                           .get()
                           .getAspect(StructuredPropertyDefinition.class))
               .collect(Collectors.toSet());
@@ -2282,8 +2281,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
           stream
               .map(
                   entityAspect ->
-                      EntityUtils.toSystemAspect(
-                              opContext.getRetrieverContext(), entityAspect, false)
+                      EntityUtils.toSystemAspect(opContext.getRetrieverContext(), entityAspect)
                           .get()
                           .getAspect(StructuredPropertyDefinition.class))
               .collect(Collectors.toSet());

@@ -176,7 +176,7 @@ public class RestoreAspectStep implements UpgradeStep {
         // 3. Create record from json aspect
         final SystemAspect systemAspectRecord =
             EntityUtils.toSystemAspectFromEbeanAspects(
-                    opContext.getRetrieverContext(), List.of(aspect), createDefaultAspects)
+                    opContext.getRetrieverContext(), List.of(aspect))
                 .get(0);
 
         // 4. Verify that the aspect is a valid aspect associated with the entity
