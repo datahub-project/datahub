@@ -1,8 +1,8 @@
 const test_id = `test_v2_edit_documentation_${new Date().getTime()}`;
 
-const SAMPLE_DATASET_NAME = "SampleCypressHiveDataset";
+const SAMPLE_DATASET_NAME = "SampleCypressHdfsDataset";
 const SAMPLE_DATASET_URN =
-  "urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)";
+  "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)";
 const SAMPLE_DOCUMENTAION = `This is ${test_id} documentation EDITED`;
 
 const getSampleUrl = (path) => {
@@ -167,13 +167,11 @@ describe("edit documentation and link to dataset", () => {
     cy.clickOptionWithTestId("description-editor-save-button");
     cy.waitTextVisible("Description Updated");
     cy.waitTextVisible(SAMPLE_DOCUMENTAION);
-    // return documentation to original state
+
     cy.clickOptionWithTestId("edit-documentation-button");
     cy.focused().clear().wait(1000);
-    cy.focused().type("my hive dataset");
     cy.clickOptionWithTestId("description-editor-save-button");
     cy.waitTextVisible("Description Updated");
-    cy.waitTextVisible("my hive dataset");
   });
 
   it("should validate add link form", () => {
@@ -237,7 +235,7 @@ describe("edit documentation and link to dataset", () => {
     ensureThatUrlIsNotAvaliableOnSidebar(sample2);
     ensureThatUrlIsNotAvaliableOnSidebar(sample3);
     ensureThatUrlIsAvaliableOnEntityHeader(sample1);
-    ensureThatUrlIsAvaliableOnEntityHeader(sample2);
+    ensureThatUrlIsAvaliableOnEntityHeaderInViewMore(sample2);
     ensureThatUrlIsAvaliableOnEntityHeaderInViewMore(sample3);
 
     removeLinksByUrl(sample1);
