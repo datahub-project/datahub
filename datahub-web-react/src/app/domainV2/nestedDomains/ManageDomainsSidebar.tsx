@@ -87,10 +87,7 @@ export default function ManageDomainsSidebarV2({ isEntityProfile }: Props) {
                     color="gray"
                     size="lg"
                     isCircle
-                    icon={{
-                        icon: isClosed ? 'ArrowLineRight' : 'ArrowLineLeft',
-                        source: 'phosphor',
-                    }}
+                    icon={{ icon: isClosed ? 'ArrowLineRight' : 'ArrowLineLeft', source: 'phosphor' }}
                     isActive={!isClosed}
                     onClick={() => setIsClosed(!isClosed)}
                 />
