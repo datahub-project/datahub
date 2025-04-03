@@ -1515,9 +1515,6 @@
                             "EnableNetworkIsolation": "True"
                         },
                         "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/models/the-first-model",
-                        "trainingJobs": [
-                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
-                        ],
                         "downstreamJobs": [],
                         "date": 1420070400000,
                         "hyperParams": [
@@ -1543,6 +1540,9 @@
                         "tags": [],
                         "deployments": [
                             "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-first-endpoint,PROD)"
+                        ],
+                        "trainingJobs": [
+                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
                         ],
                         "groups": [
                             "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,a-model-package-group,PROD)"
