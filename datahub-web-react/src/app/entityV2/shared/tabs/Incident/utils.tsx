@@ -391,7 +391,8 @@ const getFilteredIncidents = (incidents: Incident[], filter: IncidentListFilter)
 
     // Apply cateory, priority, and stage
     return incidents.filter((incident: Incident) => {
-        const categoryName = incident.incidentType === IncidentType.Custom ? incident.customType : incident.incidentType;
+        const categoryName =
+            incident.incidentType === IncidentType.Custom ? incident.customType : incident.incidentType;
         const matchesCategory = category.length === 0 || (categoryName ? category.includes(categoryName) : false);
         const matchesPriority = priority.length === 0 || priority.includes(incident.priority || 'None');
         const matchesStage = stage.length === 0 || stage.includes(incident.status.stage || 'None');
