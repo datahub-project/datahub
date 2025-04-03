@@ -1,9 +1,10 @@
 import json
 import logging
+import os
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import lru_cache
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import dateutil.parser as dp
 import requests
@@ -11,6 +12,7 @@ from pydantic import BaseModel
 from pydantic.class_validators import root_validator, validator
 from pydantic.fields import Field
 
+import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     EnvConfigMixin,
@@ -23,8 +25,10 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn,
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
+    make_schema_field_urn,
     make_user_urn,
 )
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -49,6 +53,8 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     ChangeAuditStamps,
+    InputField,
+    InputFields,
     Status,
     TimeStamp,
 )
@@ -59,11 +65,16 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    BooleanTypeClass,
+    DateTypeClass,
     MySqlDDL,
     NullType,
+    NullTypeClass,
+    NumberTypeClass,
     SchemaField,
     SchemaFieldDataType,
     SchemaMetadata,
+    StringTypeClass,
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -72,6 +83,9 @@ from datahub.metadata.schema_classes import (
     DashboardInfoClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
     OwnerClass,
     OwnershipClass,
@@ -80,9 +94,14 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.sql_parsing.sqlglot_lineage import (
+    SqlParsingResult,
+    create_lineage_sql_parsed_result,
+)
 from datahub.utilities import config_clean
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -105,8 +124,16 @@ chart_type_from_viz_type = {
     "box_plot": ChartTypeClass.BAR,
 }
 
-
 platform_without_databases = ["druid"]
+
+FIELD_TYPE_MAPPING = {
+    "INT": NumberTypeClass,
+    "STRING": StringTypeClass,
+    "FLOAT": NumberTypeClass,
+    "DATETIME": DateTypeClass,
+    "BOOLEAN": BooleanTypeClass,
+    "SQL": StringTypeClass,
+}
 
 
 @dataclass
@@ -180,6 +207,15 @@ class SupersetConfig(
 
     provider: str = Field(default="db", description="Superset provider.")
     options: Dict = Field(default={}, description="")
+
+    timeout: int = Field(
+        default=10, description="Timeout of single API call to superset."
+    )
+
+    max_threads: int = Field(
+        default_factory=lambda: os.cpu_count() or 40,
+        description="Max parallelism for API calls. Defaults to cpuCount or 40",
+    )
 
     # TODO: Check and remove this if no longer needed.
     # Config database_alias is removed from sql sources.
@@ -285,13 +321,16 @@ class SupersetSource(StatefulIngestionSourceBase):
             }
         )
 
-        # Test the connection
         test_response = requests_session.get(
-            f"{self.config.connect_uri}/api/v1/dashboard/"
+            f"{self.config.connect_uri}/api/v1/dashboard/",
+            timeout=self.config.timeout,
         )
-        if test_response.status_code == 200:
-            pass
-            # TODO(Gabe): how should we message about this error?
+        if test_response.status_code != 200:
+            # throw an error and terminate ingestion,
+            # cannot proceed without access token
+            logger.error(
+                f"Failed to log in to Superset with status: {test_response.status_code}"
+            )
         return requests_session
 
     def paginate_entity_api_results(self, entity_type, page_size=100):
@@ -302,10 +341,12 @@ class SupersetSource(StatefulIngestionSourceBase):
             response = self.session.get(
                 f"{self.config.connect_uri}/api/v1/{entity_type}",
                 params={"q": f"(page:{current_page},page_size:{page_size})"},
+                timeout=self.config.timeout,
             )
 
             if response.status_code != 200:
                 logger.warning(f"Failed to get {entity_type} data: {response.text}")
+                continue
 
             payload = response.json()
             # Update total_items with the actual count from the response
@@ -339,10 +380,11 @@ class SupersetSource(StatefulIngestionSourceBase):
     def get_dataset_info(self, dataset_id: int) -> dict:
         dataset_response = self.session.get(
             f"{self.config.connect_uri}/api/v1/dataset/{dataset_id}",
+            timeout=self.config.timeout,
         )
         if dataset_response.status_code != 200:
             logger.warning(f"Failed to get dataset info: {dataset_response.text}")
-            dataset_response.raise_for_status()
+            return {}
         return dataset_response.json()
 
     def get_datasource_urn_from_id(
@@ -384,7 +426,7 @@ class SupersetSource(StatefulIngestionSourceBase):
     ) -> DashboardSnapshot:
         dashboard_urn = make_dashboard_urn(
             platform=self.platform,
-            name=dashboard_data["id"],
+            name=str(dashboard_data["id"]),
             platform_instance=self.config.platform_instance,
         )
         dashboard_snapshot = DashboardSnapshot(
@@ -393,8 +435,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
 
         modified_actor = f"urn:li:corpuser:{self.owner_info.get((dashboard_data.get('changed_by') or {}).get('id', -1), 'unknown')}"
+        now = datetime.now().strftime("%I:%M%p on %B %d, %Y")
         modified_ts = int(
-            dp.parse(dashboard_data.get("changed_on_utc", "now")).timestamp() * 1000
+            dp.parse(dashboard_data.get("changed_on_utc", now)).timestamp() * 1000
         )
         title = dashboard_data.get("dashboard_title", "")
         # note: the API does not currently supply created_by usernames due to a bug
@@ -416,7 +459,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             chart_urns.append(
                 make_chart_urn(
                     platform=self.platform,
-                    name=value.get("meta", {}).get("chartId", "unknown"),
+                    name=str(value.get("meta", {}).get("chartId", "unknown")),
                     platform_instance=self.config.platform_instance,
                 )
             )
@@ -431,9 +474,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                     dashboard_data.get("owners", []),
                 )
             ),
-            "IsCertified": str(
-                True if dashboard_data.get("certified_by") else False
-            ).lower(),
+            "IsCertified": str(bool(dashboard_data.get("certified_by"))).lower(),
         }
 
         if dashboard_data.get("certified_by"):
@@ -468,38 +509,158 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         return dashboard_snapshot
 
+    def _process_dashboard(self, dashboard_data: Any) -> Iterable[MetadataWorkUnit]:
+        dashboard_title = ""
+        try:
+            dashboard_id = str(dashboard_data.get("id"))
+            dashboard_title = dashboard_data.get("dashboard_title", "")
+            if not self.config.dashboard_pattern.allowed(dashboard_title):
+                self.report.report_dropped(
+                    f"Dashboard '{dashboard_title}' (id: {dashboard_id}) filtered by dashboard_pattern"
+                )
+                return
+            dashboard_snapshot = self.construct_dashboard_from_api_data(dashboard_data)
+        except Exception as e:
+            self.report.warning(
+                f"Failed to construct dashboard snapshot. Dashboard name: {dashboard_data.get('dashboard_title')}. Error: \n{e}"
+            )
+            return
+        mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
+        yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
+        yield from self._get_domain_wu(
+            title=dashboard_title, entity_urn=dashboard_snapshot.urn
+        )
+
     def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
-        for dashboard_data in self.paginate_entity_api_results("dashboard/", PAGE_SIZE):
-            try:
-                dashboard_id = str(dashboard_data.get("id"))
-                dashboard_title = dashboard_data.get("dashboard_title", "")
+        dashboard_data_list = [
+            (dashboard_data,)
+            for dashboard_data in self.paginate_entity_api_results(
+                "dashboard/", PAGE_SIZE
+            )
+        ]
 
-                if not self.config.dashboard_pattern.allowed(dashboard_title):
-                    self.report.report_dropped(
-                        f"Dashboard '{dashboard_title}' (id: {dashboard_id}) filtered by dashboard_pattern"
-                    )
-                    continue
+        yield from ThreadedIteratorExecutor.process(
+            worker_func=self._process_dashboard,
+            args_list=dashboard_data_list,
+            max_workers=self.config.max_threads,
+        )
 
-                dashboard_snapshot = self.construct_dashboard_from_api_data(
-                    dashboard_data
-                )
-            except Exception as e:
-                self.report.warning(
-                    f"Failed to construct dashboard snapshot. Dashboard name: {dashboard_data.get('dashboard_title')}. Error: \n{e}"
-                )
+    def build_input_fields(
+        self,
+        chart_columns: List[Tuple[str, str, str]],
+        datasource_urn: Union[str, None],
+    ) -> List[InputField]:
+        input_fields: List[InputField] = []
+
+        for column in chart_columns:
+            col_name, col_type, description = column
+            if not col_type or not datasource_urn:
                 continue
-            # Emit the dashboard
-            mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
-            yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
-            yield from self._get_domain_wu(
-                title=dashboard_title,
-                entity_urn=dashboard_snapshot.urn,
+
+            type_class = FIELD_TYPE_MAPPING.get(
+                col_type.upper(), NullTypeClass
+            )  # gets the type mapping
+
+            input_fields.append(
+                InputField(
+                    schemaFieldUrn=builder.make_schema_field_urn(
+                        parent_urn=str(datasource_urn),
+                        field_path=col_name,
+                    ),
+                    schemaField=SchemaField(
+                        fieldPath=col_name,
+                        type=SchemaFieldDataType(type=type_class()),  # type: ignore
+                        description=(description if description != "null" else ""),
+                        nativeDataType=col_type,
+                        globalTags=None,
+                        nullable=True,
+                    ),
+                )
             )
 
-    def construct_chart_from_chart_data(self, chart_data: dict) -> ChartSnapshot:
+        return input_fields
+
+    def construct_chart_cll(
+        self,
+        chart_data: dict,
+        datasource_urn: Union[str, None],
+        datasource_id: Union[Any, int],
+    ) -> List[InputField]:
+        column_data: List[Union[str, dict]] = chart_data.get("form_data", {}).get(
+            "all_columns", []
+        )
+
+        # the second field represents whether its a SQL expression,
+        # false being just regular column and true being SQL col
+        chart_column_data: List[Tuple[str, bool]] = [
+            (column, False)
+            if isinstance(column, str)
+            else (column.get("label", ""), True)
+            for column in column_data
+        ]
+
+        dataset_columns: List[Tuple[str, str, str]] = []
+
+        # parses the superset dataset's column info, to build type and description info
+        if datasource_id:
+            dataset_info = self.get_dataset_info(datasource_id).get("result", {})
+            dataset_column_info = dataset_info.get("columns", [])
+
+            for column in dataset_column_info:
+                col_name = column.get("column_name", "")
+                col_type = column.get("type", "")
+                col_description = column.get("description", "")
+
+                # if missing column name or column type, cannot construct the column,
+                # so we skip this column, missing description is fine
+                if col_name == "" or col_type == "":
+                    logger.info(f"could not construct column lineage for {column}")
+                    continue
+
+                dataset_columns.append((col_name, col_type, col_description))
+        else:
+            # if no datasource id, cannot build cll, just return
+            logger.warning(
+                "no datasource id was found, cannot build column level lineage"
+            )
+            return []
+
+        chart_columns: List[Tuple[str, str, str]] = []
+        for chart_col in chart_column_data:
+            chart_col_name, is_sql = chart_col
+            if is_sql:
+                chart_columns.append(
+                    (
+                        chart_col_name,
+                        "SQL",
+                        "",
+                    )
+                )
+                continue
+
+            # find matching upstream column
+            for dataset_col in dataset_columns:
+                dataset_col_name, dataset_col_type, dataset_col_description = (
+                    dataset_col
+                )
+                if dataset_col_name == chart_col_name:
+                    chart_columns.append(
+                        (chart_col_name, dataset_col_type, dataset_col_description)
+                    )  # column name, column type, description
+                    break
+
+            # if no matching upstream column was found
+            if len(chart_columns) == 0 or chart_columns[-1][0] != chart_col_name:
+                chart_columns.append((chart_col_name, "", ""))
+
+        return self.build_input_fields(chart_columns, datasource_urn)
+
+    def construct_chart_from_chart_data(
+        self, chart_data: dict
+    ) -> Iterable[MetadataWorkUnit]:
         chart_urn = make_chart_urn(
             platform=self.platform,
-            name=chart_data["id"],
+            name=str(chart_data["id"]),
             platform_instance=self.config.platform_instance,
         )
         chart_snapshot = ChartSnapshot(
@@ -508,8 +669,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
 
         modified_actor = f"urn:li:corpuser:{self.owner_info.get((chart_data.get('changed_by') or {}).get('id', -1), 'unknown')}"
+        now = datetime.now().strftime("%I:%M%p on %B %d, %Y")
         modified_ts = int(
-            dp.parse(chart_data.get("changed_on_utc", "now")).timestamp() * 1000
+            dp.parse(chart_data.get("changed_on_utc", now)).timestamp() * 1000
         )
         title = chart_data.get("slice_name", "")
 
@@ -583,6 +745,18 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         chart_snapshot.aspects.append(chart_info)
 
+        input_fields = self.construct_chart_cll(
+            chart_data, datasource_urn, datasource_id
+        )
+
+        if input_fields:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=chart_urn,
+                aspect=InputFields(
+                    fields=sorted(input_fields, key=lambda x: x.schemaFieldUrn)
+                ),
+            ).as_workunit()
+
         chart_owners_list = self.build_owner_urn(chart_data)
         owners_info = OwnershipClass(
             owners=[
@@ -595,50 +769,55 @@ class SupersetSource(StatefulIngestionSourceBase):
             lastModified=last_modified,
         )
         chart_snapshot.aspects.append(owners_info)
-        return chart_snapshot
+        yield MetadataWorkUnit(
+            id=chart_urn, mce=MetadataChangeEvent(proposedSnapshot=chart_snapshot)
+        )
+
+        yield from self._get_domain_wu(
+            title=chart_data.get("slice_name", ""),
+            entity_urn=chart_urn,
+        )
+
+    def _process_chart(self, chart_data: Any) -> Iterable[MetadataWorkUnit]:
+        chart_name = ""
+        try:
+            chart_id = str(chart_data.get("id"))
+            chart_name = chart_data.get("slice_name", "")
+            if not self.config.chart_pattern.allowed(chart_name):
+                self.report.report_dropped(
+                    f"Chart '{chart_name}' (id: {chart_id}) filtered by chart_pattern"
+                )
+                return
+            if self.config.dataset_pattern != AllowDenyPattern.allow_all():
+                datasource_id = chart_data.get("datasource_id")
+                if datasource_id:
+                    dataset_response = self.get_dataset_info(datasource_id)
+                    dataset_name = dataset_response.get("result", {}).get(
+                        "table_name", ""
+                    )
+                    if dataset_name and not self.config.dataset_pattern.allowed(
+                        dataset_name
+                    ):
+                        self.report.warning(
+                            f"Chart '{chart_name}' (id: {chart_id}) uses dataset '{dataset_name}' which is filtered by dataset_pattern"
+                        )
+            yield from self.construct_chart_from_chart_data(chart_data)
+        except Exception as e:
+            self.report.warning(
+                f"Failed to construct chart snapshot. Chart name: {chart_name}. Error: \n{e}"
+            )
+            return
 
     def emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
-        for chart_data in self.paginate_entity_api_results("chart/", PAGE_SIZE):
-            try:
-                chart_id = str(chart_data.get("id"))
-                chart_name = chart_data.get("slice_name", "")
-
-                if not self.config.chart_pattern.allowed(chart_name):
-                    self.report.report_dropped(
-                        f"Chart '{chart_name}' (id: {chart_id}) filtered by chart_pattern"
-                    )
-                    continue
-
-                # Emit a warning if charts use data from a dataset that will be filtered out
-                if self.config.dataset_pattern != AllowDenyPattern.allow_all():
-                    datasource_id = chart_data.get("datasource_id")
-                    if datasource_id:
-                        dataset_response = self.get_dataset_info(datasource_id)
-                        dataset_name = dataset_response.get("result", {}).get(
-                            "table_name", ""
-                        )
-
-                        if dataset_name and not self.config.dataset_pattern.allowed(
-                            dataset_name
-                        ):
-                            self.report.warning(
-                                f"Chart '{chart_name}' (id: {chart_id}) uses dataset '{dataset_name}' which is filtered by dataset_pattern"
-                            )
-
-                chart_snapshot = self.construct_chart_from_chart_data(chart_data)
-
-                mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
-            except Exception as e:
-                self.report.warning(
-                    f"Failed to construct chart snapshot. Chart name: {chart_name}. Error: \n{e}"
-                )
-                continue
-            # Emit the chart
-            yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
-            yield from self._get_domain_wu(
-                title=chart_data.get("slice_name", ""),
-                entity_urn=chart_snapshot.urn,
-            )
+        chart_data_list = [
+            (chart_data,)
+            for chart_data in self.paginate_entity_api_results("chart/", PAGE_SIZE)
+        ]
+        yield from ThreadedIteratorExecutor.process(
+            worker_func=self._process_chart,
+            args_list=chart_data_list,
+            max_workers=self.config.max_threads,
+        )
 
     def gen_schema_fields(self, column_data: List[Dict[str, str]]) -> List[SchemaField]:
         schema_fields: List[SchemaField] = []
@@ -682,6 +861,88 @@ class SupersetSource(StatefulIngestionSourceBase):
             env=self.config.env,
         )
 
+    def generate_virtual_dataset_lineage(
+        self,
+        parsed_query_object: SqlParsingResult,
+        datasource_urn: str,
+    ) -> UpstreamLineageClass:
+        cll = (
+            parsed_query_object.column_lineage
+            if parsed_query_object.column_lineage is not None
+            else []
+        )
+
+        fine_grained_lineages: List[FineGrainedLineageClass] = []
+
+        for cll_info in cll:
+            downstream = (
+                [make_schema_field_urn(datasource_urn, cll_info.downstream.column)]
+                if cll_info.downstream and cll_info.downstream.column
+                else []
+            )
+            upstreams = [
+                make_schema_field_urn(column_ref.table, column_ref.column)
+                for column_ref in cll_info.upstreams
+            ]
+            fine_grained_lineages.append(
+                FineGrainedLineageClass(
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    downstreams=downstream,
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    upstreams=upstreams,
+                )
+            )
+
+        upstream_lineage = UpstreamLineageClass(
+            upstreams=[
+                UpstreamClass(
+                    type=DatasetLineageTypeClass.TRANSFORMED,
+                    dataset=input_table_urn,
+                )
+                for input_table_urn in parsed_query_object.in_tables
+            ],
+            fineGrainedLineages=fine_grained_lineages,
+        )
+        return upstream_lineage
+
+    def generate_physical_dataset_lineage(
+        self,
+        dataset_response: dict,
+        upstream_dataset: str,
+        datasource_urn: str,
+    ) -> UpstreamLineageClass:
+        # To generate column level lineage, we can manually decode the metadata
+        # to produce the ColumnLineageInfo
+        columns = dataset_response.get("result", {}).get("columns", [])
+        fine_grained_lineages: List[FineGrainedLineageClass] = []
+
+        for column in columns:
+            column_name = column.get("column_name", "")
+            if not column_name:
+                continue
+
+            downstream = [make_schema_field_urn(datasource_urn, column_name)]
+            upstreams = [make_schema_field_urn(upstream_dataset, column_name)]
+            fine_grained_lineages.append(
+                FineGrainedLineageClass(
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    downstreams=downstream,
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    upstreams=upstreams,
+                )
+            )
+
+        upstream_lineage = UpstreamLineageClass(
+            upstreams=[
+                UpstreamClass(
+                    type=DatasetLineageTypeClass.TRANSFORMED,
+                    dataset=upstream_dataset,
+                )
+            ],
+            fineGrainedLineages=fine_grained_lineages,
+        )
+        return upstream_lineage
+
     def construct_dataset_from_dataset_data(
         self, dataset_data: dict
     ) -> DatasetSnapshot:
@@ -694,14 +955,23 @@ class SupersetSource(StatefulIngestionSourceBase):
         dataset_url = f"{self.config.display_uri}{dataset_response.get('result', {}).get('url', '')}"
 
         modified_actor = f"urn:li:corpuser:{self.owner_info.get((dataset_data.get('changed_by') or {}).get('id', -1), 'unknown')}"
+        now = datetime.now().strftime("%I:%M%p on %B %d, %Y")
         modified_ts = int(
-            dp.parse(dataset_data.get("changed_on_utc", "now")).timestamp() * 1000
+            dp.parse(dataset_data.get("changed_on_utc", now)).timestamp() * 1000
         )
         last_modified = AuditStampClass(time=modified_ts, actor=modified_actor)
 
         upstream_warehouse_platform = (
             dataset_response.get("result", {}).get("database", {}).get("backend")
         )
+        upstream_warehouse_db_name = (
+            dataset_response.get("result", {}).get("database", {}).get("database_name")
+        )
+
+        # if we have rendered sql, we always use that and defualt back to regular sql
+        sql = dataset_response.get("result", {}).get(
+            "rendered_sql"
+        ) or dataset_response.get("result", {}).get("sql")
 
         # Preset has a way of naming their platforms differently than
         # how datahub names them, so map the platform name to the correct naming
@@ -714,22 +984,28 @@ class SupersetSource(StatefulIngestionSourceBase):
         if upstream_warehouse_platform in warehouse_naming:
             upstream_warehouse_platform = warehouse_naming[upstream_warehouse_platform]
 
-        # TODO: Categorize physical vs virtual upstream dataset
-        # mark all upstream dataset as physical for now, in the future we would ideally like
-        # to differentiate physical vs virtual upstream datasets
-        tag_urn = f"urn:li:tag:{self.platform}:physical"
         upstream_dataset = self.get_datasource_urn_from_id(
             dataset_response, upstream_warehouse_platform
         )
-        upstream_lineage = UpstreamLineageClass(
-            upstreams=[
-                UpstreamClass(
-                    type=DatasetLineageTypeClass.TRANSFORMED,
-                    dataset=upstream_dataset,
-                    properties={"externalUrl": dataset_url},
-                )
-            ]
-        )
+
+        # Sometimes the field will be null instead of not existing
+        if sql == "null" or not sql:
+            tag_urn = f"urn:li:tag:{self.platform}:physical"
+            upstream_lineage = self.generate_physical_dataset_lineage(
+                dataset_response, upstream_dataset, datasource_urn
+            )
+        else:
+            tag_urn = f"urn:li:tag:{self.platform}:virtual"
+            parsed_query_object = create_lineage_sql_parsed_result(
+                query=sql,
+                default_db=upstream_warehouse_db_name,
+                platform=upstream_warehouse_platform,
+                platform_instance=None,
+                env=self.config.env,
+            )
+            upstream_lineage = self.generate_virtual_dataset_lineage(
+                parsed_query_object, datasource_urn
+            )
 
         dataset_info = DatasetPropertiesClass(
             name=dataset.table_name,
@@ -769,33 +1045,38 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         return dataset_snapshot
 
-    def emit_dataset_mces(self) -> Iterable[MetadataWorkUnit]:
-        for dataset_data in self.paginate_entity_api_results("dataset/", PAGE_SIZE):
-            try:
-                dataset_name = dataset_data.get("table_name", "")
-
-                # Check if dataset should be filtered by dataset name
-                if not self.config.dataset_pattern.allowed(dataset_name):
-                    self.report.report_dropped(
-                        f"Dataset '{dataset_name}' filtered by dataset_pattern"
-                    )
-                    continue
-
-                dataset_snapshot = self.construct_dataset_from_dataset_data(
-                    dataset_data
+    def _process_dataset(self, dataset_data: Any) -> Iterable[MetadataWorkUnit]:
+        dataset_name = ""
+        try:
+            dataset_name = dataset_data.get("table_name", "")
+            if not self.config.dataset_pattern.allowed(dataset_name):
+                self.report.report_dropped(
+                    f"Dataset '{dataset_name}' filtered by dataset_pattern"
                 )
-                mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-            except Exception as e:
-                self.report.warning(
-                    f"Failed to construct dataset snapshot. Dataset name: {dataset_data.get('table_name')}. Error: \n{e}"
-                )
-                continue
-            # Emit the dataset
-            yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
-            yield from self._get_domain_wu(
-                title=dataset_data.get("table_name", ""),
-                entity_urn=dataset_snapshot.urn,
+                return
+            dataset_snapshot = self.construct_dataset_from_dataset_data(dataset_data)
+            mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        except Exception as e:
+            self.report.warning(
+                f"Failed to construct dataset snapshot. Dataset name: {dataset_data.get('table_name')}. Error: \n{e}"
             )
+            return
+        yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
+        yield from self._get_domain_wu(
+            title=dataset_data.get("table_name", ""),
+            entity_urn=dataset_snapshot.urn,
+        )
+
+    def emit_dataset_mces(self) -> Iterable[MetadataWorkUnit]:
+        dataset_data_list = [
+            (dataset_data,)
+            for dataset_data in self.paginate_entity_api_results("dataset/", PAGE_SIZE)
+        ]
+        yield from ThreadedIteratorExecutor.process(
+            worker_func=self._process_dataset,
+            args_list=dataset_data_list,
+            max_workers=self.config.max_threads,
+        )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.config.ingest_dashboards:

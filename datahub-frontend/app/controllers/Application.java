@@ -390,19 +390,31 @@ public class Application extends Controller {
     Optional<Cookie> actorCookie = request.getCookie("actor");
     String actorValue = actorCookie.isPresent() ? actorCookie.get().value() : "N/A";
 
+    // Get the JSON body
     try {
       ObjectMapper mapper = new ObjectMapper();
       JsonNode jsonNode = request.body().asJson();
       ((ObjectNode) jsonNode).remove("query");
-      jsonBody.append(mapper.writerWithDefaultPrettyPrinter().writeValueAsString(jsonNode));
+      jsonBody.append(mapper.writeValueAsString(jsonNode));
     } catch (Exception e) {
       logger.info("GraphQL Request Received: {}, Unable to parse JSON body", resolvedUri);
     }
     String jsonBodyStr = jsonBody.toString();
+
+    // Get the query string
+    StringBuilder query = new StringBuilder();
+    try {
+      ObjectMapper mapper = new ObjectMapper();
+      query.append(mapper.writeValueAsString(request.queryString()));
+    } catch (Exception e) {
+      logger.info("GraphQL Request Received: {}, Unable to parse query string", resolvedUri);
+    }
+    String queryString = query.toString();
+
     logger.info(
         "Slow GraphQL Request Received: {}, Request query string: {}, Request actor: {}, Request JSON: {}, Request completed in {} ms",
         resolvedUri,
-        request.queryString(),
+        queryString,
         actorValue,
         jsonBodyStr,
         duration);

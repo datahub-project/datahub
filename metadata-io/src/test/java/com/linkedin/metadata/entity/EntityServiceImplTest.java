@@ -1,10 +1,18 @@
 package com.linkedin.metadata.entity;
 
+import static com.linkedin.metadata.Constants.DATASET_PROFILE_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.UPSTREAM_LINEAGE_ASPECT_NAME;
+import static com.linkedin.metadata.entity.EntityServiceTest.TEST_AUDIT_STAMP;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -13,7 +21,9 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
+import com.codahale.metrics.Counter;
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
@@ -21,28 +31,47 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.dataset.UpstreamLineage;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.AspectGenerationUtils;
 import com.linkedin.metadata.aspect.SystemAspect;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.EbeanSystemAspect;
+import com.linkedin.metadata.entity.ebean.PartitionedStream;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.entity.ebean.batch.DeleteItemImpl;
+import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import jakarta.persistence.EntityNotFoundException;
 import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
+import java.util.function.Function;
+import java.util.stream.Stream;
+import org.mockito.ArgumentCaptor;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -504,5 +533,445 @@ public class EntityServiceImplTest {
         "Should produce MCL when aspect has lineage relationship, regardless of no-op status");
     verify(mockEventProducer, times(1))
         .produceMetadataChangeLog(any(OperationContext.class), any(), any(), any());
+  }
+
+  @Test
+  public void testIngestTimeseriesProposal() {
+    // Create a spy of the EntityServiceImpl to track method calls
+    EntityServiceImpl entityServiceSpy = spy(entityService);
+
+    Urn timeseriesUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,timeseriesTest,PROD)");
+    DatasetProfile datasetProfile = new DatasetProfile();
+    datasetProfile.setRowCount(1000);
+    datasetProfile.setColumnCount(15);
+    datasetProfile.setTimestampMillis(0L);
+
+    // Create a mock AspectsBatch with timeseries aspects
+    AspectsBatch mockBatch =
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(
+                List.of(
+                    ChangeItemImpl.builder()
+                        .urn(timeseriesUrn)
+                        .aspectName(DATASET_PROFILE_ASPECT_NAME)
+                        .recordTemplate(datasetProfile)
+                        .changeType(ChangeType.UPSERT)
+                        .auditStamp(TEST_AUDIT_STAMP)
+                        .build(opContext.getAspectRetriever()),
+                    ChangeItemImpl.builder()
+                        .urn(timeseriesUrn)
+                        .aspectName(DATASET_PROFILE_ASPECT_NAME)
+                        .recordTemplate(datasetProfile)
+                        .changeType(ChangeType.UPSERT)
+                        .auditStamp(TEST_AUDIT_STAMP)
+                        .build(opContext.getAspectRetriever())))
+            .build();
+
+    // Test case 1: async = true path
+    // Arrange
+    doReturn(Stream.empty())
+        .when(entityServiceSpy)
+        .ingestProposalAsync(any(OperationContext.class), any(AspectsBatch.class));
+
+    // Act
+    entityServiceSpy.ingestTimeseriesProposal(opContext, mockBatch, true);
+
+    // Verify
+    verify(entityServiceSpy, times(1))
+        .ingestProposalAsync(any(OperationContext.class), any(AspectsBatch.class));
+    verify(entityServiceSpy, never())
+        .ingestProposalSync(any(OperationContext.class), any(AspectsBatch.class));
+
+    // Test case 2: async = false path
+    // Arrange
+    org.mockito.Mockito.reset(entityServiceSpy);
+    doReturn(Stream.empty())
+        .when(entityServiceSpy)
+        .ingestProposalSync(any(OperationContext.class), any(AspectsBatch.class));
+
+    // Act
+    entityServiceSpy.ingestTimeseriesProposal(opContext, mockBatch, false);
+
+    // Verify
+    verify(entityServiceSpy, never())
+        .ingestProposalAsync(any(OperationContext.class), any(AspectsBatch.class));
+    verify(entityServiceSpy, times(1))
+        .ingestProposalSync(any(OperationContext.class), any(AspectsBatch.class));
+  }
+
+  @Test
+  public void testIngestTimeseriesProposalUnsupported() {
+    // Create a spy of the EntityServiceImpl to track method calls
+    EntityServiceImpl entityServiceSpy = spy(entityService);
+
+    Urn timeseriesUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,timeseriesUnsupportedTest,PROD)");
+
+    // Create a mock AspectsBatch with timeseries aspects
+    AspectsBatch mockBatch =
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(
+                List.of(
+                    DeleteItemImpl.builder()
+                        .urn(timeseriesUrn)
+                        .aspectName(DATASET_PROFILE_ASPECT_NAME)
+                        .auditStamp(TEST_AUDIT_STAMP)
+                        .build(opContext.getAspectRetriever()),
+                    DeleteItemImpl.builder()
+                        .urn(timeseriesUrn)
+                        .aspectName(DATASET_PROFILE_ASPECT_NAME)
+                        .auditStamp(TEST_AUDIT_STAMP)
+                        .build(opContext.getAspectRetriever())))
+            .build();
+
+    try {
+      entityServiceSpy.ingestTimeseriesProposal(opContext, mockBatch, true);
+      fail("Should throw UnsupportedOperationException for non-UPSERT change types");
+    } catch (UnsupportedOperationException e) {
+      // Expected
+    }
+  }
+
+  /**
+   * Tests an end-to-end scenario with createDefaultAspects=true, ensuring that both the aspects are
+   * restored to the index and default aspects are created.
+   */
+  @Test
+  public void testRestoreIndicesEndToEndWithDefaultAspects() throws Exception {
+    // Setup mock AspectDao
+    AspectDao mockAspectDao = mock(AspectDao.class);
+    PartitionedStream<EbeanAspectV2> mockStream = mock(PartitionedStream.class);
+
+    // Create test aspects
+    List<EbeanAspectV2> batch = new ArrayList<>();
+
+    // Dataset aspect
+    EbeanAspectV2 datasetAspect =
+        new EbeanAspectV2(
+            "urn:li:dataset:(urn:li:dataPlatform:test,defaultAspectsTest,PROD)",
+            STATUS_ASPECT_NAME,
+            0L,
+            RecordUtils.toJsonString(new Status().setRemoved(false)),
+            new Timestamp(System.currentTimeMillis()),
+            TEST_AUDIT_STAMP.getActor().toString(),
+            null,
+            RecordUtils.toJsonString(SystemMetadataUtils.createDefaultSystemMetadata()));
+    batch.add(datasetAspect);
+
+    // Setup mock stream
+    when(mockStream.partition(anyInt())).thenReturn(Stream.of(batch.stream()));
+    when(mockAspectDao.streamAspectBatches(any())).thenReturn(mockStream);
+
+    // Setup mock EventProducer
+    EventProducer mockEventProducer = mock(EventProducer.class);
+    when(mockEventProducer.produceMetadataChangeLog(
+            any(OperationContext.class), any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(null));
+
+    // Create EntityServiceImpl with mocks
+    EntityServiceImpl entityServiceSpy =
+        spy(
+            new EntityServiceImpl(
+                mockAspectDao, mockEventProducer, false, mock(PreProcessHooks.class), 0, true));
+
+    // Mock ingestProposalSync to capture default aspects
+    ArgumentCaptor<AspectsBatch> batchCaptor = ArgumentCaptor.forClass(AspectsBatch.class);
+    doReturn(Stream.empty())
+        .when(entityServiceSpy)
+        .ingestProposalSync(any(OperationContext.class), batchCaptor.capture());
+
+    // Create RestoreIndicesArgs with createDefaultAspects set to true
+    RestoreIndicesArgs args =
+        new RestoreIndicesArgs()
+            .start(0)
+            .limit(100)
+            .batchSize(50)
+            .batchDelayMs(0L)
+            .createDefaultAspects(true); // Explicitly set to true
+
+    // Execute the method under test
+    List<RestoreIndicesResult> results =
+        entityServiceSpy.restoreIndices(opContext, args, message -> {});
+
+    // Verify results
+    assertNotNull(results);
+    assertEquals(1, results.size());
+
+    // Verify MCL production
+    verify(mockEventProducer)
+        .produceMetadataChangeLog(any(OperationContext.class), any(), any(), any());
+
+    // Verify default aspect creation was attempted
+    verify(entityServiceSpy).ingestProposalSync(any(OperationContext.class), any());
+
+    // Verify the captured batch contains aspects
+    AspectsBatch capturedBatch = batchCaptor.getValue();
+    assertNotNull(capturedBatch);
+    assertFalse(capturedBatch.getItems().isEmpty());
+
+    // Verify the defaultAspectsCreated count in results
+    assertTrue(results.get(0).defaultAspectsCreated >= 0);
+  }
+
+  /**
+   * Tests an end-to-end scenario with createDefaultAspects=false, ensuring that only aspects are
+   * restored to the index without creating default aspects.
+   */
+  @Test
+  public void testRestoreIndicesEndToEndWithoutDefaultAspects() throws Exception {
+    // Setup mock AspectDao
+    AspectDao mockAspectDao = mock(AspectDao.class);
+    PartitionedStream<EbeanAspectV2> mockStream = mock(PartitionedStream.class);
+
+    // Create test aspects
+    List<EbeanAspectV2> batch = new ArrayList<>();
+
+    // Dataset aspect
+    EbeanAspectV2 datasetAspect =
+        new EbeanAspectV2(
+            "urn:li:dataset:(urn:li:dataPlatform:test,defaultAspectsTest,PROD)",
+            STATUS_ASPECT_NAME,
+            0L,
+            RecordUtils.toJsonString(new Status().setRemoved(false)),
+            new Timestamp(System.currentTimeMillis()),
+            TEST_AUDIT_STAMP.getActor().toString(),
+            null,
+            RecordUtils.toJsonString(SystemMetadataUtils.createDefaultSystemMetadata()));
+    batch.add(datasetAspect);
+
+    // Setup mock stream
+    when(mockStream.partition(anyInt())).thenReturn(Stream.of(batch.stream()));
+    when(mockAspectDao.streamAspectBatches(any())).thenReturn(mockStream);
+
+    // Setup mock EventProducer
+    EventProducer mockEventProducer = mock(EventProducer.class);
+    when(mockEventProducer.produceMetadataChangeLog(
+            any(OperationContext.class), any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(null));
+
+    // Create EntityServiceImpl with mocks
+    EntityServiceImpl entityServiceSpy =
+        spy(
+            new EntityServiceImpl(
+                mockAspectDao, mockEventProducer, false, mock(PreProcessHooks.class), 0, true));
+
+    // Simply stub the method without capturing
+    doReturn(Stream.empty())
+        .when(entityServiceSpy)
+        .ingestProposalSync(any(OperationContext.class), any(AspectsBatch.class));
+
+    // Create RestoreIndicesArgs with createDefaultAspects set to false
+    RestoreIndicesArgs args =
+        new RestoreIndicesArgs()
+            .start(0)
+            .limit(100)
+            .batchSize(50)
+            .batchDelayMs(0L)
+            .createDefaultAspects(false); // Explicitly set to false
+
+    // Execute the method under test
+    List<RestoreIndicesResult> results =
+        entityServiceSpy.restoreIndices(opContext, args, message -> {});
+
+    // Verify results
+    assertNotNull(results);
+    assertEquals(1, results.size());
+
+    // Verify MCL production
+    verify(mockEventProducer)
+        .produceMetadataChangeLog(any(OperationContext.class), any(), any(), any());
+
+    // Verify default aspect creation was never attempted
+    verify(entityServiceSpy, never()).ingestProposalSync(any(OperationContext.class), any());
+
+    // Don't try to use the capturedBatch since the method should never be called
+    // Instead, verify the defaultAspectsCreated count in results is 0
+    assertEquals(0, results.get(0).defaultAspectsCreated);
+  }
+
+  /**
+   * Tests the continuation behavior of restoreIndices when an exception occurs. It should continue
+   * processing other aspects even if one fails.
+   */
+  @Test
+  public void testRestoreIndicesContinuationOnException() throws Exception {
+    // Setup mock AspectDao
+    AspectDao mockAspectDao = mock(AspectDao.class);
+    PartitionedStream<EbeanAspectV2> mockStream = mock(PartitionedStream.class);
+
+    // Create test aspects
+    List<EbeanAspectV2> batch = new ArrayList<>();
+
+    // First aspect (will succeed)
+    EbeanAspectV2 successAspect =
+        new EbeanAspectV2(
+            "urn:li:dataset:(urn:li:dataPlatform:test,success,PROD)",
+            STATUS_ASPECT_NAME,
+            0L,
+            RecordUtils.toJsonString(new Status().setRemoved(false)),
+            new Timestamp(System.currentTimeMillis()),
+            TEST_AUDIT_STAMP.getActor().toString(),
+            null,
+            RecordUtils.toJsonString(SystemMetadataUtils.createDefaultSystemMetadata()));
+    batch.add(successAspect);
+
+    // Second aspect (will fail)
+    EbeanAspectV2 failAspect =
+        new EbeanAspectV2(
+            "urn:li:dataset:(urn:li:dataPlatform:test,fail,PROD)",
+            STATUS_ASPECT_NAME,
+            0L,
+            "INVALID_JSON", // This will cause deserialization to fail
+            new Timestamp(System.currentTimeMillis()),
+            TEST_AUDIT_STAMP.getActor().toString(),
+            null,
+            RecordUtils.toJsonString(SystemMetadataUtils.createDefaultSystemMetadata()));
+    batch.add(failAspect);
+
+    // Third aspect (will succeed)
+    EbeanAspectV2 anotherSuccessAspect =
+        new EbeanAspectV2(
+            "urn:li:dataset:(urn:li:dataPlatform:test,anotherSuccess,PROD)",
+            STATUS_ASPECT_NAME,
+            0L,
+            RecordUtils.toJsonString(new Status().setRemoved(false)),
+            new Timestamp(System.currentTimeMillis()),
+            TEST_AUDIT_STAMP.getActor().toString(),
+            null,
+            RecordUtils.toJsonString(SystemMetadataUtils.createDefaultSystemMetadata()));
+    batch.add(anotherSuccessAspect);
+
+    // Setup mock stream to create two separate batches
+    // This is the key change - we need to separate the failing aspect into its own batch
+    when(mockStream.partition(anyInt()))
+        .thenReturn(
+            Stream.of(
+                // First batch with success aspect
+                Stream.of(successAspect),
+                // Second batch with failing aspect
+                Stream.of(failAspect),
+                // Third batch with another success aspect
+                Stream.of(anotherSuccessAspect)));
+
+    when(mockAspectDao.streamAspectBatches(any())).thenReturn(mockStream);
+
+    // Setup mock EventProducer
+    EventProducer mockEventProducer = mock(EventProducer.class);
+    when(mockEventProducer.produceMetadataChangeLog(
+            any(OperationContext.class),
+            argThat(
+                urn ->
+                    urn.toString()
+                        .contains("success")), // Only succeed for URNs containing "success"
+            any(),
+            any()))
+        .thenReturn(CompletableFuture.completedFuture(null));
+
+    // Create EntityServiceImpl with mocks
+    EntityServiceImpl entityService =
+        new EntityServiceImpl(
+            mockAspectDao, mockEventProducer, false, mock(PreProcessHooks.class), 0, true);
+
+    // Create RestoreIndicesArgs
+    RestoreIndicesArgs args =
+        new RestoreIndicesArgs()
+            .start(0)
+            .limit(100)
+            .batchSize(1) // Process one aspect at a time
+            .batchDelayMs(0L)
+            .createDefaultAspects(false); // Avoid additional complexity
+
+    // Execute the method under test
+    List<RestoreIndicesResult> results =
+        entityService.restoreIndices(opContext, args, message -> {});
+
+    // Verify results
+    assertNotNull(results);
+    // We should get exactly 2 results - one for each successful batch
+    assertEquals(2, results.size());
+
+    // We expect to see rowsMigrated = 1 in each successful result
+    assertEquals(1, results.get(0).rowsMigrated);
+    assertEquals(1, results.get(1).rowsMigrated);
+
+    // The failing aspect should not generate a result at all, as the implementation
+    // filters out null results (batches that throw exceptions)
+
+    // Verify total calls to produceMetadataChangeLog (one for each successful aspect)
+    verify(mockEventProducer, times(2))
+        .produceMetadataChangeLog(any(OperationContext.class), any(), any(), any());
+  }
+
+  @Test
+  public void testDeleteAspectWithoutMCL_EntityNotFoundException() {
+    // Mock AspectDao
+    AspectDao mockAspectDao = mock(AspectDao.class);
+    EventProducer mockEventProducer = mock(EventProducer.class);
+
+    // Create entity service with mocked components
+    EntityServiceImpl entityService =
+        new EntityServiceImpl(
+            mockAspectDao, mockEventProducer, false, mock(PreProcessHooks.class), 0, true);
+
+    // Create test inputs
+    Urn testUrn = UrnUtils.getUrn("urn:li:corpuser:test");
+    String aspectName = "status";
+    Map<String, String> conditions = Collections.singletonMap("runId", "test-run-id");
+
+    // This is the key part - we need to make runInTransactionWithRetry actually execute
+    // the function that's passed to it, so the getLatestAspect call inside it will throw
+    doAnswer(
+            invocation -> {
+              Function<TransactionContext, TransactionResult<RollbackResult>> function =
+                  invocation.getArgument(0);
+              TransactionContext txContext = TransactionContext.empty(3);
+
+              // Before calling the function, set up the mock that will throw inside it
+              when(mockAspectDao.getLatestAspect(
+                      any(OperationContext.class),
+                      eq(testUrn.toString()),
+                      eq(aspectName),
+                      eq(false)))
+                  .thenThrow(
+                      new EntityNotFoundException("Lazy loading failed - Bean has been deleted"));
+
+              try {
+                // This will execute the transaction function, which should call getLatestAspect
+                // and catch the exception
+                return function.apply(txContext).getResults();
+              } catch (Exception e) {
+                // If any exception escapes, it means our test is wrong
+                fail("Exception should be caught inside transaction function: " + e.getMessage());
+                return Optional.empty();
+              }
+            })
+        .when(mockAspectDao)
+        .runInTransactionWithRetry(any(), anyInt());
+
+    // Create a counter mock
+    Counter mockCounter = mock(Counter.class);
+
+    // Mock the static method
+    try (MockedStatic<MetricUtils> metricUtilsMock = Mockito.mockStatic(MetricUtils.class)) {
+      metricUtilsMock
+          .when(() -> MetricUtils.counter(eq(EntityServiceImpl.class), eq("delete_nonexisting")))
+          .thenReturn(mockCounter);
+
+      // Execute the method
+      RollbackResult result =
+          entityService.deleteAspectWithoutMCL(
+              opContext, testUrn.toString(), aspectName, conditions, true);
+
+      // Verify result is null
+      assertNull(result, "Result should be null when EntityNotFoundException is caught");
+
+      // Verify metric was incremented
+      metricUtilsMock.verify(
+          () -> MetricUtils.counter(EntityServiceImpl.class, "delete_nonexisting"));
+      verify(mockCounter).inc();
+    }
   }
 }

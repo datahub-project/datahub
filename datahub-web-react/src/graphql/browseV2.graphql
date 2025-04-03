@@ -7,30 +7,7 @@ query getBrowseResultsV2($input: BrowseV2Input!) {
             entity {
                 urn
                 type
-                ... on Container {
-                    properties {
-                        name
-                    }
-                }
-                ... on DataFlow {
-                    properties {
-                        name
-                    }
-                }
-                ... on DataPlatformInstance {
-                    platform {
-                        name
-                        properties {
-                            displayName
-                        }
-                    }
-                    instanceId
-                }
-                ... on Dataset {
-                    properties {
-                        name
-                    }
-                }
+                ...entityDisplayNameFields
             }
         }
         start

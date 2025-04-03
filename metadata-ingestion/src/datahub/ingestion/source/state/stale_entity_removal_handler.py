@@ -45,7 +45,6 @@ class StatefulStaleMetadataRemovalConfig(StatefulIngestionConfig):
         description="Prevents large amount of soft deletes & the state from committing from accidental changes to the source configuration if the relative change percent in entities compared to the previous state is above the 'fail_safe_threshold'.",
         le=100.0,
         ge=0.0,
-        hidden_from_docs=True,
     )
 
 
@@ -114,14 +113,10 @@ class StaleEntityRemovalHandler(
         self.stateful_ingestion_config: Optional[StatefulStaleMetadataRemovalConfig] = (
             config.stateful_ingestion
         )
-        self.checkpointing_enabled: bool = (
-            True
-            if (
-                self.state_provider.is_stateful_ingestion_configured()
-                and self.stateful_ingestion_config
-                and self.stateful_ingestion_config.remove_stale_metadata
-            )
-            else False
+        self.checkpointing_enabled: bool = bool(
+            self.state_provider.is_stateful_ingestion_configured()
+            and self.stateful_ingestion_config
+            and self.stateful_ingestion_config.remove_stale_metadata
         )
         self._job_id = self._init_job_id()
         self._urns_to_skip: Set[str] = set()

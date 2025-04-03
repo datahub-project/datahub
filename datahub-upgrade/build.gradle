@@ -1,11 +1,11 @@
 plugins {
   id 'org.springframework.boot'
   id 'java'
-  id 'com.palantir.docker'
 }
 
 apply from: "../gradle/versioning/versioning.gradle"
 apply from: "../gradle/coverage/java-coverage.gradle"
+apply from: "../gradle/docker/docker.gradle"
 
 ext {
   docker_registry = rootProject.ext.docker_registry == 'linkedin' ? 'acryldata' : docker_registry
@@ -71,6 +71,7 @@ dependencies {
   implementation externalDependency.springBootAutoconfigure
   implementation externalDependency.springCore
   implementation externalDependency.springKafka
+  runtimeOnly externalDependency.opentelemetryExporter
 
   runtimeOnly externalDependency.logbackClassic
   runtimeOnly externalDependency.mariadbConnector
@@ -87,6 +88,9 @@ dependencies {
   testImplementation externalDependency.testng
   testImplementation 'uk.org.webcompere:system-stubs-testng:2.1.7'
   testRuntimeOnly externalDependency.logbackClassic
+
+  testImplementation externalDependency.h2
+  testImplementation testFixtures(project(':metadata-io'))
 
   constraints {
     implementation(implementation externalDependency.parquetHadoop) {
@@ -137,7 +141,7 @@ task runRestoreIndices(type: Exec) {
           "-jar",
           "-Dkafka.schemaRegistry.url=http://localhost:8080/schema-registry/api",
           "-Dserver.port=8083",
-          bootJar.getArchiveFile().get(), "-u", "RestoreIndices", "-a", "batchSize=100"
+          bootJar.getArchiveFile().get(), "-u", "RestoreIndices", "-a", "batchSize=100", "-a", "createDefaultAspects=true"
 }
 
 task runRestoreIndicesUrn(type: Exec) {
@@ -165,23 +169,19 @@ task runNoCode(type: Exec) {
 }
 
 docker {
+  dependsOn(bootJar)
   name "${docker_registry}/${docker_repo}:v${version}"
-  version "v${version}"
   dockerfile file("${rootProject.projectDir}/docker/${docker_repo}/Dockerfile")
   files bootJar.outputs.files
   files fileTree(rootProject.projectDir) {
     include '.dockerignore'
+    include 'docker/monitoring/*'
     include "docker/${docker_repo}/*"
     include 'metadata-models/src/main/resources/*'
   }.exclude {
     i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
   }
-  tag("Debug", "${docker_registry}/${docker_repo}:debug")
-
-  // platform('linux/arm64', 'linux/amd64')
-  buildx(true)
-  load(true)
-  push(false)
+  additionalTag("Debug", "${docker_registry}/${docker_repo}:debug")
 
   // Add build args if they are defined (needed for some CI or enterprise environments)
   def dockerBuildArgs = [:]
@@ -199,12 +199,4 @@ docker {
     buildArgs(dockerBuildArgs)
   }
 }
-tasks.getByPath(":datahub-upgrade:docker").dependsOn([bootJar])
-
-task cleanLocalDockerImages {
-  doLast {
-    rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "${version}")
-  }
-}
-dockerClean.finalizedBy(cleanLocalDockerImages)
 
