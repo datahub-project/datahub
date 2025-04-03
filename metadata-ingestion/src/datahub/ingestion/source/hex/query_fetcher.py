@@ -2,7 +2,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, Generator, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.hex.constants import (
@@ -13,6 +13,7 @@ from datahub.metadata.schema_classes import QueryPropertiesClass, QuerySubjectsC
 from datahub.metadata.urns import DatasetUrn, QueryUrn, SchemaFieldUrn
 from datahub.sdk.main_client import DataHubClient
 from datahub.sdk.search_filters import FilterDsl as F
+from datahub.utilities.time import datetime_to_ts_millis
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +66,7 @@ class HexQueryFetcher:
         self.report.start_datetime = start_datetime
         self.report.end_datetime = end_datetime
 
-    def fetch(self) -> Generator[QueryResponse, None, None]:
+    def fetch(self) -> Iterable[QueryResponse]:
         try:
             query_urns = self._fetch_query_urns_filter_hex_and_last_modified()
             if not query_urns:
@@ -191,7 +192,7 @@ class HexQueryFetcher:
 
             logger.debug(f"Fetching query entities for {len(batch)} queries: {batch}")
             entities = self.datahub_client._graph.get_entities(
-                entity_name="query",
+                entity_name=QueryUrn.ENTITY_TYPE,
                 urns=[urn.urn() for urn in batch],
                 aspects=[
                     QueryPropertiesClass.ASPECT_NAME,
@@ -226,8 +227,8 @@ class HexQueryFetcher:
         return entities_by_urn
 
     def _fetch_query_urns_filter_hex_and_last_modified(self) -> List[QueryUrn]:
-        last_modified_start_at_millis = int(self.start_datetime.timestamp() * 1000)
-        last_modified_end_at_millis = int(self.end_datetime.timestamp() * 1000)
+        last_modified_start_at_millis = datetime_to_ts_millis(self.start_datetime)
+        last_modified_end_at_millis = datetime_to_ts_millis(self.end_datetime)
 
         urns = self.datahub_client.search.get_urns(
             filter=F.and_(
@@ -281,8 +282,8 @@ class HexQueryFetcher:
             return project_id, workspace_name
         except (IndexError, AttributeError) as e:
             self.report.warning(
-                title="Failed to extract information from Hex metadata",
-                message="Failed to extract information from Hex metadata will result on missing lineage",
+                title="Failed to extract information from Hex query metadata",
+                message="Failed to extract information from Hex query metadata will result on missing lineage",
                 context=sql_statement,
                 exc=e,
             )

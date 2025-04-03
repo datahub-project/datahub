@@ -211,14 +211,14 @@ class HexSource(StatefulIngestionSourceBase):
         self.datahub_client: Optional[DataHubClient] = None
         self.query_fetcher: Optional[HexQueryFetcher] = None
         if self.source_config.include_lineage:
-            assert ctx.graph, "Graph is required for lineage ingestion"
+            graph = ctx.require_graph("Lineage")
             assert self.source_config.lineage_start_time and isinstance(
                 self.source_config.lineage_start_time, datetime
             )
             assert self.source_config.lineage_end_time and isinstance(
                 self.source_config.lineage_end_time, datetime
             )
-            self.datahub_client = DataHubClient(graph=ctx.graph)
+            self.datahub_client = DataHubClient(graph=graph)
             self.query_fetcher = HexQueryFetcher(
                 datahub_client=self.datahub_client,
                 workspace_name=self.source_config.workspace_name,
@@ -285,7 +285,7 @@ class HexSource(StatefulIngestionSourceBase):
                     else:
                         self.report.report_warning(
                             title="Missing project for lineage",
-                            message="Lineage missed because missed project, likely due to filter patterns.",
+                            message="Lineage missed because missed project, likely due to filter patterns or deleted project.",
                             context=str(query_metadata),
                         )
 
