@@ -21,3 +21,11 @@ Currently, the [Hex API](https://learn.hex.tech/docs/api/api-reference) has some
 2. **Metadata Access**: There is no direct method to retrieve metadata for Collections, Status, or Categories. This information is only available indirectly through references within Projects and Components.
 
 Please keep these limitations in mind when working with the Hex connector.
+
+For the Dataset - Hex Project lineage, the connector relies on the 
+[_Hex query metadata_](https://learn.hex.tech/docs/explore-data/cells/sql-cells/sql-cells-introduction#query-metadata) feature.
+Therefore, in order to extract lineage information, the required setup must include:
+
+- A separated warehouse ingestor (_eg_ BigQuery, Snowflake, Redshift, ...) with `use_queries_v2` enabled in order to fetch Queries.
+  This will ingest the queries into DataHub as `Query` entities and the ones triggered by Hex will include the corresponding _Hex query metadata_.
+- A DataHub server with version >= SaaS `0.3.10` or > OSS `1.0.0` so the `Query` entities are properly indexed by source (Hex in this case) and so fetched and processed by the Hex ingestor in order to emit the Dataset - Project lineage.
