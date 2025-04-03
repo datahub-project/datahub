@@ -1,6 +1,7 @@
 import { PropertyCardinality, StdDataType, StructuredPropertyEntity } from '@src/types.generated';
 import React from 'react';
 import SearchSelectUrnInput from '../../../entityForm/prompts/StructuredPropertyPrompt/UrnInput/SearchSelectUrnInput';
+import StructuredPropertySearchSelectUrnInput from '../../../entityForm/prompts/StructuredPropertyPrompt/UrnInput/StructuredPropertySearchSelectUrnInput';
 import UrnInput from '../../../entityForm/prompts/StructuredPropertyPrompt/UrnInput/UrnInput';
 import DateInput from './DateInput';
 import MultiSelectInput from './MultiSelectInput';
@@ -70,7 +71,7 @@ export default function StructuredPropertyInput({
                 />
             )}
             {!allowedValues && valueType.info.type === StdDataType.Urn && canUseSearchSelectUrnInput && (
-                <SearchSelectUrnInput
+                <StructuredPropertySearchSelectUrnInput
                     structuredProperty={structuredProperty}
                     selectedValues={selectedValues as string[]}
                     updateSelectedValues={updateSelectedValues}

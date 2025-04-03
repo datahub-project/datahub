@@ -4,7 +4,7 @@ import { EntityLink } from '@src/app/homeV2/reference/sections/EntityLink';
 import { Skeleton } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
-import { EntityType, PropertyCardinality, StructuredPropertyEntity } from '../../../../../../../types.generated';
+import { EntityType } from '../../../../../../../types.generated';
 import { SearchSelect } from '../../../../../../entityV2/shared/components/styled/search/SearchSelect';
 import { EntityAndType } from '../../../../types';
 import { extractTypeFromUrn } from '../../../../utils';
@@ -70,19 +70,27 @@ const SelectedItem = styled.div`
     }
 `;
 
-interface Props {
-    structuredProperty: StructuredPropertyEntity;
-    selectedValues: string[];
-    updateSelectedValues: (values: string[] | number[]) => void;
-}
-
 const IconWrapper = styled.div`
     cursor: pointer;
 `;
 
 const INITIAL_SELECTED_ENTITIES = [] as EntityAndType[];
 
-export default function SearchSelectUrnInput({ structuredProperty, selectedValues, updateSelectedValues }: Props) {
+// New interface for the generic component
+interface SearchSelectUrnInputProps {
+    allowedEntityTypes: EntityType[];
+    isMultiple: boolean;
+    selectedValues: string[];
+    updateSelectedValues: (values: string[] | number[]) => void;
+}
+
+// Generic component that doesn't depend on StructuredProperty
+export function SearchSelectUrnInput({
+    allowedEntityTypes,
+    isMultiple,
+    selectedValues,
+    updateSelectedValues,
+}: SearchSelectUrnInputProps) {
     const [tempSelectedEntities, setTempSelectedEntities] = useState<EntityAndType[]>(INITIAL_SELECTED_ENTITIES);
 
     // Convert the selected values (urns) to EntityAndType format for SearchSelect
@@ -98,15 +106,6 @@ export default function SearchSelectUrnInput({ structuredProperty, selectedValue
         }
     }, [selectedEntities, setTempSelectedEntities, tempSelectedEntities]);
 
-    // Get the allowed entity types from the structured property
-    const allowedEntityTypes = useMemo(() => {
-        return (
-            structuredProperty.definition.typeQualifier?.allowedTypes?.map(
-                (allowedType) => allowedType.info.type as EntityType,
-            ) || []
-        );
-    }, [structuredProperty]);
-
     // call updateSelectedValues when tempSelectedEntities changes
     useEffect(() => {
         if (tempSelectedEntities !== INITIAL_SELECTED_ENTITIES) {
@@ -116,8 +115,6 @@ export default function SearchSelectUrnInput({ structuredProperty, selectedValue
         // by the parent component on every render
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tempSelectedEntities]);
-
-    const isMultiple = structuredProperty.definition.cardinality === PropertyCardinality.Multiple;
 
     const removeEntity = (entity: EntityAndType) => {
         setTempSelectedEntities(tempSelectedEntities.filter((e) => e.urn !== entity.urn));
