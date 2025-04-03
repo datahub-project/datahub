@@ -107,76 +107,13 @@ class HexQueryFetcher:
                 query_properties,
                 query_subjects,
             ) in entities_by_urn.items():
-                # Skip if missing required aspects
-                if (
-                    not query_properties
-                    or not query_properties.statement
-                    or not query_properties.statement.value
-                    or not query_subjects
-                    or query_subjects.subjects is None  # empty list is allowed
-                ):
-                    logger.debug(
-                        f"Skipping query {query_urn} - missing required fields: {(query_properties, query_subjects)}"
-                    )
-                    self.report.filtered_out_queries_missing_metadata += 1
-                    continue
-
-                # Extract hex metadata (project_id and workspace_name)
-                metadata_result = self._extract_hex_metadata(
-                    query_properties.statement.value
+                maybe_query_response = self._build_query_response(
+                    query_urn=query_urn,
+                    query_properties=query_properties,
+                    query_subjects=query_subjects,
                 )
-                if not metadata_result:
-                    logger.debug(
-                        f"Skipping query {query_urn} - failed to extract Hex metadata"
-                    )
-                    self.report.filtered_out_queries_missing_metadata += 1
-                    continue
-
-                hex_project_id, workspace_from_url = metadata_result
-
-                # Validate workspace
-                if workspace_from_url != self.workspace_name:
-                    logger.debug(
-                        f"Skipping query {query_urn} - workspace '{workspace_from_url}' doesn't match '{self.workspace_name}'"
-                    )
-                    self.report.filtered_out_queries_different_workspace += 1
-                    continue
-
-                # Extract subjects
-                dataset_subjects: List[DatasetUrn] = []
-                schema_field_subjects: List[SchemaFieldUrn] = []
-                for subject in query_subjects.subjects:
-                    if subject.entity and subject.entity.startswith("urn:li:dataset:"):
-                        dataset_subjects.append(DatasetUrn.from_string(subject.entity))
-                    elif subject.entity and subject.entity.startswith(
-                        "urn:li:schemaField:"
-                    ):
-                        schema_field_subjects.append(
-                            SchemaFieldUrn.from_string(subject.entity)
-                        )
-
-                if not dataset_subjects and not schema_field_subjects:
-                    self.report.filtered_out_queries_no_subjects += 1
-                    continue
-
-                # Create response
-                response = QueryResponse(
-                    urn=query_urn,
-                    hex_project_id=hex_project_id,
-                    dataset_subjects=dataset_subjects,
-                    schema_field_subjects=schema_field_subjects,
-                )
-                logger.debug(
-                    f"Succesfully extracted {len(dataset_subjects)} dataset subjects and {len(schema_field_subjects)} schema field subjects for query {query_urn}: {dataset_subjects} {schema_field_subjects}"
-                )
-                self.report.total_queries += 1
-                self.report.total_dataset_subjects += len(dataset_subjects)
-                self.report.total_schema_field_subjects += len(schema_field_subjects)
-
-                logger.debug(
-                    f"Processed query {query_urn} with Hex project ID {hex_project_id}"
-                )
-                yield response
+                if maybe_query_response:
+                    yield maybe_query_response
 
     def _fetch_query_entities(
         self, query_urns: List[QueryUrn]
@@ -289,3 +226,73 @@ class HexQueryFetcher:
             )
 
         return None
+
+    def _build_query_response(
+        self,
+        query_urn: QueryUrn,
+        query_properties: Optional[QueryPropertiesClass],
+        query_subjects: Optional[QuerySubjectsClass],
+    ) -> Optional[QueryResponse]:
+        # Skip if missing required aspects
+        if (
+            not query_properties
+            or not query_properties.statement
+            or not query_properties.statement.value
+            or not query_subjects
+            or query_subjects.subjects is None  # empty list is allowed
+        ):
+            logger.debug(
+                f"Skipping query {query_urn} - missing required fields: {(query_properties, query_subjects)}"
+            )
+            self.report.filtered_out_queries_missing_metadata += 1
+            return None
+
+        # Extract hex metadata (project_id and workspace_name)
+        metadata_result = self._extract_hex_metadata(query_properties.statement.value)
+        if not metadata_result:
+            logger.debug(f"Skipping query {query_urn} - failed to extract Hex metadata")
+            self.report.filtered_out_queries_missing_metadata += 1
+            return None
+
+        hex_project_id, workspace_from_url = metadata_result
+
+        # Validate workspace
+        if workspace_from_url != self.workspace_name:
+            logger.debug(
+                f"Skipping query {query_urn} - workspace '{workspace_from_url}' doesn't match '{self.workspace_name}'"
+            )
+            self.report.filtered_out_queries_different_workspace += 1
+            return None
+
+        # Extract subjects
+        dataset_subjects: List[DatasetUrn] = []
+        schema_field_subjects: List[SchemaFieldUrn] = []
+        for subject in query_subjects.subjects:
+            if subject.entity and subject.entity.startswith("urn:li:dataset:"):
+                dataset_subjects.append(DatasetUrn.from_string(subject.entity))
+            elif subject.entity and subject.entity.startswith("urn:li:schemaField:"):
+                schema_field_subjects.append(SchemaFieldUrn.from_string(subject.entity))
+
+        if not dataset_subjects and not schema_field_subjects:
+            self.report.filtered_out_queries_no_subjects += 1
+            return None
+
+        # Create response
+        response = QueryResponse(
+            urn=query_urn,
+            hex_project_id=hex_project_id,
+            dataset_subjects=dataset_subjects,
+            schema_field_subjects=schema_field_subjects,
+        )
+        logger.debug(
+            f"Succesfully extracted {len(dataset_subjects)} dataset subjects and {len(schema_field_subjects)} schema field subjects for query {query_urn}: {dataset_subjects} {schema_field_subjects}"
+        )
+        self.report.total_queries += 1
+        self.report.total_dataset_subjects += len(dataset_subjects)
+        self.report.total_schema_field_subjects += len(schema_field_subjects)
+
+        logger.debug(
+            f"Processed query {query_urn} with Hex project ID {hex_project_id}"
+        )
+
+        return response
