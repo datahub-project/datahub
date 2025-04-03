@@ -89,8 +89,6 @@ RUN existing_group=$(getent group 1000 | cut -d: -f1) && \
         adduser --disabled-password --uid 1000 --gid 1000 --home /datahub-ingestion datahub; \
     fi && \
     # Create and set proper permissions for datahub directories
-    mkdir -p /datahub-ingestion/.venv && \
-    mkdir -p /datahub-ingestion/.local && \
     chown -R 1000:1000 /datahub-ingestion && \
     chmod +x /entrypoint.sh
 
