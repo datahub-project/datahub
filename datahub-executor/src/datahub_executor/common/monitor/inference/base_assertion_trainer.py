@@ -26,6 +26,7 @@ from datahub_executor.common.types import (
 )
 from datahub_executor.config import (
     ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
+    ONLINE_SMART_ASSERTIONS_ENABLED,
 )
 
 logger = logging.getLogger(__name__)
@@ -120,6 +121,13 @@ class BaseAssertionTrainer(Generic[Event], ABC):
         if not monitor_urn:
             logger.warning(
                 f"No monitor URN found for assertion {assertion.urn}. Cannot train."
+            )
+            return
+
+        # Check if online smart assertions enabled, if not we skip training.
+        if not ONLINE_SMART_ASSERTIONS_ENABLED:
+            logger.debug(
+                "Skipping retraining for assertion.. Online smart assertions is not enabled."
             )
             return
 

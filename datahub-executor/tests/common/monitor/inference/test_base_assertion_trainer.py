@@ -150,6 +150,10 @@ def mock_data() -> Dict[str, Union[Mock, MagicMock]]:
     }
 
 
+@patch(
+    "datahub_executor.common.monitor.inference.base_assertion_trainer.ONLINE_SMART_ASSERTIONS_ENABLED",
+    True,
+)
 def test_perform_training_no_monitor_urn(
     trainer: TestableAssertionTrainer, mock_data: Dict[str, Union[Mock, MagicMock]]
 ) -> None:
@@ -169,6 +173,10 @@ def test_perform_training_no_monitor_urn(
     assert not trainer.train_called
 
 
+@patch(
+    "datahub_executor.common.monitor.inference.base_assertion_trainer.ONLINE_SMART_ASSERTIONS_ENABLED",
+    True,
+)
 def test_perform_training_skip_inference(
     trainer: TestableAssertionTrainer, mock_data: Dict[str, Union[Mock, MagicMock]]
 ) -> None:
@@ -188,6 +196,10 @@ def test_perform_training_skip_inference(
     assert not trainer.train_called
 
 
+@patch(
+    "datahub_executor.common.monitor.inference.base_assertion_trainer.ONLINE_SMART_ASSERTIONS_ENABLED",
+    True,
+)
 def test_perform_training_not_enough_samples(
     trainer: TestableAssertionTrainer, mock_data: Dict[str, Union[Mock, MagicMock]]
 ) -> None:
@@ -215,6 +227,10 @@ def test_perform_training_not_enough_samples(
     assert not trainer.train_called
 
 
+@patch(
+    "datahub_executor.common.monitor.inference.base_assertion_trainer.ONLINE_SMART_ASSERTIONS_ENABLED",
+    True,
+)
 def test_perform_training_not_enough_time_between_samples(
     trainer: TestableAssertionTrainer, mock_data: Dict[str, Union[Mock, MagicMock]]
 ) -> None:
@@ -242,6 +258,10 @@ def test_perform_training_not_enough_time_between_samples(
     assert not trainer.train_called
 
 
+@patch(
+    "datahub_executor.common.monitor.inference.base_assertion_trainer.ONLINE_SMART_ASSERTIONS_ENABLED",
+    True,
+)
 def test_perform_training_enough_samples_and_time(
     trainer: TestableAssertionTrainer, mock_data: Dict[str, Union[Mock, MagicMock]]
 ) -> None:
