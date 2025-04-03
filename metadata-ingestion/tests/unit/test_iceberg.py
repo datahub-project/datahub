@@ -43,12 +43,8 @@ from pyiceberg.types import (
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.common import FlagsConfig, PipelineContext
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.run.pipeline_config import (
-    PipelineConfig,
-    SourceConfig,
-)
 from datahub.ingestion.source.iceberg.iceberg import (
     IcebergProfiler,
     IcebergSource,
@@ -77,12 +73,7 @@ def with_iceberg_source(processing_threads: int = 1, **kwargs: Any) -> IcebergSo
         catalog=catalog, processing_threads=processing_threads, **kwargs
     )
     return IcebergSource(
-        ctx=PipelineContext(
-            run_id="iceberg-source-test",
-            pipeline_config=PipelineConfig(
-                source=SourceConfig(type="iceberg"), flags=FlagsConfig()
-            ),
-        ),
+        ctx=PipelineContext(run_id="iceberg-source-test"),
         config=config,
     )
 

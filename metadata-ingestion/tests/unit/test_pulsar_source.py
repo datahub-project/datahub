@@ -5,11 +5,7 @@ from unittest.mock import patch
 import pytest
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.common import FlagsConfig, PipelineContext
-from datahub.ingestion.run.pipeline_config import (
-    PipelineConfig,
-    SourceConfig,
-)
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.pulsar import (
     PulsarSchema,
     PulsarSource,
@@ -85,19 +81,11 @@ class TestPulsarSchema:
 
 
 class TestPulsarSource(unittest.TestCase):
-    def setUp(self):
-        self.ctx = PipelineContext(
-            "test",
-            pipeline_config=PipelineConfig(
-                source=SourceConfig(type="pulsar"),
-                flags=FlagsConfig(generate_browse_path_v2=False),
-            ),
-        )
-
     def test_pulsar_source_get_token_jwt(self):
+        ctx = PipelineContext(run_id="test")
         pulsar_source = PulsarSource.create(
             {"web_service_url": "http://localhost:8080", "token": "jwt_token"},
-            self.ctx,
+            ctx,
         )
         # source = PulsarSource(
         #    ctx=PipelineContext(run_id="pulsar-source-test"),
@@ -107,6 +95,7 @@ class TestPulsarSource(unittest.TestCase):
     @patch("datahub.ingestion.source.pulsar.requests.get", autospec=True)
     @patch("datahub.ingestion.source.pulsar.requests.post", autospec=True)
     def test_pulsar_source_get_token_oauth(self, mock_post, mock_get):
+        ctx = PipelineContext(run_id="test")
         mock_get.return_value.json.return_value = {
             "token_endpoint": "http://127.0.0.1:8083/realms/pulsar/protocol/openid-connect/token"
         }
@@ -118,18 +107,19 @@ class TestPulsarSource(unittest.TestCase):
                 "client_id": "client_id",
                 "client_secret": "client_secret",
             },
-            self.ctx,
+            ctx,
         )
         mock_post.return_value.json.return_value = {"access_token": "oauth_token"}
         assert pulsar_source.get_access_token() == "oauth_token"
 
     @patch("datahub.ingestion.source.pulsar.requests.Session.get", autospec=True)
     def test_pulsar_source_get_workunits_all_tenant(self, mock_session):
+        ctx = PipelineContext(run_id="test")
         pulsar_source = PulsarSource.create(
             {
                 "web_service_url": "http://localhost:8080",
             },
-            self.ctx,
+            ctx,
         )
 
         # Mock fetching Pulsar metadata
@@ -160,17 +150,17 @@ class TestPulsarSource(unittest.TestCase):
             # http://localhost:8080/admin/v2/schemas/t_1/ns_1/topic_1/schema
             assert mock.call_count == 7
             # expecting 5 mcp for one topic with default config
-            print(work_units)
             assert len(work_units) == 5
 
     @patch("datahub.ingestion.source.pulsar.requests.Session.get", autospec=True)
     def test_pulsar_source_get_workunits_custom_tenant(self, mock_session):
+        ctx = PipelineContext(run_id="test")
         pulsar_source = PulsarSource.create(
             {
                 "web_service_url": "http://localhost:8080",
                 "tenants": ["t_1", "t_2"],
             },
-            self.ctx,
+            ctx,
         )
 
         # Mock fetching Pulsar metadata
@@ -205,6 +195,7 @@ class TestPulsarSource(unittest.TestCase):
 
     @patch("datahub.ingestion.source.pulsar.requests.Session.get", autospec=True)
     def test_pulsar_source_get_workunits_patterns(self, mock_session):
+        ctx = PipelineContext(run_id="test")
         pulsar_source = PulsarSource.create(
             {
                 "web_service_url": "http://localhost:8080",
@@ -213,7 +204,7 @@ class TestPulsarSource(unittest.TestCase):
                 "namespace_patterns": {"allow": [r"t_1/ns_1"]},
                 "topic_patterns": {"allow": [r"persistent://t_1/ns_1/topic_1"]},
             },
-            self.ctx,
+            ctx,
         )
 
         # Mock fetching Pulsar metadata

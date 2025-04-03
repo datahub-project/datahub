@@ -6,13 +6,9 @@ from datahub._codegen.aspect import _Aspect
 from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
-from datahub.ingestion.api.common import FlagsConfig, PipelineContext
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.run.pipeline_config import (
-    PipelineConfig,
-    SourceConfig,
-)
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.file import FileSourceConfig, GenericFileSource
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
@@ -45,14 +41,7 @@ class MockDataHubGraph(DataHubGraph):
         This function can be called repeatedly on the same
         Mock instance to load up metadata from multiple files."""
         file_source: GenericFileSource = GenericFileSource(
-            ctx=PipelineContext(
-                run_id="test",
-                pipeline_config=PipelineConfig(
-                    source=SourceConfig(type="file"),
-                    flags=FlagsConfig(generate_browse_path_v2=False),
-                ),
-            ),
-            config=FileSourceConfig(path=str(file)),
+            ctx=PipelineContext(run_id="test"), config=FileSourceConfig(path=str(file))
         )
         for wu in file_source.get_workunits():
             if isinstance(wu, MetadataWorkUnit):
