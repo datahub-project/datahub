@@ -150,7 +150,7 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                                             ))}
                                         </>
                                     )}
-                                    {proposedValues && (
+                                    {proposedValues.length > 0 && (
                                         <>
                                             {proposedValues.map((val) => (
                                                 <StructuredPropertyValue
@@ -162,7 +162,7 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                                             ))}
                                         </>
                                     )}
-                                    {!values && !proposedValues && (
+                                    {!values && proposedValues.length === 0 && (
                                         <EmptySectionText message={EMPTY_MESSAGES.structuredProps.title} />
                                     )}
                                 </>
