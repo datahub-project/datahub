@@ -244,7 +244,12 @@ class AirflowGenerator:
             flow_id=dag.dag_id,
             platform_instance=config.platform_instance if config else None,
         )
-        datajob = DataJob(id=task.task_id, flow_urn=dataflow_urn)
+
+        datajob = DataJob(
+            id=task.task_id,
+            flow_urn=dataflow_urn,
+            platform_instance=config.platform_instance if config else None,
+        )
 
         # TODO add support for MappedOperator
         datajob.description = AirflowGenerator._get_description(task)

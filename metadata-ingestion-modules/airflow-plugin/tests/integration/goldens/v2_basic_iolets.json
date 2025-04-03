@@ -156,6 +156,18 @@
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.basic_iolets,prod),run_data_task)",
     "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airflow",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,myairflow)"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.basic_iolets,prod),run_data_task)",
+    "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
         "json": {
@@ -328,7 +340,7 @@
             "name": "basic_iolets_run_data_task_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1743672163324,
+                "time": 1743688849214,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -461,7 +473,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1743672163324,
+            "timestampMillis": 1743688849214,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -478,14 +490,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1743672163670,
+            "timestampMillis": 1743688849610,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1743672163670
+            "lastUpdatedTimestamp": 1743688849610
         }
     }
 },
@@ -496,14 +508,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1743672163684,
+            "timestampMillis": 1743688849624,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1743672163684
+            "lastUpdatedTimestamp": 1743688849624
         }
     }
 },
@@ -534,6 +546,18 @@
                 "string": "COMMAND"
             },
             "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.basic_iolets,prod),run_data_task)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airflow",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,myairflow)"
         }
     }
 },
@@ -692,7 +716,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1743672163742,
+            "timestampMillis": 1743688849683,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
