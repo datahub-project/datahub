@@ -22,10 +22,9 @@ from datahub.emitter.mce_builder import (
     make_ownership_aspect_from_urn_list,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.common import FlagsConfig, PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.run.pipeline_config import (
-    FlagsConfig,
     PipelineConfig,
     SourceConfig,
 )

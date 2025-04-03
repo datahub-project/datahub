@@ -4,10 +4,9 @@ from typing import Optional
 from freezegun import freeze_time
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.common import FlagsConfig, PipelineContext
 from datahub.ingestion.api.source_helpers import AutoSystemMetadata
 from datahub.ingestion.run.pipeline_config import (
-    FlagsConfig,
     PipelineConfig,
     SourceConfig,
 )

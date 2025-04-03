@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import Field, validator
 
 from datahub.configuration.common import ConfigModel, DynamicTypedConfig
+from datahub.ingestion.api.common import FlagsConfig
 from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub.ingestion.sink.file import FileSinkConfig
 
@@ -34,42 +35,6 @@ class FailureLoggingConfig(ConfigModel):
         description="When enabled, records that fail to be sent to DataHub are logged to disk",
     )
     log_config: Optional[FileSinkConfig] = None
-
-
-class FlagsConfig(ConfigModel):
-    """Experimental flags for the ingestion pipeline.
-
-    As ingestion flags an experimental feature, we do not guarantee backwards compatibility.
-    Use at your own risk!
-    """
-
-    generate_browse_path_v2: bool = Field(
-        default=True,
-        description="Generate BrowsePathsV2 aspects from container hierarchy and existing BrowsePaths aspects.",
-    )
-
-    generate_browse_path_v2_dry_run: bool = Field(
-        default=False,
-        description=(
-            "Run through browse paths v2 generation but do not actually write the aspects to DataHub. "
-            "Requires `generate_browse_path_v2` to also be enabled."
-        ),
-    )
-
-    generate_memory_profiles: Optional[str] = Field(
-        default=None,
-        description=(
-            "Generate memray memory dumps for ingestion process by providing a path to write the dump file in."
-        ),
-    )
-
-    set_system_metadata: bool = Field(
-        True, description="Set system metadata on entities."
-    )
-    set_system_metadata_pipeline_name: bool = Field(
-        True,
-        description="Set system metadata pipeline name. Requires `set_system_metadata` to be enabled.",
-    )
 
 
 def _generate_run_id(source_type: Optional[str] = None) -> str:

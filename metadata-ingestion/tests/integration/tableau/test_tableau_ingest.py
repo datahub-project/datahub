@@ -27,11 +27,6 @@ from datahub.emitter.mce_builder import DEFAULT_ENV, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source import TestConnectionReport
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
-from datahub.ingestion.run.pipeline_config import (
-    FlagsConfig,
-    PipelineConfig,
-    SourceConfig,
-)
 from datahub.ingestion.source.tableau import tableau_constant as c
 from datahub.ingestion.source.tableau.tableau import (
     SiteIdContentUrl,
@@ -920,13 +915,7 @@ def test_tableau_no_verify():
             "username": "bogus",
             "password": "bogus",
         },
-        PipelineContext(
-            run_id="0",
-            pipeline_config=PipelineConfig(
-                source=SourceConfig(type="tableau"),
-                flags=FlagsConfig(generate_browse_path_v2=False),
-            ),
-        ),
+        PipelineContext(run_id="0"),
     )
     list(source.get_workunits())
 

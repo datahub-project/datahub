@@ -2,6 +2,9 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, Generic, Iterable, Optional, Tuple, TypeVar
 
+from pydantic import Field
+
+from datahub.configuration import ConfigModel
 from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import set_dataset_urn_to_lower
 from datahub.ingestion.api.committable import Committable
@@ -60,6 +63,10 @@ class PipelineContext:
 
         self._set_dataset_urn_to_lower_if_needed()
 
+    @property
+    def flags(self) -> "FlagsConfig":
+        return self.pipeline_config.flags if self.pipeline_config else FlagsConfig()
+
     def _set_dataset_urn_to_lower_if_needed(self) -> None:
         # TODO: Get rid of this function once lower-casing is the standard.
         if self.graph:
@@ -84,3 +91,39 @@ class PipelineContext:
                 "To provide one, either use the datahub-rest sink or set the top-level datahub_api config in the recipe."
             )
         return self.graph
+
+
+class FlagsConfig(ConfigModel):
+    """Experimental flags for the ingestion pipeline.
+
+    As ingestion flags an experimental feature, we do not guarantee backwards compatibility.
+    Use at your own risk!
+    """
+
+    generate_browse_path_v2: bool = Field(
+        default=True,
+        description="Generate BrowsePathsV2 aspects from container hierarchy and existing BrowsePaths aspects.",
+    )
+
+    generate_browse_path_v2_dry_run: bool = Field(
+        default=False,
+        description=(
+            "Run through browse paths v2 generation but do not actually write the aspects to DataHub. "
+            "Requires `generate_browse_path_v2` to also be enabled."
+        ),
+    )
+
+    generate_memory_profiles: Optional[str] = Field(
+        default=None,
+        description=(
+            "Generate memray memory dumps for ingestion process by providing a path to write the dump file in."
+        ),
+    )
+
+    set_system_metadata: bool = Field(
+        True, description="Set system metadata on entities."
+    )
+    set_system_metadata_pipeline_name: bool = Field(
+        True,
+        description="Set system metadata pipeline name. Requires `set_system_metadata` to be enabled.",
+    )

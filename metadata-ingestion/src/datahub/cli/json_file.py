@@ -1,8 +1,7 @@
 import logging
 
-from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.common import FlagsConfig, PipelineContext
 from datahub.ingestion.run.pipeline_config import (
-    FlagsConfig,
     PipelineConfig,
     SourceConfig,
 )

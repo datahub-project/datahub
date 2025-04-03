@@ -13,11 +13,6 @@ from google.cloud.bigquery.table import Row, TableListItem
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.run.pipeline_config import (
-    FlagsConfig,
-    PipelineConfig,
-    SourceConfig,
-)
 from datahub.ingestion.source.bigquery_v2.bigquery import BigqueryV2Source
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
@@ -1294,27 +1289,11 @@ def test_excluding_empty_projects_from_ingestion(
     }
 
     config = BigQueryV2Config.parse_obj(base_config)
-    source = BigqueryV2Source(
-        config=config,
-        ctx=PipelineContext(
-            run_id="test-1",
-            pipeline_config=PipelineConfig(
-                source=SourceConfig(type="iceberg"), flags=FlagsConfig()
-            ),
-        ),
-    )
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test-1"))
     assert len({wu.metadata.entityUrn for wu in source.get_workunits()}) == 2  # type: ignore
 
     config = BigQueryV2Config.parse_obj({**base_config, "exclude_empty_projects": True})
-    source = BigqueryV2Source(
-        config=config,
-        ctx=PipelineContext(
-            run_id="test-2",
-            pipeline_config=PipelineConfig(
-                source=SourceConfig(type="iceberg"), flags=FlagsConfig()
-            ),
-        ),
-    )
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test-2"))
     assert len({wu.metadata.entityUrn for wu in source.get_workunits()}) == 1  # type: ignore
 
 

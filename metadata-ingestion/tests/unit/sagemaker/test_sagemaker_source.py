@@ -4,9 +4,8 @@ from botocore.stub import Stubber
 from freezegun import freeze_time
 
 import datahub.ingestion.source.aws.sagemaker_processors.models
-from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.common import FlagsConfig, PipelineContext
 from datahub.ingestion.run.pipeline_config import (
-    FlagsConfig,
     PipelineConfig,
     SourceConfig,
 )

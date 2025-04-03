@@ -6,11 +6,10 @@ from datahub._codegen.aspect import _Aspect
 from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
-from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.common import FlagsConfig, PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.run.pipeline_config import (
-    FlagsConfig,
     PipelineConfig,
     SourceConfig,
 )

@@ -554,24 +554,18 @@ def _prepend_platform_instance(
 class AutoSystemMetadata:
     def __init__(self, ctx: PipelineContext):
         self.ctx = ctx
-        if not self.ctx.pipeline_config:
-            raise ValueError("Pipeline config is required for system metadata")
-        self.set_system_metadata = self.ctx.pipeline_config.flags.set_system_metadata
-        self.set_pipeline_name = (
-            self.ctx.pipeline_config.flags.set_system_metadata_pipeline_name
-        )
 
     def stamp(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:
         for wu in stream:
             yield self.stamp_wu(wu)
 
     def stamp_wu(self, wu: MetadataWorkUnit) -> MetadataWorkUnit:
-        if self.set_system_metadata:
+        if self.ctx.flags.set_system_metadata:
             if not wu.metadata.systemMetadata:
                 wu.metadata.systemMetadata = SystemMetadataClass()
             wu.metadata.systemMetadata.runId = self.ctx.run_id
             if not wu.metadata.systemMetadata.lastObserved:
                 wu.metadata.systemMetadata.lastObserved = get_sys_time()
-            if self.set_pipeline_name:
+            if self.ctx.flags.set_system_metadata_pipeline_name:
                 wu.metadata.systemMetadata.pipelineName = self.ctx.pipeline_name
         return wu
