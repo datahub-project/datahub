@@ -1,7 +1,7 @@
 import { PageTitle } from '@src/alchemy-components';
 import { Badge } from '@src/alchemy-components/components/Badge';
 import { Badge as BadgeAntd } from 'antd';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { ActionRequest } from '@src/types.generated';
 import { useUserContext } from '../context/useUserContext';
@@ -147,14 +147,23 @@ const TabTitle = ({ title, count, dataTestId }: TabTitleProps) => {
 
 export const TaskCenter = () => {
     const {
+        refetchUnfinishedTaskCount,
         state: { notificationsCount, proposalCount },
     } = useUserContext();
     const [targetEntity, setTargetEntity] = useState<EntityAndType | null>(null);
     const [isSidebarClosed, setIsSidebarClosed] = useState(false);
+    const [hasRefetchedTaskCount, setHasRefetchedTaskFount] = useState(false);
     const width = useSidebarWidth();
     const entityRegistry = useEntityRegistryV2();
     const isV2 = useIsThemeV2();
     const isShowNavBarRedesign = useShowNavBarRedesign();
+
+    useEffect(() => {
+        if (!hasRefetchedTaskCount) {
+            refetchUnfinishedTaskCount();
+            setHasRefetchedTaskFount(true);
+        }
+    }, [refetchUnfinishedTaskCount, hasRefetchedTaskCount]);
 
     const onProposalClick = (e: ActionRequest) => {
         if (!e?.entity) {

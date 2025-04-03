@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { message, Typography } from 'antd';
 import styled from 'styled-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { SearchBar, Pagination } from '@src/alchemy-components';
+import { Pagination } from '@src/alchemy-components';
 import FilterSection from '@src/app/sharedV2/filters/FilterSection';
 import usePagination from '@src/app/sharedV2/pagination/usePagination';
 import ProposalsTable from './proposalsTable/ProposalsTable';
@@ -134,8 +134,7 @@ export const ProposalList = ({
                 {title && <ActionRequestsTitle level={2}>{title}</ActionRequestsTitle>}
                 {showFilters && (
                     <ProposalsTableHeader>
-                        {/* TODO: Repleace SearchBar with Entity Search option here */}
-                        <SearchBar />
+                        {/* TODO: Add entity search bar */}
                         <FilterSection
                             name="proposals"
                             loading={loading}

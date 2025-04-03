@@ -67,5 +67,8 @@ query getGlossaryNode($urn: String!) {
             ...institutionalMemoryFields
         }
         ...notes
+        proposals: proposals {
+            ...proposalsFragment
+        }
     }
 }

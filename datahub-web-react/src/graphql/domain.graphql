@@ -41,6 +41,9 @@ query getDomain($urn: String!) {
             ...originFields
         }
         ...notes
+        proposals: proposals {
+            ...proposalsFragment
+        }
     }
 }
 

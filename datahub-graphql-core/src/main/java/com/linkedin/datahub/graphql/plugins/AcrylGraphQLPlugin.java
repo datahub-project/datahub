@@ -880,6 +880,11 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private void configureProposalResolvers(final RuntimeWiring.Builder builder) {
     List<String> entitiesWithProposal =
         ImmutableList.of(
+            "Domain",
+            "DataProduct",
+            "GlossaryTerm",
+            "GlossaryNode",
+            "Chart",
             "Notebook",
             "Dashboard",
             "DataJob",

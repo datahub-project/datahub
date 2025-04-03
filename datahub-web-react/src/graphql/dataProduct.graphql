@@ -21,6 +21,9 @@ query getDataProduct($urn: String!) {
             ...formsFields
         }
         ...notes
+        proposals: proposals {
+            ...proposalsFragment
+        }
     }
 }
 

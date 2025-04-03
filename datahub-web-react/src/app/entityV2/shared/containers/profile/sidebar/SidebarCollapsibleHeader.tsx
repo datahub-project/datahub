@@ -61,6 +61,7 @@ const RightActions = styled.div`
 
 const TasksIcon = styled.span`
     position: relative;
+    cursor: pointer;
 `;
 
 const PillDot = styled.div<{ $isSelected?: boolean }>`

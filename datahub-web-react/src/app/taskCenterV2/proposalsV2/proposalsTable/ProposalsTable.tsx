@@ -49,6 +49,7 @@ const ProposalsTable = ({
                     onChange: (keys) => setSelectedKeys(keys),
                 }}
                 onRowClick={onRowClick}
+                style={{ tableLayout: 'fixed' }}
             />
         </TableContainer>
     );

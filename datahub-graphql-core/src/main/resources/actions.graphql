@@ -161,6 +161,34 @@ extend type Notebook {
     proposals(type: ActionRequestType, status: ActionRequestStatus): [ActionRequest!]
 }
 
+extend type GlossaryNode {
+    """
+    Proposed action requests on the given entity
+    """
+    proposals(type: ActionRequestType, status: ActionRequestStatus): [ActionRequest!]
+}
+
+extend type GlossaryTerm {
+    """
+    Proposed action requests on the given entity
+    """
+    proposals(type: ActionRequestType, status: ActionRequestStatus): [ActionRequest!]
+}
+
+extend type DataProduct {
+    """
+    Proposed action requests on the given entity
+    """
+    proposals(type: ActionRequestType, status: ActionRequestStatus): [ActionRequest!]
+}
+
+extend type Domain {
+    """
+    Proposed action requests on the given entity
+    """
+    proposals(type: ActionRequestType, status: ActionRequestStatus): [ActionRequest!]
+}
+
 extend type Query {
     """
     Fetch all action requests for the authenticated user
