@@ -45,7 +45,7 @@ const elementVisibility = () => {
 
 const enterKeyInSearchBox = (text) => {
   cy.get('[data-testid="search-input"]')
-    .eq(2)
+    .last()
     .should("be.visible")
     .click()
     .type(`${text}{enter}`);

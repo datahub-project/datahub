@@ -81,7 +81,7 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions): Colo
 
             bgColor: colors.transparent,
             borderColor: colors.transparent,
-            hoverBgColor: colors.transparent,
+            hoverBgColor: colors.gray[1500],
             activeBgColor: colors.transparent,
             disabledBgColor: colors.transparent,
             disabledBorderColor: colors.transparent,
@@ -151,26 +151,7 @@ const getButtonFontStyles = (size: SizeOptions) => {
         lineHeight: typography.lineHeights.none,
     };
 
-    const sizeStyles = {
-        sm: {
-            ...baseFontStyles,
-            fontSize: getFontSize(size), // 12px
-        },
-        md: {
-            ...baseFontStyles,
-            fontSize: getFontSize(size), // 14px
-        },
-        lg: {
-            ...baseFontStyles,
-            fontSize: getFontSize(size), // 16px
-        },
-        xl: {
-            ...baseFontStyles,
-            fontSize: getFontSize(size), // 18px
-        },
-    };
-
-    return sizeStyles[size];
+    return { ...baseFontStyles, fontSize: getFontSize(size) };
 };
 
 // Generate radii styles for button
@@ -180,13 +161,14 @@ const getButtonRadiiStyles = (isCircle: boolean) => {
 };
 
 // Generate padding styles for button
-const getButtonPadding = (size: SizeOptions, variant: ButtonVariant, isCircle: boolean) => {
+const getButtonPadding = (size: SizeOptions, hasChildren: boolean, isCircle: boolean) => {
     if (isCircle) return { padding: spacing.xsm };
+    if (!hasChildren) return { padding: spacing.xsm };
 
     const paddingStyles = {
         xs: {
-            vertical: 0,
-            horizontal: 0,
+            vertical: 6,
+            horizontal: 6,
         },
         sm: {
             vertical: 8,
@@ -208,7 +190,7 @@ const getButtonPadding = (size: SizeOptions, variant: ButtonVariant, isCircle: b
 
     const selectedStyle = paddingStyles[size];
     const verticalPadding = selectedStyle.vertical;
-    const horizontalPadding = variant === 'text' ? 0 : selectedStyle.horizontal;
+    const horizontalPadding = selectedStyle.horizontal;
     return { padding: `${verticalPadding}px ${horizontalPadding}px` };
 };
 
@@ -221,7 +203,7 @@ const getButtonActiveStyles = (colorStyles: ColorStyles) => ({
 });
 
 // Generate loading styles for button
-const getButtonLoadingStyles = () => ({
+const getButtonLoadingStyles = (): CSSObject => ({
     pointerEvents: 'none',
     opacity: 0.75,
 });
@@ -229,8 +211,8 @@ const getButtonLoadingStyles = () => ({
 /*
  * Main function to generate styles for button
  */
-export const getButtonStyle = (props: ButtonStyleProps) => {
-    const { variant, color, size, isCircle, isActive, isLoading, isDisabled } = props;
+export const getButtonStyle = (props: ButtonStyleProps): CSSObject => {
+    const { variant, color, size, isCircle, isActive, isLoading, isDisabled, hasChildren } = props;
 
     // Get map of colors
     const colorStyles = getButtonColorStyles(variant, color);
@@ -239,10 +221,10 @@ export const getButtonStyle = (props: ButtonStyleProps) => {
     const variantStyles = getButtonVariantStyles(variant, colorStyles);
     const fontStyles = getButtonFontStyles(size);
     const radiiStyles = getButtonRadiiStyles(isCircle);
-    const paddingStyles = getButtonPadding(size, variant, isCircle);
+    const paddingStyles = getButtonPadding(size, hasChildren, isCircle);
 
     // Base of all generated styles
-    let styles = {
+    let styles: CSSObject = {
         ...variantStyles,
         ...fontStyles,
         ...radiiStyles,
