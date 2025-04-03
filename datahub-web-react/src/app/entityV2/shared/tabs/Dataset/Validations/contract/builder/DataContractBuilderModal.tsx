@@ -3,6 +3,7 @@ import { message, Modal, Typography } from 'antd';
 import ProposalDescriptionModal from '@src/app/entityV2/shared/containers/profile/sidebar/ProposalDescriptionModal';
 import { useProposeDataContractMutation } from '@src/graphql/contract.generated';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
+import { useAppConfig } from '@src/app/useAppConfig';
 import {
     ActionRequestType,
     DataContract,
@@ -52,6 +53,8 @@ export const DataContractBuilderModal = ({
     const [proposeDataContractMutation] = useProposeDataContractMutation();
 
     const [showProposeModal, setShowProposeModal] = useState(false);
+    const { config } = useAppConfig();
+    const { showTaskCenterRedesign } = config.featureFlags;
 
     const modalClosePopup = () => {
         Modal.confirm({
@@ -102,6 +105,14 @@ export const DataContractBuilderModal = ({
             });
     };
 
+    const handlePropose = () => {
+        if (showTaskCenterRedesign) {
+            setShowProposeModal(true);
+        } else {
+            proposeUpsertDataContract();
+        }
+    };
+
     return (
         <ClickOutside onClickOutside={modalClosePopup} wrapperClassName="data-contract-builder-modal">
             {!showProposeModal && (
@@ -122,7 +133,7 @@ export const DataContractBuilderModal = ({
                         onCancel={onCancel}
                         builderState={builderState}
                         setBuilderState={setBuilderState}
-                        setShowProposeModal={setShowProposeModal}
+                        handlePropose={handlePropose}
                     />
                 </Modal>
             )}

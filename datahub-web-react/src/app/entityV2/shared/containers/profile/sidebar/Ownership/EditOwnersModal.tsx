@@ -7,6 +7,7 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { useEntityContext, useMutationUrn } from '@src/app/entity/shared/EntityContext';
 import handleGraphQLError from '@src/app/shared/handleGraphQLError';
 import { Modal } from '@src/alchemy-components';
+import { useAppConfig } from '@src/app/useAppConfig';
 import { CorpUser, Entity, EntityType, OwnerEntityType } from '../../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../../../../analytics';
@@ -151,6 +152,8 @@ export const EditOwnersModal = ({
     const loading = recommendationsLoading || userSearchLoading || groupSearchLoading;
     const inputEl = useRef(null);
     const [showProposeModal, setShowProposeModal] = useState(false);
+    const { config } = useAppConfig();
+    const { showTaskCenterRedesign } = config.featureFlags;
 
     // Invokes the search API as the owner types
     const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
@@ -406,7 +409,11 @@ export const EditOwnersModal = ({
     }
 
     const handlePropose = () => {
-        setShowProposeModal(true);
+        if (showTaskCenterRedesign) {
+            setShowProposeModal(true);
+        } else {
+            proposeOwners();
+        }
     };
 
     return (

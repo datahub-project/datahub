@@ -4,6 +4,7 @@ import { EditOutlined } from '@ant-design/icons';
 import { message, Input, Typography, Form, Collapse } from 'antd';
 import DOMPurify from 'dompurify';
 import { Button, Modal } from '@src/alchemy-components';
+import { useAppConfig } from '@src/app/useAppConfig';
 import {
     useCreateGlossaryTermMutation,
     useCreateGlossaryNodeMutation,
@@ -67,6 +68,8 @@ function CreateGlossaryEntityModal(props: Props) {
     const [proposeCreateGlossaryNodeMutation] = useProposeCreateGlossaryNodeMutation();
 
     const [showProposeModal, setShowProposeModal] = useState(false);
+    const { config } = useAppConfig();
+    const { showTaskCenterRedesign } = config.featureFlags;
 
     function createGlossaryEntity() {
         const mutation =
@@ -146,6 +149,14 @@ function CreateGlossaryEntityModal(props: Props) {
         setIsDocumentationModalVisible(false);
     }
 
+    const handlePropose = () => {
+        if (showTaskCenterRedesign) {
+            setShowProposeModal(true);
+        } else {
+            proposeGlossaryEntity();
+        }
+    };
+
     return (
         <>
             {!showProposeModal && (
@@ -165,7 +176,7 @@ function CreateGlossaryEntityModal(props: Props) {
                             <Button
                                 variant="outline"
                                 type="button"
-                                onClick={() => setShowProposeModal(true)}
+                                onClick={handlePropose}
                                 disabled={createButtonDisabled}
                             >
                                 Propose

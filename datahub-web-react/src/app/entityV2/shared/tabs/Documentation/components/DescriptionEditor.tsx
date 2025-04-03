@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { message, Modal } from 'antd';
 import styled from 'styled-components/macro';
+import { useAppConfig } from '@src/app/useAppConfig';
 import { useUpdateDescriptionMutation } from '../../../../../../graphql/mutations.generated';
 import { useProposeUpdateDescriptionMutation } from '../../../../../../graphql/proposals.generated';
 import { EntityType } from '../../../../../../types.generated';
@@ -81,6 +82,8 @@ export const DescriptionEditor = ({ inferOnMount, onComplete }: DescriptionEdito
     hasUnsavedChangesRef.current = isDescriptionUpdated;
 
     const [showProposeModal, setShowProposeModal] = useState(false);
+    const { config } = useAppConfig();
+    const { showTaskCenterRedesign } = config.featureFlags;
 
     /**
      * Auto-Save the description edits to local storage every 5 seconds.
@@ -244,6 +247,14 @@ export const DescriptionEditor = ({ inferOnMount, onComplete }: DescriptionEdito
 
     const shouldShowProposeButton = getShouldShowProposeButton(entityType);
 
+    const handlePropose = () => {
+        if (showTaskCenterRedesign) {
+            setShowProposeModal(true);
+        } else {
+            proposeUpdate();
+        }
+    };
+
     return !loading ? (
         <>
             <EditorSourceWrapper>
@@ -272,7 +283,7 @@ export const DescriptionEditor = ({ inferOnMount, onComplete }: DescriptionEdito
             </EditorSourceWrapper>
             <DescriptionEditorToolbar
                 onSave={handleSave}
-                onPropose={() => setShowProposeModal(true)}
+                onPropose={handlePropose}
                 onCancel={handleCancel}
                 disableSave={!isDescriptionUpdated}
                 showPropose={shouldShowProposeButton}

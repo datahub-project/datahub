@@ -6,6 +6,7 @@ import styled from 'styled-components';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import ProposalDescriptionModal from '@src/app/entityV2/shared/containers/profile/sidebar/ProposalDescriptionModal';
 import { Modal } from '@src/alchemy-components';
+import { useAppConfig } from '@src/app/useAppConfig';
 import {
     // Saas-only mutation
     useProposeStructuredPropetiesMutation,
@@ -70,6 +71,8 @@ export default function EditStructuredPropertyModal({
     // Saas-only mutation
     const [proposeStructuredProperties] = useProposeStructuredPropetiesMutation();
     const [showProposeModal, setShowProposeModal] = useState(false);
+    const { config } = useAppConfig();
+    const { showTaskCenterRedesign } = config.featureFlags;
 
     useEffect(() => {
         setSelectedValues(initialValues);
@@ -186,7 +189,11 @@ export default function EditStructuredPropertyModal({
     }
 
     const handlePropose = () => {
-        setShowProposeModal(true);
+        if (showTaskCenterRedesign) {
+            setShowProposeModal(true);
+        } else {
+            proposeProperties();
+        }
     };
 
     return (

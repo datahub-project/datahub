@@ -1,3 +1,5 @@
+import { hasOperationName } from "../utils";
+
 const datasetUrn =
   "urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)";
 const datasetName = "DatasetToProposeOn";
@@ -21,7 +23,6 @@ const createProposalOnModal = (to_type, text) => {
   cy.wait(1000);
   cy.get(".rc-virtual-list").find("div").contains(to_type).click();
   cy.get('[data-testid="create-proposal-btn"]').click({ force: true });
-  cy.get('[data-testid="add-note-propose-button"]').click({ force: true });
   cy.waitTextVisible(to_type);
   cy.contains(to_type).should("be.visible");
   cy.wait(2000);
@@ -82,8 +83,22 @@ const deletePreviousEntity = (entity, locator, entityName, message) => {
     });
 };
 
+const setShowTaskCenterRedesignFlag = (isOn) => {
+  cy.intercept("POST", "/api/v2/graphql", (req) => {
+    if (hasOperationName(req, "appConfig")) {
+      req.reply((res) => {
+        res.body.data.appConfig.featureFlags.showTaskCenterRedesign = isOn;
+      });
+    }
+  });
+};
+
 describe("schemaProposals", () => {
   Cypress.on("uncaught:exception", (err, runnable) => false);
+
+  beforeEach(() => {
+    setShowTaskCenterRedesignFlag(false);
+  });
 
   it("can propose a schema-level tag and then decline tag proposal from the dataset page", () => {
     cy.login();

@@ -5,6 +5,7 @@ import styled from 'styled-components';
 import ProposalDescriptionModal from '@src/app/entityV2/shared/containers/profile/sidebar/ProposalDescriptionModal';
 import { Modal } from '@src/alchemy-components';
 import { ModalButton } from '@src/alchemy-components/components/Modal/Modal';
+import { useAppConfig } from '@src/app/useAppConfig';
 import { useGetAutoCompleteResultsLazyQuery } from '../../../graphql/search.generated';
 import {
     EntityType,
@@ -166,6 +167,8 @@ export default function EditTagTermsModal({
     const inputEl = useRef(null);
 
     const [showProposeModal, setShowProposeModal] = useState(false);
+    const { config } = useAppConfig();
+    const { showTaskCenterRedesign } = config.featureFlags;
 
     const handleSearch = (text: string) => {
         if (text.length > 0) {
@@ -556,7 +559,11 @@ export default function EditTagTermsModal({
     }
 
     const handlePropose = () => {
-        setShowProposeModal(true);
+        if (showTaskCenterRedesign) {
+            setShowProposeModal(true);
+        } else {
+            onOkProposal();
+        }
     };
 
     const isShowingGlossaryBrowser = !inputValue && type === EntityType.GlossaryTerm && isFocusedOnInput;

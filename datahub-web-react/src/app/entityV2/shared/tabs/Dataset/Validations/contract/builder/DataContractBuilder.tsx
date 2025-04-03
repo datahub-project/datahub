@@ -52,7 +52,7 @@ type Props = {
     onCancel?: () => void;
     builderState: DataContractBuilderState;
     setBuilderState: React.Dispatch<React.SetStateAction<DataContractBuilderState>>;
-    setShowProposeModal: React.Dispatch<React.SetStateAction<boolean>>;
+    handlePropose?: () => void;
 };
 
 /**
@@ -67,7 +67,7 @@ export const DataContractBuilder = ({
     onCancel,
     builderState,
     setBuilderState,
-    setShowProposeModal,
+    handlePropose,
 }: Props) => {
     const isEdit = !!initialState;
     const [upsertDataContractMutation] = useUpsertDataContractMutation();
@@ -201,7 +201,7 @@ export const DataContractBuilder = ({
                 <CancelButton onClick={onCancel}>Cancel</CancelButton>
                 <div>
                     <Tooltip title="Propose changes to this asset's contract">
-                        <ProposeButton disabled={editDisabled} onClick={() => setShowProposeModal(true)}>
+                        <ProposeButton disabled={editDisabled} onClick={handlePropose}>
                             Propose
                         </ProposeButton>
                     </Tooltip>

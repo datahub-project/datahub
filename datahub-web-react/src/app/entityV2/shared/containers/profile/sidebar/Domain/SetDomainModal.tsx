@@ -6,6 +6,7 @@ import { useEntityContext, useMutationUrn } from '@src/app/entity/shared/EntityC
 import analytics, { EventType } from '@src/app/analytics';
 import handleGraphQLError from '@src/app/shared/handleGraphQLError';
 import { Modal } from '@src/alchemy-components';
+import { useAppConfig } from '@src/app/useAppConfig';
 import { useGetAutoCompleteResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { Domain, Entity, EntityType } from '../../../../../../../types.generated';
 import { useBatchSetDomainMutation } from '../../../../../../../graphql/mutations.generated';
@@ -57,6 +58,8 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
     const inputEl = useRef(null);
     const isShowingDomainNavigator = !inputValue && isFocusedOnInput;
     const [showProposeModal, setShowProposeModal] = useState(false);
+    const { config } = useAppConfig();
+    const { showTaskCenterRedesign } = config.featureFlags;
 
     const onModalClose = () => {
         setInputValue('');
@@ -211,7 +214,11 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
     }
 
     const handlePropose = () => {
-        setShowProposeModal(true);
+        if (showTaskCenterRedesign) {
+            setShowProposeModal(true);
+        } else {
+            proposeDomain();
+        }
     };
 
     return (
