@@ -40,8 +40,10 @@ export default function DomainsSidebarHeader() {
                     variant="filled"
                     color="violet"
                     isCircle
-                    icon="Plus"
-                    iconSource="phosphor"
+                    icon={{
+                        icon: 'Plus',
+                        source: 'phosphor',
+                    }}
                     onClick={() => setIsCreatingDomain(true)}
                 />
             </Tooltip>
