@@ -23,12 +23,11 @@ type Props = {
     resourceRefs?: ResourceRefInput[];
     onClose: () => void;
     refetch?: () => void;
-    zIndexOverride?: number;
 };
 
 const SCHEMA_FIELD_PREFIX = 'urn:li:schemaField:';
 
-export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, zIndexOverride }: Props) => {
+export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch }: Props) => {
     const { entityWithSchema } = useGetEntityWithSchema();
     const schemaMetadata: any = entityWithSchema?.schemaMetadata || undefined;
 
@@ -89,7 +88,6 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, z
     return (
         <Modal
             title="Set as Deprecated"
-            zIndex={zIndexOverride ?? 10}
             visible
             onCancel={handleClose}
             keyboard
