@@ -134,8 +134,7 @@ const BrowseSidebar = ({ visible }: Props) => {
                         color="gray"
                         size="lg"
                         isCircle
-                        icon={isClosed ? 'ArrowLineRight' : 'ArrowLineLeft'}
-                        iconSource="phosphor"
+                        icon={{ icon: isClosed ? 'ArrowLineRight' : 'ArrowLineLeft', source: 'phosphor' }}
                         isActive={!isClosed}
                         onClick={() => setIsClosed(!isClosed)}
                     />
