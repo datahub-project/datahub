@@ -207,7 +207,7 @@ export default function VersionsDrawer({ versionSetUrn, open }: Props) {
                 <Input
                     label=""
                     placeholder="Search versions by name..."
-                    icon={{ name: 'MagnifyingGlass', source: 'phosphor' }}
+                    icon={{ icon: 'MagnifyingGlass', source: 'phosphor' }}
                     value={searchInput}
                     setValue={setSearchInput}
                 />
