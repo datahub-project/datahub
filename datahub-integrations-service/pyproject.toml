@@ -9,7 +9,7 @@ description = ""
 authors = [
 	{ name="Acryl Data", email="eng@acryl.io" },
 ]
-requires-python = "==3.10.*"
+requires-python = ">=3.10"
 
 dependencies = [
 	"acryl-datahub[base,snowflake,bigquery]",
@@ -74,9 +74,6 @@ replay = "datahub_integrations.actions.replay_source.ReplayEventSource"
 record = "datahub_integrations.actions.recording_action.RecordingAction"
 dbt_sync_back = "datahub_integrations.dbt.dbt_sync_back:DbtSyncBackAction"
 ai_term_suggestion = "datahub_integrations.gen_ai.term_suggestion_action:TermSuggestionAction"
-
-[tool.uv.pip]
-python-version = "3.10"
 
 [tool.ruff]
 target-version = "py310"
