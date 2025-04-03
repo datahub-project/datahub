@@ -1,6 +1,6 @@
 # How DataHub Cloud compares to DataHub
 
-## DataHub Cloud: Intelligent AI + Data Management
+## DataHub Cloud: AI & Data Context Platform
 
 DataHub Cloud delivers a fully-managed version of DataHub's powerful metadata platform, offering enhanced capabilities for data discovery, observability, and governance that accelerate the production-readiness of your data and AI assets.
 
