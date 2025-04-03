@@ -84,7 +84,7 @@ export default function RemoteExecutorPoolSelector({ value, onChange, onBlur, pl
                             <span style={{ color: colors.blue[600], marginLeft: 4 }}> (Hosted in DataHub Cloud)</span>
                         ) : null}
                         {pool.isDefault ? (
-                            <span style={{ opacity: 0.5, fontStyle: 'italic', marginLeft: 4 }}> Suggested Default</span>
+                            <span style={{ opacity: 0.5, fontStyle: 'italic', marginLeft: 4 }}> Default</span>
                         ) : null}
                     </div>
                     {/* Pool description */}

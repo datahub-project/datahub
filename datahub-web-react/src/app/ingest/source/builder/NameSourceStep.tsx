@@ -180,10 +180,7 @@ export const NameSourceStep = ({ state, isEditing, updateState, prev, submit }: 
                     <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
                         <Form.Item label={<Typography.Text strong>Executor Pool</Typography.Text>}>
                             <Typography.Paragraph>
-                                Provide the id of the executor pool that should execute this ingestion recipe. This id
-                                is used to route execution requests of the recipe to the executor pool of the same id.
-                                The built-in DataHub executor pool id is &apos;default&apos;. Do not change this unless
-                                you have configured a remote or custom executor.
+                                Choose an Executor Pool to execute this ingestion recipe.
                             </Typography.Paragraph>
                             <RemoteExecutorPoolSelector
                                 value={state.config?.executorId || (isEditing ? '' : undefined)}

@@ -196,7 +196,7 @@ export default function CreateRemoteExecutorPoolModal({ visible, onCancel, onSuc
                         <Typography.Text type="secondary">Briefly describe what this pool is used for.</Typography.Text>
                         <div style={{ marginTop: 4 }}>
                             <Input.TextArea
-                                placeholder="Connect to soruces in the us-east region with this pool."
+                                placeholder="Connect to sources in the us-east region with this pool."
                                 data-testid="create-pool-description"
                                 rows={2}
                             />

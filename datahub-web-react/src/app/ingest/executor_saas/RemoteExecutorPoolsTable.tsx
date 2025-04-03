@@ -95,7 +95,7 @@ export const RemoteExecutorPoolsTable = ({
     }));
     const tableColumns = [
         {
-            title: 'Identifier',
+            title: 'Pool Identifier',
             dataIndex: 'executorPoolId',
             key: 'executorPoolId',
             render: (_, record: (typeof tableData)[0]) => (
@@ -206,10 +206,10 @@ export const RemoteExecutorPoolsTable = ({
                         <Typography.Text type={isDefault ? undefined : 'secondary'} strong={isDefault}>
                             {isDefault ? (
                                 <>
-                                    <Check size={12} /> Recommended pool
+                                    <Check size={12} /> Default
                                 </>
                             ) : (
-                                'Recommend by default'
+                                'Make Default'
                             )}
                         </Typography.Text>
                     </DefaultButton>
