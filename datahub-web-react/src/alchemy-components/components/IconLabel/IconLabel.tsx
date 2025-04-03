@@ -3,7 +3,7 @@ import { IconLabelProps, IconType } from './types';
 import { IconLabelContainer, ImageContainer, Label } from './components';
 import { isValidImageUrl } from './utils';
 
-export const IconLabel = ({ icon, name, type, style, imageUrl }: IconLabelProps) => {
+export const IconLabel = ({ icon, name, type, style, imageUrl, testId }: IconLabelProps) => {
     const [isValidImage, setIsValidImage] = useState(false);
 
     useEffect(() => {
@@ -26,8 +26,12 @@ export const IconLabel = ({ icon, name, type, style, imageUrl }: IconLabelProps)
 
     return (
         <IconLabelContainer>
-            <ImageContainer style={style}>{renderIcons()}</ImageContainer>
-            <Label title={name}>{name}</Label>
+            <ImageContainer data-testid={testId} style={style}>
+                {renderIcons()}
+            </ImageContainer>
+            <Label data-testid={name} title={name}>
+                {name}
+            </Label>
         </IconLabelContainer>
     );
 };

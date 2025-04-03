@@ -10,6 +10,7 @@ const second_degree = [
   "urn:li:dashboard:(looker,cypress_baz)",
   "urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)",
   "urn:li:mlPrimaryKey:(cypress-test-2,some-cypress-feature-2)",
+  "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,cypress-model,PROD)",
 ];
 const third_degree_plus = [
   "urn:li:dataJob:(urn:li:dataFlow:(airflow,cypress_dag_abc,PROD),cypress_task_123)",
@@ -18,6 +19,7 @@ const third_degree_plus = [
   "urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_created,PROD)",
   "urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_created_no_tag,PROD)",
   "urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_deleted,PROD)",
+  "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,cypress-model-package-group,PROD)",
 ];
 const downloadCsvFile = (filename) => {
   cy.get('[data-testid="three-dot-menu"]').click();
@@ -55,7 +57,7 @@ describe("download lineage results to .csv file", () => {
 
     // Verify 1st and 2nd degree of dependencies
     cy.get('[data-testid="facet-degree-2"]').click().wait(5000);
-    cy.contains(/1 - [7-8] of [7-8]/);
+    cy.contains(/1 - [8-9] of [8-9]/);
     downloadCsvFile("second_degree_results.csv");
     const second_degree_csv = cy.readFile(
       "cypress/downloads/second_degree_results.csv",

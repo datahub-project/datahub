@@ -183,7 +183,7 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
                                 label=""
                                 placeholder="Search..."
                                 value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
+                                setValue={setSearchQuery}
                             />
                         </SearchContainer>
                         {loading ? (
