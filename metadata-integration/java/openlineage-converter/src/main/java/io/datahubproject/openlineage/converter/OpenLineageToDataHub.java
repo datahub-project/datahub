@@ -1278,6 +1278,8 @@ public class OpenLineageToDataHub {
         orchestrator = matcher.group(1);
       } else if (producer.startsWith("https://github.com/apache/airflow/")) {
         orchestrator = "airflow";
+      } else if (producer.startsWith("https://github.com/trinodb/trino/")) {
+        orchestrator = "trino";
       }
     }
     if (orchestrator == null) {
