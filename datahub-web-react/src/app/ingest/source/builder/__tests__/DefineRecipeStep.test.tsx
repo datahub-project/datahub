@@ -18,6 +18,7 @@ describe('DefineRecipeStep', () => {
                         submit={() => {}}
                         cancel={() => {}}
                         ingestionSources={[{ name: 'snowflake', displayName: 'Snowflake' } as SourceConfig]}
+                        isEditing={false}
                     />
                 </MockedProvider>
             </ThemeProvider>,
@@ -38,6 +39,7 @@ describe('DefineRecipeStep', () => {
                         submit={() => {}}
                         cancel={() => {}}
                         ingestionSources={[{ name: 'glue', displayName: 'Glue' } as SourceConfig]}
+                        isEditing={false}
                     />
                 </MockedProvider>
             </ThemeProvider>,
