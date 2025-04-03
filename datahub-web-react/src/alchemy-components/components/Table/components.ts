@@ -53,9 +53,18 @@ export const HeaderContainer = styled.div<{ alignment?: AlignmentOptions }>(({ a
     justifyContent: alignment,
 }));
 
-export const TableRow = styled.tr<{ canExpand?: boolean; isRowClickable?: boolean }>(
-    ({ canExpand, isRowClickable }) => ({
+export const TableRow = styled.tr<{ canExpand?: boolean; isRowClickable?: boolean; isFocused?: boolean }>(
+    ({ canExpand, isRowClickable, isFocused }) => ({
         background: canExpand ? colors.gray[100] : 'transparent',
+        ...(isFocused
+            ? {
+                  background: `linear-gradient(180deg, rgba(83,63,209,0.04) -3.99%, rgba(112,94,228,0.04) 53.04%, rgba(112,94,228,0.04) 100%)`,
+              }
+            : {}),
+
+        '&:hover': {
+            'background-color': colors.gray[1500],
+        },
         cursor: isRowClickable ? 'pointer' : 'normal',
         '&:last-child': {
             '& td': {

@@ -51,6 +51,7 @@ export const Table = <T,>({
 }: TableProps<T>) => {
     const [sortColumn, setSortColumn] = useState<string | null>(null);
     const [sortOrder, setSortOrder] = useState<SortingState>(SortingState.ORIGINAL);
+    const [focusedRowIndex, setFocusedRowIndex] = useState<number | null>(null);
 
     const sortedData = getSortedData(columns, data, sortColumn, sortOrder);
     const isRowClickable = !!onRowClick;
@@ -64,6 +65,10 @@ export const Table = <T,>({
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sortOrder, sortColumn]);
+
+    useEffect(() => {
+        setFocusedRowIndex(null);
+    }, [data]);
 
     if (isLoading) {
         return (
@@ -183,6 +188,7 @@ export const Table = <T,>({
                                     key={key}
                                     canExpand={canExpand}
                                     onClick={() => {
+                                        setFocusedRowIndex(index);
                                         if (canExpand) onExpand?.(row); // Handle row expansion
                                         onRowClick?.(row); // Handle row click
                                     }}
@@ -193,11 +199,9 @@ export const Table = <T,>({
                                             currentRefs[index] = el;
                                         }
                                     }}
+                                    isFocused={focusedRowIndex === index}
                                     isRowClickable={isRowClickable}
                                     data-testId={rowDataTestId?.(row)}
-                                    style={{
-                                        cursor: 'pointer',
-                                    }}
                                 >
                                     {/* Render each cell in the row */}
 
@@ -216,6 +220,7 @@ export const Table = <T,>({
                                                 {columns.length - 1 === i && canExpand ? (
                                                     <div
                                                         style={{
+                                                            cursor: 'pointer',
                                                             paddingTop: '10px',
                                                             paddingRight: '10px',
                                                         }}
