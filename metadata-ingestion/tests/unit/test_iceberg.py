@@ -548,10 +548,10 @@ class MockCatalog:
         self.tables = tables
 
     def list_namespaces(self) -> Iterable[Tuple[str]]:
-        return [*[(key,) for key in self.tables.keys()]]
+        return [*[(key,) for key in self.tables]]
 
     def list_tables(self, namespace: str) -> Iterable[Tuple[str, str]]:
-        return [(namespace[0], table) for table in self.tables[namespace[0]].keys()]
+        return [(namespace[0], table) for table in self.tables[namespace[0]]]
 
     def load_table(self, dataset_path: Tuple[str, str]) -> Table:
         return self.tables[dataset_path[0]][dataset_path[1]]()

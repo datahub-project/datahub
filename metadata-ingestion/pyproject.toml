@@ -49,7 +49,6 @@ extend-ignore = [
     "SIM115", # Use a context manager for opening files
     "SIM116", # Use a dictionary instead of consecutive `if` statements
     "SIM117", # Use a single with statement with multiple contexts instead of nested with statements
-    "SIM118", # Use key {operator} dict instead of key {operator} dict.keys()
 ]
 
 [tool.ruff.lint.mccabe]
