@@ -69,26 +69,11 @@ class HexQueryFetcher:
     def fetch(self) -> Iterable[QueryResponse]:
         try:
             query_urns = self._fetch_query_urns_filter_hex_and_last_modified()
-            if not query_urns:
-                self.report.warning(
-                    title="No Queries found with Hex as origin",
-                    message="No lineage because of no Queries found with Hex as origin in the given time range; you may consider extending the time range to fetch more queries.",
-                    context=str(
-                        dict(
-                            workspace_name=self.workspace_name,
-                            start_datetime=self.start_datetime,
-                            end_datetime=self.end_datetime,
-                        )
-                    ),
-                )
-                return
-
             assert all(isinstance(urn, QueryUrn) for urn in query_urns)
             self.report.fetched_query_urns = len(query_urns)
 
             entities_by_urn = self._fetch_query_entities(query_urns)
             self.report.fetched_query_objects = len(entities_by_urn)
-
         except Exception as e:
             self.report.failure(
                 title="Error fetching Queries for lineage",
@@ -103,6 +88,20 @@ class HexQueryFetcher:
                 exc=e,
             )
         else:
+            if not query_urns or not entities_by_urn:
+                self.report.warning(
+                    title="No Queries found with Hex as origin",
+                    message="No lineage because of no Queries found with Hex as origin in the given time range; you may consider extending the time range to fetch more queries.",
+                    context=str(
+                        dict(
+                            workspace_name=self.workspace_name,
+                            start_datetime=self.start_datetime,
+                            end_datetime=self.end_datetime,
+                        )
+                    ),
+                )
+                return
+
             for query_urn, (
                 query_properties,
                 query_subjects,
