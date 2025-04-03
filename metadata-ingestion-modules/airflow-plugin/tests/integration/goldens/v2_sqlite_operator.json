@@ -139,6 +139,18 @@
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod)",
     "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airflow",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,myairflow)"
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod)",
+    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -174,7 +186,7 @@
                 "downstream_task_ids": "['populate_cost_table']",
                 "inlets": "[]",
                 "outlets": "[]",
-                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.25.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        CREATE TABLE IF NOT EXISTS costs (\\n            id INTEGER PRIMARY KEY,\\n            month TEXT NOT NULL,\\n            total_cost REAL NOT NULL,\\n            area REAL NOT NULL\\n        )\\n        \"}"
+                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        CREATE TABLE IF NOT EXISTS costs (\\n            id INTEGER PRIMARY KEY,\\n            month TEXT NOT NULL,\\n            total_cost REAL NOT NULL,\\n            area REAL NOT NULL\\n        )\\n        \"}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=create_cost_table",
             "name": "create_cost_table",
@@ -316,16 +328,16 @@
                 "state": "running",
                 "operator": "SqliteOperator",
                 "priority_weight": "5",
-                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=create_cost_table&dag_id=sqlite_operator&map_index=-1",
+                "log_url": "http://airflow.example.com/dags/sqlite_operator/grid?dag_run_id=manual_run_test&task_id=create_cost_table&base_date=2023-09-27T21%3A34%3A38%2B0000&tab=logs",
                 "orchestrator": "airflow",
                 "dag_id": "sqlite_operator",
                 "task_id": "create_cost_table"
             },
-            "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=create_cost_table&dag_id=sqlite_operator&map_index=-1",
+            "externalUrl": "http://airflow.example.com/dags/sqlite_operator/grid?dag_run_id=manual_run_test&task_id=create_cost_table&base_date=2023-09-27T21%3A34%3A38%2B0000&tab=logs",
             "name": "sqlite_operator_create_cost_table_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1740760685599,
+                "time": 1743672382114,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -376,7 +388,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1740760685599,
+            "timestampMillis": 1743672382114,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -393,14 +405,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1740760686032,
+            "timestampMillis": 1743672382439,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1740760686032
+            "lastUpdatedTimestamp": 1743672382439
         }
     }
 },
@@ -424,7 +436,7 @@
                 "downstream_task_ids": "['populate_cost_table']",
                 "inlets": "[]",
                 "outlets": "[]",
-                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.25.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        CREATE TABLE IF NOT EXISTS costs (\\n            id INTEGER PRIMARY KEY,\\n            month TEXT NOT NULL,\\n            total_cost REAL NOT NULL,\\n            area REAL NOT NULL\\n        )\\n        \"}"
+                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        CREATE TABLE IF NOT EXISTS costs (\\n            id INTEGER PRIMARY KEY,\\n            month TEXT NOT NULL,\\n            total_cost REAL NOT NULL,\\n            area REAL NOT NULL\\n        )\\n        \"}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=create_cost_table",
             "name": "create_cost_table",
@@ -590,7 +602,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1740760686069,
+            "timestampMillis": 1743672382469,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -624,8 +636,8 @@
                 "inlets": "[]",
                 "outlets": "[]",
                 "datahub_sql_parser_error": "SqlUnderstandingError: Failed to build scope for statement - scope was empty: INSERT INTO public.costs (id, month, total_cost, area) VALUES (1, '2021-01', 100, 10), (2, '2021-02', 200, 20), (3, '2021-03', 300, 30)",
-                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.25.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        INSERT INTO costs (id, month, total_cost, area)\\n        VALUES\\n            (1, '2021-01', 100, 10),\\n            (2, '2021-02', 200, 20),\\n            (3, '2021-03', 300, 30)\\n        \"}",
-                "openlineage_run_facet_extractionError": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.25.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/ExtractionErrorRunFacet\", \"errors\": [{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.25.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/BaseFacet\", \"errorMessage\": \"Failed to build scope for statement - scope was empty: INSERT INTO public.costs (id, month, total_cost, area) VALUES (1, '2021-01', 100, 10), (2, '2021-02', 200, 20), (3, '2021-03', 300, 30)\", \"task\": \"datahub_sql_parser\"}], \"failedTasks\": 1, \"totalTasks\": 1}"
+                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        INSERT INTO costs (id, month, total_cost, area)\\n        VALUES\\n            (1, '2021-01', 100, 10),\\n            (2, '2021-02', 200, 20),\\n            (3, '2021-03', 300, 30)\\n        \"}",
+                "openlineage_run_facet_extractionError": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/ExtractionErrorRunFacet\", \"errors\": [{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/BaseFacet\", \"errorMessage\": \"Failed to build scope for statement - scope was empty: INSERT INTO public.costs (id, month, total_cost, area) VALUES (1, '2021-01', 100, 10), (2, '2021-02', 200, 20), (3, '2021-03', 300, 30)\", \"task\": \"datahub_sql_parser\"}], \"failedTasks\": 1, \"totalTasks\": 1}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=populate_cost_table",
             "name": "populate_cost_table",
@@ -732,16 +744,16 @@
                 "state": "running",
                 "operator": "SqliteOperator",
                 "priority_weight": "4",
-                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=populate_cost_table&dag_id=sqlite_operator&map_index=-1",
+                "log_url": "http://airflow.example.com/dags/sqlite_operator/grid?dag_run_id=manual_run_test&task_id=populate_cost_table&base_date=2023-09-27T21%3A34%3A38%2B0000&tab=logs",
                 "orchestrator": "airflow",
                 "dag_id": "sqlite_operator",
                 "task_id": "populate_cost_table"
             },
-            "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=populate_cost_table&dag_id=sqlite_operator&map_index=-1",
+            "externalUrl": "http://airflow.example.com/dags/sqlite_operator/grid?dag_run_id=manual_run_test&task_id=populate_cost_table&base_date=2023-09-27T21%3A34%3A38%2B0000&tab=logs",
             "name": "sqlite_operator_populate_cost_table_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1740760692399,
+                "time": 1743672387763,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -792,7 +804,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1740760692399,
+            "timestampMillis": 1743672387763,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -809,14 +821,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1740760692786,
+            "timestampMillis": 1743672388153,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1740760692786
+            "lastUpdatedTimestamp": 1743672388153
         }
     }
 },
@@ -841,8 +853,8 @@
                 "inlets": "[]",
                 "outlets": "[]",
                 "datahub_sql_parser_error": "SqlUnderstandingError: Failed to build scope for statement - scope was empty: INSERT INTO public.costs (id, month, total_cost, area) VALUES (1, '2021-01', 100, 10), (2, '2021-02', 200, 20), (3, '2021-03', 300, 30)",
-                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.25.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        INSERT INTO costs (id, month, total_cost, area)\\n        VALUES\\n            (1, '2021-01', 100, 10),\\n            (2, '2021-02', 200, 20),\\n            (3, '2021-03', 300, 30)\\n        \"}",
-                "openlineage_run_facet_extractionError": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.25.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/ExtractionErrorRunFacet\", \"errors\": [{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.25.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/BaseFacet\", \"errorMessage\": \"Failed to build scope for statement - scope was empty: INSERT INTO public.costs (id, month, total_cost, area) VALUES (1, '2021-01', 100, 10), (2, '2021-02', 200, 20), (3, '2021-03', 300, 30)\", \"task\": \"datahub_sql_parser\"}], \"failedTasks\": 1, \"totalTasks\": 1}"
+                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        INSERT INTO costs (id, month, total_cost, area)\\n        VALUES\\n            (1, '2021-01', 100, 10),\\n            (2, '2021-02', 200, 20),\\n            (3, '2021-03', 300, 30)\\n        \"}",
+                "openlineage_run_facet_extractionError": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/ExtractionErrorRunFacet\", \"errors\": [{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/BaseFacet\", \"errorMessage\": \"Failed to build scope for statement - scope was empty: INSERT INTO public.costs (id, month, total_cost, area) VALUES (1, '2021-01', 100, 10), (2, '2021-02', 200, 20), (3, '2021-03', 300, 30)\", \"task\": \"datahub_sql_parser\"}], \"failedTasks\": 1, \"totalTasks\": 1}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=populate_cost_table",
             "name": "populate_cost_table",
@@ -937,7 +949,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1740760692824,
+            "timestampMillis": 1743672388191,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -970,7 +982,7 @@
                 "downstream_task_ids": "['cleanup_costs', 'cleanup_processed_costs']",
                 "inlets": "[]",
                 "outlets": "[]",
-                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.25.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        CREATE TABLE IF NOT EXISTS processed_costs AS\\n        SELECT\\n            id,\\n            month,\\n            total_cost,\\n            area,\\n            total_cost / area as cost_per_area\\n        FROM costs\\n        \"}"
+                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        CREATE TABLE IF NOT EXISTS processed_costs AS\\n        SELECT\\n            id,\\n            month,\\n            total_cost,\\n            area,\\n            total_cost / area as cost_per_area\\n        FROM costs\\n        \"}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=transform_cost_table",
             "name": "transform_cost_table",
@@ -1149,16 +1161,16 @@
                 "state": "running",
                 "operator": "SqliteOperator",
                 "priority_weight": "3",
-                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=transform_cost_table&dag_id=sqlite_operator&map_index=-1",
+                "log_url": "http://airflow.example.com/dags/sqlite_operator/grid?dag_run_id=manual_run_test&task_id=transform_cost_table&base_date=2023-09-27T21%3A34%3A38%2B0000&tab=logs",
                 "orchestrator": "airflow",
                 "dag_id": "sqlite_operator",
                 "task_id": "transform_cost_table"
             },
-            "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=transform_cost_table&dag_id=sqlite_operator&map_index=-1",
+            "externalUrl": "http://airflow.example.com/dags/sqlite_operator/grid?dag_run_id=manual_run_test&task_id=transform_cost_table&base_date=2023-09-27T21%3A34%3A38%2B0000&tab=logs",
             "name": "sqlite_operator_transform_cost_table_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1740760699388,
+                "time": 1743672393458,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -1235,7 +1247,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1740760699388,
+            "timestampMillis": 1743672393458,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1252,14 +1264,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1740760700097,
+            "timestampMillis": 1743672393958,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1740760700097
+            "lastUpdatedTimestamp": 1743672393958
         }
     }
 },
@@ -1283,7 +1295,7 @@
                 "downstream_task_ids": "['cleanup_costs', 'cleanup_processed_costs']",
                 "inlets": "[]",
                 "outlets": "[]",
-                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.25.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        CREATE TABLE IF NOT EXISTS processed_costs AS\\n        SELECT\\n            id,\\n            month,\\n            total_cost,\\n            area,\\n            total_cost / area as cost_per_area\\n        FROM costs\\n        \"}"
+                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        CREATE TABLE IF NOT EXISTS processed_costs AS\\n        SELECT\\n            id,\\n            month,\\n            total_cost,\\n            area,\\n            total_cost / area as cost_per_area\\n        FROM costs\\n        \"}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=transform_cost_table",
             "name": "transform_cost_table",
@@ -1506,7 +1518,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1740760700148,
+            "timestampMillis": 1743672394003,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1540,8 +1552,8 @@
                 "inlets": "[]",
                 "outlets": "[]",
                 "datahub_sql_parser_error": "UnsupportedStatementTypeError: Can only generate column-level lineage for select-like inner statements, not <class 'sqlglot.expressions.Drop'> (outer statement type: <class 'sqlglot.expressions.Drop'>)",
-                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.25.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n            DROP TABLE costs\\n            \"}",
-                "openlineage_run_facet_extractionError": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.25.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/ExtractionErrorRunFacet\", \"errors\": [{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.25.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/BaseFacet\", \"errorMessage\": \"Can only generate column-level lineage for select-like inner statements, not <class 'sqlglot.expressions.Drop'> (outer statement type: <class 'sqlglot.expressions.Drop'>)\", \"task\": \"datahub_sql_parser\"}], \"failedTasks\": 1, \"totalTasks\": 1}"
+                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n            DROP TABLE costs\\n            \"}",
+                "openlineage_run_facet_extractionError": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/ExtractionErrorRunFacet\", \"errors\": [{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/BaseFacet\", \"errorMessage\": \"Can only generate column-level lineage for select-like inner statements, not <class 'sqlglot.expressions.Drop'> (outer statement type: <class 'sqlglot.expressions.Drop'>)\", \"task\": \"datahub_sql_parser\"}], \"failedTasks\": 1, \"totalTasks\": 1}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=cleanup_costs",
             "name": "cleanup_costs",
@@ -1648,16 +1660,16 @@
                 "state": "running",
                 "operator": "SqliteOperator",
                 "priority_weight": "1",
-                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=cleanup_costs&dag_id=sqlite_operator&map_index=-1",
+                "log_url": "http://airflow.example.com/dags/sqlite_operator/grid?dag_run_id=manual_run_test&task_id=cleanup_costs&base_date=2023-09-27T21%3A34%3A38%2B0000&tab=logs",
                 "orchestrator": "airflow",
                 "dag_id": "sqlite_operator",
                 "task_id": "cleanup_costs"
             },
-            "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=cleanup_costs&dag_id=sqlite_operator&map_index=-1",
+            "externalUrl": "http://airflow.example.com/dags/sqlite_operator/grid?dag_run_id=manual_run_test&task_id=cleanup_costs&base_date=2023-09-27T21%3A34%3A38%2B0000&tab=logs",
             "name": "sqlite_operator_cleanup_costs_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1740760706530,
+                "time": 1743672399235,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -1708,7 +1720,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1740760706530,
+            "timestampMillis": 1743672399235,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1725,14 +1737,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1740760707106,
+            "timestampMillis": 1743672399848,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1740760707106
+            "lastUpdatedTimestamp": 1743672399848
         }
     }
 },
@@ -1757,8 +1769,8 @@
                 "inlets": "[]",
                 "outlets": "[]",
                 "datahub_sql_parser_error": "UnsupportedStatementTypeError: Can only generate column-level lineage for select-like inner statements, not <class 'sqlglot.expressions.Drop'> (outer statement type: <class 'sqlglot.expressions.Drop'>)",
-                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.25.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n            DROP TABLE costs\\n            \"}",
-                "openlineage_run_facet_extractionError": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.25.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/ExtractionErrorRunFacet\", \"errors\": [{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.25.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/BaseFacet\", \"errorMessage\": \"Can only generate column-level lineage for select-like inner statements, not <class 'sqlglot.expressions.Drop'> (outer statement type: <class 'sqlglot.expressions.Drop'>)\", \"task\": \"datahub_sql_parser\"}], \"failedTasks\": 1, \"totalTasks\": 1}"
+                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n            DROP TABLE costs\\n            \"}",
+                "openlineage_run_facet_extractionError": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/ExtractionErrorRunFacet\", \"errors\": [{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/BaseFacet\", \"errorMessage\": \"Can only generate column-level lineage for select-like inner statements, not <class 'sqlglot.expressions.Drop'> (outer statement type: <class 'sqlglot.expressions.Drop'>)\", \"task\": \"datahub_sql_parser\"}], \"failedTasks\": 1, \"totalTasks\": 1}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=cleanup_costs",
             "name": "cleanup_costs",
@@ -1853,7 +1865,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1740760707170,
+            "timestampMillis": 1743672399899,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1887,8 +1899,8 @@
                 "inlets": "[]",
                 "outlets": "[]",
                 "datahub_sql_parser_error": "UnsupportedStatementTypeError: Can only generate column-level lineage for select-like inner statements, not <class 'sqlglot.expressions.Drop'> (outer statement type: <class 'sqlglot.expressions.Drop'>)",
-                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.25.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n            DROP TABLE processed_costs\\n            \"}",
-                "openlineage_run_facet_extractionError": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.25.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/ExtractionErrorRunFacet\", \"errors\": [{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.25.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/BaseFacet\", \"errorMessage\": \"Can only generate column-level lineage for select-like inner statements, not <class 'sqlglot.expressions.Drop'> (outer statement type: <class 'sqlglot.expressions.Drop'>)\", \"task\": \"datahub_sql_parser\"}], \"failedTasks\": 1, \"totalTasks\": 1}"
+                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n            DROP TABLE processed_costs\\n            \"}",
+                "openlineage_run_facet_extractionError": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/ExtractionErrorRunFacet\", \"errors\": [{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/BaseFacet\", \"errorMessage\": \"Can only generate column-level lineage for select-like inner statements, not <class 'sqlglot.expressions.Drop'> (outer statement type: <class 'sqlglot.expressions.Drop'>)\", \"task\": \"datahub_sql_parser\"}], \"failedTasks\": 1, \"totalTasks\": 1}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=cleanup_processed_costs",
             "name": "cleanup_processed_costs",
@@ -1995,16 +2007,16 @@
                 "state": "running",
                 "operator": "SqliteOperator",
                 "priority_weight": "1",
-                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=cleanup_processed_costs&dag_id=sqlite_operator&map_index=-1",
+                "log_url": "http://airflow.example.com/dags/sqlite_operator/grid?dag_run_id=manual_run_test&task_id=cleanup_processed_costs&base_date=2023-09-27T21%3A34%3A38%2B0000&tab=logs",
                 "orchestrator": "airflow",
                 "dag_id": "sqlite_operator",
                 "task_id": "cleanup_processed_costs"
             },
-            "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=cleanup_processed_costs&dag_id=sqlite_operator&map_index=-1",
+            "externalUrl": "http://airflow.example.com/dags/sqlite_operator/grid?dag_run_id=manual_run_test&task_id=cleanup_processed_costs&base_date=2023-09-27T21%3A34%3A38%2B0000&tab=logs",
             "name": "sqlite_operator_cleanup_processed_costs_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1740760711169,
+                "time": 1743672403418,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -2055,7 +2067,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1740760711169,
+            "timestampMillis": 1743672403418,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -2072,14 +2084,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1740760711830,
+            "timestampMillis": 1743672404091,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1740760711830
+            "lastUpdatedTimestamp": 1743672404091
         }
     }
 },
@@ -2104,8 +2116,8 @@
                 "inlets": "[]",
                 "outlets": "[]",
                 "datahub_sql_parser_error": "UnsupportedStatementTypeError: Can only generate column-level lineage for select-like inner statements, not <class 'sqlglot.expressions.Drop'> (outer statement type: <class 'sqlglot.expressions.Drop'>)",
-                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.25.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n            DROP TABLE processed_costs\\n            \"}",
-                "openlineage_run_facet_extractionError": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.25.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/ExtractionErrorRunFacet\", \"errors\": [{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.25.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/BaseFacet\", \"errorMessage\": \"Can only generate column-level lineage for select-like inner statements, not <class 'sqlglot.expressions.Drop'> (outer statement type: <class 'sqlglot.expressions.Drop'>)\", \"task\": \"datahub_sql_parser\"}], \"failedTasks\": 1, \"totalTasks\": 1}"
+                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n            DROP TABLE processed_costs\\n            \"}",
+                "openlineage_run_facet_extractionError": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/ExtractionErrorRunFacet\", \"errors\": [{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/BaseFacet\", \"errorMessage\": \"Can only generate column-level lineage for select-like inner statements, not <class 'sqlglot.expressions.Drop'> (outer statement type: <class 'sqlglot.expressions.Drop'>)\", \"task\": \"datahub_sql_parser\"}], \"failedTasks\": 1, \"totalTasks\": 1}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=cleanup_processed_costs",
             "name": "cleanup_processed_costs",
@@ -2200,7 +2212,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1740760711950,
+            "timestampMillis": 1743672404154,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"

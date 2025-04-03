@@ -17,7 +17,10 @@ from openlineage.client.serde import Serde
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
-from datahub.emitter.mce_builder import make_dataplatform_instance_urn
+from datahub.emitter.mce_builder import (
+    make_data_platform_urn,
+    make_dataplatform_instance_urn,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.graph.client import DataHubGraph
@@ -26,6 +29,7 @@ from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     DataFlowKeyClass,
     DataJobKeyClass,
+    DataPlatformInstanceClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
@@ -618,6 +622,20 @@ class DataHubListener:
             )
             event = MetadataChangeProposalWrapper(
                 entityUrn=task_urn, aspect=StatusClass(removed=False)
+            )
+            self.emitter.emit(event)
+
+        if self.config.platform_instance:
+            instance = make_dataplatform_instance_urn(
+                platform="airflow",
+                instance=self.config.platform_instance,
+            )
+            event = MetadataChangeProposalWrapper(
+                entityUrn=str(dataflow.urn),
+                aspect=DataPlatformInstanceClass(
+                    platform=make_data_platform_urn("airflow"),
+                    instance=instance,
+                ),
             )
             self.emitter.emit(event)
 
