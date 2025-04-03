@@ -1,54 +1,65 @@
-import { Card, Divider, message, Switch, Typography } from 'antd';
 import React from 'react';
+import { Card, message } from 'antd';
+import { Switch, PageTitle, colors } from '@components';
 import styled from 'styled-components';
 import { useUpdateUserSettingMutation } from '../../graphql/me.generated';
 import { UserSetting } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
 import { useUserContext } from '../context/useUserContext';
-import { ANTD_GRAY } from '../entity/shared/constants';
 import { useIsThemeV2, useIsThemeV2EnabledForUser, useIsThemeV2Toggleable } from '../useIsThemeV2';
 
 const Page = styled.div`
     width: 100%;
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+`;
+
+const HeaderContainer = styled.div`
+    margin-bottom: 24px;
+`;
+
+const StyledCard = styled(Card)`
+    border: 1px solid ${colors.gray[100]};
+    border-radius: 12px;
+    display: flex;
+    box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
+    .ant-card-body {
+        padding: 16px;
+    }
 `;
 
 const SourceContainer = styled.div`
-    width: 80%;
-    padding-top: 20px;
-    padding-right: 40px;
-    padding-left: 40px;
+    width: 100%;
+    padding: 16px 20px 16px 20px;
 `;
 
 const TokensContainer = styled.div`
     padding-top: 0px;
 `;
 
-const TokensHeaderContainer = styled.div`
-    && {
-        padding-left: 0px;
-    }
-`;
-
-const TokensTitle = styled(Typography.Title)`
-    && {
-        margin-bottom: 8px;
-    }
+const TextContainer = styled.div`
+    display: flex;
+    flex-direction: column;
 `;
 
 const UserSettingRow = styled.div`
     display: flex;
     justify-content: space-between;
+    flex-direction: row;
 `;
 
-const DescriptionText = styled(Typography.Text)`
-    color: ${ANTD_GRAY[7]};
-    font-size: 11px;
+const SettingText = styled.div`
+    font-size: 16px;
+    color: ${colors.gray[600]};
+    font-weight: 700;
 `;
 
-const SettingText = styled(Typography.Text)`
+const DescriptionText = styled.div`
+    color: ${colors.gray[1700]};
     font-size: 14px;
+    font-weight: 400;
+    line-height: 1.5;
 `;
 
 export const Preferences = () => {
@@ -67,25 +78,22 @@ export const Preferences = () => {
         <Page>
             <SourceContainer>
                 <TokensContainer>
-                    <TokensHeaderContainer>
-                        <TokensTitle level={2}>Appearance</TokensTitle>
-                        <Typography.Paragraph type="secondary">Manage your appearance settings.</Typography.Paragraph>
-                    </TokensHeaderContainer>
+                    <HeaderContainer>
+                        <PageTitle title="Appearance" subTitle="Manage your appearance settings." />
+                    </HeaderContainer>
                 </TokensContainer>
-                <Divider />
                 {showSimplifiedHomepageSetting && (
-                    <Card>
+                    <StyledCard>
                         <UserSettingRow>
-                            <span>
+                            <TextContainer>
                                 <SettingText>Show simplified homepage </SettingText>
-                                <div>
-                                    <DescriptionText>
-                                        Limits entity browse cards on homepage to Domains, Charts, Datasets, Dashboards
-                                        and Glossary Terms
-                                    </DescriptionText>
-                                </div>
-                            </span>
+                                <DescriptionText>
+                                    Limits entity browse cards on homepage to Domains, Charts, Datasets, Dashboards and
+                                    Glossary Terms
+                                </DescriptionText>
+                            </TextContainer>
                             <Switch
+                                label=""
                                 checked={showSimplifiedHomepage}
                                 onChange={async () => {
                                     await updateUserSettingMutation({
@@ -106,23 +114,22 @@ export const Preferences = () => {
                                 }}
                             />
                         </UserSettingRow>
-                    </Card>
+                    </StyledCard>
                 )}
                 {isThemeV2Toggleable && (
                     <>
-                        <Card style={{ marginTop: 20 }}>
+                        <StyledCard>
                             <UserSettingRow>
-                                <span>
+                                <TextContainer>
                                     <SettingText>Try New User Experience</SettingText>
-                                    <div>
-                                        <DescriptionText>
-                                            Enable an early preview of the new DataHub UX - a complete makeover for your
-                                            app with a sleek new design and advanced features. Flip the switch and
-                                            refresh your browser to try it out!
-                                        </DescriptionText>
-                                    </div>
-                                </span>
+                                    <DescriptionText>
+                                        Enable an early preview of the new DataHub UX - a complete makeover for your app
+                                        with a sleek new design and advanced features. Flip the switch and refresh your
+                                        browser to try it out!
+                                    </DescriptionText>
+                                </TextContainer>
                                 <Switch
+                                    label=""
                                     checked={isThemeV2EnabledForUser}
                                     onChange={async () => {
                                         await updateUserSettingMutation({
@@ -144,11 +151,11 @@ export const Preferences = () => {
                                     }}
                                 />
                             </UserSettingRow>
-                        </Card>
+                        </StyledCard>
                     </>
                 )}
                 {!showSimplifiedHomepageSetting && !isThemeV2Toggleable && (
-                    <div style={{ color: ANTD_GRAY[7] }}>No appearance settings found.</div>
+                    <div style={{ color: colors.gray[1700] }}>No appearance settings found.</div>
                 )}
             </SourceContainer>
         </Page>
