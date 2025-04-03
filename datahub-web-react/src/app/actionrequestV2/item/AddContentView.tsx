@@ -11,10 +11,15 @@ const CenteredText = styled(Text)`
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    flex-wrap: wrap;
 
     span {
         margin-bottom: 0 !important;
     }
+`;
+
+const Comma = styled.span`
+    margin-left: -4px;
 `;
 
 interface Props {
@@ -39,7 +44,7 @@ function AddContentView({ requestMetadataViews, actionRequest }: Props) {
                 <React.Fragment key={view.toString()}>
                     {view.primary}
                     {view.additional && <> of type {view.additional}</>}
-                    {!isLast && (isSecondToLast ? ', and ' : ', ')}
+                    {!isLast && (isSecondToLast ? 'and ' : <Comma>,</Comma>)}
                 </React.Fragment>
             );
         });

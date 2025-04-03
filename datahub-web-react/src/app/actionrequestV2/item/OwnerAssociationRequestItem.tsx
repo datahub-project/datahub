@@ -13,7 +13,6 @@ const OwnershipTypeContainer = styled.span`
     background-color: ${colors.gray[1500]};
     border-radius: 4px;
     padding: 2px 4px;
-    margin: 2px;
 `;
 
 const EntityName = styled.div`

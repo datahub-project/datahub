@@ -28,6 +28,18 @@ const StyledList = styled(List)<{ $isShowNavBarRedesign?: boolean }>`
         overflow: auto;
         height: 100%;
     }
+
+    .ant-spin-nested-loading,
+    .ant-spin-container {
+        height: 100%;
+    }
+
+    .ant-list-empty-text {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+    }
 `;
 
 export const Requests = () => {

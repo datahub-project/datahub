@@ -32,7 +32,7 @@ const ValueContainer = styled.div<{ $isApproved?: boolean }>`
     border-radius: 200px;
     padding: 0px 8px;
     ${(props) =>
-        !props.$isApproved &&
+        props.$isApproved &&
         `
         border: 1px solid ${colors.gray[200]};
         `}
@@ -99,7 +99,7 @@ const StructuredPropertyAssociationRequestItem = ({ actionRequest }: Props) => {
             <ValuesContainer>
                 <ValuesContainerFlex>
                     {firstValue && (
-                        <ValueContainer $isApproved={!isApproved}>
+                        <ValueContainer $isApproved={isApproved}>
                             <StructuredPropertyValue
                                 value={firstValue}
                                 size={14}
