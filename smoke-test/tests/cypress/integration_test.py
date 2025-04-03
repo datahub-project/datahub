@@ -2,6 +2,7 @@ import datetime
 import json
 import os
 import subprocess
+import threading
 from typing import List
 
 import pytest
@@ -241,7 +242,8 @@ def test_run_cypress(auth_session):
     test_spec_arg = f" --spec '{specs_str}' "
 
     print("Running Cypress tests with command")
-    command = f"NO_COLOR=1 npx cypress run {record_arg} {test_spec_arg} {tag_arg}"
+    node_options = "--max-old-space-size=6000"
+    command = f'NO_COLOR=1 NODE_OPTIONS="{node_options}" npx cypress run {record_arg} {test_spec_arg} {tag_arg} --config numTestsKeptInMemory=2'
     print(command)
     # Add --headed --spec '**/mutations/mutations.js' (change spec name)
     # in case you want to see the browser for debugging
@@ -252,15 +254,39 @@ def test_run_cypress(auth_session):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         cwd=f"{CYPRESS_TEST_DATA_DIR}",
+        text=True,  # Use text mode for string output
+        bufsize=1,  # Line buffered
     )
     assert proc.stdout is not None
     assert proc.stderr is not None
-    stdout = proc.stdout.read()
-    stderr = proc.stderr.read()
+
+    # Function to read and print output from a pipe
+    def read_and_print(pipe, prefix=""):
+        for line in pipe:
+            print(f"{prefix}{line}", end="")
+
+    # Read and print output in real-time
+
+    stdout_thread = threading.Thread(target=read_and_print, args=(proc.stdout,))
+    stderr_thread = threading.Thread(
+        target=read_and_print, args=(proc.stderr, "stderr: ")
+    )
+
+    # Set threads as daemon so they exit when the main thread exits
+    stdout_thread.daemon = True
+    stderr_thread.daemon = True
+
+    # Start the threads
+    stdout_thread.start()
+    stderr_thread.start()
+
+    # Wait for the process to complete
     return_code = proc.wait()
-    print(stdout.decode("utf-8"))
-    print("stderr output:")
-    print(stderr.decode("utf-8"))
+
+    # Wait for the threads to finish
+    stdout_thread.join()
+    stderr_thread.join()
+
     print("return code", return_code)
     print_now()
     assert return_code == 0
