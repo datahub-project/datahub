@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, root_validator
 from typing_extensions import assert_never
 
 from datahub.configuration.common import AllowDenyPattern
@@ -51,10 +51,6 @@ from datahub.sdk.main_client import DataHubClient
 class HexSourceConfig(
     StatefulIngestionConfigBase, PlatformInstanceConfigMixin, EnvConfigMixin
 ):
-    def __init__(self, **data):
-        data = self._set_lineage_times(data)
-        super().__init__(**data)
-
     workspace_name: str = Field(
         description="Hex workspace name. You can find this name in your Hex home page URL: https://app.hex.tech/<workspace_name>",
     )
@@ -110,11 +106,11 @@ class HexSourceConfig(
         default=True,
         description='Include Hex lineage, being fetched from DataHub. See "Limitations" section in the docs for more details about the limitations of this feature.',
     )
-    lineage_start_time: Optional[Union[str, datetime]] = Field(
+    lineage_start_time: Optional[datetime] = Field(
         default=None,
         description="Earliest date of lineage to consider. Default: 1 day before lineage end time. You can specify absolute time like '2023-01-01' or relative time like '-7 days' or '-7d'.",
     )
-    lineage_end_time: Optional[Union[str, datetime]] = Field(
+    lineage_end_time: Optional[datetime] = Field(
         default=None,
         description="Latest date of lineage to consider. Default: Current time in UTC. You can specify absolute time like '2023-01-01' or relative time like '-1 day' or '-1d'.",
     )
@@ -123,7 +119,8 @@ class HexSourceConfig(
         description="Number of items to fetch per DataHub API call.",
     )
 
-    def _set_lineage_times(cls, data: Dict[str, Any]) -> Dict[str, Any]:
+    @root_validator(pre=True)
+    def validate_lineage_times(cls, data: Dict[str, Any]) -> Dict[str, Any]:
         # lineage_end_time default = now
         if "lineage_end_time" not in data or data["lineage_end_time"] is None:
             data["lineage_end_time"] = datetime.now(tz=timezone.utc)
