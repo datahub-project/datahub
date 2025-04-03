@@ -12,7 +12,7 @@ import { RemoteExecutorPoolProvisioningPreviewModal } from './RemoteExecutorPool
 
 const SuccessHeaderWrapper = styled.div`
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 4px;
     margin-bottom: 12px;
 `;
@@ -83,18 +83,20 @@ export default function CreateRemoteExecutorPoolModal({ visible, onCancel, onSuc
                 <div className="space-y-4 p-4">
                     <div className="flex flex-col gap-2">
                         <SuccessHeaderWrapper>
-                            <CheckCircle color={colors.green[500]} size={20} />
-                            <Typography.Text style={{ fontSize: 20, marginLeft: 4 }}>Pool created!</Typography.Text>
+                            <CheckCircle color={colors.green[500]} size={40} />
+                            <Typography.Text style={{ fontSize: 20, marginLeft: 4 }}>
+                                You&apos;re now ready to deploy your Remote Executor in your environment!
+                            </Typography.Text>
                         </SuccessHeaderWrapper>
-                        <Typography.Text strong>For next steps:</Typography.Text>
+                        <Typography.Text strong>Next steps:</Typography.Text>
                         <ul>
                             <li>
                                 Review the{' '}
                                 <Typography.Link href="https://datahubproject.io/docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor/">
-                                    remote executor setup documentation
+                                    Remote Executor setup documentation
                                 </Typography.Link>
                             </li>
-                            <li>Contact your customer success representative for assistance with configuration</li>
+                            <li>Contact your customer success representative for deployment templates</li>
                         </ul>
                     </div>
                 </div>
