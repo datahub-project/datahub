@@ -98,7 +98,7 @@ export function StatusColumn({
     } else if (executorUptime) {
         status = (
             <>
-                {getActiveLabel()} <span style={{ opacity: 0.5 }}>({formatDuration(executorUptime)})</span>
+                {getActiveLabel()} <span style={{ opacity: 0.5 }}>({formatDuration(executorUptime * 1000)})</span>
             </>
         );
     }

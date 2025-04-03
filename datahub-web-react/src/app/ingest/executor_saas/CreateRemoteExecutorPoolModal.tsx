@@ -215,7 +215,10 @@ export default function CreateRemoteExecutorPoolModal({ visible, onCancel, onSuc
                             Set this as the default executor pool for new ingestion sources.
                         </Typography.Text>
                         <div style={{ marginTop: 4 }}>
-                            <Switch data-testid="default-pool" />
+                            <Switch
+                                data-testid="default-pool"
+                                onChange={(checked) => form.setFieldValue('isDefault', checked)}
+                            />
                         </div>
                     </div>
                 </Form.Item>
