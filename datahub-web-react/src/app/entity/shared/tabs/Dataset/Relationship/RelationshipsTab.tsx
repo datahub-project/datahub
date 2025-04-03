@@ -1,7 +1,8 @@
+import { Icon } from '@components';
 import { Button, Card, Divider, Empty, Input, Modal, Pagination } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { ExclamationCircleFilled, LoadingOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import { ExclamationCircleFilled, LoadingOutlined, PlusOutlined } from '@ant-design/icons';
 import { useBaseEntity } from '../../../EntityContext';
 import './RelationshipsTab.less';
 import { EntityType, ErModelRelationship } from '../../../../../../types.generated';
@@ -243,7 +244,7 @@ export const RelationshipsTab = () => {
                         onChange={(e) => setFilterText(e.target.value)}
                         allowClear
                         autoFocus
-                        prefix={<SearchOutlined />}
+                        prefix={<Icon icon="MagnifyingGlass" source="phosphor" />}
                     />
                     <Button
                         type="link"

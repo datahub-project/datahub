@@ -5,6 +5,7 @@ import {
     ReadOutlined,
     UnorderedListOutlined,
 } from '@ant-design/icons';
+import { ListBullets } from '@phosphor-icons/react';
 import * as React from 'react';
 import { useGetDataProductQuery } from '../../../graphql/dataProduct.generated';
 import { GetDatasetQuery } from '../../../graphql/dataset.generated';
@@ -178,7 +179,7 @@ export class DataProductEntity implements Entity<DataProduct> {
             name: 'Properties',
             component: PropertiesTab,
             description: 'View additional properties about this asset',
-            icon: UnorderedListOutlined,
+            icon: ListBullets,
         },
     ];
 

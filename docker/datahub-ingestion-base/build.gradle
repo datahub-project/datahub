@@ -1,9 +1,9 @@
 plugins {
-    id 'com.palantir.docker'
     id 'java' // required for versioning
 }
 
 apply from: "../../gradle/versioning/versioning.gradle"
+apply from: "../../gradle/docker/docker.gradle"
 
 ext {
     docker_registry = rootProject.ext.docker_registry == 'linkedin' ? 'acryldata' : docker_registry
@@ -16,8 +16,9 @@ ext {
 }
 
 docker {
+    dependsOn build
     name "${docker_registry}/${docker_repo}:v${docker_version}"
-    version "v${docker_version}"
+    //version "v${docker_version}"
     dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
     files fileTree(rootProject.projectDir) {
         include '.dockerignore'
@@ -44,19 +45,3 @@ docker {
 
     buildArgs(dockerBuildArgs)
 }
-tasks.getByName('docker').dependsOn('build')
-
-task mkdirBuildDocker {
-    doFirst {
-        mkdir "${project.buildDir}/docker"
-    }
-}
-dockerClean.finalizedBy(mkdirBuildDocker)
-dockerClean.dependsOn([':docker:datahub-ingestion:dockerClean'])
-
-task cleanLocalDockerImages {
-    doLast {
-        rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "${version}")
-    }
-}
-dockerClean.finalizedBy(cleanLocalDockerImages)
