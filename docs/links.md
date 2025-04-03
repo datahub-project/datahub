@@ -1,16 +1,16 @@
 # Articles & Talks
 
 ## Overviews
-- [Tech Deep Dive: DataHub Metadata Service Authentication](https://blog.datahubproject.io/tech-deep-dive-introducing-datahub-metadata-service-authentication-661e3aabbad0) and [video](https://www.youtube.com/watch?v=DPY0G3Ix7Y8)
-- [Data in Context: Lineage Explorer in DataHub](https://blog.datahubproject.io/data-in-context-lineage-explorer-in-datahub-a53a9a476dc4)
+- [Tech Deep Dive: DataHub Metadata Service Authentication](https://medium.com/datahub-project/tech-deep-dive-introducing-datahub-metadata-service-authentication-661e3aabbad0) and [video](https://www.youtube.com/watch?v=DPY0G3Ix7Y8)
+- [Data in Context: Lineage Explorer in DataHub](https://medium.com/datahub-project/data-in-context-lineage-explorer-in-datahub-a53a9a476dc4)
 - [DataHub Basics — Users, Groups, & Authentication 101](https://www.youtube.com/watch?v=8Osw6p9vDYY)
 - [DataHub Basics: Lineage 101](https://www.youtube.com/watch?v=rONGpsndzRw)
 
 ## Best Practices
-- [Tags and Terms: Two Powerful DataHub Features, Used in Two Different Scenarios](https://blog.datahubproject.io/tags-and-terms-two-powerful-datahub-features-used-in-two-different-scenarios-b5b4791e892e)
+- [Tags and Terms: Two Powerful DataHub Features, Used in Two Different Scenarios](https://medium.com/datahub-project/tags-and-terms-two-powerful-datahub-features-used-in-two-different-scenarios-b5b4791e892e)
 
 ## Case Studies
-- [Enabling Data Discovery in a Data Mesh: The Saxo Journey](https://blog.datahubproject.io/enabling-data-discovery-in-a-data-mesh-the-saxo-journey-451b06969c8f)
+- [Enabling Data Discovery in a Data Mesh: The Saxo Journey](https://medium.com/datahub-project/enabling-data-discovery-in-a-data-mesh-the-saxo-journey-451b06969c8f)
 - [DataHub @ Grofers Case Study](https://www.youtube.com/watch?v=m9kUYAuezFI)
 - [DataHub @ LinkedIn: Extending the OSS UI](https://www.youtube.com/watch?v=Rdt4kJqDoww)
 - [DataHub @ hipages Case Study: Oct 29 2021](https://www.youtube.com/watch?v=OFNzjUdMcJQ)

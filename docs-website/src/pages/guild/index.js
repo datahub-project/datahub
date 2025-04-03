@@ -447,7 +447,7 @@ const guildSections = [
             <b>Software Engineer</b>
             <p>
               <p> </p>
-              Driving adoption of DataHub at his organization and featured in our inaugural <a href="https://blog.datahubproject.io/humans-of-datahub-a6ef2a5a1719" target="_blank"> Humans of DataHub</a> post
+              Driving adoption of DataHub at his organization and featured in our inaugural <a href="https://medium.com/datahub-project/humans-of-datahub-a6ef2a5a1719" target="_blank"> Humans of DataHub</a> post
             </p>
           </>
         ),
@@ -513,7 +513,7 @@ const guildSections = [
             <b>Software Engineer, Stripe</b>
             <p>
               <p> </p>
-              Shared an in-depth look into how The Stripe Team <a href="https://blog.datahubproject.io/the-stripe-story-beating-data-pipeline-observability-and-timeliness-concerns-with-datahub-8ba42788aca2" target="_blank"> addressed data pipeline observability and timeliness concerns</a> with DataHub
+              Shared an in-depth look into how The Stripe Team <a href="https://medium.com/datahub-project/the-stripe-story-beating-data-pipeline-observability-and-timeliness-concerns-with-datahub-8ba42788aca2" target="_blank"> addressed data pipeline observability and timeliness concerns</a> with DataHub
             </p>
           </>
         ),
@@ -563,7 +563,7 @@ const guildSections = [
             <b>Staff Engineer</b>
             <p>
               <p> </p>
-              Driving DataHub adoption at Wolt and featured in <a href="https://blog.datahubproject.io/humans-of-datahub-fredrik-sannholm-d673b1877f2b" target="_blank"> Humans of DataHub</a>
+              Driving DataHub adoption at Wolt and featured in <a href="https://medium.com/datahub-project/humans-of-datahub-fredrik-sannholm-d673b1877f2b" target="_blank"> Humans of DataHub</a>
             </p>
           </>
         ),
@@ -616,7 +616,7 @@ const guildSections = [
             <b>Data Engineer, SOCAR</b>
             <p>
               <p> </p>
-              Driving DataHub adoption at SOCAR, is a strong advocate for the DataHub Community, and featured in <a href="https://blog.datahubproject.io/humans-of-datahub-hyejin-yoon-4e546696cee8" target="_blank"> Humans of DataHub</a>
+              Driving DataHub adoption at SOCAR, is a strong advocate for the DataHub Community, and featured in <a href="https://medium.com/datahub-project/humans-of-datahub-hyejin-yoon-4e546696cee8" target="_blank"> Humans of DataHub</a>
             </p>
           </>
         ),
@@ -681,7 +681,7 @@ const guildSections = [
             <b>COO, Contiamo</b>
             <p>
               <p> </p>
-              Strong advocate for adopting DataHub and featured in <a href="https://blog.datahubproject.io/humans-of-datahub-mike-linthe-f8d4c205983d" target="_blank"> Humans of DataHub</a>
+              Strong advocate for adopting DataHub and featured in <a href="https://medium.com/datahub-project/humans-of-datahub-mike-linthe-f8d4c205983d" target="_blank"> Humans of DataHub</a>
             </p>
           </>
         ),
@@ -714,7 +714,7 @@ const guildSections = [
             <b>Technical Lead, Adevinta</b>
             <p>
               <p> </p>
-              Driving DataHub adoption at Adevinta and featured in <a href="https://blog.datahubproject.io/humans-of-datahub-sergio-gomez-villamor-bd2ecfb5ccc4" target="_blank"> Humans of DataHub</a>
+              Driving DataHub adoption at Adevinta and featured in <a href="https://medium.com/datahub-project/humans-of-datahub-sergio-gomez-villamor-bd2ecfb5ccc4" target="_blank"> Humans of DataHub</a>
             </p>
           </>
         ),
@@ -732,7 +732,7 @@ const guildSections = [
             <b>Senior Data Engineer, Coursera</b>
             <p>
               <p> </p>
-              Driving DataHub adoption at Coursera and featured in <a href="https://blog.datahubproject.io/humans-of-datahub-steven-po-b56e7bf8cd6b" target="_blank"> Humans of DataHub</a>
+              Driving DataHub adoption at Coursera and featured in <a href="https://medium.com/datahub-project/humans-of-datahub-steven-po-b56e7bf8cd6b" target="_blank"> Humans of DataHub</a>
             </p>
           </>
         ),

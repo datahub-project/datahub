@@ -241,7 +241,7 @@ mutation setDomain {
 
 ### DataHub Blog
 
-* [Just Shipped: UI-Based Ingestion, Data Domains & Containers, Tableau support, and MORE!](https://blog.datahubproject.io/just-shipped-ui-based-ingestion-data-domains-containers-and-more-f1b1c90ed3a)
+* [Just Shipped: UI-Based Ingestion, Data Domains & Containers, Tableau support, and MORE!](https://medium.com/datahub-project/just-shipped-ui-based-ingestion-data-domains-containers-and-more-f1b1c90ed3a)
 
 ## FAQ and Troubleshooting
 
