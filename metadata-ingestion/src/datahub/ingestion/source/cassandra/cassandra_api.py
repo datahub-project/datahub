@@ -159,7 +159,8 @@ class CassandraAPI:
             self.report.failure(message="Failed to authenticate to Cassandra", exc=e)
             return False
 
-    def get(self, query: str, parameters: Optional[List] = []) -> List:
+    def get(self, query: str, parameters: Optional[List] = None) -> List:
+        parameters = parameters or []
         if not self._cassandra_session:
             return []
 

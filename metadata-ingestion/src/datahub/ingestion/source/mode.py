@@ -33,6 +33,7 @@ from datahub.emitter.mcp_builder import (
     add_dataset_to_container,
     gen_containers,
 )
+from datahub.emitter.request_helper import make_curl_command
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -159,7 +160,12 @@ class ModeConfig(
     )
 
     workspace: str = Field(
-        description="The Mode workspace name. Find it in Settings > Workspace > Details."
+        description="The Mode workspace username. If you navigate to Workspace Settings > Details, "
+        "the url will be `https://app.mode.com/organizations/<workspace-username>`. "
+        # The lowercase comment is derived from a comment in a Mode API example.
+        # https://mode.com/developer/api-cookbook/management/get-all-reports/
+        # > "Note: workspace_name value should be all lowercase"
+        "This is distinct from the workspace's display name, and should be all lowercase."
     )
     _default_schema = pydantic_removed_field("default_schema")
 
@@ -334,7 +340,8 @@ class ModeSource(StatefulIngestionSourceBase):
 
         # Test the connection
         try:
-            self._get_request_json(f"{self.config.connect_uri}/api/verify")
+            key_info = self._get_request_json(f"{self.config.connect_uri}/api/verify")
+            logger.debug(f"Auth info: {key_info}")
         except ModeRequestError as e:
             self.report.report_failure(
                 title="Failed to Connect",
@@ -377,7 +384,7 @@ class ModeSource(StatefulIngestionSourceBase):
         ]
 
     def _dashboard_urn(self, report_info: dict) -> str:
-        return builder.make_dashboard_urn(self.platform, report_info.get("id", ""))
+        return builder.make_dashboard_urn(self.platform, str(report_info.get("id", "")))
 
     def _parse_last_run_at(self, report_info: dict) -> Optional[int]:
         # Mode queries are refreshed, and that timestamp is reflected correctly here.
@@ -1480,12 +1487,17 @@ class ModeSource(StatefulIngestionSourceBase):
 
         @r.wraps
         def get_request():
+            curl_command = make_curl_command(self.session, "GET", url, "")
+            logger.debug(f"Issuing request; curl equivalent: {curl_command}")
+
             try:
                 response = self.session.get(
                     url, timeout=self.config.api_options.timeout
                 )
                 if response.status_code == 204:  # No content, don't parse json
                     return {}
+
+                response.raise_for_status()
                 return response.json()
             except HTTPError as http_error:
                 error_response = http_error.response
@@ -1494,8 +1506,11 @@ class ModeSource(StatefulIngestionSourceBase):
                     sleep_time = error_response.headers.get("retry-after")
                     if sleep_time is not None:
                         time.sleep(float(sleep_time))
-                    raise HTTPError429
+                    raise HTTPError429 from None
 
+                logger.debug(
+                    f"Error response ({error_response.status_code}): {error_response.text}"
+                )
                 raise http_error
 
         return get_request()

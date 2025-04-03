@@ -7,6 +7,8 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authorization.AuthorizationRequest;
+import com.datahub.authorization.AuthorizationResult;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.FabricType;
@@ -37,6 +39,7 @@ import java.util.List;
 import java.util.Optional;
 
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.restli.server.RestLiServiceException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import mock.MockEntityRegistry;
@@ -65,6 +68,10 @@ public class AspectResourceTest {
             preProcessHooks, true);
     entityService.setUpdateIndicesService(updateIndicesService);
     authorizer = mock(Authorizer.class);
+    when(authorizer.authorize(any(AuthorizationRequest.class))).thenAnswer(invocation -> {
+      AuthorizationRequest request = invocation.getArgument(0);
+      return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW, "allowed");
+    });
     aspectResource.setAuthorizer(authorizer);
     aspectResource.setEntityService(entityService);
     opContext = TestOperationContexts.systemContextNoSearchAuthorization();
@@ -144,7 +151,7 @@ public class AspectResourceTest {
     verifyNoMoreInteractions(producer);
   }
 
-  @Test
+  @Test(expectedExceptions = RestLiServiceException.class, expectedExceptionsMessageRegExp = "Unknown aspect notAnAspect for entity dataset")
   public void testNoValidateAsync() throws URISyntaxException {
     OperationContext noValidateOpContext = TestOperationContexts.systemContextNoValidate();
     aspectResource.setSystemOperationContext(noValidateOpContext);
@@ -164,10 +171,5 @@ public class AspectResourceTest {
     Actor actor = new Actor(ActorType.USER, "user");
     when(mockAuthentication.getActor()).thenReturn(actor);
     aspectResource.ingestProposal(mcp, "true");
-    verify(producer, times(1)).produceMetadataChangeProposal(any(OperationContext.class), eq(urn), argThat(arg -> arg.getMetadataChangeProposal().equals(mcp)));
-    verifyNoMoreInteractions(producer);
-    verifyNoMoreInteractions(aspectDao);
-    reset(producer, aspectDao);
-    aspectResource.setSystemOperationContext(opContext);
   }
 }

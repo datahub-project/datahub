@@ -43,13 +43,13 @@ export const GroupInfoHeaderSection = ({
     isExternalGroup,
     groupName,
 }: Props) => {
-    const groupMemberRelationshipsCount = groupMemberRelationships?.count || 0;
+    const groupMemberRelationshipsTotal = groupMemberRelationships?.total || 0;
     return (
         <GroupHeader>
             <Tooltip title={groupName}>
                 <GroupName level={3}>{groupName}</GroupName>
             </Tooltip>
-            {groupMemberRelationshipsCount > 0 && <MemberCount>{groupMemberRelationships?.count} members</MemberCount>}
+            {groupMemberRelationshipsTotal > 0 && <MemberCount>{groupMemberRelationshipsTotal} members</MemberCount>}
             {isExternalGroup && (
                 <Tooltip
                     title={`Membership for this group cannot be edited in DataHub as it originates from ${externalGroupType}.`}

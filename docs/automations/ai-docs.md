@@ -18,7 +18,9 @@ With AI-powered documentation, you can automatically generate documentation for 
 
 ## Configuring
 
-No configuration is required - just hit "Generate" on any table or column in the UI.
+Ensure you have edit dataset description privileges.
+
+Once permissions are obtained, no configuration is required - just hit "Generate" on any table or column in the UI.
 
 ## How it works
 
@@ -33,4 +35,5 @@ Data privacy: Your metadata is not sent to any third-party LLMs. We use AWS Bedr
 
 ## Limitations
 
+- This feature is not available on tables with more than 100 columns. We are working on expanding this limit.
 - This feature is powered by an LLM, which can produce inaccurate results. While we've taken steps to reduce the likelihood of hallucinations, they can still occur.

@@ -3,7 +3,10 @@ from functools import cached_property
 from typing import ClassVar, List, Literal, Optional, Tuple
 
 from datahub.configuration.pattern_utils import is_schema_allowed
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mce_builder import (
+    make_dataset_urn_with_platform_instance,
+)
+from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.snowflake.constants import (
     SNOWFLAKE_REGION_CLOUD_REGION_MAPPING,
@@ -16,6 +19,7 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeV2Config,
 )
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
+from datahub.ingestion.source.sql.sql_utils import gen_database_key, gen_schema_key
 
 
 class SnowflakeStructuredReportMixin(abc.ABC):
@@ -180,6 +184,9 @@ class SnowflakeFilter:
 
         return True
 
+    def is_procedure_allowed(self, procedure_name: str) -> bool:
+        return self.filter_config.procedure_pattern.allowed(procedure_name)
+
 
 def _combine_identifier_parts(
     *, table_name: str, schema_name: str, db_name: str
@@ -328,6 +335,23 @@ class SnowflakeIdentifierBuilder:
             if self.identifier_config.email_as_user_identifier is True
             and self.identifier_config.email_domain is not None
             else user_name
+        )
+
+    def gen_schema_key(self, db_name: str, schema_name: str) -> SchemaKey:
+        return gen_schema_key(
+            db_name=self.snowflake_identifier(db_name),
+            schema=self.snowflake_identifier(schema_name),
+            platform=self.platform,
+            platform_instance=self.identifier_config.platform_instance,
+            env=self.identifier_config.env,
+        )
+
+    def gen_database_key(self, db_name: str) -> DatabaseKey:
+        return gen_database_key(
+            database=self.snowflake_identifier(db_name),
+            platform=self.platform,
+            platform_instance=self.identifier_config.platform_instance,
+            env=self.identifier_config.env,
         )
 
 

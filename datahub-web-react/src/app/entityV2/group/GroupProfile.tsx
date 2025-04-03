@@ -3,7 +3,7 @@ import { Col } from 'antd';
 import { matchPath } from 'react-router';
 import { useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
-import { ReadOutlined } from '@ant-design/icons';
+import { BookOpen } from '@phosphor-icons/react';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 import { PageRoutes } from '../../../conf/Global';
 import { useGetGroupQuery } from '../../../graphql/group.generated';
@@ -26,13 +26,9 @@ import EntitySidebarContext from '../../sharedV2/EntitySidebarContext';
 import SidebarCollapsibleHeader from '../shared/containers/profile/sidebar/SidebarCollapsibleHeader';
 import { EntitySidebarTabs } from '../shared/containers/profile/sidebar/EntitySidebarTabs';
 import { REDESIGN_COLORS } from '../shared/constants';
+import { TabType } from './types';
 
 const messageStyle = { marginTop: '10%' };
-
-export enum TabType {
-    Assets = 'Owner Of',
-    Members = 'Members',
-}
 
 const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Members];
 
@@ -70,11 +66,6 @@ type Props = {
     urn: string;
 };
 
-const defaultTabDisplayConfig = {
-    visible: (_, _1) => true,
-    enabled: (_, _1) => true,
-};
-
 /**
  * Responsible for reading & writing groups.
  *
@@ -95,10 +86,11 @@ export default function GroupProfile({ urn }: Props) {
     const finalTabs = [
         {
             name: 'About',
-            icon: ReadOutlined,
+            icon: BookOpen,
             component: EntitySidebarSectionsTab,
             display: {
-                ...defaultTabDisplayConfig,
+                visible: () => true,
+                enabled: () => true,
             },
         },
     ];
@@ -119,7 +111,7 @@ export default function GroupProfile({ urn }: Props) {
             },
             {
                 name: TabType.Members,
-                path: TabType.Members.toLocaleLowerCase(),
+                path: TabType.Members.toLocaleLowerCase(), // do not remove toLocaleLowerCase as we link to this tab elsewhere
                 content: (
                     <GroupMembers
                         urn={urn}

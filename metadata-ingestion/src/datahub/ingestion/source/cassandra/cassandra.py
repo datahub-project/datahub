@@ -59,9 +59,9 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
-from datahub.sdk._entity import Entity
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
+from datahub.sdk.entity import Entity
 
 logger = logging.getLogger(__name__)
 
@@ -123,16 +123,7 @@ class CassandraSource(StatefulIngestionSourceBase):
             ).workunit_processor,
         ]
 
-    def get_workunits_internal(
-        self,
-    ) -> Iterable[MetadataWorkUnit]:
-        for metadata in self._get_metadata():
-            if isinstance(metadata, MetadataWorkUnit):
-                yield metadata
-            else:
-                yield from metadata.as_workunits()
-
-    def _get_metadata(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
+    def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         if not self.cassandra_api.authenticate():
             return
         keyspaces: List[CassandraKeyspace] = self.cassandra_api.get_keyspaces()

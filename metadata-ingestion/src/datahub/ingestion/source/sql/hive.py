@@ -777,6 +777,7 @@ class HiveSource(TwoTierSQLAlchemySource):
             column,
             inspector,
             pk_constraints,
+            partition_keys=partition_keys,
         )
 
         if self._COMPLEX_TYPE.match(fields[0].nativeDataType) and isinstance(
@@ -821,12 +822,8 @@ class HiveSource(TwoTierSQLAlchemySource):
 
         try:
             view_definition = inspector.get_view_definition(view, schema)
-            if view_definition is None:
-                view_definition = ""
-            else:
-                # Some dialects return a TextClause instead of a raw string,
-                # so we need to convert them to a string.
-                view_definition = str(view_definition)
+            # Some dialects return a TextClause instead of a raw string, so we need to convert them to a string.
+            view_definition = str(view_definition) if view_definition else ""
         except NotImplementedError:
             view_definition = ""
 
@@ -853,3 +850,15 @@ class HiveSource(TwoTierSQLAlchemySource):
                 default_db=default_db,
                 default_schema=default_schema,
             )
+
+    def get_partitions(
+        self, inspector: Inspector, schema: str, table: str
+    ) -> Optional[List[str]]:
+        partition_columns: List[dict] = inspector.get_indexes(
+            table_name=table, schema=schema
+        )
+        for partition_column in partition_columns:
+            if partition_column.get("column_names"):
+                return partition_column.get("column_names")
+
+        return []

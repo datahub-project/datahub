@@ -76,7 +76,7 @@ public class AggregationQueryBuilder {
 
   /** Get the set of default aggregations, across all facets. */
   public List<AggregationBuilder> getAggregations(@Nonnull OperationContext opContext) {
-    return getAggregations(opContext, null);
+    return getAggregations(opContext, new ArrayList<>());
   }
 
   /**
@@ -84,15 +84,13 @@ public class AggregationQueryBuilder {
    * then get aggregations for all.
    */
   public List<AggregationBuilder> getAggregations(
-      @Nonnull OperationContext opContext, @Nullable List<String> facets) {
+      @Nonnull OperationContext opContext, @Nonnull List<String> facets) {
     final Set<String> facetsToAggregate = new HashSet<>();
     if (Boolean.TRUE.equals(
         opContext.getSearchContext().getSearchFlags().isIncludeDefaultFacets())) {
       facetsToAggregate.addAll(defaultFacetFields);
     }
-    if (facets != null) {
-      facets.stream().filter(this::isValidAggregate).forEach(facetsToAggregate::add);
-    }
+    facets.stream().filter(this::isValidAggregate).forEach(facetsToAggregate::add);
     return facetsToAggregate.stream()
         .map(f -> facetToAggregationBuilder(opContext, f))
         .collect(Collectors.toList());

@@ -14,10 +14,12 @@ export interface PillProps extends Partial<PillPropsDefaults>, Omit<HTMLAttribut
     rightIcon?: string;
     leftIcon?: string;
     customStyle?: React.CSSProperties;
+    showLabel?: boolean;
     customIconRenderer?: () => void;
     onClickRightIcon?: (e: React.MouseEvent<HTMLElement, MouseEvent>) => void;
     onClickLeftIcon?: (e: React.MouseEvent<HTMLElement, MouseEvent>) => void;
     onPillClick?: (e: React.MouseEvent<HTMLElement, MouseEvent>) => void;
+    className?: string;
 }
 
 export type PillStyleProps = PillPropsDefaults & Pick<PillProps, 'color'>;
