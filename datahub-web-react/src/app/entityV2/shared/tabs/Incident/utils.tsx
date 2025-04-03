@@ -147,7 +147,7 @@ export const createIncidentGroups = (incidents: Array<Incident>): IncidentGroupB
     return {
         priority: orderedIncidents(priorityIncidentGroups),
         stage: stageIncidentGroups,
-        type: typeIncidentGroups,
+        category: typeIncidentGroups,
         state: stateIncidentGroups,
     };
 };
@@ -214,7 +214,7 @@ const buildFilterOptions = (key: string, value: Record<string, number>, filterOp
     Object.entries(value).forEach(([name, count]) => {
         let displayName;
         switch (key) {
-            case 'type':
+            case 'category':
                 displayName = INCIDENT_TYPE_NAME_MAP[name] || getCapitalizeWord(name);
                 break;
             case 'stage':
@@ -280,7 +280,7 @@ const buildFilterOptions = (key: string, value: Record<string, number>, filterOp
 const extractFilterOptionListFromIncidents = (incidents: Incident[]) => {
     const filterOptions: IncidentFilterOptions = {
         filterGroupOptions: {
-            type: [],
+            category: [],
             stage: [],
             priority: [],
             state: [],
@@ -289,7 +289,7 @@ const extractFilterOptionListFromIncidents = (incidents: Incident[]) => {
     };
 
     const filterGroupCounts = {
-        type: {} as Record<string, number>,
+        category: {} as Record<string, number>,
         stage: {} as Record<string, number>,
         state: {} as Record<string, number>,
         priority: {} as Record<string, number>,
@@ -302,18 +302,16 @@ const extractFilterOptionListFromIncidents = (incidents: Incident[]) => {
     const remainingIncidentPriorities = [...INCIDENT_PRIORITY];
 
     incidents.forEach((incident: Incident) => {
-        // filter out tracked types
-        const type = incident.incidentType as IncidentType;
-        if (type) {
-            const index = remainingIncidentTypes.indexOf(type);
+        // filter out tracked categories
+        const category = incident.incidentType as IncidentType;
+        if (category) {
+            const index = remainingIncidentTypes.indexOf(category);
             if (index > -1) {
                 remainingIncidentTypes.splice(index, 1);
             }
-            if (type === IncidentType.Custom && incident.customType) {
-                filterGroupCounts.type[incident.customType] = (filterGroupCounts.type[incident.customType] || 0) + 1;
-            } else {
-                filterGroupCounts.type[type] = (filterGroupCounts.type[type] || 0) + 1;
-            }
+            const categoryName =
+                category === IncidentType.Custom && incident.customType ? incident.customType : incident.incidentType;
+            filterGroupCounts.category[categoryName] = (filterGroupCounts.category[categoryName] || 0) + 1;
         }
 
         // filter out tracked stages
@@ -348,9 +346,9 @@ const extractFilterOptionListFromIncidents = (incidents: Incident[]) => {
         filterGroupCounts.priority[priority] = (filterGroupCounts.priority[priority] || 0) + 1;
     });
 
-    // Add remaining Incident type with count 0
+    // Add remaining Incident category with count 0
     remainingIncidentTypes.forEach((incidentType: IncidentType) => {
-        filterGroupCounts.type[incidentType] = 0;
+        filterGroupCounts.category[incidentType] = 0;
     });
 
     // Add remaining Incident status with count 0
@@ -368,7 +366,7 @@ const extractFilterOptionListFromIncidents = (incidents: Incident[]) => {
         filterGroupCounts.priority[incidentPriority] = 0;
     });
 
-    buildFilterOptions('type', filterGroupCounts.type, filterOptions);
+    buildFilterOptions('category', filterGroupCounts.category, filterOptions);
     buildFilterOptions('stage', filterGroupCounts.stage, filterOptions);
     buildFilterOptions('priority', filterGroupCounts.priority, filterOptions);
     buildFilterOptions('state', filterGroupCounts.state, filterOptions);
@@ -379,7 +377,7 @@ const extractFilterOptionListFromIncidents = (incidents: Incident[]) => {
 const assignFilteredIncidentToGroup = (filteredIncidents: Incident[]): IncidentTable => {
     const incidentRawData: IncidentTable = {
         incidents: [],
-        groupBy: { type: [], stage: [], priority: [], state: [] },
+        groupBy: { category: [], stage: [], priority: [], state: [] },
         filterOptions: {},
     };
     incidentRawData.incidents = mapIncidentData(filteredIncidents);
@@ -389,13 +387,12 @@ const assignFilteredIncidentToGroup = (filteredIncidents: Incident[]): IncidentT
 };
 
 const getFilteredIncidents = (incidents: Incident[], filter: IncidentListFilter) => {
-    const { priority, stage, type, state } = filter.filterCriteria;
+    const { priority, stage, category, state } = filter.filterCriteria;
 
-    // Apply type, priority, and stage
+    // Apply cateory, priority, and stage
     return incidents.filter((incident: Incident) => {
-        const category =
-            incident.incidentType === IncidentType.Custom ? incident.customType ?? '' : incident.incidentType ?? '';
-        const matchesCategory = type.length === 0 || type.includes(category);
+        const categoryName = incident.incidentType === IncidentType.Custom ? incident.customType : incident.incidentType;
+        const matchesCategory = category.length === 0 || (categoryName ? category.includes(categoryName) : false);
         const matchesPriority = priority.length === 0 || priority.includes(incident.priority || 'None');
         const matchesStage = stage.length === 0 || stage.includes(incident.status.stage || 'None');
         const matchesState = state.length === 0 || state.includes(incident.status.state);
@@ -423,7 +420,7 @@ export const getFilteredTransformedIncidentData = (incidents: Incident[], filter
         searchMatchesCount = filteredIncidents.length;
     }
 
-    // Apply type, status, and other filters
+    // Apply category, status, and other filters
     filteredIncidents = getFilteredIncidents(filteredIncidents, filter);
 
     // Transform filtered incidents

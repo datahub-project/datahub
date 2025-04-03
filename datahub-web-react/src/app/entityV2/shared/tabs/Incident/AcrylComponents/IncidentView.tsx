@@ -188,6 +188,10 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
         assertionDescription = getPlainTextDescriptionFromAssertion(assertion.info as AssertionInfo);
     }
 
+    const categoryName = getCapitalizeWord(
+        incident?.type === IncidentType.Custom ? incident.customType : incident.type,
+    );
+
     return (
         <Container>
             <DescriptionSection>
@@ -203,11 +207,7 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
             </DescriptionSection>
             <DetailsSection>
                 <DetailsLabel>Category</DetailsLabel>
-                <CategoryText>
-                    {getCapitalizeWord(
-                        incident?.type === IncidentType.Custom ? incident.customType ?? '' : incident.type ?? '',
-                    )}
-                </CategoryText>
+                <CategoryText>{categoryName}</CategoryText>
             </DetailsSection>
             <DetailsSection>
                 <DetailsLabel>Priority</DetailsLabel>

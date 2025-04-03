@@ -195,6 +195,9 @@ export const Table = <T,>({
                                     }}
                                     isRowClickable={isRowClickable}
                                     data-testId={rowDataTestId?.(row)}
+                                    style={{
+                                        cursor: 'pointer',
+                                    }}
                                 >
                                     {/* Render each cell in the row */}
 
@@ -213,7 +216,6 @@ export const Table = <T,>({
                                                 {columns.length - 1 === i && canExpand ? (
                                                     <div
                                                         style={{
-                                                            cursor: 'pointer',
                                                             paddingTop: '10px',
                                                             paddingRight: '10px',
                                                         }}

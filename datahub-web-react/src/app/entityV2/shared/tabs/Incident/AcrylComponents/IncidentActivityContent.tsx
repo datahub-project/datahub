@@ -39,7 +39,7 @@ export default function IncidentActivityContent({ incidentActivities }: Timeline
                     </ActivityStatusText>
                 </Text>
                 <Text style={{ color: colors.gray[1700] }}>{getTimeFromNow(time)}</Text>
-                {message && <Text style={{ color: colors.gray[1700] }}>{message}</Text>}
+                {message ? <Text style={{ color: colors.gray[1700] }}>{message}</Text> : null}
             </ContentRow>
         </Content>
     );

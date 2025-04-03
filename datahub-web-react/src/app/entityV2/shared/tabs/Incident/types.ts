@@ -23,7 +23,7 @@ export type IncidentListFilter = {
         searchText: string;
         priority: string[];
         stage: string[];
-        type: string[];
+        category: string[];
         state: string[];
     };
 };
@@ -31,7 +31,7 @@ export type IncidentListFilter = {
 export type IncidentGroupBy = {
     priority: IncidentGroup[];
     stage: IncidentGroup[];
-    type: IncidentGroup[];
+    category: IncidentGroup[];
     state: IncidentGroup[];
 };
 
@@ -60,7 +60,7 @@ export type IncidentGroup = {
 
 export type IncidentFilterOptions = {
     filterGroupOptions: {
-        type: IncidentType[];
+        category: IncidentType[];
         stage: IncidentStage[];
         priority: IncidentPriority[];
         state: IncidentState[];

@@ -23,7 +23,7 @@ export const IncidentList = () => {
     const [entity, setEntity] = useState<EntityStagedForIncident>();
     const [visibleIncidents, setVisibleIncidents] = useState<IncidentTable>({
         incidents: [],
-        groupBy: { type: [], priority: [], stage: [], state: [] },
+        groupBy: { category: [], priority: [], stage: [], state: [] },
     });
     const [allIncidentData, setAllIncidentData] = useState<Incident[]>([]);
 
