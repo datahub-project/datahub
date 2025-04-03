@@ -1,4 +1,4 @@
-import DataProcessInstanceRightColumn from '@app/preview/DataProcessInstanceRightColumn';
+import DataProcessInstanceInfo from '@src/app/preview/DataProcessInstanceInfo';
 import { CloseOutlined } from '@ant-design/icons';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
@@ -23,6 +23,7 @@ import {
     Maybe,
     Owner,
     SearchInsight,
+    DataProcessRunEvent,
 } from '../../types.generated';
 import { EntityMenuActions, PreviewType } from '../entityV2/Entity';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../entityV2/shared/constants';
@@ -81,18 +82,6 @@ const PreviewContainer = styled.div`
     }
 `;
 
-const MainContentWrapper = styled.div`
-    display: flex;
-    width: 100%;
-    justify-content: space-between;
-`;
-
-const LeftContentWrapper = styled.div`
-    display: flex;
-    flex-direction: column;
-    max-width: 70%;
-`;
-
 interface RowContainerProps {
     hidden?: boolean;
     alignment?: 'flex-start' | 'center' | 'flex-end' | 'self-start';
@@ -135,12 +124,6 @@ const ENTITY_TYPES_WITH_DESCRIPTION_PREVIEW = new Set([
     EntityType.Domain,
     EntityType.Tag,
 ]);
-
-const RightColumn = styled.div`
-    max-width: 40%;
-    display: flex;
-    margin: auto 0;
-`;
 
 interface Props {
     name: string;
@@ -192,11 +175,7 @@ interface Props {
     statsSummary?: any;
     actions?: EntityMenuActions;
     browsePaths?: BrowsePathV2 | undefined;
-    dataProcessInstanceProps?: {
-        startTime?: number;
-        duration?: number;
-        status?: string;
-    };
+    lastRunEvent?: DataProcessRunEvent | null;
 }
 
 export default function DefaultPreviewCard({
@@ -243,7 +222,7 @@ export default function DefaultPreviewCard({
     actions,
     browsePaths,
     description,
-    dataProcessInstanceProps,
+    lastRunEvent,
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
     const supportedCapabilities = entityRegistry.getSupportedEntityCapabilities(entityType);
@@ -273,8 +252,8 @@ export default function DefaultPreviewCard({
 
     const { removeRelationship, removeButtonText } = useRemoveRelationship(entityType);
 
-    const shouldShowRightColumn =
-        dataProcessInstanceProps?.startTime || dataProcessInstanceProps?.duration || dataProcessInstanceProps?.status;
+    const shouldShowDPIinfo =
+        lastRunEvent?.timestampMillis || lastRunEvent?.durationMillis || lastRunEvent?.result?.resultType;
 
     const entityHeader = (
         <EntityHeader
@@ -297,68 +276,66 @@ export default function DefaultPreviewCard({
                 <GlossaryPreviewCardDecoration urn={urn} entityData={previewData} displayProperties={undefined} />
             )}
             {isFullViewCard || previewType === PreviewType.HOVER_CARD ? (
-                <MainContentWrapper>
-                    <LeftContentWrapper>
-                        <RowContainer alignment="self-start">
-                            {isIconPresent ? (
-                                <ColoredBackgroundPlatformIconGroup
-                                    platformName={platform}
-                                    platformLogoUrl={logoUrl}
-                                    platformNames={platforms}
-                                    platformLogoUrls={logoUrls}
-                                    isOutputPort={isOutputPort}
-                                    icon={entityIcon}
-                                />
-                            ) : (
-                                entityHeader
-                            )}
-                            <ActionsAndStatusSection>
-                                {removeButtonText && (
-                                    <TransparentButton size="small" onClick={removeRelationship}>
-                                        <CloseOutlined size={5} /> {removeButtonText}
-                                    </TransparentButton>
-                                )}
-                                <ViewInPlatform urn={urn} data={data} />
-                                {headerDropdownItems && previewType !== PreviewType.HOVER_CARD && (
-                                    <MoreOptionsMenuAction
-                                        menuItems={headerDropdownItems}
-                                        urn={urn}
-                                        entityType={entityType}
-                                        entityData={previewData}
-                                        triggerType={['click']}
-                                        actions={actions}
-                                    />
-                                )}
-                            </ActionsAndStatusSection>
-                        </RowContainer>
-                        {isIconPresent && <RowContainer>{entityHeader}</RowContainer>}
-                        <RowContainer style={{ marginTop: 8 }}>
-                            <ContextPath
-                                type={finalType}
-                                entityType={entityType}
-                                instanceId={platformInstanceId}
-                                typeIcon={typeIcon}
-                                browsePaths={browsePaths}
-                                parentEntities={parentEntities}
-                                entityTitleWidth={previewType === PreviewType.HOVER_CARD ? 150 : 200}
-                                previewType={previewType}
-                                contentRef={contentRef}
+                <>
+                    <RowContainer alignment="self-start">
+                        {isIconPresent ? (
+                            <ColoredBackgroundPlatformIconGroup
+                                platformName={platform}
+                                platformLogoUrl={logoUrl}
+                                platformNames={platforms}
+                                platformLogoUrls={logoUrls}
+                                isOutputPort={isOutputPort}
+                                icon={entityIcon}
                             />
+                        ) : (
+                            entityHeader
+                        )}
+                        <ActionsAndStatusSection>
+                            {removeButtonText && (
+                                <TransparentButton size="small" onClick={removeRelationship}>
+                                    <CloseOutlined size={5} /> {removeButtonText}
+                                </TransparentButton>
+                            )}
+                            <ViewInPlatform urn={urn} data={data} />
+                            {headerDropdownItems && previewType !== PreviewType.HOVER_CARD && (
+                                <MoreOptionsMenuAction
+                                    menuItems={headerDropdownItems}
+                                    urn={urn}
+                                    entityType={entityType}
+                                    entityData={previewData}
+                                    triggerType={['click']}
+                                    actions={actions}
+                                />
+                            )}
+                        </ActionsAndStatusSection>
+                    </RowContainer>
+                    {isIconPresent && <RowContainer>{entityHeader}</RowContainer>}
+                    <RowContainer style={{ marginTop: 8 }}>
+                        <ContextPath
+                            type={finalType}
+                            entityType={entityType}
+                            instanceId={platformInstanceId}
+                            typeIcon={typeIcon}
+                            browsePaths={browsePaths}
+                            parentEntities={parentEntities}
+                            entityTitleWidth={previewType === PreviewType.HOVER_CARD ? 150 : 200}
+                            previewType={previewType}
+                            contentRef={contentRef}
+                        />
+                    </RowContainer>
+                    {(previewType === PreviewType.HOVER_CARD ||
+                        ENTITY_TYPES_WITH_DESCRIPTION_PREVIEW.has(entityType)) &&
+                    description ? (
+                        <RowContainer>
+                            <Documentation>{removeMarkdown(description)}</Documentation>
                         </RowContainer>
-                        {(previewType === PreviewType.HOVER_CARD ||
-                            ENTITY_TYPES_WITH_DESCRIPTION_PREVIEW.has(entityType)) &&
-                        description ? (
-                            <RowContainer>
-                                <Documentation>{removeMarkdown(description)}</Documentation>
-                            </RowContainer>
-                        ) : null}
-                    </LeftContentWrapper>
-                    {shouldShowRightColumn && (
-                        <RightColumn key="right-column">
-                            <DataProcessInstanceRightColumn {...dataProcessInstanceProps} />
-                        </RightColumn>
+                    ) : null}
+                    {shouldShowDPIinfo && (
+                        <RowContainer style={{ marginTop: 8, justifyContent: 'flex-end' }}>
+                            <DataProcessInstanceInfo {...lastRunEvent} />
+                        </RowContainer>
                     )}
-                </MainContentWrapper>
+                </>
             ) : (
                 <CompactView
                     data={data}
