@@ -663,9 +663,9 @@ featureFlags:
   # SaaS-only features
   showBulkFormByDefault: ${SHOW_BULK_FORM_BY_DEFAULT:false} # If turned on, the bulk form by question view will be shown by default from the task center
   showDatasetFeaturesSearchSortOptions: ${SHOW_DATASET_FEATURES_SEARCH_SORT_OPTIONS:false} # Enables showing sort by row count, query count, update count, size in bytes.
-  assertionMonitorsEnabled: ${ASSERTION_MONITORS_ENABLED:false} # Enables the ability to create native assertions inside the UI.
-  runAssertionsEnabled: ${RUN_ASSERTIONS_ENABLED:false} # Enables the ability to run native assertions inside the UI.
-  schemaAssertionMonitorsEnabled: ${SCHEMA_ASSERTION_MONITORS_ENABLED:false} # Enables the ability to create native schema assertions inside the UI.
+  assertionMonitorsEnabled: ${ASSERTION_MONITORS_ENABLED:true} # Enables the ability to create native assertions inside the UI.
+  runAssertionsEnabled: ${RUN_ASSERTIONS_ENABLED:true} # Enables the ability to run native assertions inside the UI.
+  schemaAssertionMonitorsEnabled: ${SCHEMA_ASSERTION_MONITORS_ENABLED:true} # Enables the ability to create native schema assertions inside the UI.
   subscriptionsEnabled: ${SUBSCRIPTIONS_ENABLED:true} # Enables the ability to subscribe to notifications
   datasetHealthDashboardEnabled: ${DATASET_HEALTH_DASHBOARD_ENABLED:false} # Enables the Dataset Health dashboard in the application
   documentationAiEnabled: ${DOCUMENTATION_AI_ENABLED:false} # Enables the AI-powered documentation feature in the UI

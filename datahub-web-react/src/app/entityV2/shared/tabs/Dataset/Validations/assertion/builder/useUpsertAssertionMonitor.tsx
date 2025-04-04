@@ -93,7 +93,8 @@ export const useUpsertAssertionMonitor = (
                             data?.upsertDatasetFreshnessAssertionMonitor ||
                             data?.upsertDatasetVolumeAssertionMonitor ||
                             data?.upsertDatasetSqlAssertionMonitor ||
-                            data?.upsertDatasetFieldAssertionMonitor;
+                            data?.upsertDatasetFieldAssertionMonitor ||
+                            data?.upsertDatasetSchemaAssertionMonitor;
                         analytics.event({
                             type: isUpdate
                                 ? EventType.UpdateAssertionMonitorEvent
