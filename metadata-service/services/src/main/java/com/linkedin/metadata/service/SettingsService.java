@@ -153,12 +153,15 @@ public class SettingsService extends BaseService {
         throw new RuntimeException(String.format("User %s does not exist", user));
       }
 
-      EntityResponse response =
-          this.entityClient.getV2(
+      Map<Urn, EntityResponse> batchResponse =
+          this.entityClient.batchGetV2NoCache(
               opContext,
               CORP_USER_ENTITY_NAME,
-              user,
+              ImmutableSet.of(user),
               ImmutableSet.of(CORP_USER_SETTINGS_ASPECT_NAME));
+
+      EntityResponse response = batchResponse.get(user);
+
       if (response != null
           && response.getAspects().containsKey(Constants.CORP_USER_SETTINGS_ASPECT_NAME)) {
         return new CorpUserSettings(

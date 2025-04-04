@@ -115,10 +115,10 @@ public class SettingsServiceTest {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
 
     Mockito.when(
-            mockClient.getV2(
+            mockClient.batchGetV2NoCache(
                 any(OperationContext.class),
                 Mockito.eq(Constants.CORP_USER_ENTITY_NAME),
-                Mockito.eq(TEST_USER_URN),
+                Mockito.eq(ImmutableSet.of(TEST_USER_URN)),
                 Mockito.eq(ImmutableSet.of(Constants.CORP_USER_SETTINGS_ASPECT_NAME))))
         .thenThrow(new RemoteInvocationException());
 
@@ -232,10 +232,10 @@ public class SettingsServiceTest {
   public void testGetCorpGroupSettingsException() throws Exception {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     when(mockClient.exists(any(OperationContext.class), eq(GROUP_URN))).thenReturn(true);
-    when(mockClient.getV2(
+    when(mockClient.batchGetV2NoCache(
             any(OperationContext.class),
             eq(CORP_GROUP_ENTITY_NAME),
-            eq(GROUP_URN),
+            eq(ImmutableSet.of(GROUP_URN)),
             eq(ImmutableSet.of(CORP_GROUP_SETTINGS_ASPECT_NAME))))
         .thenThrow(new RemoteInvocationException());
     final SettingsService service =
@@ -450,16 +450,18 @@ public class SettingsServiceTest {
             : new EnvelopedAspectMap();
 
     Mockito.when(
-            mockClient.getV2(
+            mockClient.batchGetV2NoCache(
                 any(OperationContext.class),
                 Mockito.eq(Constants.CORP_USER_ENTITY_NAME),
-                Mockito.eq(TEST_USER_URN),
+                Mockito.eq(ImmutableSet.of(TEST_USER_URN)),
                 Mockito.eq(ImmutableSet.of(Constants.CORP_USER_SETTINGS_ASPECT_NAME))))
         .thenReturn(
-            new EntityResponse()
-                .setEntityName(Constants.CORP_USER_ENTITY_NAME)
-                .setUrn(TEST_USER_URN)
-                .setAspects(aspectMap));
+            ImmutableMap.of(
+                TEST_USER_URN,
+                new EntityResponse()
+                    .setEntityName(Constants.CORP_USER_ENTITY_NAME)
+                    .setUrn(TEST_USER_URN)
+                    .setAspects(aspectMap)));
 
     Mockito.when(
             mockClient.batchGetV2(
@@ -501,16 +503,18 @@ public class SettingsServiceTest {
             : new EnvelopedAspectMap();
 
     Mockito.when(
-            mockClient.getV2(
+            mockClient.batchGetV2NoCache(
                 any(OperationContext.class),
                 Mockito.eq(Constants.CORP_GROUP_ENTITY_NAME),
-                Mockito.eq(GROUP_URN),
+                Mockito.eq(ImmutableSet.of(GROUP_URN)),
                 Mockito.eq(ImmutableSet.of(CORP_GROUP_SETTINGS_ASPECT_NAME))))
         .thenReturn(
-            new EntityResponse()
-                .setEntityName(Constants.CORP_GROUP_ENTITY_NAME)
-                .setUrn(GROUP_URN)
-                .setAspects(aspectMap));
+            ImmutableMap.of(
+                GROUP_URN,
+                new EntityResponse()
+                    .setEntityName(Constants.CORP_GROUP_ENTITY_NAME)
+                    .setUrn(GROUP_URN)
+                    .setAspects(aspectMap)));
 
     Mockito.when(
             mockClient.batchGetV2(
@@ -553,7 +557,7 @@ public class SettingsServiceTest {
                 Mockito.eq(ImmutableSet.of(GLOBAL_SETTINGS_INFO_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
-                .setEntityName(Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME)
+                .setEntityName(GLOBAL_SETTINGS_ENTITY_NAME)
                 .setUrn(GLOBAL_SETTINGS_URN)
                 .setAspects(aspectMap));
     return mockClient;
@@ -606,10 +610,10 @@ public class SettingsServiceTest {
   public void testGetCorpUserSettingsException() throws Exception {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     when(mockClient.exists(any(OperationContext.class), eq(TEST_USER_URN))).thenReturn(true);
-    when(mockClient.getV2(
+    when(mockClient.batchGetV2NoCache(
             any(OperationContext.class),
             eq(Constants.CORP_USER_ENTITY_NAME),
-            eq(TEST_USER_URN),
+            eq(ImmutableSet.of(TEST_USER_URN)),
             eq(ImmutableSet.of(Constants.CORP_USER_SETTINGS_ASPECT_NAME))))
         .thenThrow(new RemoteInvocationException());
     final SettingsService service =
