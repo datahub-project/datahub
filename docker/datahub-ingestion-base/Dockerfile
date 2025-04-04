@@ -75,22 +75,25 @@ COPY --from=powerman/dockerize:0.19 /usr/local/bin/dockerize /usr/local/bin
 COPY ./docker/datahub-ingestion-base/entrypoint.sh /entrypoint.sh
 
 RUN existing_group=$(getent group 1000 | cut -d: -f1) && \
-    if [ -n "$existing_group" ]; then \
-        echo "Using existing group $existing_group with GID 1000"; \
-    else \
+    if [ -n "$existing_group" ] && [ "$existing_group" != "datahub" ]; then \
+        echo "Renaming existing group $existing_group to datahub"; \
+        groupmod -n datahub "$existing_group"; \
+    elif [ -z "$existing_group" ]; then \
+        echo "Creating new group datahub with GID 1000"; \
         addgroup --gid 1000 datahub; \
-        existing_group="datahub"; \
     fi && \
     existing_user=$(id -nu 1000 2>/dev/null || echo "") && \
-    if [ -n "$existing_user" ]; then \
+    if [ -n "$existing_user" ] && [ "$existing_user" != "datahub" ]; then \
         echo "Renaming existing user $existing_user to datahub"; \
-        usermod -l datahub -d /datahub-ingestion $existing_user; \
-    else \
+        usermod -l datahub -d /datahub-ingestion "$existing_user"; \
+        usermod -g datahub datahub; \
+    elif [ -z "$existing_user" ]; then \
+        echo "Creating new user datahub with UID 1000"; \
         adduser --disabled-password --uid 1000 --gid 1000 --home /datahub-ingestion datahub; \
     fi && \
     # Create and set proper permissions for datahub directories
     mkdir -p /datahub-ingestion && \
-    chown -R 1000:1000 /datahub-ingestion && \
+    chown -R datahub:datahub /datahub-ingestion && \
     chmod +x /entrypoint.sh
 
 USER datahub
