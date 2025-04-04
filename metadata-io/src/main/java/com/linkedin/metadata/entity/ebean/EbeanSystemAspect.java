@@ -52,9 +52,23 @@ public class EbeanSystemAspect implements SystemAspect {
 
   @Getter @Setter @Nullable private RecordTemplate recordTemplate;
 
-  @Getter @Setter @Nullable private SystemMetadata systemMetadata;
+  @Setter @Nullable private SystemMetadata systemMetadata;
 
   @Setter @Nullable private AuditStamp auditStamp;
+
+  @Nonnull
+  @Override
+  public SystemMetadata getSystemMetadata() {
+    if (systemMetadata == null) {
+      if (ebeanAspectV2 != null && ebeanAspectV2.getSystemMetadata() != null) {
+        systemMetadata =
+            RecordUtils.toRecordTemplate(SystemMetadata.class, ebeanAspectV2.getSystemMetadata());
+      } else {
+        systemMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
+      }
+    }
+    return systemMetadata;
+  }
 
   /**
    * Return the ebean model for the given version. If version 0, use latest, otherwise copy and
