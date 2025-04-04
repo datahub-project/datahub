@@ -10,3 +10,5 @@ include:
   - docker-compose.frontend.yml
   # Remaining components: i.e. gms, system-update, consumers
   - docker-compose.gms.yml
+  # Monitoring based on Grafana Labs' LGTM tech stack
+  - docker-compose.monitoring.yml

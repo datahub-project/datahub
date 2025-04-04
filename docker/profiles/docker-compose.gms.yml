@@ -504,8 +504,3 @@ services:
     depends_on:
       datahub-gms-debug-consumers:
         condition: service_healthy
-
-networks:
-  monitoring-network:
-    external: true
-    name: datahub-monitoring-network
