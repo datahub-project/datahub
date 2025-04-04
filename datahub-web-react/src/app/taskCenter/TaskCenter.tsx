@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { Badge as BadgeAntd } from 'antd';
 import styled from 'styled-components';
@@ -124,10 +124,19 @@ const TabTitle = ({ title, count, dataTestId }: TabTitleProps) => {
 
 export const TaskCenter = () => {
     const {
+        refetchUnfinishedTaskCount,
         state: { notificationsCount, proposalCount },
     } = useUserContext();
     const isV2 = useIsThemeV2();
+    const [hasRefetchedTaskCount, setHasRefetchedTaskFount] = useState(false);
     const isShowNavBarRedesign = useShowNavBarRedesign();
+
+    useEffect(() => {
+        if (!hasRefetchedTaskCount) {
+            refetchUnfinishedTaskCount();
+            setHasRefetchedTaskFount(true);
+        }
+    }, [refetchUnfinishedTaskCount, hasRefetchedTaskCount]);
 
     const getTabs = () => {
         return [
