@@ -384,6 +384,7 @@ class DataProcessInstance:
             cluster=datajob.flow_urn.cluster,
             template_urn=datajob.urn,
             id=id,
+            data_platform_instance=datajob.platform_instance,
         )
         dpi._template_object = datajob
 
@@ -440,6 +441,7 @@ class DataProcessInstance:
             orchestrator=dataflow.orchestrator,
             cluster=cast(str, dataflow.env),
             template_urn=dataflow.urn,
+            data_platform_instance=dataflow.platform_instance,
         )
         dpi._template_object = dataflow
         return dpi
