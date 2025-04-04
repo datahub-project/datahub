@@ -201,6 +201,7 @@ export const Table = <T,>({
                                     }}
                                     isFocused={focusedRowIndex === index}
                                     isRowClickable={isRowClickable}
+                                    isRowHovered
                                     data-testId={rowDataTestId?.(row)}
                                 >
                                     {/* Render each cell in the row */}
