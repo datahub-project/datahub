@@ -1549,6 +1549,10 @@ def test_ownership_patching_with_different_types_1(mock_time):
     assert ("baz", models.OwnershipTypeClass.PRODUCER) in [
         (o.owner, o.type) for o in test_ownership.owners
     ]
+    # assume, that one user has few ownership types
+    assert ("foo", models.OwnershipTypeClass.PRODUCER) in [
+        (o.owner, o.type) for o in test_ownership.owners
+    ]
 
 
 def test_ownership_patching_with_different_types_2(mock_time):
@@ -1560,12 +1564,19 @@ def test_ownership_patching_with_different_types_2(mock_time):
         mock_graph, "test_urn", mce_ownership
     )
     assert test_ownership and test_ownership.owners
-    assert len(test_ownership.owners) == 2
+    # assume, that one user has few ownership types 
+    assert len(test_ownership.owners) == 4
     # nothing to add, so we omit writing
     assert ("foo", models.OwnershipTypeClass.DATAOWNER) in [
         (o.owner, o.type) for o in test_ownership.owners
     ]
     assert ("baz", models.OwnershipTypeClass.DATAOWNER) in [
+        (o.owner, o.type) for o in test_ownership.owners
+    ]
+    assert ("foo", models.OwnershipTypeClass.PRODUCER) in [
+        (o.owner, o.type) for o in test_ownership.owners
+    ]
+    assert ("baz", models.OwnershipTypeClass.PRODUCER) in [
         (o.owner, o.type) for o in test_ownership.owners
     ]
 
