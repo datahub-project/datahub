@@ -46,6 +46,7 @@ const SourcePaginationContainer = styled.div`
 const StyledTabToolbar = styled(TabToolbar)`
     padding: 16px 20px;
     height: auto;
+    z-index: unset;
     &&& {
         padding: 8px 20px;
         height: auto;
