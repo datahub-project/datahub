@@ -9,7 +9,6 @@ import {
     OptionContainer,
     OptionLabel,
     OptionList,
-    SelectAllOption,
     SelectBase,
     SelectLabel,
     SelectLabelContainer,
@@ -20,6 +19,7 @@ import {
 import { ActionButtonsProps, SelectOption, SelectProps } from './types';
 import SelectLabelRenderer from './private/SelectLabelRenderer/SelectLabelRenderer';
 import DropdownSearchBar from './private/DropdownSearchBar';
+import DropdownSelectAllOption from './private/DropdownSelectAllOption';
 
 const SelectActionButtons = ({
     selectedValues,
@@ -210,19 +210,12 @@ export const SimpleSelect = ({
                         )}
                         <OptionList style={optionListStyle} data-testid={optionListTestId}>
                             {showSelectAll && isMultiSelect && (
-                                <SelectAllOption
-                                    isSelected={areAllSelected}
+                                <DropdownSelectAllOption
+                                    label={selectAllLabel}
+                                    selected={areAllSelected}
+                                    disabled={disabledValues.length === options.length}
                                     onClick={() => !(disabledValues.length === options.length) && handleSelectAll()}
-                                    isDisabled={disabledValues.length === options.length}
-                                >
-                                    <LabelContainer>
-                                        <span>{selectAllLabel}</span>
-                                        <StyledCheckbox
-                                            checked={areAllSelected}
-                                            disabled={disabledValues.length === options.length}
-                                        />
-                                    </LabelContainer>
-                                </SelectAllOption>
+                                />
                             )}
                             {filteredOptions.map((option) => (
                                 <OptionLabel
