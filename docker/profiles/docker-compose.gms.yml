@@ -51,19 +51,23 @@ x-datahub-dev-telemetry-env: &datahub-dev-telemetry-env
   DATAHUB_TELEMETRY_ENABLED: ${DATAHUB_TELEMETRY_ENABLED:-true}
 
 x-datahub-otel-env: &x-datahub-otel-env
-  ENABLE_OTEL: true
-  NAMESPACE: production
-  OTEL_EXPORTER_OTLP_ENDPOINT: http://opentelemetry-collector:4317
-  #OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://opentelemetry-collector:4317
-  OTEL_EXPORTER_OTLP_PROTOCOL: grpc
-  # Emit metrics
   ENABLE_PROMETHEUS: true
-
-  # Emit logs
-  LOGS_TARGET: http://loki:3100/loki/api/v1/push
+  DATAHUB_DEBUG: true
+  ENABLE_OTEL: true
+  OTEL_LOG_LEVEL: debug
+  OTEL_METRICS_EXPORTER: console
+  OTEL_TRACES_EXPORTER: console
+  OTEL_LOGS_EXPORTER: console
+  OTEL_SDK_DISABLED: false
+  OTEL_INSTRUMENTATION_COMMON_DEFAULT_ENABLED: true
+  OTEL_PROPAGATORS: tracecontext,baggage
+  NAMESPACE: compose
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://opentelemetry-collector:4317
+  OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+  #LOGS_TARGET: http://loki:3100/loki/api/v1/push
   # Emit traces in an ins
-  OTEL_EXPORTER_OTLP_TRACES_INSECURE: true
-  OTEL_RESOURCE_ATTRIBUTES=ip: 1.2.3.5
+  #OTEL_EXPORTER_OTLP_TRACES_INSECURE: true
+  #OTEL_RESOURCE_ATTRIBUTES=ip: 1.2.3.5
 
 #################################
 # System Update
@@ -121,8 +125,7 @@ x-datahub-gms-service: &datahub-gms-service
     STRICT_URN_VALIDATION_ENABLED: ${STRICT_URN_VALIDATION_ENABLED:-true}
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
     THEME_V2_DEFAULT: ${THEME_V2_DEFAULT:-true}
-    OTEL_SERVICE_NAME: datahub-gms
-    OTEL_RESOURCE_ATTRIBUTES: service.name=datahub-gms
+
   healthcheck:
     test: curl -sS --fail http://datahub-gms:${DATAHUB_GMS_PORT:-8080}/health
     start_period: 90s

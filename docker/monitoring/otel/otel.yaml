@@ -153,10 +153,11 @@ exporters:
     # TLS is not enabled for the instance.
     tls:
       insecure: true
+
   # For logs
   loki:
     endpoint: http://loki:3100/loki/api/v1/push
-  
+
   # Exporter for sending trace data to Tempo.
   otlp/grafana:
     # Send to the locally running Tempo service.
