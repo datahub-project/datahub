@@ -1564,7 +1564,7 @@ def test_ownership_patching_with_different_types_2(mock_time):
         mock_graph, "test_urn", mce_ownership
     )
     assert test_ownership and test_ownership.owners
-    # assume, that one user has few ownership types 
+    # assume, that one user has few ownership types
     assert len(test_ownership.owners) == 4
     # nothing to add, so we omit writing
     assert ("foo", models.OwnershipTypeClass.DATAOWNER) in [
