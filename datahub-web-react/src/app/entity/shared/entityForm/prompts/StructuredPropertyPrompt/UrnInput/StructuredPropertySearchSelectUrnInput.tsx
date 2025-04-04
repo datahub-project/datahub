@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { EntityType, PropertyCardinality, StructuredPropertyEntity } from '../../../../../../../types.generated';
 import { SearchSelectUrnInput } from './SearchSelectUrnInput';

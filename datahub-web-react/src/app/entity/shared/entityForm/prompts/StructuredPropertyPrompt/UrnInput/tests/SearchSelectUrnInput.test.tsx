@@ -63,13 +63,15 @@ vi.mock('@src/alchemy-components', async () => {
         // Override specific components with mocks
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         Icon: (props: { icon: string; onClick?: () => void; [key: string]: any }) => (
-            <button data-testid={`mock-icon-${props.icon.toLowerCase()}`} onClick={props.onClick}>
+            <button type="button" data-testid={`mock-icon-${props.icon.toLowerCase()}`} onClick={props.onClick}>
                 {props.icon}
             </button>
         ),
         Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
         Button: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => (
-            <button onClick={onClick}>{children}</button>
+            <button type="button" onClick={onClick}>
+                {children}
+            </button>
         ),
         // No need to mock colors and typography anymore, we use the actual ones
     };

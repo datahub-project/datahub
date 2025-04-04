@@ -1,6 +1,5 @@
 import { PropertyCardinality, StdDataType, StructuredPropertyEntity } from '@src/types.generated';
 import React from 'react';
-import SearchSelectUrnInput from '../../../entityForm/prompts/StructuredPropertyPrompt/UrnInput/SearchSelectUrnInput';
 import StructuredPropertySearchSelectUrnInput from '../../../entityForm/prompts/StructuredPropertyPrompt/UrnInput/StructuredPropertySearchSelectUrnInput';
 import UrnInput from '../../../entityForm/prompts/StructuredPropertyPrompt/UrnInput/UrnInput';
 import DateInput from './DateInput';
