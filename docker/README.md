@@ -13,6 +13,18 @@ Docker Desktop).
 Make sure to allocate enough hardware resources for Docker engine. Tested & confirmed config: 2 CPUs, 8GB RAM, 2GB Swap
 area.
 
+_If you prefer not to use Docker Desktop (which requires a license for commercial use), you can opt for free and open-source alternatives such as [Podman Desktop](https://podman-desktop.io/) or [Rancher Desktop](https://rancherdesktop.io/). To configure them, you can add the following aliases to your `~/.bashrc` file:_
+
+```bash
+# podman
+alias docker=podman
+alias docker-compose="podman compose"
+
+# Rancher (or nerdctl)
+alias docker=nerdctl
+alias docker-compose="nerdctl compose"
+```
+
 ## Quickstart
 
 The easiest way to bring up and test DataHub is using DataHub [Docker](https://www.docker.com) images 
