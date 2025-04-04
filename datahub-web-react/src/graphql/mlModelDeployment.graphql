@@ -1,0 +1,13 @@
+query getMLModelDeployment($urn: String!) {
+    mlModelDeployment(urn: $urn) {
+        urn
+        type
+        name
+        properties {
+            description
+        }
+        relationships(input: { types: ["DeployedTo"], direction: INCOMING, start: 0, count: 100 }) {
+            ...fullRelationshipResults
+        }
+    }
+}

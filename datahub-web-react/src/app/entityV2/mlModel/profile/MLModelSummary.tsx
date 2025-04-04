@@ -78,6 +78,27 @@ export default function MLModelSummary() {
         );
     };
 
+    const renderDeployments = () => {
+        const deployments =
+            model?.deployedTo?.relationships?.map((relationship) => relationship.entity).filter(notEmpty) || [];
+        if (deployments.length === 0) return '-';
+
+        return (
+            <div>
+                {deployments.map((deployment, index) => {
+                    const { urn, name } = deployment as { urn: string; name?: string };
+                    return (
+                        <span key={urn}>
+                            <JobLink to={entityRegistry.getEntityUrl(EntityType.MlmodelDeployment, urn)}>
+                                {name || urn}
+                            </JobLink>
+                            {index < deployments.length - 1 && ', '}
+                        </span>
+                    );
+                })}
+            </div>
+        );
+    };
     return (
         <TabContent>
             <Space direction="vertical" style={{ width: '100%' }} size="large">
@@ -112,6 +133,11 @@ export default function MLModelSummary() {
                     <InfoItem title="Source Run">
                         <InfoItemContent>{renderTrainingJobs()}</InfoItemContent>
                     </InfoItem>
+                    {model?.deployedTo?.relationships && (
+                        <InfoItem title="Deployment">
+                            <InfoItemContent>{renderDeployments()}</InfoItemContent>
+                        </InfoItem>
+                    )}
                 </InfoItemContainer>
                 <Typography.Title level={3}>Training Metrics</Typography.Title>
                 <Table

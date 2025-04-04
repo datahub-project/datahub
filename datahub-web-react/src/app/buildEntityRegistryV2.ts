@@ -25,6 +25,7 @@ import { SchemaFieldEntity } from './entityV2/schemaField/SchemaFieldEntity';
 import { StructuredPropertyEntity } from './entityV2/structuredProperty/StructuredPropertyEntity';
 import { DataProcessInstanceEntity } from './entityV2/dataProcessInstance/DataProcessInstanceEntity';
 import { BusinessAttributeEntity } from './entityV2/businessAttribute/BusinessAttributeEntity';
+import { MLModelDeploymentEntity } from './entityV2/mlModelDeployment/MLModelDeploymentEntity';
 
 export default function buildEntityRegistryV2() {
     const registry = new EntityRegistry();
@@ -54,5 +55,6 @@ export default function buildEntityRegistryV2() {
     registry.register(new StructuredPropertyEntity());
     registry.register(new DataProcessInstanceEntity());
     registry.register(new BusinessAttributeEntity());
+    registry.register(new MLModelDeploymentEntity());
     return registry;
 }
