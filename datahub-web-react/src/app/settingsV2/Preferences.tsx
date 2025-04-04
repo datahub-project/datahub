@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, message } from 'antd';
+import { message } from 'antd';
 import { Switch, PageTitle, colors } from '@components';
 import styled from 'styled-components';
 import { useUpdateUserSettingMutation } from '../../graphql/me.generated';
@@ -19,14 +19,13 @@ const HeaderContainer = styled.div`
     margin-bottom: 24px;
 `;
 
-const StyledCard = styled(Card)`
+const StyledCard = styled.div`
     border: 1px solid ${colors.gray[100]};
     border-radius: 12px;
-    display: flex;
     box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
-    .ant-card-body {
-        padding: 16px;
-    }
+    padding: 16px;
+    display: flex;
+    justify-content: space-between;
 `;
 
 const SourceContainer = styled.div`
@@ -41,12 +40,15 @@ const TokensContainer = styled.div`
 const TextContainer = styled.div`
     display: flex;
     flex-direction: column;
+    flex: 1;
 `;
 
 const UserSettingRow = styled.div`
     display: flex;
     justify-content: space-between;
     flex-direction: row;
+    align-items: center;
+    width: 100%;
 `;
 
 const SettingText = styled.div`
@@ -124,8 +126,7 @@ export const Preferences = () => {
                                     <SettingText>Try New User Experience</SettingText>
                                     <DescriptionText>
                                         Enable an early preview of the new DataHub UX - a complete makeover for your app
-                                        with a sleek new design and advanced features. Flip the switch and refresh your
-                                        browser to try it out!
+                                        with a sleek new design and advanced features.
                                     </DescriptionText>
                                 </TextContainer>
                                 <Switch
