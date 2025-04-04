@@ -1,9 +1,9 @@
 import { MockedProvider } from '@apollo/client/testing';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
-import { EntityType } from '../../../../../../../../types.generated';
-import TestPageContainer from '../../../../../../../../utils/test-utils/TestPageContainer';
-import { EntityAndType } from '../../../../../types';
+import { EntityType } from '../../../../../../../types.generated';
+import TestPageContainer from '../../../../../../../utils/test-utils/TestPageContainer';
+import { EntityAndType } from '../../../../../../entity/shared/types';
 import { SearchSelectUrnInput } from '../SearchSelectUrnInput';
 
 // Mock the useHydratedEntityMap hook
@@ -33,7 +33,7 @@ vi.mock('@src/app/entityV2/shared/tabs/Properties/useHydratedEntityMap', () => (
 
 // Mock SearchSelect component - capture the setSelectedEntities callback
 const mockSetSelectedEntities = vi.fn(); // Spy will now store the *callback itself* when called
-vi.mock('../../../../../../../entityV2/shared/components/styled/search/SearchSelect', () => ({
+vi.mock('@src/app/entityV2/shared/components/styled/search/SearchSelect', () => ({
     SearchSelect: (props: { setSelectedEntities: (entities: EntityAndType[]) => void }) => {
         // Call the spy with the actual callback function when the mock renders
         if (props.setSelectedEntities) {
