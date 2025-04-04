@@ -327,7 +327,7 @@ DNS name for the `datahub-gms` pod:
 ### I see 'N/A' when I try to run ingestion. What do I do?
 
 If you see 'N/A', and the ingestion run state never changes to 'Running', this may mean 
-that your executor (`datahub-actions`) container is down. 
+that your `datahub-actions` container (where ingestion runs; see also [actions](actions/README.md)) is down.
 
 This container is responsible for executing requests to run ingestion when they come in, either
 on demand on a particular schedule. You can verify the health of the container using `docker ps`. Moreover, you can inspect the container logs using by finding the container id
