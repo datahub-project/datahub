@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
-import { Icon, Pill, colors } from '@components';
+import { Dropdown, Icon, Pill, colors } from '@components';
 
 import {
     ActionButtonsContainer,
     Container,
     CountBadge,
-    Dropdown,
+    DropdownContainer,
     OptionList,
     Placeholder,
     SearchIcon,
@@ -290,75 +290,81 @@ export const NestedSelect = ({
     return (
         <Container ref={selectRef} size={size || 'md'} width={props.width || 255}>
             {label && <SelectLabel onClick={handleSelectClick}>{label}</SelectLabel>}
-            <SelectBase
-                isDisabled={isDisabled}
-                isReadOnly={isReadOnly}
-                isRequired={isRequired}
-                isOpen={isOpen}
-                onClick={handleSelectClick}
-                fontSize={size}
-                data-testid="nested-options-dropdown-container"
-                width={props.width}
-                {...props}
-            >
-                <SelectLabelDisplay
-                    selectedOptions={selectedOptions}
-                    placeholder={placeholder || 'Select an option'}
-                    handleOptionChange={handleOptionChange}
-                    showCount={showCount}
-                />
-                <SelectActionButtons
-                    selectedOptions={selectedOptions}
-                    isOpen={isOpen}
-                    isDisabled={!!isDisabled}
-                    isReadOnly={!!isReadOnly}
-                    handleClearSelection={handleClearSelection}
-                    fontSize={size}
-                    showCount={showCount}
-                />
-            </SelectBase>
-            {isOpen && (
-                <Dropdown style={{ maxHeight: height, overflow: 'auto' }}>
-                    {showSearch && (
-                        <SearchInputContainer>
-                            <SearchInput
-                                type="text"
-                                placeholder={searchPlaceholder || 'Search...'}
-                                value={searchQuery}
-                                onChange={(e) => handleSearch(e.target.value)}
-                                style={{ fontSize: size || 'md', width: '100%' }}
-                            />
-                            <SearchIcon icon="Search" size={size} color="gray" />
-                        </SearchInputContainer>
-                    )}
-                    <OptionList>
-                        {rootOptions.map((option) => {
-                            const isParentOptionLabelExpanded = selectedOptions.find(
-                                (opt) => opt.parentValue === option.value,
-                            );
-                            return (
-                                <NestedOption
-                                    key={option.value}
-                                    selectedOptions={selectedOptions}
-                                    option={option}
-                                    parentValueToOptions={parentValueToOptions}
-                                    handleOptionChange={handleOptionChange}
-                                    addOptions={addOptions}
-                                    removeOptions={removeOptions}
-                                    loadData={loadData}
-                                    isMultiSelect={isMultiSelect}
-                                    setSelectedOptions={setSelectedOptions}
-                                    areParentsSelectable={areParentsSelectable}
-                                    isLoadingParentChildList={isLoadingParentChildList}
-                                    hideParentCheckbox={hideParentCheckbox}
-                                    isParentOptionLabelExpanded={!!isParentOptionLabelExpanded}
-                                    implicitlySelectChildren={implicitlySelectChildren}
+            <Dropdown
+                open={isOpen}
+                disabled={isDisabled}
+                placement="bottomRight"
+                dropdownRender={() => (
+                    <DropdownContainer style={{ maxHeight: height, overflow: 'auto' }}>
+                        {showSearch && (
+                            <SearchInputContainer>
+                                <SearchInput
+                                    type="text"
+                                    placeholder={searchPlaceholder || 'Search...'}
+                                    value={searchQuery}
+                                    onChange={(e) => handleSearch(e.target.value)}
+                                    style={{ fontSize: size || 'md', width: '100%' }}
                                 />
-                            );
-                        })}
-                    </OptionList>
-                </Dropdown>
-            )}
+                                <SearchIcon icon="Search" size={size} color="gray" />
+                            </SearchInputContainer>
+                        )}
+                        <OptionList>
+                            {rootOptions.map((option) => {
+                                const isParentOptionLabelExpanded = selectedOptions.find(
+                                    (opt) => opt.parentValue === option.value,
+                                );
+                                return (
+                                    <NestedOption
+                                        key={option.value}
+                                        selectedOptions={selectedOptions}
+                                        option={option}
+                                        parentValueToOptions={parentValueToOptions}
+                                        handleOptionChange={handleOptionChange}
+                                        addOptions={addOptions}
+                                        removeOptions={removeOptions}
+                                        loadData={loadData}
+                                        isMultiSelect={isMultiSelect}
+                                        setSelectedOptions={setSelectedOptions}
+                                        areParentsSelectable={areParentsSelectable}
+                                        isLoadingParentChildList={isLoadingParentChildList}
+                                        hideParentCheckbox={hideParentCheckbox}
+                                        isParentOptionLabelExpanded={!!isParentOptionLabelExpanded}
+                                        implicitlySelectChildren={implicitlySelectChildren}
+                                    />
+                                );
+                            })}
+                        </OptionList>
+                    </DropdownContainer>
+                )}
+            >
+                <SelectBase
+                    isDisabled={isDisabled}
+                    isReadOnly={isReadOnly}
+                    isRequired={isRequired}
+                    isOpen={isOpen}
+                    onClick={handleSelectClick}
+                    fontSize={size}
+                    data-testid="nested-options-dropdown-container"
+                    width={props.width}
+                    {...props}
+                >
+                    <SelectLabelDisplay
+                        selectedOptions={selectedOptions}
+                        placeholder={placeholder || 'Select an option'}
+                        handleOptionChange={handleOptionChange}
+                        showCount={showCount}
+                    />
+                    <SelectActionButtons
+                        selectedOptions={selectedOptions}
+                        isOpen={isOpen}
+                        isDisabled={!!isDisabled}
+                        isReadOnly={!!isReadOnly}
+                        handleClearSelection={handleClearSelection}
+                        fontSize={size}
+                        showCount={showCount}
+                    />
+                </SelectBase>
+            </Dropdown>
         </Container>
     );
 };
