@@ -1,5 +1,5 @@
 import { Button, Icon } from '@components';
-import { borders, colors, radius, shadows, spacing, transition, typography } from '@components/theme';
+import { borders, colors, radius, shadows, spacing, transition, typography, zIndices } from '@components/theme';
 import { Checkbox } from 'antd';
 import styled from 'styled-components';
 import { formLabelTextStyles, inputPlaceholderTextStyles, inputValueTextStyles } from '../commonStyles';
@@ -91,6 +91,23 @@ export const Dropdown = styled.div<{ ignoreMaxHeight?: boolean }>(({ ignoreMaxHe
         overflow: 'auto',
     };
 });
+
+export const DropdownContainer = styled.div<{ ignoreMaxHeight?: boolean }>(({ ignoreMaxHeight }) => ({
+    borderRadius: radius.md,
+    background: colors.white,
+    zIndex: zIndices.dropdown,
+    transition: sharedTransition,
+    boxShadow: shadows.dropdown,
+    padding: spacing.xsm,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+    marginTop: '4px',
+    overflow: 'auto',
+    width: '100%',
+    minWidth: '250px',
+    maxHeight: ignoreMaxHeight ? undefined : '360px',
+}));
 
 export const SearchInputContainer = styled.div({
     position: 'relative',
