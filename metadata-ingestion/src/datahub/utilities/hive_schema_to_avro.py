@@ -155,7 +155,7 @@ class HiveColumnToAvroConverter:
 
     @staticmethod
     def _parse_basic_datatype_string(s: str) -> Dict[str, object]:
-        if s in HiveColumnToAvroConverter._PRIVIMITE_HIVE_TYPE_TO_AVRO_TYPE.keys():
+        if s in HiveColumnToAvroConverter._PRIVIMITE_HIVE_TYPE_TO_AVRO_TYPE:
             return {
                 "type": HiveColumnToAvroConverter._PRIVIMITE_HIVE_TYPE_TO_AVRO_TYPE[s],
                 "native_data_type": s,
@@ -218,7 +218,7 @@ class HiveColumnToAvroConverter:
         buf = ""
         level = 0
         for c in s:
-            if c in HiveColumnToAvroConverter._BRACKETS.keys():
+            if c in HiveColumnToAvroConverter._BRACKETS:
                 level += 1
                 buf += c
             elif c in HiveColumnToAvroConverter._BRACKETS.values():
