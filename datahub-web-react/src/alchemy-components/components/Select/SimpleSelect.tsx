@@ -40,7 +40,7 @@ const SelectActionButtons = ({
                     onClick={handleClearSelection}
                 />
             )}
-            <StyledIcon icon="ChevronLeft" rotate={isOpen ? '90' : '270'} size="lg" />
+            <StyledIcon icon="CaretLeft" source="phosphor" rotate={isOpen ? '90' : '270'} size="lg" />
         </ActionButtonsContainer>
     );
 };
