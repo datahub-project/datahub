@@ -70,6 +70,7 @@ export type EntitySidebarTab = {
     name: string;
     component: React.FunctionComponent<EntityTabProps>;
     icon: React.FunctionComponent<any>;
+    selectedIcon?: React.FunctionComponent<any>; // Icon to use when this tab is selected
     display?: {
         visible: (GenericEntityProperties, T) => boolean; // Whether the tab is visible on the UI. Defaults to true.
         enabled: (GenericEntityProperties, T) => boolean; // Whether the tab is enabled on the UI. Defaults to true.
