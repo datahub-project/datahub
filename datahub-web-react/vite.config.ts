@@ -89,9 +89,10 @@ export default defineConfig(({ mode }) => {
                 structured: true,
             }),
             codecovVitePlugin({
-                enableBundleAnalysis: process.env.CODECOV_TOKEN !== undefined,
+                enableBundleAnalysis: true,
                 bundleName: "datahub-react-web",
                 uploadToken: process.env.CODECOV_TOKEN,
+                gitService: "github"
             }),
         ],
         // optimizeDeps: {
