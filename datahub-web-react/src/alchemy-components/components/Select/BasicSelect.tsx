@@ -1,11 +1,10 @@
-import { Button, Dropdown, Text } from '@components';
+import { Dropdown, Text } from '@components';
 import { isEqual } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActionButtonsContainer,
     Container,
     DropdownContainer,
-    FooterBase,
     LabelContainer,
     OptionContainer,
     OptionLabel,
@@ -14,7 +13,6 @@ import {
     SelectBase,
     SelectLabel,
     SelectLabelContainer,
-    StyledCancelButton,
     StyledCheckbox,
     StyledClearButton,
     StyledIcon,
@@ -23,6 +21,7 @@ import SelectLabelRenderer from './private/SelectLabelRenderer/SelectLabelRender
 import { ActionButtonsProps, SelectOption, SelectProps } from './types';
 import { getFooterButtonSize } from './utils';
 import DropdownSearchBar from './private/DropdownSearchBar';
+import DropdownFooterActions from './private/DropdownFooterActions';
 
 const SelectActionButtons = ({
     selectedValues,
@@ -260,18 +259,11 @@ export const BasicSelect = ({
                                 </OptionLabel>
                             ))}
                         </OptionList>
-                        <FooterBase>
-                            <StyledCancelButton
-                                onClick={handleCancelClick}
-                                variant="filled"
-                                size={getFooterButtonSize(size)}
-                            >
-                                Cancel
-                            </StyledCancelButton>
-                            <Button onClick={handleUpdateClick} size={getFooterButtonSize(size)}>
-                                Update
-                            </Button>
-                        </FooterBase>
+                        <DropdownFooterActions
+                            onCancel={handleCancelClick}
+                            onUpdate={handleUpdateClick}
+                            size={getFooterButtonSize(size)}
+                        />
                     </DropdownContainer>
                 )}
             >
