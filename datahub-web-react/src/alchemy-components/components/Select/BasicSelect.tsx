@@ -83,6 +83,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     showDescriptions = selectDefaults.showDescriptions,
     icon,
     renderCustomOptionText,
+    selectLabelProps,
     ...props
 }: SelectProps<OptionType>) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -284,6 +285,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                             removeOption={removeOption}
                             disabledValues={disabledValues}
                             showDescriptions={showDescriptions}
+                            {...(selectLabelProps || {})}
                         />
                     </SelectLabelContainer>
                     <SelectActionButtons

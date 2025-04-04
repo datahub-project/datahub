@@ -8,7 +8,7 @@ export default function MultiSelectLabeled({ selectedOptions, label }: SelectLab
         <LabelsWrapper shouldShowGap={false}>
             <ActionButtonsContainer>
                 <SelectValue>{label}</SelectValue>
-                <Pill label={`${selectedOptions.length}`} size="sm" variant="filled" />
+                {selectedOptions.length > 0 && <Pill label={`${selectedOptions.length}`} size="sm" variant="filled" />}
             </ActionButtonsContainer>
         </LabelsWrapper>
     );
