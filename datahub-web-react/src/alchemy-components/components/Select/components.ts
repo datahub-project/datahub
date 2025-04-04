@@ -52,6 +52,7 @@ interface ContainerProps {
 
 export const Container = styled.div<ContainerProps>(({ size, width, $selectLabelVariant, isSelected }) => {
     const getMinWidth = () => {
+        if (width === 'fit-content') return 'undefined';
         if ($selectLabelVariant === 'labeled') {
             return isSelected ? '145px' : '103px';
         }
