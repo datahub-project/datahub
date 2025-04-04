@@ -79,12 +79,12 @@ export const IncidentList = () => {
         setSelectedFilters(filter);
     };
 
-    const privileges = (data?.entity as any)?.privileges as EntityPrivileges;
-
     const refetch = () => {
         refetchEntity();
         refetchIncidents();
     };
+
+    const privileges = (data?.entity as any)?.privileges as EntityPrivileges;
 
     const renderListTable = () => {
         if (loading) {
