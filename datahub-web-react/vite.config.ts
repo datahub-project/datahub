@@ -4,6 +4,8 @@ import react from '@vitejs/plugin-react';
 import svgr from 'vite-plugin-svgr';
 import macrosPlugin from 'vite-plugin-babel-macros';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
+import { codecovVitePlugin } from "@codecov/vite-plugin";
+
 
 const injectMeticulous = () => {
     if (!process.env.REACT_APP_METICULOUS_PROJECT_TOKEN) {
@@ -85,6 +87,11 @@ export default defineConfig(({ mode }) => {
                     },
                 ],
                 structured: true,
+            }),
+            codecovVitePlugin({
+                enableBundleAnalysis: process.env.CODECOV_TOKEN !== undefined,
+                bundleName: "datahub-react-web",
+                uploadToken: process.env.CODECOV_TOKEN,
             }),
         ],
         // optimizeDeps: {
