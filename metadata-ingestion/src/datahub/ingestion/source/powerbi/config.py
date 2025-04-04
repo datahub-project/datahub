@@ -192,6 +192,11 @@ class SupportedDataPlatform(Enum):
         datahub_data_platform_name="mysql",
     )
 
+    ODBC = DataPlatformPair(
+        powerbi_data_platform_name="Odbc",
+        datahub_data_platform_name="odbc",
+    )
+
 
 @dataclass
 class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
