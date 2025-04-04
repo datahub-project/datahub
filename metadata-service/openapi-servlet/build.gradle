@@ -39,6 +39,7 @@ dependencies {
   implementation externalDependency.opentelemetryApi
   implementation externalDependency.opentelemetrySdk
   implementation externalDependency.opentelemetrySdkTrace
+  implementation externalDependency.opentelemetrySdkMetrics
 
   testImplementation externalDependency.springBootTest
   testImplementation project(':mock-entity-registry')
