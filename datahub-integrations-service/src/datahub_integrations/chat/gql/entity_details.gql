@@ -29,25 +29,15 @@ fragment ownershipFields on Ownership {
       ... on CorpUser {
         urn
         type
-        username
-        info {
-          active
-          displayName
-          title
-          email
-          firstName
-          lastName
-          fullName
-          __typename
-        }
+        # username
         properties {
           active
           displayName
           title
           email
-          firstName
-          lastName
-          fullName
+          # firstName
+          # lastName
+          # fullName
           __typename
         }
         editableProperties {
@@ -72,15 +62,15 @@ fragment ownershipFields on Ownership {
           email
           admins {
             urn
-            username
+            # username
             info {
               active
               displayName
               title
               email
-              firstName
-              lastName
-              fullName
+              # firstName
+              # lastName
+              # fullName
               __typename
             }
             editableInfo {
@@ -92,15 +82,15 @@ fragment ownershipFields on Ownership {
           }
           members {
             urn
-            username
-            info {
+            # username
+            properties {
               active
               displayName
               title
               email
-              firstName
-              lastName
-              fullName
+              # firstName
+              # lastName
+              # fullName
               __typename
             }
             editableInfo {
@@ -335,7 +325,7 @@ fragment entityDisplayNameFields on Entity {
   urn
   type
   ... on Dataset {
-    name
+    # name
     properties {
       name
       qualifiedName
@@ -344,30 +334,20 @@ fragment entityDisplayNameFields on Entity {
     __typename
   }
   ... on CorpUser {
-    username
+    # username
     properties {
       displayName
       title
-      firstName
-      lastName
-      fullName
-      email
-      __typename
-    }
-    info {
-      active
-      displayName
-      title
-      firstName
-      lastName
-      fullName
+      # firstName
+      # lastName
+      # fullName
       email
       __typename
     }
     __typename
   }
   ... on CorpGroup {
-    name
+    # name
     info {
       displayName
       __typename
@@ -375,7 +355,7 @@ fragment entityDisplayNameFields on Entity {
     __typename
   }
   ... on Dashboard {
-    dashboardId
+    # dashboardId
     properties {
       name
       __typename
@@ -383,7 +363,7 @@ fragment entityDisplayNameFields on Entity {
     __typename
   }
   ... on Chart {
-    chartId
+    # chartId
     properties {
       name
       __typename
@@ -398,7 +378,7 @@ fragment entityDisplayNameFields on Entity {
     __typename
   }
   ... on DataJob {
-    jobId
+    # jobId
     properties {
       name
       __typename
@@ -406,7 +386,7 @@ fragment entityDisplayNameFields on Entity {
     __typename
   }
   ... on GlossaryTerm {
-    name
+    # name
     hierarchicalName
     properties {
       name
@@ -457,10 +437,9 @@ fragment entityDisplayNameFields on Entity {
     __typename
   }
   ... on Tag {
-    name
+    # name
     properties {
       name
-      colorHex
       __typename
     }
     __typename
@@ -628,14 +607,16 @@ fragment entityPreview on Entity {
       sizeInBytes
       sizeInBytesPercentile
       topUsersLast30Days {
-        username
-        info {
+        urn
+        # username
+        properties {
           active
           displayName
+          email
           title
-          firstName
-          lastName
-          fullName
+          # firstName
+          # lastName
+          # fullName
         }
         editableProperties {
           displayName
@@ -645,14 +626,15 @@ fragment entityPreview on Entity {
     }
   }
   ... on CorpUser {
-    username
-    info {
+    # username
+    properties {
       active
       displayName
+      email
       title
-      firstName
-      lastName
-      fullName
+      # firstName
+      # lastName
+      # fullName
     }
     editableProperties {
       displayName
@@ -1166,9 +1148,9 @@ fragment schemaMetadataFields on SchemaMetadata {
   datasetUrn
   name
   platformUrn
-  version
+  # version
   cluster
-  hash
+  # hash
   platformSchema {
     ... on TableSchema {
       schema

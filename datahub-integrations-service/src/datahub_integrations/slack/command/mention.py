@@ -9,6 +9,11 @@ from slack_bolt import App
 from slack_sdk import WebClient
 
 from datahub_integrations.app import DATAHUB_FRONTEND_URL
+from datahub_integrations.chat.chat_history import (
+    AssistantMessage,
+    ChatHistory,
+    HumanMessage,
+)
 from datahub_integrations.chat.chat_session import ChatSession, Message
 from datahub_integrations.chat.linkify import linkify_slack
 from datahub_integrations.chat.mcp_server import mcp
@@ -24,7 +29,6 @@ from datahub_integrations.slack.constants import (
     MESSAGE_LENGTH_HARD_LIMIT,
 )
 from datahub_integrations.slack.utils.string import truncate
-from datahub_integrations.slack.utils.time import slack_ts_to_datetime
 
 DATAHUB_MENTION_FOLLOWUP_QUESTION_BUTTON_ID = "datahub_mention_followup_question"
 DATAHUB_MENTION_FEEDBACK_BUTTON_ID = "datahub_mention_feedback"
@@ -237,14 +241,13 @@ def _fetch_thread_history(
             # Only mark as assistant if it's from the bot and not a follow-up question
             is_assistant = author == "DataHubBot"
 
-        # Create message object with author, text, and timestamp
-        thread_messages.append(
-            Message(
-                text=cleaned_text,
-                timestamp=slack_ts_to_datetime(msg["ts"]),
-                visibility="assistant" if is_assistant else "user",
-            )
+        # Create message object with author and text.
+        message: Message = (
+            AssistantMessage(text=cleaned_text)
+            if is_assistant
+            else HumanMessage(text=cleaned_text)
         )
+        thread_messages.append(message)
 
     logger.debug(f"Processed thread messages: {thread_messages}")
     return thread_messages
@@ -278,17 +281,11 @@ def handle_mention(
             )
 
             # Add just the current message to thread_messages.
-            thread_messages.append(
-                Message(
-                    text=message_text,
-                    timestamp=slack_ts_to_datetime(event.message_ts),
-                    visibility="user",
-                )
-            )
+            thread_messages.append(HumanMessage(text=message_text))
 
     chat_session = ChatSession(
         tools=mcp.get_all_tools(),
-        user_message_history=thread_messages,
+        history=ChatHistory(messages=thread_messages),
         progress_callback=progress_callback,
     )
     response = chat_session.generate_next_message()

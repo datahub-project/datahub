@@ -1,26 +1,31 @@
 import contextlib
 import dataclasses
-import json
-from datetime import datetime, timezone
 from typing import (
-    Any,
     Callable,
     Dict,
     Iterator,
     List,
-    Literal,
     Optional,
-    Sequence,
+    TypeGuard,
 )
 
 from loguru import logger
-from pydantic import BaseModel
 
+from datahub_integrations.chat.chat_history import (
+    AssistantMessage,
+    ChatHistory,
+    HumanMessage,
+    Message,
+    ReasoningMessage,
+    ToolCallRequest,
+    ToolResult,
+    ToolResultError,
+)
 from datahub_integrations.chat.mcp_server import mcp
 from datahub_integrations.chat.tool import Tool
 from datahub_integrations.gen_ai.bedrock import BedrockModel, get_bedrock_client
 
-MAX_TOOL_CALLS = 10
+MAX_TOOL_CALLS = 12
 MESSAGE_LENGTH_SOFT_LIMIT = 2000
 
 # Mapping of tool names to user-friendly progress messages
@@ -45,93 +50,6 @@ class ChatSessionMaxTokensExceededError(Exception):
 
 class ChatSessionError(Exception):
     pass
-
-
-@dataclasses.dataclass
-class Message:
-    text: str
-    timestamp: datetime
-
-    visibility: Literal["user", "assistant", "internal"]
-
-    def to_obj(self) -> dict:
-        return {
-            "role": "user" if self.visibility == "user" else "assistant",
-            "content": [{"text": self.text}],
-        }
-
-
-@dataclasses.dataclass
-class ToolCallRequest:
-    tool_use_id: str
-    tool_name: str
-    tool_input: dict
-
-    def to_obj(self) -> dict:
-        return {
-            "role": "assistant",
-            "content": [
-                {
-                    "toolUse": {
-                        "toolUseId": self.tool_use_id,
-                        "name": self.tool_name,
-                        "input": self.tool_input,
-                    },
-                }
-            ],
-        }
-
-
-@dataclasses.dataclass
-class ToolResult:
-    tool_request: ToolCallRequest
-    result: Any
-
-    def is_respond_to_user(self) -> bool:
-        return self.tool_request.tool_name == _respond_to_user_tool.name
-
-    def to_obj(self) -> dict:
-        content: dict[str, Any]
-        if isinstance(self.result, BaseModel):
-            jsonify = self.result.dict()
-            content = {"json": jsonify}
-        elif isinstance(self.result, dict):
-            jsonify = json.loads(json.dumps(self.result))
-            content = {"json": jsonify}
-        else:
-            content = {"text": str(self.result)}
-
-        return {
-            "role": "user",
-            "content": [
-                {
-                    "toolResult": {
-                        "toolUseId": self.tool_request.tool_use_id,
-                        "content": [content],
-                    },
-                }
-            ],
-        }
-
-
-@dataclasses.dataclass
-class ToolResultError:
-    tool_request: ToolCallRequest
-    error: Exception
-
-    def to_obj(self) -> dict:
-        return {
-            "role": "user",
-            "content": [
-                {
-                    "toolResult": {
-                        "toolUseId": self.tool_request.tool_use_id,
-                        "content": [{"text": str(self.error)}],
-                        "status": "error",
-                    },
-                }
-            ],
-        }
 
 
 @dataclasses.dataclass
@@ -163,13 +81,11 @@ class ChatSession:
     def __init__(
         self,
         tools: List[Tool],
-        user_message_history: Sequence[Message],
+        history: Optional[ChatHistory] = None,
         progress_callback: Optional[ProgressCallback] = None,
     ):
         self.tools = tools + [_respond_to_user_tool]
-        self._messages: List[
-            Message | ToolCallRequest | ToolResult | ToolResultError
-        ] = list(user_message_history)
+        self.history = history or ChatHistory()
         self._progress_callback = progress_callback
         self._progress_messages: List[str] = []  # Store progress messages
 
@@ -177,14 +93,18 @@ class ChatSession:
     def tool_map(self) -> Dict[str, Tool]:
         return {tool.name: tool for tool in self.tools}
 
-    def _add_message(
-        self, message: Message | ToolCallRequest | ToolResult | ToolResultError
-    ) -> None:
+    def is_respond_to_user(self, message: Message) -> TypeGuard[ToolResult]:
+        return (
+            isinstance(message, ToolResult)
+            and message.tool_request.tool_name == _respond_to_user_tool.name
+        )
+
+    def _add_message(self, message: Message) -> None:
         logger.info(f"Adding message: {message}")
-        self._messages.append(message)
+        self.history.add_message(message)
 
         # Add internal messages to progress display
-        if isinstance(message, Message) and message.visibility == "internal":
+        if isinstance(message, ReasoningMessage):
             if message.text not in self._progress_messages:  # Avoid duplicates
                 self._progress_messages.append(message.text)
                 self._report_progress("")  # Trigger progress update
@@ -228,7 +148,9 @@ class ChatSession:
 
         self._report_progress("Thinking...")
 
-        messages = [message.to_obj() for message in self._messages]
+        # TODO: Add smart truncation / removal of messages if the history is too long.
+        messages = [message.to_obj() for message in self.history.messages]
+
         tools = [tool.to_bedrock_spec() for tool in self.tools]
         response = bedrock_client.converse(
             modelId=BedrockModel.CLAUDE_37_SONNET.value,
@@ -263,13 +185,11 @@ class ChatSession:
             if "text" in content_block:
                 is_last_block = i == len(response_content) - 1
                 is_final_response = is_last_block and is_end_turn
-                self._add_message(
-                    Message(
-                        text=content_block["text"],
-                        timestamp=datetime.now(timezone.utc),
-                        visibility="assistant" if is_final_response else "internal",
-                    )
-                )
+                if is_final_response:
+                    # TODO: Do we want to force another loop to ensure a tool call?
+                    self._add_message(AssistantMessage(text=content_block["text"]))
+                else:
+                    self._add_message(ReasoningMessage(text=content_block["text"]))
             elif "toolUse" in content_block:
                 tool_use = content_block["toolUse"]
                 tool_name = tool_use["name"]
@@ -289,7 +209,11 @@ class ChatSession:
                     result = tool.run(arguments=tool_request.tool_input)
                 except Exception as e:
                     self._add_message(
-                        ToolResultError(tool_request=tool_request, error=e)
+                        ToolResultError(
+                            tool_request=tool_request,
+                            error=f"{type(e).__name__}: {e}",
+                            # raw_error=e,
+                        )
                     )
                 else:
                     self._add_message(
@@ -303,17 +227,11 @@ class ChatSession:
             logger.info(f"Generating tool call {i}")
             self._generate_tool_call()
 
-            last_message = self._messages[-1]
-            if (
-                isinstance(last_message, ToolResult)
-                and last_message.is_respond_to_user()
-            ):
+            last_message = self.history.messages[-1]
+            if self.is_respond_to_user(last_message):
                 logger.info("Respond to user call received")
                 return last_message.result
-            elif (
-                isinstance(last_message, Message)
-                and last_message.visibility == "assistant"
-            ):
+            elif isinstance(last_message, AssistantMessage):
                 logger.info("End turn message received")
                 return NextMessage(
                     text=last_message.text,
@@ -321,7 +239,7 @@ class ChatSession:
                 )
 
         raise ChatSessionError(
-            f"Failed to generate next message after {MAX_TOOL_CALLS} attempts"
+            f"Failed to generate next message after {MAX_TOOL_CALLS} tool calls"
         )
 
 
@@ -330,13 +248,11 @@ if __name__ == "__main__":
 
     chat = ChatSession(
         tools=mcp.get_all_tools(),
-        user_message_history=[
-            Message(
-                text="What datasets should I look at for pet profiles?",
-                timestamp=datetime.now(timezone.utc),
-                visibility="user",
-            )
-        ],
+        history=ChatHistory(
+            messages=[
+                HumanMessage(text="What datasets should I look at for pet profiles?")
+            ]
+        ),
     )
     response = chat.generate_next_message()
     print(response)

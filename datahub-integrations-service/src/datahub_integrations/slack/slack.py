@@ -26,9 +26,6 @@ from datahub_integrations.graphql.subscription import (
     CREATE_SUBSCRIPTION,
     DELETE_SUBSCRIPTION,
 )
-from datahub_integrations.notifications.constants import (
-    DATAHUB_SLACK_AT_MENTION_ENABLED,
-)
 from datahub_integrations.slack.app_manifest import (
     create_app_with_manifest,
     get_slack_app_manifest,
@@ -46,7 +43,10 @@ from datahub_integrations.slack.command.mention import (
 from datahub_integrations.slack.command.router import handle_command
 from datahub_integrations.slack.command.search import search
 from datahub_integrations.slack.config import SLACK_PROXY, SlackConnection, slack_config
-from datahub_integrations.slack.constants import ACRYL_SLACK_ICON_URL
+from datahub_integrations.slack.constants import (
+    ACRYL_SLACK_ICON_URL,
+    DATAHUB_SLACK_AT_MENTION_ENABLED,
+)
 from datahub_integrations.slack.context import (
     IncidentContext,
     IncidentSelectOption,
@@ -321,19 +321,22 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
     @app.event("app_mention")
     def handle_app_mention_events(event: dict, say: Say) -> None:
         logger.info(event)
-        # Check if the feature flag is disabled
+
+        thread_ts = event.get("thread_ts")
+        message_ts = event["ts"]
+
         if not DATAHUB_SLACK_AT_MENTION_ENABLED:
             say(
                 text="The @datahub mention is currently disabled. Please use /acryl or /datahub commands instead.",
                 icon_url=ACRYL_SLACK_ICON_URL,
-                thread_ts=event.get("ts"),  # Reply in the thread
+                thread_ts=thread_ts or message_ts,  # Reply in the thread
             )
             return
 
         parsed_event = SlackMentionEvent(
             channel_id=event["channel"],
-            message_ts=event["ts"],
-            original_thread_ts=event.get("thread_ts"),
+            message_ts=message_ts,
+            original_thread_ts=thread_ts,
             user_id=event["user"],
             message_text=event["text"],
         )

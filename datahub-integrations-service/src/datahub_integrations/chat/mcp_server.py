@@ -166,7 +166,7 @@ class AssetLineageAPI:
             "orFilters": compile_filters(degree_filter) if degree_filter else None,
         }
         if asset_lineage_directive.upstream:
-            result[asset_lineage_directive.urn]["upstreams"] = (
+            result[asset_lineage_directive.urn]["upstreams"] = _clean_gql_response(
                 self.graph.execute_graphql(
                     query=entity_details_fragment_gql,
                     variables={
@@ -179,7 +179,7 @@ class AssetLineageAPI:
                 )
             )
         if asset_lineage_directive.downstream:
-            result[asset_lineage_directive.urn]["downstreams"] = (
+            result[asset_lineage_directive.urn]["downstreams"] = _clean_gql_response(
                 self.graph.execute_graphql(
                     query=entity_details_fragment_gql,
                     variables={

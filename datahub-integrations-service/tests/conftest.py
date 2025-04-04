@@ -1,6 +1,11 @@
 import os
 import unittest.mock
 
+from datahub.testing.pytest_hooks import (  # noqa: F401
+    load_golden_flags,
+    pytest_addoption,
+)
+
 with unittest.mock.patch("datahub.ingestion.graph.client.DataHubGraph") as mock:
     os.environ["DATAHUB_GMS_PROTOCOL"] = "http"
     os.environ["DATAHUB_GMS_HOST"] = "example.com"

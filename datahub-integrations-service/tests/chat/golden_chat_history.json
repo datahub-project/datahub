@@ -1,0 +1,17 @@
+{
+  "messages": [
+    {
+      "type": "human",
+      "text": "Hello, bot!"
+    },
+    {
+      "type": "internal",
+      "text": "Let me say hello back to the user"
+    },
+    {
+      "type": "assistant",
+      "text": "Hello!"
+    }
+  ],
+  "extra_properties": {}
+}

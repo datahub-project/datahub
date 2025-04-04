@@ -1,5 +1,28 @@
 fragment SearchEntityInfo on Entity {
   urn
+
+  # For some entity types, the urns are not human-readable. For those,
+  # we pull the name as well.
+  ... on Dataset {
+    properties {
+      name
+    }
+  }
+  ... on Chart {
+    properties {
+      name
+    }
+  }
+  ... on Dashboard {
+    properties {
+      name
+    }
+  }
+  ... on Container {
+    properties {
+      name
+    }
+  }
 }
 
 fragment FacetEntityInfo on Entity {

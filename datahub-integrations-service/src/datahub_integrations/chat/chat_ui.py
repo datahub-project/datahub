@@ -1,16 +1,20 @@
 import re
-from datetime import datetime, timezone
 
 import streamlit as st
 from typing_extensions import assert_never
 
-from datahub_integrations.chat.chat_session import (
-    ChatSession,
-    Message,
-    NextMessage,
+from datahub_integrations.chat.chat_history import (
+    AssistantMessage,
+    ChatHistory,
+    HumanMessage,
+    ReasoningMessage,
     ToolCallRequest,
     ToolResult,
     ToolResultError,
+)
+from datahub_integrations.chat.chat_session import (
+    ChatSession,
+    NextMessage,
 )
 from datahub_integrations.chat.linkify import linkify_slack
 from datahub_integrations.chat.mcp_server import get_client, mcp
@@ -18,10 +22,7 @@ from datahub_integrations.chat.mcp_server import get_client, mcp
 
 def _make_empty_chat_session() -> ChatSession:
     st.text("Resetting chat session")
-    return ChatSession(
-        tools=mcp.get_all_tools(),
-        user_message_history=[],
-    )
+    return ChatSession(tools=mcp.get_all_tools())
 
 
 def _chat_session() -> ChatSession:
@@ -37,6 +38,9 @@ if st.button("Clear Chat"):
     st.rerun()
 
 _chat_session()
+
+show_thinking = st.toggle("Show internal thinking", value=True)
+
 st.divider()
 
 
@@ -56,50 +60,56 @@ def _format_slack_mrkdwn(text: str) -> str:
     return markdown_text
 
 
-# Display chat messages
-for message in _chat_session()._messages:
-    if isinstance(message, Message) and message.visibility == "internal":
-        with st.chat_message(message.visibility, avatar="🧠"):
-            st.markdown(f"<pre>{message.text}</pre>", unsafe_allow_html=True)
-        continue
-    elif isinstance(message, Message):
-        with st.chat_message("user" if message.visibility == "user" else "assistant"):
-            st.markdown(_format_slack_mrkdwn(message.text))
-    elif isinstance(message, ToolCallRequest):
-        with st.chat_message("tool", avatar="📞"):
-            st.markdown(f"Calling `{message.tool_name}` tool")
-            st.code(str(message.tool_input), language="json")
-    elif isinstance(message, ToolResult) and message.is_respond_to_user():
-        with st.chat_message("assistant"):
-            assert isinstance(message.result, NextMessage)
-            st.markdown(_format_slack_mrkdwn(message.result.text))
+def render_history(history: ChatHistory) -> None:
+    for message in history.messages:
+        if isinstance(message, ReasoningMessage):
+            if show_thinking:
+                with st.chat_message("assistant", avatar="🧠"):
+                    st.markdown(f"<pre>{message.text}</pre>", unsafe_allow_html=True)
+        elif isinstance(message, HumanMessage):
+            with st.chat_message("user"):
+                st.markdown(_format_slack_mrkdwn(message.text))
+        elif isinstance(message, AssistantMessage):
+            with st.chat_message("assistant"):
+                st.markdown(_format_slack_mrkdwn(message.text))
+        elif _chat_session().is_respond_to_user(message):
+            with st.chat_message("assistant"):
+                assert isinstance(message.result, NextMessage)
+                st.markdown(_format_slack_mrkdwn(message.result.text))
 
-            st.markdown("**Next Message Suggestions**")
-            suggestions_list = "\n".join(
-                [f"- {suggestion}" for suggestion in message.result.suggestions]
-            )
-            if suggestions_list:
-                st.markdown(suggestions_list)
-    elif isinstance(message, ToolResult):
-        with st.chat_message("tool", avatar="🔧"):
-            st.markdown(f"Tool `{message.tool_request.tool_name}` returned:")
-            st.json(message.result, expanded=2)
-    elif isinstance(message, ToolResultError):
-        with st.chat_message("tool", avatar="❌"):
-            st.markdown(f"Tool `{message.tool_request.tool_name}` returned an error:")
-            st.code(str(message.error))
-    else:
-        st.error(f"Unknown message type: {type(message)}")
-        assert_never(message)
+                st.markdown("**Next Message Suggestions**")
+                suggestions_list = "\n".join(
+                    [f"- {suggestion}" for suggestion in message.result.suggestions]
+                )
+                if suggestions_list:
+                    st.markdown(suggestions_list)
+        elif isinstance(message, ToolResult):
+            if show_thinking:
+                with st.chat_message("tool", avatar="🔧"):
+                    st.markdown(f"Tool `{message.tool_request.tool_name}` returned:")
+                    st.json(message.result, expanded=2)
+        elif isinstance(message, ToolCallRequest):
+            if show_thinking:
+                with st.chat_message("tool", avatar="📞"):
+                    st.markdown(f"Calling `{message.tool_name}` tool")
+                    st.code(str(message.tool_input), language="json")
+        elif isinstance(message, ToolResultError):
+            if show_thinking:
+                with st.chat_message("tool", avatar="❌"):
+                    st.markdown(
+                        f"Tool `{message.tool_request.tool_name}` returned an error:"
+                    )
+                    st.code(str(message.error))
+        else:
+            st.error(f"Unknown message type: {type(message)}")
+            assert_never(message)
 
-# Chat input
+
+# Chat UI.
+render_history(_chat_session().history)
 if prompt := st.chat_input("Type your message here..."):
     # Add user message to chat session
-    user_message = Message(
-        text=prompt,
-        timestamp=datetime.now(timezone.utc),
-        visibility="user",
-    )
+    user_message = HumanMessage(text=prompt)
     _chat_session()._add_message(user_message)
 
     # Generate bot response

@@ -87,6 +87,7 @@ attrs==23.2.0
     #   -r requirements.txt
     #   aiohttp
     #   jsonschema
+    #   pytest-docker
     #   referencing
 avro==1.11.3
     # via
@@ -244,6 +245,8 @@ decorator==5.1.1
     # via
     #   -r requirements.txt
     #   ipython
+deepdiff==8.4.2
+    # via acryl-datahub
 defusedxml==0.7.1
     # via
     #   -r requirements.txt
@@ -714,6 +717,8 @@ numpy==1.26.4
     #   spacy
     #   streamlit
     #   thinc
+orderly-set==5.3.0
+    # via deepdiff
 packaging==24.0
     # via
     #   -r requirements.txt
@@ -929,12 +934,19 @@ pyreadline3==3.5.4 ; sys_platform == 'win32'
 pytest==8.1.1
     # via
     #   acryl-datahub-integrations (pyproject.toml)
+    #   acryl-datahub
     #   pytest-asyncio
     #   pytest-cov
+    #   pytest-docker
+    #   pytest-timeout
 pytest-asyncio==0.23.6
     # via acryl-datahub-integrations (pyproject.toml)
 pytest-cov==5.0.0
     # via acryl-datahub-integrations (pyproject.toml)
+pytest-docker==3.2.0
+    # via acryl-datahub
+pytest-timeout==2.3.1
+    # via acryl-datahub
 python-dateutil==2.8.2
     # via
     #   -r requirements.txt

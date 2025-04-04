@@ -1,3 +1,5 @@
+#! /usr/bin/env python3
+
 import pathlib
 import subprocess
 
@@ -49,6 +51,8 @@ def main(mcp_server_dir: pathlib.Path) -> None:
     # Run ruff to fix import ordering.
     ruff_cmd = ["ruff", "check", "--fix", chat_dir]
     subprocess.run(ruff_cmd, check=True)
+
+    print(f"Copied MCP server to {chat_dir}")
 
 
 if __name__ == "__main__":

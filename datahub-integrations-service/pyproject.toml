@@ -48,6 +48,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+	"acryl-datahub[testing-utils]",
 	"ruff==0.9.6",
 	"pytest",
 	"mypy",
