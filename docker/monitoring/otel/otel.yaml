@@ -1,0 +1,206 @@
+# Define the protocols to receive data for.
+# See https://opentelemetry.io/docs/collector/configuration/#receivers
+receivers:
+  # Configure receiving OTLP data via gRPC on port 4317 and HTTP on port 4318.
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  # Defines a Prometheus configuration set.
+  prometheus:
+    # Define a set of configurations for scraping by the OpenTelemetry Collector.
+    config:
+      # The `scrape_configs` section pertains to the Prometheus `scrape_configs`
+      # configuration block.
+      # See https://prometheus.io/docs/prometheus/latest/configuration/configuration/#scrape_config
+      scrape_configs:
+        # Scrape Mimir metrics.
+        - job_name: 'mimir'
+          static_configs:
+            - targets: ['mimir:9009']
+              labels:
+                service: 'mimir'
+                group: 'infrastructure'
+
+        # Scrape Loki metrics.
+        - job_name: 'loki'
+          static_configs:
+            - targets: ['loki:3100']
+              labels:
+                service: 'loki'
+                group: 'infrastructure'
+
+        # Scrape Tempo metrics.
+        - job_name: 'tempo'
+          static_configs:
+            - targets: ['tempo:3200']
+              labels:
+                service: 'tempo'
+                group: 'infrastructure'
+
+        # Scrape Grafana metrics.
+        - job_name: 'grafana'
+          static_configs:
+            - targets: ['grafana:3000']
+              labels:
+                service: 'grafana'
+                group: 'infrastructure'
+
+        # Scrape from the GMS, Consumers & Frontend services.
+        #- job_name: 'datahub'
+        #  scrape_interval: 2s
+        #  static_configs:
+        #    - targets: ['datahub-gms:4317']
+        #      labels:
+        #        service: 'datahub-gms'
+        #        group: 'datahub'
+            #- targets: ['datahub-frontend:9092']
+            #  labels:
+            #    service: 'datahub-frontend'
+            #    group: 'datahub'
+            #- targets: ['datahub-mae-consumer:9090']
+            #  labels:
+            #    service: 'datahub-mae-consumer'
+            #    group: 'datahub'
+            #- targets: ['datahub-mce-consumer:9091']
+            #  labels:
+            #    service: 'datahub-mce-consumer'
+            #    group: 'datahub'
+
+
+# Define processors to process received data.
+# See https://opentelemetry.io/docs/collector/configuration/#processors
+processors:
+  # Use the in-built `batch` processor to batch up data before writing it for export.
+  # Use the default values for it.
+  batch:
+    send_batch_size: 10  # Smaller batches
+    timeout: 5s
+    send_batch_max_size: 2000000  # Around 2MB per batch to stay under limit
+
+  # The tail sampler processor will only keep traces where spans match the defined policies.
+  tail_sampling:
+    decision_wait: 30s    # The time to wait for a decision to be made.
+    # The following policies follow a logical OR pattern, meaning that if any of the policies match,
+    # the trace will be kept. For logical AND, you can use the `and` policy. Every span of a trace is
+    # examined by each policy in turn. A match will cause a short-circuit.
+    policies: [
+      # This policy defines that traces that include spans that contain errors should be kept.
+      {
+        name: sample-erroring-traces,           # Name of the policy.
+        type: status_code,                      # The type must match the type of policy to be used.
+        status_code: { status_codes: [ERROR] }  # Only sample traces which have a span containing an error.
+      },
+      # This policy defines that traces that are over 200ms should be sampled.
+      {
+        name: sample-long-traces,               # Name of the policy.
+        type: latency,                          # The type must match the type of policy to be used.
+        latency: { threshold_ms: 200 },         # Only sample traces which are longer than 200ms in duration.
+      },
+    ]
+
+# Define processors to process received data.
+# See https://opentelemetry.io/docs/collector/configuration/#connectors
+connectors:
+  # The spanmetrics connector is used to output span metrics based on received trace spans.
+  spanmetrics:
+    namespace: traces.spanmetrics   # Prefix all metrics with `traces.spanmetrics` (this becomes `traces_spanmetrics`).
+    # Determine the type of histogram to use for span metrics.
+    histogram:
+      explicit:                     # Explicit histograms have pre-defined bucket sizes (use default here).
+    # Defines additional label dimensions of the metrics from trace span attributes present.
+    dimensions:
+      - name: http.method
+      - name: http.target
+      - name: http.status_code
+      - name: service.version
+    # Ensure exemplars are enabled and sent to the metrics store.
+    exemplars:
+      enabled: true
+
+  # The servicegraph connector is used to output service node metrics based on received trace spans.
+  servicegraph:
+      # Defines which exporter the processor will write metrics to.
+      metrics_exporter: prometheusremotewrite
+      # Defines additional label dimensions of the metrics from trace span attributes present.
+      store:                      # Configuration for the in-memory store.
+        ttl: 2s                   # Time to wait for an edge to be completed.
+        max_items: 200            # Number of edges that will be stored in the storeMap.
+      cache_loop: 2m              # The timeout used to clean the cache periodically.
+      store_expiration_loop: 10s  # The timeout used to expire old entries from the store periodically.
+      # Virtual node peer attributes allow server nodes to be generated where instrumentation isn't present (eg. where
+      # service client calls remotely to a service that does not include instrumentation).
+      # Service nodes/edges will be generated for any attribute defined.
+      virtual_node_peer_attributes:
+        - db.name
+
+
+# Define exporters to data stores.
+# See https://opentelemetry.io/docs/collector/configuration/#exporters
+# Also see https://github.com/open-telemetry/opentelemetry-collector/tree/main/processor#recommended-processors
+exporters:
+  # For traces
+  #tempo:
+  #  endpoint: tempo:4317
+  #  insecure: true
+  
+  # For metrics  
+  prometheusremotewrite:
+    endpoint: http://mimir:9009/api/v1/push
+    # TLS is not enabled for the instance.
+    tls:
+      insecure: true
+  # For logs
+  loki:
+    endpoint: http://loki:3100/loki/api/v1/push
+  
+  # Exporter for sending trace data to Tempo.
+  otlp/grafana:
+    # Send to the locally running Tempo service.
+    endpoint: tempo:4317
+    # TLS is not enabled for the instance.
+    tls:
+      insecure: true
+
+
+
+# Define the full service graph for the OpenTelemetry collector.
+service:
+  # A pipeline can exist for each of the signals received.
+  pipelines:
+    # Define the trace pipeline.
+    traces:
+      # Receive from the `otlp` receiver.
+      receivers: [otlp]
+      # Use the `batch` processor to process received trace spans.
+      processors: [batch]
+      # Comment out other `processor` definitions and uncomment the line below to use tail sampling.
+      #processors: [tail_sampling, batch]
+      # Comment out other `processor` definitions and uncomment the line below to generate service graph metrics
+      # from within the OpenTelemetry Collector.
+      #processors: [servicegraph, batch]
+      # Export to the `otlp/grafana` exporter.
+      exporters: [otlp/grafana]
+      # Comment out other `exporters` definitions and uncomment the line below to generate span metrics
+      # from within the OpenTelemetry Collector as well as exporting traces to Tempo.
+      #exporters: [otlp/grafana, spanmetrics]
+
+    # Define the metrics pipeline.
+    metrics:
+      # Receive metrics from the `prometheus` receiver.
+      receivers: [otlp, prometheus]
+      # Comment out other `receivers` definitions and uncomment the line below to import spanmetrics as well
+      # as prometheus metrics.
+      #receivers: [otlp, prometheus, spanmetrics]
+      # Use the `batch` processor to process received metrics.
+      processors: [batch]
+      # Export to the `prometheusremtotewrite` exporter.
+      exporters: [prometheusremotewrite]
+    
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [loki]

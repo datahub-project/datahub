@@ -1,0 +1,69 @@
+# Disable multi-tenancy, ensuring a single tenant for all log streams.
+auth_enabled: false
+
+# Configuration block for the Loki server.
+server:
+  http_listen_port: 3100  # Listen on port 3100 for all incoming traffic.
+  log_level: info         # Set the log level to info.
+
+# The limits configuration block allows default global and per-tenant limits to be set (which can be altered in an
+# overrides block). In this case, volume usage is be enabled globally (as there is one tenant).
+# This is used by the Logs Explorer app in Grafana.
+limits_config:
+  volume_enabled: true
+  ingestion_rate_mb: 8  # Increase from default 4MB to 8MB
+  ingestion_burst_size_mb: 16  # Usually set to 2x the ingestion_rate_mb
+
+# The common block is used to set options for all of the components that make up Loki. These can be overridden using
+# the specific configuration blocks for each component.
+common:
+  instance_addr: 127.0.0.1            # The address at which this Loki instance can be reached on the local hash ring.
+                                      # Loki is running as a single binary, so it's the localhost address.
+  path_prefix: /loki                  # Prefix for all HTTP endpoints.
+  # Configuration of the underlying Loki storage system.
+  storage:
+    # Use the local filesystem. In a production environment, you'd use an object store like S3 or GCS.
+    filesystem:
+      chunks_directory: /loki/chunks  # The FS directory to store the Loki chunks in.
+      rules_directory: /loki/rules    # The FS directory to store the Loki rules in.
+  replication_factor: 1               # The replication factor (RF) determines how many ingesters will store each chunk.
+                                      # In this case, we have one ingester, so the RF is 1, but in a production system
+                                      # you'd have multiple ingesters and set the RF to a higher value for resilience.
+  # The ring configuration block is used to configure the hash ring that all components use to communicate with each other.
+  ring:
+    # Use an in-memory ring. In a production environment, you'd use a distributed ring like memberlist, Consul or etcd.
+    kvstore:
+      store: inmemory
+
+# The schema_config block is used to configure the schema that Loki uses to store log data. Loki allows the use of
+# multiple schemas based on specific time periods. This allows backwards compatibility on schema changes.
+schema_config:
+  # Only one config is specified here.
+  configs:
+    - from: 2020-10-24          # When the schema applies from.
+      store: tsdb               # Where the schema is stored, in this case using the TSDB store.
+      object_store: filesystem  # As configured in the common block above, the object store is the local filesystem.
+      schema: v13               # Specify the schema version to use, in this case the latest version (v13).
+      # The index configuration block is used to configure how indexing tables are created and stored. Index tables
+      # are the directory that allows Loki to determine which chunks to read when querying for logs.
+      index:
+        prefix: index_          # Prefix for all index tables.
+        period: 24h             # The period for which each index table covers. In this case, 24 hours.
+
+# The ruler configuration block to configure the ruler (for recording rules and alerts) in Loki.
+ruler:
+  alertmanager_url: http://localhost:9093   # The URL of the Alertmanager to send alerts to. Again, this is a single
+                                            # binary instance running on the same host, so it's localhost.
+
+# By default, Loki will send anonymous, but uniquely-identifiable usage and configuration
+# analytics to Grafana Labs. These statistics are sent to https://stats.grafana.org/
+#
+# Statistics help us better understand how Loki is used, and they show us performance
+# levels for most users. This helps us prioritize features and documentation.
+# For more information on what's sent, look at
+# https://github.com/grafana/loki/blob/main/pkg/usagestats/stats.go
+# Refer to the buildReport method to see what goes into a report.
+#
+# If you would like to disable reporting, uncomment the following lines:
+#analytics:
+#  reporting_enabled: false

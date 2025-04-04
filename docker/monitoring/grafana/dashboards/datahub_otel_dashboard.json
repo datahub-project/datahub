@@ -1,0 +1,222 @@
+{
+    "annotations": {
+      "list": [
+        {
+          "builtIn": 1,
+          "datasource": {
+            "type": "grafana",
+            "uid": "-- Grafana --"
+          },
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "type": "dashboard"
+        }
+      ]
+    },
+    "description": "Example Dashboard for DataHub o11y using openTelemetry",
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 0,
+    "id": 4,
+    "links": [],
+    "panels": [
+      {
+        "collapsed": false,
+        "gridPos": {
+          "h": 1,
+          "w": 24,
+          "x": 0,
+          "y": 0
+        },
+        "id": 3,
+        "panels": [],
+        "title": "Metrics (from Mimir)",
+        "type": "row"
+      },
+      {
+        "collapsed": false,
+        "gridPos": {
+          "h": 1,
+          "w": 24,
+          "x": 0,
+          "y": 1
+        },
+        "id": 2,
+        "panels": [],
+        "title": "Logs (from Loki)",
+        "type": "row"
+      },
+      {
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "fieldConfig": {
+          "defaults": {},
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 24,
+          "x": 0,
+          "y": 2
+        },
+        "id": 1,
+        "options": {
+          "dedupStrategy": "none",
+          "enableInfiniteScrolling": false,
+          "enableLogDetails": true,
+          "prettifyLogMessage": false,
+          "showCommonLabels": false,
+          "showLabels": false,
+          "showTime": true,
+          "sortOrder": "Descending",
+          "wrapLogMessage": false
+        },
+        "pluginVersion": "11.5.1",
+        "targets": [
+          {
+            "datasource": {
+              "type": "loki",
+              "uid": "loki"
+            },
+            "direction": "backward",
+            "editorMode": "builder",
+            "expr": "{level=~\"WARN|ERROR\"} | json body, traceid",
+            "key": "Q-9ab89ce1-8518-4867-bf46-42c1ce31f9b2-0",
+            "legendFormat": "{{level}}",
+            "queryType": "range",
+            "refId": "A"
+          }
+        ],
+        "title": "Warning and Logs",
+        "type": "logs"
+      },
+      {
+        "collapsed": true,
+        "gridPos": {
+          "h": 1,
+          "w": 24,
+          "x": 0,
+          "y": 10
+        },
+        "id": 4,
+        "panels": [],
+        "title": "Traces (from Tempo)",
+        "type": "row"
+      },
+      {
+        "datasource": {
+          "type": "tempo",
+          "uid": "tempo"
+        },
+        "fieldConfig": {
+          "defaults": {},
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 7,
+          "w": 24,
+          "x": 0,
+          "y": 11
+        },
+        "id": 5,
+        "options": {
+          "spanFilters": {
+            "criticalPathOnly": false,
+            "matchesOnly": false,
+            "serviceNameOperator": "=",
+            "spanNameOperator": "=",
+            "tags": [
+              {
+                "id": "cee9ca29-cfd",
+                "operator": "="
+              }
+            ]
+          }
+        },
+        "pluginVersion": "11.5.1",
+        "targets": [
+          {
+            "datasource": {
+              "type": "tempo",
+              "uid": "tempo"
+            },
+            "filters": [
+              {
+                "id": "6c439991",
+                "operator": "=",
+                "scope": "span"
+              }
+            ],
+            "groupBy": [
+              {
+                "id": "6e5fca8e",
+                "scope": "span"
+              }
+            ],
+            "limit": 20,
+            "query": "",
+            "queryType": "traceql",
+            "refId": "A",
+            "tableType": "traces"
+          }
+        ],
+        "title": "Traces",
+        "type": "traces"
+      }
+    ],
+    "preload": false,
+    "refresh": "",
+    "schemaVersion": 40,
+    "tags": [],
+    "templating": {
+      "list": [
+        {
+          "baseFilters": [],
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "filters": [],
+          "name": "Filters",
+          "type": "adhoc"
+        },
+        {
+          "allowCustomValue": false,
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "definition": "",
+          "label": "Trace ID",
+          "name": "query0",
+          "options": [],
+          "query": {
+            "label": "trace",
+            "refId": "TempoDatasourceVariableQueryEditor-VariableQuery",
+            "type": 1
+          },
+          "refresh": 2,
+          "regex": "",
+          "type": "query"
+        }
+      ]
+    },
+    "time": {
+      "from": "now-3h",
+      "to": "now"
+    },
+    "timepicker": {},
+    "timezone": "browser",
+    "title": "DataHub Dashboard V2",
+    "uid": "cehvswr29spa8a",
+    "version": 9,
+    "weekStart": ""
+  }

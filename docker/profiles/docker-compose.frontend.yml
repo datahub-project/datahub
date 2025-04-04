@@ -1,3 +1,16 @@
+#################################
+# Common Environment Variables
+#################################
+x-datahub-otel-env: &x-datahub-otel-env
+  ENABLE_OTEL: true
+  #OTEL_EXPORTER_OTLP_ENDPOINT: http://opentelemetry-collector:4317
+  OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+  NAMESPACE: production
+  LOGS_TARGET: http://loki:3100/loki/api/v1/push
+  #TRACING_COLLECTOR_HOST: opentelemetry-collector
+  #TRACING_COLLECTOR_PORT: 4317
+  OTEL_EXPORTER_OTLP_TRACES_INSECURE: true
+  OTEL_RESOURCE_ATTRIBUTES=ip: 1.2.3.5
 
 x-datahub-frontend-service: &datahub-frontend-service
   hostname: datahub-frontend-react
@@ -56,6 +69,13 @@ services:
     <<: *datahub-frontend-service
     profiles:
       - quickstart-consumers
+    depends_on:
+      system-update-quickstart:
+        condition: service_completed_successfully
+  frontend-quickstart-otel:
+    <<: *datahub-frontend-service
+    profiles:
+      - quickstart-otel
     depends_on:
       system-update-quickstart:
         condition: service_completed_successfully
