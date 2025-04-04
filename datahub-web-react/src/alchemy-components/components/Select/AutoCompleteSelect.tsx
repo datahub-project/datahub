@@ -1,7 +1,6 @@
 import { Dropdown, Text } from '@components';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
-import { Input } from '../Input';
 import {
     ActionButtonsContainer,
     Container,
@@ -11,7 +10,6 @@ import {
     OptionLabel,
     OptionList,
     Placeholder,
-    SearchInputContainer,
     SelectBase,
     SelectLabel,
     SelectLabelContainer,
@@ -19,6 +17,7 @@ import {
     StyledIcon,
 } from './components';
 import { ActionButtonsProps, SelectProps } from './types';
+import DropdownSearchBar from './private/DropdownSearchBar';
 
 const NoSuggestions = styled.div`
     padding: 8px;
@@ -147,19 +146,14 @@ export default function AutoCompleteSelect<T>({
                 placement="bottomRight"
                 dropdownRender={() => (
                     <DropdownContainer>
-                        <SearchInputContainer>
-                            <Input
-                                label=""
-                                type="text"
-                                icon={{ icon: 'MagnifyingGlass', source: 'phosphor' }}
-                                placeholder={searchPlaceholder || ''}
-                                value={query}
-                                onChange={(e) => {
-                                    setQuery(e.target.value);
-                                    onSearch(e.target.value);
-                                }}
-                            />
-                        </SearchInputContainer>
+                        <DropdownSearchBar
+                            placeholder={searchPlaceholder || ''}
+                            value={query}
+                            onChange={(value) => {
+                                setQuery(value);
+                                onSearch(value);
+                            }}
+                        />
                         <OptionList data-testid={optionListTestId}>
                             {!displayedSuggestions.length && (
                                 <NoSuggestions>

@@ -9,9 +9,6 @@ import {
     OptionContainer,
     OptionLabel,
     OptionList,
-    SearchIcon,
-    SearchInput,
-    SearchInputContainer,
     SelectAllOption,
     SelectBase,
     SelectLabel,
@@ -22,6 +19,7 @@ import {
 } from './components';
 import { ActionButtonsProps, SelectOption, SelectProps } from './types';
 import SelectLabelRenderer from './private/SelectLabelRenderer/SelectLabelRenderer';
+import DropdownSearchBar from './private/DropdownSearchBar';
 
 const SelectActionButtons = ({
     selectedValues,
@@ -127,7 +125,7 @@ export const SimpleSelect = ({
         const clickedOutsideOfDropdown = dropdownRef.current && !dropdownRef.current.contains(e.target as Node);
 
         if (clickedOutsideOfSelect && clickedOutsideOfDropdown) {
-            setIsOpen(false)
+            setIsOpen(false);
         }
     }, []);
 
@@ -203,16 +201,12 @@ export const SimpleSelect = ({
                 dropdownRender={() => (
                     <DropdownContainer ref={dropdownRef} ignoreMaxHeight={ignoreMaxHeight}>
                         {showSearch && (
-                            <SearchInputContainer>
-                                <SearchInput
-                                    type="text"
-                                    placeholder="Search…"
-                                    value={searchQuery}
-                                    onChange={(e) => handleSearchChange(e.target.value)}
-                                    style={{ fontSize: size || 'md' }}
-                                />
-                                <SearchIcon icon="Search" size={size} color="gray" />
-                            </SearchInputContainer>
+                            <DropdownSearchBar
+                                placeholder="Search…"
+                                value={searchQuery}
+                                onChange={(value) => handleSearchChange(value)}
+                                size={size}
+                            />
                         )}
                         <OptionList style={optionListStyle} data-testid={optionListTestId}>
                             {showSelectAll && isMultiSelect && (

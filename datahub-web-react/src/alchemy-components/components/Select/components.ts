@@ -1,5 +1,5 @@
 import { Button, Icon } from '@components';
-import { borders, colors, radius, shadows, spacing, transition, typography, zIndices } from '@components/theme';
+import { colors, radius, shadows, spacing, transition, typography, zIndices } from '@components/theme';
 import { Checkbox } from 'antd';
 import styled from 'styled-components';
 import { formLabelTextStyles, inputPlaceholderTextStyles, inputValueTextStyles } from '../commonStyles';
@@ -87,37 +87,6 @@ export const DropdownContainer = styled.div<{ ignoreMaxHeight?: boolean }>(({ ig
     minWidth: '250px',
     maxHeight: ignoreMaxHeight ? undefined : '360px',
 }));
-
-export const SearchInputContainer = styled.div({
-    position: 'relative',
-    width: '100%',
-    display: 'flex',
-    justifyContent: 'center',
-});
-
-export const SearchInput = styled.input({
-    width: '100%',
-    borderRadius: radius.md,
-    border: `1px solid ${colors.gray[200]}`,
-    color: colors.gray[500],
-    fontFamily: typography.fonts.body,
-    fontSize: typography.fontSizes.sm,
-    padding: spacing.xsm,
-    paddingRight: spacing.xlg,
-
-    '&:focus': {
-        borderColor: colors.violet[200],
-        outline: `${borders['1px']} ${colors.violet[200]}`,
-    },
-});
-
-export const SearchIcon = styled(Icon)({
-    position: 'absolute',
-    right: spacing.sm,
-    top: '50%',
-    transform: 'translateY(-50%)',
-    pointerEvents: 'none',
-});
 
 // Styled components for SelectValue (Selected value display)
 export const SelectValue = styled.span({

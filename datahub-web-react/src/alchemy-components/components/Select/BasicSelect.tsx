@@ -10,9 +10,6 @@ import {
     OptionContainer,
     OptionLabel,
     OptionList,
-    SearchIcon,
-    SearchInput,
-    SearchInputContainer,
     SelectAllOption,
     SelectBase,
     SelectLabel,
@@ -25,6 +22,7 @@ import {
 import SelectLabelRenderer from './private/SelectLabelRenderer/SelectLabelRenderer';
 import { ActionButtonsProps, SelectOption, SelectProps } from './types';
 import { getFooterButtonSize } from './utils';
+import DropdownSearchBar from './private/DropdownSearchBar';
 
 const SelectActionButtons = ({
     selectedValues,
@@ -200,16 +198,12 @@ export const BasicSelect = ({
                 dropdownRender={() => (
                     <DropdownContainer ref={dropdownRef}>
                         {showSearch && (
-                            <SearchInputContainer>
-                                <SearchInput
-                                    type="text"
-                                    placeholder="Search…"
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    style={{ fontSize: size || 'md' }}
-                                />
-                                <SearchIcon icon="Search" size={size} color="gray" />
-                            </SearchInputContainer>
+                            <DropdownSearchBar
+                                placeholder="Search…"
+                                value={searchQuery}
+                                onChange={(value) => setSearchQuery(value)}
+                                size={size}
+                            />
                         )}
                         <OptionList>
                             {showSelectAll && isMultiSelect && (
