@@ -2,15 +2,19 @@
 # Common Environment Variables
 #################################
 x-datahub-otel-env: &x-datahub-otel-env
+  ENABLE_PROMETHEUS: true
+  DATAHUB_DEBUG: true
   ENABLE_OTEL: true
-  #OTEL_EXPORTER_OTLP_ENDPOINT: http://opentelemetry-collector:4317
+  OTEL_LOG_LEVEL: debug
+  OTEL_METRICS_EXPORTER: console
+  OTEL_TRACES_EXPORTER: console
+  OTEL_LOGS_EXPORTER: console
+  OTEL_SDK_DISABLED: false
+  OTEL_INSTRUMENTATION_COMMON_DEFAULT_ENABLED: true
+  OTEL_PROPAGATORS: tracecontext,baggage
+  NAMESPACE: compose
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://opentelemetry-collector:4317
   OTEL_EXPORTER_OTLP_PROTOCOL: grpc
-  NAMESPACE: production
-  LOGS_TARGET: http://loki:3100/loki/api/v1/push
-  #TRACING_COLLECTOR_HOST: opentelemetry-collector
-  #TRACING_COLLECTOR_PORT: 4317
-  OTEL_EXPORTER_OTLP_TRACES_INSECURE: true
-  OTEL_RESOURCE_ATTRIBUTES=ip: 1.2.3.5
 
 x-datahub-frontend-service: &datahub-frontend-service
   hostname: datahub-frontend-react
