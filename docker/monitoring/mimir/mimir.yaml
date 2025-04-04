@@ -1,0 +1,84 @@
+# For more information on this configuration, see the complete reference guide at
+# https://grafana.com/docs/mimir/latest/references/configuration-parameters/
+
+# Disable multi-tenancy and restrict to single tenant.
+multitenancy_enabled: false
+
+# The block storage configuration determines where the metrics TSDB data is stored.
+blocks_storage:
+  # Use the local filesystem for block storage.
+  # Note: It is highly recommended not to use local filesystem for production data.
+  backend: filesystem
+  # Directory in which to store synchronised TSDB index headers.
+  bucket_store:
+    sync_dir: /tmp/mimir/tsdb-sync
+  # Directory in which to store configuration for object storage.
+  filesystem:
+    dir: /tmp/mimir/data/tsdb
+  # Direction in which to store TSDB WAL data.
+  tsdb:
+    dir: /tmp/mimir/tsdb
+
+# The compactor block configures the compactor responsible for compacting TSDB blocks.
+compactor:
+  # Directory to temporarily store blocks underdoing compaction.
+  data_dir: /tmp/mimir/compactor
+  # The sharding ring type used to share the hashed ring for the compactor.
+  sharding_ring:
+    # Use memberlist backend store (the default).
+    kvstore:
+      store: memberlist
+
+# The distributor receives incoming metrics data for the system.
+distributor:
+  # The ring to share hash ring data across instances.
+  ring:
+    # The address advertised in the ring. Localhost.
+    instance_addr: 127.0.0.1
+    # Use memberlist backend store (the default).
+    kvstore:
+      store: memberlist
+
+# The ingester receives data from the distributor and processes it into indices and blocks.
+ingester:
+  # The ring to share hash ring data across instances.
+  ring:
+    # The address advertised in the ring. Localhost.
+    instance_addr: 127.0.0.1
+    # Use memberlist backend store (the default).
+    kvstore:
+      store: memberlist
+    # Only run one instance of the ingesters.
+    # Note: It is highly recommended to run more than one ingester in production, the default is an RF of 3.
+    replication_factor: 1
+
+# The ruler storage block configures ruler storage settings.
+ruler_storage:
+  # Use the local filesystem for block storage.
+  # Note: It is highly recommended not to use local filesystem for production data.
+  backend: filesystem
+  filesystem:
+    # The directory in which to store rules.
+    dir: /tmp/mimir/rules
+
+# The server block configures the Mimir server.
+server:
+  # Listen on port 9009 for all incoming requests.
+  http_listen_port: 9009
+  # Log messages at info level.
+  log_level: info
+
+# The store gateway block configures gateway storage.
+store_gateway:
+  # Configuration for the hash ring.
+  sharding_ring:
+    # Only run a single instance. In production setups, the replication factor must
+    # be set on the querier and ruler as well.
+    replication_factor: 1
+
+# Global limits configuration.
+limits:
+  # A maximum of 100000 exemplars in memory at any one time.
+  # This setting enables exemplar processing and storage.
+  max_global_exemplars_per_user: 100000
+  ingestion_rate: 30000
