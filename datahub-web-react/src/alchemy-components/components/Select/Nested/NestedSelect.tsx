@@ -9,9 +9,6 @@ import {
     DropdownContainer,
     OptionList,
     Placeholder,
-    SearchIcon,
-    SearchInput,
-    SearchInputContainer,
     SelectBase,
     SelectLabel,
     StyledClearButton,
@@ -20,6 +17,7 @@ import {
 import { SelectSizeOptions } from '../types';
 import { NestedOption } from './NestedOption';
 import { SelectOption } from './types';
+import DropdownSearchBar from '../private/DropdownSearchBar';
 
 const NO_PARENT_VALUE = 'no_parent_value';
 
@@ -297,16 +295,12 @@ export const NestedSelect = ({
                 dropdownRender={() => (
                     <DropdownContainer style={{ maxHeight: height, overflow: 'auto' }}>
                         {showSearch && (
-                            <SearchInputContainer>
-                                <SearchInput
-                                    type="text"
-                                    placeholder={searchPlaceholder || 'Search...'}
-                                    value={searchQuery}
-                                    onChange={(e) => handleSearch(e.target.value)}
-                                    style={{ fontSize: size || 'md', width: '100%' }}
-                                />
-                                <SearchIcon icon="Search" size={size} color="gray" />
-                            </SearchInputContainer>
+                            <DropdownSearchBar
+                                placeholder={searchPlaceholder}
+                                value={searchQuery}
+                                onChange={(value) => handleSearch(value)}
+                                size={size}
+                            />
                         )}
                         <OptionList>
                             {rootOptions.map((option) => {
