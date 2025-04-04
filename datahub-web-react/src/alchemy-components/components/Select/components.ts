@@ -71,27 +71,6 @@ export const Container = styled.div<ContainerProps>(({ size, width, $selectLabel
     };
 });
 
-export const Dropdown = styled.div<{ ignoreMaxHeight?: boolean }>(({ ignoreMaxHeight }) => {
-    return {
-        position: 'absolute',
-        top: '100%',
-        left: 0,
-        right: 0,
-        borderRadius: radius.md,
-        background: colors.white,
-        zIndex: 900,
-        transition: sharedTransition,
-        boxShadow: shadows.dropdown,
-        padding: spacing.xsm,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '8px',
-        marginTop: '4px',
-        maxHeight: ignoreMaxHeight ? undefined : '360px',
-        overflow: 'auto',
-    };
-});
-
 export const DropdownContainer = styled.div<{ ignoreMaxHeight?: boolean }>(({ ignoreMaxHeight }) => ({
     borderRadius: radius.md,
     background: colors.white,
