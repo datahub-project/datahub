@@ -9,6 +9,7 @@ import com.datahub.util.RecordUtils;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
@@ -232,5 +233,70 @@ public class EbeanSystemAspectTest {
                 urn, STATUS_ASPECT_NAME, entitySpec, aspectSpec, null, systemMetadata, auditStamp);
 
     assertThrows(NullPointerException.class, () -> aspect.withVersion(0));
+  }
+
+  @Test
+  public void testGetSystemMetadata() {
+    // Case 1: When systemMetadata is null and ebeanAspectV2 has system metadata
+    when(ebeanAspectV2.getSystemMetadata()).thenReturn(RecordUtils.toJsonString(systemMetadata));
+    EbeanSystemAspect aspect =
+        new EbeanSystemAspect(
+            ebeanAspectV2,
+            UrnUtils.getUrn(ebeanAspectV2.getUrn()),
+            ebeanAspectV2.getAspect(),
+            entitySpec,
+            aspectSpec,
+            recordTemplate,
+            null, // null so that we get it from ebeanAspectV2
+            auditStamp);
+
+    // First call should parse from ebeanAspectV2's system metadata
+    SystemMetadata metadata = aspect.getSystemMetadata();
+    assertNotNull(metadata);
+    assertEquals(metadata.getRunId(), systemMetadata.getRunId());
+
+    // Case 2: When systemMetadata is already set (cached)
+    // Call getSystemMetadata again to test caching behavior
+    SystemMetadata cachedMetadata = aspect.getSystemMetadata();
+    assertSame(
+        cachedMetadata, metadata, "Should return the same cached object on subsequent calls");
+
+    // Case 3: When systemMetadata is explicitly set
+    SystemMetadata customMetadata = new SystemMetadata();
+    customMetadata.setLastObserved(9876543210L);
+    customMetadata.setRunId("custom-run-id");
+
+    EbeanSystemAspect aspectWithCustomMetadata =
+        EbeanSystemAspect.builder()
+            .forUpdate(ebeanAspectV2, entityRegistry)
+            .setSystemMetadata(customMetadata);
+
+    // Should return the custom metadata
+    assertEquals(aspectWithCustomMetadata.getSystemMetadata(), customMetadata);
+    assertEquals(aspectWithCustomMetadata.getSystemMetadata().getRunId(), "custom-run-id");
+    assertEquals(
+        aspectWithCustomMetadata.getSystemMetadata().getLastObserved(), Long.valueOf(9876543210L));
+
+    // Case 4: When ebeanAspectV2's systemMetadata is null
+    when(ebeanAspectV2.getSystemMetadata()).thenReturn(null);
+    EbeanSystemAspect aspectWithNullMetadata =
+        EbeanSystemAspect.builder().forUpdate(ebeanAspectV2, entityRegistry);
+
+    // Should create default system metadata
+    SystemMetadata defaultMetadata = aspectWithNullMetadata.getSystemMetadata();
+    assertNotNull(defaultMetadata);
+    assertEquals(defaultMetadata.getRunId(), "no-run-id-provided");
+
+    // Case 5: When ebeanAspectV2 is null
+    EbeanSystemAspect aspectWithNullEbeanAspect =
+        EbeanSystemAspect.builder()
+            .forInsert(
+                urn, STATUS_ASPECT_NAME, entitySpec, aspectSpec, recordTemplate, null, auditStamp);
+
+    // Should create default system metadata
+    SystemMetadata defaultMetadataWithNullEbeanAspect =
+        aspectWithNullEbeanAspect.getSystemMetadata();
+    assertNotNull(defaultMetadataWithNullEbeanAspect);
+    assertEquals(defaultMetadataWithNullEbeanAspect.getRunId(), "no-run-id-provided");
   }
 }
