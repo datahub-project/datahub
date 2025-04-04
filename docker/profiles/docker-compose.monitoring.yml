@@ -1,0 +1,79 @@
+# Based on https://github.com/grafana/intro-to-mltp/blob/main/docker-compose-otel.yml
+---
+services:
+  # The Grafana dashboarding server.
+  grafana:
+    profiles:
+      - quickstart-otel
+    image: grafana/grafana:11.5.1
+    ports:
+      - 3001:3000
+    environment:
+      - GF_FEATURE_TOGGLES_ENABLE=flameGraph traceqlSearch correlations traceQLStreaming metricsSummary traceqlEditor traceToMetrics traceToProfiles datatrails
+      - GF_INSTALL_PLUGINS=grafana-lokiexplore-app,grafana-exploretraces-app,grafana-pyroscope-app
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+    volumes:
+      #- grafana-storage:/var/lib/grafana
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+  
+  # The opentelemetry-collector batches and processes traces sent to it.
+  opentelemetry-collector:
+    profiles:
+      - quickstart-otel
+    image: otel/opentelemetry-collector-contrib
+    ports:
+      - "12347:12345"
+      - "12348:12348"
+      - "6832:6832"
+      - "55679:55679"
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - ./monitoring/otel/otel.yaml:/etc/otel-collector-config.yml
+    command: ["--config=/etc/otel-collector-config.yml"]
+  
+  # The Tempo service stores traces send to it by Grafana opentelemetry-collector, and takes
+  # queries from Grafana to visualise those traces.
+  tempo:
+    image: grafana/tempo:2.7.0
+    ports:
+      - "3200:3200"
+      - "55680:55680"
+      - "55681:55681"
+      - "14250:14250"
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    volumes:
+      - "./monitoring/tempo/tempo.yaml:/etc/tempo.yaml"
+
+  # The Loki service stores logs sent to it, and takes queries from Grafana
+  # to visualise those logs.
+  loki:
+    image: grafana/loki:3.4.1
+    command: ["--pattern-ingester.enabled=true", "-config.file=/etc/loki/loki.yaml"]
+    ports:
+      - "3100:3100"
+    volumes:
+      - "./monitoring/loki/loki.yaml:/etc/loki/loki.yaml"
+
+  mimir:
+    image: grafana/mimir:2.15.0
+    command: ["-ingester.native-histograms-ingestion-enabled=true", "-config.file=/etc/mimir.yaml"]
+    ports:
+      - "9009:9009"
+    volumes:
+      - "./monitoring/mimir/mimir.yaml:/etc/mimir.yaml"
+  
+  #prometheus:
+  #  profiles:
+  #    - quickstart-otel
+  #  image: prom/prometheus:latest
+  #  volumes:
+  #    - ./monitoring/prometheus.yaml:/etc/prometheus/prometheus.yml
+  #  ports:
+  #    - 9089:9090
+
+volumes:
+  grafana-storage:

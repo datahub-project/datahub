@@ -26,6 +26,7 @@ x-graph-datastore-neo4j-env: &graph-datastore-neo4j-env
   NEO4J_URI: 'bolt://neo4j'
   NEO4J_USERNAME: neo4j
   NEO4J_PASSWORD: datahub
+
 x-graph-datastore-search-env: &graph-datastore-search-env
   GRAPH_SERVICE_IMPL: elasticsearch
 
@@ -48,6 +49,21 @@ x-datahub-quickstart-telemetry-env: &datahub-quickstart-telemetry-env
 x-datahub-dev-telemetry-env: &datahub-dev-telemetry-env
   DATAHUB_SERVER_TYPE: ${DATAHUB_SERVER_TYPE:-dev}
   DATAHUB_TELEMETRY_ENABLED: ${DATAHUB_TELEMETRY_ENABLED:-true}
+
+x-datahub-otel-env: &x-datahub-otel-env
+  ENABLE_OTEL: true
+  NAMESPACE: production
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://opentelemetry-collector:4317
+  #OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://opentelemetry-collector:4317
+  OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+  # Emit metrics
+  ENABLE_PROMETHEUS: true
+
+  # Emit logs
+  LOGS_TARGET: http://loki:3100/loki/api/v1/push
+  # Emit traces in an ins
+  OTEL_EXPORTER_OTLP_TRACES_INSECURE: true
+  OTEL_RESOURCE_ATTRIBUTES=ip: 1.2.3.5
 
 #################################
 # System Update
@@ -105,6 +121,8 @@ x-datahub-gms-service: &datahub-gms-service
     STRICT_URN_VALIDATION_ENABLED: ${STRICT_URN_VALIDATION_ENABLED:-true}
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
     THEME_V2_DEFAULT: ${THEME_V2_DEFAULT:-true}
+    OTEL_SERVICE_NAME: datahub-gms
+    OTEL_RESOURCE_ATTRIBUTES: service.name=datahub-gms
   healthcheck:
     test: curl -sS --fail http://datahub-gms:${DATAHUB_GMS_PORT:-8080}/health
     start_period: 90s
@@ -159,6 +177,8 @@ x-datahub-mae-consumer-service: &datahub-mae-consumer-service
   environment: &datahub-mae-consumer-env
     <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *kafka-env]
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
+    OTEL_SERVICE_NAME: datahub-mae-consumer
+    OTEL_RESOURCE_ATTRIBUTES: service.name=datahub-mae-consumer
 
 x-datahub-mae-consumer-service-dev: &datahub-mae-consumer-service-dev
   <<: *datahub-mae-consumer-service
@@ -213,6 +233,7 @@ services:
       - quickstart-consumers
       - quickstart-frontend
       - quickstart-backend
+      - quickstart-otel
     depends_on:
       mysql-setup:
         condition: service_completed_successfully
@@ -354,6 +375,24 @@ services:
     depends_on:
       system-update-quickstart:
         condition: service_completed_successfully
+  datahub-gms-quickstart-otel:
+    <<: *datahub-gms-service
+    profiles:
+      - quickstart-otel
+    environment:
+      <<: [*datahub-gms-env, *x-datahub-otel-env]
+      MAE_CONSUMER_ENABLED: false
+      MCE_CONSUMER_ENABLED: false
+      OTEL_SERVICE_NAME: datahub-gms
+      OTEL_RESOURCE_ATTRIBUTES: service.name=datahub-gms
+    ports:
+      - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
+      - "4318"
+    depends_on:
+      system-update-quickstart:
+        condition: service_completed_successfully
+      #opentelemetry-collector:
+      #  condition: service_healthy
   datahub-gms-debug:
     <<: *datahub-gms-service-dev
     profiles:
@@ -407,6 +446,7 @@ services:
     depends_on:
       system-update-debug-elasticsearch:
         condition: service_completed_successfully
+
   #################################
   # MAE Consumer
   #################################
@@ -417,13 +457,25 @@ services:
     depends_on:
       datahub-gms-quickstart-consumers:
         condition: service_healthy
-  datahub-mae-consumer-debug-consumers:
+  datahub-mae-consumer-quickstart-otel:
+    <<: *datahub-mae-consumer-service
+    profiles:
+      - quickstart-otel
+    environment:
+      <<: [*datahub-mae-consumer-env, *x-datahub-otel-env]
+      OTEL_SERVICE_NAME: datahub-mae-consumer
+      OTEL_RESOURCE_ATTRIBUTES: service.name=datahub-mae-consumer
+    depends_on:
+      datahub-gms-quickstart-otel:
+        condition: service_healthy
+  datahub-mae-consumer-quickstart-consumers-dev:
     <<: *datahub-mae-consumer-service-dev
     profiles:
       - debug-consumers
     depends_on:
       datahub-gms-debug-consumers:
         condition: service_healthy
+
   #################################
   # MCE Consumer
   #################################
@@ -434,10 +486,26 @@ services:
     depends_on:
       datahub-gms-quickstart-consumers:
         condition: service_healthy
-  datahub-mce-consumer-debug-consumers:
+  datahub-mce-consumer-quickstart-otel:
+    <<: *datahub-mce-consumer-service
+    profiles:
+      - quickstart-otel
+    environment:
+      <<: [*datahub-mce-consumer-env, *x-datahub-otel-env]
+      OTEL_SERVICE_NAME: datahub-mce-consumer
+      OTEL_RESOURCE_ATTRIBUTES: service.name=datahub-mce-consumer
+    depends_on:
+      datahub-gms-quickstart-otel:
+        condition: service_healthy
+  datahub-mce-consumer-quickstart-consumers-dev:
     <<: *datahub-mce-consumer-service-dev
     profiles:
       - debug-consumers
     depends_on:
       datahub-gms-debug-consumers:
         condition: service_healthy
+
+networks:
+  monitoring-network:
+    external: true
+    name: datahub-monitoring-network
