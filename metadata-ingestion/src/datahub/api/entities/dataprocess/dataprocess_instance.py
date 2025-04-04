@@ -159,6 +159,7 @@ class DataProcessInstance:
                         env=self.template_urn.get_env(),
                         orchestrator=self.template_urn.get_orchestrator_name(),
                         id=self.template_urn.get_flow_id(),
+                        platform_instance=self.data_platform_instance,
                     )
                     for mcp in template_object.generate_mcp():
                         self._emit_mcp(mcp, emitter, callback)
@@ -168,6 +169,7 @@ class DataProcessInstance:
                         id=self.template_urn.get_job_id(),
                         upstream_urns=input_datajob_urns,
                         flow_urn=self.template_urn.get_data_flow_urn(),
+                        platform_instance=self.data_platform_instance,
                     )
                     for mcp in template_object.generate_mcp():
                         self._emit_mcp(mcp, emitter, callback)
