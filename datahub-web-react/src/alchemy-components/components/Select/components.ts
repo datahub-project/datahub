@@ -110,14 +110,6 @@ export const ActionButtonsContainer = styled.div({
  * Components that can be reused to create new Select variants
  */
 
-export const FooterBase = styled.div({
-    display: 'flex',
-    justifyContent: 'flex-end',
-    gap: spacing.sm,
-    paddingTop: spacing.sm,
-    borderTop: `1px solid ${colors.gray[100]}`,
-});
-
 export const OptionList = styled.div({
     display: 'flex',
     flexDirection: 'column' as const,
@@ -177,17 +169,6 @@ export const SelectLabel = styled.label({
     ...formLabelTextStyles,
     marginBottom: spacing.xxsm,
     textAlign: 'left',
-});
-
-export const StyledCancelButton = styled(Button)({
-    backgroundColor: colors.violet[100],
-    color: colors.violet[500],
-    borderColor: colors.violet[100],
-
-    '&:hover': {
-        backgroundColor: colors.violet[200],
-        borderColor: colors.violet[200],
-    },
 });
 
 export const StyledIcon = styled(Icon)({
