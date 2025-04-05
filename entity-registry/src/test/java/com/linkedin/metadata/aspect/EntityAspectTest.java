@@ -1,5 +1,6 @@
 package com.linkedin.metadata.aspect;
 
+import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
@@ -7,11 +8,13 @@ import static org.testng.Assert.assertNull;
 
 import com.datahub.test.TestEntityProfile;
 import com.linkedin.common.Status;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.entity.AspectType;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.mxe.SystemMetadata;
 import java.sql.Timestamp;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
@@ -23,7 +26,7 @@ public class EntityAspectTest {
       "urn:li:dataset:(urn:li:dataPlatform:hive,SampleTable,PROD)";
   private static final String TEST_ASPECT = "status";
   private static final String TEST_METADATA = "{\"removes\":false}";
-  private static final String TEST_SYSTEM_METADATA = "{\"lastModified\":1234567890}";
+  private static final String TEST_SYSTEM_METADATA = "{\"lastObserved\":1234567890}";
   private static final String TEST_CREATED_BY = "urn:li:corpuser:testUser";
   private static final String TEST_CREATED_FOR = "urn:li:corpuser:testImpersonator";
 
@@ -238,5 +241,70 @@ public class EntityAspectTest {
     assertEquals(aspect.getSystemMetadata(), "");
     assertEquals(aspect.getCreatedBy(), "");
     assertEquals(aspect.getCreatedFor(), "");
+  }
+
+  @Test
+  public void testGetSystemMetadata() {
+    // Case 1: When systemMetadata is null and entityAspect's systemMetadata is not null
+    EntityAspect.EntitySystemAspect systemAspect =
+        EntityAspect.EntitySystemAspect.builder().forInsert(testEntityAspect, entityRegistry);
+
+    // First call to getSystemMetadata should parse from TEST_SYSTEM_METADATA string
+    assertNotNull(systemAspect.getSystemMetadata());
+    assertEquals(systemAspect.getSystemMetadata().getLastObserved(), Long.valueOf(1234567890));
+
+    // Second call should return the cached value
+    SystemMetadata cachedMetadata = systemAspect.getSystemMetadata();
+    assertNotNull(cachedMetadata);
+    assertEquals(cachedMetadata.getLastObserved(), Long.valueOf(1234567890));
+
+    // Case 2: When systemMetadata is already set (not null)
+    SystemMetadata presetSystemMetadata = new SystemMetadata().setLastObserved(123L);
+
+    EntityAspect.EntitySystemAspect systemAspectWithPresetMetadata =
+        EntityAspect.EntitySystemAspect.builder()
+            .forInsert(testEntityAspect, entityRegistry)
+            .setSystemMetadata(presetSystemMetadata);
+
+    // Should return the preset metadata without using the one from entityAspect
+    assertEquals(systemAspectWithPresetMetadata.getSystemMetadata(), presetSystemMetadata);
+    assertEquals(
+        systemAspectWithPresetMetadata.getSystemMetadata().getLastObserved(), Long.valueOf(123L));
+
+    // Case 3: When both systemMetadata and entityAspect's systemMetadata are null
+    EntityAspect aspectWithoutSystemMetadata =
+        EntityAspect.builder()
+            .urn(TEST_URN)
+            .aspect(TEST_ASPECT)
+            .version(1L)
+            .metadata(TEST_METADATA)
+            .systemMetadata(null)
+            .build();
+
+    EntityAspect.EntitySystemAspect systemAspectWithoutMetadata =
+        EntityAspect.EntitySystemAspect.builder()
+            .forInsert(aspectWithoutSystemMetadata, entityRegistry);
+
+    // Should create default system metadata
+    SystemMetadata defaultMetadata = systemAspectWithoutMetadata.getSystemMetadata();
+    assertNotNull(defaultMetadata);
+
+    // Default system metadata should have the default run ID
+    assertEquals("no-run-id-provided", defaultMetadata.getRunId());
+
+    // Case 4: entityAspect is null
+    EntityAspect.EntitySystemAspect nullEntityAspect =
+        new EntityAspect.EntitySystemAspect(
+            null,
+            UrnUtils.getUrn(TEST_URN),
+            null,
+            null,
+            null,
+            entityRegistry.getEntitySpec(DATASET_ENTITY_NAME),
+            null);
+
+    // Should create default system metadata
+    SystemMetadata nullEntityDefaultMetadata = nullEntityAspect.getSystemMetadata();
+    assertNotNull(nullEntityDefaultMetadata);
   }
 }
