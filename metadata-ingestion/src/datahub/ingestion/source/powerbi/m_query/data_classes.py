@@ -75,3 +75,4 @@ class FunctionName(Enum):
     AMAZON_REDSHIFT_DATA_ACCESS = "AmazonRedshift.Database"
     DATABRICK_MULTI_CLOUD_DATA_ACCESS = "DatabricksMultiCloud.Catalogs"
     MYSQL_DATA_ACCESS = "MySQL.Database"
+    ODBC_DATA_ACCESS = "Odbc.DataSource"
