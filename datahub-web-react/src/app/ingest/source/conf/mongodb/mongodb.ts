@@ -17,6 +17,8 @@ source:
         enableSchemaInference: True
         useRandomSampling: True
         maxSchemaSize: 300
+        stateful_ingestion:
+            enabled: true
 `;
 
 const mongoConfig: SourceConfig = {
