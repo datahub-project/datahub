@@ -137,6 +137,10 @@ class ProjectIdKey(ContainerKey):
     project_id: str
 
 
+class ExperimentKey(ContainerKey):
+    id: str
+
+
 class MetastoreKey(ContainerKey):
     metastore: str
 

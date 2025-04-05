@@ -30,6 +30,7 @@ export const InlineListSearch: React.FC<InlineListSearchProps> = ({
                 value={searchText}
                 placeholder={options?.placeholder || 'Search...'}
                 onChange={debouncedSetFilterText}
+                icon={options?.hidePrefix ? undefined : { icon: 'MagnifyingGlass', source: 'phosphor' }}
                 label=""
             />
             {searchText && !options?.hideMatchCountText && (
