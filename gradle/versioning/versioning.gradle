@@ -4,8 +4,11 @@ import org.apache.tools.ant.filters.ReplaceTokens
 
 def detailedVersionString = "0.0.0-unknown-SNAPSHOT"
 def cliMajorVersion = "0.15.0" // base default cli major version
-
 def inputFile = file("${rootProject.buildDir}/version.json")
+
+ext {
+  versionTag = "v${detailedVersionString}"
+}
 
 task readJsonData {
   if (inputFile.exists()) {
@@ -15,6 +18,7 @@ task readJsonData {
     detailedVersionString = data.fullVersion
     cliMajorVersion = data.cliMajorVersion
     version = data.version
+    versionTag = data.versionTag
   } else {
     println "git.properties JSON file not found: ${inputFile.path}"
   }
