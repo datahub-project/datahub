@@ -20,7 +20,7 @@ const SectionWrapper = styled.div<{ $borderRadiusBottom?: boolean }>`
     padding: 24px;
     box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.08);
     ${(props) => (props.$borderRadiusBottom ? `border-radius: 0 0 10px 10px;` : `border-radius: 10px;`)}
-    height: 100%;
+    height: fit-content;
 `;
 
 const QueriesTitleSection = styled.div`
