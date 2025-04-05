@@ -293,6 +293,7 @@ def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_
                 "source": {
                     "type": "fivetran",
                     "config": {
+                        "platform_instance": "my-fivetran",
                         "fivetran_log_config": {
                             "destination_platform": "snowflake",
                             "snowflake_destination_config": {
