@@ -234,7 +234,7 @@ describe('setFieldValues', () => {
             ],
         };
 
-        expect(setFieldValues(filter, 'RESOURCE_TYPE', [])).toMatchObject({
+        expect(setFieldValues(filter, 'RESOURCE_TYPE', [], PolicyMatchCondition.Equals)).toMatchObject({
             criteria: [
                 {
                     condition: PolicyMatchCondition.Equals,
@@ -250,7 +250,7 @@ describe('setFieldValues', () => {
             criteria: [],
         };
 
-        expect(setFieldValues(filter, 'TYPE', [{ value: 'dataFlow' }])).toMatchObject({
+        expect(setFieldValues(filter, 'TYPE', [{ value: 'dataFlow' }], PolicyMatchCondition.Equals)).toMatchObject({
             criteria: [
                 {
                     condition: PolicyMatchCondition.Equals,
