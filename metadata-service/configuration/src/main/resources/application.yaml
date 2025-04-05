@@ -592,6 +592,8 @@ cache:
           storageFeatures: 21600 # 6hrs
         dashboard:
           dashboardUsageStatistics: 21600 # 6hrs
+        telemetry:
+          telemetryClientId: 86400 # 1 day
 
 graphQL:
   concurrency:
