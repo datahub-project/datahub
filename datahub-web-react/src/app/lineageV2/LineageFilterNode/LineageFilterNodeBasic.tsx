@@ -82,13 +82,14 @@ export default function LineageFilterNode(props: NodeProps<LineageFilter>) {
     const { total, platforms, subtypes } = useFetchFilterNodeContents(
         parent,
         direction,
+        rootType,
         showGhostEntities && ignoreSchemaFieldStatus && rootType === EntityType.SchemaField,
     );
 
     // If a user has searched, result list may be limited to the number of matches
     const [numMatches, setNumMatches] = useState<number>(0);
 
-    useAvoidIntersectionsOften(id, numMatches ? 133 : 117);
+    useAvoidIntersectionsOften(id, numMatches ? 133 : 117, rootType);
 
     const numerator = numShown ?? shown.size;
     const denominator = showGhostEntities ? allChildren.size : total ?? allChildren.size;

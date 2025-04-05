@@ -23,9 +23,7 @@ type Props = {
     type: EntityType;
 };
 
-export default function LineageExplorer(props: Props) {
-    const { urn, type } = props;
-
+export default function LineageExplorer({ urn, type }: Props) {
     const [nodes] = useState(new Map<string, LineageEntity>());
     const [edges] = useState(new Map<EdgeId, LineageEdge>());
     const [adjacencyList] = useState({
@@ -75,7 +73,7 @@ export default function LineageExplorer(props: Props) {
     return (
         <LineageNodesContext.Provider value={context}>
             <ReactFlowProvider>
-                <LineageDisplay {...props} initialized={initialized} />
+                <LineageDisplay initialized={initialized} />
             </ReactFlowProvider>
         </LineageNodesContext.Provider>
     );

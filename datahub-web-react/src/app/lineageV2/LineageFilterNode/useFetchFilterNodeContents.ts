@@ -1,12 +1,12 @@
 import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
-import { LineageNodesContext } from '@app/lineageV2/common';
+import { generateIgnoreAsHops, LineageNodesContext } from '@app/lineageV2/common';
 import computeOrFilters from '@app/lineageV2/LineageFilterNode/computeOrFilters';
-import { DEFAULT_IGNORE_AS_HOPS, DEFAULT_SEARCH_FLAGS } from '@app/lineageV2/useSearchAcrossLineage';
+import { DEFAULT_SEARCH_FLAGS } from '@app/lineageV2/useSearchAcrossLineage';
 import { DEGREE_FILTER_NAME } from '@app/search/utils/constants';
 import { useContext } from 'react';
 import { PlatformFieldsFragment } from '../../../graphql/fragments.generated';
 import { useAggregateAcrossLineageQuery } from '../../../graphql/search.generated';
-import { AggregationMetadata, LineageDirection } from '../../../types.generated';
+import { AggregationMetadata, EntityType, LineageDirection } from '../../../types.generated';
 import { ENTITY_SUB_TYPE_FILTER_NAME, FILTER_DELIMITER, PLATFORM_FILTER_NAME } from '../../searchV2/utils/constants';
 
 export type PlatformAggregate = readonly [string, number, PlatformFieldsFragment];
@@ -18,7 +18,12 @@ interface Return {
     total?: number;
 }
 
-export default function useFetchFilterNodeContents(parent: string, direction: LineageDirection, skip: boolean): Return {
+export default function useFetchFilterNodeContents(
+    parent: string,
+    direction: LineageDirection,
+    rootType: EntityType,
+    skip: boolean,
+): Return {
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
     const { hideTransformations, showDataProcessInstances } = useContext(LineageNodesContext);
 
@@ -39,7 +44,7 @@ export default function useFetchFilterNodeContents(parent: string, direction: Li
                 lineageFlags: {
                     startTimeMillis,
                     endTimeMillis,
-                    ignoreAsHops: DEFAULT_IGNORE_AS_HOPS,
+                    ignoreAsHops: generateIgnoreAsHops(rootType),
                 },
                 searchFlags: {
                     ...DEFAULT_SEARCH_FLAGS,
