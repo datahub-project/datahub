@@ -13,6 +13,7 @@ import {
     Owner,
     SearchInsight,
     Container,
+    DataProcessRunEvent,
 } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType } from '../../Entity';
@@ -39,6 +40,7 @@ export default function Preview({
     paths,
     health,
     parentEntities,
+    lastRunEvent,
 }: {
     urn: string;
     name: string;
@@ -61,6 +63,7 @@ export default function Preview({
     paths?: EntityPath[];
     health?: Health[] | null;
     parentEntities?: Array<GeneratedEntity> | null;
+    lastRunEvent?: DataProcessRunEvent | null;
 }): JSX.Element {
     const entityRegistry = useEntityRegistry();
     return (
@@ -90,6 +93,7 @@ export default function Preview({
             paths={paths}
             health={health || undefined}
             parentEntities={parentEntities}
+            lastRunEvent={lastRunEvent}
         />
     );
 }

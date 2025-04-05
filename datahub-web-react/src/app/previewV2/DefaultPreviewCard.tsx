@@ -1,3 +1,4 @@
+import DataProcessInstanceInfo from '@src/app/preview/DataProcessInstanceInfo';
 import { CloseOutlined } from '@ant-design/icons';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
@@ -22,6 +23,7 @@ import {
     Maybe,
     Owner,
     SearchInsight,
+    DataProcessRunEvent,
 } from '../../types.generated';
 import { EntityMenuActions, PreviewType } from '../entityV2/Entity';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../entityV2/shared/constants';
@@ -173,6 +175,7 @@ interface Props {
     statsSummary?: any;
     actions?: EntityMenuActions;
     browsePaths?: BrowsePathV2 | undefined;
+    lastRunEvent?: DataProcessRunEvent | null;
 }
 
 export default function DefaultPreviewCard({
@@ -219,6 +222,7 @@ export default function DefaultPreviewCard({
     actions,
     browsePaths,
     description,
+    lastRunEvent,
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
     const supportedCapabilities = entityRegistry.getSupportedEntityCapabilities(entityType);
@@ -247,6 +251,9 @@ export default function DefaultPreviewCard({
     const { isFullViewCard } = useSearchContext();
 
     const { removeRelationship, removeButtonText } = useRemoveRelationship(entityType);
+
+    const shouldShowDPIinfo =
+        lastRunEvent?.timestampMillis || lastRunEvent?.durationMillis || lastRunEvent?.result?.resultType;
 
     const entityHeader = (
         <EntityHeader
@@ -323,6 +330,11 @@ export default function DefaultPreviewCard({
                             <Documentation>{removeMarkdown(description)}</Documentation>
                         </RowContainer>
                     ) : null}
+                    {shouldShowDPIinfo && (
+                        <RowContainer style={{ marginTop: 8, justifyContent: 'flex-end' }}>
+                            <DataProcessInstanceInfo {...lastRunEvent} />
+                        </RowContainer>
+                    )}
                 </>
             ) : (
                 <CompactView
