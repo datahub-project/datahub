@@ -38,8 +38,9 @@ ENV JMX_VERSION=0.20.0
 # Upgrade Alpine and base packages
 # PFP-260: Upgrade Sqlite to >=3.28.0-r0 to fix https://security.snyk.io/vuln/SNYK-ALPINE39-SQLITE-449762
 RUN apk --no-cache --update-cache --available upgrade \
-    && apk --no-cache add curl bash coreutils gcompat sqlite libc6-compat snappy \
+    && apk --no-cache add curl bash coreutils gcompat sqlite libc6-compat \
     && apk --no-cache add openjdk17-jre-headless --repository=${ALPINE_REPO_URL}/edge/community \
+    && apk --no-cache add snappy=~1.2 --repository=${ALPINE_REPO_URL}/edge/main \
     && mkdir -p /datahub/datahub-upgrade/lib \
     && wget --no-verbose -P /datahub/datahub-upgrade/lib ${GITHUB_REPO_URL}/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.11.0/opentelemetry-javaagent.jar \
     && wget --no-verbose -P /datahub/datahub-upgrade/lib ${MAVEN_CENTRAL_REPO_URL}/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_VERSION}/jmx_prometheus_javaagent-${JMX_VERSION}.jar -O jmx_prometheus_javaagent.jar \

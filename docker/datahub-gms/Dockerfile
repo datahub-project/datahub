@@ -38,7 +38,8 @@ RUN if [ "${ALPINE_REPO_URL}" != "http://dl-cdn.alpinelinux.org/alpine" ] ; then
 
 # PFP-260: Upgrade Sqlite to >=3.28.0-r0 to fix https://security.snyk.io/vuln/SNYK-ALPINE39-SQLITE-449762
 RUN apk --no-cache --update-cache --available upgrade \
-    && apk --no-cache add curl bash coreutils gcompat sqlite libc6-compat snappy \
+    && apk --no-cache add curl bash coreutils gcompat sqlite libc6-compat \
+    && apk --no-cache add snappy=~1.2 --repository=${ALPINE_REPO_URL}/edge/main \
     && apk --no-cache add openjdk17-jre-headless --repository=${ALPINE_REPO_URL}/edge/community \
     && apk --no-cache add jattach --repository ${ALPINE_REPO_URL}/edge/community/ \
     && wget --no-verbose ${GITHUB_REPO_URL}/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.11.0/opentelemetry-javaagent.jar \
