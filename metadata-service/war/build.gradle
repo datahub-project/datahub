@@ -44,6 +44,8 @@ dependencies {
   implementation externalDependency.springBootAutoconfigure
   implementation externalDependency.servletApi
   runtimeOnly externalDependency.opentelemetryExporter
+  runtimeOnly externalDependency.openTelemetryExporterLogging
+  runtimeOnly externalDependency.openTelemetryExporterCommon
 
   implementation spec.product.pegasus.restliDocgen
   implementation spec.product.pegasus.restliSpringBridge
