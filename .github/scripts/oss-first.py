@@ -314,7 +314,7 @@ class DiffValidator:
                 sub_errors = self._check_change_against_rule(change, rule)
                 errors.extend(sub_errors)
             else:
-                logger.warning(f"No rule found for {change.filepath}")
+                errors.append(f"No rule found for {change.filepath}")
 
         return errors
 
@@ -460,8 +460,9 @@ class DiffValidator:
         # Validate changes
         errors = self.validate_changes(changes)
         if errors:
+            logger.error(f"Found {len(errors)} diff size violations:")
             for message in errors:
-                print(f"  - {message}")
+                logger.error(f"  - {message}")
             exit(1)
 
         if self._allow_exception_tightening:
@@ -470,7 +471,7 @@ class DiffValidator:
         if self._allow_exception_changes:
             self._print_exception_change_summary()
         else:
-            print("Success: no diff size violations")
+            logger.info("Success: no new diff size violations")
 
     def _remove_unused_exceptions(self) -> None:
         # TODO: Tricky - in order to fully implement exception removal, we'd need
@@ -491,10 +492,10 @@ class DiffValidator:
             if self._exceptions[filepath] != self._original_exceptions[filepath]:
                 modified_exceptions.add(filepath)
 
-        print("Summary of exception changes:")
-        print(f"  {len(new_exceptions)} new exceptions")
-        print(f"  {len(removed_exceptions)} exceptions removed")
-        print(f"  {len(modified_exceptions)} exceptions modified")
+        logger.info("Summary of exception changes:")
+        logger.info(f"  {len(new_exceptions)} new exceptions")
+        logger.info(f"  {len(removed_exceptions)} exceptions removed")
+        logger.info(f"  {len(modified_exceptions)} exceptions modified")
 
     def get_updated_exceptions(self) -> Dict[str, ExceptionLimit]:
         return self._exceptions

@@ -1,4 +1,52 @@
 {
+  ".github/actions/ci-optimization/action.yml": {
+    "additions": null,
+    "deletions": 1
+  },
+  ".github/actions/docker-custom-build-and-push/action.yml": {
+    "additions": null,
+    "deletions": 4
+  },
+  ".github/pull_request_template.md": {
+    "additions": 1,
+    "deletions": 0
+  },
+  ".github/scripts/docker_helpers.sh": {
+    "additions": null,
+    "deletions": 1
+  },
+  ".github/scripts/pre-commit-override.yaml": {
+    "additions": null,
+    "deletions": 1
+  },
+  ".github/workflows/build-and-test.yml": {
+    "additions": 49,
+    "deletions": 5
+  },
+  ".github/workflows/docker-ingestion-smoke.yml": {
+    "additions": 49,
+    "deletions": 20
+  },
+  ".github/workflows/docker-unified.yml": {
+    "additions": 645,
+    "deletions": 128
+  },
+  ".github/workflows/documentation.yml": {
+    "additions": 3,
+    "deletions": 7
+  },
+  ".github/workflows/metadata-ingestion.yml": {
+    "additions": 9,
+    "deletions": 3
+  },
+  ".github/workflows/metadata-model.yml": {
+    "additions": 18,
+    "deletions": 5
+  },
+  ".github/workflows/publish-datahub-jars.yml": {
+    "additions": 12,
+    "deletions": 7
+  },
   "build.gradle": {
     "additions": 39,
     "deletions": 5
@@ -1323,6 +1371,10 @@
     "additions": null,
     "deletions": 1
   },
+  "gradle.properties": {
+    "additions": 0,
+    "deletions": 1
+  },
   "li-utils/src/main/java/com/linkedin/metadata/Constants.java": {
     "additions": null,
     "deletions": 3
@@ -1478,6 +1530,10 @@
   "metadata-integration/java/datahub-client/build.gradle": {
     "additions": 86,
     "deletions": 79
+  },
+  "metadata-integration/java/datahub-client/scripts/check_jar.sh": {
+    "additions": 4,
+    "deletions": 0
   },
   "metadata-integration/java/datahub-protobuf/build.gradle": {
     "additions": 6,
@@ -1727,6 +1783,30 @@
     "additions": null,
     "deletions": 15
   },
+  "metadata-io/src/test/resources/forms/form_assignment_test_definition_complex.json": {
+    "additions": 5,
+    "deletions": 5
+  },
+  "metadata-io/src/test/resources/forms/form_assignment_test_definition_simple.json": {
+    "additions": 1,
+    "deletions": 1
+  },
+  "metadata-io/src/test/resources/forms/form_prompt_test_definition.json": {
+    "additions": 1,
+    "deletions": 1
+  },
+  "metadata-io/src/test/resources/search_config_builder_test.yml": {
+    "additions": 69,
+    "deletions": 16
+  },
+  "metadata-io/src/test/resources/testng-other.xml": {
+    "additions": 1,
+    "deletions": 0
+  },
+  "metadata-io/src/test/resources/testng-search.xml": {
+    "additions": 1,
+    "deletions": 0
+  },
   "metadata-jobs/mae-consumer-job/src/main/java/com/linkedin/metadata/kafka/MaeConsumerApplication.java": {
     "additions": null,
     "deletions": 1
@@ -1786,6 +1866,10 @@
   "metadata-jobs/mae-consumer/src/test/java/com/linkedin/metadata/kafka/hook/spring/MCLSpringCommonTestConfiguration.java": {
     "additions": null,
     "deletions": 1
+  },
+  "metadata-jobs/mae-consumer/src/test/resources/test-entity-registry.yml": {
+    "additions": 13,
+    "deletions": 0
   },
   "metadata-jobs/mce-consumer-job/src/main/resources/logback.xml": {
     "additions": null,
@@ -1925,6 +2009,10 @@
   },
   "metadata-operation-context/src/main/java/io/datahubproject/test/metadata/context/TestOperationContexts.java": {
     "additions": null,
+    "deletions": 1
+  },
+  "metadata-service/README.md": {
+    "additions": 1,
     "deletions": 1
   },
   "metadata-service/auth-impl/src/main/java/com/datahub/authentication/authenticator/DataHubSystemAuthenticator.java": {
@@ -2103,6 +2191,10 @@
     "additions": null,
     "deletions": 7
   },
+  "metadata-service/openapi-entity-servlet/src/main/resources/JavaSpring/api.mustache": {
+    "additions": 1,
+    "deletions": 1
+  },
   "metadata-service/openapi-entity-servlet/src/test/java/io/datahubproject/openapi/config/OpenAPIEntityTestConfiguration.java": {
     "additions": null,
     "deletions": 1
@@ -2182,6 +2274,10 @@
   "metadata-service/restli-servlet-impl/src/main/java/com/linkedin/metadata/resources/usage/UsageStats.java": {
     "additions": null,
     "deletions": 5
+  },
+  "metadata-service/restli-servlet-impl/src/main/resources/index/usage-event/aws_es_ism_policy.json": {
+    "additions": 1,
+    "deletions": 1
   },
   "metadata-service/services/src/main/java/com/linkedin/metadata/datahubusage/DataHubUsageEventType.java": {
     "additions": null,
@@ -2331,6 +2427,14 @@
     "additions": null,
     "deletions": 1
   },
+  "metadata-service/war/src/main/resources/boot/global_settings.json": {
+    "additions": 9,
+    "deletions": 2
+  },
+  "metadata-service/war/src/main/resources/boot/policies.json": {
+    "additions": 144,
+    "deletions": 12
+  },
   "metadata-service/war/src/main/resources/logback.xml": {
     "additions": null,
     "deletions": 16
@@ -2347,6 +2451,18 @@
     "additions": null,
     "deletions": 1
   },
+  "perf-test/README.md": {
+    "additions": 24,
+    "deletions": 3
+  },
+  "perf-test/requirements.txt": {
+    "additions": 2,
+    "deletions": 1
+  },
+  "python-build/copy_wheels.py": {
+    "additions": 2,
+    "deletions": 1
+  },
   "settings.gradle": {
     "additions": 21,
     "deletions": 0
@@ -2358,6 +2474,22 @@
   "smoke-test/conftest.py": {
     "additions": null,
     "deletions": 2
+  },
+  "smoke-test/requirements.txt": {
+    "additions": 1,
+    "deletions": 1
+  },
+  "smoke-test/run-quickstart.sh": {
+    "additions": 6,
+    "deletions": 1
+  },
+  "smoke-test/set-cypress-creds.sh": {
+    "additions": 3,
+    "deletions": 3
+  },
+  "smoke-test/smoke.sh": {
+    "additions": 1,
+    "deletions": 1
   },
   "smoke-test/test_e2e.py": {
     "additions": null,
@@ -2471,6 +2603,18 @@
     "additions": null,
     "deletions": 4
   },
+  "smoke-test/tests/cypress/data.json": {
+    "additions": 36,
+    "deletions": 0
+  },
+  "smoke-test/tests/cypress/example_to_datahub_rest.yml": {
+    "additions": 1,
+    "deletions": 1
+  },
+  "smoke-test/tests/incidents/data.json": {
+    "additions": 1,
+    "deletions": 1
+  },
   "smoke-test/tests/incidents/incidents_test.py": {
     "additions": null,
     "deletions": 11
@@ -2486,6 +2630,10 @@
   "smoke-test/tests/setup/lineage/utils.py": {
     "additions": null,
     "deletions": 6
+  },
+  "smoke-test/tests/tests/data.json": {
+    "additions": 141,
+    "deletions": 0
   },
   "smoke-test/tests/tests/tests_test.py": {
     "additions": null,
