@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Dropdown, Icon } from '@components';
 
 import {
@@ -17,6 +17,7 @@ import { SelectOption } from './types';
 import DropdownSearchBar from '../private/DropdownSearchBar';
 import DropdownFooterActions from '../private/DropdownFooterActions';
 import SelectLabelRenderer from '../private/SelectLabelRenderer/SelectLabelRenderer';
+import { filterNestedSelectOptions } from './utils';
 
 const NO_PARENT_VALUE = 'no_parent_value';
 
@@ -175,6 +176,11 @@ export const NestedSelect = ({
         [onSearch],
     );
 
+    const filteredOptions = useMemo(() => {
+        // if (!shouldFilterOptions) return options;
+        return filterNestedSelectOptions(options, searchQuery);
+    }, [options, searchQuery]);
+
     // Instead of calling the update function individually whenever selectedOptions changes,
     // we use the useEffect hook to trigger the onUpdate function automatically when selectedOptions is updated.
     useEffect(() => {
@@ -267,7 +273,7 @@ export const NestedSelect = ({
 
     // generate map for options to quickly fetch children
     const parentValueToOptions: { [parentValue: string]: SelectOption[] } = {};
-    options.forEach((o) => {
+    filteredOptions.forEach((o) => {
         const parentValue = o.parentValue || NO_PARENT_VALUE;
         parentValueToOptions[parentValue] = parentValueToOptions[parentValue]
             ? [...parentValueToOptions[parentValue], o]
