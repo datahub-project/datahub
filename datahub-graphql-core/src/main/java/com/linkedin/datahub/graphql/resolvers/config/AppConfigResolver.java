@@ -142,7 +142,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     final IdentityManagementConfig identityManagementConfig = new IdentityManagementConfig();
     identityManagementConfig.setEnabled(
         true); // Identity Management always enabled. TODO: Understand if there's a case where
-               // this
+    // this
     // should change.
 
     final ManagedIngestionConfig ingestionConfig = new ManagedIngestionConfig();
@@ -218,61 +218,62 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     viewsConfig.setEnabled(_viewsConfiguration.isEnabled());
     appConfig.setViewsConfig(viewsConfig);
 
-    final FeatureFlagsConfig featureFlagsConfig = FeatureFlagsConfig.builder()
-        .setAssertionMonitorsEnabled(_featureFlags.isAssertionMonitorsEnabled())
-        .setSchemaAssertionMonitorsEnabled(_featureFlags.isSchemaAssertionMonitorsEnabled())
-        .setRunAssertionsEnabled(_featureFlags.isRunAssertionsEnabled())
-        .setShowSearchFiltersV2(_featureFlags.isShowSearchFiltersV2())
-        .setBusinessAttributeEntityEnabled(_featureFlags.isBusinessAttributeEntityEnabled())
-        .setReadOnlyModeEnabled(_featureFlags.isReadOnlyModeEnabled())
-        .setShowBrowseV2(_featureFlags.isShowBrowseV2())
-        .setSubscriptionsEnabled(_featureFlags.isSubscriptionsEnabled())
-        .setSlackBotTokensConfigEnabled(_featureFlags.isSlackBotTokensConfigEnabled())
-        .setSlackBotTokensObfuscationEnabled(_featureFlags.isSlackBotTokensObfuscationEnabled())
-        .setShowAcrylInfo(_featureFlags.isShowAcrylInfo())
-        .setDatasetHealthDashboardEnabled(_featureFlags.isDatasetHealthDashboardEnabled())
-        .setErModelRelationshipFeatureEnabled(
-            _featureFlags.isErModelRelationshipFeatureEnabled())
-        .setShowAccessManagement(_featureFlags.isShowAccessManagement())
-        .setNestedDomainsEnabled(_featureFlags.isNestedDomainsEnabled())
-        .setDataContractsEnabled(_featureFlags.isDataContractsEnabled())
-        .setDocumentationAiEnabled(_featureFlags.isDocumentationAiEnabled())
-        .setPlatformBrowseV2(_featureFlags.isPlatformBrowseV2())
-        .setDataContractsEnabled(_featureFlags.isDataContractsEnabled())
-        .setEditableDatasetNameEnabled(_featureFlags.isEditableDatasetNameEnabled())
-        .setShowSeparateSiblings(_featureFlags.isShowSeparateSiblings())
-        .setShowManageStructuredProperties(_featureFlags.isShowManageStructuredProperties())
-        .setEntityVersioningEnabled(_featureFlags.isEntityVersioning())
-        .setThemeV2Enabled(_featureFlags.isThemeV2Enabled())
-        .setThemeV2Default(_featureFlags.isThemeV2Default())
-        .setThemeV2Toggleable(_featureFlags.isThemeV2Toggleable())
-        .setLineageGraphV2(_featureFlags.isLineageGraphV2())
-        .setMetadataShareEnabled(_featureFlags.isMetadataShareEnabled())
-        .setDocumentationFormsEnabled(_featureFlags.isDocumentationFormsEnabled())
-        .setEmailNotificationsEnabled(_featureFlags.isEmailNotificationsEnabled())
-        .setFormCreationEnabled(_featureFlags.isFormCreationEnabled())
-        .setSchemaFieldCLLEnabled(_featureFlags.isSchemaFieldCLLEnabled())
-        .setHideDbtSourceInLineage(_featureFlags.isHideDbtSourceInLineage())
-        .setShowBulkFormByDefault(_featureFlags.isShowBulkFormByDefault())
-        .setSchemaFieldLineageIgnoreStatus(_featureFlags.isSchemaFieldLineageIgnoreStatus())
-        .setShowDatasetFeaturesSearchSortOptions(
-            _featureFlags.isShowDatasetFeaturesSearchSortOptions())
-        .setShowNavBarRedesign(_featureFlags.isShowNavBarRedesign())
-        .setShowAutoCompleteResults(_featureFlags.isShowAutoCompleteResults())
-        .setEntityVersioningEnabled(_featureFlags.isEntityVersioning())
-        .setShowHasSiblingsFilter(_featureFlags.isShowHasSiblingsFilter())
-        .setShowFormAnalytics(_featureFlags.isShowFormAnalytics())
-        .setShowStatsTabRedesign(_featureFlags.isShowStatsTabRedesign())
-        .setRequestMinimalSlackPermissions(_featureFlags.isRequestMinimalSlackPermissions())
-        .setShowTaskCenterRedesign(_featureFlags.isShowTaskCenterRedesign())
-        .setUsePropagationsFramework(_featureFlags.isUsePropagationsFramework())
-        .setDisplayExecutorPools(_featureFlags.isDisplayExecutorPools())
-        .setShowSearchBarAutocompleteRedesign(
-            _featureFlags.isShowSearchBarAutocompleteRedesign())
-        .setShowManageTags(_featureFlags.isShowManageTags())
-        .setOnlineSmartAssertionsEnabled(_featureFlags.isOnlineSmartAssertionsEnabled())
-        .setShowDefaultExternalLinks(_featureFlags.isShowDefaultExternalLinks())
-        .build();
+    final FeatureFlagsConfig featureFlagsConfig =
+        FeatureFlagsConfig.builder()
+            .setAssertionMonitorsEnabled(_featureFlags.isAssertionMonitorsEnabled())
+            .setSchemaAssertionMonitorsEnabled(_featureFlags.isSchemaAssertionMonitorsEnabled())
+            .setRunAssertionsEnabled(_featureFlags.isRunAssertionsEnabled())
+            .setShowSearchFiltersV2(_featureFlags.isShowSearchFiltersV2())
+            .setBusinessAttributeEntityEnabled(_featureFlags.isBusinessAttributeEntityEnabled())
+            .setReadOnlyModeEnabled(_featureFlags.isReadOnlyModeEnabled())
+            .setShowBrowseV2(_featureFlags.isShowBrowseV2())
+            .setSubscriptionsEnabled(_featureFlags.isSubscriptionsEnabled())
+            .setSlackBotTokensConfigEnabled(_featureFlags.isSlackBotTokensConfigEnabled())
+            .setSlackBotTokensObfuscationEnabled(_featureFlags.isSlackBotTokensObfuscationEnabled())
+            .setShowAcrylInfo(_featureFlags.isShowAcrylInfo())
+            .setDatasetHealthDashboardEnabled(_featureFlags.isDatasetHealthDashboardEnabled())
+            .setErModelRelationshipFeatureEnabled(
+                _featureFlags.isErModelRelationshipFeatureEnabled())
+            .setShowAccessManagement(_featureFlags.isShowAccessManagement())
+            .setNestedDomainsEnabled(_featureFlags.isNestedDomainsEnabled())
+            .setDataContractsEnabled(_featureFlags.isDataContractsEnabled())
+            .setDocumentationAiEnabled(_featureFlags.isDocumentationAiEnabled())
+            .setPlatformBrowseV2(_featureFlags.isPlatformBrowseV2())
+            .setDataContractsEnabled(_featureFlags.isDataContractsEnabled())
+            .setEditableDatasetNameEnabled(_featureFlags.isEditableDatasetNameEnabled())
+            .setShowSeparateSiblings(_featureFlags.isShowSeparateSiblings())
+            .setShowManageStructuredProperties(_featureFlags.isShowManageStructuredProperties())
+            .setEntityVersioningEnabled(_featureFlags.isEntityVersioning())
+            .setThemeV2Enabled(_featureFlags.isThemeV2Enabled())
+            .setThemeV2Default(_featureFlags.isThemeV2Default())
+            .setThemeV2Toggleable(_featureFlags.isThemeV2Toggleable())
+            .setLineageGraphV2(_featureFlags.isLineageGraphV2())
+            .setMetadataShareEnabled(_featureFlags.isMetadataShareEnabled())
+            .setDocumentationFormsEnabled(_featureFlags.isDocumentationFormsEnabled())
+            .setEmailNotificationsEnabled(_featureFlags.isEmailNotificationsEnabled())
+            .setFormCreationEnabled(_featureFlags.isFormCreationEnabled())
+            .setSchemaFieldCLLEnabled(_featureFlags.isSchemaFieldCLLEnabled())
+            .setHideDbtSourceInLineage(_featureFlags.isHideDbtSourceInLineage())
+            .setShowBulkFormByDefault(_featureFlags.isShowBulkFormByDefault())
+            .setSchemaFieldLineageIgnoreStatus(_featureFlags.isSchemaFieldLineageIgnoreStatus())
+            .setShowDatasetFeaturesSearchSortOptions(
+                _featureFlags.isShowDatasetFeaturesSearchSortOptions())
+            .setShowNavBarRedesign(_featureFlags.isShowNavBarRedesign())
+            .setShowAutoCompleteResults(_featureFlags.isShowAutoCompleteResults())
+            .setEntityVersioningEnabled(_featureFlags.isEntityVersioning())
+            .setShowHasSiblingsFilter(_featureFlags.isShowHasSiblingsFilter())
+            .setShowFormAnalytics(_featureFlags.isShowFormAnalytics())
+            .setShowStatsTabRedesign(_featureFlags.isShowStatsTabRedesign())
+            .setRequestMinimalSlackPermissions(_featureFlags.isRequestMinimalSlackPermissions())
+            .setShowTaskCenterRedesign(_featureFlags.isShowTaskCenterRedesign())
+            .setUsePropagationsFramework(_featureFlags.isUsePropagationsFramework())
+            .setDisplayExecutorPools(_featureFlags.isDisplayExecutorPools())
+            .setShowSearchBarAutocompleteRedesign(
+                _featureFlags.isShowSearchBarAutocompleteRedesign())
+            .setShowManageTags(_featureFlags.isShowManageTags())
+            .setOnlineSmartAssertionsEnabled(_featureFlags.isOnlineSmartAssertionsEnabled())
+            .setShowDefaultExternalLinks(_featureFlags.isShowDefaultExternalLinks())
+            .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);
 
