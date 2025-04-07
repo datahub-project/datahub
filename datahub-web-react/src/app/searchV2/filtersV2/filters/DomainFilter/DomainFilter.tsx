@@ -15,12 +15,11 @@ import { DEBOUNCE_ON_SEARCH_TIMEOUT_MS } from '../constants';
 export default function DomainFilter({ fieldName, facetState, appliedFilters, onUpdate }: FilterComponentProps) {
     const [entities, setEntities] = useState<Domain[]>([]);
     const [query, setQuery] = useState<string>('');
-    const renderLabel = (domain: Domain) => <EntityIconWithName entity={domain} />;
     const values = useValues(appliedFilters);
     const domainsFromAggregations = useDomainsFromAggregations(facetState?.facet?.aggregations);
     const { domains: domainsFromSuggestions } = useDomainsFromSuggestions(query);
     const mergedDomains = useMergedDomains(entities, domainsFromAggregations, domainsFromSuggestions);
-    const options = useOptionsFromDomains(mergedDomains, renderLabel);
+    const options = useOptionsFromDomains(mergedDomains);
     const initialValues = useMemo(() => options.filter((option) => values.includes(option.value)), [values, options]);
 
     const onSearch = debounce((newQuery: string) => setQuery(newQuery), DEBOUNCE_ON_SEARCH_TIMEOUT_MS);

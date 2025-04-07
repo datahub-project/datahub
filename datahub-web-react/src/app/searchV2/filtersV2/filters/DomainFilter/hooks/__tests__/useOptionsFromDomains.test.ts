@@ -15,19 +15,14 @@ function getSampleDomain(urn: string, parents: Domain[] = []): Domain {
     };
 }
 
-function renderLabel(domain: Domain) {
-    return domain.urn;
-}
-
 describe('useOptionsFromDomains', () => {
     it('should handle nested domains when parents presetned explicitly', () => {
         const parentDomain = getSampleDomain('parent');
         const childDomain = getSampleDomain('child', [parentDomain]);
         const nestedChildDomain = getSampleDomain('nestedChild', [childDomain, parentDomain]);
 
-        const response = renderHook(() =>
-            useOptionsFromDomains([parentDomain, childDomain, nestedChildDomain], renderLabel),
-        ).result.current;
+        const response = renderHook(() => useOptionsFromDomains([parentDomain, childDomain, nestedChildDomain])).result
+            .current;
 
         expect(response).toStrictEqual([
             {
@@ -59,7 +54,7 @@ describe('useOptionsFromDomains', () => {
         const child = getSampleDomain('child');
         const nested = getSampleDomain('nested', [child, parent]);
 
-        const response = renderHook(() => useOptionsFromDomains([nested], renderLabel)).result.current;
+        const response = renderHook(() => useOptionsFromDomains([nested])).result.current;
 
         expect(response).toStrictEqual([
             {
@@ -90,7 +85,7 @@ describe('useOptionsFromDomains', () => {
         const domain = getSampleDomain('domain');
         const another = getSampleDomain('another');
 
-        const response = renderHook(() => useOptionsFromDomains([domain, another], renderLabel)).result.current;
+        const response = renderHook(() => useOptionsFromDomains([domain, another])).result.current;
 
         expect(response).toStrictEqual([
             {
@@ -114,7 +109,7 @@ describe('useOptionsFromDomains', () => {
         const domain = getSampleDomain('domain');
         const duplicate = getSampleDomain('domain');
 
-        const response = renderHook(() => useOptionsFromDomains([domain], renderLabel)).result.current;
+        const response = renderHook(() => useOptionsFromDomains([domain])).result.current;
 
         expect(response).toStrictEqual([
             {
