@@ -225,26 +225,36 @@ export const TagAppliedToColumn = React.memo(({ tagUrn }: { tagUrn: string }) =>
     );
 });
 
-export const TagActionsColumn = React.memo(({ tagUrn, onEdit }: { tagUrn: string; onEdit: () => void }) => {
-    const items = [
-        {
-            key: '0',
-            label: (
-                <MenuItem onClick={onEdit} data-testid="action-edit">
-                    Edit
-                </MenuItem>
-            ),
-        },
-    ];
+export const TagActionsColumn = React.memo(
+    ({ tagUrn, onEdit, onDelete }: { tagUrn: string; onEdit: () => void; onDelete: () => void }) => {
+        const items = [
+            {
+                key: '0',
+                label: (
+                    <MenuItem onClick={onEdit} data-testid="action-edit">
+                        Edit
+                    </MenuItem>
+                ),
+            },
+            {
+                key: '1',
+                label: (
+                    <MenuItem onClick={onDelete} data-testid="action-delete" style={{ color: colors.red[500] }}>
+                        Delete
+                    </MenuItem>
+                ),
+            },
+        ];
 
-    return (
-        <CardIcons>
-            <Dropdown menu={{ items }} trigger={['click']} data-testid={`${tagUrn}-actions-dropdown`}>
-                <Icon icon="MoreVert" size="md" />
-            </Dropdown>
-        </CardIcons>
-    );
-});
+        return (
+            <CardIcons>
+                <Dropdown menu={{ items }} trigger={['click']} data-testid={`${tagUrn}-actions-dropdown`}>
+                    <Icon icon="MoreVert" size="md" />
+                </Dropdown>
+            </CardIcons>
+        );
+    },
+);
 
 export const TagColorColumn = React.memo(({ tag }: { tag: Entity }) => {
     const colorHex = getTagColor(tag);
