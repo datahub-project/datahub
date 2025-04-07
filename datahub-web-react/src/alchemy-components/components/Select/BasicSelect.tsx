@@ -82,6 +82,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     selectAllLabel = selectDefaults.selectAllLabel,
     showDescriptions = selectDefaults.showDescriptions,
     icon,
+    renderCustomOptionText,
     ...props
 }: SelectProps<OptionType>) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -223,7 +224,11 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                                 >
                                     {isMultiSelect ? (
                                         <LabelContainer>
-                                            <span>{option.label}</span>
+                                            {renderCustomOptionText ? (
+                                                renderCustomOptionText(option)
+                                            ) : (
+                                                <span>{option.label}</span>
+                                            )}
                                             <StyledCheckbox
                                                 onClick={() => handleOptionChange(option)}
                                                 checked={tempValues.includes(option.value)}
