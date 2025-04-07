@@ -34,6 +34,7 @@ export default function EntityTypeFilter({ fieldName, facetState, appliedFilters
             options={options}
             isMultiSelect
             width="fit-content"
+            size="sm"
             showSearch
             shouldFilterOptions
             filteringPredicate={entityTypeFilteringPredicate}

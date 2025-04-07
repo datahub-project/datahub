@@ -18,7 +18,7 @@ export function FacetsUpdater({ fieldNames, query, onFacetsUpdated }: Props) {
 
     const appliedFiltersForAnotherFields = useMemo(
         () =>
-            Array.from(fieldToAppliedFiltersMap.entries())
+            Array.from(fieldToAppliedFiltersMap?.entries?.() || [])
                 .filter(([key, _]) => !fieldNames.includes(key))
                 .flatMap(([_, value]) => value.filters),
 
