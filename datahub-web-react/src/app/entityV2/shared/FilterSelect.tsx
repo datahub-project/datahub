@@ -67,7 +67,6 @@ export const FilterSelect = ({
 
     return (
         <NestedSelect
-            label=""
             placeholder="Filter"
             options={options}
             initialValues={initialSelectedOptions}
@@ -75,7 +74,7 @@ export const FilterSelect = ({
             isMultiSelect
             areParentsSelectable={false}
             width={100}
-            showCount
+            selectLabelProps={{ variant: 'labeled', label: 'Filter' }}
             shouldAlwaysSyncParentValues
             hideParentCheckbox
         />

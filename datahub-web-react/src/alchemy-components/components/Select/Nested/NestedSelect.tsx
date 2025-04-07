@@ -1,78 +1,24 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import styled from 'styled-components';
-import { Dropdown, Icon, Pill, colors } from '@components';
+import { Dropdown, Icon } from '@components';
 
 import {
     ActionButtonsContainer,
     Container,
     DropdownContainer,
     OptionList,
-    Placeholder,
     SelectBase,
     SelectLabel,
     StyledClearButton,
 } from '../components';
 
-import { SelectSizeOptions } from '../types';
+import { SelectLabelProps, SelectSizeOptions } from '../types';
 import { NestedOption } from './NestedOption';
 import { SelectOption } from './types';
 import DropdownSearchBar from '../private/DropdownSearchBar';
 import DropdownFooterActions from '../private/DropdownFooterActions';
+import SelectLabelRenderer from '../private/SelectLabelRenderer/SelectLabelRenderer';
 
 const NO_PARENT_VALUE = 'no_parent_value';
-
-const LabelDisplayWrapper = styled.div`
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    max-height: 125px;
-    min-height: 16px;
-`;
-const StyledCountBadgeContainer = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    color: ${colors.gray[1800]};
-`;
-
-interface SelectLabelDisplayProps {
-    selectedOptions: SelectOption[];
-    placeholder: string;
-    handleOptionChange: (node: SelectOption) => void;
-    showCount?: boolean;
-}
-
-const SelectLabelDisplay = ({
-    selectedOptions,
-    placeholder,
-    handleOptionChange,
-    showCount,
-}: SelectLabelDisplayProps) => {
-    return (
-        <LabelDisplayWrapper>
-            {showCount && selectedOptions.length > 0 ? (
-                <StyledCountBadgeContainer>
-                    {placeholder}
-                    <Pill label={`${selectedOptions.length}`} size="sm" variant="filled" />
-                </StyledCountBadgeContainer>
-            ) : (
-                !!selectedOptions.length &&
-                selectedOptions.map((o) => (
-                    <Pill
-                        label={o.label}
-                        rightIcon="Close"
-                        size="sm"
-                        onClickRightIcon={(e) => {
-                            e.stopPropagation();
-                            handleOptionChange(o);
-                        }}
-                    />
-                ))
-            )}
-            {!selectedOptions.length && <Placeholder>{placeholder}</Placeholder>}
-        </LabelDisplayWrapper>
-    );
-};
 
 export interface ActionButtonsProps {
     fontSize?: SelectSizeOptions;
@@ -81,7 +27,7 @@ export interface ActionButtonsProps {
     isDisabled: boolean;
     isReadOnly: boolean;
     handleClearSelection: () => void;
-    showCount?: boolean;
+    showClear?: boolean;
 }
 
 const SelectActionButtons = ({
@@ -91,11 +37,11 @@ const SelectActionButtons = ({
     isReadOnly,
     handleClearSelection,
     fontSize = 'md',
-    showCount = false,
+    showClear = false,
 }: ActionButtonsProps) => {
     return (
         <ActionButtonsContainer>
-            {!showCount && !!selectedOptions.length && !isDisabled && !isReadOnly && (
+            {showClear && !!selectedOptions.length && !isDisabled && !isReadOnly && (
                 <StyledClearButton
                     icon={{ icon: 'Close', source: 'material', size: 'lg' }}
                     isCircle
@@ -130,11 +76,12 @@ export interface SelectProps {
     placeholder?: string;
     searchPlaceholder?: string;
     isLoadingParentChildList?: boolean;
-    showCount?: boolean;
+    showClear?: boolean;
     shouldAlwaysSyncParentValues?: boolean;
     hideParentCheckbox?: boolean;
     implicitlySelectChildren?: boolean;
     shouldManuallyUpdate?: boolean;
+    selectLabelProps?: SelectLabelProps;
 }
 
 export const selectDefaults: SelectProps = {
@@ -169,11 +116,12 @@ export const NestedSelect = ({
     searchPlaceholder,
     height = selectDefaults.height,
     isLoadingParentChildList = false,
-    showCount = false,
+    showClear = false,
     shouldAlwaysSyncParentValues = false,
     hideParentCheckbox = false,
     implicitlySelectChildren = true,
     shouldManuallyUpdate = selectDefaults.shouldManuallyUpdate,
+    selectLabelProps,
     ...props
 }: SelectProps) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -282,13 +230,14 @@ export const NestedSelect = ({
     );
 
     const removeOptions = useCallback(
-        (optionsToRemove: SelectOption[]) => {
+        (optionsToRemove: SelectOption[], syncWithSelectedOptions?: boolean) => {
             const newValues = stagedOptions.filter(
                 (selectedOption) => !optionsToRemove.find((o) => o.value === selectedOption.value),
             );
             setStagedOptions(newValues);
+            if (syncWithSelectedOptions) setSelectedOptions(newValues);
         },
-        [stagedOptions],
+        [stagedOptions, shouldManuallyUpdate],
     );
 
     const handleClearSelection = useCallback(() => {
@@ -387,11 +336,13 @@ export const NestedSelect = ({
                     width={props.width}
                     {...props}
                 >
-                    <SelectLabelDisplay
-                        selectedOptions={selectedOptions}
+                    <SelectLabelRenderer
+                        selectedValues={selectedOptions.map((o) => o.value)}
+                        options={options}
                         placeholder={placeholder || 'Select an option'}
-                        handleOptionChange={handleOptionChange}
-                        showCount={showCount}
+                        isMultiSelect={isMultiSelect}
+                        removeOption={(option) => removeOptions([option], true)}
+                        {...(selectLabelProps || {})}
                     />
                     <SelectActionButtons
                         selectedOptions={selectedOptions}
@@ -400,7 +351,7 @@ export const NestedSelect = ({
                         isReadOnly={!!isReadOnly}
                         handleClearSelection={handleClearSelection}
                         fontSize={size}
-                        showCount={showCount}
+                        showClear={showClear}
                     />
                 </SelectBase>
             </Dropdown>

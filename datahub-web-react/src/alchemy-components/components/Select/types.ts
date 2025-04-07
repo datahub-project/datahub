@@ -10,6 +10,10 @@ export interface SelectOption {
 }
 
 export type SelectLabelVariants = 'default' | 'labeled' | 'custom';
+export type SelectLabelProps = {
+    variant: SelectLabelVariants;
+    label?: string;
+};
 
 type OptionPosition = 'start' | 'end' | 'center';
 
@@ -42,10 +46,7 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     optionListStyle?: React.CSSProperties;
     optionListTestId?: string;
     optionSwitchable?: boolean;
-    selectLabelProps?: {
-        variant: SelectLabelVariants;
-        label?: string;
-    };
+    selectLabelProps?: SelectLabelProps;
     position?: OptionPosition;
     applyHoverWidth?: boolean;
     ignoreMaxHeight?: boolean;
