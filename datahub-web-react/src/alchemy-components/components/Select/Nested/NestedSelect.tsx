@@ -110,7 +110,7 @@ const SelectActionButtons = ({
 
 export interface SelectProps {
     options: SelectOption[];
-    label: string;
+    label?: string;
     value?: string;
     initialValues?: SelectOption[];
     onCancel?: () => void;
