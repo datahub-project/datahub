@@ -1,29 +1,18 @@
 import React from 'react';
-import { Typography } from 'antd';
 import styled from 'styled-components';
+import { PageTitle } from '@components';
 import { RoutedTabs } from '../shared/RoutedTabs';
 import { GroupList } from './group/GroupList';
 import { UserList } from './user/UserList';
 
 const PageContainer = styled.div`
-    padding-top: 20px;
+    padding: 16px 20px;
     width: 100%;
     overflow: auto;
     flex: 1;
     display: flex;
     flex-direction: column;
-`;
-
-const PageHeaderContainer = styled.div`
-    && {
-        padding-left: 24px;
-    }
-`;
-
-const PageTitle = styled(Typography.Title)`
-    && {
-        margin-bottom: 12px;
-    }
+    gap: 16px;
 `;
 
 const Content = styled.div`
@@ -82,12 +71,11 @@ export const ManageIdentities = ({ version }: Props) => {
 
     return (
         <PageContainer>
-            <PageHeaderContainer data-testid={`manage-users-groups-${version}`}>
-                <PageTitle level={3}>Manage Users & Groups</PageTitle>
-                <Typography.Paragraph type="secondary">
-                    View your DataHub users & groups. Take administrative actions.
-                </Typography.Paragraph>
-            </PageHeaderContainer>
+            <PageTitle
+                data-testid={`manage-users-groups-${version}`}
+                title="Manage Users & Groups"
+                subTitle="View your DataHub users & groups. Take administrative actions."
+            />
             <Content>
                 <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
             </Content>
