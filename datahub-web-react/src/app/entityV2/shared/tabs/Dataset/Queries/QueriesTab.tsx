@@ -54,17 +54,8 @@ export default function QueriesTab() {
     /**
      * Fetch the List of Popular Queries
      */
-    const {
-        popularQueries,
-        loading: popularQueriesLoading,
-        pagination: popularQueriesPagination,
-        total,
-        sorting: popularSorting,
-        selectedUsersFilter,
-        setSelectedUsersFilter,
-        selectedColumnsFilter,
-        setSelectedColumnsFilter,
-    } = usePopularQueries({ entityUrn, siblingUrn, filterText });
+    const { selectedUsersFilter, setSelectedUsersFilter, selectedColumnsFilter, setSelectedColumnsFilter } =
+        usePopularQueries({ entityUrn, siblingUrn, filterText });
 
     /**
      * Fetch the List of Downstream Queries
@@ -90,18 +81,9 @@ export default function QueriesTab() {
     };
 
     // can add something about initalLoading if there was never data, or have state that is like finishedInitialLoad = false, with useEffect
-    const isLoading =
-        !entityUrn ||
-        highlightedQueriesLoading ||
-        popularQueriesLoading ||
-        downstreamQueriesLoading ||
-        recentQueriesLoading;
+    const isLoading = !entityUrn || highlightedQueriesLoading || downstreamQueriesLoading || recentQueriesLoading;
     const showEmptyView =
-        !isLoading &&
-        !recentQueries.length &&
-        !highlightedQueries.length &&
-        !downstreamQueries.length &&
-        !popularQueries.length;
+        !isLoading && !recentQueries.length && !highlightedQueries.length && !downstreamQueries.length;
 
     // shared props with all of the QueriesListSection components below
     const props = {
@@ -157,19 +139,6 @@ export default function QueriesTab() {
                                 buttonLabel="Add Highlighted Query"
                                 isButtonDisabled={!canEditQueries}
                                 onButtonClick={() => setShowQueryBuilder(true)}
-                            />
-                        )}
-                        {(popularQueries.length > 0 || popularQueriesLoading) && (
-                            <QueriesListSection
-                                title="Popular Queries"
-                                section={QueriesTabSection.Popular}
-                                tooltip="The most popular queries that were run against this dataset"
-                                queries={popularQueries}
-                                loading={popularQueriesLoading}
-                                totalQueries={total}
-                                pagination={popularQueriesPagination}
-                                sorting={popularSorting}
-                                {...props}
                             />
                         )}
                         {downstreamQueries.length > 0 && (

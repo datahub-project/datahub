@@ -17,7 +17,6 @@ export type Query = {
     createdBy?: CorpUser | null;
     poweredEntity?: Entity;
     usedBy?: CorpUser[];
-    runsPercentileLast30days?: number | null;
     columns?: SchemaFieldEntity[];
 };
 
