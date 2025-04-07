@@ -18,6 +18,7 @@ interface Props {
     defaultIsSelectMode?: boolean;
     selectedEntities: EntityAndType[];
     setSelectedEntities: (entities: EntityAndType[]) => void;
+    existingSearchParams?: { [key: string]: string };
 }
 
 export default function useSearchPage({
@@ -26,6 +27,7 @@ export default function useSearchPage({
     defaultIsSelectMode = false,
     selectedEntities,
     setSelectedEntities,
+    existingSearchParams,
 }: Props) {
     const selectedSortOption = useSelectedSortOption();
     const history = useHistory();
@@ -78,6 +80,7 @@ export default function useSearchPage({
             history,
             unionType,
             currentPath,
+            existingSearchParams,
         });
     };
 
@@ -91,6 +94,7 @@ export default function useSearchPage({
             history,
             unionType: newUnionType,
             currentPath,
+            existingSearchParams,
         });
     };
 
@@ -105,6 +109,7 @@ export default function useSearchPage({
             history,
             unionType,
             currentPath,
+            existingSearchParams,
         });
     };
 
@@ -119,6 +124,7 @@ export default function useSearchPage({
             history,
             unionType,
             currentPath,
+            existingSearchParams,
         });
     };
 

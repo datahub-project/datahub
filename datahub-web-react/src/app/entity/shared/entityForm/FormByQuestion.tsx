@@ -80,6 +80,9 @@ export default function FormByQuestion({ closeModal }: Props) {
     const { filterMode, setFilterMode } = useFilterMode(filters, unionType);
     const [isVerifyModalVisible, setIsVerifyModalVisible] = useState(false);
 
+    const url = new URL(window.location.href);
+    const formUrn = url.searchParams.get('form_urn');
+
     const {
         isSelectMode,
         setIsSelectMode,
@@ -95,6 +98,7 @@ export default function FormByQuestion({ closeModal }: Props) {
         selectedEntities,
         setSelectedEntities,
         defaultIsSelectMode: true,
+        existingSearchParams: formUrn ? { form_urn: formUrn } : undefined,
     });
 
     const clearAllFilters = () => {
