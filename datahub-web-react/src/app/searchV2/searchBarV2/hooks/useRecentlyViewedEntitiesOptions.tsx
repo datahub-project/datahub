@@ -7,15 +7,20 @@ export default function useRecentlyViewedEntitiesOptions() {
     const { entities: recentlyViewedEntities } = useRecentlyViewedEntities();
 
     const recentlyViewedEntitiesOptions = useMemo(
-        () => ({
-            label: <SectionHeader text="You Recently Viewed" />,
-            options: recentlyViewedEntities.map((entity) => ({
-                label: <AutoCompleteEntityItem entity={entity} />,
-                value: entity.urn,
-                type: entity.type,
-                style: { padding: '0 8px' },
-            })),
-        }),
+        () =>
+            recentlyViewedEntities.length > 0
+                ? [
+                      {
+                          label: <SectionHeader text="You Recently Viewed" />,
+                          options: recentlyViewedEntities.map((entity) => ({
+                              label: <AutoCompleteEntityItem entity={entity} />,
+                              value: entity.urn,
+                              type: entity.type,
+                              style: { padding: '0 8px' },
+                          })),
+                      },
+                  ]
+                : [],
         [recentlyViewedEntities],
     );
 
