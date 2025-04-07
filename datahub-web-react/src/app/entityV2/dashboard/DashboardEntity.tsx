@@ -26,6 +26,11 @@ import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+// import { SidebarAccessRequestSection } from '../shared/containers/profile/sidebar/AccessRequest/SidebarAccessRequestSection';
+// import { SidebarAccessRequestSection } from '../entity/shared/containers/profile/sidebar/AccessRequest/SidebarAccessRequestSection.tsx';
+import { SidebarAccessRequestSection } from '/src/app/entity/shared/containers/profile/sidebar/AccessRequest/SidebarAccessRequestSection.tsx';
+// /src/app/entityV2/dashboard/DashboardEntity.tsx
+// '/src/app/entity/shared/containers/profile/sidebar/AccessRequest/SidebarAccessRequestSection.tsx';
 import SidebarDashboardHeaderSection from '../shared/containers/profile/sidebar/Dashboard/Header/SidebarDashboardHeaderSection';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
@@ -219,6 +224,9 @@ export class DashboardEntity implements Entity<Dashboard> {
         },
         {
             component: SidebarDomainSection,
+        },
+        {
+            component: SidebarAccessRequestSection,
         },
         {
             component: DataProductSection,

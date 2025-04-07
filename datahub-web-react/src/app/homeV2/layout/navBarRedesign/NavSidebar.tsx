@@ -127,7 +127,7 @@ export const NavSidebar = () => {
                 items: [
                     {
                         type: NavBarMenuItemTypes.Item,
-                        title: 'Glossary',
+                        title: 'Glossary - JG WUZ HERE',
                         key: 'glossary',
                         icon: <BookBookmark />,
                         selectedIcon: <BookBookmark weight="fill" />,

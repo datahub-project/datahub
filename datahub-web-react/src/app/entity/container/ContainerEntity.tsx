@@ -13,6 +13,7 @@ import { ContainerEntitiesTab } from './ContainerEntitiesTab';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarAccessRequestSection } from '../shared/containers/profile/sidebar/AccessRequest/SidebarAccessRequestSection';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
@@ -133,6 +134,9 @@ export class ContainerEntity implements Entity<Container> {
         },
         {
             component: DataProductSection,
+        },
+        {
+            component: SidebarAccessRequestSection,
         },
         {
             component: SidebarStructuredPropsSection,
