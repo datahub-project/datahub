@@ -13,8 +13,8 @@ export type SelectLabelVariants = 'default' | 'labeled' | 'custom';
 
 type OptionPosition = 'start' | 'end' | 'center';
 
-export interface SelectProps {
-    options: SelectOption[];
+export interface SelectProps<OptionType extends SelectOption = SelectOption> {
+    options: OptionType[];
     label?: string;
     values?: string[];
     initialValues?: string[];
@@ -34,11 +34,11 @@ export interface SelectProps {
     showSelectAll?: boolean;
     selectAllLabel?: string;
     showDescriptions?: boolean;
-    renderCustomOptionText?: (option: SelectOption) => void;
-    renderCustomSelectedValue?: (selectedOptions: SelectOption) => void;
+    renderCustomOptionText?: (option: OptionType) => void;
+    renderCustomSelectedValue?: (selectedOptions: OptionType) => void;
     filterResultsByQuery?: boolean;
     onSearchChange?: (searchText: string) => void;
-    combinedSelectedAndSearchOptions?: SelectOption[];
+    combinedSelectedAndSearchOptions?: OptionType[];
     optionListStyle?: React.CSSProperties;
     optionListTestId?: string;
     optionSwitchable?: boolean;
@@ -70,22 +70,22 @@ export interface ActionButtonsProps {
     handleClearSelection: () => void;
 }
 
-export interface SelectLabelDisplayProps {
+export interface SelectLabelDisplayProps<OptionType extends SelectOption = SelectOption> {
     selectedValues: string[];
-    options: SelectOption[];
+    options: OptionType[];
     placeholder: string;
     isMultiSelect?: boolean;
-    removeOption?: (option: SelectOption) => void;
+    removeOption?: (option: OptionType) => void;
     disabledValues?: string[];
     showDescriptions?: boolean;
     isCustomisedLabel?: boolean;
-    renderCustomSelectedValue?: (selectedOptions: SelectOption) => void;
+    renderCustomSelectedValue?: (selectedOptions: OptionType) => void;
     variant?: SelectLabelVariants;
     label?: string;
 }
 
-export interface SelectLabelVariantProps extends Omit<SelectLabelDisplayProps, 'variant'> {
-    selectedOptions: SelectOption[];
+export interface SelectLabelVariantProps<OptionType extends SelectOption = SelectOption> extends Omit<SelectLabelDisplayProps, 'variant'> {
+    selectedOptions: OptionType[];
 }
 
 export interface SearchInputProps extends React.InputHTMLAttributes<HTMLInputElement> {

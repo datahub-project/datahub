@@ -62,8 +62,8 @@ export const selectDefaults: SelectProps = {
     showDescriptions: false,
 };
 
-export const BasicSelect = ({
-    options = selectDefaults.options,
+export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
+    options = [],
     label = selectDefaults.label,
     values = [],
     initialValues,
@@ -83,7 +83,7 @@ export const BasicSelect = ({
     showDescriptions = selectDefaults.showDescriptions,
     icon,
     ...props
-}: SelectProps) => {
+}: SelectProps<OptionType>) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [isOpen, setIsOpen] = useState(false);
     const [selectedValues, setSelectedValues] = useState<string[]>(initialValues || values);
