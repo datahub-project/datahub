@@ -21,6 +21,7 @@ else
   echo "test_user:test_pass" >> ~/.datahub/plugins/frontend/auth/user.props
   echo "datahub:datahub" > ~/.datahub/plugins/frontend/auth/user.props
 
+
   python3 -m venv venv
   set +x
   source venv/bin/activate
