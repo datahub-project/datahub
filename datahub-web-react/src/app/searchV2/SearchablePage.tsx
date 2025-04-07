@@ -1,5 +1,5 @@
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import { debounce } from 'lodash';
 import * as QueryString from 'query-string';
@@ -142,10 +142,10 @@ export const SearchablePage = ({ children }: Props) => {
         }
     }, FIFTH_SECOND_IN_MS);
 
-    const autoCompleteWithFilters = debounce((query: string) => {
+    const autoCompleteWithFilters = useCallback(debounce((query: string, filters: FieldToAppliedFieldFiltersMap | undefined) => {
         if (query.trim() === '') return null;
 
-        const flatAppliedFilters = Array.from(appliedFilters?.values?.() || [])
+        const flatAppliedFilters = Array.from(filters?.values?.() || [])
             .flatMap((value) => value.filters)
             .filter((filter) => filter.values?.length);
 
@@ -159,11 +159,11 @@ export const SearchablePage = ({ children }: Props) => {
             },
         });
         return null;
-    }, FIFTH_SECOND_IN_MS);
+    }, FIFTH_SECOND_IN_MS), [getAutoCompleteResults]);
 
 
     useEffect(() => {
-        if (showSearchBarAutocompleteRedesign) autoCompleteWithFilters(searchQuery);
+        if (showSearchBarAutocompleteRedesign) autoCompleteWithFilters(searchQuery, appliedFilters);
     }, [searchQuery, showSearchBarAutocompleteRedesign, appliedFilters, autoCompleteWithFilters]);
 
     // Load correct autocomplete results on initial page load.

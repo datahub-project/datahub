@@ -1,9 +1,10 @@
-import { useAggregateAcrossEntitiesQuery } from '@src/graphql/search.generated';
+import { useAggregateAcrossEntitiesLazyQuery, useAggregateAcrossEntitiesQuery } from '@src/graphql/search.generated';
 import { EntityType, FacetMetadata } from '@src/types.generated';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ENTITY_SUB_TYPE_FILTER_NAME } from '../../../utils/constants';
 import { useSearchFiltersContext } from '../../context';
 import { FieldName, FieldToFacetStateMap } from '../../types';
+import { debounce } from 'lodash';
 
 interface Props {
     fieldNames: FieldName[];
@@ -15,6 +16,12 @@ export function FacetsUpdater({ fieldNames, query, onFacetsUpdated }: Props) {
     const [facets, setFacets] = useState<FacetMetadata[]>([]);
     const [isInitialized, setIsInitialized] = useState<boolean>(false);
     const { fieldToAppliedFiltersMap } = useSearchFiltersContext();
+
+    const [aggregateAcrossEntities, { data, loading }] = useAggregateAcrossEntitiesLazyQuery();
+
+    const aggregateAcrossEntitiesWithDebounce = useCallback(debounce(aggregateAcrossEntities, 300), [
+        aggregateAcrossEntities,
+    ]);
 
     const appliedFiltersForAnotherFields = useMemo(
         () =>
@@ -36,17 +43,20 @@ export function FacetsUpdater({ fieldNames, query, onFacetsUpdated }: Props) {
         return appliedFiltersForAnotherFields.filter((filter) => filter.field !== ENTITY_SUB_TYPE_FILTER_NAME);
     }, [appliedFiltersForAnotherFields]);
 
-    const { data, loading } = useAggregateAcrossEntitiesQuery({
-        variables: {
-            input: {
-                query,
-                types: entityTypesFromFilters,
-                orFilters: [{ and: filters }],
-                facets: fieldNames,
-            },
-        },
-        skip: fieldNames.length === 0,
-    });
+    useEffect(() => {
+        if (fieldNames.length > 0) {
+            aggregateAcrossEntitiesWithDebounce({
+                variables: {
+                    input: {
+                        query,
+                        types: entityTypesFromFilters,
+                        orFilters: [{ and: filters }],
+                        facets: fieldNames,
+                    },
+                },
+            });
+        }
+    }, [aggregateAcrossEntitiesWithDebounce, query, entityTypesFromFilters, filters, fieldNames]);
 
     useEffect(() => {
         if (!loading) {
