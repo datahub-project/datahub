@@ -3,10 +3,10 @@
 - Create a [Databricks Service Principal](https://docs.databricks.com/administration-guide/users-groups/service-principals.html#what-is-a-service-principal)
   + You can skip this step and use your own account to get things running quickly,
   but we strongly recommend creating a dedicated service principal for production use.
-- Use Azure Identity or Generate a Databricks Personal Access token following the following guides:
+- Generate a Databricks Personal Access token or Azure Identity following the following guides:
   + [Service Principals](https://docs.databricks.com/administration-guide/users-groups/service-principals.html#personal-access-tokens)
-  + [Azure Identity](https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.environmentcredential?view=azure-python)
   + [Personal Access Tokens](https://docs.databricks.com/dev-tools/auth.html#databricks-personal-access-tokens)
+  + [Azure Identity](https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.environmentcredential?view=azure-python)
 - Provision your service account:
   + To ingest your workspace's metadata and lineage, your service principal must have all of the following:
     * One of: metastore admin role, ownership of, or `USE CATALOG` privilege on any catalogs you want to ingest

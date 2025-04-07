@@ -1,8 +1,6 @@
 import logging
 from typing import Optional
 
-from azure.identity import DefaultAzureCredential
-
 from datahub.ingestion.api.source import (
     CapabilityReport,
     SourceCapability,
@@ -11,13 +9,6 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.report import UnityCatalogReport
-
-try:
-    from azure.identity import DefaultAzureCredential
-
-    AZURE_AVAILABLE = True
-except ImportError:
-    AZURE_AVAILABLE = False
 
 try:
     from databricks import sql  # type: ignore
@@ -37,20 +28,7 @@ class UnityCatalogConnectionTest:
         self.config = config
         self.report = UnityCatalogReport()
 
-        # Get the appropriate token based on auth type
-        if config.auth_type == "azure_default":
-            if not AZURE_AVAILABLE:
-                raise ImportError(
-                    "azure-identity package is required for Azure Default Credentials authentication. "
-                    "Please install it with: pip install azure-identity"
-                )
-            credential = DefaultAzureCredential()
-            token = credential.get_token(f"{DATABRICKS_RESOURCE_ID}/.default").token
-        else:
-            if not config.token:
-                raise ValueError("token is required when auth_type is 'token'")
-            token = config.token
-
+        token = self.config.get_token()
         self.proxy = UnityCatalogApiProxy(
             self.config.workspace_url,
             token,
@@ -110,35 +88,15 @@ class UnityCatalogConnectionTest:
             config = UnityCatalogSourceConfig.parse_obj(config_dict)
 
             # Test authentication
-            if config.auth_type == "azure_default":
-                if not AZURE_AVAILABLE:
-                    return TestConnectionReport(
-                        basic_connectivity=CapabilityReport(
-                            capable=False,
-                            failure_reason="azure-identity package is required for Azure Default Credentials authentication. "
-                            "Please install it with: pip install azure-identity",
-                        )
+            try:
+                token = config.get_token()
+            except Exception as e:
+                return TestConnectionReport(
+                    basic_connectivity=CapabilityReport(
+                        capable=False,
+                        failure_reason=f"Failed to get token: {str(e)}",
                     )
-                try:
-                    credential = DefaultAzureCredential()
-                    token = credential.get_token(
-                        f"{DATABRICKS_RESOURCE_ID}/.default"
-                    ).token
-                except Exception as e:
-                    return TestConnectionReport(
-                        basic_connectivity=CapabilityReport(
-                            capable=False,
-                            failure_reason=f"Failed to get Azure token: {str(e)}",
-                        )
-                    )
-            else:
-                if not config.token:
-                    return TestConnectionReport(
-                        basic_connectivity=CapabilityReport(
-                            capable=False,
-                            failure_reason="token is required when auth_type is 'token'",
-                        )
-                    )
+                )
 
             # Test connection to Databricks
             if not DATABRICKS_SQL_AVAILABLE:
@@ -153,9 +111,7 @@ class UnityCatalogConnectionTest:
                 with sql.connect(
                     server_hostname=config.workspace_url,
                     http_path=f"/sql/1.0/warehouses/{config.warehouse_id}",
-                    access_token=token
-                    if config.auth_type == "azure_default"
-                    else config.token,
+                    access_token=token,
                 ) as connection:
                     with connection.cursor() as cursor:
                         cursor.execute("SELECT 1")
