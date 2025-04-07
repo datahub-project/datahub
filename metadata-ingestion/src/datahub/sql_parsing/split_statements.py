@@ -237,8 +237,10 @@ class _StatementSplitter:
             ),
         )
         if (
-            is_force_new_statement_keyword and most_recent_real_char != ")"
-        ):  # usually we'd have a close paren that closes a CTE
+            is_force_new_statement_keyword
+            and not self._has_preceding_cte(most_recent_real_char)
+            and not self._is_part_of_merge_query()
+        ):
             # Force termination of current statement
             yield from self._yield_if_complete()
 
@@ -250,6 +252,14 @@ class _StatementSplitter:
             yield from self._yield_if_complete()
         else:
             self.current_statement.append(c)
+
+    def _has_preceding_cte(self, most_recent_real_char: str) -> bool:
+        # usually we'd have a close paren that closes a CTE
+        return most_recent_real_char == ")"
+
+    def _is_part_of_merge_query(self) -> bool:
+        # In merge statement we'd have `when matched then` or `when not matched then"
+        return "".join(self.current_statement).strip().lower().endswith("then")
 
 
 def split_statements(sql: str) -> Iterator[str]:

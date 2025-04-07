@@ -141,7 +141,7 @@
                 "downstream_task_ids": "[]",
                 "inlets": "[]",
                 "outlets": "[]",
-                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.18.0/integration/airflow\", \"_schemaURL\": \"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/BaseFacet\", \"unknownItems\": [{\"name\": \"DatahubEmitterOperator\", \"properties\": {\"depends_on_past\": false, \"downstream_task_ids\": \"[]\", \"execution_timeout\": \"<<non-serializable: timedelta>>\", \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"is_setup\": false, \"is_teardown\": false, \"mapped\": false, \"multiple_outputs\": false, \"operator_class\": \"datahub_airflow_plugin.operators.datahub.DatahubEmitterOperator\", \"owner\": \"airflow\", \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_exponential_backoff\": false, \"task_id\": \"datahub_emitter_operator_jinja_template_dag_task\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": \"[]\", \"wait_for_downstream\": false, \"wait_for_past_depends_before_skipping\": false, \"weight_rule\": \"<<non-serializable: _DownstreamPriorityWeightStrategy>>\"}, \"type\": \"operator\"}]}"
+                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/BaseFacet\", \"unknownItems\": [{\"name\": \"DatahubEmitterOperator\", \"properties\": {\"depends_on_past\": false, \"downstream_task_ids\": \"[]\", \"execution_timeout\": \"<<non-serializable: timedelta>>\", \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"mapped\": false, \"operator_class\": \"datahub_airflow_plugin.operators.datahub.DatahubEmitterOperator\", \"owner\": \"airflow\", \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_exponential_backoff\": false, \"task_id\": \"datahub_emitter_operator_jinja_template_dag_task\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": \"[]\", \"wait_for_downstream\": false, \"weight_rule\": \"downstream\"}, \"type\": \"operator\"}]}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=datahub_emitter_operator_jinja_template_dag&_flt_3_task_id=datahub_emitter_operator_jinja_template_dag_task",
             "name": "datahub_emitter_operator_jinja_template_dag_task",
@@ -235,16 +235,16 @@
                 "state": "running",
                 "operator": "DatahubEmitterOperator",
                 "priority_weight": "1",
-                "log_url": "http://airflow.example.com/dags/datahub_emitter_operator_jinja_template_dag/grid?dag_run_id=manual_run_test&task_id=datahub_emitter_operator_jinja_template_dag_task&map_index=-1&tab=logs",
+                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=datahub_emitter_operator_jinja_template_dag_task&dag_id=datahub_emitter_operator_jinja_template_dag&map_index=-1",
                 "orchestrator": "airflow",
                 "dag_id": "datahub_emitter_operator_jinja_template_dag",
                 "task_id": "datahub_emitter_operator_jinja_template_dag_task"
             },
-            "externalUrl": "http://airflow.example.com/dags/datahub_emitter_operator_jinja_template_dag/grid?dag_run_id=manual_run_test&task_id=datahub_emitter_operator_jinja_template_dag_task&map_index=-1&tab=logs",
+            "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=datahub_emitter_operator_jinja_template_dag_task&dag_id=datahub_emitter_operator_jinja_template_dag&map_index=-1",
             "name": "datahub_emitter_operator_jinja_template_dag_datahub_emitter_operator_jinja_template_dag_task_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1726699852909,
+                "time": 1743622429751,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -269,7 +269,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1726699852909,
+            "timestampMillis": 1743622429751,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -362,7 +362,7 @@
                 "downstream_task_ids": "[]",
                 "inlets": "[]",
                 "outlets": "[]",
-                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.18.0/integration/airflow\", \"_schemaURL\": \"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/BaseFacet\", \"unknownItems\": [{\"name\": \"DatahubEmitterOperator\", \"properties\": {\"depends_on_past\": false, \"downstream_task_ids\": \"[]\", \"execution_timeout\": \"<<non-serializable: timedelta>>\", \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"is_setup\": false, \"is_teardown\": false, \"mapped\": false, \"multiple_outputs\": false, \"operator_class\": \"datahub_airflow_plugin.operators.datahub.DatahubEmitterOperator\", \"owner\": \"airflow\", \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_exponential_backoff\": false, \"task_id\": \"datahub_emitter_operator_jinja_template_dag_task\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": \"[]\", \"wait_for_downstream\": false, \"wait_for_past_depends_before_skipping\": false, \"weight_rule\": \"<<non-serializable: _DownstreamPriorityWeightStrategy>>\"}, \"type\": \"operator\"}]}"
+                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/BaseFacet\", \"unknownItems\": [{\"name\": \"DatahubEmitterOperator\", \"properties\": {\"depends_on_past\": false, \"downstream_task_ids\": \"[]\", \"execution_timeout\": \"<<non-serializable: timedelta>>\", \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"mapped\": false, \"operator_class\": \"datahub_airflow_plugin.operators.datahub.DatahubEmitterOperator\", \"owner\": \"airflow\", \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_exponential_backoff\": false, \"task_id\": \"datahub_emitter_operator_jinja_template_dag_task\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": \"[]\", \"wait_for_downstream\": false, \"weight_rule\": \"downstream\"}, \"type\": \"operator\"}]}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=datahub_emitter_operator_jinja_template_dag&_flt_3_task_id=datahub_emitter_operator_jinja_template_dag_task",
             "name": "datahub_emitter_operator_jinja_template_dag_task",
@@ -444,7 +444,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1726699853392,
+            "timestampMillis": 1743622430015,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"

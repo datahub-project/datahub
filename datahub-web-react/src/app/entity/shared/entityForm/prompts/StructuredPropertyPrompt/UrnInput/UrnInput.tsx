@@ -5,9 +5,17 @@ import GlossaryBrowser from '@src/app/glossary/GlossaryBrowser/GlossaryBrowser';
 import ClickOutside from '@src/app/shared/ClickOutside';
 import { BrowserWrapper } from '@src/app/shared/tags/AddTagsTermsModal';
 import styled from 'styled-components';
+<<<<<<< HEAD
 import { Entity, EntityType, FormPromptType } from '../../../../../../../types.generated';
 import useUrnInput from './useUrnInput';
+||||||| 952f3cc3118
+import { StructuredPropertyEntity } from '../../../../../../../types.generated';
+import useUrnInput from './useUrnInput';
+=======
+import { StructuredPropertyEntity } from '../../../../../../../types.generated';
+>>>>>>> master
 import SelectedEntity from './SelectedEntity';
+import useUrnInput from './useUrnInput';
 
 const EntitySelect = styled(Select)`
     width: 100%;

@@ -3,7 +3,12 @@ import { PageTitle, Button } from '@components';
 import { useHistory } from 'react-router';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+<<<<<<< HEAD
 import { PlusOutlined } from '@ant-design/icons';
+||||||| 952f3cc3118
+=======
+import { useHistory } from 'react-router';
+>>>>>>> master
 import { IngestionSourceList } from './source/IngestionSourceList';
 import { useAppConfig } from '../useAppConfig';
 import { useUserContext } from '../context/useUserContext';
@@ -11,8 +16,13 @@ import { SecretsList } from './secret/SecretsList';
 import { OnboardingTour } from '../onboarding/OnboardingTour';
 import { INGESTION_CREATE_SOURCE_ID } from '../onboarding/config/IngestionOnboardingConfig';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
+<<<<<<< HEAD
 import { REMOTE_EXECUTORS_CREATE_SOURCE_ID, RemoteExecutorPoolsList } from './executor_saas/RemoteExecutorPoolsList';
 import { TabType } from './types';
+||||||| 952f3cc3118
+=======
+import { TabType } from './types';
+>>>>>>> master
 
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 16px;
@@ -98,6 +108,7 @@ export const ManageIngestionPage = () => {
     const onSwitchTab = (newTab: string, options?: { clearQueryParams: boolean }) => {
         const matchingTab = Object.values(TabType).find((tab) => tab === newTab);
         setSelectedTab(matchingTab || selectedTab);
+<<<<<<< HEAD
         if (options?.clearQueryParams) {
             history.push({ search: '' });
         }
@@ -134,6 +145,17 @@ export const ManageIngestionPage = () => {
                 setShowCreatePoolModal={setShowCreatePoolModal}
             />
         ),
+||||||| 952f3cc3118
+=======
+        if (options?.clearQueryParams) {
+            history.push({ search: '' });
+        }
+    };
+
+    const TabTypeToListComponent = {
+        [TabType.Sources]: <IngestionSourceList />,
+        [TabType.Secrets]: <SecretsList />,
+>>>>>>> master
     };
 
     return (

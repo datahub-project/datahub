@@ -602,12 +602,22 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         if not self.config.include_field_median_value:
             return
         try:
-            if self.dataset.engine.dialect.name.lower() in [SNOWFLAKE, DATABRICKS]:
+            if self.dataset.engine.dialect.name.lower() == SNOWFLAKE:
                 column_profile.median = str(
                     self.dataset.engine.execute(
                         sa.select([sa.func.median(sa.column(column))]).select_from(
                             self.dataset._table
                         )
+                    ).scalar()
+                )
+            elif self.dataset.engine.dialect.name.lower() == DATABRICKS:
+                column_profile.median = str(
+                    self.dataset.engine.execute(
+                        sa.select(
+                            sa.text(
+                                f"approx_percentile(`{column}`, 0.5) as approx_median"
+                            )
+                        ).select_from(self.dataset._table)
                     ).scalar()
                 )
             elif self.dataset.engine.dialect.name.lower() == BIGQUERY:

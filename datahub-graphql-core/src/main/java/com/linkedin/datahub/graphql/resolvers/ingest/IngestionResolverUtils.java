@@ -67,13 +67,10 @@ public class IngestionResolverUtils {
     result.setId(entityUrn.getId());
 
     // Map input aspect. Must be present.
-    final EnvelopedAspect envelopedInput =
-        aspects.get(Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME);
+    final EnvelopedAspect envelopedInput = aspects.get(Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME);
     if (envelopedInput != null) {
-      final ExecutionRequestInput executionRequestInput =
-          new ExecutionRequestInput(envelopedInput.getValue().data());
-      final com.linkedin.datahub.graphql.generated.ExecutionRequestInput inputResult =
-          new com.linkedin.datahub.graphql.generated.ExecutionRequestInput();
+      final ExecutionRequestInput executionRequestInput = new ExecutionRequestInput(envelopedInput.getValue().data());
+      final com.linkedin.datahub.graphql.generated.ExecutionRequestInput inputResult = new com.linkedin.datahub.graphql.generated.ExecutionRequestInput();
 
       inputResult.setTask(executionRequestInput.getTask());
       if (executionRequestInput.hasSource()) {
@@ -94,21 +91,19 @@ public class IngestionResolverUtils {
     }
 
     // Map result aspect. Optional.
-    final EnvelopedAspect envelopedResult =
-        aspects.get(Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME);
+    final EnvelopedAspect envelopedResult = aspects.get(Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME);
     if (envelopedResult != null) {
-      final ExecutionRequestResult executionRequestResult =
-          new ExecutionRequestResult(envelopedResult.getValue().data());
+      final ExecutionRequestResult executionRequestResult = new ExecutionRequestResult(
+          envelopedResult.getValue().data());
       result.setResult(mapExecutionRequestResult(executionRequestResult));
     }
 
     return result;
   }
 
-  public static com.linkedin.datahub.graphql.generated.ExecutionRequestSource
-      mapExecutionRequestSource(final ExecutionRequestSource execRequestSource) {
-    final com.linkedin.datahub.graphql.generated.ExecutionRequestSource result =
-        new com.linkedin.datahub.graphql.generated.ExecutionRequestSource();
+  public static com.linkedin.datahub.graphql.generated.ExecutionRequestSource mapExecutionRequestSource(
+      final ExecutionRequestSource execRequestSource) {
+    final com.linkedin.datahub.graphql.generated.ExecutionRequestSource result = new com.linkedin.datahub.graphql.generated.ExecutionRequestSource();
     result.setType(execRequestSource.getType());
     if (execRequestSource.hasIngestionSource()) {
       result.setIngestionSource(execRequestSource.getIngestionSource().toString());
@@ -116,10 +111,9 @@ public class IngestionResolverUtils {
     return result;
   }
 
-  public static com.linkedin.datahub.graphql.generated.ExecutionRequestResult
-      mapExecutionRequestResult(final ExecutionRequestResult execRequestResult) {
-    final com.linkedin.datahub.graphql.generated.ExecutionRequestResult result =
-        new com.linkedin.datahub.graphql.generated.ExecutionRequestResult();
+  public static com.linkedin.datahub.graphql.generated.ExecutionRequestResult mapExecutionRequestResult(
+      final ExecutionRequestResult execRequestResult) {
+    final com.linkedin.datahub.graphql.generated.ExecutionRequestResult result = new com.linkedin.datahub.graphql.generated.ExecutionRequestResult();
     result.setStatus(execRequestResult.getStatus());
     result.setStartTimeMs(execRequestResult.getStartTimeMs());
     result.setDurationMs(execRequestResult.getDurationMs());
@@ -168,8 +162,8 @@ public class IngestionResolverUtils {
     }
 
     // Bind into a strongly typed object.
-    final DataHubIngestionSourceInfo ingestionSourceInfo =
-        new DataHubIngestionSourceInfo(envelopedInfo.getValue().data());
+    final DataHubIngestionSourceInfo ingestionSourceInfo = new DataHubIngestionSourceInfo(
+        envelopedInfo.getValue().data());
 
     return mapIngestionSourceInfo(entityUrn, ingestionSourceInfo);
   }
@@ -199,10 +193,9 @@ public class IngestionResolverUtils {
     }
     result.setDebugMode(config.isDebugMode());
     if (config.getExtraArgs() != null) {
-      List<StringMapEntry> extraArgs =
-          config.getExtraArgs().keySet().stream()
-              .map(key -> new StringMapEntry(key, config.getExtraArgs().get(key)))
-              .collect(Collectors.toList());
+      List<StringMapEntry> extraArgs = config.getExtraArgs().keySet().stream()
+          .map(key -> new StringMapEntry(key, config.getExtraArgs().get(key)))
+          .collect(Collectors.toList());
       result.setExtraArgs(extraArgs);
     }
     return result;
@@ -224,9 +217,8 @@ public class IngestionResolverUtils {
       @Nullable final Set<String> aspectNames)
       throws Exception {
     // Fetch the aspects for the entity.
-    final EntityResponse entityResponse =
-        entityClient.getV2(
-            context.getOperationContext(), entityUrn.getEntityType(), entityUrn, aspectNames);
+    final EntityResponse entityResponse = entityClient.getV2(
+        context.getOperationContext(), entityUrn.getEntityType(), entityUrn, aspectNames);
 
     // Entity does not exist! Return no source.
     if (entityResponse == null) {
@@ -237,7 +229,8 @@ public class IngestionResolverUtils {
     final EnvelopedAspectMap aspectMap = entityResponse.getAspects();
 
     // https://linear.app/acryl-data/issue/OBS-56/collect-the-last-run-id-in-the-system-metadata-payload
-    // this runId may or may not be the correct (last one) - so in some cases this resolver may
+    // this runId may or may not be the correct (last one) - so in some cases this
+    // resolver may
     // return false incorrectly.
     final List<RunInfo> runs = SystemMetadataUtils.getLastIngestionRuns(aspectMap);
 
@@ -247,8 +240,7 @@ public class IngestionResolverUtils {
 
     // For each run, try to link back to an ingestion source that produced it.
     for (RunInfo run : runs) {
-      IngestionSource ingestionSource =
-          tryGetIngestionSourceForRunId(entityClient, run.getId(), entityUrn, context);
+      IngestionSource ingestionSource = tryGetIngestionSourceForRunId(entityClient, run.getId(), entityUrn, context);
       if (ingestionSource != null) {
         return ingestionSource;
       }
@@ -264,15 +256,13 @@ public class IngestionResolverUtils {
       @Nonnull final QueryContext context)
       throws Exception {
 
-    final Urn runUrn =
-        Urn.createFromString(String.format("urn:li:%s:", EXECUTION_REQUEST_ENTITY_NAME) + runId);
+    final Urn runUrn = Urn.createFromString(String.format("urn:li:%s:", EXECUTION_REQUEST_ENTITY_NAME) + runId);
 
-    final EntityResponse executionRequestEntityResponse =
-        entityClient.getV2(
-            context.getOperationContext(),
-            Constants.EXECUTION_REQUEST_ENTITY_NAME,
-            runUrn,
-            Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME));
+    final EntityResponse executionRequestEntityResponse = entityClient.getV2(
+        context.getOperationContext(),
+        Constants.EXECUTION_REQUEST_ENTITY_NAME,
+        runUrn,
+        Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME));
 
     // If no execution request, return null.
     if (executionRequestEntityResponse == null) {
@@ -285,19 +275,19 @@ public class IngestionResolverUtils {
       return null;
     }
 
-    final EnvelopedAspect executionRequestEnvelopedInput =
-        executionRequestAspects.get(Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME);
-    final ExecutionRequestInput executionRequestInput =
-        new ExecutionRequestInput(executionRequestEnvelopedInput.getValue().data());
+    final EnvelopedAspect executionRequestEnvelopedInput = executionRequestAspects
+        .get(Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME);
+    final ExecutionRequestInput executionRequestInput = new ExecutionRequestInput(
+        executionRequestEnvelopedInput.getValue().data());
     final ExecutionRequestSource execRequestSource = executionRequestInput.getSource();
 
-    // Get the ingestionSource entity to check for the source -> config -> executorId.
-    final EntityResponse ingestionSourceEntityResponse =
-        entityClient.getV2(
-            context.getOperationContext(),
-            Constants.INGESTION_SOURCE_ENTITY_NAME,
-            execRequestSource.getIngestionSource(),
-            Collections.singleton(INGESTION_INFO_ASPECT_NAME));
+    // Get the ingestionSource entity to check for the source -> config ->
+    // executorId.
+    final EntityResponse ingestionSourceEntityResponse = entityClient.getV2(
+        context.getOperationContext(),
+        Constants.INGESTION_SOURCE_ENTITY_NAME,
+        execRequestSource.getIngestionSource(),
+        Collections.singleton(INGESTION_INFO_ASPECT_NAME));
 
     // If we cannot find the ingestion source, return null.
     if (ingestionSourceEntityResponse == null) {
@@ -309,18 +299,17 @@ public class IngestionResolverUtils {
       return null;
     }
 
-    final EnvelopedAspect ingestionSourceEnvelopedInfo =
-        ingestionInfoAspects.get(Constants.INGESTION_INFO_ASPECT_NAME);
-    final DataHubIngestionSourceInfo ingestionSourceInfo =
-        new DataHubIngestionSourceInfo(ingestionSourceEnvelopedInfo.getValue().data());
+    final EnvelopedAspect ingestionSourceEnvelopedInfo = ingestionInfoAspects.get(Constants.INGESTION_INFO_ASPECT_NAME);
+    final DataHubIngestionSourceInfo ingestionSourceInfo = new DataHubIngestionSourceInfo(
+        ingestionSourceEnvelopedInfo.getValue().data());
     final DataHubIngestionSourceConfig ingestionSourceConfig = ingestionSourceInfo.getConfig();
 
-    // executorId's from the CLI OR REMOTE executor are not valid because we don't have auth info to
+    // executorId's from the CLI OR REMOTE executor are not valid because we don't
+    // have auth info to
     // fetch data.
     final String executorId = ingestionSourceConfig.getExecutorId();
-    final boolean isCorrectSource =
-        isMatchingDataPlatform(entityUrn, ingestionSourceInfo.getType())
-            && !INGESTION_SOURCE_EXECUTOR_CLI.equals(executorId);
+    final boolean isCorrectSource = isMatchingDataPlatform(entityUrn, ingestionSourceInfo.getType())
+        && !INGESTION_SOURCE_EXECUTOR_CLI.equals(executorId);
 
     return isCorrectSource
         ? IngestionResolverUtils.mapIngestionSource(ingestionSourceEntityResponse)
@@ -330,9 +319,11 @@ public class IngestionResolverUtils {
   private static Boolean isMatchingDataPlatform(
       @Nonnull final Urn entityUrn, @Nonnull final String type) {
     if (Constants.DATASET_ENTITY_NAME.equals(entityUrn.getEntityType())) {
-      // it's possible that another ingestion source produced an aspect for the entity in cases of
+      // it's possible that another ingestion source produced an aspect for the entity
+      // in cases of
       // Datasets
-      // e.g. for DBT. here we check the data platform urn and compare it to the ingestion source
+      // e.g. for DBT. here we check the data platform urn and compare it to the
+      // ingestion source
       // type.
       Urn dataPlatformUrn = UrnUtils.getUrn(entityUrn.getEntityKey().get(0));
       return type.equalsIgnoreCase(dataPlatformUrn.getId()) || isDatabricksEntity(entityUrn, type);
@@ -340,15 +331,17 @@ public class IngestionResolverUtils {
     return true;
   }
 
-  // For databricks entities, the data platform URN will not necessarily match the ingestion source
+  // For databricks entities, the data platform URN will not necessarily match the
+  // ingestion source
   // type.
   private static boolean isDatabricksEntity(
       @Nonnull final Urn entityUrn, @Nonnull final String type) {
     return (type.equalsIgnoreCase(DATABRICKS_INGESTION_SOURCE_TYPE)
-            || type.equalsIgnoreCase(UNITY_CATALOG_INGESTION_SOURCE_TYPE))
+        || type.equalsIgnoreCase(UNITY_CATALOG_INGESTION_SOURCE_TYPE))
         && (entityUrn.toString().contains(DATABRICKS_PLATFORM_URN)
             || entityUrn.toString().contains(HIVE_PLATFORM_URN));
   }
 
-  private IngestionResolverUtils() {}
+  private IngestionResolverUtils() {
+  }
 }

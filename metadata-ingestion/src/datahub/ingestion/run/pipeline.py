@@ -39,9 +39,6 @@ from datahub.ingestion.run.sink_callback import DeadLetterQueueCallback, Logging
 from datahub.ingestion.sink.datahub_rest import DatahubRestSink
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
-from datahub.ingestion.transformer.system_metadata_transformer import (
-    SystemMetadataTransformer,
-)
 from datahub.ingestion.transformer.transform_registry import transform_registry
 from datahub.sdk._attribution import KnownAttribution, change_default_attribution
 from datahub.telemetry import stats
@@ -285,9 +282,6 @@ class Pipeline:
                 logger.debug(
                     f"Transformer type:{transformer_type},{transformer_class} configured"
                 )
-
-        # Add the system metadata transformer at the end of the list.
-        self.transformers.append(SystemMetadataTransformer(self.ctx))
 
     def _configure_reporting(self, report_to: Optional[str]) -> None:
         if self.dry_run:

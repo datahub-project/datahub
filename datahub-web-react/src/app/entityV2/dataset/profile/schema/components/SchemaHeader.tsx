@@ -1,22 +1,24 @@
 import { FileTextOutlined, TableOutlined } from '@ant-design/icons';
 import VersionSelector from '@app/entityV2/dataset/profile/schema/components/VersionSelector';
-import HistoryIcon from '@mui/icons-material/History';
-import { Button, Typography } from 'antd';
-import { Tooltip } from '@components';
-import { debounce } from 'lodash';
+import { Button as AntButton, Typography } from 'antd';
+import { Button, Tooltip } from '@components';
 import React, { useState } from 'react';
+import { useDebounce } from 'react-use';
 import styled from 'styled-components/macro';
 import { SemanticVersionStruct } from '../../../../../../types.generated';
 import TabToolbar from '../../../../shared/components/styled/TabToolbar';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../../../shared/constants';
 import { SchemaFilterType } from '../../../../shared/tabs/Dataset/Schema/utils/filterSchemaRows';
 import SchemaSearchInput from './SchemaSearchInput';
+
+const StyledTabToolbar = styled(TabToolbar)`
+    height: unset;
+    padding: 8px 16px 16px 16px;
+`;
 
 const SchemaHeaderContainer = styled.div`
     display: flex;
     justify-content: space-between;
     width: 100%;
-    padding-bottom: 3px;
 `;
 
 // Below styles are for buttons on the left side of the Schema Header
@@ -28,7 +30,7 @@ const LeftButtonsGroup = styled.div`
     }
 `;
 
-const RawButton = styled(Button)`
+const RawButton = styled(AntButton)`
     &&& {
         display: flex;
         margin-right: 10px;
@@ -71,25 +73,6 @@ const RightButtonsGroup = styled.div`
     padding-left: 5px;
 `;
 
-const SchemaAuditButton = styled(Button)`
-    display: flex;
-    align-items: center;
-    background: ${REDESIGN_COLORS.WHITE};
-    padding: 0;
-    margin-right: 15px;
-
-    svg {
-        background: ${REDESIGN_COLORS.TITLE_PURPLE};
-        border-radius: 50%;
-        stroke: ${REDESIGN_COLORS.WHITE};
-        color: ${REDESIGN_COLORS.WHITE};
-        padding: 4px;
-        stroke-width: 0.5px;
-    }
-`;
-
-const MAX_ROWS_BEFORE_DEBOUNCE = 50;
-
 type Props = {
     hasRaw: boolean;
     showRaw: boolean;
@@ -101,6 +84,7 @@ type Props = {
     versionList: Array<SemanticVersionStruct>;
     showSchemaTimeline: boolean;
     setShowSchemaTimeline: any;
+    filterText: string;
     setFilterText: (text: string) => void;
     numRows: number;
     schemaFilterTypes: SchemaFilterType[];
@@ -108,7 +92,6 @@ type Props = {
     highlightedMatchIndex: number | null;
     setHighlightedMatchIndex: (val: number | null) => void;
     matches: { path: string; index: number }[];
-    schemaFilter: string;
 };
 
 export default function SchemaHeader({
@@ -122,6 +105,7 @@ export default function SchemaHeader({
     versionList,
     setShowSchemaTimeline,
     showSchemaTimeline,
+    filterText,
     setFilterText,
     numRows,
     schemaFilterTypes,
@@ -129,19 +113,16 @@ export default function SchemaHeader({
     matches,
     highlightedMatchIndex,
     setHighlightedMatchIndex,
-    schemaFilter,
 }: Props) {
     const [schemaFilterSelectOpen, setSchemaFilterSelectOpen] = useState(false);
 
     const schemaAuditToggleText = showSchemaTimeline ? 'Close change history' : 'View change history';
 
-    const debouncedSetFilterText = debounce(
-        (e: React.ChangeEvent<HTMLInputElement>) => setFilterText(e.target.value),
-        numRows > MAX_ROWS_BEFORE_DEBOUNCE ? 100 : 0,
-    );
+    const [searchInput, setSearchInput] = useState(filterText);
+    useDebounce(() => setFilterText(searchInput), 100, [searchInput]);
 
     return (
-        <TabToolbar>
+        <StyledTabToolbar>
             <SchemaHeaderContainer>
                 <LeftButtonsGroup>
                     {hasRaw && (
@@ -173,8 +154,8 @@ export default function SchemaHeader({
                         <SchemaSearchInput
                             schemaFilterTypes={schemaFilterTypes}
                             setSchemaFilterTypes={setSchemaFilterTypes}
-                            schemaFilter={schemaFilter}
-                            debouncedSetFilterText={debouncedSetFilterText}
+                            searchInput={searchInput}
+                            setSearchInput={setSearchInput}
                             matches={matches.map((match) => match.path)}
                             highlightedMatchIndex={highlightedMatchIndex}
                             setHighlightedMatchIndex={setHighlightedMatchIndex}
@@ -194,17 +175,16 @@ export default function SchemaHeader({
                         />
                     )}
                     <Tooltip title={schemaAuditToggleText} showArrow={false}>
-                        <SchemaAuditButton
-                            type="text"
+                        <Button
+                            variant="text"
                             data-testid="schema-blame-button"
+                            color={showSchemaTimeline ? 'violet' : 'gray'}
+                            icon={{ icon: 'ClockCounterClockwise', source: 'phosphor', size: '2xl' }}
                             onClick={() => setShowSchemaTimeline(!showSchemaTimeline)}
-                            style={{ color: showSchemaTimeline ? REDESIGN_COLORS.BLUE : ANTD_GRAY[7] }}
-                        >
-                            <HistoryIcon />
-                        </SchemaAuditButton>
+                        />
                     </Tooltip>
                 </RightButtonsGroup>
             </SchemaHeaderContainer>
-        </TabToolbar>
+        </StyledTabToolbar>
     );
 }

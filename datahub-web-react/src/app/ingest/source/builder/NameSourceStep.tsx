@@ -178,9 +178,28 @@ export const NameSourceStep = ({ state, isEditing, updateState, prev, submit }: 
                 </Form.Item>
                 <Collapse ghost>
                     <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
+<<<<<<< HEAD
                         <Form.Item label={<Typography.Text strong>Executor Pool</Typography.Text>}>
+||||||| 952f3cc3118
+                        <Form.Item label={<Typography.Text strong>Executor ID</Typography.Text>}>
+=======
+                        {/* NOTE: Executor ID is OSS-only, used by actions pod */}
+                        <Form.Item label={<Typography.Text strong>Executor ID</Typography.Text>}>
+>>>>>>> master
                             <Typography.Paragraph>
+<<<<<<< HEAD
                                 Choose an Executor Pool to execute this ingestion recipe.
+||||||| 952f3cc3118
+                                Provide the ID of the executor that should execute this ingestion recipe. This ID is
+                                used to route execution requests of the recipe to the executor of the same ID. The
+                                built-in DataHub executor ID is &apos;default&apos;. Do not change this unless you have
+                                configured a remote or custom executor.
+=======
+                                Provide the ID of the executor that should execute this ingestion recipe. This ID is
+                                used to route execution requests of the recipe to the executor of the same ID. The
+                                built-in DataHub executor ID is &apos;default&apos;. Do not change this unless you have
+                                configured a custom executor via actions framework.
+>>>>>>> master
                             </Typography.Paragraph>
                             <RemoteExecutorPoolSelector
                                 value={state.config?.executorId || (isEditing ? '' : undefined)}

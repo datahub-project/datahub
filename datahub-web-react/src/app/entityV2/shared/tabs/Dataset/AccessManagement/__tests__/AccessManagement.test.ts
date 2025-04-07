@@ -76,7 +76,12 @@ describe('handleAccessRoles', () => {
                     manageGlossaries: true,
                     manageUserCredentials: true,
                     manageTags: true,
+<<<<<<< HEAD
                     viewTests: false,
+||||||| 952f3cc3118
+=======
+                    viewManageTags: true,
+>>>>>>> master
                     createDomains: true,
                     createTags: true,
                     manageGlobalSettings: true,
@@ -163,7 +168,12 @@ describe('handleAccessRoles', () => {
                     manageGlossaries: true,
                     manageUserCredentials: true,
                     manageTags: true,
+<<<<<<< HEAD
                     viewTests: false,
+||||||| 952f3cc3118
+=======
+                    viewManageTags: true,
+>>>>>>> master
                     createDomains: true,
                     createTags: true,
                     manageGlobalSettings: true,
@@ -258,7 +268,12 @@ describe('handleAccessRoles', () => {
                     manageGlossaries: true,
                     manageUserCredentials: true,
                     manageTags: true,
+<<<<<<< HEAD
                     viewTests: false,
+||||||| 952f3cc3118
+=======
+                    viewManageTags: true,
+>>>>>>> master
                     createDomains: true,
                     createTags: true,
                     manageGlobalSettings: true,

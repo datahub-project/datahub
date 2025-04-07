@@ -1,10 +1,5 @@
-import {
-    ConsoleSqlOutlined,
-    FileOutlined,
-    ShareAltOutlined,
-    UnorderedListOutlined,
-    WarningOutlined,
-} from '@ant-design/icons';
+import { ShareAltOutlined } from '@ant-design/icons';
+import { ListBullets, FileText, Share, WarningCircle } from '@phosphor-icons/react';
 import * as React from 'react';
 import { useGetDataFlowQuery, useUpdateDataFlowMutation } from '../../../graphql/dataFlow.generated';
 import { DataFlow, EntityType, SearchResult } from '../../../types.generated';
@@ -99,19 +94,19 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 {
                     name: 'Documentation',
                     component: DocumentationTab,
-                    icon: FileOutlined,
+                    icon: FileText,
                 },
                 {
                     name: 'Tasks',
                     component: DataFlowJobsTab,
-                    icon: ConsoleSqlOutlined,
+                    icon: Share,
                     properties: {
                         urn,
                     },
                 },
                 {
                     name: 'Incidents',
-                    icon: WarningOutlined,
+                    icon: WarningCircle,
                     component: IncidentTab,
                     getDynamicName: (_, dataFlow, loading) => {
                         const activeIncidentCount = dataFlow?.dataFlow?.activeIncidents?.total;
@@ -121,7 +116,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 {
                     name: 'Properties',
                     component: PropertiesTab,
-                    icon: UnorderedListOutlined,
+                    icon: ListBullets,
                 },
             ]}
             sidebarSections={this.getSidebarSections()}
@@ -170,7 +165,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
             name: 'Properties',
             component: PropertiesTab,
             description: 'View additional properties about this asset',
-            icon: UnorderedListOutlined,
+            icon: ListBullets,
         },
     ];
 

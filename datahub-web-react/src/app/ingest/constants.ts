@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 export const INGESTION_TAB_QUERY_PARAMS = {
     searchQuery: 'query',
     // SaaS only
@@ -8,3 +9,9 @@ export const INGESTION_TAB_QUERY_PARAMS = {
 export const EXECUTORS_TAB_QUERY_PARAMS = {
     pool: 'pool',
 };
+||||||| 952f3cc3118
+=======
+export const INGESTION_TAB_QUERY_PARAMS = {
+    searchQuery: 'query',
+};
+>>>>>>> master

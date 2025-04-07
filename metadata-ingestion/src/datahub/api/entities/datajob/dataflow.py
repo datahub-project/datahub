@@ -9,6 +9,7 @@ from datahub.metadata.schema_classes import (
     AuditStampClass,
     DataFlowInfoClass,
     DataFlowSnapshotClass,
+    DataPlatformInstanceClass,
     GlobalTagsClass,
     MetadataChangeEventClass,
     OwnerClass,
@@ -163,6 +164,20 @@ class DataFlow:
             ),
         )
         yield mcp
+
+        if self.platform_instance:
+            instance = builder.make_dataplatform_instance_urn(
+                platform=self.orchestrator,
+                instance=self.platform_instance,
+            )
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=str(self.urn),
+                aspect=DataPlatformInstanceClass(
+                    platform=builder.make_data_platform_urn(self.orchestrator),
+                    instance=instance,
+                ),
+            )
+            yield mcp
 
         for owner in self.generate_ownership_aspect():
             mcp = MetadataChangeProposalWrapper(

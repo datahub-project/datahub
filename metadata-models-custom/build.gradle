@@ -14,7 +14,7 @@ buildscript {
 }
 
 plugins {
-    id 'java'
+    id 'java-library'
     id 'maven-publish'
     id 'pegasus'
 }

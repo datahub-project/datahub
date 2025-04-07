@@ -38,6 +38,7 @@ public class FeatureFlags {
   private boolean entityVersioning = false;
   private boolean showHasSiblingsFilter = false;
   private boolean showSearchBarAutocompleteRedesign = false;
+  private boolean showManageTags = false;
 
   /* SaaS Only */
   private boolean assertionMonitorsEnabled = false;

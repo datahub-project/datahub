@@ -45,6 +45,7 @@ import { LoadingPermissions } from './govern/Dashboard/charts/AuxViews';
 import { TaskCenter } from './taskCenter/TaskCenter';
 import { TaskCenter as TaskCenterV2 } from './taskCenterV2/TaskCenter';
 import { useIsThemeV2 } from './useIsThemeV2';
+import { ManageTags } from './tags/ManageTags';
 
 /**
  * Container for all searchable page routes
@@ -71,8 +72,16 @@ export const SearchRoutes = (): JSX.Element => {
         config?.featureFlags?.showManageStructuredProperties &&
         (me.platformPrivileges?.manageStructuredProperties || me.platformPrivileges?.viewStructuredPropertiesPage);
 
+<<<<<<< HEAD
     const { showTaskCenterRedesign } = config.featureFlags;
 
+||||||| 952f3cc3118
+=======
+    const showTags =
+        config?.featureFlags?.showManageTags &&
+        (me.platformPrivileges?.manageTags || me.platformPrivileges?.viewManageTags);
+
+>>>>>>> master
     return (
         <FinalSearchablePage>
             <Switch>
@@ -94,6 +103,7 @@ export const SearchRoutes = (): JSX.Element => {
                     render={() => (isThemeV2 ? <SearchPageV2 /> : <SearchPage />)}
                 />
                 <Route path={PageRoutes.BROWSE_RESULTS} render={() => <BrowseResultsPage />} />
+                {showTags ? <Route path={PageRoutes.MANAGE_TAGS} render={() => <ManageTags />} /> : null}
                 <Route path={PageRoutes.ANALYTICS} render={() => <AnalyticsPage />} />
                 <Route path={PageRoutes.POLICIES} render={() => <Redirect to="/settings/permissions/policies" />} />
                 <Route

@@ -292,6 +292,11 @@ export const StyledHeader = styled.div`
     box-shadow: 0px 0px 6px 0px #5d668b33;
 `;
 
+export const StyledHeaderTitleContainer = styled.div`
+    display: flex;
+    align-items: center;
+`;
+
 export const StyledHeaderActions = styled.div`
     display: flex;
     gap: 20px;
@@ -324,4 +329,14 @@ export const StyledSpinner = styled.div`
     border-radius: 50%;
     animation: ${spin} 0.8s linear infinite;
     display: inline-block;
+`;
+
+export const ForPlatformWrapper = styled.div`
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    font-size: 0.75rem;
+    margin-left: 12px;
+    padding-left: 12px;
+    border-left: 0.5px solid #ddd;
 `;

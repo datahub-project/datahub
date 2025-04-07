@@ -1,4 +1,4 @@
-import { SearchOutlined } from '@ant-design/icons';
+import { Icon } from '@components';
 import { Input } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
@@ -25,7 +25,7 @@ export default function TabHeader({ setFilterText }: Props) {
                 placeholder="Search in properties..."
                 onChange={(e) => setFilterText(e.target.value)}
                 allowClear
-                prefix={<SearchOutlined />}
+                prefix={<Icon icon="MagnifyingGlass" source="phosphor" />}
             />
         </TableHeader>
     );

@@ -12,6 +12,9 @@ if TYPE_CHECKING:
 
 T = TypeVar("T")
 
+if TYPE_CHECKING:
+    from datahub.ingestion.run.pipeline_config import FlagsConfig
+
 
 @dataclass
 class RecordEnvelope(Generic[T]):
@@ -59,6 +62,12 @@ class PipelineContext:
         self.checkpointers: Dict[str, Committable] = {}
 
         self._set_dataset_urn_to_lower_if_needed()
+
+    @property
+    def flags(self) -> "FlagsConfig":
+        from datahub.ingestion.run.pipeline_config import FlagsConfig
+
+        return self.pipeline_config.flags if self.pipeline_config else FlagsConfig()
 
     def _set_dataset_urn_to_lower_if_needed(self) -> None:
         # TODO: Get rid of this function once lower-casing is the standard.

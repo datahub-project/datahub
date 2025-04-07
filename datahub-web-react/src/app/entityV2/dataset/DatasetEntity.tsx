@@ -13,6 +13,13 @@ import {
 } from '@ant-design/icons';
 import { DBT_URN } from '@app/ingest/source/builder/constants';
 import ViewComfyOutlinedIcon from '@mui/icons-material/ViewComfyOutlined';
+<<<<<<< HEAD
+||||||| 952f3cc3118
+import { GovernanceTab } from '@src/app/entity/shared/tabs/Dataset/Governance/GovernanceTab';
+=======
+import { GovernanceTab } from '@src/app/entity/shared/tabs/Dataset/Governance/GovernanceTab';
+import { ListBullets, TreeStructure, Columns } from '@phosphor-icons/react';
+>>>>>>> master
 import * as React from 'react';
 import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '../../../graphql/dataset.generated';
 import GovernMenuIcon from '../../../images/governMenuIcon.svg?react';
@@ -303,7 +310,7 @@ export class DatasetEntity implements Entity<Dataset> {
             name: 'Lineage',
             component: LineageTab,
             description: "View this data asset's upstream and downstream dependencies",
-            icon: PartitionOutlined,
+            icon: TreeStructure,
             properties: {
                 actionType: SidebarTitleActionType.LineageExplore,
             },
@@ -312,7 +319,7 @@ export class DatasetEntity implements Entity<Dataset> {
             name: 'Columns',
             component: SchemaTab,
             description: "View this data asset's columns",
-            icon: LayoutOutlined,
+            icon: Columns,
             properties: {
                 fullHeight: true,
             },
@@ -321,7 +328,7 @@ export class DatasetEntity implements Entity<Dataset> {
             name: 'Properties',
             component: PropertiesTab,
             description: 'View additional properties about this asset',
-            icon: UnorderedListOutlined,
+            icon: ListBullets,
         },
     ];
 

@@ -8,8 +8,10 @@ import static org.testng.Assert.assertTrue;
 import com.datahub.auth.authentication.filter.AuthenticationFilter;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
-import com.datahub.authentication.token.StatefulTokenService;
-import com.datahub.authentication.token.TokenException;
+import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationException;
+import com.datahub.authentication.AuthenticationExpiredException;
+import com.datahub.authentication.authenticator.AuthenticatorChain;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
 import jakarta.servlet.ServletException;
@@ -31,10 +33,8 @@ public class AuthenticationFilterTest extends AbstractTestNGSpringContextTests {
 
   @Autowired AuthenticationFilter authenticationFilter;
 
-  @Autowired StatefulTokenService statefulTokenService;
-
   @Test
-  public void testExpiredToken() throws ServletException, IOException, TokenException {
+  public void testExpiredToken() throws ServletException, IOException, AuthenticationException {
     FilterConfig mockFilterConfig = mock(FilterConfig.class);
     when(mockFilterConfig.getInitParameterNames()).thenReturn(Collections.emptyEnumeration());
 
@@ -42,22 +42,26 @@ public class AuthenticationFilterTest extends AbstractTestNGSpringContextTests {
     HttpServletRequest servletRequest = mock(HttpServletRequest.class);
     HttpServletResponse servletResponse = mock(HttpServletResponse.class);
     FilterChain filterChain = mock(FilterChain.class);
-    Actor actor = new Actor(ActorType.USER, "datahub");
-    //    String token = _statefulTokenService.generateAccessToken(TokenType.SESSION, actor, 0L,
-    // System.currentTimeMillis(), "token",
-    //        "token", actor.toUrnStr());
-    // Token generated 9/11/23, invalid for all future dates
-    String token =
-        "eyJhbGciOiJIUzI1NiJ9.eyJhY3RvclR5cGUiOiJVU0VSIZCI6ImRhdGFodWIiLCJ0eXBlIjoiU0VTU0lPTiIsInZlcnNpb24iOiIxIiwian"
-            + "RpIjoiMmI0MzZkZDAtYjEwOS00N2UwLWJmYTEtMzM2ZmU4MTU4MDE1Iiwic3ViIjoiZGF0YWh1YiIsImV4cCI6MTY5NDU0NzA2OCwiaXNzIjoiZGF"
-            + "0YWh1Yi1tZXRhZGF0YS1zZXJ2aWNlIn0.giqx7J5a9mxuubG6rXdAMoaGlcII-fqY-W82Wm7OlLI";
+
+    // Setup for expired token test
     when(servletRequest.getHeaderNames())
         .thenReturn(Collections.enumeration(List.of(AUTHORIZATION_HEADER_NAME)));
-    when(servletRequest.getHeader(AUTHORIZATION_HEADER_NAME)).thenReturn("Bearer " + token);
+    when(servletRequest.getHeader(AUTHORIZATION_HEADER_NAME)).thenReturn("Bearer expired-token");
+
+    // Mock the authenticator chain to throw AuthenticationExpiredException
+    AuthenticatorChain mockAuthenticatorChain = mock(AuthenticatorChain.class);
+    when(mockAuthenticatorChain.authenticate(any(), anyBoolean()))
+        .thenThrow(new AuthenticationExpiredException("Token has expired"));
+
+    // Inject the mock authenticator chain
+    ReflectionTestUtils.setField(
+        authenticationFilter, "authenticatorChain", mockAuthenticatorChain);
 
     authenticationFilter.doFilter(servletRequest, servletResponse, filterChain);
     verify(servletResponse, times(1))
-        .sendError(eq(HttpServletResponse.SC_UNAUTHORIZED), anyString());
+        .sendError(
+            eq(HttpServletResponse.SC_UNAUTHORIZED),
+            eq("Unauthorized to perform this action due to expired auth."));
   }
 
   @Test
@@ -97,5 +101,104 @@ public class AuthenticationFilterTest extends AbstractTestNGSpringContextTests {
     assertFalse(
         authenticationFilter.shouldNotFilter(nonExcludedRequest),
         "Non-excluded path should not be excluded from filtering");
+  }
+
+  @Test
+  public void testAuthenticationException() throws ServletException, IOException {
+    // Setup
+    FilterConfig mockFilterConfig = mock(FilterConfig.class);
+    when(mockFilterConfig.getInitParameterNames()).thenReturn(Collections.emptyEnumeration());
+    authenticationFilter.init(mockFilterConfig);
+
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    HttpServletResponse servletResponse = mock(HttpServletResponse.class);
+    FilterChain filterChain = mock(FilterChain.class);
+
+    // Mock an invalid token that will trigger AuthenticationException
+    when(servletRequest.getHeaderNames())
+        .thenReturn(Collections.enumeration(List.of(AUTHORIZATION_HEADER_NAME)));
+    when(servletRequest.getHeader(AUTHORIZATION_HEADER_NAME))
+        .thenReturn("Bearer invalid-token-format");
+
+    // Execute
+    authenticationFilter.doFilter(servletRequest, servletResponse, filterChain);
+
+    // Verify
+    verify(servletResponse, times(1))
+        .sendError(
+            eq(HttpServletResponse.SC_UNAUTHORIZED), eq("Unauthorized to perform this action."));
+    verify(filterChain, never()).doFilter(any(), any());
+  }
+
+  @Test
+  public void testGenericException() throws ServletException, IOException, AuthenticationException {
+    // Setup
+    FilterConfig mockFilterConfig = mock(FilterConfig.class);
+    when(mockFilterConfig.getInitParameterNames()).thenReturn(Collections.emptyEnumeration());
+    authenticationFilter.init(mockFilterConfig);
+
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    HttpServletResponse servletResponse = mock(HttpServletResponse.class);
+    FilterChain filterChain = mock(FilterChain.class);
+
+    // Mock behavior that will trigger a generic exception
+    when(servletRequest.getHeaderNames())
+        .thenReturn(Collections.enumeration(List.of(AUTHORIZATION_HEADER_NAME)));
+    when(servletRequest.getHeader(AUTHORIZATION_HEADER_NAME)).thenReturn("Bearer some-token");
+
+    // Mock authenticatorChain to throw a generic exception
+    AuthenticatorChain mockAuthenticatorChain = mock(AuthenticatorChain.class);
+    when(mockAuthenticatorChain.authenticate(any(), anyBoolean()))
+        .thenThrow(new RuntimeException("Unexpected error"));
+
+    // Inject mock authenticator chain
+    ReflectionTestUtils.setField(
+        authenticationFilter, "authenticatorChain", mockAuthenticatorChain);
+
+    // Execute
+    authenticationFilter.doFilter(servletRequest, servletResponse, filterChain);
+
+    // Verify
+    verify(servletResponse, times(1))
+        .sendError(
+            eq(HttpServletResponse.SC_UNAUTHORIZED), eq("Unauthorized to perform this action."));
+    verify(filterChain, never()).doFilter(any(), any());
+  }
+
+  @Test
+  public void testSuccessfulAuthentication()
+      throws ServletException, IOException, AuthenticationException {
+    // Setup
+    FilterConfig mockFilterConfig = mock(FilterConfig.class);
+    when(mockFilterConfig.getInitParameterNames()).thenReturn(Collections.emptyEnumeration());
+    authenticationFilter.init(mockFilterConfig);
+
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    HttpServletResponse servletResponse = mock(HttpServletResponse.class);
+    FilterChain filterChain = mock(FilterChain.class);
+
+    // Mock authentication header
+    when(servletRequest.getHeaderNames())
+        .thenReturn(Collections.enumeration(List.of(AUTHORIZATION_HEADER_NAME)));
+    when(servletRequest.getHeader(AUTHORIZATION_HEADER_NAME)).thenReturn("Bearer valid-token");
+
+    // Mock successful authentication
+    Actor actor = new Actor(ActorType.USER, "datahub");
+    Authentication mockAuthentication = mock(Authentication.class);
+    when(mockAuthentication.getActor()).thenReturn(actor);
+
+    AuthenticatorChain mockAuthenticatorChain = mock(AuthenticatorChain.class);
+    when(mockAuthenticatorChain.authenticate(any(), anyBoolean())).thenReturn(mockAuthentication);
+
+    // Inject mock authenticator chain
+    ReflectionTestUtils.setField(
+        authenticationFilter, "authenticatorChain", mockAuthenticatorChain);
+
+    // Execute
+    authenticationFilter.doFilter(servletRequest, servletResponse, filterChain);
+
+    // Verify
+    verify(filterChain, times(1)).doFilter(servletRequest, servletResponse);
+    verify(servletResponse, never()).sendError(anyInt(), anyString());
   }
 }

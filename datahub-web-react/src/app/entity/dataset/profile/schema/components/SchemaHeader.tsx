@@ -1,3 +1,4 @@
+import { Icon } from '@components';
 import React from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import { Button, Input, Select, Typography } from 'antd';
@@ -8,7 +9,6 @@ import {
     CaretDownOutlined,
     FileTextOutlined,
     QuestionCircleOutlined,
-    SearchOutlined,
     TableOutlined,
 } from '@ant-design/icons';
 import styled from 'styled-components/macro';
@@ -246,7 +246,7 @@ export default function SchemaHeader({
                             placeholder="Search in schema..."
                             onChange={debouncedSetFilterText}
                             allowClear
-                            prefix={<SearchOutlined />}
+                            prefix={<Icon icon="MagnifyingGlass" source="phosphor" />}
                         />
                     )}
                 </LeftButtonsGroup>

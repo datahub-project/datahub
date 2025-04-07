@@ -13,9 +13,14 @@ from typing import (
 )
 
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
-from datahub.emitter.mce_builder import make_dataplatform_instance_urn, parse_ts_millis
+from datahub.emitter.mce_builder import (
+    get_sys_time,
+    make_dataplatform_instance_urn,
+    parse_ts_millis,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import entity_supports_aspect
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
@@ -35,6 +40,7 @@ from datahub.metadata.schema_classes import (
     TimeWindowSizeClass,
 )
 from datahub.metadata.urns import DatasetUrn, GlossaryTermUrn, TagUrn, Urn
+from datahub.sdk.entity import Entity
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.telemetry import telemetry
 from datahub.utilities.urns.error import InvalidUrnError
@@ -49,7 +55,12 @@ logger = logging.getLogger(__name__)
 
 def auto_workunit(
     stream: Iterable[
-        Union[MetadataChangeEventClass, MetadataChangeProposalWrapper, MetadataWorkUnit]
+        Union[
+            MetadataChangeEventClass,
+            MetadataChangeProposalWrapper,
+            MetadataWorkUnit,
+            Entity,
+        ]
     ],
 ) -> Iterable[MetadataWorkUnit]:
     """Convert a stream of MCEs and MCPs to a stream of :class:`MetadataWorkUnit`s."""
@@ -62,6 +73,8 @@ def auto_workunit(
             )
         elif isinstance(item, MetadataChangeProposalWrapper):
             yield item.as_workunit()
+        elif isinstance(item, Entity):
+            yield from item.as_workunits()
         else:
             yield item
 
@@ -536,3 +549,23 @@ def _prepend_platform_instance(
         return [BrowsePathEntryClass(id=urn, urn=urn)] + entries
 
     return entries
+
+
+class AutoSystemMetadata:
+    def __init__(self, ctx: PipelineContext):
+        self.ctx = ctx
+
+    def stamp(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:
+        for wu in stream:
+            yield self.stamp_wu(wu)
+
+    def stamp_wu(self, wu: MetadataWorkUnit) -> MetadataWorkUnit:
+        if self.ctx.flags.set_system_metadata:
+            if not wu.metadata.systemMetadata:
+                wu.metadata.systemMetadata = SystemMetadataClass()
+            wu.metadata.systemMetadata.runId = self.ctx.run_id
+            if not wu.metadata.systemMetadata.lastObserved:
+                wu.metadata.systemMetadata.lastObserved = get_sys_time()
+            if self.ctx.flags.set_system_metadata_pipeline_name:
+                wu.metadata.systemMetadata.pipelineName = self.ctx.pipeline_name
+        return wu
