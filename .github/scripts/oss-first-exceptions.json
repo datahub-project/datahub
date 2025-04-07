@@ -1,0 +1,298 @@
+{
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/common/mappers/util/SystemMetadataUtils.java": {
+    "additions": null,
+    "deletions": "inf"
+  },
+  "datahub-kubernetes/README.md": {
+    "additions": null,
+    "deletions": "inf"
+  },
+  "datahub-web-react/src/alchemy-components/components/BarChart/components/LeftAxisMarginSetter.tsx": {
+    "additions": null,
+    "deletions": "inf"
+  },
+  "datahub-web-react/src/app/entity/shared/containers/profile/header/StructuredPropertyBadge.tsx": {
+    "additions": null,
+    "deletions": "inf"
+  },
+  "datahub-web-react/src/app/lineageV2/manualLineage/AddEntityEdge.tsx": {
+    "additions": null,
+    "deletions": "inf"
+  },
+  "datahub-web-react/src/app/lineageV2/manualLineage/LineageEntityView.tsx": {
+    "additions": null,
+    "deletions": "inf"
+  },
+  "datahub-web-react/src/images/domain.svg": {
+    "additions": null,
+    "deletions": "inf"
+  },
+  "metadata-ingestion/build.gradle": {
+    "additions": 9,
+    "deletions": 1
+  },
+  "metadata-ingestion/examples/data_product/dataproduct.yaml": {
+    "additions": 3,
+    "deletions": 0
+  },
+  "metadata-ingestion/examples/library/dataset_inferred_metadata.py": {
+    "additions": "inf",
+    "deletions": null
+  },
+  "metadata-ingestion/examples/mce_files/bootstrap_mce.json": {
+    "additions": 1127,
+    "deletions": 410
+  },
+  "metadata-ingestion/examples/mce_files/test_structured_properties.json": {
+    "additions": 1,
+    "deletions": 1
+  },
+  "metadata-ingestion/examples/reporting/graph/recipe.dhub.yaml": {
+    "additions": "inf",
+    "deletions": null
+  },
+  "metadata-ingestion/examples/structured_properties/README.md": {
+    "additions": 2,
+    "deletions": 2
+  },
+  "metadata-ingestion/examples/structured_properties/dataset_shared_properties.yaml": {
+    "additions": "inf",
+    "deletions": null
+  },
+  "metadata-ingestion/scripts/analyticseventsdocgen.sh": {
+    "additions": "inf",
+    "deletions": null
+  },
+  "metadata-ingestion/scripts/analyticseventsdocupload.sh": {
+    "additions": "inf",
+    "deletions": null
+  },
+  "metadata-ingestion/scripts/avro_codegen.py": {
+    "additions": 1,
+    "deletions": 0
+  },
+  "metadata-ingestion/scripts/generate_analytics_events.py": {
+    "additions": "inf",
+    "deletions": null
+  },
+  "metadata-ingestion/scripts/modeldocgen.py": {
+    "additions": 13,
+    "deletions": 1
+  },
+  "metadata-ingestion/setup.py": {
+    "additions": 1,
+    "deletions": 1
+  },
+  "metadata-ingestion/src/datahub/api/entities/dataproduct/dataproduct.py": {
+    "additions": 26,
+    "deletions": 0
+  },
+  "metadata-ingestion/src/datahub/api/entities/forms/forms.py": {
+    "additions": 111,
+    "deletions": 1
+  },
+  "metadata-ingestion/src/datahub/cli/docker_cli.py": {
+    "additions": 1,
+    "deletions": 1
+  },
+  "metadata-ingestion/src/datahub/cli/open_cli.py": {
+    "additions": "inf",
+    "deletions": null
+  },
+  "metadata-ingestion/src/datahub/cli/relationships_cli.py": {
+    "additions": "inf",
+    "deletions": null
+  },
+  "metadata-ingestion/src/datahub/configuration/_config_enum.py": {
+    "additions": 5,
+    "deletions": 4
+  },
+  "metadata-ingestion/src/datahub/configuration/common.py": {
+    "additions": 8,
+    "deletions": 0
+  },
+  "metadata-ingestion/src/datahub/entrypoints.py": {
+    "additions": 2,
+    "deletions": 0
+  },
+  "metadata-ingestion/src/datahub/ingestion/api/report.py": {
+    "additions": 1,
+    "deletions": 2
+  },
+  "metadata-ingestion/src/datahub/ingestion/graph/client.py": {
+    "additions": 10,
+    "deletions": 6
+  },
+  "metadata-ingestion/src/datahub/ingestion/graph/filters.py": {
+    "additions": 31,
+    "deletions": 12
+  },
+  "metadata-ingestion/src/datahub/ingestion/source/tableau/tableau_common.py": {
+    "additions": 4,
+    "deletions": 4
+  },
+  "metadata-ingestion/src/datahub/secret/datahub_secret_store.py": {
+    "additions": 4,
+    "deletions": 1
+  },
+  "metadata-ingestion/src/datahub/secret/environment_secret_store.py": {
+    "additions": "inf",
+    "deletions": null
+  },
+  "metadata-ingestion/src/datahub/secret/file_secret_store.py": {
+    "additions": "inf",
+    "deletions": null
+  },
+  "metadata-ingestion/src/datahub/telemetry/telemetry.py": {
+    "additions": 3,
+    "deletions": 1
+  },
+  "metadata-ingestion/src/datahub/testing/compare_metadata_json.py": {
+    "additions": 1,
+    "deletions": 1
+  },
+  "metadata-ingestion/tests/integration/cassandra/setup/cassandra.yaml": {
+    "additions": 4,
+    "deletions": 4
+  },
+  "metadata-ingestion/tests/integration/fivetran/fivetran_bigquery_golden.json": {
+    "additions": "inf",
+    "deletions": null
+  },
+  "metadata-ingestion/tests/integration/s3/golden-files/local/golden_mces_single_file.json": {
+    "additions": 10,
+    "deletions": 10
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/assertion/AssertionInfo.pdl": {
+    "additions": null,
+    "deletions": 45
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/assertion/AssertionResult.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/assertion/AssertionRunEvent.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/assertion/FreshnessAssertionInfo.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/assertion/SchemaAssertionInfo.pdl": {
+    "additions": null,
+    "deletions": 13
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/common/Deprecation.pdl": {
+    "additions": null,
+    "deletions": 3
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/common/GlobalTags.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/common/GlossaryTermAssociation.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/common/Operation.pdl": {
+    "additions": null,
+    "deletions": 3
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/common/OperationSourceType.pdl": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/common/OperationType.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/common/Ownership.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/common/RoleAssociation.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/dataplatforminstance/IcebergWarehouseInfo.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetFieldProfile.pdl": {
+    "additions": null,
+    "deletions": 38
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetProfile.pdl": {
+    "additions": null,
+    "deletions": 6
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/domain/Domains.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/event/notification/settings/NotificationSettings.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/execution/ExecutionRequestInput.pdl": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/execution/ExecutionRequestSignal.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/execution/ExecutionRequestSource.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/form/FormPrompt.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/identity/CorpUserSettings.pdl": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/incident/IncidentInfo.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/incident/IncidentSource.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/ingestion/DataHubIngestionSourceInfo.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/metadata/search/SearchEntity.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/platformresource/PlatformResourceType.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/post/PostType.pdl": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/schema/EditableSchemaFieldInfo.pdl": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/structured/StructuredPropertyDefinition.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/test/TestInfo.pdl": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-models/src/main/resources/entity-registry.yml": {
+    "additions": 272,
+    "deletions": 24
+  }
+}

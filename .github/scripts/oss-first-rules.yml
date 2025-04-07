@@ -1,0 +1,40 @@
+rules:
+  # Areas of the codebase that are SaaS only.
+  - pattern: "metadata-ingestion-modules/acryl-cloud/**"
+    max_removals: 0
+  - pattern: "datahub-integrations-service/**"
+    max_removals: 0
+  - pattern: "datahub-executor/**"
+    max_removals: 0
+
+  # Python files, except the acryl-cloud module, should be exactly the same as OSS.
+  - pattern: "metadata-ingestion/**"
+    max_total: 0
+  - pattern: "metadata-ingestion-modules/**"
+    max_total: 0
+
+  # Everywhere else, new files are allowed and file deletions are not.
+  - pattern: "**"
+    change_type: "ADDED"
+    max_removals: 0
+  - pattern: "**"
+    change_type: "DELETED"
+    max_total: 0
+
+  - pattern:
+      - "**/entity-registry.yml"
+      - "test-models/src/main/resources/test-entity-registry.yml"
+    max_removals: 0
+
+  - pattern: "**/*.pdl"
+    max_removals: 0
+
+  # # If you're making a lot of changes to a given React component, you probably should
+  # # be creating a new file instead.
+  # - pattern: "datahub-web-react/*"
+  #   whitespace: ignore
+  #   max_additions: 50
+
+  # # Baseline - expected to be identical to OSS.
+  # - pattern: "*"
+  #   max_total: 0
