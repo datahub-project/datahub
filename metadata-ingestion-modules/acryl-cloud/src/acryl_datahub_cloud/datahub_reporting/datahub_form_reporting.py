@@ -5,6 +5,9 @@ from enum import Enum
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
 import pandas as pd
+from pydantic import BaseModel
+
+from acryl_datahub_cloud.elasticsearch.graph_service import BaseModelRow
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.filters import RawSearchFilterRule
@@ -16,9 +19,6 @@ from datahub.metadata.schema_classes import (
     FormStateClass,
     FormTypeClass,
 )
-from pydantic import BaseModel
-
-from acryl_datahub_cloud.elasticsearch.graph_service import BaseModelRow
 
 logger = logging.getLogger(__name__)
 
@@ -257,6 +257,7 @@ class DataHubFormReportingData(FormData):
                 for prompt_id, response_time in zip(
                     search_row.completedFormsCompletedPromptIds,
                     search_row.completedFormsCompletedPromptResponseTimes,
+                    strict=False,
                 )
                 if prompt_id in form_prompts
             }
@@ -289,7 +290,7 @@ class DataHubFormReportingData(FormData):
         on_asset_scanned: Optional[Callable[[str], Any]] = None,
         on_form_scanned: Optional[Callable[[str], Any]] = None,
     ) -> Iterable[FormReportingRow]:
-        extra_fields = [f for f in self.DataHubDatasetSearchRow.__fields__.keys()]
+        extra_fields = [f for f in self.DataHubDatasetSearchRow.__fields__]
         result = self.graph.get_results_by_filter(
             extra_or_filters=self.get_form_existence_or_filters(),
             extra_source_fields=extra_fields,
@@ -388,6 +389,7 @@ class DataHubFormReportingData(FormData):
                     for (p, p_response_time) in zip(
                         search_row.incompleteFormsCompletedPromptIds,
                         search_row.incompleteFormsCompletedPromptResponseTimes,
+                        strict=False,
                     )
                     if p in form_prompts
                 ]:
@@ -485,6 +487,7 @@ class DataHubFormReportingData(FormData):
                     for (p, p_response_time) in zip(
                         search_row.completedFormsCompletedPromptIds,
                         search_row.completedFormsCompletedPromptResponseTimes,
+                        strict=False,
                     )
                     if p in form_prompts
                 ]:

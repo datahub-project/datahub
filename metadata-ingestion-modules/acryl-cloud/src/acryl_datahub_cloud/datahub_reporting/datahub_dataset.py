@@ -163,7 +163,7 @@ class DataHubBasedS3Dataset:
                     self.schema = row.arrow_schema()
                 else:
                     # hail mary: infer schema from the first row and cast everything to string
-                    self.schema = pa.schema([(key, pa.string()) for key in row.keys()])
+                    self.schema = pa.schema([(key, pa.string()) for key in row])
                     self.stringify_row = True
 
             self._initialize_local_file()
@@ -172,7 +172,7 @@ class DataHubBasedS3Dataset:
                 self.schema,
                 compression=self.config.file_compression,
             )
-        if isinstance(row, BaseModel) or isinstance(row, BaseModelRow):
+        if isinstance(row, (BaseModel, BaseModelRow)):
             # for anything extending BaseModel, we want to use the dict representation
             write_row: Dict[str, Any] = row.dict()
         elif isinstance(row, dict):
@@ -274,11 +274,7 @@ class DataHubBasedS3Dataset:
         self, duckdb_columns: List[Tuple[str, str]]
     ) -> SchemaMetadataClass:
         def get_type_from_dtype(dtype: str) -> SchemaFieldDataTypeClass:
-            if "int" in dtype:
-                return SchemaFieldDataTypeClass(type=NumberTypeClass())
-            elif "float" in dtype:
-                return SchemaFieldDataTypeClass(type=NumberTypeClass())
-            elif "number" in dtype:
+            if "int" in dtype or "float" in dtype or "number" in dtype:
                 return SchemaFieldDataTypeClass(type=NumberTypeClass())
             elif "bool" in dtype:
                 return SchemaFieldDataTypeClass(type=BooleanTypeClass())

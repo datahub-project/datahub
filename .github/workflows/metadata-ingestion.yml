@@ -34,7 +34,9 @@ jobs:
       # DATAHUB_LOOKML_GIT_TEST_SSH_KEY: ${{ secrets.DATAHUB_LOOKML_GIT_TEST_SSH_KEY }}
     strategy:
       matrix:
-        python-version: ["3.9", "3.11"]
+        # For SaaS - we don't really develop on metadata-ingestion here,
+        # so we remove parts of the python-version matrix to speed up CI.
+        python-version: ["3.11"]
         command:
           [
             "testQuick",

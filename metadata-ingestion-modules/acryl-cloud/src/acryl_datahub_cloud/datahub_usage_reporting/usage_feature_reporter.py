@@ -395,18 +395,10 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                     "last_modified_at": (
                         doc["_source"]["lastModifiedAt"]
                         if "lastModifiedAt" in doc["_source"]
-                        else (
-                            doc["_source"]["lastModifiedAt"]
-                            if "lastModifiedAt" in doc["_source"]
-                            else None
-                        )
+                        else (doc["_source"].get("lastModifiedAt", None))
                     ),
                     "platform": doc["_source"]["platform"],
-                    "removed": (
-                        doc["_source"]["removed"]
-                        if "removed" in doc["_source"]
-                        else False
-                    ),
+                    "removed": (doc["_source"].get("removed", False)),
                 }
 
             time_taken = timer.elapsed_seconds()
@@ -509,11 +501,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                         "eventGranularity": doc["_source"].get("eventGranularity"),
                         "totalSqlQueries": doc["_source"].get("totalSqlQueries", 0),
                         "uniqueUserCount": doc["_source"].get("uniqueUserCount", 0),
-                        "userCounts": (
-                            doc["_source"]["event"]["userCounts"]
-                            if "userCounts" in doc["_source"]["event"]
-                            else None
-                        ),
+                        "userCounts": (doc["_source"]["event"].get("userCounts", None)),
                         "platform": platform,
                     }
                 except KeyError as e:
@@ -525,7 +513,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             time_taken = timer.elapsed_seconds()
             logger.info(f"DatasetUsage processing took {time_taken:.3f} seconds")
 
-    def search_score(
+    def search_score(  # noqa: C901
         self, urn: str, last_update_time: int, usage_percentile: int
     ) -> SearchRankingMultipliers:
         usage_search_score_multiplier = 1.0
@@ -622,10 +610,10 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                         [endpoint],
                         http_auth=(user, password),
                         use_ssl=(
-                            True
-                            if self.config.search_index
-                            and self.config.search_index.use_ssl
-                            else False
+                            bool(
+                                self.config.search_index
+                                and self.config.search_index.use_ssl
+                            )
                         ),
                     )
 
@@ -639,10 +627,10 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                         [endpoint],
                         http_auth=(user, password),
                         use_ssl=(
-                            True
-                            if self.config.search_index
-                            and self.config.search_index.use_ssl
-                            else False
+                            bool(
+                                self.config.search_index
+                                and self.config.search_index.use_ssl
+                            )
                         ),
                     )
 
@@ -737,7 +725,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                 polars.Duration(): pa.duration("ns"),
             }
 
-            if polars_dtype in [type(key) for key in type_mapping.keys()]:
+            if polars_dtype in [type(key) for key in type_mapping]:
                 return type_mapping[polars_dtype]
             elif polars_dtype == polars.Categorical:
                 return pa.dictionary(index_type=pa.int32(), value_type=pa.string())
@@ -1006,12 +994,9 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
     def generate_mcp_from_lazyframe(
         self, lazy_frame: polars.LazyFrame
     ) -> Iterable[MetadataWorkUnit]:
-        num = 0
         for row in lazy_frame.collect(
             streaming=self.config.experimental_full_streaming
         ).to_struct():
-            num += 1
-
             if "siblings" in row and row["siblings"]:
                 logger.info(f"Siblings found for urn: {row['urn']} -> row['siblings']")
 
@@ -1101,10 +1086,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
     def generate_query_usage_mcp_from_lazyframe(
         self, lazy_frame: polars.LazyFrame
     ) -> Iterable[MetadataWorkUnit]:
-        num = 0
         for row in lazy_frame.collect().iter_rows(named=True):
-            num += 1
-
             query_usage_features = QueryUsageFeaturesClass(
                 queryCountLast30Days=int(row.get("totalSqlQueries", 0) or 0),
                 queryCountTotal=None,  # This is not implemented
@@ -1287,7 +1269,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                 .is_not_null()
                 # We only want to downrank datasets that have a search score multiplier greater than 1. 1 is the minimum score of a dataset
                 .and_(polars.col("combinedSearchRankingMultiplier").ne(1))
-            )  # noqa: E712
+            )
             .filter(polars.col("removed") == False)  # noqa: E712
             .drop(["removed"])
             .drop(["last_modified_at"])
