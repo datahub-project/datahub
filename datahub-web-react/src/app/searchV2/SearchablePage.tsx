@@ -142,28 +142,29 @@ export const SearchablePage = ({ children }: Props) => {
         }
     }, FIFTH_SECOND_IN_MS);
 
-    useEffect(() => {
-        const autoCompleteWithFilters = debounce((query: string) => {
-            if (query.trim() === '') return null;
+    const autoCompleteWithFilters = debounce((query: string) => {
+        if (query.trim() === '') return null;
 
-            const flatAppliedFilters = Array.from(appliedFilters?.values?.() || [])
-                .flatMap((value) => value.filters)
-                .filter((filter) => filter.values?.length);
+        const flatAppliedFilters = Array.from(appliedFilters?.values?.() || [])
+            .flatMap((value) => value.filters)
+            .filter((filter) => filter.values?.length);
 
-            getAutoCompleteResults({
-                variables: {
-                    input: {
-                        query,
-                        viewUrn,
-                        orFilters: generateOrFilters(UnionType.AND, flatAppliedFilters),
-                    },
+        getAutoCompleteResults({
+            variables: {
+                input: {
+                    query,
+                    viewUrn,
+                    orFilters: generateOrFilters(UnionType.AND, flatAppliedFilters),
                 },
-            });
-            return null;
-        }, FIFTH_SECOND_IN_MS);
+            },
+        });
+        return null;
+    }, FIFTH_SECOND_IN_MS);
 
+
+    useEffect(() => {
         if (showSearchBarAutocompleteRedesign) autoCompleteWithFilters(searchQuery);
-    }, [searchQuery, showSearchBarAutocompleteRedesign, appliedFilters]);
+    }, [searchQuery, showSearchBarAutocompleteRedesign, appliedFilters, autoCompleteWithFilters]);
 
     // Load correct autocomplete results on initial page load.
     useEffect(() => {
