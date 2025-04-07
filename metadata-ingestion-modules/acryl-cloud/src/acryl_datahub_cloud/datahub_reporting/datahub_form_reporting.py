@@ -291,8 +291,9 @@ class DataHubFormReportingData(FormData):
         on_form_scanned: Optional[Callable[[str], Any]] = None,
     ) -> Iterable[FormReportingRow]:
         extra_fields = [f for f in self.DataHubDatasetSearchRow.__fields__]
+        # TODO: Replace with the new search/filter SDK.
         result = self.graph.get_results_by_filter(
-            extra_or_filters=self.get_form_existence_or_filters(),
+            extra_or_filters=[{"and": self.get_form_existence_or_filters()}],
             extra_source_fields=extra_fields,
             skip_cache=True,
         )
