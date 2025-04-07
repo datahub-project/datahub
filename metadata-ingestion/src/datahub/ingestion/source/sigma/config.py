@@ -56,11 +56,14 @@ class Constant:
 @dataclass
 class SigmaSourceReport(StaleEntityRemovalSourceReport):
     workspaces: EntityFilterReport = EntityFilterReport.field(type="workspace")
-    number_of_workspaces: Optional[int] = None
     non_accessible_workspaces_count: int = 0
-    shared_entities_count: int = 0
-    number_of_datasets: int = 0
-    number_of_workbooks: int = 0
+
+    datasets: EntityFilterReport = EntityFilterReport.field(type="dataset")
+    datasets_without_workspace: int = 0
+
+    workbooks: EntityFilterReport = EntityFilterReport.field(type="workbook")
+    workbooks_without_workspace: int = 0
+
     number_of_files_metadata: Dict[str, int] = field(default_factory=dict)
 
 
