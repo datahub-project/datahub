@@ -176,6 +176,7 @@ export const NestedSelect = ({
     const [isOpen, setIsOpen] = useState(false);
     const [selectedOptions, setSelectedOptions] = useState<SelectOption[]>(initialValues);
     const selectRef = useRef<HTMLDivElement>(null);
+    const dropdownRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         if (initialValues && shouldAlwaysSyncParentValues) {
@@ -192,7 +193,10 @@ export const NestedSelect = ({
     // TODO: handle searching inside of a nested component on the FE only
 
     const handleDocumentClick = useCallback((e: MouseEvent) => {
-        if (selectRef.current && !selectRef.current.contains(e.target as Node)) {
+        const clickedOutsideOfSelect = selectRef.current && !selectRef.current.contains(e.target as Node);
+        const clickedOutsideOfDropdown = dropdownRef.current && !dropdownRef.current.contains(e.target as Node);
+
+        if (clickedOutsideOfSelect && clickedOutsideOfDropdown) {
             setIsOpen(false);
         }
     }, []);
@@ -292,7 +296,7 @@ export const NestedSelect = ({
                 disabled={isDisabled}
                 placement="bottomRight"
                 dropdownRender={() => (
-                    <DropdownContainer style={{ maxHeight: height, overflow: 'auto' }}>
+                    <DropdownContainer ref={dropdownRef} style={{ maxHeight: height, overflow: 'auto' }}>
                         {showSearch && (
                             <DropdownSearchBar
                                 placeholder={searchPlaceholder}
