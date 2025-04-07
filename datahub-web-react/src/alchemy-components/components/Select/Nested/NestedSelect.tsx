@@ -245,7 +245,7 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
             setStagedOptions(newValues);
             if (syncWithSelectedOptions) setSelectedOptions(newValues);
         },
-        [stagedOptions, shouldManuallyUpdate],
+        [stagedOptions],
     );
 
     const handleClearSelection = useCallback(() => {

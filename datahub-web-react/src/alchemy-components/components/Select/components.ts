@@ -60,7 +60,7 @@ export const Container = styled.div<ContainerProps>(({ size, width, $selectLabel
     };
 
     const getWitdh = () => {
-        switch(width) {
+        switch (width) {
             case 'full':
                 return '100%';
             case 'fit-content':
@@ -68,7 +68,7 @@ export const Container = styled.div<ContainerProps>(({ size, width, $selectLabel
             default:
                 return `${width}px`;
         }
-    }
+    };
 
     return {
         position: 'relative',

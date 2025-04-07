@@ -190,10 +190,13 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
         setAreAllSelected(!areAllSelected);
     };
 
-    const handleSearchChange = useCallback((value: string) => {
-        onSearchChange?.(value);
-        setSearchQuery(value);
-    }, [onSearchChange]);
+    const handleSearchChange = useCallback(
+        (value: string) => {
+            onSearchChange?.(value);
+            setSearchQuery(value);
+        },
+        [onSearchChange],
+    );
 
     return (
         <Container ref={selectRef} size={size || 'md'} width={props.width}>
