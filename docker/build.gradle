@@ -257,6 +257,7 @@ quickstart_configs.each { taskName, config ->
                 // Only restart containers that had their modules rebuilt
                 if (containersToRestart) {
                     def cmd = ["docker compose -p datahub --profile ${config.profile}"] + ['-f', compose_base] + ['restart'] + containersToRestart
+                    println(cmd.join(" "))
                     commandLine 'bash', '-c', cmd.join(" ")
                 } else {
                     // If no containers need restart, make this a no-op

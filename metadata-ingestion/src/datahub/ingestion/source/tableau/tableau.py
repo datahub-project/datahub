@@ -1623,7 +1623,7 @@ class TableauSiteSource:
                 # if multiple project has name C. Ideal solution is to use projectLuidWithin to avoid duplicate project,
                 # however Tableau supports projectLuidWithin in Tableau Cloud June 2022 / Server 2022.3 and later.
                 project_luid: Optional[str] = self._get_workbook_project_luid(workbook)
-                if project_luid not in self.tableau_project_registry.keys():
+                if project_luid not in self.tableau_project_registry:
                     wrk_name: Optional[str] = workbook.get(c.NAME)
                     wrk_id: Optional[str] = workbook.get(c.ID)
                     prj_name: Optional[str] = workbook.get(c.PROJECT_NAME)
@@ -2253,7 +2253,7 @@ class TableauSiteSource:
         # It is possible due to https://github.com/tableau/server-client-python/issues/1210
         if (
             ds.get(c.LUID)
-            and ds[c.LUID] not in self.datasource_project_map.keys()
+            and ds[c.LUID] not in self.datasource_project_map
             and self.report.get_all_datasources_query_failed
         ):
             logger.debug(
@@ -2265,7 +2265,7 @@ class TableauSiteSource:
 
         if (
             ds.get(c.LUID)
-            and ds[c.LUID] in self.datasource_project_map.keys()
+            and ds[c.LUID] in self.datasource_project_map
             and self.datasource_project_map[ds[c.LUID]] in self.tableau_project_registry
         ):
             return self.datasource_project_map[ds[c.LUID]]
@@ -3252,7 +3252,7 @@ class TableauSiteSource:
 
         parent_key = None
         project_luid: Optional[str] = self._get_workbook_project_luid(workbook)
-        if project_luid and project_luid in self.tableau_project_registry.keys():
+        if project_luid and project_luid in self.tableau_project_registry:
             parent_key = self.gen_project_key(project_luid)
         else:
             workbook_id: Optional[str] = workbook.get(c.ID)
