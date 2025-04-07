@@ -66,8 +66,7 @@ export default function BaseEntityFilter({
             selectLabelProps={{ variant: 'labeled', label: filterName }}
             renderCustomOptionText={(option) => renderEntity(option.entity)}
             width="fit-content"
-            // filteringPredicate={filteringPredicate}
-            // onwSearch={onSearch}
+            onSearchChange={onSearch}
         />
     );
 }
