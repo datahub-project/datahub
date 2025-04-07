@@ -21,8 +21,6 @@ rules:
     change_type: "DELETED"
     max_total: 0
 
-  - pattern: "**/.gitignore" # ignore gitignore changes
-
   # datahub-web-react rules.
   - pattern: "datahub-web-react/yarn.lock" # ignore yarn.lock changes
   - pattern: "datahub-web-react/**/*.graphql"
@@ -51,12 +49,20 @@ rules:
       - "datahub-graphql-core/**/*.java"
       - "datahub-graphql-core/**/*.graphql"
       - "datahub-upgrade/**/*.java"
+      - "entity-registry/**/*.java"
       - "metadata-jobs/**/*.java"
       - "metadata-io/**/*.java"
       - "metadata-service/**/*.java"
+      - "metadata-service/**/*.yaml"
       - "smoke-test/**/*.py"
       - "smoke-test/**/*.js"
     max_removals: 0
+
+  # Ignored files.
+  - pattern: "**/.gitignore" # ignore gitignore changes
+  - pattern: # ignore these files
+      - "metadata-service/restli-api/src/main/snapshot/*.json"
+      - "metadata-service/restli-api/src/main/idl/*.json"
 
   # Various other files.
   - pattern: docker/**

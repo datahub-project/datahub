@@ -1123,6 +1123,66 @@
     "additions": null,
     "deletions": 7
   },
+  "entity-registry/src/main/java/com/linkedin/metadata/aspect/patch/builder/AbstractMultiFieldPatchBuilder.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "entity-registry/src/main/java/com/linkedin/metadata/aspect/patch/builder/GlobalTagsPatchBuilder.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "entity-registry/src/main/java/com/linkedin/metadata/aspect/patch/builder/GlossaryTermsPatchBuilder.java": {
+    "additions": null,
+    "deletions": 4
+  },
+  "entity-registry/src/main/java/com/linkedin/metadata/aspect/patch/template/AspectTemplateEngine.java": {
+    "additions": null,
+    "deletions": 8
+  },
+  "entity-registry/src/main/java/com/linkedin/metadata/aspect/plugins/config/PluginConfiguration.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "entity-registry/src/main/java/com/linkedin/metadata/models/EntitySpec.java": {
+    "additions": null,
+    "deletions": 28
+  },
+  "entity-registry/src/main/java/com/linkedin/metadata/models/RelationshipFieldSpecExtractor.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "entity-registry/src/main/java/com/linkedin/metadata/models/SearchableFieldSpecExtractor.java": {
+    "additions": null,
+    "deletions": 21
+  },
+  "entity-registry/src/main/java/com/linkedin/metadata/models/TimeseriesFieldSpecExtractor.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "entity-registry/src/main/java/com/linkedin/metadata/models/annotation/SearchableAnnotation.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "entity-registry/src/main/java/com/linkedin/metadata/models/annotation/TimeseriesFieldAnnotation.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "entity-registry/src/main/java/com/linkedin/metadata/models/registry/LineageRegistry.java": {
+    "additions": null,
+    "deletions": 10
+  },
+  "entity-registry/src/main/java/com/linkedin/metadata/utils/SystemMetadataUtils.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "entity-registry/src/test/java/com/linkedin/metadata/models/EntitySpecBuilderTest.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "entity-registry/src/testFixtures/java/com/linkedin/test/metadata/aspect/batch/TestMCL.java": {
+    "additions": null,
+    "deletions": 1
+  },
   "metadata-ingestion/build.gradle": {
     "additions": 9,
     "deletions": 1
@@ -1738,6 +1798,18 @@
   "metadata-service/configuration/src/main/java/com/linkedin/metadata/config/TestsConfiguration.java": {
     "additions": null,
     "deletions": 1
+  },
+  "metadata-service/configuration/src/main/resources/application.yaml": {
+    "additions": null,
+    "deletions": 13
+  },
+  "metadata-service/configuration/src/main/resources/bootstrap_mcps.yaml": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-service/configuration/src/main/resources/bootstrap_mcps/root-user.yaml": {
+    "additions": null,
+    "deletions": 2
   },
   "metadata-service/factories/build.gradle": {
     "additions": 18,
