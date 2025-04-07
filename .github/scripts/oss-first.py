@@ -463,6 +463,9 @@ class DiffValidator:
             print("Success: no diff size violations")
 
     def _remove_unused_exceptions(self) -> None:
+        # TODO: Tricky - in order to fully implement exception removal, we'd need
+        # to check the file against the rules to see if the file would pass
+        # without the exception.
         unused_exceptions = set(self._exceptions) - self._used_exceptions
         logger.info(f"Removing {len(unused_exceptions)} unused exceptions")
         for filepath in unused_exceptions:

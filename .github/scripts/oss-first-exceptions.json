@@ -7,13 +7,161 @@
     "additions": null,
     "deletions": "inf"
   },
+  "datahub-web-react/src/Mocks.tsx": {
+    "additions": 280,
+    "deletions": null
+  },
   "datahub-web-react/src/alchemy-components/components/BarChart/components/LeftAxisMarginSetter.tsx": {
     "additions": null,
     "deletions": "inf"
   },
+  "datahub-web-react/src/alchemy-components/components/WhiskerChart/WhiskerChart.tsx": {
+    "additions": 91,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/analytics/analytics.ts": {
+    "additions": 81,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/analytics/event.ts": {
+    "additions": 489,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entity/dataset/profile/schema/components/SchemaDescriptionField.tsx": {
+    "additions": 105,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entity/shared/EntitySearchInput/EntitySearchInput.tsx": {
+    "additions": 86,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entity/shared/__tests__/siblingsUtils.test.ts": {
+    "additions": 139,
+    "deletions": null
+  },
   "datahub-web-react/src/app/entity/shared/containers/profile/header/StructuredPropertyBadge.tsx": {
     "additions": null,
     "deletions": "inf"
+  },
+  "datahub-web-react/src/app/entity/shared/embed/UpstreamHealth/UpstreamHealth.tsx": {
+    "additions": 122,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entity/shared/entityForm/EntityFormContext.tsx": {
+    "additions": 195,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entity/shared/entityForm/EntityFormContextProvider.tsx": {
+    "additions": 290,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entity/shared/entityForm/prompts/Prompt.tsx": {
+    "additions": 107,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/UrnInput/UrnInput.tsx": {
+    "additions": 107,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entity/shared/tabs/Dataset/Validations/assertionUtils.tsx": {
+    "additions": 88,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entity/shared/tabs/Documentation/components/DescriptionEditor.tsx": {
+    "additions": 102,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal.tsx": {
+    "additions": 152,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entity/shared/utils.ts": {
+    "additions": 89,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/dataset/profile/schema/components/SchemaDescriptionField.tsx": {
+    "additions": 94,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/shared/EntityDropdown/CreateGlossaryEntityModal.tsx": {
+    "additions": 193,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/shared/__tests__/utils.test.ts": {
+    "additions": 148,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/shared/containers/profile/sidebar/Domain/SetDomainModal.tsx": {
+    "additions": 137,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/shared/containers/profile/sidebar/Ownership/EditOwnersModal.tsx": {
+    "additions": 179,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/shared/containers/profile/sidebar/__tests__/SidebarLogicSection.test.tsx": {
+    "additions": 140,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/shared/containers/profile/sidebar/shared/utils.tsx": {
+    "additions": 85,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/shared/tabs/Dataset/Validations/acrylUtils.tsx": {
+    "additions": 82,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/utils.ts": {
+    "additions": 133,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultExtractionUtils.ts": {
+    "additions": 149,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultMessageUtils.ts": {
+    "additions": 542,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/shared/tabs/Dataset/Validations/contract/builder/DataContractBuilderModal.tsx": {
+    "additions": 101,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/shared/tabs/Documentation/components/DescriptionEditor.tsx": {
+    "additions": 89,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/shared/tabs/Documentation/components/LinkList.tsx": {
+    "additions": 111,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/shared/tabs/Properties/PropertiesTab.tsx": {
+    "additions": 95,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/shared/utils.ts": {
+    "additions": 102,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/homeV2/layout/NavLinksMenu.tsx": {
+    "additions": 83,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/homeV2/layout/navBarRedesign/NavSidebar.tsx": {
+    "additions": 102,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/ingest/ManageIngestionPage.tsx": {
+    "additions": 115,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/ingest/secret/SecretsList.tsx": {
+    "additions": 143,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/ingest/source/IngestionSourceList.tsx": {
+    "additions": 140,
+    "deletions": null
   },
   "datahub-web-react/src/app/lineageV2/manualLineage/AddEntityEdge.tsx": {
     "additions": null,
@@ -22,6 +170,86 @@
   "datahub-web-react/src/app/lineageV2/manualLineage/LineageEntityView.tsx": {
     "additions": null,
     "deletions": "inf"
+  },
+  "datahub-web-react/src/app/lineageV2/manualLineage/ManageLineageModal.tsx": {
+    "additions": 136,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/searchV2/filters/__tests__/utils.test.tsx": {
+    "additions": 92,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/settings/SettingsPage.tsx": {
+    "additions": 115,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/shared/admin/HeaderLinks.tsx": {
+    "additions": 149,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/shared/tags/AddTagsTermsModal.tsx": {
+    "additions": 215,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/shared/tags/TagTermGroup.tsx": {
+    "additions": 160,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/sharedV2/tags/TagTermGroup.tsx": {
+    "additions": 192,
+    "deletions": null
+  },
+  "datahub-web-react/src/graphql/app.graphql": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-web-react/src/graphql/assertion.graphql": {
+    "additions": null,
+    "deletions": 234
+  },
+  "datahub-web-react/src/graphql/container.graphql": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-web-react/src/graphql/dataset.graphql": {
+    "additions": null,
+    "deletions": 53
+  },
+  "datahub-web-react/src/graphql/domain.graphql": {
+    "additions": null,
+    "deletions": 11
+  },
+  "datahub-web-react/src/graphql/fragments.graphql": {
+    "additions": null,
+    "deletions": 109
+  },
+  "datahub-web-react/src/graphql/incident.graphql": {
+    "additions": null,
+    "deletions": 10
+  },
+  "datahub-web-react/src/graphql/lineage.graphql": {
+    "additions": null,
+    "deletions": 16
+  },
+  "datahub-web-react/src/graphql/mlModel.graphql": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-web-react/src/graphql/query.graphql": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-web-react/src/graphql/relationships.graphql": {
+    "additions": null,
+    "deletions": 5
+  },
+  "datahub-web-react/src/graphql/search.graphql": {
+    "additions": null,
+    "deletions": 40
+  },
+  "datahub-web-react/src/graphql/user.graphql": {
+    "additions": null,
+    "deletions": 3
   },
   "datahub-web-react/src/images/domain.svg": {
     "additions": null,
@@ -150,10 +378,6 @@
   "metadata-ingestion/src/datahub/testing/compare_metadata_json.py": {
     "additions": 1,
     "deletions": 1
-  },
-  "metadata-ingestion/tests/integration/cassandra/setup/cassandra.yaml": {
-    "additions": 4,
-    "deletions": 4
   },
   "metadata-ingestion/tests/integration/fivetran/fivetran_bigquery_golden.json": {
     "additions": "inf",

@@ -21,19 +21,37 @@ rules:
     change_type: "DELETED"
     max_total: 0
 
+  # Models should be append-only.
   - pattern:
       - "**/entity-registry.yml"
       - "test-models/src/main/resources/test-entity-registry.yml"
     max_removals: 0
-
   - pattern: "**/*.pdl"
     max_removals: 0
 
-  # # If you're making a lot of changes to a given React component, you probably should
-  # # be creating a new file instead.
-  # - pattern: "datahub-web-react/*"
-  #   whitespace: ignore
-  #   max_additions: 50
+  - pattern: "**/.gitignore" # ignore gitignore changes
+
+  # datahub-web-react rules.
+  - pattern: "datahub-web-react/yarn.lock" # ignore yarn.lock changes
+  - pattern: "datahub-web-react/**/*.graphql"
+    max_removals: 0
+  - pattern:
+      - "datahub-web-react/**/*.ts"
+      - "datahub-web-react/**/*.tsx"
+      - "datahub-web-react/**/*.js"
+      - "datahub-web-react/**/*.jsx"
+    # If you're making a lot of changes to a given React component, you probably should
+    # be creating a new file instead.
+    # TODO: This limit should be tightened in the future.
+    max_additions: 80
+
+  # Most code should be append-only.
+  # - pattern:
+  #     - "metadata-io/**/*.java"
+  #     - "datahub-graphql-core/**/*.java"
+  #     - "metadata-service/**/*.java"
+  #     - "smoke-test/**/*.js"
+  #   max_removals: 0
 
   # # Baseline - expected to be identical to OSS.
   # - pattern: "*"
