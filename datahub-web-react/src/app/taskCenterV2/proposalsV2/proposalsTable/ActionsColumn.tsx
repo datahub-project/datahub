@@ -1,17 +1,27 @@
-import { colors, Icon, Pill } from '@src/alchemy-components';
+import { colors, Icon, Pill, Modal } from '@src/alchemy-components';
 import analytics, { EventType, EntityActionType } from '@src/app/analytics';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { useAcceptProposalsMutation, useRejectProposalsMutation } from '@src/graphql/actionRequest.generated';
-import { ActionRequest, ActionRequestResult, ActionRequestStatus, EntityType } from '@src/types.generated';
-import { message, Modal } from 'antd';
-import React from 'react';
+import { Form, Input, message } from 'antd';
+import { useForm } from 'antd/lib/form/Form';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+import { ActionRequest, ActionRequestResult, ActionRequestStatus, EntityType } from '@src/types.generated';
+import { ProposalModalType } from '../utils';
+import ResultNote from './ResultNote';
 
 const IconsContainer = styled.div`
     display: flex;
     justify-content: end;
     gap: 8px;
+`;
+
+const CompletedContainer = styled.div`
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: end;
 `;
 
 const StyledIcon = styled(Icon)`
@@ -22,6 +32,22 @@ const StyledIcon = styled(Icon)`
         cursor: pointer;
     }
 `;
+
+type ModalType = ProposalModalType | null;
+const PROPOSAL_REVIEW_NOTE = 'proposalReviewNote';
+
+const modalConfig = {
+    [ProposalModalType.Accept]: {
+        title: 'Approve Proposal Note',
+        subtitle: 'Please provide a reason for approving changes...',
+        placeholder: 'Why are you approving the proposal?',
+    },
+    [ProposalModalType.Reject]: {
+        title: 'Reject Proposal Note',
+        subtitle: 'Please provide a reason for rejecting changes...',
+        placeholder: 'Why are you rejecting the proposal?',
+    },
+};
 
 interface Props {
     actionRequest: ActionRequest;
@@ -35,60 +61,53 @@ const ActionsColumn = ({ actionRequest, onUpdate, showPendingView }: Props) => {
     const [acceptProposalsMutation] = useAcceptProposalsMutation();
     const [rejectProposalsMutation] = useRejectProposalsMutation();
 
+    const [form] = useForm();
+    const [modalType, setModalType] = useState<ModalType>(null);
+
     const acceptRequest = () => {
-        Modal.confirm({
-            title: 'Accept Proposal',
-            content: 'Are you sure you want to accept this proposal?',
-            okText: 'Yes',
-            onOk() {
-                acceptProposalsMutation({ variables: { urns: [actionRequest.urn] } })
-                    .then(() => {
-                        if (actionRequest.entity?.urn) {
-                            analytics.event({
-                                type: EventType.EntityActionEvent,
-                                actionType: EntityActionType.ProposalAccepted,
-                                actionQualifier: actionRequest.type,
-                                entityType: actionRequest.entity?.type,
-                                entityUrn: actionRequest.entity?.urn,
-                            });
-                        }
-                        message.success('Successfully accepted the proposal!');
-                        onUpdate();
-                    })
-                    .catch((err) => {
-                        console.log(err);
-                        message.error('Failed to accept proposal. An unknown error occurred!');
+        acceptProposalsMutation({
+            variables: { urns: [actionRequest.urn], note: form.getFieldValue(PROPOSAL_REVIEW_NOTE) },
+        })
+            .then(() => {
+                if (actionRequest.entity?.urn) {
+                    analytics.event({
+                        type: EventType.EntityActionEvent,
+                        actionType: EntityActionType.ProposalAccepted,
+                        actionQualifier: actionRequest.type,
+                        entityType: actionRequest.entity?.type,
+                        entityUrn: actionRequest.entity?.urn,
                     });
-            },
-        });
+                }
+                message.success('Successfully accepted the proposal!');
+                onUpdate();
+            })
+            .catch((err) => {
+                console.log(err);
+                message.error('Failed to accept proposal. An unknown error occurred!');
+            });
     };
 
     const rejectRequest = () => {
-        Modal.confirm({
-            title: 'Reject Proposal',
-            content: 'Are you sure you want to reject this proposal?',
-            okText: 'Yes',
-            onOk() {
-                rejectProposalsMutation({ variables: { urns: [actionRequest.urn] } })
-                    .then(() => {
-                        if (actionRequest.entity?.urn) {
-                            analytics.event({
-                                type: EventType.EntityActionEvent,
-                                actionType: EntityActionType.ProposalRejected,
-                                actionQualifier: actionRequest.type,
-                                entityType: actionRequest.entity?.type,
-                                entityUrn: actionRequest.entity?.urn,
-                            });
-                        }
-                        message.info('Proposal declined.');
-                        onUpdate();
-                    })
-                    .catch((err) => {
-                        console.log(err);
-                        message.error('Failed to reject proposal. An unknown error occurred!');
+        rejectProposalsMutation({
+            variables: { urns: [actionRequest.urn], note: form.getFieldValue(PROPOSAL_REVIEW_NOTE) },
+        })
+            .then(() => {
+                if (actionRequest.entity?.urn) {
+                    analytics.event({
+                        type: EventType.EntityActionEvent,
+                        actionType: EntityActionType.ProposalRejected,
+                        actionQualifier: actionRequest.type,
+                        entityType: actionRequest.entity?.type,
+                        entityUrn: actionRequest.entity?.urn,
                     });
-            },
-        });
+                }
+                message.info('Proposal declined.');
+                onUpdate();
+            })
+            .catch((err) => {
+                console.log(err);
+                message.error('Failed to reject proposal. An unknown error occurred!');
+            });
     };
 
     let actionResultView;
@@ -99,7 +118,10 @@ const ActionsColumn = ({ actionRequest, onUpdate, showPendingView }: Props) => {
         const resultAuthorDisplayName =
             resultAuthor && entityRegistry.getDisplayName(EntityType.CorpUser, resultAuthor);
         actionResultView = (
-            <div>
+            <CompletedContainer>
+                {actionRequest.resultNote && (
+                    <ResultNote resultNote={actionRequest.resultNote} authorDisplayName={resultAuthorDisplayName} />
+                )}
                 <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${resultAuthor?.urn}`}>
                     <Pill
                         leftIcon={isAccepted ? 'Check' : 'Close'}
@@ -108,7 +130,7 @@ const ActionsColumn = ({ actionRequest, onUpdate, showPendingView }: Props) => {
                         size="md"
                     />
                 </Link>
-            </div>
+            </CompletedContainer>
         );
     } else if (showPendingView) {
         // Just showing the status until we support deleting a proposal
@@ -128,7 +150,7 @@ const ActionsColumn = ({ actionRequest, onUpdate, showPendingView }: Props) => {
                     style={{ backgroundColor: colors.red[0] }}
                     onClick={(e) => {
                         e.stopPropagation();
-                        rejectRequest();
+                        setModalType(ProposalModalType.Reject);
                     }}
                     data-testid="decline-button"
                 />
@@ -138,7 +160,7 @@ const ActionsColumn = ({ actionRequest, onUpdate, showPendingView }: Props) => {
                     style={{ backgroundColor: colors.green[0] }}
                     onClick={(e) => {
                         e.stopPropagation();
-                        acceptRequest();
+                        setModalType(ProposalModalType.Accept);
                     }}
                     data-testid="approve-button"
                 />
@@ -146,7 +168,44 @@ const ActionsColumn = ({ actionRequest, onUpdate, showPendingView }: Props) => {
         );
     }
 
-    return <>{actionResultView}</>;
+    const handleCancel = () => {
+        setModalType(null);
+        form.resetFields();
+    };
+
+    return (
+        <>
+            {actionResultView}
+            {!!modalType && (
+                <Modal
+                    buttons={[
+                        {
+                            text: 'Cancel',
+                            variant: 'text',
+                            onClick: handleCancel,
+                        },
+                        {
+                            text: 'Submit',
+                            variant: 'filled',
+                            onClick: modalType === ProposalModalType.Accept ? acceptRequest : rejectRequest,
+                        },
+                    ]}
+                    onCancel={handleCancel}
+                    title={modalConfig[modalType].title}
+                    subtitle={modalConfig[modalType].subtitle}
+                >
+                    <Form form={form} initialValues={{}} layout="vertical">
+                        <div>
+                            <div>Reason</div>
+                            <Form.Item name={PROPOSAL_REVIEW_NOTE}>
+                                <Input.TextArea rows={4} placeholder={modalConfig[modalType].placeholder} />
+                            </Form.Item>
+                        </div>
+                    </Form>
+                </Modal>
+            )}
+        </>
+    );
 };
 
 export default ActionsColumn;

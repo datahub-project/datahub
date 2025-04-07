@@ -178,6 +178,7 @@ public class ActionRequestUtils {
         com.linkedin.actionrequest.ActionRequestStatus actionRequestStatus =
             aspect.getActionRequestStatus();
         actionRequest.setStatus(ActionRequestStatus.valueOf(actionRequestStatus.getStatus()));
+        actionRequest.setResultNote(actionRequestStatus.getNote());
         if (actionRequestStatus.hasResult() && actionRequestStatus.getResult().length() > 0) {
           actionRequest.setResult(ActionRequestResult.valueOf(actionRequestStatus.getResult()));
         }
