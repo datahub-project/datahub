@@ -21,8 +21,17 @@ rules:
     change_type: "DELETED"
     max_total: 0
 
+  # Ignored files.
+  - pattern:
+      - "**/.gitignore"
+      - ".dockerignore"
+      - ".pre-commit-config.yaml"
+      - "CODEOWNERS"
+      - "metadata-service/restli-api/src/main/snapshot/*.json"
+      - "metadata-service/restli-api/src/main/idl/*.json"
+
   # datahub-web-react rules.
-  - pattern: "datahub-web-react/yarn.lock" # ignore yarn.lock changes
+  - pattern: "**/yarn.lock" # ignore yarn.lock changes
   - pattern: "datahub-web-react/**/*.graphql"
     max_removals: 0
   - pattern:
@@ -33,7 +42,9 @@ rules:
     # If you're making a lot of changes to a given React component, you probably should
     # be creating a new file instead.
     # TODO: This limit should be tightened in the future.
-    max_additions: 80
+    max_total: 80
+  - pattern: "datahub-web-react/**"
+    max_removals: 0
 
   # Models should be append-only.
   - pattern:
@@ -45,33 +56,38 @@ rules:
 
   # Most code should be append-only.
   - pattern:
+      - "buildSrc/**/*.java"
       - "datahub-frontend/**/*.java"
+      - "datahub-frontend/conf/*"
       - "datahub-graphql-core/**/*.java"
       - "datahub-graphql-core/**/*.graphql"
       - "datahub-upgrade/**/*.java"
       - "entity-registry/**/*.java"
+      - "metadata-auth/**/*.java"
+      - "metadata-dao-impl/**/*.java"
       - "metadata-jobs/**/*.java"
       - "metadata-io/**/*.java"
+      - "metadata-integration/**/*.java"
+      - "metadata-operation-context/**/*.java"
       - "metadata-service/**/*.java"
       - "metadata-service/**/*.yaml"
       - "metadata-utils/**/*.java"
+      - "li-utils/**/*.java"
       - "smoke-test/**/*.py"
       - "smoke-test/**/*.js"
     max_removals: 0
 
-  # Ignored files.
-  - pattern:
-      - "**/.gitignore"
-      - ".dockerignore"
-      - ".pre-commit-config.yaml"
-      - "CODEOWNERS"
-      - "metadata-service/restli-api/src/main/snapshot/*.json"
-      - "metadata-service/restli-api/src/main/idl/*.json"
-
   # Various other files.
-  - pattern: docker/**
+  - pattern: "docker/**"
+    max_removals: 0
+  - pattern: "**/logback.xml"
     max_removals: 0
   - pattern: "**/*.gradle"
+    max_total: 10
+  - pattern: "docs/**"
+    max_total: 0 # docs should be public, so no changes are valid in SaaS.
+  - pattern: "docs-website/**"
+    max_removals: 0
     max_total: 10
 
   # # Baseline - expected to be identical to OSS.
