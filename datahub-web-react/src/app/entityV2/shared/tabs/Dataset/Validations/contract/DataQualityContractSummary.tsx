@@ -51,6 +51,7 @@ export const DataQualityContractSummary = ({ contracts, showAction = false }: Pr
                 <>
                     {assertion.info?.datasetAssertion && (
                         <DatasetAssertionDescription
+                            description={assertion.info?.description?.value}
                             assertionInfo={assertion.info?.datasetAssertion as DatasetAssertionInfo}
                         />
                     )}
