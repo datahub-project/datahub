@@ -21,14 +21,6 @@ rules:
     change_type: "DELETED"
     max_total: 0
 
-  # Models should be append-only.
-  - pattern:
-      - "**/entity-registry.yml"
-      - "test-models/src/main/resources/test-entity-registry.yml"
-    max_removals: 0
-  - pattern: "**/*.pdl"
-    max_removals: 0
-
   - pattern: "**/.gitignore" # ignore gitignore changes
 
   # datahub-web-react rules.
@@ -45,13 +37,30 @@ rules:
     # TODO: This limit should be tightened in the future.
     max_additions: 80
 
+  # Models should be append-only.
+  - pattern:
+      - "**/entity-registry.yml"
+      - "test-models/src/main/resources/test-entity-registry.yml"
+    max_removals: 0
+  - pattern: "**/*.pdl"
+    max_removals: 0
+
   # Most code should be append-only.
-  # - pattern:
-  #     - "metadata-io/**/*.java"
-  #     - "datahub-graphql-core/**/*.java"
-  #     - "metadata-service/**/*.java"
-  #     - "smoke-test/**/*.js"
-  #   max_removals: 0
+  - pattern:
+      - "metadata-io/**/*.java"
+      - "datahub-frontend/**/*.java"
+      - "datahub-graphql-core/**/*.java"
+      - "datahub-graphql-core/**/*.graphql"
+      - "datahub-upgrade/**/*.java"
+      - "metadata-jobs/**/*.java"
+      - "metadata-service/**/*.java"
+      - "smoke-test/**/*.py"
+      - "smoke-test/**/*.js"
+    max_removals: 0
+
+  - pattern:
+      - "**/*.gradle"
+    max_removals: 1
 
   # # Baseline - expected to be identical to OSS.
   # - pattern: "*"
