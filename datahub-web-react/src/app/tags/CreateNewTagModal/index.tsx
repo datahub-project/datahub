@@ -1,19 +1,13 @@
 import React, { useState } from 'react';
 import { message } from 'antd';
-import { Modal, Text } from '@components';
-import { ResourceRefInput } from '../../../types.generated';
+import { Modal } from '@components';
 import { useCreateTagMutation } from '../../../graphql/tag.generated';
 import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 import { useUserContext } from '../../context/useUserContext';
-import {
-    useBatchAddOwnersMutation,
-    useBatchAddTagsMutation,
-    useSetTagColorMutation,
-} from '../../../graphql/mutations.generated';
+import { useBatchAddOwnersMutation, useSetTagColorMutation } from '../../../graphql/mutations.generated';
 import { CreateNewTagModalProps, ModalButton, PendingOwner } from './types';
 import TagDetailsSection from './TagDetailsSection';
 import OwnersSection from './OwnersSection';
-import EntitiesSection from './EntitiesSection';
 
 /**
  * Modal for creating a new tag with owners and applying it to entities
@@ -28,9 +22,6 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
     const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
     const [pendingOwners, setPendingOwners] = useState<PendingOwner[]>([]);
 
-    // Entity selection state
-    const [selectedEntityUrns, setSelectedEntityUrns] = useState<string[]>([]);
-
     // Loading state
     const [isLoading, setIsLoading] = useState(false);
 
@@ -38,7 +29,6 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
     const [createTagMutation] = useCreateTagMutation();
     const [setTagColorMutation] = useSetTagColorMutation();
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
-    const [batchAddTagsMutation] = useBatchAddTagsMutation();
 
     // Check permissions using UserContext
     const userContext = useUserContext();
@@ -100,27 +90,7 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
                 });
             }
 
-            // Step 4: Apply tag to selected entities
-            if (selectedEntityUrns.length > 0) {
-                const resources: ResourceRefInput[] = selectedEntityUrns.map((entityUrn) => ({
-                    resourceUrn: entityUrn,
-                }));
-
-                await batchAddTagsMutation({
-                    variables: {
-                        input: {
-                            tagUrns: [newTagUrn],
-                            resources,
-                        },
-                    },
-                });
-            }
-
-            message.success(
-                `Tag "${tagName}" successfully created${
-                    selectedEntityUrns.length > 0 ? ' and applied to selected entities' : ''
-                }`,
-            );
+            message.success(`Tag "${tagName}" successfully created`);
             onClose();
         } catch (e: any) {
             message.destroy();
@@ -182,15 +152,6 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
                 pendingOwners={pendingOwners}
                 setPendingOwners={setPendingOwners}
             />
-
-            {/* Entities Section */}
-            <div style={{ marginBottom: '24px' }}>
-                <Text style={{ marginBottom: '8px', display: 'block' }}>Apply tag to entities</Text>
-                <EntitiesSection
-                    selectedEntityUrns={selectedEntityUrns}
-                    setSelectedEntityUrns={setSelectedEntityUrns}
-                />
-            </div>
         </Modal>
     );
 };
