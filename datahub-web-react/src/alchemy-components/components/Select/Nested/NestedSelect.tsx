@@ -13,7 +13,7 @@ import {
 
 import { SelectLabelProps, SelectSizeOptions } from '../types';
 import { NestedOption } from './NestedOption';
-import { SelectOption } from './types';
+import { NestedSelectOption } from './types';
 import DropdownSearchBar from '../private/DropdownSearchBar';
 import DropdownFooterActions from '../private/DropdownFooterActions';
 import SelectLabelRenderer from '../private/SelectLabelRenderer/SelectLabelRenderer';
@@ -21,9 +21,9 @@ import { filterNestedSelectOptions } from './utils';
 
 const NO_PARENT_VALUE = 'no_parent_value';
 
-export interface ActionButtonsProps {
+export interface ActionButtonsProps<OptionType extends NestedSelectOption = NestedSelectOption> {
     fontSize?: SelectSizeOptions;
-    selectedOptions: SelectOption[];
+    selectedOptions: OptionType[];
     isOpen: boolean;
     isDisabled: boolean;
     isReadOnly: boolean;
@@ -31,7 +31,7 @@ export interface ActionButtonsProps {
     showClear?: boolean;
 }
 
-const SelectActionButtons = ({
+const SelectActionButtons = <OptionType extends NestedSelectOption = NestedSelectOption>({
     selectedOptions,
     isOpen,
     isDisabled,
@@ -39,7 +39,7 @@ const SelectActionButtons = ({
     handleClearSelection,
     fontSize = 'md',
     showClear = false,
-}: ActionButtonsProps) => {
+}: ActionButtonsProps<OptionType>) => {
     return (
         <ActionButtonsContainer>
             {showClear && !!selectedOptions.length && !isDisabled && !isReadOnly && (
@@ -56,13 +56,13 @@ const SelectActionButtons = ({
     );
 };
 
-export interface SelectProps {
-    options: SelectOption[];
+export interface SelectProps<OptionType extends NestedSelectOption = NestedSelectOption> {
+    options: OptionType[];
     label?: string;
     value?: string;
-    initialValues?: SelectOption[];
+    initialValues?: OptionType[];
     onCancel?: () => void;
-    onUpdate?: (selectedValues: SelectOption[]) => void;
+    onUpdate?: (selectedValues: OptionType[]) => void;
     size?: SelectSizeOptions;
     showSearch?: boolean;
     isDisabled?: boolean;
@@ -70,7 +70,7 @@ export interface SelectProps {
     isRequired?: boolean;
     isMultiSelect?: boolean;
     areParentsSelectable?: boolean;
-    loadData?: (node: SelectOption) => void;
+    loadData?: (node: OptionType) => void;
     onSearch?: (query: string) => void;
     width?: number | 'full' | 'fit-content';
     height?: number;
@@ -99,8 +99,8 @@ export const selectDefaults: SelectProps = {
     shouldManuallyUpdate: false,
 };
 
-export const NestedSelect = ({
-    options = selectDefaults.options,
+export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelectOption>({
+    options = [],
     label = selectDefaults.label,
     initialValues = [],
     onUpdate,
@@ -124,11 +124,11 @@ export const NestedSelect = ({
     shouldManuallyUpdate = selectDefaults.shouldManuallyUpdate,
     selectLabelProps,
     ...props
-}: SelectProps) => {
+}: SelectProps<OptionType>) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [isOpen, setIsOpen] = useState(false);
-    const [selectedOptions, setSelectedOptions] = useState<SelectOption[]>(initialValues);
-    const [stagedOptions, setStagedOptions] = useState<SelectOption[]>(initialValues);
+    const [selectedOptions, setSelectedOptions] = useState<OptionType[]>(initialValues);
+    const [stagedOptions, setStagedOptions] = useState<OptionType[]>(initialValues);
     const selectRef = useRef<HTMLDivElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -208,8 +208,8 @@ export const NestedSelect = ({
     }, [selectedOptions, handleSearch]);
 
     const handleOptionChange = useCallback(
-        (option: SelectOption) => {
-            let newStagedOptions: SelectOption[];
+        (option: OptionType) => {
+            let newStagedOptions: OptionType[];
             if (stagedOptions.find((o) => o.value === option.value)) {
                 newStagedOptions = stagedOptions.filter((o) => o.value !== option.value);
             } else {
@@ -224,7 +224,7 @@ export const NestedSelect = ({
     );
 
     const addOptions = useCallback(
-        (optionsToAdd: SelectOption[]) => {
+        (optionsToAdd: OptionType[]) => {
             const existingValues = new Set(stagedOptions.map((option) => option.value));
             const filteredOptionsToAdd = optionsToAdd.filter((option) => !existingValues.has(option.value));
             if (filteredOptionsToAdd.length) {
@@ -236,7 +236,7 @@ export const NestedSelect = ({
     );
 
     const removeOptions = useCallback(
-        (optionsToRemove: SelectOption[], syncWithSelectedOptions?: boolean) => {
+        (optionsToRemove: OptionType[], syncWithSelectedOptions?: boolean) => {
             const newValues = stagedOptions.filter(
                 (selectedOption) => !optionsToRemove.find((o) => o.value === selectedOption.value),
             );
@@ -272,7 +272,7 @@ export const NestedSelect = ({
     }, [isOpen, onDropdownOpenChange]);
 
     // generate map for options to quickly fetch children
-    const parentValueToOptions: { [parentValue: string]: SelectOption[] } = {};
+    const parentValueToOptions: { [parentValue: string]: OptionType[] } = {};
     filteredOptions.forEach((o) => {
         const parentValue = o.parentValue || NO_PARENT_VALUE;
         parentValueToOptions[parentValue] = parentValueToOptions[parentValue]

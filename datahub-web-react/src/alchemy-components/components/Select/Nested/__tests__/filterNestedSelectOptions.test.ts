@@ -1,8 +1,8 @@
-import { SelectOption } from '../types';
+import { NestedSelectOption } from '../types';
 import { filterNestedSelectOptions } from '../utils';
 
 describe('filterNestedSelectOptions', () => {
-    const options: SelectOption[] = [
+    const options: NestedSelectOption[] = [
         { value: 'p1', label: 'Parent 1', isParent: true },
         { value: 'c1', label: 'Child 1', parentValue: 'p1' },
         { value: 'c2', label: 'Child 2', parentValue: 'p1' },
@@ -33,7 +33,7 @@ describe('filterNestedSelectOptions', () => {
     });
 
     it('should include multiple levels of parents if needed', () => {
-        const optionsWithGrandparent: SelectOption[] = [
+        const optionsWithGrandparent: NestedSelectOption[] = [
             { value: 'gp', label: 'Grandparent', isParent: true },
             { value: 'p1', label: 'Parent 1', parentValue: 'gp', isParent: true },
             { value: 'c1', label: 'Child 1', parentValue: 'p1' },

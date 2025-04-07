@@ -1,6 +1,6 @@
-import { SelectOption } from './types';
+import { NestedSelectOption } from './types';
 
-export function getChainOfParents(option: SelectOption | undefined, options: SelectOption[]) {
+export function getChainOfParents(option: NestedSelectOption | undefined, options: NestedSelectOption[]) {
     if (option === undefined) return [];
     if (option.parentValue === undefined) return [option];
 
@@ -8,13 +8,15 @@ export function getChainOfParents(option: SelectOption | undefined, options: Sel
     return [option, ...getChainOfParents(parentOption, options)];
 }
 
-export function filterNestedSelectOptions(
-    options: SelectOption[],
+export function filterNestedSelectOptions<OptionType extends NestedSelectOption = NestedSelectOption>(
+    options: OptionType[],
     query: string,
 ) {
     if (query === '') return options;
 
-    const filteredOptionsWithoutParents = options.filter((option) => option.label.toLowerCase().includes(query.toLowerCase()));
+    const filteredOptionsWithoutParents = options.filter((option) =>
+        option.label.toLowerCase().includes(query.toLowerCase()),
+    );
     const valuesOfFilteredOptions = filteredOptionsWithoutParents.map((option) => option.value);
 
     const parentOptions = Array.from(

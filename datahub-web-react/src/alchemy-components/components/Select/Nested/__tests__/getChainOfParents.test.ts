@@ -1,8 +1,8 @@
-import { SelectOption } from '../types';
+import { NestedSelectOption } from '../types';
 import { getChainOfParents } from '../utils';
 
 describe('getChainOfParents', () => {
-    const options: SelectOption[] = [
+    const options: NestedSelectOption[] = [
         { value: 'child', label: 'child', parentValue: 'parent' },
         { value: 'parent', label: 'parent', parentValue: 'grandparent' },
         { value: 'grandparent', label: 'grandparent' },
@@ -35,7 +35,7 @@ describe('getChainOfParents', () => {
     });
 
     it('should stop chain when a parent in the hierarchy is missing', () => {
-        const optionsWithMissingParent: SelectOption[] = [
+        const optionsWithMissingParent: NestedSelectOption[] = [
             { value: 'child', label: 'child', parentValue: 'parent' },
             { value: 'parent', label: 'parent', parentValue: 'missing' },
         ];
@@ -46,7 +46,7 @@ describe('getChainOfParents', () => {
     });
 
     it('should handle deep nesting correctly', () => {
-        const deepOptions: SelectOption[] = [
+        const deepOptions: NestedSelectOption[] = [
             { value: 'great-grandchild', label: 'great-grandchild', parentValue: 'grandchild' },
             { value: 'grandchild', label: 'grandchild', parentValue: 'child' },
             { value: 'child', label: 'child', parentValue: 'parent' },

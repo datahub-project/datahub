@@ -71,7 +71,7 @@ export interface ActionButtonsProps {
     handleClearSelection: () => void;
 }
 
-export interface SelectLabelDisplayProps<OptionType extends SelectOption = SelectOption> {
+export interface SelectLabelDisplayProps<OptionType extends SelectOption> {
     selectedValues: string[];
     options: OptionType[];
     placeholder: string;
@@ -85,7 +85,8 @@ export interface SelectLabelDisplayProps<OptionType extends SelectOption = Selec
     label?: string;
 }
 
-export interface SelectLabelVariantProps<OptionType extends SelectOption = SelectOption> extends Omit<SelectLabelDisplayProps, 'variant'> {
+export interface SelectLabelVariantProps<OptionType extends SelectOption>
+    extends Omit<SelectLabelDisplayProps<OptionType>, 'variant'> {
     selectedOptions: OptionType[];
 }
 
