@@ -26,12 +26,8 @@ export default function BaseEntityFilter({
     const [searchQuery, setSearchQuery] = useState<string>('');
     // used to forcibly show entities in options even though these entities are not in facet
     const [appliedEntities, setAppliedEntities] = useState<Entity[]>([]);
-    const options = useOptions(appliedEntities, facetState, searchQuery, entityTypes, renderEntity);
+    const options = useOptions(appliedEntities, facetState, searchQuery, entityTypes);
     const values = useValues(appliedFilters);
-
-    const filteringPredicate = (option: BaseEntitySelectOption, query: string) => {
-        return option.displayName.toLocaleLowerCase().includes(query.toLocaleLowerCase());
-    };
 
     const onSelectUpdate = useCallback(
         (newValues: string[]) => {

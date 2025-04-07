@@ -5,6 +5,7 @@ import { debounce } from 'lodash';
 import * as QueryString from 'query-string';
 import styled, { useTheme } from 'styled-components';
 import { colors } from '@src/alchemy-components';
+import { useDebounce } from 'react-use';
 import { SearchHeader } from './SearchHeader';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { FacetFilterInput } from '../../types.generated';
@@ -77,7 +78,7 @@ const isSearchResultPage = (path: string) => {
 export const SearchablePage = ({ children }: Props) => {
     const location = useLocation();
     const appConfig = useAppConfig();
-    const showSearchBarAutocompleteRedesign = true; // appConfig.config?.showSearchBarAutocompleteRedesign
+    const showSearchBarAutocompleteRedesign = appConfig.config.featureFlags?.showSearchBarAutocompleteRedesign;
 
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramFilters: Array<FacetFilterInput> = useFilters(params);
@@ -142,29 +143,34 @@ export const SearchablePage = ({ children }: Props) => {
         }
     }, FIFTH_SECOND_IN_MS);
 
-    const autoCompleteWithFilters = useCallback(debounce((query: string, filters: FieldToAppliedFieldFiltersMap | undefined) => {
-        if (query.trim() === '') return null;
+    const autoCompleteWithFilters = useCallback(
+        (query: string, appliedFiltersFprAutocomplete: FieldToAppliedFieldFiltersMap | undefined) => {
+            if (query.trim() === '') return null;
+            if (!showSearchBarAutocompleteRedesign) return null;
 
-        const flatAppliedFilters = Array.from(filters?.values?.() || [])
-            .flatMap((value) => value.filters)
-            .filter((filter) => filter.values?.length);
+            const flatAppliedFilters = Array.from(appliedFiltersFprAutocomplete?.values?.() || [])
+                .flatMap((value) => value.filters)
+                .filter((filter) => filter.values?.length);
 
-        getAutoCompleteResults({
-            variables: {
-                input: {
-                    query,
-                    viewUrn,
-                    orFilters: generateOrFilters(UnionType.AND, flatAppliedFilters),
+            getAutoCompleteResults({
+                variables: {
+                    input: {
+                        query,
+                        viewUrn,
+                        orFilters: generateOrFilters(UnionType.AND, flatAppliedFilters),
+                    },
                 },
-            },
-        });
-        return null;
-    }, FIFTH_SECOND_IN_MS), [getAutoCompleteResults]);
+            });
+            return null;
+        },
+        [getAutoCompleteResults, showSearchBarAutocompleteRedesign, viewUrn],
+    );
 
-
-    useEffect(() => {
-        if (showSearchBarAutocompleteRedesign) autoCompleteWithFilters(searchQuery, appliedFilters);
-    }, [searchQuery, showSearchBarAutocompleteRedesign, appliedFilters, autoCompleteWithFilters]);
+    useDebounce(() => autoCompleteWithFilters(searchQuery, appliedFilters), FIFTH_SECOND_IN_MS, [
+        searchQuery,
+        appliedFilters,
+        autoCompleteWithFilters,
+    ]);
 
     // Load correct autocomplete results on initial page load.
     useEffect(() => {

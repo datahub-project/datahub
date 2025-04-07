@@ -16,7 +16,6 @@ export default function useOptions(
     facetState: FeildFacetState | undefined,
     query: string,
     entityTypes: EntityType[],
-    entityRender: (entity: Entity) => React.ReactNode,
 ): BaseEntitySelectOption[] {
     const convertEntiteisToOptions = useConvertEntitiesToOptions();
 
@@ -47,8 +46,8 @@ export default function useOptions(
     }, [appliedEntities, entitiesFromFacetState, entitiesFromSearchResponse, searchResponseLoading, query]);
 
     const options = useMemo(() => {
-        return convertEntiteisToOptions(mergedEntities, entityRender);
-    }, [mergedEntities, convertEntiteisToOptions, entityRender]);
+        return convertEntiteisToOptions(mergedEntities);
+    }, [mergedEntities, convertEntiteisToOptions]);
 
     return options;
 }

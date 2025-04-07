@@ -6,8 +6,6 @@ import { debounce } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
-import { EntityRegistry } from '../../../entityRegistryContext';
-import { AutoCompleteResultForEntity, FacetFilterInput } from '../../../types.generated';
 import analytics, { Event, EventType } from '../../analytics';
 import { ANTD_GRAY_V2 } from '../../entity/shared/constants';
 import { getEntityPath } from '../../entity/shared/containers/profile/utils';
@@ -17,13 +15,11 @@ import { V2_SEARCH_BAR_VIEWS } from '../../onboarding/configV2/HomePageOnboardin
 import { useAppConfig, useIsShowSeparateSiblingsEnabled } from '../../useAppConfig';
 import { CommandK } from '../CommandK';
 import useAppliedFilters from '../filtersV2/context/useAppliedFilters';
-import { FiltersAppliedHandler } from '../filtersV2/types';
 import filterSearchQuery from '../utils/filterSearchQuery';
 import AutocompleteFooter from './components/AutocompleteFooter';
 import AutocompletePlaceholder from './components/AutocompletePlaceholder';
 import Filters from './components/Filters';
 import {
-    AUTOCOMPLETE_DROPDOWN_ALIGN,
     AUTOCOMPLETE_DROPDOWN_ALIGN_WITH_NEW_NAV_BAR,
     DEBOUNCE_ON_SEARCH_TIMEOUT_MS,
     EXACT_AUTOCOMPLETE_OPTION_TYPE,
@@ -34,6 +30,7 @@ import useFocusElementByCommandK from './hooks/useFocusSearchBarByCommandK';
 import useRecentlySearchedQueriesOptions from './hooks/useRecentlySearchedQueriesOptions';
 import useRecentlyViewedEntitiesOptions from './hooks/useRecentlyViewedEntitiesOptions';
 import useViewAllResultsOptions from './hooks/useViewAllResultsOptions';
+import { SearchBarProps } from '../SearchBar';
 
 const BOX_SHADOW = `0px -3px 12px 0px rgba(236, 240, 248, 0.5) inset,
 0px 3px 12px 0px rgba(255, 255, 255, 0.5) inset,
@@ -170,35 +167,6 @@ const DropdownContainer = styled.div`
     background: ${colors.white};
 `;
 
-interface Props {
-    id?: string;
-    isLoading?: boolean;
-    initialQuery?: string;
-    placeholderText: string;
-    suggestions: Array<AutoCompleteResultForEntity>;
-    isSuggestionsLoading?: boolean;
-    onSearch: (query: string, filters?: FacetFilterInput[]) => void;
-    onQueryChange?: (query: string) => void;
-    style?: React.CSSProperties;
-    inputStyle?: React.CSSProperties;
-    autoCompleteStyle?: React.CSSProperties;
-    entityRegistry: EntityRegistry;
-    fixAutoComplete?: boolean;
-    hideRecommendations?: boolean;
-    showQuickFilters?: boolean;
-    showCommandK?: boolean;
-    viewsEnabled?: boolean;
-    combineSiblings?: boolean;
-    setIsSearchBarFocused?: (isSearchBarFocused: boolean) => void;
-    onFocus?: () => void;
-    onBlur?: () => void;
-    showViewAllResults?: boolean;
-    textColor?: string;
-    placeholderColor?: string;
-    isShowNavBarRedesign?: boolean;
-    onFilter?: FiltersAppliedHandler;
-}
-
 /**
  * Represents the search bar appearing in the default header view.
  */
@@ -226,7 +194,7 @@ export const SearchBarV2 = ({
     textColor,
     placeholderColor,
     isShowNavBarRedesign,
-}: Props) => {
+}: SearchBarProps) => {
     const history = useHistory();
     const appConfig = useAppConfig();
     const showAutoCompleteResults = appConfig?.config?.featureFlags?.showAutoCompleteResults;

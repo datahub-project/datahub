@@ -6,11 +6,7 @@ import { useMemo } from 'react';
 import { getUniqueItemsByKeyFromArrrays } from '../../../utils';
 import { EntityTypeOption } from '../types';
 
-export default function useOptions(
-    facetState: FeildFacetState | undefined,
-    values: string[],
-    render: (entityTypeName: string) => React.ReactNode,
-) {
+export default function useOptions(facetState: FeildFacetState | undefined, values: string[]) {
     const entityRegistry = useEntityRegistryV2();
 
     const valuesFromAggregations = useMemo(
@@ -50,7 +46,7 @@ export default function useOptions(
                 displayName,
             };
         });
-    }, [uniqueValues, entityRegistry, render]);
+    }, [uniqueValues, entityRegistry]);
 
     return options;
 }
