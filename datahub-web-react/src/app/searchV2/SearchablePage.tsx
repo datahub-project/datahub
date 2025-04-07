@@ -163,7 +163,7 @@ export const SearchablePage = ({ children }: Props) => {
         }, FIFTH_SECOND_IN_MS);
 
         if (showSearchBarAutocompleteRedesign) autoCompleteWithFilters(searchQuery);
-    }, [searchQuery, showSearchBarAutocompleteRedesign]);
+    }, [searchQuery, showSearchBarAutocompleteRedesign, appliedFilters]);
 
     // Load correct autocomplete results on initial page load.
     useEffect(() => {
