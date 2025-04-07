@@ -163,7 +163,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     def _get_allowed_workspaces(self) -> List[Workspace]:
         all_workspaces = self.sigma_api.workspaces.values()
         logger.info(f"Number of workspaces = {len(all_workspaces)}")
-        self.reporter.number_of_workspaces = len(all_workspaces)
 
         allowed_workspaces = []
         for workspace in all_workspaces:
