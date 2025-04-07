@@ -15,18 +15,15 @@ export default ({ fieldNames, query, onFieldFacetsUpdated }: DynamicFacetsUpdate
 
     const [fieldFacets, setFieldFacets] = useState<FieldToFacetStateMap>(new Map());
 
-    const onFacetsUpdated = useCallback(
-        (facets: Map<FieldName, FeildFacetState>) => {
-            setFieldFacets((currentFieldFacets) => new Map([...currentFieldFacets, ...facets]));
-        },
-        [setFieldFacets],
-    );
+    const onFacetsUpdated = useCallback((facets: Map<FieldName, FeildFacetState>) => {
+        setFieldFacets((currentFieldFacets) => new Map([...currentFieldFacets, ...facets]));
+    }, []);
 
     useEffect(() => onFieldFacetsUpdated?.(fieldFacets), [onFieldFacetsUpdated, fieldFacets]);
 
     const hasFiltersByEntityType = useMemo(
         () =>
-            Array.from(fieldToAppliedFiltersMap.entries()).some(
+            Array.from(fieldToAppliedFiltersMap?.entries?.() || []).some(
                 ([key, filter]) => key === ENTITY_SUB_TYPE_FILTER_NAME && filter.filters.length > 0,
             ),
         [fieldToAppliedFiltersMap],
@@ -34,11 +31,23 @@ export default ({ fieldNames, query, onFieldFacetsUpdated }: DynamicFacetsUpdate
 
     const hasAnotherFilters = useMemo(
         () =>
-            Array.from(fieldToAppliedFiltersMap.entries()).some(
+            Array.from(fieldToAppliedFiltersMap?.entries?.() || []).some(
                 ([key, filter]) => key !== ENTITY_SUB_TYPE_FILTER_NAME && filter.filters.length > 0,
             ),
         [fieldToAppliedFiltersMap],
     );
+
+    const fieldNamesOfEntityType = useMemo(
+        () => fieldNames.filter((fieldName) => fieldName === ENTITY_SUB_TYPE_FILTER_NAME),
+        [fieldNames],
+    );
+
+    const fieldNamesOfOtherFields = useMemo(
+        () => fieldNames.filter((fieldName) => fieldName !== ENTITY_SUB_TYPE_FILTER_NAME),
+        [fieldNames],
+    );
+
+    const separetedFieldNames = useMemo(() => fieldNames.map((fieldName) => [fieldName]), [fieldNames]);
 
     return (
         <>
@@ -51,12 +60,12 @@ export default ({ fieldNames, query, onFieldFacetsUpdated }: DynamicFacetsUpdate
             {hasFiltersByEntityType && !hasAnotherFilters && (
                 <>
                     <FacetsUpdater
-                        fieldNames={fieldNames.filter((fieldName) => fieldName === ENTITY_SUB_TYPE_FILTER_NAME)}
+                        fieldNames={fieldNamesOfEntityType}
                         query={query}
                         onFacetsUpdated={onFacetsUpdated}
                     />
                     <FacetsUpdater
-                        fieldNames={fieldNames.filter((fieldName) => fieldName !== ENTITY_SUB_TYPE_FILTER_NAME)}
+                        fieldNames={fieldNamesOfOtherFields}
                         query={query}
                         onFacetsUpdated={onFacetsUpdated}
                     />
@@ -65,10 +74,10 @@ export default ({ fieldNames, query, onFieldFacetsUpdated }: DynamicFacetsUpdate
 
             {/* In a case when there're both filters by entity type and by non-entity-type fields we have to call separated requests for each field */}
             {hasAnotherFilters &&
-                fieldNames.map((fieldName) => (
+                separetedFieldNames.map((fieldName) => (
                     <FacetsUpdater
-                        key={fieldName}
-                        fieldNames={[fieldName]}
+                        key={fieldName[0]}
+                        fieldNames={fieldName}
                         query={query}
                         onFacetsUpdated={onFacetsUpdated}
                     />

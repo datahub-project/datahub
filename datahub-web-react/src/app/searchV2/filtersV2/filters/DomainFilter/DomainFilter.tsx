@@ -55,6 +55,7 @@ export default function DomainFilter({ fieldName, facetState, appliedFilters, on
             filteringPredicate={domainFilteringPredicate}
             isMultiSelect
             width="fit-content"
+            size="sm"
             showSearch
             showCount
             shouldManuallyUpdate

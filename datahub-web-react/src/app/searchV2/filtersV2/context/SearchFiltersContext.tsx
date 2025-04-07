@@ -14,15 +14,15 @@ export type SearchFiltersContextType = {
     // Fields to show in filters
     fields: FieldName[];
     // State of facets for each field
-    fieldToFacetStateMap: FieldToFacetStateMap;
-    // Internal state of applied filters
-    fieldToAppliedFiltersMap: FieldToAppliedFieldFiltersMap;
+    fieldToFacetStateMap?: FieldToFacetStateMap;
+    // State of applied filters
+    fieldToAppliedFiltersMap?: FieldToAppliedFieldFiltersMap;
     // Registry with mapping of field name to filter component
     filtersRegistry: FiltersRegistry;
     // Renderer takes all filters and render them together
     filtersRenderer: FiltersRenderer;
     // Callback called when applied filters updated
-    updateFieldAppliedFilters: AppliedFieldFilterUpdater;
+    updateFieldAppliedFilters?: AppliedFieldFilterUpdater;
 };
 
 const SearchFiltersContext = React.createContext<SearchFiltersContextType>({

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import DefaultFiltersRenderer from '../defaults/DefaultFiltersRenderer';
 import {
     AppliedFieldFilterUpdater,
@@ -14,36 +14,24 @@ import defaultFiltersRegistry from '../defaults/defaultFiltersRegistry';
 
 export interface Props {
     fields: FieldName[];
-    defaultAppliedFilters?: FieldToAppliedFieldFiltersMap;
-    fieldToFacetStateMap: FieldToFacetStateMap;
+    fieldToAppliedFiltersMap?: FieldToAppliedFieldFiltersMap;
     filtersRenderer?: FiltersRenderer;
-    filtersRegistry?: FiltersRegistry;
     onFiltersApplied?: FiltersAppliedHandler;
+    updateFieldAppliedFilters?: AppliedFieldFilterUpdater;
+    fieldToFacetStateMap: FieldToFacetStateMap;
+    filtersRegistry?: FiltersRegistry;
 }
 
 export default function SearchFiltersProvider({
     children,
     fields,
-    defaultAppliedFilters,
+    fieldToAppliedFiltersMap,
     fieldToFacetStateMap,
     filtersRegistry = defaultFiltersRegistry,
     filtersRenderer = DefaultFiltersRenderer,
     onFiltersApplied,
+    updateFieldAppliedFilters,
 }: React.PropsWithChildren<Props>) {
-    const [fieldToAppliedFiltersMap, setFieldToAppliedFiltersMap] = useState<FieldToAppliedFieldFiltersMap>(
-        new Map(defaultAppliedFilters),
-    );
-
-    const applyFilter: AppliedFieldFilterUpdater = useCallback((fieldName, value) => {
-        setFieldToAppliedFiltersMap((prevAppliedFilters) => {
-            const filters = value.filters
-                .filter((input) => input.field === fieldName)
-                .filter((input) => input.values && input.values.length > 0);
-
-            return new Map([...prevAppliedFilters, [fieldName, { filters }]]);
-        });
-    }, []);
-
     useEffect(() => onFiltersApplied?.(fieldToAppliedFiltersMap), [onFiltersApplied, fieldToAppliedFiltersMap]);
 
     return (
@@ -54,7 +42,7 @@ export default function SearchFiltersProvider({
                 fieldToAppliedFiltersMap,
                 filtersRegistry,
                 filtersRenderer,
-                updateFieldAppliedFilters: applyFilter,
+                updateFieldAppliedFilters,
             }}
         >
             {children}
