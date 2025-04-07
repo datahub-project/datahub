@@ -25,14 +25,14 @@ const ValuesContainerFlex = styled.div`
     align-items: center;
 `;
 
-const ValueContainer = styled.div<{ $isApproved?: boolean }>`
+const ValueContainer = styled.div<{ $showBorder?: boolean }>`
     overflow: hidden;
     display: flex;
     max-width: 200px;
     border-radius: 200px;
     padding: 0px 8px;
     ${(props) =>
-        props.$isApproved &&
+        props.$showBorder &&
         `
         border: 1px solid ${colors.gray[200]};
         `}
@@ -99,7 +99,7 @@ const StructuredPropertyAssociationRequestItem = ({ actionRequest }: Props) => {
             <ValuesContainer>
                 <ValuesContainerFlex>
                     {firstValue && (
-                        <ValueContainer $isApproved={isApproved}>
+                        <ValueContainer $showBorder={isApproved && !firstValue.entity}>
                             <StructuredPropertyValue
                                 value={firstValue}
                                 size={14}
@@ -115,7 +115,7 @@ const StructuredPropertyAssociationRequestItem = ({ actionRequest }: Props) => {
                             content={
                                 <ValuesContainerFlex>
                                     {proposedPropertyValues.map((value) => (
-                                        <ValueContainer style={{ margin: 4 }} $isApproved={isApproved}>
+                                        <ValueContainer style={{ margin: 4 }} $showBorder={isApproved && !value.entity}>
                                             <StructuredPropertyValue
                                                 value={value}
                                                 size={14}
