@@ -92,7 +92,7 @@ export default defineConfig(({ mode }) => {
                 enableBundleAnalysis: true,
                 bundleName: "datahub-react-web",
                 uploadToken: process.env.CODECOV_TOKEN,
-                gitService: "github"
+                gitService: "github",
             }),
         ],
         // optimizeDeps: {
