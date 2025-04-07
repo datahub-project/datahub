@@ -1,5 +1,5 @@
 import { NestedSelect } from '@src/alchemy-components/components/Select/Nested/NestedSelect';
-import { SelectOption } from '@src/alchemy-components/components/Select/Nested/types';
+import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { FilterOperator } from '@src/types.generated';
 import React, { useMemo } from 'react';
 import { FilterComponentProps } from '../../types';
@@ -14,7 +14,7 @@ export default function EntityTypeFilter({ fieldName, facetState, appliedFilters
     const options = useOptions(facetState, values, LABEL_RENDERER);
     const initialValues = useMemo(() => options.filter((option) => values.includes(option.value)), [values, options]);
 
-    const onSelectUpdate = (selectedOptions: SelectOption[]) => {
+    const onSelectUpdate = (selectedOptions: NestedSelectOption[]) => {
         const selectedValues = selectedOptions.map((option) => option.value);
         onUpdate?.({
             filters: [
@@ -36,9 +36,8 @@ export default function EntityTypeFilter({ fieldName, facetState, appliedFilters
             width="fit-content"
             size="sm"
             showSearch
-            shouldFilterOptions
-            filteringPredicate={entityTypeFilteringPredicate}
-            showCount
+            renderCustomOptionText={option => option.displayName}
+            showClear
             shouldManuallyUpdate
             selectLabelProps={{ variant: 'labeled', label: 'Types' }}
         />

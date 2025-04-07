@@ -19,7 +19,7 @@ export default function useOptions(
     );
 
     const uniqueValues = useMemo(
-        () => getUniqueItemsByKeyFromArrrays([values, valuesFromAggregations]),
+        () => getUniqueItemsByKeyFromArrrays([valuesFromAggregations, values]),
         [values, valuesFromAggregations],
     );
 
@@ -31,7 +31,7 @@ export default function useOptions(
                 const [parent, entitySubTypeName] = value.split(FILTER_DELIMITER);
                 return {
                     value,
-                    label: render(entitySubTypeName),
+                    label: entitySubTypeName,
                     parentValue: parent,
                     displayName: entitySubTypeName,
                 };
@@ -45,7 +45,7 @@ export default function useOptions(
 
             return {
                 value,
-                label: render(displayName),
+                label: displayName,
                 isParent: hasChildren,
                 displayName,
             };
