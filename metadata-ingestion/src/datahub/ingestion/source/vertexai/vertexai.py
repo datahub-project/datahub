@@ -51,6 +51,7 @@ from datahub.ingestion.source.vertexai.vertexai_config import VertexAIConfig
 from datahub.ingestion.source.vertexai.vertexai_result_type_utils import (
     get_execution_result_status,
     get_job_result_status,
+    get_pipeline_task_result_status,
     is_status_for_run_event_class,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
@@ -291,6 +292,65 @@ class VertexAISource(Source):
             )
         return pipeline_meta
 
+    def _gen_pipeline_task_run_mcps(
+        self, task: PipelineTaskMetadata, datajob: DataJob, pipeline: PipelineMetadata
+    ) -> (Iterable)[MetadataChangeProposalWrapper]:
+        dpi_urn = builder.make_data_process_instance_urn(
+            self._make_vertexai_pipeline_task_run_id(entity_id=task.name)
+        )
+        result_status: Union[str, RunResultTypeClass] = get_pipeline_task_result_status(
+            task.state
+        )
+        duration = (
+            int((task.end_time.timestamp() - task.start_time.timestamp()) * 1000)
+            if task.end_time is not None and task.start_time is not None
+            else None
+        )
+
+        yield from MetadataChangeProposalWrapper.construct_many(
+            dpi_urn,
+            aspects=[
+                DataProcessInstancePropertiesClass(
+                    name=task.name,
+                    created=AuditStampClass(
+                        time=(
+                            int(task.create_time.timestamp() * 1000)
+                            if task.create_time
+                            else 0
+                        ),
+                        actor="urn:li:corpuser:datahub",
+                    ),
+                    externalUrl=self._make_pipeline_external_url(pipeline.name),
+                    customProperties={},
+                ),
+                SubTypesClass(typeNames=[MLAssetSubTypes.VERTEX_PIPELINE_TASK_RUN]),
+                ContainerClass(container=self._get_project_container().as_urn()),
+                DataPlatformInstanceClass(platform=str(DataPlatformUrn(self.platform))),
+                (
+                    DataProcessInstanceInputClass(
+                        inputs=[str(datajob.urn)],
+                    )
+                ),
+                (
+                    DataProcessInstanceRunEventClass(
+                        status=DataProcessRunStatusClass.COMPLETE,
+                        timestampMillis=(
+                            int(task.create_time.timestamp() * 1000)
+                            if task.create_time
+                            else 0
+                        ),
+                        result=DataProcessInstanceRunResultClass(
+                            type=result_status,
+                            nativeResultType=self.platform,
+                        ),
+                        durationMillis=duration,
+                    )
+                    if is_status_for_run_event_class(result_status) and duration
+                    else None
+                ),
+            ],
+        )
+
     def _gen_pipeline_task_mcps(
         self, pipeline: PipelineMetadata
     ) -> Iterable[MetadataChangeProposalWrapper]:
@@ -314,6 +374,7 @@ class VertexAISource(Source):
                 ],
             )
             yield from datajob.generate_mcp()
+            yield from self._gen_pipeline_task_run_mcps(task, datajob, pipeline)
 
     def _format_pipeline_duration(self, td: timedelta) -> str:
         days = td.days
@@ -1230,6 +1291,9 @@ class VertexAISource(Source):
 
     def _make_vertexai_pipeline_task_id(self, entity_id: Optional[str]) -> str:
         return f"{self.config.project_id}.pipeline_task.{entity_id}"
+
+    def _make_vertexai_pipeline_task_run_id(self, entity_id: Optional[str]) -> str:
+        return f"{self.config.project_id}.pipeline_task_run.{entity_id}"
 
     def _make_artifact_external_url(
         self, experiment: Experiment, run: ExperimentRun

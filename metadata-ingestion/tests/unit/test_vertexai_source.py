@@ -749,8 +749,39 @@ def test_get_pipeline_mcps(
             aspect=GlobalTagsClass(tags=[]),
         )
 
-        assert len(actual_mcps) == 13
 
+        dpi_urn = 'urn:li:dataProcessInstance:acryl-poc.pipeline_task_run.reverse'
+
+        mcp_task_run_dpi = MetadataChangeProposalWrapper(
+            entityUrn=dpi_urn,
+            aspect=DataProcessInstancePropertiesClass(
+                name='reverse',
+                externalUrl='https://console.cloud.google.com/vertex-ai/pipelines/locations/us-west2/runs/mock_pipeline_job?project=acryl-poc',
+                customProperties={},
+                created=AuditStamp(
+                    time=0,
+                    actor="urn:li:corpuser:datahub",
+                ),
+            ),
+        )
+
+        mcp_task_run_container = MetadataChangeProposalWrapper(
+            entityUrn=dpi_urn,
+            aspect=ContainerClass(container=source._get_project_container().as_urn()),
+        )
+        mcp_task_run_subtype = MetadataChangeProposalWrapper(
+            entityUrn=dpi_urn,
+            aspect=SubTypesClass(typeNames=[MLAssetSubTypes.VERTEX_PIPELINE_TASK_RUN]),
+        )
+
+        mcp_task_run_dataplatform = MetadataChangeProposalWrapper(
+            entityUrn=dpi_urn,
+            aspect=DataPlatformInstanceClass(
+                platform=str(DataPlatformUrn(source.platform))
+            ),
+        )
+
+        assert len(actual_mcps) == 18
         assert any(mcp_pipe_df_info == mcp for mcp in actual_mcps)
         assert any(mcp_pipe_df_status == mcp for mcp in actual_mcps)
         assert any(mcp_pipe_subtype == mcp for mcp in actual_mcps)
@@ -762,6 +793,11 @@ def test_get_pipeline_mcps(
         assert any(mcp_task_subtype == mcp for mcp in actual_mcps)
         assert any(mcp_task_status == mcp for mcp in actual_mcps)
         assert any(mcp_task_tag == mcp for mcp in actual_mcps)
+
+        assert any(mcp_task_run_dpi == mcp for mcp in actual_mcps)
+        assert any(mcp_task_run_container == mcp for mcp in actual_mcps)
+        assert any(mcp_task_run_subtype == mcp for mcp in actual_mcps)
+        assert any(mcp_task_run_dataplatform == mcp for mcp in actual_mcps)
 
 
 def test_make_model_external_url(source: VertexAISource) -> None:

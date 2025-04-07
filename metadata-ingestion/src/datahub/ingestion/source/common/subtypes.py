@@ -115,3 +115,4 @@ class MLAssetSubTypes(StrEnum):
     VERTEX_PROJECT = "Project"
     VERTEX_PIPELINE = "Pipeline Job"
     VERTEX_PIPELINE_TASK = "Pipeline Task"
+    VERTEX_PIPELINE_TASK_RUN = "Pipeline Task Run"
