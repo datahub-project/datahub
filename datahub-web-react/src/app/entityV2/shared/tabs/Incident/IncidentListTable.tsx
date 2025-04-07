@@ -31,13 +31,7 @@ export const IncidentListTable = ({ incidentData, filter, refetch, privileges }:
     );
 
     // get columns data from the custom hooks
-<<<<<<< HEAD
-    const incidentsTableCols = useIncidentsTableColumns(refetch);
-||||||| 952f3cc3118
-    const incidentsTableCols = useIncidentsTableColumns();
-=======
     const incidentsTableCols = useIncidentsTableColumns(refetch, privileges);
->>>>>>> master
     const [sortedOptions, setSortedOptions] = useState<{ sortColumn: string; sortOrder: SortingState }>({
         sortColumn: '',
         sortOrder: SortingState.ORIGINAL,
@@ -132,14 +126,8 @@ export const IncidentListTable = ({ incidentData, filter, refetch, privileges }:
                 <IncidentDetailDrawer
                     urn={focusIncidentUrn}
                     mode={IncidentAction.EDIT}
-<<<<<<< HEAD
-                    incident={focusedIncident}
-||||||| 952f3cc3118
-                    incident={focusIncidentData}
-=======
                     incident={focusedIncident}
                     privileges={privileges}
->>>>>>> master
                     onCancel={() => setFocusIncidentUrn(null)}
                     onSubmit={() => {
                         setTimeout(() => {

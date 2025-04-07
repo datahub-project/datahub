@@ -327,16 +327,8 @@ export const SearchBar = ({
                 // Support command-k to select the search bar on all platforms
                 // Support ctrl-k to select the search bar on non-Mac platforms
                 // 75 is the keyCode for 'k'
-<<<<<<< HEAD
                 if ((event.metaKey || (!isMac && event.ctrlKey)) && event.keyCode === 75) {
                     searchInputRef.current?.focus();
-||||||| 952f3cc3118
-                if ((event.metaKey || event.ctrlKey) && event.keyCode === 75) {
-                    (searchInputRef?.current as any)?.focus();
-=======
-                if ((event.metaKey || event.ctrlKey) && event.keyCode === 75) {
-                    searchInputRef.current?.focus();
->>>>>>> master
                 }
             };
             document.addEventListener('keydown', handleKeyDown);

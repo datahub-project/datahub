@@ -1,15 +1,6 @@
-<<<<<<< HEAD
-import { Button, Input } from 'antd';
-import { Tooltip } from '@components';
-import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
-||||||| 952f3cc3118
-import { Button, Input, Tooltip } from 'antd';
-import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
-=======
 import { Icon } from '@components';
 import { Button, Input, Tooltip } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
->>>>>>> master
 import styled from 'styled-components';
 import React from 'react';
 import TabToolbar from '../../../components/styled/TabToolbar';

@@ -79,21 +79,12 @@ export const IncidentList = () => {
         setSelectedFilters(filter);
     };
 
-<<<<<<< HEAD
-    const refetch = () => {
-        refetchEntity();
-        refetchIncidents();
-    };
-||||||| 952f3cc3118
-    const privileges = (data?.entity as any)?.privileges as EntityPrivileges;
-=======
     const refetch = () => {
         refetchEntity();
         refetchIncidents();
     };
 
     const privileges = (data?.entity as any)?.privileges as EntityPrivileges;
->>>>>>> master
 
     const renderListTable = () => {
         if (loading) {
@@ -113,14 +104,6 @@ export const IncidentList = () => {
         }
         return <Empty description="No incidents yet" image={Empty.PRESENTED_IMAGE_SIMPLE} />;
     };
-<<<<<<< HEAD
-
-    const privileges = (data?.entity as any)?.privileges as EntityPrivileges;
-
-||||||| 952f3cc3118
-=======
-
->>>>>>> master
     return (
         <>
             <IncidentTitleContainer

@@ -1,19 +1,12 @@
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
 import React, { useContext, useState } from 'react';
 import styled from 'styled-components';
-<<<<<<< HEAD
 import { Tooltip, Typography } from 'antd';
 import { useAppConfig } from '@src/app/useAppConfig';
 import { ProposalList } from '@src/app/taskCenterV2/proposalsV2/ProposalList';
 import { ListChecks } from '@phosphor-icons/react';
 import { colors, Modal } from '@src/alchemy-components';
 import { entityHasProposals } from '@src/app/taskCenterV2/proposalsV2/utils';
-||||||| 952f3cc3118
-import { Typography } from 'antd';
-=======
-import { Typography } from 'antd';
-import { colors } from '@components';
->>>>>>> master
 import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
 import { EntitySidebarTab } from '../../../types';
 import { TitleAction } from './TitleAction';
@@ -130,20 +123,12 @@ export default function SidebarCollapsibleHeader({ currentTab, headerDropdownIte
                             )}
                         </RightActions>
                     </Top>
-<<<<<<< HEAD
-
-                    {currentTabDescription && <TitleDescription> {currentTabDescription}</TitleDescription>}
                     {showProposalsModal && (
                         // TODO: Add Proposals count Badge in the Modal title
                         <Modal width="90%" title="Proposals" onCancel={() => setShowProposalsModal(false)}>
                             <ProposalList resourceUrn={urn} height="700px" />
                         </Modal>
                     )}
-||||||| 952f3cc3118
-
-                    {currentTabDescription && <TitleDescription> {currentTabDescription}</TitleDescription>}
-=======
->>>>>>> master
                 </Title>
             )}
         </Controls>

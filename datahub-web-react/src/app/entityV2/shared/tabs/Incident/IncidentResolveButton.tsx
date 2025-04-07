@@ -28,11 +28,6 @@ const ResolveButton = styled(Button)`
     padding: 0px;
 `;
 
-<<<<<<< HEAD
-export const IncidentResolveButton = ({ incident, refetch }: { incident: IncidentTableRow; refetch: () => void }) => {
-||||||| 952f3cc3118
-export const IncidentResolveButton = ({ incident }: { incident: IncidentTableRow }) => {
-=======
 export const IncidentResolveButton = ({
     incident,
     refetch,
@@ -43,7 +38,6 @@ export const IncidentResolveButton = ({
     privileges?: EntityPrivileges;
 }) => {
     const canEditIncidents = privileges?.canEditIncidents || false;
->>>>>>> master
     const me = useUserContext();
     const [showResolvePopup, setShowResolvePopup] = useState(false);
     const [incidentResolver, setIncidentResolver] = useState<CorpUser | any>(null);

@@ -13,13 +13,8 @@ import {
 } from '@ant-design/icons';
 import { DBT_URN } from '@app/ingest/source/builder/constants';
 import ViewComfyOutlinedIcon from '@mui/icons-material/ViewComfyOutlined';
-<<<<<<< HEAD
-||||||| 952f3cc3118
-import { GovernanceTab } from '@src/app/entity/shared/tabs/Dataset/Governance/GovernanceTab';
-=======
 import { GovernanceTab } from '@src/app/entity/shared/tabs/Dataset/Governance/GovernanceTab';
 import { ListBullets, TreeStructure, Columns } from '@phosphor-icons/react';
->>>>>>> master
 import * as React from 'react';
 import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '../../../graphql/dataset.generated';
 import GovernMenuIcon from '../../../images/governMenuIcon.svg?react';
@@ -53,7 +48,6 @@ import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
 import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
 import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
 import AccessManagement from '../shared/tabs/Dataset/AccessManagement/AccessManagement';
-import { GovernanceTab } from '../shared/tabs/Dataset/Governance/GovernanceTab';
 import QueriesTab from '../shared/tabs/Dataset/Queries/QueriesTab';
 import { SchemaTab } from '../shared/tabs/Dataset/Schema/SchemaTab';
 import { AcrylValidationsTab } from '../shared/tabs/Dataset/Validations/AcrylValidationsTab';

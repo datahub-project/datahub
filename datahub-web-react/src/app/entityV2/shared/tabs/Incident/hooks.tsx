@@ -15,13 +15,7 @@ import { IncidentResolveButton } from './IncidentResolveButton';
 import { IncidentAssigneeAvatarStack } from './IncidentAssigneeAvatarStack';
 import { CategoryType } from './styledComponents';
 
-<<<<<<< HEAD
-export const useIncidentsTableColumns = (refetch: () => void) => {
-||||||| 952f3cc3118
-export const useIncidentsTableColumns = () => {
-=======
 export const useIncidentsTableColumns = (refetch: () => void, privileges?: EntityPrivileges) => {
->>>>>>> master
     return useMemo(() => {
         const columns = [
             {
@@ -113,29 +107,17 @@ export const useIncidentsTableColumns = (refetch: () => void, privileges?: Entit
                 key: 'actions',
                 width: '15%',
                 render: (record) => {
-<<<<<<< HEAD
-                    return !record.groupName && <IncidentResolveButton incident={record} refetch={refetch} />;
-||||||| 952f3cc3118
-                    return !record.groupName && <IncidentResolveButton incident={record} />;
-=======
                     return (
                         !record.groupName && (
                             <IncidentResolveButton incident={record} privileges={privileges} refetch={refetch} />
                         )
                     );
->>>>>>> master
                 },
                 alignment: 'right' as AlignmentOptions,
             },
         ];
         return columns;
-<<<<<<< HEAD
-    }, [refetch]);
-||||||| 952f3cc3118
-    }, []);
-=======
     }, [privileges, refetch]);
->>>>>>> master
 };
 
 export const useIncidentURNCopyLink = (Urn: string) => {

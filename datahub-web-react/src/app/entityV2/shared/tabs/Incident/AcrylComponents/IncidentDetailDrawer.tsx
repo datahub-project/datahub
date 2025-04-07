@@ -75,17 +75,6 @@ export const IncidentDetailDrawer = ({
                     privileges={privileges}
                 />
                 {showEditor ? (
-<<<<<<< HEAD
-                    <IncidentEditor data={incident} mode={mode} incidentUrn={incident?.urn} onSubmit={handleSubmit} />
-||||||| 952f3cc3118
-                    <IncidentEditor
-                        onClose={onCancel}
-                        data={incident}
-                        mode={mode}
-                        incidentUrn={incident?.urn}
-                        onSubmit={onSubmit}
-                    />
-=======
                     <IncidentEditor
                         onClose={onCancel}
                         data={incident}
@@ -94,7 +83,6 @@ export const IncidentDetailDrawer = ({
                         entity={entity}
                         onSubmit={handleSubmit}
                     />
->>>>>>> master
                 ) : (
                     <IncidentView incident={incident as IncidentTableRow} />
                 )}

@@ -72,16 +72,12 @@ export const SearchRoutes = (): JSX.Element => {
         config?.featureFlags?.showManageStructuredProperties &&
         (me.platformPrivileges?.manageStructuredProperties || me.platformPrivileges?.viewStructuredPropertiesPage);
 
-<<<<<<< HEAD
     const { showTaskCenterRedesign } = config.featureFlags;
 
-||||||| 952f3cc3118
-=======
     const showTags =
         config?.featureFlags?.showManageTags &&
         (me.platformPrivileges?.manageTags || me.platformPrivileges?.viewManageTags);
 
->>>>>>> master
     return (
         <FinalSearchablePage>
             <Switch>

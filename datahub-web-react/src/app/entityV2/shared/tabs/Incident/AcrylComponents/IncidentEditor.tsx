@@ -31,17 +31,6 @@ import { IncidentSelectField } from './IncidentSelectedField';
 import { IncidentAssigneeSelector } from './IncidentAssigneeSelector';
 import { useIncidentHandler } from './hooks/useIncidentHandler';
 
-<<<<<<< HEAD
-export const IncidentEditor = ({ incidentUrn, onSubmit, data, mode = IncidentAction.CREATE }: IncidentEditorProps) => {
-||||||| 952f3cc3118
-export const IncidentEditor = ({
-    incidentUrn,
-    onSubmit,
-    data,
-    onClose,
-    mode = IncidentAction.CREATE,
-}: IncidentEditorProps) => {
-=======
 const HalfWidthInput = styled(Input)`
     width: 50%;
 `;
@@ -53,7 +42,6 @@ export const IncidentEditor = ({
     mode = IncidentAction.CREATE,
     entity,
 }: IncidentEditorProps) => {
->>>>>>> master
     const assigneeValues = data?.assignees && getAssigneeWithURN(data.assignees);
     const isFormValid = Boolean(
         data?.title?.length &&

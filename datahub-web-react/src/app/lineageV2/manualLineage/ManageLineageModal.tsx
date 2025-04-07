@@ -149,7 +149,6 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
     };
 
     return (
-<<<<<<< HEAD
         <ClickOutside onClickOutside={onCancelSelect} wrapperClassName="search-select-modal">
             <StyledModal
                 title={`Select the ${directionTitle}s to add to ${node.entity?.name}`}
@@ -200,96 +199,5 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
                 </ModalContentContainer>
             </StyledModal>
         </ClickOutside>
-||||||| 952f3cc3118
-        <StyledModal
-            title={<TitleText>Manage {toTitleCase(direction.toLocaleLowerCase())} Lineage</TitleText>}
-            onCancel={closeModal}
-            keyboard
-            open
-            footer={
-                <ModalFooter>
-                    <Button onClick={closeModal} variant="text" color="gray">
-                        Cancel
-                    </Button>
-                    <Button onClick={saveLineageChanges} disabled={isSaveDisabled}>
-                        Save
-                    </Button>
-                </ModalFooter>
-            }
-        >
-            {node.entity && <LineageEntityView entity={node.entity} />}
-            <AddEntityEdge
-                direction={direction}
-                setEntitiesToAdd={setEntitiesToAdd}
-                entitiesToAdd={entitiesToAdd}
-                entityUrn={node.urn}
-                entityType={node.type}
-            />
-            {!loading && (
-                <LineageEdges
-                    parentUrn={node.urn}
-                    direction={direction}
-                    entitiesToAdd={entitiesToAdd}
-                    entitiesToRemove={entitiesToRemove}
-                    setEntitiesToAdd={setEntitiesToAdd}
-                    setEntitiesToRemove={setEntitiesToRemove}
-                />
-            )}
-            {loading && (
-                <LoadingWrapper>
-                    <LoadingOutlined />
-                </LoadingWrapper>
-            )}
-        </StyledModal>
-=======
-        <ClickOutside onClickOutside={onCancelSelect} wrapperClassName="search-select-modal">
-            <StyledModal
-                title={`Select the ${directionTitle}s to add to ${node.entity?.name}`}
-                width={MODAL_WIDTH_PX}
-                open
-                onCancel={onCancelSelect}
-                style={{ padding: 0 }}
-                buttons={[
-                    {
-                        text: 'Cancel',
-                        variant: 'text',
-                        onClick: onCancelSelect,
-                    },
-                    {
-                        text: isSaving ? 'Saving...' : `Set ${directionTitle}s`,
-                        onClick: saveLineageChanges,
-                        disabled: (entitiesToAdd.length === 0 && entitiesToRemove.length === 0) || isSaving,
-                    },
-                ]}
-            >
-                <ModalContentContainer>
-                    <SearchSection>
-                        <SectionHeader>Search and Add</SectionHeader>
-                        <ScrollableContent>
-                            <SearchSelect
-                                fixedEntityTypes={Array.from(validEntityTypes)}
-                                selectedEntities={selectedEntities}
-                                setSelectedEntities={setSelectedEntities}
-                            />
-                        </ScrollableContent>
-                    </SearchSection>
-                    <CurrentSection>
-                        <SectionHeader>Current {directionTitle}s</SectionHeader>
-                        <ScrollableContent>
-                            <LineageEdges
-                                parentUrn={node.urn}
-                                direction={direction}
-                                entitiesToAdd={entitiesToAdd}
-                                entitiesToRemove={entitiesToRemove}
-                                onRemoveEntity={(entity) => {
-                                    setSelectedEntities(selectedEntities.filter((e) => e.urn !== entity.urn));
-                                }}
-                            />
-                        </ScrollableContent>
-                    </CurrentSection>
-                </ModalContentContainer>
-            </StyledModal>
-        </ClickOutside>
->>>>>>> master
     );
 }

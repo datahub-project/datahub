@@ -3,15 +3,9 @@ import { Col } from 'antd';
 import { matchPath } from 'react-router';
 import { useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
-<<<<<<< HEAD
 import { useUserContext } from '@src/app/context/useUserContext';
 import { useGetGrantedPrivilegesQuery } from '@src/graphql/policy.generated';
-import { ReadOutlined } from '@ant-design/icons';
-||||||| 952f3cc3118
-import { ReadOutlined } from '@ant-design/icons';
-=======
 import { BookOpen } from '@phosphor-icons/react';
->>>>>>> master
 import colors from '@src/alchemy-components/theme/foundations/colors';
 import { ManageActorNotifications } from '@src/app/settingsV2/personal/notifications/ManageActorNotifications';
 import { ManageActorSubscriptions } from '@src/app/settingsV2/personal/subscriptions/ManageActorSubscriptions';

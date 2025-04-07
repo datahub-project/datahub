@@ -1,10 +1,4 @@
-<<<<<<< HEAD
 import { Button, Empty } from 'antd';
-||||||| 952f3cc3118
-import { Empty, Typography } from 'antd';
-=======
-import { Empty } from 'antd';
->>>>>>> master
 import React from 'react';
 import styled from 'styled-components/macro';
 import { SorterResult } from 'antd/lib/table/interface';
@@ -106,7 +100,6 @@ function IngestionSourceTable({
         executorPoolId: source.config.executorId, // SaaS only
     }));
 
-<<<<<<< HEAD
     const tableColumns = [
         {
             title: 'Type',
@@ -171,55 +164,6 @@ function IngestionSourceTable({
         },
     ];
 
-||||||| 952f3cc3118
-=======
-    const tableColumns = [
-        {
-            title: 'Type',
-            dataIndex: 'type',
-            key: 'type',
-            render: (type: string, record: any) => <TypeColumn type={type} record={record} />,
-            sorter: true,
-        },
-        {
-            title: 'Name',
-            dataIndex: 'name',
-            key: 'name',
-            render: (name: string) => name || '',
-            sorter: true,
-        },
-        {
-            title: 'Schedule',
-            dataIndex: 'schedule',
-            key: 'schedule',
-            render: ScheduleColumn,
-        },
-        {
-            title: 'Status',
-            dataIndex: 'lastExecStatus',
-            key: 'lastExecStatus',
-            render: (status: any, record) => (
-                <LastStatusColumn status={status} record={record} setFocusExecutionUrn={setFocusExecutionUrn} />
-            ),
-        },
-        {
-            title: '',
-            dataIndex: '',
-            key: 'x',
-            render: (_, record: any) => (
-                <ActionsColumn
-                    record={record}
-                    setFocusExecutionUrn={setFocusExecutionUrn}
-                    onExecute={onExecute}
-                    onDelete={onDelete}
-                    onView={onView}
-                    onEdit={onEdit}
-                />
-            ),
-        },
-    ];
-
->>>>>>> master
     const handleTableChange = (_: any, __: any, sorter: any) => {
         const sorterTyped: SorterResult<any> = sorter;
         const field = sorterTyped.field as string;

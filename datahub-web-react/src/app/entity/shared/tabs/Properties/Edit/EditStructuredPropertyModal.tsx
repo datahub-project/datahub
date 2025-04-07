@@ -1,19 +1,8 @@
-import { Button } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
-<<<<<<< HEAD
 import { getFieldPathFromSchemaFieldUrn, getSourceUrnFromSchemaFieldUrn } from '@src/app/entityV2/schemaField/utils';
 import { message } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
-||||||| 952f3cc3118
-import { Modal, message } from 'antd';
-import React, { useEffect, useMemo } from 'react';
-=======
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
-import { Modal, message } from 'antd';
-import React, { useEffect, useMemo } from 'react';
->>>>>>> master
 import styled from 'styled-components';
-<<<<<<< HEAD
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import ProposalDescriptionModal from '@src/app/entityV2/shared/containers/profile/sidebar/ProposalDescriptionModal';
 import { Modal } from '@src/alchemy-components';
@@ -28,23 +17,10 @@ import {
     Maybe,
     PropertyValueInput,
     SchemaFieldEntity,
+    StdDataType,
     StructuredPropertyEntity,
     SubResourceType,
 } from '../../../../../../types.generated';
-||||||| 952f3cc3118
-import { Button } from '@src/alchemy-components';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
-import { useUpsertStructuredPropertiesMutation } from '../../../../../../graphql/structuredProperties.generated';
-import { EntityType, PropertyValueInput, StructuredPropertyEntity } from '../../../../../../types.generated';
-=======
-import { useUpsertStructuredPropertiesMutation } from '../../../../../../graphql/structuredProperties.generated';
-import {
-    EntityType,
-    PropertyValueInput,
-    StdDataType,
-    StructuredPropertyEntity,
-} from '../../../../../../types.generated';
->>>>>>> master
 import handleGraphQLError from '../../../../../shared/handleGraphQLError';
 import { useEntityContext, useEntityData, useMutationUrn } from '../../../EntityContext';
 import StructuredPropertyInput from '../../../components/styled/StructuredProperty/StructuredPropertyInput';
@@ -158,7 +134,6 @@ export default function EditStructuredPropertyModal({
             });
     }
 
-<<<<<<< HEAD
     // Saas-only mutation
     function proposeProperties(description?: string) {
         message.loading('Proposing...');
@@ -166,50 +141,6 @@ export default function EditStructuredPropertyModal({
         const propValues = selectedValues.map((value) => {
             if (typeof value === 'string') {
                 return { stringValue: value as string };
-||||||| 952f3cc3118
-    return (
-        <Modal
-            title={`${isAddMode ? 'Add property' : 'Edit property'} ${structuredProperty?.definition?.displayName}`}
-            onCancel={closeModal}
-            open={isOpen}
-            width={650}
-            footer={
-                <ModalButtonContainer>
-                    <Button variant="text" onClick={closeModal} color="gray">
-                        Cancel
-                    </Button>
-                    <Button
-                        onClick={upsertProperties}
-                        disabled={!selectedValues.length}
-                        data-testid="add-update-structured-prop-on-entity-button"
-                    >
-                        {isAddMode ? 'Add' : 'Update'}
-                    </Button>
-                </ModalButtonContainer>
-=======
-    const isUrnInput = structuredProperty.definition.valueType.info.type === StdDataType.Urn && !allowedValues;
-
-    return (
-        <Modal
-            title={`${isAddMode ? 'Add property' : 'Edit property'} ${structuredProperty?.definition?.displayName}`}
-            onCancel={closeModal}
-            open={isOpen}
-            // Urn input is a special case that requires a wider modal since it employs a search select component
-            width={isUrnInput ? SEARCH_SELECT_MODAL_WIDTH : DEFAULT_MODAL_WIDTH}
-            footer={
-                <ModalButtonContainer>
-                    <Button variant="text" onClick={closeModal} color="gray">
-                        Cancel
-                    </Button>
-                    <Button
-                        onClick={upsertProperties}
-                        disabled={!selectedValues.length}
-                        data-testid="add-update-structured-prop-on-entity-button"
-                    >
-                        {isAddMode ? 'Add' : 'Update'}
-                    </Button>
-                </ModalButtonContainer>
->>>>>>> master
             }
             return { numberValue: value as number };
         }) as PropertyValueInput[];
@@ -270,6 +201,8 @@ export default function EditStructuredPropertyModal({
         }
     };
 
+    const isUrnInput = structuredProperty.definition.valueType.info.type === StdDataType.Urn && !allowedValues;
+
     return (
         <>
             {!showProposeModal && (
@@ -280,7 +213,8 @@ export default function EditStructuredPropertyModal({
                     )}`}
                     onCancel={closeModal}
                     open={isOpen}
-                    width={650}
+                    // Urn input is a special case that requires a wider modal since it employs a search select component
+                    width={isUrnInput ? SEARCH_SELECT_MODAL_WIDTH : DEFAULT_MODAL_WIDTH}
                     buttons={[
                         { text: 'Cancel', key: 'Cancel', variant: 'text', onClick: closeModal, type: 'button' },
                         {
@@ -307,6 +241,7 @@ export default function EditStructuredPropertyModal({
                         <Description>{structuredProperty.definition.description}</Description>
                     )}
                     <StructuredPropertyInput
+                        canUseSearchSelectUrnInput
                         structuredProperty={structuredProperty}
                         selectedValues={selectedValues}
                         selectSingleValue={selectSingleValue}
@@ -316,30 +251,9 @@ export default function EditStructuredPropertyModal({
                     />
                 </Modal>
             )}
-<<<<<<< HEAD
             {showProposeModal && (
                 <ProposalDescriptionModal onPropose={proposeProperties} onCancel={() => setShowProposeModal(false)} />
             )}
         </>
-||||||| 952f3cc3118
-            <StructuredPropertyInput
-                structuredProperty={structuredProperty}
-                selectedValues={selectedValues}
-                selectSingleValue={selectSingleValue}
-                toggleSelectedValue={toggleSelectedValue}
-                updateSelectedValues={updateSelectedValues}
-            />
-        </Modal>
-=======
-            <StructuredPropertyInput
-                canUseSearchSelectUrnInput
-                structuredProperty={structuredProperty}
-                selectedValues={selectedValues}
-                selectSingleValue={selectSingleValue}
-                toggleSelectedValue={toggleSelectedValue}
-                updateSelectedValues={updateSelectedValues}
-            />
-        </Modal>
->>>>>>> master
     );
 }

@@ -33,11 +33,6 @@ const AllStatusWrapper = styled.div`
     flex-direction: column;
 `;
 
-const AllStatusWrapper = styled.div`
-    display: flex;
-    flex-direction: column;
-`;
-
 const StatusButton = styled(Button)`
     padding: 0px;
     margin: 0px;

@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-import React from 'react';
 import {
     Maybe,
     PropertyCardinality,
@@ -7,35 +5,15 @@ import {
     StdDataType,
     StructuredPropertyEntity,
 } from '@src/types.generated';
-import SingleSelectInput from './SingleSelectInput';
-import MultiSelectInput from './MultiSelectInput';
-import StringInput from './StringInput';
-import RichTextInput from './RichTextInput';
-import DateInput from './DateInput';
-import NumberInput from './NumberInput';
-import StructuredPropertyUrnInput from './StructuredPropertyUrnInput';
-||||||| 952f3cc3118
-import React from 'react';
-import { PropertyCardinality, StdDataType, StructuredPropertyEntity } from '@src/types.generated';
-import SingleSelectInput from './SingleSelectInput';
-import MultiSelectInput from './MultiSelectInput';
-import StringInput from './StringInput';
-import RichTextInput from './RichTextInput';
-import DateInput from './DateInput';
-import NumberInput from './NumberInput';
-import UrnInput from '../../../entityForm/prompts/StructuredPropertyPrompt/UrnInput/UrnInput';
-=======
-import { PropertyCardinality, StdDataType, StructuredPropertyEntity } from '@src/types.generated';
 import React from 'react';
 import StructuredPropertySearchSelectUrnInput from '../../../entityForm/prompts/StructuredPropertyPrompt/UrnInput/StructuredPropertySearchSelectUrnInput';
-import UrnInput from '../../../entityForm/prompts/StructuredPropertyPrompt/UrnInput/UrnInput';
+import StructuredPropertyUrnInput from './StructuredPropertyUrnInput';
 import DateInput from './DateInput';
 import MultiSelectInput from './MultiSelectInput';
 import NumberInput from './NumberInput';
 import RichTextInput from './RichTextInput';
 import SingleSelectInput from './SingleSelectInput';
 import StringInput from './StringInput';
->>>>>>> master
 
 interface Props {
     structuredProperty: StructuredPropertyEntity;
@@ -43,12 +21,8 @@ interface Props {
     selectSingleValue: (value: string | number) => void;
     toggleSelectedValue: (value: string | number) => void;
     updateSelectedValues: (value: (string | number | null)[]) => void;
-<<<<<<< HEAD
     fieldEntity?: Maybe<SchemaFieldEntity>;
-||||||| 952f3cc3118
-=======
     canUseSearchSelectUrnInput?: boolean;
->>>>>>> master
 }
 
 export default function StructuredPropertyInput({
@@ -57,12 +31,8 @@ export default function StructuredPropertyInput({
     selectedValues,
     toggleSelectedValue,
     updateSelectedValues,
-<<<<<<< HEAD
     fieldEntity,
-||||||| 952f3cc3118
-=======
     canUseSearchSelectUrnInput = false,
->>>>>>> master
 }: Props) {
     const { allowedValues, cardinality, valueType } = structuredProperty.definition;
 
@@ -107,13 +77,6 @@ export default function StructuredPropertyInput({
                     updateSelectedValues={updateSelectedValues}
                 />
             )}
-<<<<<<< HEAD
-            {!allowedValues && valueType.info.type === StdDataType.Urn && (
-                <StructuredPropertyUrnInput
-||||||| 952f3cc3118
-            {!allowedValues && valueType.info.type === StdDataType.Urn && (
-                <UrnInput
-=======
             {!allowedValues && valueType.info.type === StdDataType.Urn && canUseSearchSelectUrnInput && (
                 <StructuredPropertySearchSelectUrnInput
                     structuredProperty={structuredProperty}
@@ -122,8 +85,7 @@ export default function StructuredPropertyInput({
                 />
             )}
             {!allowedValues && valueType.info.type === StdDataType.Urn && !canUseSearchSelectUrnInput && (
-                <UrnInput
->>>>>>> master
+                <StructuredPropertyUrnInput
                     structuredProperty={structuredProperty}
                     selectedValues={selectedValues as string[]}
                     updateSelectedValues={updateSelectedValues}

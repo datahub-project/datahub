@@ -1,14 +1,4 @@
-<<<<<<< HEAD
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-||||||| 952f3cc3118
-import { PlusOutlined, RedoOutlined } from '@ant-design/icons';
-import React, { useCallback, useEffect, useState } from 'react';
-import { debounce } from 'lodash';
-=======
-import { PlusOutlined, RedoOutlined } from '@ant-design/icons';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { debounce } from 'lodash';
->>>>>>> master
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
 import { Button, colors, SearchBar, SimpleSelect } from '@components';
@@ -136,8 +126,6 @@ export const IngestionSourceList = ({ onSwitchTab, showCreateModal, setShowCreat
     const paramsPoolFilter = (params?.[INGESTION_TAB_QUERY_PARAMS.pool] as string) || undefined; // SaaS only
 
     const [query, setQuery] = useState<undefined | string>(undefined);
-<<<<<<< HEAD
-
     const searchInputRef = useRef<HTMLInputElement | null>(null);
     // highlight search input if user arrives with a query preset for salience
     useEffect(() => {
@@ -146,18 +134,6 @@ export const IngestionSourceList = ({ onSwitchTab, showCreateModal, setShowCreat
             searchInputRef.current?.focus();
         }
     }, [paramsQuery]);
-||||||| 952f3cc3118
-    useEffect(() => setQuery(paramsQuery), [paramsQuery]);
-=======
-    const searchInputRef = useRef<HTMLInputElement | null>(null);
-    // highlight search input if user arrives with a query preset for salience
-    useEffect(() => {
-        if (paramsQuery?.length) {
-            setQuery(paramsQuery);
-            searchInputRef.current?.focus();
-        }
-    }, [paramsQuery]);
->>>>>>> master
 
     const [page, setPage] = useState(1);
 
@@ -494,7 +470,6 @@ export const IngestionSourceList = ({ onSwitchTab, showCreateModal, setShowCreat
                 <Message type="error" content="Failed to load ingestion sources! An unexpected error occurred." />
             )}
             <SourceContainer>
-<<<<<<< HEAD
                 <OnboardingTour stepIds={[INGESTION_REFRESH_SOURCES_ID]} />
                 <StyledTabToolbar>
                     <SearchContainer>
@@ -502,96 +477,6 @@ export const IngestionSourceList = ({ onSwitchTab, showCreateModal, setShowCreat
                             placeholder="Search..."
                             value={query || ''}
                             onChange={(value) => handleSearch(value)}
-||||||| 952f3cc3118
-                <TabToolbar>
-                    <div>
-                        <Button
-                            id={INGESTION_CREATE_SOURCE_ID}
-                            type="text"
-                            onClick={() => setIsBuildingSource(true)}
-                            data-testid="create-ingestion-source-button"
-                        >
-                            <PlusOutlined /> Create new source
-                        </Button>
-                        <Button id={INGESTION_REFRESH_SOURCES_ID} type="text" onClick={onRefresh}>
-                            <RedoOutlined /> Refresh
-                        </Button>
-                    </div>
-                    <FilterWrapper>
-                        <StyledSelect
-                            value={sourceFilter}
-                            onChange={(selection) => setSourceFilter(selection as IngestionSourceType)}
-                        >
-                            <Select.Option value={IngestionSourceType.ALL}>All</Select.Option>
-                            <Select.Option value={IngestionSourceType.UI}>UI</Select.Option>
-                            <Select.Option value={IngestionSourceType.CLI}>CLI</Select.Option>
-                        </StyledSelect>
-
-                        <SearchBar
-                            initialQuery={query || ''}
-                            placeholderText="Search sources..."
-                            suggestions={[]}
-                            style={{
-                                maxWidth: 220,
-                                padding: 0,
-                            }}
-                            inputStyle={{
-                                height: 32,
-                                fontSize: 12,
-                            }}
-                            onSearch={() => null}
-                            onQueryChange={(q) => {
-                                setPage(1);
-                                debouncedSetQuery(q);
-                            }}
-                            entityRegistry={entityRegistry}
-                            hideRecommendations
-=======
-                <TabToolbar>
-                    <div>
-                        <Button
-                            id={INGESTION_CREATE_SOURCE_ID}
-                            type="text"
-                            onClick={() => setIsBuildingSource(true)}
-                            data-testid="create-ingestion-source-button"
-                        >
-                            <PlusOutlined /> Create new source
-                        </Button>
-                        <Button id={INGESTION_REFRESH_SOURCES_ID} type="text" onClick={onRefresh}>
-                            <RedoOutlined /> Refresh
-                        </Button>
-                    </div>
-                    <FilterWrapper>
-                        <StyledSelect
-                            value={sourceFilter}
-                            onChange={(selection) => setSourceFilter(selection as IngestionSourceType)}
-                        >
-                            <Select.Option value={IngestionSourceType.ALL}>All</Select.Option>
-                            <Select.Option value={IngestionSourceType.UI}>UI</Select.Option>
-                            <Select.Option value={IngestionSourceType.CLI}>CLI</Select.Option>
-                        </StyledSelect>
-
-                        <SearchBar
-                            searchInputRef={searchInputRef}
-                            initialQuery={query || ''}
-                            placeholderText="Search sources..."
-                            suggestions={[]}
-                            style={{
-                                maxWidth: 220,
-                                padding: 0,
-                            }}
-                            inputStyle={{
-                                height: 32,
-                                fontSize: 12,
-                            }}
-                            onSearch={() => null}
-                            onQueryChange={(q) => {
-                                setPage(1);
-                                debouncedSetQuery(q);
-                            }}
-                            entityRegistry={entityRegistry}
-                            hideRecommendations
->>>>>>> master
                         />
                         <StyledSimpleSelect
                             options={[
