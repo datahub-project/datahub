@@ -2,6 +2,7 @@ import logging
 from typing import Dict, Iterable, List, Optional
 
 from datahub.configuration import ConfigModel
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -14,9 +15,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     ActionRequestInfoClass,
 )
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.utilities.urns.urn import guess_entity_type
-
 
 logger = logging.getLogger(__name__)
 

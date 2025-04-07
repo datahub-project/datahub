@@ -1,0 +1,40 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools >= 71.1", "wheel"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["datahub"]
+combine-as-imports = true
+
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+extend-select = [
+    "B",    # flake8-bugbear
+    "C90",  # mccabe complexity
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "G010", # logging.warn -> logging.warning
+    "I",    # isort
+    "TID",  # flake8-tidy-imports
+    "RUF100",  # unused-noqa
+    "SIM",   # flake8-simplify
+]
+extend-ignore = [
+    "E501",  # Handled by formatter
+    "E111",  # Handled by formatter
+    "E114",  # Handled by formatter
+    "E117",  # Handled by formatter
+    #"B019",  # Allow usages of functools.lru_cache
+    #"B008",  # Allow function call in argument defaults
+    #"RUF012", # mutable-class-default; incompatible with pydantic
+    #"RUF015", # unnecessary-iterable-allocation-for-first-element
+    
+    # Can be enabled later if someone wants to fix existing cases or an auto-fix becomes available
+    "SIM103", # Return the condition directly
+    "SIM108", # Uses ternaries instead of if..else
+]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"

@@ -1,4 +1,5 @@
 import json
+import pathlib
 import random
 import time
 import uuid
@@ -92,7 +93,7 @@ num_datasets = 10000000
 name = "test_dataset_usage_huge"
 
 test_datasets = generate_test_datasets(num_datasets)
-json.dump(test_datasets, open(f"{name}_datasets.json", "w"), indent=4)
+pathlib.Path(f"{name}_datasets.json").write_text(json.dumps(test_datasets, indent=4))
 
 test_events = generate_test_data(5000, num_datasets)
-json.dump(test_events, open(f"{name}_datasetusages.json", "w"), indent=4)
+pathlib.Path(f"{name}_datasetusages.json").write_text(json.dumps(test_events, indent=4))

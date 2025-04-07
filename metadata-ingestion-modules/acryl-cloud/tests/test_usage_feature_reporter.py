@@ -23,8 +23,6 @@ from freezegun import freeze_time
 from polars import DataType
 from polars.datatypes import DataTypeClass
 
-from tests.utils import PytestConfig
-
 from datahub.ingestion.api.common import PipelineContext
 
 if TYPE_CHECKING:
@@ -238,9 +236,10 @@ def load_data_from_es_mock(
                         batch = []
                 if batch:
                     yield from process_function(batch)
-    elif index == "dataset_operationaspect_v1":
-        return
-    elif index == "chart_chartusagestatisticsaspect_v1":
+    elif (
+        index == "dataset_operationaspect_v1"
+        or index == "chart_chartusagestatisticsaspect_v1"
+    ):
         return
     else:
         raise AssertionError(f"Unhandled index {index}")
@@ -266,7 +265,7 @@ def run_and_get_pipeline(pipeline_config_dict: Dict[str, Any]) -> Pipeline:
 @patch.object(DataHubUsageFeatureReportingSource, "load_data_from_es")
 @freeze_time(FROZEN_TIME)
 def test_dataset_usage(
-    load_data_from_es: Mock, pytestconfig: PytestConfig, test_name: str
+    load_data_from_es: Mock, pytestconfig: pytest.Config, test_name: str
 ) -> None:
     config = DataHubUsageFeatureReportingSourceConfig(
         dashboard_usage_enabled=False,
@@ -315,7 +314,7 @@ def test_dataset_usage(
 @patch.object(DataHubUsageFeatureReportingSource, "load_data_from_es")
 @freeze_time(FROZEN_TIME)
 def test_dataset_usage_with_ranking_factors(
-    load_data_from_es: Mock, pytestconfig: PytestConfig, test_name: str
+    load_data_from_es: Mock, pytestconfig: pytest.Config, test_name: str
 ) -> None:
     config = DataHubUsageFeatureReportingSourceConfig(
         dashboard_usage_enabled=False,
@@ -407,7 +406,7 @@ def check_golden_file(
 @patch.object(DataHubUsageFeatureReportingSource, "load_data_from_es")
 @freeze_time(FROZEN_TIME)
 def test_dataset_usage_with_ranking_factors_patch_enabled(
-    load_data_from_es: Mock, pytestconfig: PytestConfig, test_name: str
+    load_data_from_es: Mock, pytestconfig: pytest.Config, test_name: str
 ) -> None:
     config = DataHubUsageFeatureReportingSourceConfig(
         dashboard_usage_enabled=False,
@@ -488,7 +487,7 @@ def test_dataset_usage_with_ranking_factors_patch_enabled(
 @patch.object(DataHubUsageFeatureReportingSource, "load_data_from_es")
 @freeze_time(FROZEN_TIME)
 def test_dataset_usage_with_ranking_factors_patch_enabled_in_streaming(
-    load_data_from_es: Mock, pytestconfig: PytestConfig, test_name: str
+    load_data_from_es: Mock, pytestconfig: pytest.Config, test_name: str
 ) -> None:
     config = DataHubUsageFeatureReportingSourceConfig(
         dashboard_usage_enabled=False,

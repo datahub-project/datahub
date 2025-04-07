@@ -1,11 +1,10 @@
 import pathlib
 import site
 
-from datahub.testing.pytest_hooks import (  # noqa: F401,E402
+from datahub.testing.pytest_hooks import (  # noqa: F401
     load_golden_flags,
     pytest_addoption,
 )
-
 
 # See https://coverage.readthedocs.io/en/latest/subprocess.html#configuring-python-for-sub-process-measurement
 coverage_startup_code = "import coverage; coverage.process_startup()"
