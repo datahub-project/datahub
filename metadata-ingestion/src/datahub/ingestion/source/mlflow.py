@@ -36,6 +36,7 @@ from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
+    StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
@@ -118,6 +119,8 @@ class MLflowConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     password: Optional[str] = Field(
         default=None, description="Password for MLflow authentication"
     )
+
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
 
 @dataclass

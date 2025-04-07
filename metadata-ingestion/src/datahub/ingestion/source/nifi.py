@@ -703,7 +703,7 @@ class NifiSource(StatefulIngestionSourceBase):
             if (
                 component.nifi_type is NifiType.PROCESSOR
                 and component.type
-                not in NifiProcessorProvenanceEventAnalyzer.KNOWN_INGRESS_EGRESS_PROCESORS.keys()
+                not in NifiProcessorProvenanceEventAnalyzer.KNOWN_INGRESS_EGRESS_PROCESORS
             ) or component.nifi_type not in [
                 NifiType.PROCESSOR,
                 NifiType.REMOTE_INPUT_PORT,
@@ -977,7 +977,7 @@ class NifiSource(StatefulIngestionSourceBase):
                     )
 
             for incoming_from in incoming:
-                if incoming_from in self.nifi_flow.remotely_accessible_ports.keys():
+                if incoming_from in self.nifi_flow.remotely_accessible_ports:
                     dataset_name = f"{self.config.site_name}.{self.nifi_flow.remotely_accessible_ports[incoming_from].name}"
                     dataset_urn = builder.make_dataset_urn(
                         NIFI, dataset_name, self.config.env
@@ -994,7 +994,7 @@ class NifiSource(StatefulIngestionSourceBase):
                     )
 
             for outgoing_to in outgoing:
-                if outgoing_to in self.nifi_flow.remotely_accessible_ports.keys():
+                if outgoing_to in self.nifi_flow.remotely_accessible_ports:
                     dataset_name = f"{self.config.site_name}.{self.nifi_flow.remotely_accessible_ports[outgoing_to].name}"
                     dataset_urn = builder.make_dataset_urn(
                         NIFI, dataset_name, self.config.env
