@@ -24,7 +24,7 @@ export const ConnectionCreateButton = ({ connections, form, ...props }: Props) =
 
     return (
         <>
-            <Button icon="Add" onClick={() => setIsModalOpen(true)} {...props}>
+            <Button icon={{ icon: 'Add' }} onClick={() => setIsModalOpen(true)} {...props}>
                 Connection
             </Button>
             <Modal

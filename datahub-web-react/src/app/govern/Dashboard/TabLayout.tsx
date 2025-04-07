@@ -152,7 +152,7 @@ export const TabLayout = () => {
                         >
                             <>
                                 <Button
-                                    icon="Add"
+                                    icon={{ icon: 'Add' }}
                                     onClick={() => {
                                         analytics.event({
                                             type: EventType.CreateFormClickEvent,

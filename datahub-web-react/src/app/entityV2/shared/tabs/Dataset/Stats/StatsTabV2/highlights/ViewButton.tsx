@@ -3,7 +3,7 @@ import React from 'react';
 
 export const ViewButton = () => {
     return (
-        <Button variant="text" icon="ArrowDownward">
+        <Button variant="text" icon={{ icon: 'ArrowDownward' }}>
             View
         </Button>
     );

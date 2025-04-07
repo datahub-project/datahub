@@ -33,7 +33,7 @@ export default function AddAssertionButton({ assertionType, chartName }: AddAsse
                 privileges={privileges as EntityPrivileges}
                 onCreateAssertion={(params: EntityStagedForAssertion) => setAuthorAssertionForEntity(params)}
                 renderCustomButton={(props) => (
-                    <Button {...props} icon="Add" variant="outline">
+                    <Button {...props} icon={{ icon: 'Add' }} variant="outline">
                         Assertion
                     </Button>
                 )}
