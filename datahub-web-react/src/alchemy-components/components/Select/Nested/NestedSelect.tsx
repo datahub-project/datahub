@@ -11,7 +11,7 @@ import {
     StyledClearButton,
 } from '../components';
 
-import { SelectLabelProps, SelectSizeOptions } from '../types';
+import { CustomOptionRenderer, SelectLabelProps, SelectSizeOptions } from '../types';
 import { NestedOption } from './NestedOption';
 import { NestedSelectOption } from './types';
 import DropdownSearchBar from '../private/DropdownSearchBar';
@@ -83,6 +83,7 @@ export interface SelectProps<OptionType extends NestedSelectOption = NestedSelec
     implicitlySelectChildren?: boolean;
     shouldManuallyUpdate?: boolean;
     selectLabelProps?: SelectLabelProps;
+    renderCustomOptionText?: CustomOptionRenderer<OptionType>;
 }
 
 export const selectDefaults: SelectProps = {
@@ -123,6 +124,7 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
     implicitlySelectChildren = true,
     shouldManuallyUpdate = selectDefaults.shouldManuallyUpdate,
     selectLabelProps,
+    renderCustomOptionText,
     ...props
 }: SelectProps<OptionType>) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -321,6 +323,7 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
                                         hideParentCheckbox={hideParentCheckbox}
                                         isParentOptionLabelExpanded={!!isParentOptionLabelExpanded}
                                         implicitlySelectChildren={implicitlySelectChildren}
+                                        renderCustomOptionText={renderCustomOptionText}
                                     />
                                 );
                             })}

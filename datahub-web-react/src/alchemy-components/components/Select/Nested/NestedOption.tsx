@@ -9,6 +9,7 @@ import { OptionLabel } from '../components';
 import { NestedSelectOption } from './types';
 import useNestedOption from './useSelectOption';
 import useNestedSelectOptionChildren from './useNestedSelectOptionChildren';
+import { CustomOptionRenderer } from '../types';
 
 const ParentOption = styled.div`
     display: flex;
@@ -67,6 +68,7 @@ interface OptionProps<OptionType extends NestedSelectOption> {
     hideParentCheckbox?: boolean;
     isParentOptionLabelExpanded?: boolean;
     implicitlySelectChildren: boolean;
+    renderCustomOptionText?: CustomOptionRenderer<OptionType>;
 }
 
 export const NestedOption = <OptionType extends NestedSelectOption>({
@@ -84,6 +86,7 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
     hideParentCheckbox,
     isParentOptionLabelExpanded,
     implicitlySelectChildren,
+    renderCustomOptionText,
 }: OptionProps<OptionType>) => {
     const [loadingParentUrns, setLoadingParentUrns] = useState<string[]>([]);
     const [isOpen, setIsOpen] = useState(isParentOptionLabelExpanded);
@@ -148,8 +151,14 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
                     }}
                     data-testid={`${option.isParent ? 'parent' : 'child'}-option-${option.value}`}
                 >
-                    {option.isParent && <strong>{option.label}</strong>}
-                    {!option.isParent && <>{option.label}</>}
+                    {renderCustomOptionText ? (
+                        renderCustomOptionText(option)
+                    ) : (
+                        <>
+                            {option.isParent && <strong>{option.label}</strong>}
+                            {!option.isParent && <>{option.label}</>}
+                        </>
+                    )}
                     {option.isParent && (
                         <Icon
                             onClick={(e) => {

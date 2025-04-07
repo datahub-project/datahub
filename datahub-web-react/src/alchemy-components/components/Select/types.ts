@@ -17,6 +17,8 @@ export type SelectLabelProps = {
 
 type OptionPosition = 'start' | 'end' | 'center';
 
+export type CustomOptionRenderer<OptionType extends SelectOption> = (option: OptionType) => React.ReactNode;
+
 export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     options: OptionType[];
     label?: string;
@@ -38,7 +40,7 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     showSelectAll?: boolean;
     selectAllLabel?: string;
     showDescriptions?: boolean;
-    renderCustomOptionText?: (option: OptionType) => void;
+    renderCustomOptionText?: CustomOptionRenderer<OptionType>;
     renderCustomSelectedValue?: (selectedOptions: OptionType) => void;
     filterResultsByQuery?: boolean;
     onSearchChange?: (searchText: string) => void;
