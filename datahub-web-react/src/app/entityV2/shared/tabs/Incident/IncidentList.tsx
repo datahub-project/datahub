@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Empty } from 'antd';
 
 import { useGetEntityIncidentsQuery } from '../../../../../graphql/incident.generated';
-import { useEntityData } from '../../../../entity/shared/EntityContext';
+import { useEntityData, useRefetch } from '../../../../entity/shared/EntityContext';
 import { PAGE_SIZE } from './incidentUtils';
 import { EntityPrivileges, Incident } from '../../../../../types.generated';
 import { combineEntityDataWithSiblings } from '../../../../entity/shared/siblingUtils';
@@ -19,6 +19,7 @@ import { getQueryParams } from '../Dataset/Validations/assertionUtils';
 
 export const IncidentList = () => {
     const { urn } = useEntityData();
+    const refetchEntity = useRefetch();
     const [showIncidentBuilder, setShowIncidentBuilder] = useState(false);
     const [entity, setEntity] = useState<EntityStagedForIncident>();
     const [visibleIncidents, setVisibleIncidents] = useState<IncidentTable>({
@@ -36,7 +37,11 @@ export const IncidentList = () => {
 
     const [selectedFilters, setSelectedFilters] = useState<IncidentListFilter>(incidentDefaultFilters);
     // Fetch filtered incidents.
-    const { loading, data, refetch } = useGetEntityIncidentsQuery({
+    const {
+        loading,
+        data,
+        refetch: refetchIncidents,
+    } = useGetEntityIncidentsQuery({
         variables: {
             urn,
             start: 0,
@@ -74,6 +79,11 @@ export const IncidentList = () => {
         setSelectedFilters(filter);
     };
 
+    const refetch = () => {
+        refetchEntity();
+        refetchIncidents();
+    };
+
     const privileges = (data?.entity as any)?.privileges as EntityPrivileges;
 
     const renderListTable = () => {
@@ -94,6 +104,7 @@ export const IncidentList = () => {
         }
         return <Empty description="No incidents yet" image={Empty.PRESENTED_IMAGE_SIMPLE} />;
     };
+
     return (
         <>
             <IncidentTitleContainer
@@ -115,10 +126,10 @@ export const IncidentList = () => {
                     urn={urn}
                     mode={IncidentAction.CREATE}
                     onSubmit={() => {
+                        setShowIncidentBuilder(false);
                         setTimeout(() => {
                             refetch();
-                        }, 2000);
-                        setShowIncidentBuilder(false);
+                        }, 3000);
                     }}
                     onCancel={() => setShowIncidentBuilder(false)}
                     entity={entity}

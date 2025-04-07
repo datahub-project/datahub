@@ -6,6 +6,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authentication.AuthenticationException;
+import com.datahub.authentication.AuthenticationExpiredException;
 import com.datahub.authentication.AuthenticationRequest;
 import com.datahub.authentication.AuthenticatorConfiguration;
 import com.datahub.authentication.AuthenticatorContext;
@@ -44,6 +45,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -103,21 +105,10 @@ public class AuthenticationFilter extends OncePerRequestFilter {
       HttpServletRequest request, HttpServletResponse response, FilterChain chain)
       throws ServletException, IOException {
     AuthenticationRequest context = buildAuthContext(request);
-    Authentication authentication = null;
     try {
-      authentication = this.authenticatorChain.authenticate(context, _logAuthenticatorExceptions);
-    } catch (AuthenticationException e) {
-      // For AuthenticationExpiredExceptions, terminate and provide that feedback to the user
-      log.debug(
-          "Failed to authenticate request. Received an AuthenticationExpiredException from authenticator chain.",
-          e);
-      ((HttpServletResponse) response)
-          .sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized to perform this action.");
-      return;
-    }
-
-    if (authentication != null) {
-      String actorUrnStr = authentication.getActor().toUrnStr();
+      Authentication authentication =
+          Objects.requireNonNull(
+              this.authenticatorChain.authenticate(context, _logAuthenticatorExceptions));
       // Successfully authenticated.
       log.debug(
           "Successfully authenticated request for Actor with type: {}, id: {}",
@@ -125,16 +116,32 @@ public class AuthenticationFilter extends OncePerRequestFilter {
           authentication.getActor().getId());
       AuthenticationContext.setAuthentication(authentication);
       chain.doFilter(request, response);
-    } else {
+
+    } catch (AuthenticationExpiredException e) {
+      // For AuthenticationExpiredExceptions, terminate and provide that feedback to the user
+      log.debug(
+          "Failed to authenticate request. Unauthorized to perform this action due to expired auth.",
+          e);
+      response.sendError(
+          HttpServletResponse.SC_UNAUTHORIZED,
+          "Unauthorized to perform this action due to expired auth.");
+      return;
+    } catch (AuthenticationException e) {
+      log.debug(
+          "Failed to authenticate request. Received an AuthenticationException from authenticator chain.",
+          e);
+      response.sendError(
+          HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized to perform this action.");
+      return;
+    } catch (Exception e) {
       // Reject request
       log.debug(
-          "Failed to authenticate request. Received 'null' Authentication value from authenticator chain.");
-      ((HttpServletResponse) response)
-          .sendError(
-              HttpServletResponse.SC_UNAUTHORIZED,
-              "Unauthorized to perform this action due to expired auth.");
+          "Failed to authenticate request. Received an exception from the authenticator chain.", e);
+      response.sendError(
+          HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized to perform this action.");
       return;
     }
+
     AuthenticationContext.remove();
   }
 
