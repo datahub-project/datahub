@@ -16,7 +16,7 @@ record DataProcessInstanceInput {
   @Relationship = {
     "/*": {
       "name": "Consumes",
-      "entityTypes": [ "dataset", "mlModel" ]
+      "entityTypes": [ "dataset", "mlModel", "dataJob" ]
     }
   }
   @Searchable = {
@@ -38,7 +38,7 @@ record DataProcessInstanceInput {
   @Relationship = {
     "/*/destinationUrn": {
       "name": "DataProcessInstanceConsumes",
-      "entityTypes": [ "dataset", "mlModel", "dataProcessInstance" ],
+      "entityTypes": [ "dataset", "mlModel", "dataProcessInstance", "dataJob"],
       "isLineage": true,
       "createdOn": "inputEdges/*/created/time",
       "createdActor": "inputEdges/*/created/actor",
