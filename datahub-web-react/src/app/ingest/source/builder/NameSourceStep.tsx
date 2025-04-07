@@ -1,5 +1,6 @@
 import { Checkbox, Collapse, Form, Input, Typography } from 'antd';
 import { Button, Tooltip } from '@components';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import React from 'react';
 import styled from 'styled-components';
 import { SourceBuilderState, StepProps, StringMapEntryInput } from './types';
@@ -9,10 +10,6 @@ const ControlsContainer = styled.div`
     display: flex;
     justify-content: space-between;
     margin-top: 8px;
-`;
-
-const SaveButton = styled(Button)`
-    margin-right: 15px;
 `;
 
 const ExtraEnvKey = 'extra_env_vars';
@@ -180,12 +177,13 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                 </Form.Item>
                 <Collapse ghost>
                     <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
+                        {/* NOTE: Executor ID is OSS-only, used by actions pod */}
                         <Form.Item label={<Typography.Text strong>Executor ID</Typography.Text>}>
                             <Typography.Paragraph>
                                 Provide the ID of the executor that should execute this ingestion recipe. This ID is
                                 used to route execution requests of the recipe to the executor of the same ID. The
                                 built-in DataHub executor ID is &apos;default&apos;. Do not change this unless you have
-                                configured a remote or custom executor.
+                                configured a custom executor via actions framework.
                             </Typography.Paragraph>
                             <Input
                                 placeholder="default"
@@ -259,15 +257,15 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                 <Button variant="outline" color="gray" onClick={prev}>
                     Previous
                 </Button>
-                <div>
-                    <SaveButton
+                <ModalButtonContainer>
+                    <Button
                         variant="outline"
                         data-testid="ingestion-source-save-button"
                         disabled={!(state.name !== undefined && state.name.length > 0)}
                         onClick={() => onClickCreate(false)}
                     >
                         Save
-                    </SaveButton>
+                    </Button>
                     <Tooltip showArrow={false} title="Save and starting syncing data source">
                         <Button
                             disabled={!(state.name !== undefined && state.name.length > 0)}
@@ -276,7 +274,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                             Save & Run
                         </Button>
                     </Tooltip>
-                </div>
+                </ModalButtonContainer>
             </ControlsContainer>
         </>
     );

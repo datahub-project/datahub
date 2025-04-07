@@ -483,7 +483,7 @@ class Dataset(StrictModel):
                                 f"{urn_prefix}:{prop_key}"
                                 if not prop_key.startswith(urn_prefix)
                                 else prop_key
-                                for prop_key in field.structured_properties.keys()
+                                for prop_key in field.structured_properties
                             ]
                         )
                     if field.glossaryTerms:
@@ -497,7 +497,7 @@ class Dataset(StrictModel):
                     f"{urn_prefix}:{prop_key}"
                     if not prop_key.startswith(urn_prefix)
                     else prop_key
-                    for prop_key in self.structured_properties.keys()
+                    for prop_key in self.structured_properties
                 ]
             )
         if self.glossary_terms:
@@ -506,7 +506,7 @@ class Dataset(StrictModel):
         # We don't check references for tags
         return list(set(references))
 
-    def generate_mcp(  # noqa: C901
+    def generate_mcp(
         self,
     ) -> Iterable[Union[MetadataChangeProposalClass, MetadataChangeProposalWrapper]]:
         mcp = MetadataChangeProposalWrapper(
@@ -642,33 +642,6 @@ class Dataset(StrictModel):
                         field.id,  # type: ignore[arg-type]
                     )
                     assert field_urn.startswith("urn:li:schemaField:")
-
-                    if field.globalTags:
-                        mcp = MetadataChangeProposalWrapper(
-                            entityUrn=field_urn,
-                            aspect=GlobalTagsClass(
-                                tags=[
-                                    TagAssociationClass(tag=make_tag_urn(tag))
-                                    for tag in field.globalTags
-                                ]
-                            ),
-                        )
-                        yield mcp
-
-                    if field.glossaryTerms:
-                        mcp = MetadataChangeProposalWrapper(
-                            entityUrn=field_urn,
-                            aspect=GlossaryTermsClass(
-                                terms=[
-                                    GlossaryTermAssociationClass(
-                                        urn=make_term_urn(term)
-                                    )
-                                    for term in field.glossaryTerms
-                                ],
-                                auditStamp=self._mint_auditstamp("yaml"),
-                            ),
-                        )
-                        yield mcp
 
                     if field.structured_properties:
                         urn_prefix = f"{StructuredPropertyUrn.URN_PREFIX}:{StructuredPropertyUrn.LI_DOMAIN}:{StructuredPropertyUrn.ENTITY_TYPE}"

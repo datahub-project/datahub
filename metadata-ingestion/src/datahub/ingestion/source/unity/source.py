@@ -1020,7 +1020,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             generate_usage_statistics=False,
             generate_operations=False,
         )
-        for dataset_name in self.view_definitions.keys():
+        for dataset_name in self.view_definitions:
             view_ref, view_definition = self.view_definitions[dataset_name]
             result = self._run_sql_parser(
                 view_ref,

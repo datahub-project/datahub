@@ -42,6 +42,7 @@ from pyiceberg.types import (
 )
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.iceberg.iceberg import (
@@ -49,13 +50,11 @@ from datahub.ingestion.source.iceberg.iceberg import (
     IcebergSource,
     IcebergSourceConfig,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import ArrayType, SchemaField
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
     BytesTypeClass,
-    DatasetSnapshotClass,
     DateTypeClass,
     FixedTypeClass,
     NumberTypeClass,
@@ -64,14 +63,18 @@ from datahub.metadata.schema_classes import (
     TimeTypeClass,
 )
 
+MCPS_PER_TABLE = 7  # assuming no profiling
+MCPS_PER_NAMESPACE = 5
+
 
 def with_iceberg_source(processing_threads: int = 1, **kwargs: Any) -> IcebergSource:
     catalog = {"test": {"type": "rest"}}
+    config = IcebergSourceConfig(
+        catalog=catalog, processing_threads=processing_threads, **kwargs
+    )
     return IcebergSource(
         ctx=PipelineContext(run_id="iceberg-source-test"),
-        config=IcebergSourceConfig(
-            catalog=catalog, processing_threads=processing_threads, **kwargs
-        ),
+        config=config,
     )
 
 
@@ -546,10 +549,10 @@ class MockCatalog:
         self.tables = tables
 
     def list_namespaces(self) -> Iterable[Tuple[str]]:
-        return [*[(key,) for key in self.tables.keys()]]
+        return [*[(key,) for key in self.tables]]
 
     def list_tables(self, namespace: str) -> Iterable[Tuple[str, str]]:
-        return [(namespace[0], table) for table in self.tables[namespace[0]].keys()]
+        return [(namespace[0], table) for table in self.tables[namespace[0]]]
 
     def load_table(self, dataset_path: Tuple[str, str]) -> Table:
         return self.tables[dataset_path[0]][dataset_path[1]]()
@@ -574,9 +577,11 @@ def test_exception_while_listing_namespaces() -> None:
     mock_catalog = MockCatalogExceptionListingNamespaces({})
     with patch(
         "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog"
-    ) as get_catalog, pytest.raises(Exception, match="Test exception"):
+    ) as get_catalog:
         get_catalog.return_value = mock_catalog
-        [*source.get_workunits_internal()]
+        wus = [*source.get_workunits_internal()]
+        assert len(wus) == 0
+        assert source.report.failures.total_elements == 1
 
 
 def test_known_exception_while_listing_tables() -> None:
@@ -659,21 +664,28 @@ def test_known_exception_while_listing_tables() -> None:
     ) as get_catalog:
         get_catalog.return_value = mock_catalog
         wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
-        assert len(wu) == 5  # ingested 5 tables, despite exception
+        # ingested 5 tables (6 MCPs each) and 5 namespaces (4 MCPs each), despite exception
+        expected_wu_urns = [
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table1,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceB.table2,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceB.table3,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceC.table4,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceD.table5,PROD)",
+        ] * MCPS_PER_TABLE + [
+            "urn:li:container:390e031441265aae5b7b7ae8d51b0c1f",
+            "urn:li:container:9cb5e87ec392b231720f23bf00d6f6aa",
+            "urn:li:container:74727446a56420d80ff3b1abf2a18087",
+            "urn:li:container:3f9a24213cca64ab22e409d1b9a94789",
+            "urn:li:container:38a0583b0305ec5066cb708199f6848c",
+        ] * MCPS_PER_NAMESPACE
+        assert len(wu) == len(expected_wu_urns)
         urns = []
         for unit in wu:
-            assert isinstance(unit.metadata, MetadataChangeEvent)
-            assert isinstance(unit.metadata.proposedSnapshot, DatasetSnapshotClass)
-            urns.append(unit.metadata.proposedSnapshot.urn)
+            assert isinstance(unit.metadata, MetadataChangeProposalWrapper)
+            urns.append(unit.metadata.entityUrn)
         TestCase().assertCountEqual(
             urns,
-            [
-                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table1,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceB.table2,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceB.table3,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceC.table4,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceD.table5,PROD)",
-            ],
+            expected_wu_urns,
         )
         assert source.report.warnings.total_elements == 1
         assert source.report.failures.total_elements == 0
@@ -760,21 +772,28 @@ def test_unknown_exception_while_listing_tables() -> None:
     ) as get_catalog:
         get_catalog.return_value = mock_catalog
         wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
-        assert len(wu) == 5  # ingested 5 tables, despite exception
+        # ingested 5 tables (6 MCPs each) and 5 namespaces (4 MCPs each), despite exception
+        expected_wu_urns = [
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table1,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceB.table2,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceB.table3,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceC.table4,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceD.table5,PROD)",
+        ] * MCPS_PER_TABLE + [
+            "urn:li:container:390e031441265aae5b7b7ae8d51b0c1f",
+            "urn:li:container:be99158f9640329f4394315e1d8dacf3",
+            "urn:li:container:74727446a56420d80ff3b1abf2a18087",
+            "urn:li:container:3f9a24213cca64ab22e409d1b9a94789",
+            "urn:li:container:38a0583b0305ec5066cb708199f6848c",
+        ] * MCPS_PER_NAMESPACE
+        assert len(wu) == len(expected_wu_urns)
         urns = []
         for unit in wu:
-            assert isinstance(unit.metadata, MetadataChangeEvent)
-            assert isinstance(unit.metadata.proposedSnapshot, DatasetSnapshotClass)
-            urns.append(unit.metadata.proposedSnapshot.urn)
+            assert isinstance(unit.metadata, MetadataChangeProposalWrapper)
+            urns.append(unit.metadata.entityUrn)
         TestCase().assertCountEqual(
             urns,
-            [
-                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table1,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceB.table2,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceB.table3,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceC.table4,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceD.table5,PROD)",
-            ],
+            expected_wu_urns,
         )
         assert source.report.warnings.total_elements == 0
         assert source.report.failures.total_elements == 1
@@ -807,13 +826,21 @@ def test_proper_run_with_multiple_namespaces() -> None:
     ) as get_catalog:
         get_catalog.return_value = mock_catalog
         wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
-        assert len(wu) == 1  # only one table processed as an MCE
-        assert isinstance(wu[0].metadata, MetadataChangeEvent)
-        assert isinstance(wu[0].metadata.proposedSnapshot, DatasetSnapshotClass)
-        snapshot: DatasetSnapshotClass = wu[0].metadata.proposedSnapshot
-        assert (
-            snapshot.urn
-            == "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table1,PROD)"
+        # ingested 1 table (6 MCPs) and 2 namespaces (4 MCPs each), despite exception
+        expected_wu_urns = [
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table1,PROD)",
+        ] * MCPS_PER_TABLE + [
+            "urn:li:container:74727446a56420d80ff3b1abf2a18087",
+            "urn:li:container:390e031441265aae5b7b7ae8d51b0c1f",
+        ] * MCPS_PER_NAMESPACE
+        assert len(wu) == len(expected_wu_urns)
+        urns = []
+        for unit in wu:
+            assert isinstance(unit.metadata, MetadataChangeProposalWrapper)
+            urns.append(unit.metadata.entityUrn)
+        TestCase().assertCountEqual(
+            urns,
+            expected_wu_urns,
         )
 
 
@@ -934,18 +961,21 @@ def test_filtering() -> None:
     ) as get_catalog:
         get_catalog.return_value = mock_catalog
         wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
-        assert len(wu) == 2
+        # ingested 2 tables (6 MCPs each) and 1 namespace (4 MCPs)
+        expected_wu_urns = [
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespace1.table_xyz,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespace1.JKLtable,PROD)",
+        ] * MCPS_PER_TABLE + [
+            "urn:li:container:075fc8fdac17b0eb3482e73052e875f1",
+        ] * MCPS_PER_NAMESPACE
+        assert len(wu) == len(expected_wu_urns)
         urns = []
         for unit in wu:
-            assert isinstance(unit.metadata, MetadataChangeEvent)
-            assert isinstance(unit.metadata.proposedSnapshot, DatasetSnapshotClass)
-            urns.append(unit.metadata.proposedSnapshot.urn)
+            assert isinstance(unit.metadata, MetadataChangeProposalWrapper)
+            urns.append(unit.metadata.entityUrn)
         TestCase().assertCountEqual(
             urns,
-            [
-                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespace1.table_xyz,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespace1.JKLtable,PROD)",
-            ],
+            expected_wu_urns,
         )
         assert source.report.tables_scanned == 2
 
@@ -1036,20 +1066,23 @@ def test_handle_expected_exceptions() -> None:
     ) as get_catalog:
         get_catalog.return_value = mock_catalog
         wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
-        assert len(wu) == 4
+        # ingested 4 tables (6 MCPs each) and 1 namespace (4 MCPs)
+        expected_wu_urns = [
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table1,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table2,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table3,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table4,PROD)",
+        ] * MCPS_PER_TABLE + [
+            "urn:li:container:390e031441265aae5b7b7ae8d51b0c1f",
+        ] * MCPS_PER_NAMESPACE
+        assert len(wu) == len(expected_wu_urns)
         urns = []
         for unit in wu:
-            assert isinstance(unit.metadata, MetadataChangeEvent)
-            assert isinstance(unit.metadata.proposedSnapshot, DatasetSnapshotClass)
-            urns.append(unit.metadata.proposedSnapshot.urn)
+            assert isinstance(unit.metadata, MetadataChangeProposalWrapper)
+            urns.append(unit.metadata.entityUrn)
         TestCase().assertCountEqual(
             urns,
-            [
-                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table1,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table2,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table3,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table4,PROD)",
-            ],
+            expected_wu_urns,
         )
         assert source.report.warnings.total_elements == 6
         assert source.report.failures.total_elements == 0
@@ -1126,20 +1159,23 @@ def test_handle_unexpected_exceptions() -> None:
     ) as get_catalog:
         get_catalog.return_value = mock_catalog
         wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
-        assert len(wu) == 4
+        # ingested 4 tables (6 MCPs each) and 1 namespace (4 MCPs)
+        expected_wu_urns = [
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table1,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table2,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table3,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table4,PROD)",
+        ] * MCPS_PER_TABLE + [
+            "urn:li:container:390e031441265aae5b7b7ae8d51b0c1f",
+        ] * MCPS_PER_NAMESPACE
+        # assert len(wu) == len(expected_wu_urns)
         urns = []
         for unit in wu:
-            assert isinstance(unit.metadata, MetadataChangeEvent)
-            assert isinstance(unit.metadata.proposedSnapshot, DatasetSnapshotClass)
-            urns.append(unit.metadata.proposedSnapshot.urn)
+            assert isinstance(unit.metadata, MetadataChangeProposalWrapper)
+            urns.append(unit.metadata.entityUrn)
         TestCase().assertCountEqual(
             urns,
-            [
-                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table1,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table2,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table3,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table4,PROD)",
-            ],
+            expected_wu_urns,
         )
         assert source.report.warnings.total_elements == 0
         assert source.report.failures.total_elements == 1
@@ -1149,7 +1185,7 @@ def test_handle_unexpected_exceptions() -> None:
         TestCase().assertCountEqual(
             failures[0].context,
             [
-                "Failed to create workunit for dataset ('namespaceA', 'table6'): Other value exception",
-                "Failed to create workunit for dataset ('namespaceA', 'table5'): ",
+                "('namespaceA', 'table6') <class 'ValueError'>: Other value exception",
+                "('namespaceA', 'table5') <class 'Exception'>: ",
             ],
         )
