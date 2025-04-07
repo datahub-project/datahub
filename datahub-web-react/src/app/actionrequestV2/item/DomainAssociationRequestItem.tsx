@@ -1,33 +1,20 @@
-import { GlobalOutlined } from '@ant-design/icons';
 import { colors } from '@src/alchemy-components';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { ActionRequest, ActionRequestResult, EntityType } from '@src/types.generated';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+import { DomainContent } from '@src/app/sharedV2/tags/DomainLink';
 import AddContentView from './AddContentView';
 
 const Container = styled.div<{ $isApproved?: boolean }>`
     overflow: hidden;
     display: inline-flex;
     border: 1px ${(props) => (props.$isApproved ? 'solid' : 'dashed')} ${colors.gray[200]};
-    border-radius: 200px;
-    padding: 2px 8px 2px 4px;
+    border-radius: 12px;
+    padding: 3px 6px 3px 3px;
     align-items: center;
     font-size: 12px;
-`;
-
-const StyledGlobalOutlined = styled(GlobalOutlined)<{ color }>`
-    color: ${(props) => props.color};
-    margin-right: 4px;
-`;
-
-const DomainName = styled.div`
-    max-width: 180px;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    overflow: hidden;
-    color: ${colors.gray[1700]};
 `;
 
 interface Props {
@@ -47,8 +34,12 @@ const DomainAssociationRequestItem = ({ actionRequest }: Props) => {
     const domainView = domain && Object.keys(domain).length && (
         <Link to={`/${entityRegistry.getPathName(EntityType.Domain)}/${domain.urn}`}>
             <Container $isApproved={actionRequest.result === ActionRequestResult.Accepted}>
-                <StyledGlobalOutlined color={colors.gray[1800]} />
-                <DomainName>{entityRegistry.getDisplayName(EntityType.Domain, domain)}</DomainName>
+                <DomainContent
+                    domain={domain}
+                    name={entityRegistry.getDisplayName(EntityType.Domain, domain)}
+                    closable={false}
+                    iconSize={24}
+                />
             </Container>
         </Link>
     );
