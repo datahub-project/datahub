@@ -93,7 +93,6 @@ class DiffLimit:
     max_additions: Optional[int] = None
     max_deletions: Optional[int] = None
     max_total: Optional[int] = None
-    ignore_whitespace: bool = False
 
 
 @dataclass
@@ -120,8 +119,6 @@ def load_rules(rules_file: Path) -> List[Rule]:
                 continue
             if key == "max_removals":
                 limits_dict["max_deletions"] = value
-            elif key == "whitespace":
-                limits_dict["ignore_whitespace"] = value
             else:
                 limits_dict[key] = value
 
@@ -276,13 +273,16 @@ class DiffValidator:
 
         return changes
 
-    def get_applicable_rule(self, change: FileChange) -> Rule | ExceptionLimit | None:
+    def get_applicable_check(self, change: FileChange) -> Rule | ExceptionLimit | None:
         """Find the first matching rule for a file change, considering exceptions."""
         # Check exceptions first
         if change.filepath in self._exceptions:
             self._used_exceptions.add(change.filepath)
             return self._exceptions[change.filepath]
 
+        return self._get_applicable_rule(change)
+
+    def _get_applicable_rule(self, change: FileChange) -> Rule | None:
         # Then check rules
         for rule in self._rules:
             if rule.change_type and rule.change_type != change.type:
@@ -300,18 +300,32 @@ class DiffValidator:
         errors = []
 
         for change in changes:
-            rule = self.get_applicable_rule(change)
+            check = self.get_applicable_check(change)
 
             # TODO: When in tightening mode, we should be able to
             # remove exceptions that are no longer needed.
 
-            if isinstance(rule, ExceptionLimit):
+            if isinstance(check, ExceptionLimit):
                 # logger.info(f"Exception found for {change.filepath}: {rule}")
-                sub_errors = self._check_change_against_exception(change, rule)
+                if self._allow_exception_tightening and (
+                    rule := self._get_applicable_rule(change)
+                ):
+                    rule_errors = self._check_change_against_rule(
+                        change, rule, is_simulation=True
+                    )
+                    if not rule_errors:
+                        # If the rule passes, we can remove the exception.
+                        logger.info(
+                            f"Removing useless exception for {change.filepath}: {check} -> {rule}"
+                        )
+                        del self._exceptions[change.filepath]
+                        continue
+
+                sub_errors = self._check_change_against_exception(change, check)
                 errors.extend(sub_errors)
-            elif isinstance(rule, Rule):
+            elif isinstance(check, Rule):
                 # logger.info(f"Rule found for {change.filepath}: {rule}")
-                sub_errors = self._check_change_against_rule(change, rule)
+                sub_errors = self._check_change_against_rule(change, check)
                 errors.extend(sub_errors)
             else:
                 errors.append(f"No rule found for {change.filepath}")
@@ -376,17 +390,12 @@ class DiffValidator:
 
         return errors
 
-    def _check_change_against_rule(self, change: FileChange, rule: Rule) -> List[str]:
+    def _check_change_against_rule(
+        self, change: FileChange, rule: Rule, is_simulation: bool = False
+    ) -> List[str]:
         """Check if a change is allowed by a rule."""
         errors = []
         limits = rule.limits
-
-        # Skip validation if whitespace changes are ignored
-        if limits.ignore_whitespace:
-            # TODO: Implement whitespace-only change detection
-            raise NotImplementedError(
-                "Whitespace-only change detection not implemented"
-            )
 
         # Check addition limits
         if limits.max_additions is not None and change.additions > limits.max_additions:
@@ -410,7 +419,7 @@ class DiffValidator:
                 f"({change.additions} additions, {change.deletions} deletions)"
             )
 
-        if self._allow_new_exceptions and errors:
+        if not is_simulation and self._allow_new_exceptions and errors:
             if change.type == ChangeType.ADDED:
                 exception = ExceptionLimit(
                     filepath=change.filepath, additions=_inf, deletions=None
