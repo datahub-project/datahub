@@ -16,7 +16,7 @@ export default function SingleSelectDefault({
     showDescriptions,
 }: SelectLabelVariantProps) {
     return (
-        <LabelsWrapper>
+        <LabelsWrapper shouldShowGap={false}>
             {!selectedValues.length && <Placeholder>{placeholder}</Placeholder>}
             {!isMultiSelect && (
                 <>

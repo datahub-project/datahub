@@ -12,7 +12,7 @@ export default function MultiSelectDefault({
     isMultiSelect,
 }: SelectLabelVariantProps) {
     return (
-        <LabelsWrapper>
+        <LabelsWrapper shouldShowGap={selectedOptions.length > 1}>
             {!selectedValues.length && <Placeholder>{placeholder}</Placeholder>}
             {!!selectedOptions.length &&
                 isMultiSelect &&
