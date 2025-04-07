@@ -326,10 +326,9 @@ class VertexAISource(Source):
                 SubTypesClass(typeNames=[MLAssetSubTypes.VERTEX_PIPELINE_TASK_RUN]),
                 ContainerClass(container=self._get_project_container().as_urn()),
                 DataPlatformInstanceClass(platform=str(DataPlatformUrn(self.platform))),
-                (
-                    DataProcessInstanceInputClass(
-                        inputs=[str(datajob.urn)],
-                    )
+                DataProcessInstanceRelationships(
+                    upstreamInstances=[str(datajob.urn)],
+                    parentInstance=str(datajob.urn),
                 ),
                 (
                     DataProcessInstanceRunEventClass(
@@ -361,7 +360,7 @@ class VertexAISource(Source):
                 id=self._make_vertexai_pipeline_task_id(task.name),
                 flow_urn=dataflow_urn,
                 name=task.name,
-                properties=self._get_pipeline_task_properties(task),
+                properties={},
                 owners={"urn:li:corpuser:datahub"},
                 upstream_urns=task.upstreams if task.upstreams else [],
                 url=self._make_pipeline_external_url(pipeline.name),
@@ -403,17 +402,7 @@ class VertexAISource(Source):
                 task.create_time.strftime("%Y-%m-%d %H:%M:%S")
                 if task.create_time
                 else ""
-            ),
-            "started_time": (
-                task.start_time.strftime("%Y-%m-%d %H:%M:%S") if task.start_time else ""
-            ),
-            "completed_time": (
-                task.end_time.strftime("%Y-%m-%d %H:%M:%S") if task.end_time else ""
-            ),
-            "duration": (
-                self._format_pipeline_duration(task.duration) if task.duration else ""
-            ),
-            "state": (str(task.state.name) if task.state else ""),
+            )
         }
 
     def _get_pipeline_properties(self, pipeline: PipelineMetadata) -> Dict[str, str]:

@@ -717,13 +717,7 @@ def test_get_pipeline_mcps(
             entityUrn=expected_task_urn,
             aspect=DataJobInfoClass(
                 name="reverse",
-                customProperties={
-                    "created_time": "",
-                    "started_time": "",
-                    "completed_time": "",
-                    "duration": "",
-                    "state": "",
-                },
+                customProperties={},
                 type="COMMAND",
                 externalUrl="https://console.cloud.google.com/vertex-ai/pipelines/locations/us-west2/runs/mock_pipeline_job?project=acryl-poc",
                 env=source.config.env,
@@ -749,14 +743,13 @@ def test_get_pipeline_mcps(
             aspect=GlobalTagsClass(tags=[]),
         )
 
-
-        dpi_urn = 'urn:li:dataProcessInstance:acryl-poc.pipeline_task_run.reverse'
+        dpi_urn = "urn:li:dataProcessInstance:acryl-poc.pipeline_task_run.reverse"
 
         mcp_task_run_dpi = MetadataChangeProposalWrapper(
             entityUrn=dpi_urn,
             aspect=DataProcessInstancePropertiesClass(
-                name='reverse',
-                externalUrl='https://console.cloud.google.com/vertex-ai/pipelines/locations/us-west2/runs/mock_pipeline_job?project=acryl-poc',
+                name="reverse",
+                externalUrl="https://console.cloud.google.com/vertex-ai/pipelines/locations/us-west2/runs/mock_pipeline_job?project=acryl-poc",
                 customProperties={},
                 created=AuditStamp(
                     time=0,
