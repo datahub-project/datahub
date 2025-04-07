@@ -22,9 +22,15 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class GenericJsonPatch {
+  public static final String ARRAY_PRIMARY_KEYS_FIELD = "arrayPrimaryKeys";
+  public static final String PATCH_FIELD = "patch";
+
   @Nullable private Map<String, List<String>> arrayPrimaryKeys;
 
   @Nonnull private List<PatchOp> patch;
+
+  /** Bypass template engine even if a patch template exists */
+  private boolean forceGenericPatch;
 
   @Nonnull
   public Map<String, List<String>> getArrayPrimaryKeys() {

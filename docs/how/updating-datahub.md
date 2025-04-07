@@ -28,6 +28,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other Notable Changes
 
+- OpenAPI v3 Patching Improvements
+
 ## 1.0.0
 
 ### Breaking Changes
