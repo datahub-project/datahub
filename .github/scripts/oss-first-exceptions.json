@@ -2163,6 +2163,14 @@
     "additions": null,
     "deletions": 1
   },
+  "metadata-utils/src/main/java/com/linkedin/metadata/authorization/PoliciesConfig.java": {
+    "additions": null,
+    "deletions": 22
+  },
+  "metadata-utils/src/main/java/com/linkedin/metadata/utils/SearchUtil.java": {
+    "additions": null,
+    "deletions": 1
+  },
   "settings.gradle": {
     "additions": 21,
     "deletions": 0

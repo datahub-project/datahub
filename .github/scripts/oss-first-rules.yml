@@ -54,13 +54,17 @@ rules:
       - "metadata-io/**/*.java"
       - "metadata-service/**/*.java"
       - "metadata-service/**/*.yaml"
+      - "metadata-utils/**/*.java"
       - "smoke-test/**/*.py"
       - "smoke-test/**/*.js"
     max_removals: 0
 
   # Ignored files.
-  - pattern: "**/.gitignore" # ignore gitignore changes
-  - pattern: # ignore these files
+  - pattern:
+      - "**/.gitignore"
+      - ".dockerignore"
+      - ".pre-commit-config.yaml"
+      - "CODEOWNERS"
       - "metadata-service/restli-api/src/main/snapshot/*.json"
       - "metadata-service/restli-api/src/main/idl/*.json"
 
