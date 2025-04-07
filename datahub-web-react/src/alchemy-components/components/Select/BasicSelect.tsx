@@ -84,6 +84,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     icon,
     renderCustomOptionText,
     selectLabelProps,
+    onSearchChange,
     ...props
 }: SelectProps<OptionType>) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -189,6 +190,11 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
         setAreAllSelected(!areAllSelected);
     };
 
+    const handleSearchChange = useCallback((value: string) => {
+        onSearchChange?.(value);
+        setSearchQuery(value);
+    }, [onSearchChange]);
+
     return (
         <Container ref={selectRef} size={size || 'md'} width={props.width}>
             {label && <SelectLabel onClick={handleSelectClick}>{label}</SelectLabel>}
@@ -202,7 +208,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                             <DropdownSearchBar
                                 placeholder="Search…"
                                 value={searchQuery}
-                                onChange={(value) => setSearchQuery(value)}
+                                onChange={(value) => handleSearchChange(value)}
                                 size={size}
                             />
                         )}
