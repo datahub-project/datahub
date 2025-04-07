@@ -1,5 +1,5 @@
 import { NestedSelect } from '@src/alchemy-components/components/Select/Nested/NestedSelect';
-import { SelectOption } from '@src/alchemy-components/components/Select/Nested/types';
+import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { Domain, EntityType, FilterOperator } from '@src/types.generated';
 import React, { useMemo, useState } from 'react';
 import { debounce } from 'lodash';
@@ -10,7 +10,6 @@ import useDomainsFromAggregations from './hooks/useDomainsFromAggregations';
 import useDomainsFromSuggestions from './hooks/useDomainsFromSuggestions';
 import useMergedDomains from './hooks/useMergedDomains';
 import useOptionsFromDomains from './hooks/useOptionsFromDomains';
-import { domainFilteringPredicate } from './utils';
 import { DEBOUNCE_ON_SEARCH_TIMEOUT_MS } from '../constants';
 
 export default function DomainFilter({ fieldName, facetState, appliedFilters, onUpdate }: FilterComponentProps) {
@@ -26,7 +25,7 @@ export default function DomainFilter({ fieldName, facetState, appliedFilters, on
 
     const onSearch = debounce((newQuery: string) => setQuery(newQuery), DEBOUNCE_ON_SEARCH_TIMEOUT_MS);
 
-    const onSelectUpdate = (selectedOptions: SelectOption[]) => {
+    const onSelectUpdate = (selectedOptions: NestedSelectOption[]) => {
         const selectedValues = selectedOptions.map((option) => option.value);
         const selectedEntities: Domain[] = selectedOptions
             .map((option) => option.entity)
@@ -51,13 +50,12 @@ export default function DomainFilter({ fieldName, facetState, appliedFilters, on
             onUpdate={onSelectUpdate}
             onSearch={onSearch}
             options={options}
-            shouldFilterOptions
-            filteringPredicate={domainFilteringPredicate}
+            renderCustomOptionText={(option) => <EntityIconWithName entity={option.entity} />}
             isMultiSelect
             width="fit-content"
             size="sm"
             showSearch
-            showCount
+            showClear
             shouldManuallyUpdate
             shouldAlwaysSyncParentValues
             selectLabelProps={{ variant: 'labeled', label: 'Domains' }}

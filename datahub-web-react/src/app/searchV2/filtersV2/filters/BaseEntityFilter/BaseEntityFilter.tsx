@@ -63,6 +63,7 @@ export default function BaseEntityFilter({
             options={options}
             isMultiSelect
             showSearch
+            showClear
             selectLabelProps={{ variant: 'labeled', label: filterName }}
             renderCustomOptionText={(option) => renderEntity(option.entity)}
             width="fit-content"

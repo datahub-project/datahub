@@ -42,11 +42,13 @@ const Name = styled.div`
 `;
 
 interface Props {
-    entity: Entity;
+    entity?: Entity;
 }
 
 export function EntityIconWithName({ entity }: Props) {
     const entityRegistry = useEntityRegistryV2();
+
+    if (!entity) return null;
 
     const displayName = entityRegistry.getDisplayName(entity.type, entity);
 

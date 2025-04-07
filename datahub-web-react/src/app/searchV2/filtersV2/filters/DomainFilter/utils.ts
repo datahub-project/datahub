@@ -1,4 +1,4 @@
-import { SelectOption } from '@src/alchemy-components/components/Select/Nested/types';
+import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { isItDomainEntity } from '@src/app/entityV2/domain/utils';
 import { Domain } from '@src/types.generated';
 import { getUniqueItemsByKey } from '../../utils';
@@ -29,7 +29,7 @@ export function extractParentDomains(domains: Domain[]) {
     return getUniqueItemsByKey(allParentDomains, domainKeyAccessor);
 }
 
-export function domainFilteringPredicate(option: SelectOption, query: string) {
+export function domainFilteringPredicate(option: NestedSelectOption, query: string) {
     const { entity } = option;
     if (!isItDomainEntity(entity)) return false;
 
