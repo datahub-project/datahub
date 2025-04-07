@@ -13,7 +13,7 @@ export default function useConvertEntitiesToOptions() {
 
                 return {
                     value: entity.urn,
-                    label: renderLabel(entity),
+                    label: displayName,
                     displayName,
                     entity,
                 };

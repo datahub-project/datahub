@@ -65,8 +65,8 @@ export default function BaseEntityFilter({
             showSearch
             selectLabelProps={{ variant: 'labeled', label: filterName }}
             width="fit-content"
-            filteringPredicate={filteringPredicate}
-            onSearch={onSearch}
+            // filteringPredicate={filteringPredicate}
+            // onwSearch={onSearch}
         />
     );
 }
