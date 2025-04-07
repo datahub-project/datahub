@@ -275,6 +275,7 @@ import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
 import com.linkedin.datahub.graphql.types.incident.IncidentType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureTableType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureType;
+import com.linkedin.datahub.graphql.types.mlmodel.MLModelDeploymentType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLModelGroupType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLModelType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLPrimaryKeyType;
@@ -451,6 +452,7 @@ public class GmsGraphQLEngine {
   private final PostType postType;
   private final DataProcessInstanceType dataProcessInstanceType;
   private final VersionSetType versionSetType;
+  private final EntityType<MLModelDeployment, String> mlModelDeploymentType;
 
   private final int graphQLQueryComplexityLimit;
   private final int graphQLQueryDepthLimit;
@@ -575,6 +577,7 @@ public class GmsGraphQLEngine {
     this.postType = new PostType(entityClient);
     this.dataProcessInstanceType = new DataProcessInstanceType(entityClient, featureFlags);
     this.versionSetType = new VersionSetType(entityClient);
+    this.mlModelDeploymentType = new MLModelDeploymentType(entityClient);
 
     this.graphQLQueryComplexityLimit = args.graphQLQueryComplexityLimit;
     this.graphQLQueryDepthLimit = args.graphQLQueryDepthLimit;
@@ -628,7 +631,8 @@ public class GmsGraphQLEngine {
                 versionSetType,
                 restrictedType,
                 businessAttributeType,
-                dataProcessInstanceType));
+                dataProcessInstanceType,
+                mlModelDeploymentType));
     this.loadableTypes = new ArrayList<>(entityTypes);
     // Extend loadable types with types from the plugins
     // This allows us to offer search and browse capabilities out of the box for
@@ -717,6 +721,7 @@ public class GmsGraphQLEngine {
     configureViewResolvers(builder);
     configureQueryEntityResolvers(builder);
     configureOwnershipTypeResolver(builder);
+    configureMLModelDeploymentResolvers(builder);
     configurePluginResolvers(builder);
     configureStructuredPropertyResolvers(builder);
     configureFormResolvers(builder);
@@ -3336,5 +3341,24 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "versionsSearch",
                     new VersionsSearchResolver(this.entityClient, this.viewService)));
+  }
+
+  private DataPlatform configureMLModelDeploymentResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "MLModelDeployment",
+        typeWiring ->
+            typeWiring
+                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher(
+                    "platform", 
+                    new LoadableTypeResolver<DataPlatform, String>(
+                        dataPlatformType,
+                        (env) -> {
+                          final MLModelDeployment mlModelDeployment = env.getSource();
+                          return mlModelDeployment.getPlatform() != null
+                              ? mlModelDeployment.getPlatform().getUrn()
+                              : null;
+                        })));
+                            return null;
   }
 }

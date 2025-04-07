@@ -37,6 +37,28 @@ query getMLModel($urn: String!) {
                 }
             }
         }
+        deployedTo: relationships(input: { types: ["DeployedTo"], direction: OUTGOING, start: 0, count: 100 }) {
+            start
+            count
+            total
+            relationships {
+                type
+                direction
+                entity {
+                    ... on MLModelDeployment {
+                        urn
+                        name
+                        platform {
+                            urn
+                            name
+                        }
+                        properties {
+                            description
+                        }
+                    }
+                }
+            }
+        }
         privileges {
             ...entityPrivileges
         }
