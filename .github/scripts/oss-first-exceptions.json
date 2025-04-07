@@ -1,4 +1,52 @@
 {
+  "build.gradle": {
+    "additions": 39,
+    "deletions": 5
+  },
+  "datahub-frontend/app/auth/sso/SsoManager.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-frontend/app/auth/sso/oidc/OidcCallbackLogic.java": {
+    "additions": null,
+    "deletions": 13
+  },
+  "datahub-frontend/app/auth/sso/oidc/OidcConfigs.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "datahub-frontend/app/auth/sso/oidc/OidcProvider.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "datahub-frontend/app/auth/sso/oidc/custom/CustomOidcAuthenticator.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-frontend/app/auth/sso/oidc/custom/CustomOidcRedirectionActionBuilder.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-frontend/app/client/KafkaTrackingProducer.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-frontend/app/controllers/RedirectController.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-frontend/app/controllers/TrackingController.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-frontend/test/app/ApplicationTest.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/build.gradle": {
+    "additions": 10,
+    "deletions": 1
+  },
   "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/Constants.java": {
     "additions": null,
     "deletions": 2
@@ -639,6 +687,10 @@
     "additions": null,
     "deletions": "inf"
   },
+  "datahub-upgrade/build.gradle": {
+    "additions": 40,
+    "deletions": 1
+  },
   "datahub-upgrade/src/main/java/com/linkedin/datahub/upgrade/UpgradeCliApplication.java": {
     "additions": null,
     "deletions": 1
@@ -919,6 +971,158 @@
     "additions": null,
     "deletions": "inf"
   },
+  "docker/build.gradle": {
+    "additions": 8,
+    "deletions": 4
+  },
+  "docker/datahub-actions/README.md": {
+    "additions": null,
+    "deletions": 1
+  },
+  "docker/datahub-actions/env/docker.env": {
+    "additions": null,
+    "deletions": 3
+  },
+  "docker/datahub-frontend/Dockerfile": {
+    "additions": null,
+    "deletions": 3
+  },
+  "docker/datahub-frontend/env/docker.env": {
+    "additions": null,
+    "deletions": 1
+  },
+  "docker/datahub-frontend/start.sh": {
+    "additions": null,
+    "deletions": 2
+  },
+  "docker/datahub-gms/Dockerfile": {
+    "additions": null,
+    "deletions": 2
+  },
+  "docker/datahub-ingestion-base/Dockerfile": {
+    "additions": null,
+    "deletions": 2
+  },
+  "docker/datahub-ingestion/Dockerfile": {
+    "additions": null,
+    "deletions": 2
+  },
+  "docker/datahub-mae-consumer/Dockerfile": {
+    "additions": null,
+    "deletions": 2
+  },
+  "docker/datahub-mce-consumer/Dockerfile": {
+    "additions": null,
+    "deletions": 2
+  },
+  "docker/datahub-upgrade/Dockerfile": {
+    "additions": null,
+    "deletions": 2
+  },
+  "docker/dev-without-neo4j.sh": {
+    "additions": null,
+    "deletions": 3
+  },
+  "docker/docker-compose-with-cassandra.yml": {
+    "additions": null,
+    "deletions": 9
+  },
+  "docker/docker-compose-without-neo4j.override.yml": {
+    "additions": null,
+    "deletions": 4
+  },
+  "docker/docker-compose-without-neo4j.postgres.override.yml": {
+    "additions": null,
+    "deletions": 1
+  },
+  "docker/docker-compose-without-neo4j.yml": {
+    "additions": null,
+    "deletions": 19
+  },
+  "docker/docker-compose.consumers-without-neo4j.yml": {
+    "additions": null,
+    "deletions": 6
+  },
+  "docker/docker-compose.consumers.dev.yml": {
+    "additions": null,
+    "deletions": 2
+  },
+  "docker/docker-compose.consumers.yml": {
+    "additions": null,
+    "deletions": 6
+  },
+  "docker/docker-compose.dev.yml": {
+    "additions": null,
+    "deletions": 4
+  },
+  "docker/docker-compose.override.yml": {
+    "additions": null,
+    "deletions": 1
+  },
+  "docker/docker-compose.tools.yml": {
+    "additions": null,
+    "deletions": 1
+  },
+  "docker/docker-compose.yml": {
+    "additions": null,
+    "deletions": 22
+  },
+  "docker/elasticsearch-setup/create-indices.sh": {
+    "additions": null,
+    "deletions": 26
+  },
+  "docker/ingestion/docker-compose.yml": {
+    "additions": null,
+    "deletions": 1
+  },
+  "docker/kafka-setup/Dockerfile": {
+    "additions": null,
+    "deletions": 2
+  },
+  "docker/monitoring/client-prometheus-config.yaml": {
+    "additions": null,
+    "deletions": 1
+  },
+  "docker/mysql-setup/Dockerfile": {
+    "additions": null,
+    "deletions": 2
+  },
+  "docker/mysql-setup/init.sh": {
+    "additions": null,
+    "deletions": 1
+  },
+  "docker/profiles/docker-compose.gms.yml": {
+    "additions": null,
+    "deletions": 2
+  },
+  "docker/profiles/docker-compose.prerequisites.yml": {
+    "additions": null,
+    "deletions": 1
+  },
+  "docker/quickstart/docker-compose-m1.quickstart.yml": {
+    "additions": null,
+    "deletions": 7
+  },
+  "docker/quickstart/docker-compose-without-neo4j-m1.quickstart.yml": {
+    "additions": null,
+    "deletions": 6
+  },
+  "docker/quickstart/docker-compose-without-neo4j.quickstart.yml": {
+    "additions": null,
+    "deletions": 6
+  },
+  "docker/quickstart/docker-compose.consumers-without-neo4j.quickstart.yml": {
+    "additions": null,
+    "deletions": 2
+  },
+  "docker/quickstart/docker-compose.consumers.quickstart.yml": {
+    "additions": null,
+    "deletions": 2
+  },
+  "docker/quickstart/docker-compose.quickstart.yml": {
+    "additions": null,
+    "deletions": 7
+  },
   "metadata-ingestion/build.gradle": {
     "additions": 9,
     "deletions": 1
@@ -1050,6 +1254,22 @@
   "metadata-ingestion/tests/integration/s3/golden-files/local/golden_mces_single_file.json": {
     "additions": 10,
     "deletions": 10
+  },
+  "metadata-integration/java/datahub-client/build.gradle": {
+    "additions": 86,
+    "deletions": 79
+  },
+  "metadata-integration/java/datahub-protobuf/build.gradle": {
+    "additions": 6,
+    "deletions": 28
+  },
+  "metadata-integration/java/spark-lineage-legacy/build.gradle": {
+    "additions": 18,
+    "deletions": 17
+  },
+  "metadata-io/build.gradle": {
+    "additions": 13,
+    "deletions": 2
   },
   "metadata-io/src/main/java/com/linkedin/metadata/client/JavaEntityClient.java": {
     "additions": null,
@@ -1299,6 +1519,10 @@
     "additions": null,
     "deletions": 6
   },
+  "metadata-jobs/mae-consumer/build.gradle": {
+    "additions": 20,
+    "deletions": 0
+  },
   "metadata-jobs/mae-consumer/src/main/java/com/linkedin/metadata/kafka/MCLKafkaListener.java": {
     "additions": null,
     "deletions": 5
@@ -1515,6 +1739,10 @@
     "additions": null,
     "deletions": 1
   },
+  "metadata-service/factories/build.gradle": {
+    "additions": 18,
+    "deletions": 0
+  },
   "metadata-service/factories/src/main/java/com/linkedin/gms/factory/assertions/AssertionServiceFactory.java": {
     "additions": null,
     "deletions": 10
@@ -1638,6 +1866,10 @@
   "metadata-service/openapi-entity-servlet/src/test/java/io/datahubproject/openapi/v2/delegates/EntityApiDelegateImplTest.java": {
     "additions": null,
     "deletions": 1
+  },
+  "metadata-service/openapi-servlet/build.gradle": {
+    "additions": 12,
+    "deletions": 0
   },
   "metadata-service/openapi-servlet/models/src/main/java/io/datahubproject/openapi/client/OpenApiClient.java": {
     "additions": null,
@@ -1843,6 +2075,10 @@
     "additions": null,
     "deletions": 11
   },
+  "metadata-service/war/build.gradle": {
+    "additions": 15,
+    "deletions": 1
+  },
   "metadata-service/war/src/main/java/com/linkedin/gms/ServletConfig.java": {
     "additions": null,
     "deletions": 1
@@ -1853,6 +2089,14 @@
   },
   "metadata-service/war/src/test/java/com/linkedin/gms/SpringTest.java": {
     "additions": null,
+    "deletions": 1
+  },
+  "settings.gradle": {
+    "additions": 21,
+    "deletions": 0
+  },
+  "smoke-test/build.gradle": {
+    "additions": 31,
     "deletions": 1
   },
   "smoke-test/conftest.py": {

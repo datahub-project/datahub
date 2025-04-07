@@ -423,10 +423,20 @@ class DiffValidator:
                 exception = ExceptionLimit(
                     filepath=change.filepath,
                     additions=(
-                        change.additions if limits.max_additions is not None else None
+                        change.additions
+                        if (
+                            limits.max_additions is not None
+                            or limits.max_total is not None
+                        )
+                        else None
                     ),
                     deletions=(
-                        change.deletions if limits.max_deletions is not None else None
+                        change.deletions
+                        if (
+                            limits.max_deletions is not None
+                            or limits.max_total is not None
+                        )
+                        else None
                     ),
                 )
             self._exceptions[change.filepath] = exception
