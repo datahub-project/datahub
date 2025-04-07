@@ -42,6 +42,7 @@ interface Props {
 }
 
 export default function Filters({ query, appliedFilters, updateFieldAppliedFilters }: Props) {
+
     return (
         <SearchFilters
             fields={FILTER_FIELDS}

@@ -240,7 +240,6 @@ export const SearchBarV2 = ({
     const [isSuggestionsInitialized, setIsSuggestionsInitialized] = useState<boolean>(false);
     const [isSearchBarFocused, setIsFocused] = useState(false);
     const { appliedFilters, flatAppliedFilters, clear, updateFieldFilters } = useAppliedFilters();
-    // const [isAnyOptionSelected, setIsAnyOptionSelected] = useState<boolean>(false);
 
     const effectiveQuery = searchQuery !== undefined ? searchQuery : initialQuery || '';
 
