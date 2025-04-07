@@ -188,8 +188,11 @@ export const Table = <T,>({
                                     key={key}
                                     canExpand={canExpand}
                                     onClick={(e) => {
-                                        // Can add unfocussed functionality here
-                                        setFocusedRowIndex(index);
+                                        if (focusedRowIndex === index) {
+                                            setFocusedRowIndex(null);
+                                        } else {
+                                            setFocusedRowIndex(index);
+                                        }
                                         if (canExpand) onExpand?.(row); // Handle row expansion
                                         onRowClick?.(row); // Handle row click
                                         e.stopPropagation();

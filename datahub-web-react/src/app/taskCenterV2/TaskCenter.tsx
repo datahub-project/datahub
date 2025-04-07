@@ -12,7 +12,6 @@ import { useEntityRegistryV2 } from '../useEntityRegistry';
 import CompactContext from '../shared/CompactContext';
 import EntitySidebarContext from '../sharedV2/EntitySidebarContext';
 import useSidebarWidth from '../sharedV2/sidebar/useSidebarWidth';
-import { EntityAndType } from '../entity/shared/types';
 import { Requests } from './requests/Requests';
 import { RoutedTabs } from '../shared/RoutedTabs';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
@@ -150,7 +149,7 @@ export const TaskCenter = () => {
         refetchUnfinishedTaskCount,
         state: { notificationsCount, proposalCount },
     } = useUserContext();
-    const [targetEntity, setTargetEntity] = useState<EntityAndType | null>(null);
+    const [targetRequest, setTargetRequest] = useState<ActionRequest | null>(null);
     const [isSidebarClosed, setIsSidebarClosed] = useState(false);
     const [hasRefetchedTaskCount, setHasRefetchedTaskFount] = useState(false);
     const width = useSidebarWidth();
@@ -167,10 +166,13 @@ export const TaskCenter = () => {
 
     const onProposalClick = (e: ActionRequest) => {
         if (!e?.entity) {
-            setTargetEntity(null);
-        } else if (!targetEntity || e.entity.urn !== targetEntity?.urn) {
+            setTargetRequest(null);
+        } else if (!targetRequest || e.urn !== targetRequest?.urn) {
             setIsSidebarClosed(false);
-            setTargetEntity({ type: e.entity.type, urn: e.entity.urn });
+            setTargetRequest(e);
+        } else if (targetRequest?.urn === e.urn) {
+            setIsSidebarClosed(true);
+            setTargetRequest(null);
         }
     };
 
@@ -203,18 +205,18 @@ export const TaskCenter = () => {
                 </PageHeaderContainer>
                 <RoutedTabs defaultPath="requests" tabs={Tabs} onTabChange={() => {}} />
             </ProposalsContainer>
-            {targetEntity && (
+            {targetRequest && (
                 <EntitySidebarContext.Provider
                     value={{ width, isClosed: isSidebarClosed, setSidebarClosed: setIsSidebarClosed }}
                 >
                     <SidebarContainer
-                        key={targetEntity?.urn || ''}
+                        key={targetRequest?.urn || ''}
                         data-testid="taskcenter-enity-sidebar"
                         height="100%"
                     >
-                        {targetEntity && (
+                        {targetRequest.entity && (
                             <CompactContext.Provider value>
-                                {entityRegistry.renderProfile(targetEntity.type, targetEntity.urn)}
+                                {entityRegistry.renderProfile(targetRequest.entity.type, targetRequest.entity.urn)}
                             </CompactContext.Provider>
                         )}
                     </SidebarContainer>
