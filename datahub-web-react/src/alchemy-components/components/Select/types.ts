@@ -27,7 +27,7 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     isReadOnly?: boolean;
     isRequired?: boolean;
     showClear?: boolean;
-    width?: number | 'full';
+    width?: number | 'full' | 'fit-content';
     isMultiSelect?: boolean;
     placeholder?: string;
     disabledValues?: string[];
@@ -57,7 +57,7 @@ export interface SelectStyleProps {
     isReadOnly?: boolean;
     isRequired?: boolean;
     isOpen?: boolean;
-    width?: number | 'full';
+    width?: number | 'full' | 'fit-content';
     position?: OptionPosition;
 }
 

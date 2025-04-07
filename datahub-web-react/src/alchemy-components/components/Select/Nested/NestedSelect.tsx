@@ -124,7 +124,7 @@ export interface SelectProps {
     areParentsSelectable?: boolean;
     loadData?: (node: SelectOption) => void;
     onSearch?: (query: string) => void;
-    width?: number | 'full';
+    width?: number | 'full' | 'fit-content';
     height?: number;
     placeholder?: string;
     searchPlaceholder?: string;

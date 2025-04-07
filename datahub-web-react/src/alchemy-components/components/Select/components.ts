@@ -45,7 +45,7 @@ export const SelectLabelContainer = styled.div({
 // Container for the Basic Select component
 interface ContainerProps {
     size: SelectSizeOptions;
-    width?: number | 'full';
+    width?: number | 'full' | 'fit-content';
     $selectLabelVariant?: SelectLabelVariants;
     isSelected?: boolean;
 }
@@ -58,11 +58,22 @@ export const Container = styled.div<ContainerProps>(({ size, width, $selectLabel
         return '175px';
     };
 
+    const getWitdh = () => {
+        switch(width) {
+            case 'full':
+                return '100%';
+            case 'fit-content':
+                return 'fit-content';
+            default:
+                return `${width}px`;
+        }
+    }
+
     return {
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',
-        width: width === 'full' ? '100%' : `${width}px`,
+        width: getWitdh(),
         gap: '4px',
         transition: sharedTransition,
         minWidth: getMinWidth(),
