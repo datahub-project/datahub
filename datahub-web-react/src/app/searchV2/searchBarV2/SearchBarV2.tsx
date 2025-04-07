@@ -263,7 +263,7 @@ export const SearchBarV2 = ({
     const recentlyViewedEntitiesOptions = useRecentlyViewedEntitiesOptions();
 
     const initialOptions = useMemo(() => {
-        return [recentlyViewedEntitiesOptions, ...recentlySearchedQueriesOptions];
+        return [...recentlyViewedEntitiesOptions, ...recentlySearchedQueriesOptions];
     }, [recentlyViewedEntitiesOptions, recentlySearchedQueriesOptions]);
 
     const viewAllResultsOptions = useViewAllResultsOptions(effectiveQuery, showViewAllResults);
