@@ -1,19 +1,20 @@
 import { blue } from '@ant-design/colors';
 import { CodeOutlined, CopyOutlined, DeleteOutlined } from '@ant-design/icons';
-import { Button, Image, Typography } from 'antd';
 import { Tooltip } from '@components';
+import { Button, Image, Typography } from 'antd';
 import cronstrue from 'cronstrue';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { capitalizeFirstLetter } from '../../shared/textUtil';
-import useGetSourceLogoUrl from './builder/useGetSourceLogoUrl';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import useGetSourceLogoUrl from '@app/ingest/source/builder/useGetSourceLogoUrl';
 import {
+    RUNNING,
     getExecutionRequestStatusDisplayColor,
     getExecutionRequestStatusDisplayText,
     getExecutionRequestStatusIcon,
-    RUNNING,
-} from './utils';
+} from '@app/ingest/source/utils';
+import { capitalizeFirstLetter } from '@app/shared/textUtil';
 
 const PreviewImage = styled(Image)`
     max-height: 28px;

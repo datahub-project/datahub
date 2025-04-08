@@ -1,10 +1,12 @@
-import * as React from 'react';
 import { PicCenterOutlined } from '@ant-design/icons';
-import { Dataset, EntityType, SchemaFieldEntity, SearchResult } from '../../../types.generated';
-import { Entity, IconStyleType, PreviewType } from '../Entity';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { Preview } from './preview/Preview';
-import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
+import * as React from 'react';
+
+import { Entity, IconStyleType, PreviewType } from '@app/entity/Entity';
+import { Preview } from '@app/entity/schemaField/preview/Preview';
+import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+
+import { Dataset, EntityType, SchemaFieldEntity, SearchResult } from '@types';
 
 export class SchemaFieldPropertiesEntity implements Entity<SchemaFieldEntity> {
     type: EntityType = EntityType.SchemaField;

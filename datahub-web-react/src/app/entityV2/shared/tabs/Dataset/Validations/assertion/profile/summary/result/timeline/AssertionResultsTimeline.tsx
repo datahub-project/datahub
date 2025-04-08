@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from 'react';
-
 import styled from 'styled-components';
 
-import { useGetAssertionRunsLazyQuery } from '../../../../../../../../../../../graphql/assertion.generated';
-import { getFixedLookbackWindow } from '../../../../../../../../../../shared/time/timeUtils';
-import { LOOKBACK_WINDOWS } from '../../../../../../Stats/lookbackWindows';
-import { TimeSelect } from './TimeSelect';
-import { AssertionResultsTimelineViz } from './AssertionResultsTimelineViz';
-import { Assertion, AssertionType } from '../../../../../../../../../../../types.generated';
-import { calculateInitialLookbackWindowFromRunEvents } from './utils';
-import { AssertionTimelineSkeleton } from './AssertionTimelineSkeleton';
-import { Message } from '../../../../../../../../../../shared/Message';
+import { LOOKBACK_WINDOWS } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
+import { AssertionResultsTimelineViz } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/AssertionResultsTimelineViz';
+import { AssertionTimelineSkeleton } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/AssertionTimelineSkeleton';
+import { TimeSelect } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/TimeSelect';
+import { calculateInitialLookbackWindowFromRunEvents } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/utils';
+import { Message } from '@app/shared/Message';
+import { getFixedLookbackWindow } from '@app/shared/time/timeUtils';
+
+import { useGetAssertionRunsLazyQuery } from '@graphql/assertion.generated';
+import { Assertion, AssertionType } from '@types';
 
 const RESULT_CHART_WIDTH_PX = 560;
 const VIZ_CONTAINER_HEIGHT = 240;

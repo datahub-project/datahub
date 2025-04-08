@@ -1,31 +1,33 @@
 import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { useAppConfig } from '@src/app/useAppConfig';
-import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
-import { useUserContext } from '../../context/useUserContext';
-import {
-    ENTITY_INDEX_FILTER_NAME,
-    ORIGIN_FILTER_NAME,
-    TYPE_NAMES_FILTER_NAME,
-    UnionType,
-    LEGACY_ENTITY_FILTER_NAME,
-    BROWSE_PATH_V2_FILTER_NAME,
-} from '../utils/constants';
-import ActiveFilter from './ActiveFilter';
-import { SORTED_FILTERS } from './constants';
-import MoreFilters from './MoreFilters';
-import SaveViewButton from './SaveViewButton';
-import SearchFilter from './SearchFilter';
-import { TextButton } from './styledComponents';
-import { sortFacets } from './utils';
+
+import { useUserContext } from '@app/context/useUserContext';
 import {
     SEARCH_RESULTS_ADVANCED_SEARCH_ID,
     SEARCH_RESULTS_FILTERS_ID,
-} from '../../onboarding/config/SearchOnboardingConfig';
-import { useFilterRendererRegistry } from './render/useFilterRenderer';
-import { FilterScenarioType } from './render/types';
-import BasicFiltersLoadingSection from './BasicFiltersLoadingSection';
+} from '@app/onboarding/config/SearchOnboardingConfig';
+import ActiveFilter from '@app/search/filters/ActiveFilter';
+import BasicFiltersLoadingSection from '@app/search/filters/BasicFiltersLoadingSection';
+import MoreFilters from '@app/search/filters/MoreFilters';
+import SaveViewButton from '@app/search/filters/SaveViewButton';
+import SearchFilter from '@app/search/filters/SearchFilter';
+import { SORTED_FILTERS } from '@app/search/filters/constants';
+import { FilterScenarioType } from '@app/search/filters/render/types';
+import { useFilterRendererRegistry } from '@app/search/filters/render/useFilterRenderer';
+import { TextButton } from '@app/search/filters/styledComponents';
+import { sortFacets } from '@app/search/filters/utils';
+import {
+    BROWSE_PATH_V2_FILTER_NAME,
+    ENTITY_INDEX_FILTER_NAME,
+    LEGACY_ENTITY_FILTER_NAME,
+    ORIGIN_FILTER_NAME,
+    TYPE_NAMES_FILTER_NAME,
+    UnionType,
+} from '@app/search/utils/constants';
+import { useAppConfig } from '@src/app/useAppConfig';
+
+import { FacetFilterInput, FacetMetadata } from '@types';
 
 const NUM_VISIBLE_FILTER_DROPDOWNS = 5;
 

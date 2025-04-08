@@ -1,8 +1,10 @@
 import { Image, Typography } from 'antd';
 import React from 'react';
 import styled, { useTheme } from 'styled-components';
-import dataHubLogo from '../../../images/datahublogo.png';
-import { ANTD_GRAY } from '../../entity/shared/constants';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+
+import dataHubLogo from '@images/datahublogo.png';
 
 const Section = styled.div`
     width: auto;

@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+
+import { SEARCH_RESULTS_FILTERS_V2_INTRO } from '@app/onboarding/config/SearchOnboardingConfig';
+import SearchFilters from '@app/searchV2/filters/SearchFilters';
+import { UnionType } from '@app/searchV2/utils/constants';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
-import { UnionType } from '../utils/constants';
-import { SEARCH_RESULTS_FILTERS_V2_INTRO } from '../../onboarding/config/SearchOnboardingConfig';
-import SearchFilters from './SearchFilters';
+
+import { FacetFilterInput, FacetMetadata } from '@types';
 
 const Section = styled.div<{ removePadding?: boolean; $isShowNavBarRedesign?: boolean }>`
     padding: ${(props) => {

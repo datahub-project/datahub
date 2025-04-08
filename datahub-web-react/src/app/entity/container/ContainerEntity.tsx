@@ -1,25 +1,27 @@
-import * as React from 'react';
 import { FolderOutlined } from '@ant-design/icons';
-import { Container, EntityType, SearchResult } from '../../../types.generated';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { Preview } from './preview/Preview';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { useGetContainerQuery, GetContainerQuery } from '../../../graphql/container.generated';
-import { ContainerEntitiesTab } from './ContainerEntitiesTab';
-import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { getDataProduct } from '../shared/utils';
-import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
-import AccessManagement from '../shared/tabs/Dataset/AccessManagement/AccessManagement';
-import { useAppConfig } from '../../useAppConfig';
-import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
+import * as React from 'react';
+
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entity/Entity';
+import { ContainerEntitiesTab } from '@app/entity/container/ContainerEntitiesTab';
+import { Preview } from '@app/entity/container/preview/Preview';
+import { EntityProfile } from '@app/entity/shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import DataProductSection from '@app/entity/shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import { SidebarDomainSection } from '@app/entity/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { SidebarTagsSection } from '@app/entity/shared/containers/profile/sidebar/SidebarTagsSection';
+import SidebarStructuredPropsSection from '@app/entity/shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
+import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
+import EmbeddedProfile from '@app/entity/shared/embed/EmbeddedProfile';
+import AccessManagement from '@app/entity/shared/tabs/Dataset/AccessManagement/AccessManagement';
+import { DocumentationTab } from '@app/entity/shared/tabs/Documentation/DocumentationTab';
+import { PropertiesTab } from '@app/entity/shared/tabs/Properties/PropertiesTab';
+import { getDataProduct } from '@app/entity/shared/utils';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { useAppConfig } from '@app/useAppConfig';
+
+import { GetContainerQuery, useGetContainerQuery } from '@graphql/container.generated';
+import { Container, EntityType, SearchResult } from '@types';
 
 /**
  * Definition of the DataHub Container entity.

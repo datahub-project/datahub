@@ -1,14 +1,16 @@
+import { Group } from '@visx/group';
 import React, { useContext, useState } from 'react';
 import styled from 'styled-components/macro';
-import { Group } from '@visx/group';
-import { SchemaField } from '../../types.generated';
-import { downgradeV2FieldPath } from '../entity/dataset/profile/schema/utils/utils';
-import { NodeData } from './types';
-import { LineageExplorerContext } from './utils/LineageExplorerContext';
-import { ANTD_GRAY } from '../entity/shared/constants';
-import { centerY, COLUMN_HEIGHT, EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT, iconX, width } from './constants';
-import { truncate } from '../entity/shared/utils';
-import { highlightColumnLineage } from './utils/highlightColumnLineage';
+
+import { downgradeV2FieldPath } from '@app/entity/dataset/profile/schema/utils/utils';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { truncate } from '@app/entity/shared/utils';
+import { COLUMN_HEIGHT, EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT, centerY, iconX, width } from '@app/lineage/constants';
+import { NodeData } from '@app/lineage/types';
+import { LineageExplorerContext } from '@app/lineage/utils/LineageExplorerContext';
+import { highlightColumnLineage } from '@app/lineage/utils/highlightColumnLineage';
+
+import { SchemaField } from '@types';
 
 const MAX_NUM_FIELD_CHARACTERS = 25;
 const HOVER_TEXT_SHIFT = 10;

@@ -1,6 +1,7 @@
+import { Query } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
 import { getSourceUrnFromSchemaFieldUrn } from '@src/app/entityV2/schemaField/utils';
-import { Entity, QueryEntity, SchemaFieldEntity } from '../../../../../../../types.generated';
-import { Query } from '../types';
+
+import { Entity, QueryEntity, SchemaFieldEntity } from '@types';
 
 interface Props {
     queryEntity: QueryEntity;

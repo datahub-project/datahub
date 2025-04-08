@@ -1,16 +1,17 @@
 import React from 'react';
 import styled from 'styled-components';
+
+import { useUserPersona } from '@app/homeV2/persona/useUserPersona';
+import { UserHeader } from '@app/homeV2/reference/header/UserHeader';
+import { AssetsYouOwn } from '@app/homeV2/reference/sections/assets/AssetsYouOwn';
+import { DomainsYouOwn } from '@app/homeV2/reference/sections/domains/DomainsYouOwn';
+import { GlossaryNodesYouOwn } from '@app/homeV2/reference/sections/glossary/GlossaryNodesYouOwn';
+import { GroupsYouAreIn } from '@app/homeV2/reference/sections/groups/GroupsYouAreIn';
+import { TagsYouOwn } from '@app/homeV2/reference/sections/tags/TagsYouOwn';
+import { ReferenceSectionProps } from '@app/homeV2/reference/types';
+import { PersonaType } from '@app/homeV2/shared/types';
+import { V2_HOME_PAGE_PERSONAL_SIDEBAR_ID } from '@app/onboarding/configV2/HomePageOnboardingConfig';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { AssetsYouOwn } from '../reference/sections/assets/AssetsYouOwn';
-import { GroupsYouAreIn } from '../reference/sections/groups/GroupsYouAreIn';
-import { TagsYouOwn } from '../reference/sections/tags/TagsYouOwn';
-import { GlossaryNodesYouOwn } from '../reference/sections/glossary/GlossaryNodesYouOwn';
-import { DomainsYouOwn } from '../reference/sections/domains/DomainsYouOwn';
-import { ReferenceSectionProps } from '../reference/types';
-import { PersonaType } from '../shared/types';
-import { useUserPersona } from '../persona/useUserPersona';
-import { UserHeader } from '../reference/header/UserHeader';
-import { V2_HOME_PAGE_PERSONAL_SIDEBAR_ID } from '../../onboarding/configV2/HomePageOnboardingConfig';
 
 const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     flex: 1;

@@ -1,12 +1,13 @@
-import React from 'react';
 import { Modal, Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
+
+import { StyledSyntaxHighlighter } from '@app/entityV2/shared/StyledSyntaxHighlighter';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import CopyQuery from '@app/entityV2/shared/tabs/Dataset/Queries/CopyQuery';
+import { Editor as MarkdownEditor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
 import { Button } from '@src/alchemy-components';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
-import CopyQuery from './CopyQuery';
-import { ANTD_GRAY } from '../../../constants';
-import { Editor as MarkdownEditor } from '../../Documentation/components/editor/Editor';
-import { StyledSyntaxHighlighter } from '../../../StyledSyntaxHighlighter';
 
 const StyledModal = styled(Modal)`
     top: 4vh;

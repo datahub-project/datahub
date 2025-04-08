@@ -1,8 +1,9 @@
-import React, { useCallback, useContext, useEffect } from 'react';
 import { Modal, Progress } from 'antd';
+import React, { useCallback, useContext, useEffect } from 'react';
 import styled from 'styled-components';
-import OnboardingContext from '../../onboarding/OnboardingContext';
-import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import OnboardingContext from '@app/onboarding/OnboardingContext';
 
 const ModalStyle = styled(Modal)`
     .ant-modal-content {

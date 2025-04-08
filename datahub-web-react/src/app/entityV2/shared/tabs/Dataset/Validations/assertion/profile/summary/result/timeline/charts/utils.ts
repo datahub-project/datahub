@@ -1,12 +1,11 @@
 import _ from 'lodash';
 
 import {
-    AssertionInfo,
-    AssertionResultType,
-    AssertionType,
-    Maybe,
-} from '../../../../../../../../../../../../types.generated';
-import { AssertionChartType, AssertionDataPoint } from './types';
+    AssertionChartType,
+    AssertionDataPoint,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/types';
+
+import { AssertionInfo, AssertionResultType, AssertionType, Maybe } from '@types';
 
 export const ACCENT_COLOR_HEX = '#222222';
 export const EXTRA_HIGHLIGHT_COLOR_HEX = '#4050E7';

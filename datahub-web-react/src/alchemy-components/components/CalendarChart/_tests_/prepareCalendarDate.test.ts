@@ -1,5 +1,5 @@
-import { CalendarData } from '../types';
-import { prepareCalendarData } from '../utils';
+import { CalendarData } from '@components/components/CalendarChart/types';
+import { prepareCalendarData } from '@components/components/CalendarChart/utils';
 
 const sampleData: CalendarData<number>[] = [
     { day: '2024-12-02', value: 1 },

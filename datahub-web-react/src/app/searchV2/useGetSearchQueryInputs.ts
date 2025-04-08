@@ -1,13 +1,15 @@
 import * as QueryString from 'query-string';
-import { useLocation } from 'react-router';
 import { useMemo } from 'react';
-import { FacetFilterInput, EntityType } from '../../types.generated';
-import { ENTITY_FILTER_NAME, UnionType } from './utils/constants';
-import { useUserContext } from '../context/useUserContext';
-import useFilters from './utils/useFilters';
-import { generateOrFilters } from './utils/generateOrFilters';
-import useSortInput from './sorting/useSortInput';
-import { useSelectedSortOption } from '../search/context/SearchContext';
+import { useLocation } from 'react-router';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { useSelectedSortOption } from '@app/search/context/SearchContext';
+import useSortInput from '@app/searchV2/sorting/useSortInput';
+import { ENTITY_FILTER_NAME, UnionType } from '@app/searchV2/utils/constants';
+import { generateOrFilters } from '@app/searchV2/utils/generateOrFilters';
+import useFilters from '@app/searchV2/utils/useFilters';
+
+import { EntityType, FacetFilterInput } from '@types';
 
 export default function useGetSearchQueryInputs(excludedFilterFields?: Array<string>) {
     const userContext = useUserContext();

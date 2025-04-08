@@ -1,16 +1,18 @@
-import React from 'react';
-import { message } from 'antd';
 import { useApolloClient } from '@apollo/client';
-import { useCreateViewMutation, useUpdateViewMutation } from '../../../../graphql/view.generated';
-import { ViewBuilderState } from '../types';
-import { ViewBuilderModal } from './ViewBuilderModal';
-import { updateViewSelectCache, updateListMyViewsCache } from '../cacheUtils';
-import { convertStateToUpdateInput, DEFAULT_LIST_VIEWS_PAGE_SIZE } from '../utils';
-import { useUserContext } from '../../../context/useUserContext';
-import { ViewBuilderMode } from './types';
-import analytics, { EventType } from '../../../analytics';
-import { DataHubView } from '../../../../types.generated';
-import { useSearchVersion } from '../../../search/useSearchAndBrowseVersion';
+import { message } from 'antd';
+import React from 'react';
+
+import analytics, { EventType } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
+import { ViewBuilderModal } from '@app/entity/view/builder/ViewBuilderModal';
+import { ViewBuilderMode } from '@app/entity/view/builder/types';
+import { updateListMyViewsCache, updateViewSelectCache } from '@app/entity/view/cacheUtils';
+import { ViewBuilderState } from '@app/entity/view/types';
+import { DEFAULT_LIST_VIEWS_PAGE_SIZE, convertStateToUpdateInput } from '@app/entity/view/utils';
+import { useSearchVersion } from '@app/search/useSearchAndBrowseVersion';
+
+import { useCreateViewMutation, useUpdateViewMutation } from '@graphql/view.generated';
+import { DataHubView } from '@types';
 
 type Props = {
     mode: ViewBuilderMode;

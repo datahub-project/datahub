@@ -1,31 +1,32 @@
-import { Divider, message, Space, Button, Typography, Row, Col, Tooltip } from 'antd';
-import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
 import { EditOutlined, LockOutlined, MailOutlined, SlackOutlined } from '@ant-design/icons';
+import { Button, Col, Divider, Row, Space, Tooltip, Typography, message } from 'antd';
+import React, { useEffect, useState } from 'react';
 import { useHistory, useRouteMatch } from 'react-router-dom';
-import { useUpdateCorpGroupPropertiesMutation } from '../../../graphql/group.generated';
-import { EntityRelationshipsResult, Ownership } from '../../../types.generated';
-import { useUpdateNameMutation } from '../../../graphql/mutations.generated';
+import styled from 'styled-components';
 
-import GroupEditModal from './GroupEditModal';
-import CustomAvatar from '../../shared/avatar/CustomAvatar';
-import GroupOwnerSideBarSection from './GroupOwnerSideBarSection';
+import { useUserContext } from '@app/context/useUserContext';
+import EditGroupDescriptionModal from '@app/entity/group/EditGroupDescriptionModal';
+import GroupEditModal from '@app/entity/group/GroupEditModal';
+import GroupMembersSideBarSection from '@app/entity/group/GroupMembersSideBarSection';
+import GroupOwnerSideBarSection from '@app/entity/group/GroupOwnerSideBarSection';
 import {
+    AboutSection,
+    EditButton,
+    EmptyValue,
+    GroupsSection,
     SideBar,
     SideBarSubSection,
-    EmptyValue,
     SocialDetails,
-    EditButton,
-    GroupsSection,
-    AboutSection,
-} from '../shared/SidebarStyledComponents';
-import GroupMembersSideBarSection from './GroupMembersSideBarSection';
-import { useUserContext } from '../../context/useUserContext';
-import { useBrowserTitle } from '../../shared/BrowserTabTitleContext';
-import StripMarkdownText, { removeMarkdown } from '../shared/components/styled/StripMarkdownText';
-import { Editor } from '../shared/tabs/Documentation/components/editor/Editor';
-import EditGroupDescriptionModal from './EditGroupDescriptionModal';
-import { REDESIGN_COLORS } from '../shared/constants';
+} from '@app/entity/shared/SidebarStyledComponents';
+import StripMarkdownText, { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
+import { REDESIGN_COLORS } from '@app/entity/shared/constants';
+import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
+import { useBrowserTitle } from '@app/shared/BrowserTabTitleContext';
+import CustomAvatar from '@app/shared/avatar/CustomAvatar';
+
+import { useUpdateCorpGroupPropertiesMutation } from '@graphql/group.generated';
+import { useUpdateNameMutation } from '@graphql/mutations.generated';
+import { EntityRelationshipsResult, Ownership } from '@types';
 
 type SideBarData = {
     photoUrl: string | undefined;

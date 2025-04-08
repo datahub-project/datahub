@@ -1,4 +1,4 @@
-import { RecipeField, FieldType, setListValuesOnRecipe } from './common';
+import { FieldType, RecipeField, setListValuesOnRecipe } from '@app/ingest/source/builder/RecipeForm/common';
 
 export const SAC_TENANT_URL: RecipeField = {
     name: 'tenant_url',

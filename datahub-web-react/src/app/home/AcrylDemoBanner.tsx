@@ -1,7 +1,8 @@
 import Link from 'antd/lib/typography/Link';
 import React from 'react';
 import styled from 'styled-components';
-import AcrylLogo from '../../images/acryl-light-mark.svg';
+
+import AcrylLogo from '@images/acryl-light-mark.svg';
 
 const BannerWrapper = styled.div`
     padding: 12px;

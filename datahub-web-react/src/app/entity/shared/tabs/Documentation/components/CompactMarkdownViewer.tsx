@@ -1,7 +1,8 @@
 import { Button } from 'antd';
 import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { Editor } from './editor/Editor';
+
+import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 
 const LINE_HEIGHT = 1.5;
 

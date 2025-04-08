@@ -1,13 +1,14 @@
-import React from 'react';
+import { NodeViewComponentProps } from '@remirror/react';
 import { Tooltip, Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
 
-import { NodeViewComponentProps } from '@remirror/react';
-import { HoverEntityTooltip } from '../../../../../../../../recommendations/renderer/component/HoverEntityTooltip';
-import { useGetEntityMentionNodeQuery } from '../../../../../../../../../graphql/search.generated';
-import { useEntityRegistry } from '../../../../../../../../useEntityRegistry';
-import { IconStyleType } from '../../../../../../../Entity';
-import { ANTD_GRAY } from '../../../../../../constants';
+import { IconStyleType } from '@app/entity/Entity';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetEntityMentionNodeQuery } from '@graphql/search.generated';
 
 const { Text } = Typography;
 

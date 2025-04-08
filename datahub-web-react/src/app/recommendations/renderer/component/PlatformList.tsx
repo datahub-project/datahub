@@ -1,11 +1,13 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { PageRoutes } from '../../../../conf/Global';
-import { DataPlatform, RecommendationContent } from '../../../../types.generated';
-import { urlEncodeUrn } from '../../../entity/shared/utils';
-import { LogoCountCard } from '../../../shared/LogoCountCard';
-import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
+
+import { urlEncodeUrn } from '@app/entity/shared/utils';
+import { LogoCountCard } from '@app/shared/LogoCountCard';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { PageRoutes } from '@conf/Global';
+
+import { DataPlatform, RecommendationContent } from '@types';
 
 const PlatformListContainer = styled.div`
     display: flex;

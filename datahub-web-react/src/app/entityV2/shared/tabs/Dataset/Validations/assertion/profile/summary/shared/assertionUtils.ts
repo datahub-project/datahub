@@ -1,4 +1,4 @@
-import { Assertion, AssertionSourceType, AssertionType } from '../../../../../../../../../../types.generated';
+import { Assertion, AssertionSourceType, AssertionType } from '@types';
 
 export enum AssertionEditabilityScopeType {
     FULL = 'FULL',

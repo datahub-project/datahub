@@ -1,17 +1,22 @@
-import React, { useEffect, useState } from 'react';
 import { LoadingOutlined } from '@ant-design/icons';
-import { Button, Pill } from '@src/alchemy-components';
 import { Plus } from 'phosphor-react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
+
+import { SearchSelectModal } from '@app/entityV2/shared/components/styled/search/SearchSelectModal';
+import {
+    AssetWrapper,
+    LinkedAssets,
+    LoadingWrapper,
+} from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
+import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
+import { LinkedAssetsContainer } from '@app/entityV2/shared/tabs/Incident/styledComponents';
+import { IncidentLinkedAssetsListProps } from '@app/entityV2/shared/tabs/Incident/types';
+import { Button, Pill } from '@src/alchemy-components';
+import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { EntityCapabilityType } from '@src/app/entityV2/Entity';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import { IncidentLinkedAssetsListProps } from '../types';
-import { AssetWrapper, LinkedAssets, LoadingWrapper } from './styledComponents';
-import { LinkedAssetsContainer } from '../styledComponents';
-import { SearchSelectModal } from '../../../components/styled/search/SearchSelectModal';
-import { IncidentAction } from '../constant';
+import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
 
 const RESOURCE_URN_FIELD_NAME = 'resourceUrns';
 

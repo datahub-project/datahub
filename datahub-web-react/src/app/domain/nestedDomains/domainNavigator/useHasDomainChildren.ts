@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
-import { useGetDomainChildrenCountLazyQuery } from '../../../../graphql/domain.generated';
-import { useDomainsContext } from '../../DomainsContext';
+
+import { useDomainsContext } from '@app/domain/DomainsContext';
+
+import { useGetDomainChildrenCountLazyQuery } from '@graphql/domain.generated';
 
 interface Props {
     domainUrn: string;

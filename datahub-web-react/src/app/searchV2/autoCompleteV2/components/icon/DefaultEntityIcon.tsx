@@ -1,8 +1,9 @@
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
-import { EntityIconProps } from './types';
-import { SingleEntityIcon } from './SingleEntityIcon';
-import useUniqueEntitiesByPlatformUrn from './useUniqueEntitiesByPlatformUrn';
+
+import { SingleEntityIcon } from '@app/searchV2/autoCompleteV2/components/icon/SingleEntityIcon';
+import { EntityIconProps } from '@app/searchV2/autoCompleteV2/components/icon/types';
+import useUniqueEntitiesByPlatformUrn from '@app/searchV2/autoCompleteV2/components/icon/useUniqueEntitiesByPlatformUrn';
 
 const Container = styled.div`
     display: flex;

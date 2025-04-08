@@ -1,13 +1,15 @@
 import { QueryHookOptions, QueryResult } from '@apollo/client';
 import React from 'react';
-import { Entity as EntityInterface, EntityType, Exact, SearchResult } from '../../types.generated';
-import { FetchedEntity } from '../lineage/types';
-import { SearchResultProvider } from '../search/context/SearchResultContext';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from './Entity';
-import { GLOSSARY_ENTITY_TYPES } from './shared/constants';
-import { EntitySidebarSection, GenericEntityProperties } from './shared/types';
-import { dictToQueryStringParams, getFineGrainedLineageWithSiblings, urlEncodeUrn } from './shared/utils';
-import PreviewContext from './shared/PreviewContext';
+
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entity/Entity';
+import PreviewContext from '@app/entity/shared/PreviewContext';
+import { GLOSSARY_ENTITY_TYPES } from '@app/entity/shared/constants';
+import { EntitySidebarSection, GenericEntityProperties } from '@app/entity/shared/types';
+import { dictToQueryStringParams, getFineGrainedLineageWithSiblings, urlEncodeUrn } from '@app/entity/shared/utils';
+import { FetchedEntity } from '@app/lineage/types';
+import { SearchResultProvider } from '@app/search/context/SearchResultContext';
+
+import { Entity as EntityInterface, EntityType, Exact, SearchResult } from '@types';
 
 function validatedGet<K, V>(key: K, map: Map<K, V>): V {
     if (map.has(key)) {

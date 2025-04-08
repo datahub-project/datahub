@@ -1,6 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Dropdown, Icon } from '@components';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { NestedOption } from '@components/components/Select/Nested/NestedOption';
+import { NestedSelectOption } from '@components/components/Select/Nested/types';
+import { filterNestedSelectOptions } from '@components/components/Select/Nested/utils';
 import {
     ActionButtonsContainer,
     Container,
@@ -9,15 +12,11 @@ import {
     SelectBase,
     SelectLabel,
     StyledClearButton,
-} from '../components';
-
-import { CustomOptionRenderer, SelectLabelProps, SelectSizeOptions } from '../types';
-import { NestedOption } from './NestedOption';
-import { NestedSelectOption } from './types';
-import DropdownSearchBar from '../private/DropdownSearchBar';
-import DropdownFooterActions from '../private/DropdownFooterActions';
-import SelectLabelRenderer from '../private/SelectLabelRenderer/SelectLabelRenderer';
-import { filterNestedSelectOptions } from './utils';
+} from '@components/components/Select/components';
+import DropdownFooterActions from '@components/components/Select/private/DropdownFooterActions';
+import DropdownSearchBar from '@components/components/Select/private/DropdownSearchBar';
+import SelectLabelRenderer from '@components/components/Select/private/SelectLabelRenderer/SelectLabelRenderer';
+import { CustomOptionRenderer, SelectLabelProps, SelectSizeOptions } from '@components/components/Select/types';
 
 const NO_PARENT_VALUE = 'no_parent_value';
 

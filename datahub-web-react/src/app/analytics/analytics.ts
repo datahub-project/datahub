@@ -1,9 +1,10 @@
 import Analytics, { PageData } from 'analytics';
 import Cookies from 'js-cookie';
-import plugins from './plugin';
-import { Event, EventType } from './event';
-import { CLIENT_AUTH_COOKIE } from '../../conf/Global';
-import { getBrowserId } from '../browserId';
+
+import { Event, EventType } from '@app/analytics/event';
+import plugins from '@app/analytics/plugin';
+import { getBrowserId } from '@app/browserId';
+import { CLIENT_AUTH_COOKIE } from '@conf/Global';
 
 const appName = 'datahub-react';
 

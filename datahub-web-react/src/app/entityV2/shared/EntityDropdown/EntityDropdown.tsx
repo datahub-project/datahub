@@ -9,39 +9,45 @@ import {
     ShareAltOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
-import { EventType } from '@app/analytics';
-import analytics from '@app/analytics/analytics';
-import { useEntityContext } from '@app/entity/shared/EntityContext';
-import { DrawerType, GenericEntityProperties } from '@app/entity/shared/types';
 import { Tooltip } from '@components';
 import MoreVertOutlinedIcon from '@mui/icons-material/MoreVertOutlined';
 import { Dropdown, Menu, message } from 'antd';
-import { GitCommit, Link as LinkIcon, LinkBreak } from 'phosphor-react';
+import { GitCommit, LinkBreak, Link as LinkIcon } from 'phosphor-react';
 import React, { useState } from 'react';
 import { Redirect, useHistory } from 'react-router';
 import styled from 'styled-components';
-import { useUpdateDeprecationMutation } from '../../../../graphql/mutations.generated';
-import { EntityType } from '../../../../types.generated';
-import { useUserContext } from '../../../context/useUserContext';
-import { getEntityProfileDeleteRedirectPath } from '../../../shared/deleteUtils';
-import ShareButtonMenu from '../../../shared/share/v2/ShareButtonMenu';
-import { useAppConfig, useIsNestedDomainsEnabled } from '../../../useAppConfig';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import CreateEntityAnnouncementModal from '../announce/CreateEntityAnnouncementModal';
-import { MarkAsDeprecatedButtonContents } from '../components/styled/MarkAsDeprecatedButton';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../constants';
-import { getEntityPath } from '../containers/profile/utils';
-import { AddIncidentModal } from '../tabs/Incident/components/AddIncidentModal';
-import { useIsSeparateSiblingsMode } from '../useIsSeparateSiblingsMode';
-import CreateGlossaryEntityModal from './CreateGlossaryEntityModal';
-import { EntityMenuItems } from './EntityMenuActions';
-import MoveDomainModal from './MoveDomainModal';
-import MoveGlossaryEntityModal from './MoveGlossaryEntityModal';
-import { UpdateDeprecationModal } from './UpdateDeprecationModal';
-import useDeleteEntity from './useDeleteEntity';
-import { isDeleteDisabled, isMoveDisabled, shouldDisplayChildDeletionWarning } from './utils';
-import LinkAssetVersionModal from './versioning/LinkAssetVersionModal';
-import UnlinkAssetVersionModal from './versioning/UnlinkAssetVersionModal';
+
+import { EventType } from '@app/analytics';
+import analytics from '@app/analytics/analytics';
+import { useUserContext } from '@app/context/useUserContext';
+import { useEntityContext } from '@app/entity/shared/EntityContext';
+import { DrawerType, GenericEntityProperties } from '@app/entity/shared/types';
+import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import MoveDomainModal from '@app/entityV2/shared/EntityDropdown/MoveDomainModal';
+import MoveGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/MoveGlossaryEntityModal';
+import { UpdateDeprecationModal } from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationModal';
+import useDeleteEntity from '@app/entityV2/shared/EntityDropdown/useDeleteEntity';
+import {
+    isDeleteDisabled,
+    isMoveDisabled,
+    shouldDisplayChildDeletionWarning,
+} from '@app/entityV2/shared/EntityDropdown/utils';
+import LinkAssetVersionModal from '@app/entityV2/shared/EntityDropdown/versioning/LinkAssetVersionModal';
+import UnlinkAssetVersionModal from '@app/entityV2/shared/EntityDropdown/versioning/UnlinkAssetVersionModal';
+import CreateEntityAnnouncementModal from '@app/entityV2/shared/announce/CreateEntityAnnouncementModal';
+import { MarkAsDeprecatedButtonContents } from '@app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
+import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
+import { AddIncidentModal } from '@app/entityV2/shared/tabs/Incident/components/AddIncidentModal';
+import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
+import { getEntityProfileDeleteRedirectPath } from '@app/shared/deleteUtils';
+import ShareButtonMenu from '@app/shared/share/v2/ShareButtonMenu';
+import { useAppConfig, useIsNestedDomainsEnabled } from '@app/useAppConfig';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useUpdateDeprecationMutation } from '@graphql/mutations.generated';
+import { EntityType } from '@types';
 
 const MenuItem = styled.div`
     font-size: 13px;

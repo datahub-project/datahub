@@ -1,22 +1,24 @@
-import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
 import React from 'react';
 import styled from 'styled-components';
-import { useEntityData, useRefetch } from '../../../../../entity/shared/EntityContext';
-import { Container, DataPlatform, EntityType, Post, Entity } from '../../../../../../types.generated';
-import ContextPath from '../../../../../previewV2/ContextPath';
-import HealthIcon from '../../../../../previewV2/HealthIcon';
-import NotesIcon from '../../../../../previewV2/NotesIcon';
-import useContentTruncation from '../../../../../shared/useContentTruncation';
-import HorizontalScroller from '../../../../../sharedV2/carousel/HorizontalScroller';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { IconStyleType } from '../../../../Entity';
-import EntityTitleLoadingSection from '../header/EntityHeaderLoadingSection';
-import EntityName from '../header/EntityName';
-import ContainerIcon from '../header/PlatformContent/ContainerIcon';
-import PlatformHeaderIcons from '../header/PlatformContent/PlatformHeaderIcons';
-import StructuredPropertyBadge from '../header/StructuredPropertyBadge';
-import { getDisplayedEntityType } from '../header/utils';
-import { DeprecationIcon } from '../../../components/styled/DeprecationIcon';
+
+import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { IconStyleType } from '@app/entityV2/Entity';
+import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
+import EntityTitleLoadingSection from '@app/entityV2/shared/containers/profile/header/EntityHeaderLoadingSection';
+import EntityName from '@app/entityV2/shared/containers/profile/header/EntityName';
+import ContainerIcon from '@app/entityV2/shared/containers/profile/header/PlatformContent/ContainerIcon';
+import PlatformHeaderIcons from '@app/entityV2/shared/containers/profile/header/PlatformContent/PlatformHeaderIcons';
+import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
+import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
+import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
+import ContextPath from '@app/previewV2/ContextPath';
+import HealthIcon from '@app/previewV2/HealthIcon';
+import NotesIcon from '@app/previewV2/NotesIcon';
+import useContentTruncation from '@app/shared/useContentTruncation';
+import HorizontalScroller from '@app/sharedV2/carousel/HorizontalScroller';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Container, DataPlatform, Entity, EntityType, Post } from '@types';
 
 const TitleContainer = styled(HorizontalScroller)`
     display: flex;

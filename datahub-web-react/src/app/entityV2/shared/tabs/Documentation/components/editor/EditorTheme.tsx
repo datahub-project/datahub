@@ -1,7 +1,3 @@
-import { defaultRemirrorTheme } from '@remirror/theme';
-import type { RemirrorThemeType } from '@remirror/theme';
-import styled from 'styled-components';
-
 import {
     extensionBlockquoteStyledCss,
     extensionCalloutStyledCss,
@@ -15,8 +11,11 @@ import {
     extensionPositionerStyledCss,
     extensionTablesStyledCss,
 } from '@remirror/styles/styled-components';
+import { defaultRemirrorTheme } from '@remirror/theme';
+import type { RemirrorThemeType } from '@remirror/theme';
+import styled from 'styled-components';
 
-import { ANTD_GRAY } from '../../../../constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 
 export const EditorTheme: RemirrorThemeType = {
     ...defaultRemirrorTheme,

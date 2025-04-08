@@ -1,4 +1,4 @@
-import { AssertionSourceType, AssertionType } from '../../../../../../../../../types.generated';
+import { AssertionSourceType, AssertionType } from '@types';
 
 /**
  * Returns true if the assertion is definitely an external assertion,

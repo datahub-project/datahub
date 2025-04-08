@@ -1,5 +1,5 @@
-import { validateURL } from '../../utils';
-import { RecipeField, FieldType, setListValuesOnRecipe } from './common';
+import { FieldType, RecipeField, setListValuesOnRecipe } from '@app/ingest/source/builder/RecipeForm/common';
+import { validateURL } from '@app/ingest/source/utils';
 
 export const AZURE_CLIENT_ID: RecipeField = {
     name: 'client_id',

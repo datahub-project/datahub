@@ -1,10 +1,12 @@
 import { MockedProvider } from '@apollo/client/testing';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
-import { EntityType } from '../../../../../../../types.generated';
-import TestPageContainer from '../../../../../../../utils/test-utils/TestPageContainer';
-import { EntityAndType } from '../../../../../../entity/shared/types';
-import { SearchSelectUrnInput } from '../SearchSelectUrnInput';
+
+import { EntityAndType } from '@app/entity/shared/types';
+import { SearchSelectUrnInput } from '@app/entityV2/shared/components/styled/search/SearchSelectUrnInput';
+import TestPageContainer from '@utils/test-utils/TestPageContainer';
+
+import { EntityType } from '@types';
 
 // Mock the useHydratedEntityMap hook
 vi.mock('@src/app/entityV2/shared/tabs/Properties/useHydratedEntityMap', () => ({

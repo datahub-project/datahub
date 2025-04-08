@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { Form, Input, Modal, Typography } from 'antd';
 import { FromToProps } from '@remirror/core-types';
-import { useAttrs, useCommands, useEditorState, useHelpers } from '@remirror/react';
 import { getMarkRange } from '@remirror/core-utils';
+import { useAttrs, useCommands, useEditorState, useHelpers } from '@remirror/react';
+import { Form, Input, Modal, Typography } from 'antd';
+import React, { useEffect, useState } from 'react';
 
 type LinkModalProps = {
     open: boolean;

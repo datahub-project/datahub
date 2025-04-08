@@ -1,4 +1,3 @@
-import { EntityType } from '../../../types.generated';
 import {
     getDescriptionSlice,
     getGroupedFieldName,
@@ -10,7 +9,9 @@ import {
     isDescriptionField,
     isHighlightableEntityField,
     shouldShowInMatchedFieldList,
-} from './utils';
+} from '@app/searchV2/matches/utils';
+
+import { EntityType } from '@types';
 
 const mapping = new Map();
 mapping.set('fieldPaths', 'column');

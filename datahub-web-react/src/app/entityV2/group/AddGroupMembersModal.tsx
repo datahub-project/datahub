@@ -1,15 +1,17 @@
-import React, { useRef, useState } from 'react';
-import { message, Modal, Button, Select, Tag, Empty } from 'antd';
-import { getModalDomContainer } from '@src/utils/focus';
 import { LoadingOutlined } from '@ant-design/icons';
+import { Button, Empty, Modal, Select, Tag, message } from 'antd';
+import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
-import { useAddGroupMembersMutation } from '../../../graphql/group.generated';
-import { CorpUser, Entity, EntityType } from '../../../types.generated';
-import { useGetSearchResultsLazyQuery } from '../../../graphql/search.generated';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { useGetRecommendations } from '../../shared/recommendation';
-import { OwnerLabel } from '../../shared/OwnerLabel';
-import { ANTD_GRAY } from '../shared/constants';
+
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { OwnerLabel } from '@app/shared/OwnerLabel';
+import { useGetRecommendations } from '@app/shared/recommendation';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { getModalDomContainer } from '@src/utils/focus';
+
+import { useAddGroupMembersMutation } from '@graphql/group.generated';
+import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
+import { CorpUser, Entity, EntityType } from '@types';
 
 type Props = {
     urn: string;

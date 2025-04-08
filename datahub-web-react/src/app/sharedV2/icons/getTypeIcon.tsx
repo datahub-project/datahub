@@ -1,11 +1,13 @@
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
-import { EntityType } from '../../../types.generated';
-import { getSubTypeIcon } from '../../entityV2/shared/components/subtypes';
-import { EntityRegistry } from '../../../entityRegistryContext';
-import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
+
+import { getSubTypeIcon } from '@app/entityV2/shared/components/subtypes';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { EntityRegistry } from '@src/entityRegistryContext';
+
+import { EntityType } from '@types';
 
 const StyledTooltip = styled(Tooltip)`
     color: ${REDESIGN_COLORS.TEXT_GREY};

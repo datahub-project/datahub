@@ -1,5 +1,6 @@
 import React, { useContext } from 'react';
-import { GenericEntityProperties } from './types';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
 
 export interface GlossaryEntityContextType {
     isInGlossaryContext: boolean;

@@ -3,14 +3,16 @@ import { Typography } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
-import { Domain as DomainEntity, EntityType, GlobalTags, GlossaryTerms } from '../../../types.generated';
-import { EMPTY_MESSAGES } from '../../entity/shared/constants';
-import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { DomainLink } from './DomainLink';
-import Tag from './tag/Tag';
-import Term from './term/Term';
-import AddTagTerm from './AddTagTerm';
+
+import { EMPTY_MESSAGES } from '@app/entity/shared/constants';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import AddTagTerm from '@app/sharedV2/tags/AddTagTerm';
+import { DomainLink } from '@app/sharedV2/tags/DomainLink';
+import Tag from '@app/sharedV2/tags/tag/Tag';
+import Term from '@app/sharedV2/tags/term/Term';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Domain as DomainEntity, EntityType, GlobalTags, GlossaryTerms } from '@types';
 
 type Props = {
     uneditableTags?: GlobalTags | null;

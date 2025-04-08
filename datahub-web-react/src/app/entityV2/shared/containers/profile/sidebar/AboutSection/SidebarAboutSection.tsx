@@ -1,20 +1,21 @@
-import React from 'react';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { getAssetDescriptionDetails } from '@src/app/entityV2/shared/tabs/Documentation/utils';
-import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
-import useIsLineageMode from '@src/app/lineage/utils/useIsLineageMode';
+import React from 'react';
+
+import { useEntityData, useMutationUrn, useRouteToTab } from '@app/entity/shared/EntityContext';
+import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
+import DescriptionSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/DescriptionSection';
+import LinksSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/LinksSection';
+import SourceRefSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SourceRefSection';
+import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
+import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
 import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
+import { getAssetDescriptionDetails } from '@src/app/entityV2/shared/tabs/Documentation/utils';
+import useIsLineageMode from '@src/app/lineage/utils/useIsLineageMode';
+import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import DescriptionSection from './DescriptionSection';
-import LinksSection from './LinksSection';
-import SourceRefSection from './SourceRefSection';
-import { SidebarSection } from '../SidebarSection';
-import { EMPTY_MESSAGES } from '../../../../constants';
-import SectionActionButton from '../SectionActionButton';
-import EmptySectionText from '../EmptySectionText';
-import { useEntityData, useMutationUrn, useRouteToTab } from '../../../../../../entity/shared/EntityContext';
-import { getEntityPath } from '../../utils';
 
 const LINE_LIMIT = 5;
 

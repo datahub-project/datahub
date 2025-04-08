@@ -1,27 +1,29 @@
-import React, { useState } from 'react';
-import styled from 'styled-components';
 import { useApolloClient } from '@apollo/client';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-import { Dropdown, Menu, message, Modal } from 'antd';
-import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import { Dropdown, Menu, Modal, message } from 'antd';
+import React, { useState } from 'react';
+import styled from 'styled-components';
+
+import analytics, { EventType } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
+import { ViewBuilder } from '@app/entityV2/view/builder/ViewBuilder';
+import { ViewBuilderMode } from '@app/entityV2/view/builder/types';
+import { removeFromListMyViewsCache, removeFromViewSelectCaches } from '@app/entityV2/view/cacheUtils';
+import { DeleteViewItem } from '@app/entityV2/view/menu/item/DeleteViewItem';
+import { EditViewItem } from '@app/entityV2/view/menu/item/EditViewItem';
+import { PreviewViewItem } from '@app/entityV2/view/menu/item/PreviewViewItem';
+import { RemoveGlobalDefaultItem } from '@app/entityV2/view/menu/item/RemoveGlobalDefaultItem';
+import { RemoveUserDefaultItem } from '@app/entityV2/view/menu/item/RemoveUserDefaultItem';
+import { SetGlobalDefaultItem } from '@app/entityV2/view/menu/item/SetGlobalDefaultItem';
+import { SetUserDefaultItem } from '@app/entityV2/view/menu/item/SetUserDefaultItem';
+import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '@app/entityV2/view/utils';
 import { colors } from '@src/alchemy-components';
-import { DataHubView, DataHubViewType } from '../../../../types.generated';
-import { useUserContext } from '../../../context/useUserContext';
-import { useUpdateCorpUserViewsSettingsMutation } from '../../../../graphql/user.generated';
-import { useUpdateGlobalViewsSettingsMutation } from '../../../../graphql/app.generated';
-import { useDeleteViewMutation } from '../../../../graphql/view.generated';
-import { removeFromListMyViewsCache, removeFromViewSelectCaches } from '../cacheUtils';
-import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '../utils';
-import { ViewBuilderMode } from '../builder/types';
-import { ViewBuilder } from '../builder/ViewBuilder';
-import { EditViewItem } from './item/EditViewItem';
-import { PreviewViewItem } from './item/PreviewViewItem';
-import { RemoveUserDefaultItem } from './item/RemoveUserDefaultItem';
-import { SetUserDefaultItem } from './item/SetUserDefaultItem';
-import { RemoveGlobalDefaultItem } from './item/RemoveGlobalDefaultItem';
-import { SetGlobalDefaultItem } from './item/SetGlobalDefaultItem';
-import { DeleteViewItem } from './item/DeleteViewItem';
-import analytics, { EventType } from '../../../analytics';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+
+import { useUpdateGlobalViewsSettingsMutation } from '@graphql/app.generated';
+import { useUpdateCorpUserViewsSettingsMutation } from '@graphql/user.generated';
+import { useDeleteViewMutation } from '@graphql/view.generated';
+import { DataHubView, DataHubViewType } from '@types';
 
 const MenuButton = styled(MoreVertIcon)<{ $isShowNavBarRedesign?: boolean }>`
     width: 20px;

@@ -1,14 +1,16 @@
 import { orange } from '@ant-design/colors';
 import { WarningFilled } from '@ant-design/icons';
-import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
 import React from 'react';
 import { useParams } from 'react-router';
 import styled from 'styled-components';
-import { useSearchAcrossLineageQuery } from '../../../../graphql/search.generated';
-import { HAS_ACTIVE_INCIDENTS_FILTER_NAME, HAS_FAILING_ASSERTIONS_FILTER_NAME } from '../../../search/utils/constants';
-import { useAppConfig } from '../../../useAppConfig';
-import { decodeUrn } from '../utils';
-import { generateQueryVariables } from './UpstreamHealth/utils';
+
+import { generateQueryVariables } from '@app/entityV2/shared/embed/UpstreamHealth/utils';
+import { decodeUrn } from '@app/entityV2/shared/utils';
+import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
+import { HAS_ACTIVE_INCIDENTS_FILTER_NAME, HAS_FAILING_ASSERTIONS_FILTER_NAME } from '@app/search/utils/constants';
+import { useAppConfig } from '@app/useAppConfig';
+
+import { useSearchAcrossLineageQuery } from '@graphql/search.generated';
 
 // Do not update unless you update the reference to this ID in our Chrome extension code
 const ICON_ID = 'embedded-datahub-health-icon';

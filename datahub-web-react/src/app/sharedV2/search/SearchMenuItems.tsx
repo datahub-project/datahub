@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { AndFilterInput } from '../../../types.generated';
-import { DownloadSearchResults, DownloadSearchResultsInput } from '../../searchV2/utils/types';
-import DownloadAsCsvModal from '../../entityV2/shared/components/styled/search/DownloadAsCsvModal';
-import EditButton from './EditButton';
-import DownloadButton from './DownloadButton';
+
+import DownloadAsCsvModal from '@app/entityV2/shared/components/styled/search/DownloadAsCsvModal';
+import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/searchV2/utils/types';
+import DownloadButton from '@app/sharedV2/search/DownloadButton';
+import EditButton from '@app/sharedV2/search/EditButton';
+
+import { AndFilterInput } from '@types';
 
 type Props = {
     filters: AndFilterInput[];

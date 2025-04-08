@@ -1,20 +1,26 @@
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import styled from 'styled-components/macro';
 import React, { useEffect, useState } from 'react';
-import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
-import { useBaseEntity } from '../../../../../entity/shared/EntityContext';
-import QueryBuilderModal from './QueryBuilderModal';
-import { addQueryToListQueriesCache, removeQueryFromListQueriesCache, updateListQueriesCache } from './cacheUtils';
-import QueriesListSection from './QueriesListSection';
-import useDownstreamQueries from './useDownstreamQueries';
-import { QueriesTabSection } from './types';
-import { useHighlightedQueries } from './useHighlightedQueries';
-import { usePopularQueries } from './usePopularQueries';
-import { useRecentQueries } from './useRecentQueries';
-import Loading from '../../../../../shared/Loading';
-import { useIsSeparateSiblingsMode } from '../../../../../entity/shared/siblingUtils';
-import usePrevious from '../../../../../shared/usePrevious';
-import EmptyQueriesSection from './EmptyQueriesSection';
+import styled from 'styled-components/macro';
+
+import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import EmptyQueriesSection from '@app/entityV2/shared/tabs/Dataset/Queries/EmptyQueriesSection';
+import QueriesListSection from '@app/entityV2/shared/tabs/Dataset/Queries/QueriesListSection';
+import QueryBuilderModal from '@app/entityV2/shared/tabs/Dataset/Queries/QueryBuilderModal';
+import {
+    addQueryToListQueriesCache,
+    removeQueryFromListQueriesCache,
+    updateListQueriesCache,
+} from '@app/entityV2/shared/tabs/Dataset/Queries/cacheUtils';
+import { QueriesTabSection } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
+import useDownstreamQueries from '@app/entityV2/shared/tabs/Dataset/Queries/useDownstreamQueries';
+import { useHighlightedQueries } from '@app/entityV2/shared/tabs/Dataset/Queries/useHighlightedQueries';
+import { usePopularQueries } from '@app/entityV2/shared/tabs/Dataset/Queries/usePopularQueries';
+import { useRecentQueries } from '@app/entityV2/shared/tabs/Dataset/Queries/useRecentQueries';
+import Loading from '@app/shared/Loading';
+import usePrevious from '@app/shared/usePrevious';
+
+import { GetDatasetQuery } from '@graphql/dataset.generated';
 
 const Content = styled.div<{ $backgroundColor: string }>`
     height: 100%;

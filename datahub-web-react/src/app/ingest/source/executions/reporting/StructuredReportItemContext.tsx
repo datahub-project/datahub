@@ -1,9 +1,9 @@
+import { Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Tooltip } from 'antd';
 
-import { ANTD_GRAY } from '../../../../entity/shared/constants';
-import { StructuredReportLogEntry } from '../../types';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { StructuredReportLogEntry } from '@app/ingest/source/types';
 
 const Container = styled.div`
     display: flex;

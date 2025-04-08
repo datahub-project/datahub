@@ -1,10 +1,10 @@
 import React from 'react';
-
 import styled from 'styled-components';
 
-import { AssertionRunEvent } from '../../../../../../../../../../types.generated';
-import { getDetailedErrorMessage } from './resultMessageUtils';
-import { ANTD_GRAY } from '../../../../../../../constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { getDetailedErrorMessage } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultMessageUtils';
+
+import { AssertionRunEvent } from '@types';
 
 const Container = styled.div`
     padding: 4px;

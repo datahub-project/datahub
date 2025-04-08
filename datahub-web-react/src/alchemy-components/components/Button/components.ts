@@ -1,8 +1,8 @@
 import styled from 'styled-components';
 
+import { ButtonStyleProps } from '@components/components/Button/types';
+import { getButtonStyle } from '@components/components/Button/utils';
 import { spacing } from '@components/theme';
-import { ButtonStyleProps } from './types';
-import { getButtonStyle } from './utils';
 
 export const ButtonBase = styled.button(
     // Dynamic styles

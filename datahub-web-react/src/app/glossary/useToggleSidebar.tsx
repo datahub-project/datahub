@@ -1,5 +1,5 @@
-import { useGlossaryEntityData } from '../entity/shared/GlossaryEntityContext';
-import useToggle from '../shared/useToggle';
+import { useGlossaryEntityData } from '@app/entity/shared/GlossaryEntityContext';
+import useToggle from '@app/shared/useToggle';
 
 const useToggleSidebar = () => {
     const { isSidebarOpen, setIsSidebarOpen } = useGlossaryEntityData();

@@ -1,9 +1,11 @@
-import React from 'react';
 import { Button, Divider, Modal, Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { CorpUser, DataHubPolicy, DataHubRole } from '../../../types.generated';
-import AvatarsGroup from '../AvatarsGroup';
+
+import AvatarsGroup from '@app/permissions/AvatarsGroup';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { CorpUser, DataHubPolicy, DataHubRole } from '@types';
 
 type Props = {
     role: DataHubRole;

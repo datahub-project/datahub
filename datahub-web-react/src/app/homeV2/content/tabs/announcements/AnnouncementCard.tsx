@@ -1,9 +1,11 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import { ANTD_GRAY } from '../../../../entity/shared/constants';
-import { Post } from '../../../../../types.generated';
-import { toRelativeTimeString } from '../../../../shared/time/timeUtils';
-import { Editor } from '../../../../entityV2/shared/tabs/Documentation/components/editor/Editor';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
+import { toRelativeTimeString } from '@app/shared/time/timeUtils';
+
+import { Post } from '@types';
 
 const Card = styled.div`
     border: 1px solid ${ANTD_GRAY[4]};

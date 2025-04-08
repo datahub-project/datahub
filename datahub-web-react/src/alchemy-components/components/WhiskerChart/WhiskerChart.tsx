@@ -1,4 +1,3 @@
-import { colors } from '@src/alchemy-components/theme';
 import { Axis } from '@visx/axis';
 import { GridColumns } from '@visx/grid';
 import { ParentSize } from '@visx/responsive';
@@ -7,15 +6,22 @@ import { BoxPlot } from '@visx/stats';
 import { useTooltip } from '@visx/tooltip';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
+
 import {
     AXIS_LABEL_MARGIN_OFFSET,
     AXIS_LABEL_PROPS,
     DEFAULT_BOX_SIZE,
     DEFAULT_GAP_BETWEEN_WHISKERS,
-} from './constants';
-import { whiskerChartDefaults } from './defaults';
-import { InternalWhiskerChartProps, WhiskerChartProps, WhiskerTooltipDatum } from './types';
-import { computeWhiskerOffset } from './utils';
+} from '@components/components/WhiskerChart/constants';
+import { whiskerChartDefaults } from '@components/components/WhiskerChart/defaults';
+import {
+    InternalWhiskerChartProps,
+    WhiskerChartProps,
+    WhiskerTooltipDatum,
+} from '@components/components/WhiskerChart/types';
+import { computeWhiskerOffset } from '@components/components/WhiskerChart/utils';
+
+import { colors } from '@src/alchemy-components/theme';
 
 const ChartWrapper = styled.div`
     width: 100%;

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import analytics from './analytics';
+
+import analytics from '@app/analytics/analytics';
 
 // Note: we explicitly keep this outside of React state management.
 let prevPathname: string = document.referrer;

@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
-import { Button, Row, Table } from 'antd';
 import { RightOutlined } from '@ant-design/icons';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import arrow from '../../../../../../images/Arrow.svg';
-import editIcon from '../../../../../../images/editIconBlack.svg';
-import './ERModelRelationPreview.less';
-import { EntityType, ErModelRelationship } from '../../../../../../types.generated';
-import { CreateERModelRelationModal } from './CreateERModelRelationModal';
-import { getDatasetName } from './ERModelRelationUtils';
+import { Button, Row, Table } from 'antd';
+import React, { useState } from 'react';
+
+import { CreateERModelRelationModal } from '@app/entity/shared/components/styled/ERModelRelationship/CreateERModelRelationModal';
+import '@app/entity/shared/components/styled/ERModelRelationship/ERModelRelationPreview.less';
+import { getDatasetName } from '@app/entity/shared/components/styled/ERModelRelationship/ERModelRelationUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType, ErModelRelationship } from '@types';
+
+import arrow from '@images/Arrow.svg';
+import editIcon from '@images/editIconBlack.svg';
 
 type ERModelRelationRecord = {
     sourceField: string;

@@ -1,10 +1,11 @@
 import React from 'react';
-import { Button } from '../Button';
-import { Text } from '../Text';
-import { StyledDrawer, TitleContainer, TitleLeftContainer } from './components';
-import { maskTransparentStyle } from './constants';
-import { DrawerProps } from './types';
-import { drawerDefault } from './defaults';
+
+import { Button } from '@components/components/Button';
+import { StyledDrawer, TitleContainer, TitleLeftContainer } from '@components/components/Drawer/components';
+import { maskTransparentStyle } from '@components/components/Drawer/constants';
+import { drawerDefault } from '@components/components/Drawer/defaults';
+import { DrawerProps } from '@components/components/Drawer/types';
+import { Text } from '@components/components/Text';
 
 export const Drawer = ({
     title,

@@ -1,7 +1,6 @@
+import { SelectStyleProps } from '@components/components/Select/types';
 import { colors, radius, spacing, typography } from '@components/theme';
 import { getFontSize } from '@components/theme/utils';
-
-import { SelectStyleProps } from './types';
 
 export const getOptionLabelStyle = (
     isSelected: boolean,

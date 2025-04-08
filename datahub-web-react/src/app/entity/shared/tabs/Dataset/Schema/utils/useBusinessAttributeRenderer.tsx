@@ -1,9 +1,11 @@
 import React from 'react';
-import { EntityType, SchemaField } from '../../../../../../../types.generated';
-import { useRefetch } from '../../../../EntityContext';
-import { useSchemaRefetch } from '../SchemaContext';
-import BusinessAttributeGroup from '../../../../../../shared/businessAttribute/BusinessAttributeGroup';
-import { useBusinessAttributesFlag } from '../../../../../../useAppConfig';
+
+import { useRefetch } from '@app/entity/shared/EntityContext';
+import { useSchemaRefetch } from '@app/entity/shared/tabs/Dataset/Schema/SchemaContext';
+import BusinessAttributeGroup from '@app/shared/businessAttribute/BusinessAttributeGroup';
+import { useBusinessAttributesFlag } from '@app/useAppConfig';
+
+import { EntityType, SchemaField } from '@types';
 
 export default function useBusinessAttributeRenderer(filterText: string, canEdit: boolean) {
     const refetch = useRefetch();

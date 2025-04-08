@@ -1,8 +1,10 @@
 import React from 'react';
-import { ChartStatsSummary as ChartStatsSummaryObj } from '../../../../../types.generated';
-import { useBaseEntity } from '../../../shared/EntityContext';
-import { GetChartQuery } from '../../../../../graphql/chart.generated';
-import { ChartStatsSummary } from '../../shared/ChartStatsSummary';
+
+import { ChartStatsSummary } from '@app/entity/chart/shared/ChartStatsSummary';
+import { useBaseEntity } from '@app/entity/shared/EntityContext';
+
+import { GetChartQuery } from '@graphql/chart.generated';
+import { ChartStatsSummary as ChartStatsSummaryObj } from '@types';
 
 export const ChartStatsSummarySubHeader = () => {
     const result = useBaseEntity<GetChartQuery>();

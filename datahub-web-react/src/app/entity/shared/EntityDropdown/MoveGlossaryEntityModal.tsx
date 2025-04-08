@@ -1,13 +1,15 @@
+import { Button, Form, Modal, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { message, Button, Modal, Typography, Form } from 'antd';
-import { useEntityData, useRefetch } from '../EntityContext';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useUpdateParentNodeMutation } from '../../../../graphql/glossary.generated';
-import NodeParentSelect from './NodeParentSelect';
-import { useGlossaryEntityData } from '../GlossaryEntityContext';
-import { getGlossaryRootToUpdate, getParentNodeToUpdate, updateGlossarySidebar } from '../../../glossary/utils';
-import { getModalDomContainer } from '../../../../utils/focus';
+
+import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import NodeParentSelect from '@app/entity/shared/EntityDropdown/NodeParentSelect';
+import { useGlossaryEntityData } from '@app/entity/shared/GlossaryEntityContext';
+import { getGlossaryRootToUpdate, getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { getModalDomContainer } from '@utils/focus';
+
+import { useUpdateParentNodeMutation } from '@graphql/glossary.generated';
 
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;

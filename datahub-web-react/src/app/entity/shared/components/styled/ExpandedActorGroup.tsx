@@ -1,8 +1,10 @@
 import { Popover, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { CorpGroup, CorpUser } from '../../../../../types.generated';
-import { ExpandedActor } from './ExpandedActor';
+
+import { ExpandedActor } from '@app/entity/shared/components/styled/ExpandedActor';
+
+import { CorpGroup, CorpUser } from '@types';
 
 const PopoverActors = styled.div`
     max-width: 600px;

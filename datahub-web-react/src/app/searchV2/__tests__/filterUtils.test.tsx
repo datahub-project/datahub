@@ -1,6 +1,6 @@
+import { UnionType } from '@app/searchV2/utils/constants';
+import { combineOrFilters, mergeFilterSets } from '@app/searchV2/utils/filterUtils';
 import { FilterOperator } from '@src/types.generated';
-import { UnionType } from '../utils/constants';
-import { combineOrFilters, mergeFilterSets } from '../utils/filterUtils';
 
 describe('filterUtils', () => {
     describe('mergeFilterSets', () => {

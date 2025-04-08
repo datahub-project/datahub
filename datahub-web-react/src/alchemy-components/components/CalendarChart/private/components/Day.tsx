@@ -1,8 +1,10 @@
-import { Popover } from '@src/alchemy-components/components/Popover';
 import React, { useMemo } from 'react';
-import { DayProps } from '../../types';
-import { useCalendarState } from '../context';
-import { StyledBar } from '../../components';
+
+import { StyledBar } from '@components/components/CalendarChart/components';
+import { useCalendarState } from '@components/components/CalendarChart/private/context';
+import { DayProps } from '@components/components/CalendarChart/types';
+
+import { Popover } from '@src/alchemy-components/components/Popover';
 
 export function Day<ValueType>({ day, weekOffset, dayIndex }: DayProps<ValueType>) {
     const { squareSize, squareGap, margin, colorAccessor, showPopover, popoverRenderer, selectedDay, onDayClick } =

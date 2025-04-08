@@ -1,23 +1,24 @@
-import { EditColumn } from '@src/app/entity/shared/tabs/Properties/Edit/EditColumn';
-import { Maybe, StructuredProperties } from '@src/types.generated';
 import { Empty, Table } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { useEntityData } from '../../../../entity/shared/EntityContext';
-import TabHeader from '../../../../entity/shared/tabs/Properties/TabHeader';
-import { PropertyRow } from '../../../../entity/shared/tabs/Properties/types';
-import useUpdateExpandedRowsFromFilter from '../../../../entity/shared/tabs/Properties/useUpdateExpandedRowsFromFilter';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import TabHeader from '@app/entity/shared/tabs/Properties/TabHeader';
+import { PropertyRow } from '@app/entity/shared/tabs/Properties/types';
+import useUpdateExpandedRowsFromFilter from '@app/entity/shared/tabs/Properties/useUpdateExpandedRowsFromFilter';
 import {
     getFilteredCustomProperties,
     mapCustomPropertiesToPropertyRows,
-} from '../../../../entity/shared/tabs/Properties/utils';
-import { useEntityRegistryV2 } from '../../../../useEntityRegistry';
-import { TabRenderType } from '../../types';
-import ExpandIcon from '../Dataset/Schema/components/ExpandIcon';
-import NameColumn from './NameColumn';
-import ValuesColumn from './ValuesColumn';
-import { useHydratedEntityMap } from './useHydratedEntityMap';
-import useStructuredProperties from './useStructuredProperties';
+} from '@app/entity/shared/tabs/Properties/utils';
+import ExpandIcon from '@app/entityV2/shared/tabs/Dataset/Schema/components/ExpandIcon';
+import NameColumn from '@app/entityV2/shared/tabs/Properties/NameColumn';
+import ValuesColumn from '@app/entityV2/shared/tabs/Properties/ValuesColumn';
+import { useHydratedEntityMap } from '@app/entityV2/shared/tabs/Properties/useHydratedEntityMap';
+import useStructuredProperties from '@app/entityV2/shared/tabs/Properties/useStructuredProperties';
+import { TabRenderType } from '@app/entityV2/shared/types';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { EditColumn } from '@src/app/entity/shared/tabs/Properties/Edit/EditColumn';
+import { Maybe, StructuredProperties } from '@src/types.generated';
 
 const StyledTable = styled(Table)`
     &&& .ant-table-cell-with-append {

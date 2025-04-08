@@ -1,21 +1,23 @@
-import { Button, Empty, Pagination } from 'antd';
 import { LoadingOutlined, PlusOutlined } from '@ant-design/icons';
-import React, { useState } from 'react';
+import { Button, Empty, Pagination } from 'antd';
 import * as QueryString from 'query-string';
+import React, { useState } from 'react';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
-import { useGetSearchResultsForMultipleQuery } from '../../../../graphql/search.generated';
-import { DataProduct, Domain, EntityType } from '../../../../types.generated';
-import TabToolbar from '../../shared/components/styled/TabToolbar';
-import { SearchBar } from '../../../search/SearchBar';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { scrollToTop } from '../../../shared/searchUtils';
-import { DomainsPaginationContainer } from '../../../domain/DomainsList';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../shared/constants';
-import { useEntityContext, useEntityData } from '../../../entity/shared/EntityContext';
-import { DOMAINS_FILTER_NAME } from '../../../search/utils/constants';
-import DataProductResult from './DataProductResult';
-import CreateDataProductModal from './CreateDataProductModal';
+
+import { DomainsPaginationContainer } from '@app/domain/DomainsList';
+import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
+import CreateDataProductModal from '@app/entityV2/domain/DataProductsTab/CreateDataProductModal';
+import DataProductResult from '@app/entityV2/domain/DataProductsTab/DataProductResult';
+import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
+import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { SearchBar } from '@app/search/SearchBar';
+import { DOMAINS_FILTER_NAME } from '@app/search/utils/constants';
+import { scrollToTop } from '@app/shared/searchUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
+import { DataProduct, Domain, EntityType } from '@types';
 
 const DataProductsPaginationWrapper = styled(DomainsPaginationContainer)`
     justify-content: center;

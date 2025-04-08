@@ -1,7 +1,35 @@
-import React from 'react';
-import Fuse from 'fuse.js';
-import styled from 'styled-components';
 import { Typography } from 'antd';
+import Fuse from 'fuse.js';
+import React from 'react';
+import styled from 'styled-components';
+
+import { AssertionGroupHeader } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AssertionGroupHeader';
+import {
+    ASSERTION_DEFAULT_RAW_DATA,
+    ASSERTION_SOURCES,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/constant';
+import {
+    AssertionBuilderSiblingOptions,
+    AssertionColumnGroup,
+    AssertionFilterOptions,
+    AssertionListFilter,
+    AssertionListTableRow,
+    AssertionRecommendedFilter,
+    AssertionStatusGroup,
+    AssertionTable,
+    AssertionWithDescription,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
+import {
+    ASSERTION_INFO,
+    createAssertionGroups,
+    getAssertionGroupName,
+    getAssertionType,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { isExternalAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/isExternalAssertion';
+import { getPlainTextDescriptionFromAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/utils';
+import { AssertionGroup } from '@src/app/entity/shared/tabs/Dataset/Validations/acrylTypes';
+import { GenericEntityProperties } from '@src/app/entity/shared/types';
+import { getPlatformName } from '@src/app/entityV2/shared/utils';
 import {
     Assertion,
     AssertionInfo,
@@ -11,28 +39,9 @@ import {
     AssertionSourceType,
     AssertionType,
     AuditStamp,
-    TagAssociation,
     EntityType,
+    TagAssociation,
 } from '@src/types.generated';
-import { AssertionGroup } from '@src/app/entity/shared/tabs/Dataset/Validations/acrylTypes';
-import { GenericEntityProperties } from '@src/app/entity/shared/types';
-import { getPlatformName } from '@src/app/entityV2/shared/utils';
-import { ASSERTION_INFO, createAssertionGroups, getAssertionGroupName, getAssertionType } from '../acrylUtils';
-import { isExternalAssertion } from '../assertion/profile/shared/isExternalAssertion';
-import { AssertionGroupHeader } from './AssertionGroupHeader';
-import {
-    AssertionStatusGroup,
-    AssertionTable,
-    AssertionListFilter,
-    AssertionListTableRow,
-    AssertionFilterOptions,
-    AssertionRecommendedFilter,
-    AssertionWithDescription,
-    AssertionColumnGroup,
-    AssertionBuilderSiblingOptions,
-} from './types';
-import { ASSERTION_DEFAULT_RAW_DATA, ASSERTION_SOURCES } from './constant';
-import { getPlainTextDescriptionFromAssertion } from '../assertion/profile/summary/utils';
 
 const ASSERTION_TYPE_NAME_MAP = {
     VOLUME: 'Volume',

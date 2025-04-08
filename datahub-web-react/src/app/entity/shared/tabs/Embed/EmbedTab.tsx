@@ -1,8 +1,9 @@
 import { Empty } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../constants';
-import { useEntityData } from '../../EntityContext';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 const EmbedContainer = styled.div`
     width: 100%;

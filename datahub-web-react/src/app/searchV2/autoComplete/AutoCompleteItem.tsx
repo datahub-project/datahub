@@ -1,13 +1,15 @@
 import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { CorpUser, Entity, EntityType, Tag } from '../../../types.generated';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import AutoCompleteEntity from './AutoCompleteEntity';
-import AutoCompleteTag from './AutoCompleteTag';
-import AutoCompleteTooltipContent from './AutoCompleteTooltipContent';
-import AutoCompleteUser from './AutoCompleteUser';
-import { getShouldDisplayTooltip } from './utils';
+
+import AutoCompleteEntity from '@app/searchV2/autoComplete/AutoCompleteEntity';
+import AutoCompleteTag from '@app/searchV2/autoComplete/AutoCompleteTag';
+import AutoCompleteTooltipContent from '@app/searchV2/autoComplete/AutoCompleteTooltipContent';
+import AutoCompleteUser from '@app/searchV2/autoComplete/AutoCompleteUser';
+import { getShouldDisplayTooltip } from '@app/searchV2/autoComplete/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { CorpUser, Entity, EntityType, Tag } from '@types';
 
 export const SuggestionContainer = styled.div`
     display: flex;

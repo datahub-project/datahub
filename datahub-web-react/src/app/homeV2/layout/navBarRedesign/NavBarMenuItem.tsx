@@ -1,9 +1,10 @@
-import React from 'react';
 import { Menu, MenuItemProps, Tooltip } from 'antd';
+import React from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
-import { colors, Badge, Text } from '@src/alchemy-components';
-import { NavBarMenuBaseItem } from './types';
+
+import { NavBarMenuBaseItem } from '@app/homeV2/layout/navBarRedesign/types';
+import { Badge, Text, colors } from '@src/alchemy-components';
 
 const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
     &&& {

@@ -1,18 +1,20 @@
+import { Modal, message } from 'antd';
 import React, { useEffect, useState } from 'react';
-import { message, Modal } from 'antd';
 import styled from 'styled-components';
+
+import { ExecutionDetailsModal } from '@app/ingest/source/executions/ExecutionRequestDetailsModal';
+import IngestionExecutionTable from '@app/ingest/source/executions/IngestionExecutionTable';
+import useRefreshIngestionData from '@app/ingest/source/executions/useRefreshIngestionData';
+import { ROLLING_BACK, RUNNING } from '@app/ingest/source/utils';
+import { Message } from '@app/shared/Message';
+import { SearchCfg } from '@src/conf';
+
 import {
-    useGetIngestionSourceQuery,
     useCancelIngestionExecutionRequestMutation,
+    useGetIngestionSourceQuery,
     useRollbackIngestionMutation,
-} from '../../../../graphql/ingestion.generated';
-import { Message } from '../../../shared/Message';
-import { ExecutionDetailsModal } from './ExecutionRequestDetailsModal';
-import IngestionExecutionTable from './IngestionExecutionTable';
-import { ExecutionRequest } from '../../../../types.generated';
-import { ROLLING_BACK, RUNNING } from '../utils';
-import useRefreshIngestionData from './useRefreshIngestionData';
-import { SearchCfg } from '../../../../conf';
+} from '@graphql/ingestion.generated';
+import { ExecutionRequest } from '@types';
 
 const ListContainer = styled.div`
     margin-left: 28px;

@@ -1,4 +1,4 @@
-import { TextProps } from '../Text';
+import { TextProps } from '@components/components/Text';
 
 export type TextPropsWithoutChildren = Omit<TextProps, 'children'>;
 

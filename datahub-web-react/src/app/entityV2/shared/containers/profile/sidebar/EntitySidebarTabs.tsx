@@ -1,11 +1,12 @@
+import { Tooltip } from '@components';
+import { ArrowLineLeft, ArrowLineRight } from '@phosphor-icons/react';
+import { Tabs } from 'antd';
 import React, { useContext } from 'react';
 import styled from 'styled-components/macro';
-import { Tabs } from 'antd';
-import { ArrowLineLeft, ArrowLineRight } from '@phosphor-icons/react';
-import { Tooltip } from '@components';
-import { EntitySidebarTab } from '../../../types';
-import { useBaseEntity, useEntityData } from '../../../../../entity/shared/EntityContext';
-import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
+
+import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
+import { EntitySidebarTab } from '@app/entityV2/shared/types';
+import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 
 type Props = {
     tabs: EntitySidebarTab[];

@@ -1,5 +1,6 @@
-import { useListDataProductAssetsQuery } from '../../../graphql/search.generated';
-import { GetSearchResultsParams } from '../shared/components/styled/search/types';
+import { GetSearchResultsParams } from '@app/entity/shared/components/styled/search/types';
+
+import { useListDataProductAssetsQuery } from '@graphql/search.generated';
 
 export default function generateUseListDataProductAssets({ urn }: { urn: string }) {
     return (params: GetSearchResultsParams) => {

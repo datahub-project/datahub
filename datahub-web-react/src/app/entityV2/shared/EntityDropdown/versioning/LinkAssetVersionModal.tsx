@@ -1,13 +1,16 @@
-import analytics, { EventType } from '@app/analytics';
-import { EntitySearchInputV2 } from '@app/entityV2/shared/EntitySearchInput/EntitySearchInputV2';
-import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Input, Modal } from '@components';
-import { Label } from '@components/components/Input/components';
-import { useLinkAssetVersionMutation } from '@graphql/versioning.generated';
-import { Entity, EntityType } from '@types';
 import { Form, message } from 'antd';
 import React, { useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+
+import { Label } from '@components/components/Input/components';
+
+import analytics, { EventType } from '@app/analytics';
+import { EntitySearchInputV2 } from '@app/entityV2/shared/EntitySearchInput/EntitySearchInputV2';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useLinkAssetVersionMutation } from '@graphql/versioning.generated';
+import { Entity, EntityType } from '@types';
 
 const ENTITY_FIELD_NAME = 'entity';
 const LABEL_FIELD_NAME = 'label';

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import styled from 'styled-components/macro';
 import { CheckOutlined, LinkOutlined } from '@ant-design/icons';
 import { Tooltip } from 'antd';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
+import React, { useState } from 'react';
+import styled from 'styled-components/macro';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 const StyledMenuItem = styled.div`
     && {

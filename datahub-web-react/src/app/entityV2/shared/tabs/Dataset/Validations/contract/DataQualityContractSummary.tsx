@@ -1,14 +1,16 @@
+import { Table } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Table } from 'antd';
-import { Assertion, DataQualityContract, DatasetAssertionInfo } from '../../../../../../../types.generated';
-import { ANTD_GRAY } from '../../../../constants';
-import { DataContractAssertionStatus } from './DataContractAssertionStatus';
-import { DataContractSummaryFooter } from './DataContractSummaryFooter';
-import { DatasetAssertionDescription } from '../DatasetAssertionDescription';
-import { FieldAssertionDescription } from '../FieldAssertionDescription';
-import { SqlAssertionDescription } from '../SqlAssertionDescription';
-import { VolumeAssertionDescription } from '../VolumeAssertionDescription';
+
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { DatasetAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/DatasetAssertionDescription';
+import { FieldAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/FieldAssertionDescription';
+import { SqlAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/SqlAssertionDescription';
+import { VolumeAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/VolumeAssertionDescription';
+import { DataContractAssertionStatus } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/DataContractAssertionStatus';
+import { DataContractSummaryFooter } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/DataContractSummaryFooter';
+
+import { Assertion, DataQualityContract, DatasetAssertionInfo } from '@types';
 
 const TitleText = styled.div`
     color: ${ANTD_GRAY[7]};

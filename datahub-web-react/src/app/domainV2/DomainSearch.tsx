@@ -1,14 +1,16 @@
+import { LoadingOutlined, SearchOutlined } from '@ant-design/icons';
 import { SearchBar } from '@components';
 import React, { useState } from 'react';
-import { LoadingOutlined, SearchOutlined } from '@ant-design/icons';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components/macro';
-import { useGetAutoCompleteResultsQuery } from '../../graphql/search.generated';
-import { EntityType } from '../../types.generated';
-import ClickOutside from '../shared/ClickOutside';
-import { useEntityRegistry } from '../useEntityRegistry';
-import DomainSearchResultItem from './DomainSearchResultItem';
-import { REDESIGN_COLORS } from '../entityV2/shared/constants';
+
+import DomainSearchResultItem from '@app/domainV2/DomainSearchResultItem';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import ClickOutside from '@app/shared/ClickOutside';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetAutoCompleteResultsQuery } from '@graphql/search.generated';
+import { EntityType } from '@types';
 
 const DomainSearchWrapper = styled.div`
     flex-shrink: 0;
@@ -18,7 +20,10 @@ const DomainSearchWrapper = styled.div`
 const ResultsWrapper = styled.div`
     background-color: white;
     border-radius: 5px;
-    box-shadow: 0 3px 6px -4px rgb(0 0 0 / 12%), 0 6px 16px 0 rgb(0 0 0 / 8%), 0 9px 28px 8px rgb(0 0 0 / 5%);
+    box-shadow:
+        0 3px 6px -4px rgb(0 0 0 / 12%),
+        0 6px 16px 0 rgb(0 0 0 / 8%),
+        0 9px 28px 8px rgb(0 0 0 / 5%);
     padding: 8px;
     position: absolute;
     max-height: 210px;

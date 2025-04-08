@@ -1,6 +1,7 @@
 import styled from 'styled-components';
-import { typography, colors } from '@components/theme';
-import { getHeaderSubtitleStyles, getHeaderTitleStyles } from './utils';
+
+import { getHeaderSubtitleStyles, getHeaderTitleStyles } from '@components/components/PageTitle/utils';
+import { colors, typography } from '@components/theme';
 
 // Text Styles
 const titleStyles = {

@@ -1,16 +1,18 @@
-import { Typography, Table } from 'antd';
+import { Table, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { colors } from '@src/alchemy-components/theme';
+
+import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { EmptyTab } from '@app/entity/shared/components/styled/EmptyTab';
+import { InfoItem } from '@app/entity/shared/components/styled/InfoItem';
+import { notEmpty } from '@app/entity/shared/utils';
+import { TimestampPopover } from '@app/sharedV2/TimestampPopover';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Pill } from '@src/alchemy-components/components/Pills';
-import { GetMlModelGroupQuery } from '../../../../graphql/mlModelGroup.generated';
-import { EntityType } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useBaseEntity } from '../../shared/EntityContext';
-import { notEmpty } from '../../shared/utils';
-import { EmptyTab } from '../../shared/components/styled/EmptyTab';
-import { InfoItem } from '../../shared/components/styled/InfoItem';
-import { TimestampPopover } from '../../../sharedV2/TimestampPopover';
+import { colors } from '@src/alchemy-components/theme';
+
+import { GetMlModelGroupQuery } from '@graphql/mlModelGroup.generated';
+import { EntityType } from '@types';
 
 const InfoItemContainer = styled.div<{ justifyContent }>`
     display: flex;

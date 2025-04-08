@@ -1,18 +1,20 @@
 import { QueryHookOptions, QueryResult } from '@apollo/client';
-import { downgradeV2FieldPath } from '@app/lineageV2/lineageUtils';
 import React from 'react';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import DefaultEntity from '@app/entityV2/DefaultEntity';
+import { Entity, EntityCapabilityType, EntityMenuActions, IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import PreviewContext from '@app/entityV2/shared/PreviewContext';
+import { GLOSSARY_ENTITY_TYPES } from '@app/entityV2/shared/constants';
+import { EntitySidebarSection, EntitySidebarTab } from '@app/entityV2/shared/types';
+import { dictToQueryStringParams, getFineGrainedLineageWithSiblings, urlEncodeUrn } from '@app/entityV2/shared/utils';
+import { FetchedEntity } from '@app/lineage/types';
+import { downgradeV2FieldPath } from '@app/lineageV2/lineageUtils';
+import { FetchedEntityV2, FetchedEntityV2Relationship, LineageAsset, LineageAssetType } from '@app/lineageV2/types';
+import { SearchResultProvider } from '@app/search/context/SearchResultContext';
+
 import { EntityLineageV2Fragment, LineageSchemaFieldFragment } from '@graphql/lineage.generated';
-import { Entity as EntityInterface, EntityType, Exact, FeatureFlagsConfig, SearchResult } from '../../types.generated';
-import { GenericEntityProperties } from '../entity/shared/types';
-import { FetchedEntity } from '../lineage/types';
-import { FetchedEntityV2, FetchedEntityV2Relationship, LineageAsset, LineageAssetType } from '../lineageV2/types';
-import { SearchResultProvider } from '../search/context/SearchResultContext';
-import DefaultEntity from './DefaultEntity';
-import { Entity, EntityCapabilityType, EntityMenuActions, IconStyleType, PreviewType } from './Entity';
-import PreviewContext from './shared/PreviewContext';
-import { GLOSSARY_ENTITY_TYPES } from './shared/constants';
-import { EntitySidebarSection, EntitySidebarTab } from './shared/types';
-import { dictToQueryStringParams, getFineGrainedLineageWithSiblings, urlEncodeUrn } from './shared/utils';
+import { Entity as EntityInterface, EntityType, Exact, FeatureFlagsConfig, SearchResult } from '@types';
 
 function validatedGet<K, V>(key: K, map: Map<K, V>, def: V): V {
     if (map.has(key)) {

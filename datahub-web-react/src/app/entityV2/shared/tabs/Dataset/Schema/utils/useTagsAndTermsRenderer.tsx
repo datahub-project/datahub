@@ -1,10 +1,12 @@
 import React from 'react';
-import { EditableSchemaMetadata, EntityType, GlobalTags, SchemaField } from '../../../../../../../types.generated';
-import { useMutationUrn, useRefetch } from '../../../../../../entity/shared/EntityContext';
-import TagTermGroup from '../../../../../../sharedV2/tags/TagTermGroup';
-import { useSchemaRefetch } from '../SchemaContext';
-import useExtractFieldGlossaryTermsInfo from './useExtractFieldGlossaryTermsInfo';
-import useExtractFieldTagsInfo from './useExtractFieldTagsInfo';
+
+import { useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
+import { useSchemaRefetch } from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaContext';
+import useExtractFieldGlossaryTermsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldGlossaryTermsInfo';
+import useExtractFieldTagsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldTagsInfo';
+import TagTermGroup from '@app/sharedV2/tags/TagTermGroup';
+
+import { EditableSchemaMetadata, EntityType, GlobalTags, SchemaField } from '@types';
 
 export default function useTagsAndTermsRenderer(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,

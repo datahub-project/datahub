@@ -1,3 +1,7 @@
+import { EmbedLookupNotFoundReason } from '@app/embed/lookup/constants';
+import { Direction } from '@app/lineage/types';
+import { FilterMode } from '@app/search/utils/constants';
+
 import {
     AllowedValue,
     DataHubViewType,
@@ -7,10 +11,7 @@ import {
     PropertyValueInput,
     RecommendationRenderType,
     ScenarioType,
-} from '../../types.generated';
-import { EmbedLookupNotFoundReason } from '../embed/lookup/constants';
-import { Direction } from '../lineage/types';
-import { FilterMode } from '../search/utils/constants';
+} from '@types';
 
 /**
  * Valid event types.

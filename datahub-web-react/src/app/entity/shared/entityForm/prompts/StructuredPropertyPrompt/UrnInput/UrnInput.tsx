@@ -2,9 +2,11 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Select } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { StructuredPropertyEntity } from '../../../../../../../types.generated';
-import SelectedEntity from './SelectedEntity';
-import useUrnInput from './useUrnInput';
+
+import SelectedEntity from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/UrnInput/SelectedEntity';
+import useUrnInput from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/UrnInput/useUrnInput';
+
+import { StructuredPropertyEntity } from '@types';
 
 const EntitySelect = styled(Select)`
     width: 75%;

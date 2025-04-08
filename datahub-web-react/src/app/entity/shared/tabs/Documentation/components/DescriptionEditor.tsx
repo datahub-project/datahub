@@ -1,15 +1,17 @@
-import React, { useState, useEffect } from 'react';
 import { message } from 'antd';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
-import analytics, { EventType, EntityActionType } from '../../../../../analytics';
-import { GenericEntityUpdate } from '../../../types';
-import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '../../../EntityContext';
-import { useUpdateDescriptionMutation } from '../../../../../../graphql/mutations.generated';
-import { DiscardDescriptionModal } from './DiscardDescriptionModal';
-import { EDITED_DESCRIPTIONS_CACHE_NAME } from '../../../utils';
-import { DescriptionEditorToolbar } from './DescriptionEditorToolbar';
-import { Editor } from './editor/Editor';
-import SourceDescription from './SourceDesription';
+
+import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
+import { DescriptionEditorToolbar } from '@app/entity/shared/tabs/Documentation/components/DescriptionEditorToolbar';
+import { DiscardDescriptionModal } from '@app/entity/shared/tabs/Documentation/components/DiscardDescriptionModal';
+import SourceDescription from '@app/entity/shared/tabs/Documentation/components/SourceDesription';
+import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
+import { GenericEntityUpdate } from '@app/entity/shared/types';
+import { EDITED_DESCRIPTIONS_CACHE_NAME } from '@app/entity/shared/utils';
+
+import { useUpdateDescriptionMutation } from '@graphql/mutations.generated';
 
 const EditorContainer = styled.div`
     flex: 1;

@@ -1,12 +1,21 @@
-import React, { useEffect } from 'react';
-import { useLocation } from 'react-router';
 import { BookOpen } from '@phosphor-icons/react';
 import { isEqual } from 'lodash';
 import queryString from 'query-string';
+import React, { useEffect } from 'react';
+import { useLocation } from 'react-router';
 
-import { EntityRegistry } from '../../../../../entityRegistryContext';
-import { EntityType, FeatureFlagsConfig } from '../../../../../types.generated';
-import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
+import { GLOSSARY_ENTITY_TYPES } from '@app/entityV2/shared/constants';
+import EntitySidebarSectionsTab from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebarSectionsTab';
+import SidebarPopularityHeaderSection from '@app/entityV2/shared/containers/profile/sidebar/shared/SidebarPopularityHeaderSection';
+import {
+    PopularityTier,
+    getBarsStatusFromPopularityTier,
+} from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
+import { EntitySidebarSection, EntitySidebarTab, EntityTab } from '@app/entityV2/shared/types';
+import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
+import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
 import {
     ENTITY_PROFILE_DOMAINS_ID,
     ENTITY_PROFILE_GLOSSARY_TERMS_ID,
@@ -15,29 +24,24 @@ import {
     ENTITY_PROFILE_PROPERTIES_ID,
     ENTITY_PROFILE_TAGS_ID,
     ENTITY_PROFILE_V2_SIDEBAR_ID,
-} from '../../../../onboarding/config/EntityProfileOnboardingConfig';
+} from '@app/onboarding/config/EntityProfileOnboardingConfig';
 import {
     ENTITY_PROFILE_V2_COLUMNS_ID,
     ENTITY_PROFILE_V2_CONTENTS_ID,
     ENTITY_PROFILE_V2_DOCUMENTATION_ID,
     ENTITY_PROFILE_V2_INCIDENTS_ID,
-    ENTITY_SIDEBAR_V2_PROPERTIES_ID,
     ENTITY_PROFILE_V2_QUERIES_ID,
     ENTITY_PROFILE_V2_VALIDATION_ID,
-    ENTITY_SIDEBAR_V2_LINEAGE_TAB_ID,
-    ENTITY_SIDEBAR_V2_COLUMNS_TAB_ID,
     ENTITY_SIDEBAR_V2_ABOUT_TAB_ID,
-} from '../../../../onboarding/configV2/EntityProfileOnboardingConfig';
-import usePrevious from '../../../../shared/usePrevious';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
-import { GLOSSARY_ENTITY_TYPES } from '../../constants';
-import { useGlossaryEntityData } from '../../GlossaryEntityContext';
-import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '../../useIsSeparateSiblingsMode';
-import { EntitySidebarSection, EntitySidebarTab, EntityTab } from '../../types';
-import { GenericEntityProperties } from '../../../../entity/shared/types';
-import EntitySidebarSectionsTab from './sidebar/EntitySidebarSectionsTab';
-import SidebarPopularityHeaderSection from './sidebar/shared/SidebarPopularityHeaderSection';
-import { PopularityTier, getBarsStatusFromPopularityTier } from './sidebar/shared/utils';
+    ENTITY_SIDEBAR_V2_COLUMNS_TAB_ID,
+    ENTITY_SIDEBAR_V2_LINEAGE_TAB_ID,
+    ENTITY_SIDEBAR_V2_PROPERTIES_ID,
+} from '@app/onboarding/configV2/EntityProfileOnboardingConfig';
+import usePrevious from '@app/shared/usePrevious';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { EntityRegistry } from '@src/entityRegistryContext';
+
+import { EntityType, FeatureFlagsConfig } from '@types';
 
 /**
  * The structure of our path will be

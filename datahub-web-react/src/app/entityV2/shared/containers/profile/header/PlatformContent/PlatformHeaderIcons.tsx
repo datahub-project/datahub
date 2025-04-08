@@ -1,8 +1,10 @@
 import React from 'react';
 import styled, { CSSObject } from 'styled-components';
-import { DataPlatform } from '../../../../../../../types.generated';
-import StackPlatformImages from './StackPlatformImages';
-import PlatformIcon from '../../../../../../sharedV2/icons/PlatformIcon';
+
+import StackPlatformImages from '@app/entityV2/shared/containers/profile/header/PlatformContent/StackPlatformImages';
+import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
+
+import { DataPlatform } from '@types';
 
 const LogoIcon = styled.span`
     display: flex;

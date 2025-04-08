@@ -1,57 +1,64 @@
-import VersionsDrawer from '@app/entityV2/shared/versioning/VersionsDrawer';
-import LineageGraph from '@app/lineageV2/LineageGraph';
-import React, { useCallback, useContext, useState } from 'react';
-import { Alert } from 'antd';
 import { MutationHookOptions, MutationTuple, QueryHookOptions, QueryResult } from '@apollo/client/react/types/types';
-import useEntityState from '@src/app/entity/shared/useEntityState';
-import styled from 'styled-components/macro';
+import { Alert } from 'antd';
+import React, { useCallback, useContext, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import { matchPath } from 'react-router-dom';
-import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import styled from 'styled-components/macro';
 
-import { EntityType, Exact } from '../../../../../types.generated';
-import { useLineageV2 } from '../../../../lineageV2/useLineageV2';
-import {
-    getEntityPath,
-    getFinalSidebarTabs,
-    getOnboardingStepIdsForEntityType,
-    useRoutedTab,
-    useUpdateGlossaryEntityDataOnChange,
-    defaultTabDisplayConfig,
-} from './utils';
-import { EntityHeader } from './header/EntityHeader';
-import { EntityTabs } from './header/EntityTabs';
-import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
-import LineageExplorer from '../../../../lineage/LineageExplorer';
-import CompactContext from '../../../../shared/CompactContext';
-import DynamicTab from '../../tabs/Entity/weaklyTypedAspects/DynamicTab';
-import analytics, { EventType } from '../../../../analytics';
-import { EntityMenuItems } from '../../EntityDropdown/EntityMenuActions';
-import { useIsSeparateSiblingsMode } from '../../useIsSeparateSiblingsMode';
-import { EntityActionItem } from '../../entity/EntityActions';
-import { ErrorSection } from '../../../../shared/error/ErrorSection';
-import { EntityHead } from '../../../../shared/EntityHead';
-import { OnboardingTour } from '../../../../onboarding/OnboardingTour';
-import useGetDataForProfile from './useGetDataForProfile';
-import NonExistentEntityPage from '../../entity/NonExistentEntityPage';
-import {
-    LINEAGE_GRAPH_INTRO_ID,
-    LINEAGE_GRAPH_TIME_FILTER_ID,
-} from '../../../../onboarding/config/LineageGraphOnboardingConfig';
-import EntityProfileSidebar from './sidebar/EntityProfileSidebar';
-import { PageRoutes } from '../../../../../conf/Global';
-import EntitySidebarContext from '../../../../sharedV2/EntitySidebarContext';
-import TabFullsizeContext from '../../../../shared/TabFullsizedContext';
-import { useUpdateDomainEntityDataOnChange as useUpdateDomainEntityDataOnChangeV2 } from '../../../../domainV2/utils';
-import { EntityContext } from '../../../../entity/shared/EntityContext';
+import analytics, { EventType } from '@app/analytics';
+import { useUpdateDomainEntityDataOnChange as useUpdateDomainEntityDataOnChangeV2 } from '@app/domainV2/utils';
+import { EntityContext } from '@app/entity/shared/EntityContext';
 import {
     DrawerType,
     EntitySubHeaderSection,
     GenericEntityProperties,
     GenericEntityUpdate,
-} from '../../../../entity/shared/types';
-import { EntitySidebarSection, EntitySidebarTab, EntityTab, TabContextType, TabRenderType } from '../../types';
+} from '@app/entity/shared/types';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { EntityHeader } from '@app/entityV2/shared/containers/profile/header/EntityHeader';
+import { EntityTabs } from '@app/entityV2/shared/containers/profile/header/EntityTabs';
+import EntityProfileSidebar from '@app/entityV2/shared/containers/profile/sidebar/EntityProfileSidebar';
+import useGetDataForProfile from '@app/entityV2/shared/containers/profile/useGetDataForProfile';
+import {
+    defaultTabDisplayConfig,
+    getEntityPath,
+    getFinalSidebarTabs,
+    getOnboardingStepIdsForEntityType,
+    useRoutedTab,
+    useUpdateGlossaryEntityDataOnChange,
+} from '@app/entityV2/shared/containers/profile/utils';
+import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
+import NonExistentEntityPage from '@app/entityV2/shared/entity/NonExistentEntityPage';
+import DynamicTab from '@app/entityV2/shared/tabs/Entity/weaklyTypedAspects/DynamicTab';
+import {
+    EntitySidebarSection,
+    EntitySidebarTab,
+    EntityTab,
+    TabContextType,
+    TabRenderType,
+} from '@app/entityV2/shared/types';
+import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
+import VersionsDrawer from '@app/entityV2/shared/versioning/VersionsDrawer';
+import LineageExplorer from '@app/lineage/LineageExplorer';
+import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
+import LineageGraph from '@app/lineageV2/LineageGraph';
+import { useLineageV2 } from '@app/lineageV2/useLineageV2';
+import { OnboardingTour } from '@app/onboarding/OnboardingTour';
+import {
+    LINEAGE_GRAPH_INTRO_ID,
+    LINEAGE_GRAPH_TIME_FILTER_ID,
+} from '@app/onboarding/config/LineageGraphOnboardingConfig';
+import CompactContext from '@app/shared/CompactContext';
+import { EntityHead } from '@app/shared/EntityHead';
+import TabFullsizeContext from '@app/shared/TabFullsizedContext';
+import { ErrorSection } from '@app/shared/error/ErrorSection';
+import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { PageRoutes } from '@conf/Global';
+import useEntityState from '@src/app/entity/shared/useEntityState';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+
+import { EntityType, Exact } from '@types';
 
 type Props<T, U> = {
     urn: string;

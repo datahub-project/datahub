@@ -1,18 +1,24 @@
+import { PlusOutlined } from '@ant-design/icons';
+import { Button, Empty, List, Select, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Button, Empty, List, Select, Typography } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
-import { useGetEntityIncidentsQuery } from '../../../../../graphql/incident.generated';
-import TabToolbar from '../../components/styled/TabToolbar';
-import { useEntityData } from '../../EntityContext';
-import IncidentListItem from './components/IncidentListItem';
-import { INCIDENT_DISPLAY_STATES, PAGE_SIZE, getIncidentsStatusSummary } from './incidentUtils';
-import { EntityType, Incident, IncidentState } from '../../../../../types.generated';
-import { IncidentSummary } from './components/IncidentSummary';
-import { AddIncidentModal } from './components/AddIncidentModal';
-import { combineEntityDataWithSiblings } from '../../siblingUtils';
-import { IncidentsLoadingSection } from './components/IncidentsLoadingSection';
-import { ANTD_GRAY } from '../../constants';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { combineEntityDataWithSiblings } from '@app/entity/shared/siblingUtils';
+import { AddIncidentModal } from '@app/entity/shared/tabs/Incident/components/AddIncidentModal';
+import IncidentListItem from '@app/entity/shared/tabs/Incident/components/IncidentListItem';
+import { IncidentSummary } from '@app/entity/shared/tabs/Incident/components/IncidentSummary';
+import { IncidentsLoadingSection } from '@app/entity/shared/tabs/Incident/components/IncidentsLoadingSection';
+import {
+    INCIDENT_DISPLAY_STATES,
+    PAGE_SIZE,
+    getIncidentsStatusSummary,
+} from '@app/entity/shared/tabs/Incident/incidentUtils';
+
+import { useGetEntityIncidentsQuery } from '@graphql/incident.generated';
+import { EntityType, Incident, IncidentState } from '@types';
 
 const Header = styled.div`
     border-bottom: 1px solid ${ANTD_GRAY[3]};

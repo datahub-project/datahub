@@ -1,11 +1,13 @@
 import { Modal } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Entity, EntityPath } from '../../../types.generated';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { CompactEntityNameList } from '../../recommendations/renderer/component/CompactEntityNameList';
-import { getDisplayedColumns } from './ColumnPathsText';
-import ColumnsRelationshipText from './ColumnsRelationshipText';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { getDisplayedColumns } from '@app/preview/EntityPaths/ColumnPathsText';
+import ColumnsRelationshipText from '@app/preview/EntityPaths/ColumnsRelationshipText';
+import { CompactEntityNameList } from '@app/recommendations/renderer/component/CompactEntityNameList';
+
+import { Entity, EntityPath } from '@types';
 
 const StyledModal = styled(Modal)`
     width: 70vw;

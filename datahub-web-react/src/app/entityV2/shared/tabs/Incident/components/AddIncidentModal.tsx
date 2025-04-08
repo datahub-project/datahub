@@ -1,15 +1,21 @@
-import React, { useState } from 'react';
-import { message, Modal, Button, Form, Input, Typography, Select } from 'antd';
 import { useApolloClient } from '@apollo/client';
+import { Button, Form, Input, Modal, Select, Typography, message } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Editor } from '@src/app/entity/shared/tabs/Documentation/components/editor/Editor';
+
+import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
+import {
+    INCIDENT_DISPLAY_TYPES,
+    PAGE_SIZE,
+    updateActiveIncidentInCache,
+} from '@app/entityV2/shared/tabs/Incident/incidentUtils';
+import handleGraphQLError from '@app/shared/handleGraphQLError';
 import { ANTD_GRAY } from '@src/app/entity/shared/constants';
-import analytics, { EventType, EntityActionType } from '../../../../../analytics';
-import { EntityType, IncidentSourceType, IncidentState, IncidentType } from '../../../../../../types.generated';
-import { INCIDENT_DISPLAY_TYPES, PAGE_SIZE, updateActiveIncidentInCache } from '../incidentUtils';
-import { useRaiseIncidentMutation } from '../../../../../../graphql/mutations.generated';
-import handleGraphQLError from '../../../../../shared/handleGraphQLError';
-import { useUserContext } from '../../../../../context/useUserContext';
+import { Editor } from '@src/app/entity/shared/tabs/Documentation/components/editor/Editor';
+
+import { useRaiseIncidentMutation } from '@graphql/mutations.generated';
+import { EntityType, IncidentSourceType, IncidentState, IncidentType } from '@types';
 
 const StyledEditor = styled(Editor)`
     border: 1px solid ${ANTD_GRAY[4.5]};

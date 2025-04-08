@@ -1,28 +1,29 @@
-import React from 'react';
-import { Menu, Typography, Divider } from 'antd';
 import {
     BankOutlined,
-    SafetyCertificateOutlined,
-    UsergroupAddOutlined,
-    ToolOutlined,
-    FilterOutlined,
-    TeamOutlined,
-    PushpinOutlined,
     ControlOutlined,
+    FilterOutlined,
+    PushpinOutlined,
+    SafetyCertificateOutlined,
+    TeamOutlined,
+    ToolOutlined,
+    UsergroupAddOutlined,
 } from '@ant-design/icons';
-import { Redirect, Route, useHistory, useLocation, useRouteMatch, Switch } from 'react-router';
+import { Divider, Menu, Typography } from 'antd';
+import React from 'react';
+import { Redirect, Route, Switch, useHistory, useLocation, useRouteMatch } from 'react-router';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../entity/shared/constants';
-import { ManageIdentities } from '../identity/ManageIdentities';
-import { ManagePermissions } from '../permissions/ManagePermissions';
-import { useAppConfig } from '../useAppConfig';
-import { AccessTokens } from './AccessTokens';
-import { Preferences } from './Preferences';
-import { Features } from './features/Features';
-import { ManageViews } from '../entity/view/ManageViews';
-import { useUserContext } from '../context/useUserContext';
-import { ManageOwnership } from '../entity/ownership/ManageOwnership';
-import ManagePosts from './posts/ManagePosts';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { ManageOwnership } from '@app/entity/ownership/ManageOwnership';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { ManageViews } from '@app/entity/view/ManageViews';
+import { ManageIdentities } from '@app/identity/ManageIdentities';
+import { ManagePermissions } from '@app/permissions/ManagePermissions';
+import { AccessTokens } from '@app/settings/AccessTokens';
+import { Preferences } from '@app/settings/Preferences';
+import { Features } from '@app/settings/features/Features';
+import ManagePosts from '@app/settings/posts/ManagePosts';
+import { useAppConfig } from '@app/useAppConfig';
 
 const MenuItem = styled(Menu.Item)`
     display: flex;

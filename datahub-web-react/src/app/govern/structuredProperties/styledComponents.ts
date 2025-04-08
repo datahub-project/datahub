@@ -1,6 +1,7 @@
-import { colors, Icon, typography } from '@src/alchemy-components';
 import { Checkbox, Collapse, Divider, Drawer, Form, Modal, Select, Spin, Typography } from 'antd';
 import styled from 'styled-components';
+
+import { Icon, colors, typography } from '@src/alchemy-components';
 
 export const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     overflow: auto;

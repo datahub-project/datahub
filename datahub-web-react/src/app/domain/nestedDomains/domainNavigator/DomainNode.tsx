@@ -2,17 +2,19 @@ import { Typography } from 'antd';
 import React, { useEffect, useMemo } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
-import { Domain } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { RotatingTriangle } from '../../../shared/sidebar/components';
-import DomainIcon from '../../DomainIcon';
-import useListDomains from '../../useListDomains';
-import useToggle from '../../../shared/useToggle';
-import { BodyContainer, BodyGridExpander } from '../../../shared/components';
-import { ANTD_GRAY_V2 } from '../../../entity/shared/constants';
-import { useDomainsContext } from '../../DomainsContext';
-import { applyOpacity } from '../../../shared/styleUtils';
-import useHasDomainChildren from './useHasDomainChildren';
+
+import DomainIcon from '@app/domain/DomainIcon';
+import { useDomainsContext } from '@app/domain/DomainsContext';
+import useHasDomainChildren from '@app/domain/nestedDomains/domainNavigator/useHasDomainChildren';
+import useListDomains from '@app/domain/useListDomains';
+import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+import { BodyContainer, BodyGridExpander } from '@app/shared/components';
+import { RotatingTriangle } from '@app/shared/sidebar/components';
+import { applyOpacity } from '@app/shared/styleUtils';
+import useToggle from '@app/shared/useToggle';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Domain } from '@types';
 
 const RowWrapper = styled.div`
     align-items: center;

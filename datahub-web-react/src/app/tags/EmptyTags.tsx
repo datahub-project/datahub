@@ -1,6 +1,6 @@
+import { Empty, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Empty, Typography } from 'antd';
 
 type Props = {
     isEmptySearch: boolean;

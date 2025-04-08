@@ -1,9 +1,11 @@
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Entity } from '../../../../../../../types.generated';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import EntityIcon from '../../../../components/styled/EntityIcon';
+
+import EntityIcon from '@app/entity/shared/components/styled/EntityIcon';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Entity } from '@types';
 
 const SelectedEntityWrapper = styled.div`
     display: flex;

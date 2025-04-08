@@ -1,24 +1,26 @@
-import * as React from 'react';
 import { BookFilled, BookOutlined } from '@ant-design/icons';
-import { EntityType, GlossaryTerm, SearchResult } from '../../../types.generated';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { Preview } from './preview/Preview';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { GetGlossaryTermQuery, useGetGlossaryTermQuery } from '../../../graphql/glossaryTerm.generated';
-import { GenericEntityProperties } from '../shared/types';
-import { SchemaTab } from '../shared/tabs/Dataset/Schema/SchemaTab';
-import GlossaryRelatedEntity from './profile/GlossaryRelatedEntity';
-import GlossayRelatedTerms from './profile/GlossaryRelatedTerms';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
-import { EntityActionItem } from '../shared/entity/EntityActions';
-import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { PageRoutes } from '../../../conf/Global';
-import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
+import * as React from 'react';
+
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entity/Entity';
+import { Preview } from '@app/entity/glossaryTerm/preview/Preview';
+import GlossaryRelatedEntity from '@app/entity/glossaryTerm/profile/GlossaryRelatedEntity';
+import GlossayRelatedTerms from '@app/entity/glossaryTerm/profile/GlossaryRelatedTerms';
+import { EntityMenuItems } from '@app/entity/shared/EntityDropdown/EntityDropdown';
+import { EntityProfile } from '@app/entity/shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import { SidebarDomainSection } from '@app/entity/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import SidebarStructuredPropsSection from '@app/entity/shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
+import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
+import { EntityActionItem } from '@app/entity/shared/entity/EntityActions';
+import { SchemaTab } from '@app/entity/shared/tabs/Dataset/Schema/SchemaTab';
+import { DocumentationTab } from '@app/entity/shared/tabs/Documentation/DocumentationTab';
+import { PropertiesTab } from '@app/entity/shared/tabs/Properties/PropertiesTab';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { PageRoutes } from '@conf/Global';
+
+import { GetGlossaryTermQuery, useGetGlossaryTermQuery } from '@graphql/glossaryTerm.generated';
+import { EntityType, GlossaryTerm, SearchResult } from '@types';
 
 /**
  * Definition of the DataHub Dataset entity.

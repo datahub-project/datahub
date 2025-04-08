@@ -2,10 +2,12 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Dataset } from '../../../../../types.generated';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
-import FailingEntity from './FailingEntity';
-import { getNumAssertionsFailing } from './utils';
+
+import FailingEntity from '@app/entityV2/shared/embed/UpstreamHealth/FailingEntity';
+import { getNumAssertionsFailing } from '@app/entityV2/shared/embed/UpstreamHealth/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Dataset } from '@types';
 
 export const FailingSectionWrapper = styled.div`
     margin: 8px 0 0 34px;

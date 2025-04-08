@@ -1,20 +1,19 @@
-import React from 'react';
-
-import { Typography } from 'antd';
 import { Tooltip } from '@components';
-import styled from 'styled-components';
+import { Typography } from 'antd';
 import * as QueryString from 'query-string';
+import React from 'react';
 import { useHistory } from 'react-router';
+import styled from 'styled-components';
 
-import { useEntityType, useMatchedFieldsForList, useSearchResult } from '../../search/context/SearchResultContext';
-import { MatchedField } from '../../../types.generated';
-import { useSearchContext } from '../../search/context/SearchContext';
-import { useEntityRegistry } from '../../useEntityRegistry';
+import { SchemaFilterType } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/filterSchemaRows';
+import { useSearchContext } from '@app/search/context/SearchContext';
+import { useEntityType, useMatchedFieldsForList, useSearchResult } from '@app/search/context/SearchResultContext';
+import { GroupedMatch } from '@app/searchV2/matches/GroupedMatch';
+import { getColumnsTabUrlPath, getMatchedFieldLabel } from '@app/searchV2/matches/utils';
+import { pluralize } from '@app/shared/textUtil';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { getColumnsTabUrlPath, getMatchedFieldLabel } from './utils';
-import { pluralize } from '../../shared/textUtil';
-import { SchemaFilterType } from '../../entityV2/shared/tabs/Dataset/Schema/utils/filterSchemaRows';
-import { GroupedMatch } from './GroupedMatch';
+import { MatchedField } from '@types';
 
 const MatchesContainer = styled.div`
     display: flex;

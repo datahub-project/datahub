@@ -1,8 +1,9 @@
 // import { UserOutlined } from '@ant-design/icons';
-import styled from 'styled-components';
+import { Badge, Divider, Space, Typography } from 'antd';
 import React from 'react';
-import { Space, Badge, Typography, Divider } from 'antd';
-import CustomAvatar from '../../shared/avatar/CustomAvatar';
+import styled from 'styled-components';
+
+import CustomAvatar from '@app/shared/avatar/CustomAvatar';
 
 type Props = {
     profileSrc?: string | null;

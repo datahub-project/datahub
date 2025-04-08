@@ -1,6 +1,7 @@
-import { dataset3WithLineage, dataset3WithSchema, dataset4WithLineage } from '../../../../Mocks';
-import { EntityType, SchemaFieldDataType } from '../../../../types.generated';
-import { combineEntityDataWithSiblings, shouldEntityBeTreatedAsPrimary } from '../siblingUtils';
+import { combineEntityDataWithSiblings, shouldEntityBeTreatedAsPrimary } from '@app/entity/shared/siblingUtils';
+import { dataset3WithLineage, dataset3WithSchema, dataset4WithLineage } from '@src/Mocks';
+
+import { EntityType, SchemaFieldDataType } from '@types';
 
 const usageStats = {
     buckets: [

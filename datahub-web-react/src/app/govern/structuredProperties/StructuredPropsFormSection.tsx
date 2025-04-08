@@ -1,18 +1,24 @@
-import { Icon, SimpleSelect, Text, Tooltip } from '@src/alchemy-components';
-import { AllowedValue, PropertyCardinality, SearchResult } from '@src/types.generated';
 import { Form, FormInstance } from 'antd';
 import React from 'react';
-import AllowedValuesField from './AllowedValuesField';
-import RequiredAsterisk from './RequiredAsterisk';
-import { FieldLabel, FlexContainer, RowContainer, SubTextContainer } from './styledComponents';
-import useStructuredProp from './useStructuredProp';
+
+import AllowedValuesField from '@app/govern/structuredProperties/AllowedValuesField';
+import RequiredAsterisk from '@app/govern/structuredProperties/RequiredAsterisk';
+import {
+    FieldLabel,
+    FlexContainer,
+    RowContainer,
+    SubTextContainer,
+} from '@app/govern/structuredProperties/styledComponents';
+import useStructuredProp from '@app/govern/structuredProperties/useStructuredProp';
 import {
     APPLIES_TO_ENTITIES,
-    isEntityTypeSelected,
     PropValueField,
     SEARCHABLE_ENTITY_TYPES,
     StructuredProp,
-} from './utils';
+    isEntityTypeSelected,
+} from '@app/govern/structuredProperties/utils';
+import { Icon, SimpleSelect, Text, Tooltip } from '@src/alchemy-components';
+import { AllowedValue, PropertyCardinality, SearchResult } from '@src/types.generated';
 
 interface Props {
     selectedProperty: SearchResult | undefined;

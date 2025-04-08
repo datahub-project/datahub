@@ -1,16 +1,17 @@
-import React from 'react';
-import { Link, useHistory, useLocation } from 'react-router-dom';
-import { Breadcrumb, Row } from 'antd';
-import styled from 'styled-components';
-import { IconBaseProps } from 'react-icons/lib';
-import { VscRepoForked, VscPreview } from 'react-icons/vsc';
 import { blue, grey } from '@ant-design/colors';
+import { Breadcrumb, Row } from 'antd';
+import React from 'react';
+import { IconBaseProps } from 'react-icons/lib';
+import { VscPreview, VscRepoForked } from 'react-icons/vsc';
+import { Link, useHistory, useLocation } from 'react-router-dom';
+import styled from 'styled-components';
 
-import { PageRoutes } from '../../conf/Global';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { EntityType } from '../../types.generated';
-import { navigateToLineageUrl } from '../lineage/utils/navigateToLineageUrl';
-import useIsLineageMode from '../lineage/utils/useIsLineageMode';
+import { navigateToLineageUrl } from '@app/lineage/utils/navigateToLineageUrl';
+import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { PageRoutes } from '@conf/Global';
+
+import { EntityType } from '@types';
 
 interface Props {
     type: EntityType;

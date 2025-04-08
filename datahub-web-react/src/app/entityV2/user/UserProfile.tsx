@@ -1,29 +1,34 @@
+import { BookOpen } from '@phosphor-icons/react';
 import { Col } from 'antd';
 import React, { useContext, useState } from 'react';
-import { BookOpen } from '@phosphor-icons/react';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 import { matchPath } from 'react-router';
 import { useLocation } from 'react-router-dom';
 import styled from 'styled-components';
+
+import { EntityContext } from '@app/entity/shared/EntityContext';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import {
+    StyledEntitySidebarContainer,
+    StyledSidebar,
+} from '@app/entityV2/shared/containers/profile/sidebar/EntityProfileSidebar';
+import EntitySidebarSectionsTab from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebarSectionsTab';
+import { EntitySidebarTabs } from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebarTabs';
+import SidebarCollapsibleHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarCollapsibleHeader';
+import { UserAssets } from '@app/entityV2/user/UserAssets';
+import UserGroups from '@app/entityV2/user/UserGroups';
+import UserSideBar from '@app/entityV2/user/UserSidebar';
+import CompactContext from '@app/shared/CompactContext';
+import { EntityHead } from '@app/shared/EntityHead';
+import { RoutedTabs } from '@app/shared/RoutedTabs';
+import { ErrorSection } from '@app/shared/error/ErrorSection';
+import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { PageRoutes } from '@conf/Global';
+import colors from '@src/alchemy-components/theme/foundations/colors';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { PageRoutes } from '../../../conf/Global';
-import { useGetUserOwnedAssetsQuery, useGetUserQuery } from '../../../graphql/user.generated';
-import { EntityRelationship, EntityType } from '../../../types.generated';
-import { EntityContext } from '../../entity/shared/EntityContext';
-import { EntityHead } from '../../shared/EntityHead';
-import { GenericEntityProperties } from '../../entity/shared/types';
-import UserGroups from './UserGroups';
-import { RoutedTabs } from '../../shared/RoutedTabs';
-import { UserAssets } from './UserAssets';
-import UserSideBar from './UserSidebar';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { ErrorSection } from '../../shared/error/ErrorSection';
-import { StyledEntitySidebarContainer, StyledSidebar } from '../shared/containers/profile/sidebar/EntityProfileSidebar';
-import CompactContext from '../../shared/CompactContext';
-import { EntitySidebarTabs } from '../shared/containers/profile/sidebar/EntitySidebarTabs';
-import EntitySidebarSectionsTab from '../shared/containers/profile/sidebar/EntitySidebarSectionsTab';
-import EntitySidebarContext from '../../sharedV2/EntitySidebarContext';
-import SidebarCollapsibleHeader from '../shared/containers/profile/sidebar/SidebarCollapsibleHeader';
+
+import { useGetUserOwnedAssetsQuery, useGetUserQuery } from '@graphql/user.generated';
+import { EntityRelationship, EntityType } from '@types';
 
 export interface Props {
     urn: string;

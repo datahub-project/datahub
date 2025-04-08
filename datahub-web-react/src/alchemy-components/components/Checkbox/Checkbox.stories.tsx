@@ -1,9 +1,10 @@
-import React from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
+import React from 'react';
+
 import { GridList } from '@components/.docs/mdx-components';
-import { Checkbox, checkboxDefaults, CheckboxGroup } from './Checkbox';
-import { CheckboxProps } from './types';
-import { Heading } from '../Heading';
+import { Checkbox, CheckboxGroup, checkboxDefaults } from '@components/components/Checkbox/Checkbox';
+import { CheckboxProps } from '@components/components/Checkbox/types';
+import { Heading } from '@components/components/Heading';
 
 const MOCK_CHECKBOXES: CheckboxProps[] = [
     {

@@ -1,15 +1,17 @@
-import { RightOutlined, DownOutlined, LoadingOutlined } from '@ant-design/icons';
-import styled from 'styled-components/macro';
-import React, { useState, useEffect } from 'react';
+import { DownOutlined, LoadingOutlined, RightOutlined } from '@ant-design/icons';
 import { BookmarksSimple } from '@phosphor-icons/react';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { EntityType, GlossaryNode, GlossaryTerm } from '../../../types.generated';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { useGetGlossaryNodeQuery } from '../../../graphql/glossaryNode.generated';
-import TermItem, { TermLink as NodeLink, NameWrapper } from './TermItem';
-import { sortGlossaryNodes } from '../../entity/glossaryNode/utils';
-import { sortGlossaryTerms } from '../../entity/glossaryTerm/utils';
-import { useGlossaryEntityData } from '../../entity/shared/GlossaryEntityContext';
+import React, { useEffect, useState } from 'react';
+import styled from 'styled-components/macro';
+
+import { sortGlossaryNodes } from '@app/entity/glossaryNode/utils';
+import { sortGlossaryTerms } from '@app/entity/glossaryTerm/utils';
+import { useGlossaryEntityData } from '@app/entity/shared/GlossaryEntityContext';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import TermItem, { NameWrapper, TermLink as NodeLink } from '@app/glossary/GlossaryBrowser/TermItem';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetGlossaryNodeQuery } from '@graphql/glossaryNode.generated';
+import { EntityType, GlossaryNode, GlossaryTerm } from '@types';
 
 const ItemWrapper = styled.div`
     display: flex;

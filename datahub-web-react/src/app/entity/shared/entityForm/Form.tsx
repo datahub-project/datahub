@@ -1,21 +1,23 @@
 import React from 'react';
 import styled from 'styled-components';
-import { useEntityData } from '../EntityContext';
-import { FormPrompt } from '../../../../types.generated';
-import Prompt, { PromptWrapper } from './prompts/Prompt';
-import { ANTD_GRAY_V2 } from '../constants';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { PromptSubTitle } from './prompts/StructuredPropertyPrompt/StructuredPropertyPrompt';
-import SchemaFieldPrompts from './schemaFieldPrompts/SchemaFieldPrompts';
-import useGetPromptInfo from '../containers/profile/sidebar/FormInfo/useGetPromptInfo';
-import VerificationPrompt from './prompts/VerificationPrompt';
-import useShouldShowVerificationPrompt from './useShouldShowVerificationPrompt';
-import { getFormAssociation } from '../containers/profile/sidebar/FormInfo/utils';
-import FormRequestedBy from './FormSelectionModal/FormRequestedBy';
-import useHasComponentRendered from '../../../shared/useHasComponentRendered';
-import Loading from '../../../shared/Loading';
-import { DeferredRenderComponent } from '../../../shared/DeferredRenderComponent';
-import { Editor } from '../tabs/Documentation/components/editor/Editor';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+import useGetPromptInfo from '@app/entity/shared/containers/profile/sidebar/FormInfo/useGetPromptInfo';
+import { getFormAssociation } from '@app/entity/shared/containers/profile/sidebar/FormInfo/utils';
+import FormRequestedBy from '@app/entity/shared/entityForm/FormSelectionModal/FormRequestedBy';
+import Prompt, { PromptWrapper } from '@app/entity/shared/entityForm/prompts/Prompt';
+import { PromptSubTitle } from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/StructuredPropertyPrompt';
+import VerificationPrompt from '@app/entity/shared/entityForm/prompts/VerificationPrompt';
+import SchemaFieldPrompts from '@app/entity/shared/entityForm/schemaFieldPrompts/SchemaFieldPrompts';
+import useShouldShowVerificationPrompt from '@app/entity/shared/entityForm/useShouldShowVerificationPrompt';
+import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
+import { DeferredRenderComponent } from '@app/shared/DeferredRenderComponent';
+import Loading from '@app/shared/Loading';
+import useHasComponentRendered from '@app/shared/useHasComponentRendered';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { FormPrompt } from '@types';
 
 const TabWrapper = styled.div`
     background-color: ${ANTD_GRAY_V2[1]};

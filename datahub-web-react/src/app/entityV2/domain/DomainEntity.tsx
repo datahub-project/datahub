@@ -1,30 +1,32 @@
 import { AppstoreOutlined, FileDoneOutlined, FileOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { ListBullets } from '@phosphor-icons/react';
 import * as React from 'react';
-import { useGetDomainQuery } from '../../../graphql/domain.generated';
-import { Domain, EntityType, SearchResult } from '../../../types.generated';
-import DomainIcon from '../../domain/DomainIcon';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
-import { EntityProfileTab } from '../shared/constants';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import SidebarEntitiesSection from '../shared/containers/profile/sidebar/Domain/SidebarEntitiesSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
-import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { EntityActionItem } from '../shared/entity/EntityActions';
-import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
-import { SUMMARY_TAB_ICON } from '../shared/summary/HeaderComponents';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import DataProductsTab from './DataProductsTab/DataProductsTab';
-import { DomainEntitiesTab } from './DomainEntitiesTab';
-import { Preview } from './preview/Preview';
-import { DomainSummaryTab } from './summary/DomainSummaryTab';
-import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
+
+import DomainIcon from '@app/domain/DomainIcon';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import DataProductsTab from '@app/entityV2/domain/DataProductsTab/DataProductsTab';
+import { DomainEntitiesTab } from '@app/entityV2/domain/DomainEntitiesTab';
+import { Preview } from '@app/entityV2/domain/preview/Preview';
+import { DomainSummaryTab } from '@app/entityV2/domain/summary/DomainSummaryTab';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { EntityProfileTab } from '@app/entityV2/shared/constants';
+import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import SidebarEntitiesSection from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarEntitiesSection';
+import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
+import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
+import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
+import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
+import { SUMMARY_TAB_ICON } from '@app/entityV2/shared/summary/HeaderComponents';
+import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
+import TabNameWithCount from '@app/entityV2/shared/tabs/Entity/TabNameWithCount';
+import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+
+import { useGetDomainQuery } from '@graphql/domain.generated';
+import { Domain, EntityType, SearchResult } from '@types';
 
 const headerDropdownItems = new Set([
     EntityMenuItems.MOVE,

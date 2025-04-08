@@ -1,10 +1,12 @@
 import { Empty } from 'antd';
 import React, { useContext, useMemo } from 'react';
 import styled from 'styled-components/macro';
-import { CorpUser, Entity, LineageDirection } from '../../../types.generated';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { getEdgeId, LineageNodesContext, setDifference } from '../common';
-import EntityEdge from './EntityEdge';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { LineageNodesContext, getEdgeId, setDifference } from '@app/lineageV2/common';
+import EntityEdge from '@app/lineageV2/manualLineage/EntityEdge';
+
+import { CorpUser, Entity, LineageDirection } from '@types';
 
 const LineageEdgesWrapper = styled.div`
     padding: 0 20px 10px 20px;

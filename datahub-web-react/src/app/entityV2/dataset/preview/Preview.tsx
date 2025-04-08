@@ -1,6 +1,17 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import React from 'react';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { DatasetStatsSummary as DatasetStatsSummaryView } from '@app/entityV2/dataset/shared/DatasetStatsSummary';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
+import { DatasetLastUpdatedMs, summaryHasStats } from '@app/entityV2/shared/utils';
+import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
 import {
+    BrowsePathV2,
     Container,
     DataProduct,
     DatasetStatsSummary,
@@ -16,16 +27,7 @@ import {
     Owner,
     ParentContainersResult,
     SearchInsight,
-    BrowsePathV2,
-} from '../../../../types.generated';
-import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType, PreviewType } from '../../Entity';
-import { ANTD_GRAY } from '../../shared/constants';
-import { PopularityTier } from '../../shared/containers/profile/sidebar/shared/utils';
-import { summaryHasStats, DatasetLastUpdatedMs } from '../../shared/utils';
-import { DatasetStatsSummary as DatasetStatsSummaryView } from '../shared/DatasetStatsSummary';
-import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
+} from '@types';
 
 export const Preview = ({
     urn,

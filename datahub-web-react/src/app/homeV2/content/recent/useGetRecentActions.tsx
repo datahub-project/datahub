@@ -1,6 +1,7 @@
-import { useListRecommendationsQuery } from '../../../../graphql/recommendations.generated';
-import { CorpUser, Entity, EntityType, ScenarioType } from '../../../../types.generated';
-import { ASSET_ENTITY_TYPES } from '../../../searchV2/utils/constants';
+import { ASSET_ENTITY_TYPES } from '@app/searchV2/utils/constants';
+
+import { useListRecommendationsQuery } from '@graphql/recommendations.generated';
+import { CorpUser, Entity, EntityType, ScenarioType } from '@types';
 
 const SUPPORTED_ENTITY_TYPES = [
     ...ASSET_ENTITY_TYPES,

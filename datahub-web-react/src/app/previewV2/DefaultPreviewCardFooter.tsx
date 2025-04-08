@@ -1,24 +1,17 @@
+import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Divider } from 'antd';
-import Pills from './Pills';
-import { REDESIGN_COLORS } from '../entityV2/shared/constants';
-import { PopularityTier } from '../entityV2/shared/containers/profile/sidebar/shared/utils';
-import {
-    DatasetStatsSummary,
-    EntityPath,
-    EntityType,
-    GlobalTags,
-    GlossaryTerms,
-    Maybe,
-    Owner,
-} from '../../types.generated';
-import { EntityCapabilityType, PreviewType } from '../entityV2/Entity';
-import PreviewCardFooterRightSection from './PreviewCardFooterRightSection';
-import EntityRegistry from '../entityV2/EntityRegistry';
-import { entityHasCapability } from './utils';
 
-import { DatasetLastUpdatedMs, DashboardLastUpdatedMs } from '../entityV2/shared/utils';
+import { EntityCapabilityType, PreviewType } from '@app/entityV2/Entity';
+import EntityRegistry from '@app/entityV2/EntityRegistry';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
+import { DashboardLastUpdatedMs, DatasetLastUpdatedMs } from '@app/entityV2/shared/utils';
+import Pills from '@app/previewV2/Pills';
+import PreviewCardFooterRightSection from '@app/previewV2/PreviewCardFooterRightSection';
+import { entityHasCapability } from '@app/previewV2/utils';
+
+import { DatasetStatsSummary, EntityPath, EntityType, GlobalTags, GlossaryTerms, Maybe, Owner } from '@types';
 
 interface DefaultPreviewCardFooterProps {
     glossaryTerms?: GlossaryTerms;

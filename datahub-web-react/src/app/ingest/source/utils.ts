@@ -7,13 +7,15 @@ import {
     WarningOutlined,
 } from '@ant-design/icons';
 import YAML from 'yamljs';
-import { ListIngestionSourcesDocument, ListIngestionSourcesQuery } from '../../../graphql/ingestion.generated';
-import { EntityType, ExecutionRequestResult, FacetMetadata } from '../../../types.generated';
-import EntityRegistry from '../../entity/EntityRegistry';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../entity/shared/constants';
-import { capitalizeFirstLetterOnly, pluralize } from '../../shared/textUtil';
-import { SourceConfig } from './builder/types';
-import { StructuredReport, StructuredReportLogEntry, StructuredReportItemLevel } from './types';
+
+import EntityRegistry from '@app/entity/EntityRegistry';
+import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entity/shared/constants';
+import { SourceConfig } from '@app/ingest/source/builder/types';
+import { StructuredReport, StructuredReportItemLevel, StructuredReportLogEntry } from '@app/ingest/source/types';
+import { capitalizeFirstLetterOnly, pluralize } from '@app/shared/textUtil';
+
+import { ListIngestionSourcesDocument, ListIngestionSourcesQuery } from '@graphql/ingestion.generated';
+import { EntityType, ExecutionRequestResult, FacetMetadata } from '@types';
 
 export const getSourceConfigs = (ingestionSources: SourceConfig[], sourceType: string) => {
     const sourceConfigs = ingestionSources.find((source) => source.name === sourceType);

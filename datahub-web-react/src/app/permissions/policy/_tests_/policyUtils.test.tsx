@@ -1,12 +1,13 @@
-import { PolicyMatchCondition } from '../../../../types.generated';
 import {
     addOrUpdatePoliciesInList,
-    updateListPoliciesCache,
-    removeFromListPoliciesCache,
-    getFieldValues,
     getFieldCondition,
+    getFieldValues,
+    removeFromListPoliciesCache,
     setFieldValues,
-} from '../policyUtils';
+    updateListPoliciesCache,
+} from '@app/permissions/policy/policyUtils';
+
+import { PolicyMatchCondition } from '@types';
 
 // Mock the Apollo Client readQuery and writeQuery methods
 const mockReadQuery = vi.fn();

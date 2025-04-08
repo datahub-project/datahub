@@ -1,8 +1,7 @@
-import { Button, Icon, Input, Text, TextArea } from '@src/alchemy-components';
-import { AllowedValue } from '@src/types.generated';
-import { Form, FormInstance } from 'antd';
 import { Tooltip } from '@components';
+import { Form, FormInstance } from 'antd';
 import React, { useEffect, useRef } from 'react';
+
 import {
     AddButtonContainer,
     DeleteIconContainer,
@@ -11,8 +10,10 @@ import {
     InputLabel,
     StyledDivider,
     ValuesContainer,
-} from './styledComponents';
-import { PropValueField } from './utils';
+} from '@app/govern/structuredProperties/styledComponents';
+import { PropValueField } from '@app/govern/structuredProperties/utils';
+import { Button, Icon, Input, Text, TextArea } from '@src/alchemy-components';
+import { AllowedValue } from '@src/types.generated';
 
 interface Props {
     showAllowedValuesDrawer: boolean;

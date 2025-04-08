@@ -2,12 +2,18 @@ import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { InputProps } from './types';
-
-import { ErrorMessage, InputContainer, InputField, InputWrapper, Label, Required, WarningMessage } from './components';
-
-import { Icon } from '../Icon';
-import { getInputType } from './utils';
+import { Icon } from '@components/components/Icon';
+import {
+    ErrorMessage,
+    InputContainer,
+    InputField,
+    InputWrapper,
+    Label,
+    Required,
+    WarningMessage,
+} from '@components/components/Input/components';
+import { InputProps } from '@components/components/Input/types';
+import { getInputType } from '@components/components/Input/utils';
 
 export const inputDefaults: InputProps = {
     value: '',
