@@ -200,7 +200,7 @@ class MLflowSource(StatefulIngestionSourceBase):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # yield from self._get_tags_workunits()
-        yield from self._get_experiment_workunits()
+        # yield from self._get_experiment_workunits()
         yield from self._get_ml_model_workunits()
 
     def _get_tags_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -699,9 +699,8 @@ class MLflowSource(StatefulIngestionSourceBase):
         """
         registered_models = self._get_mlflow_registered_models()
         for i, registered_model in enumerate(registered_models):
-            logger.info(f"!!! {i} registered model name: {registered_model.name}")
+            logger.info(f"!!! {i+1} registered model name: {registered_model.name}")
             version_set_urn = self._get_version_set_urn(registered_model)
-            logger.info(f"!!! version set urn: {version_set_urn}")
             model_versions = self._get_mlflow_model_versions(registered_model)
             for model_version in model_versions:
                 logger.info(f"!!! model version: {model_version.version}")
