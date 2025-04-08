@@ -196,7 +196,7 @@ class MLflowSource(StatefulIngestionSourceBase):
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        yield from self._get_tags_workunits()
+        # yield from self._get_tags_workunits()
         yield from self._get_experiment_workunits()
         yield from self._get_ml_model_workunits()
 
@@ -233,7 +233,6 @@ class MLflowSource(StatefulIngestionSourceBase):
 
     def _get_experiment_workunits(self) -> Iterable[MetadataWorkUnit]:
         experiments = self._get_mlflow_experiments()
-        logger.info(f"!!! total {len(list(experiments))} experiments")
         for experiment in experiments:
             # yield from self._get_experiment_container_workunit(experiment)
         
@@ -693,17 +692,24 @@ class MLflowSource(StatefulIngestionSourceBase):
 
     def _get_ml_model_workunits(self) -> Iterable[MetadataWorkUnit]:
         registered_models = self._get_mlflow_registered_models()
-        logger.info(f"!!! total {len(list(registered_models))} registered models")
-        logger.info("iterating over registered models")
-        for registered_model in registered_models:
-            logger.info(f"!!! registered model name: {registered_model.name}")
+        for i, registered_model in enumerate(registered_models):
+            logger.info(f"!!! {i} registered model name: {registered_model.name}")
             version_set_urn = self._get_version_set_urn(registered_model)
             logger.info(f"!!! version set urn: {version_set_urn}")
             model_versions = self._get_mlflow_model_versions(registered_model)
-            logger.info(f"!!! total {len(model_versions)} model versions")
             for model_version in model_versions:
+                logger.info(f"!!! model version: {model_version.version}")
                 run = self._get_mlflow_run(model_version)
-        # Return empty iterable since we don't want to emit events
+                # yield self._get_ml_model_properties_workunit(
+                #     registered_model=registered_model,
+                #     model_version=model_version,
+                #     run=run,
+                # )
+                # yield self._get_ml_model_version_properties_workunit(
+                #     model_version=model_version,
+                #     version_set_urn=version_set_urn,
+                # )
+                # yield self._get_global_tags_workunit(model_version=model_version)
         return iter([])
 
     def _get_version_set_urn(self, registered_model: RegisteredModel) -> VersionSetUrn:
