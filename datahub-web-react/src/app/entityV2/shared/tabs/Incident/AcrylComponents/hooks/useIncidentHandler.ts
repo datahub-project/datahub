@@ -128,7 +128,6 @@ export const useIncidentHandler = ({
 
     const finalizeSubmission = () => {
         onSubmit?.();
-        onClose?.();
     };
 
     const handleSubmissionError = (error: any) => {

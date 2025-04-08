@@ -48,9 +48,7 @@ const getIncidentGroupTypeIcon = () => {
 };
 
 const mapLinkedAssetData = (incident) => {
-    return incident?.linkedAssets?.relationships
-        ?.filter((item) => item.entity?.properties !== null)
-        .map((item) => item.entity);
+    return incident?.linkedAssets?.relationships.map((item) => item.entity);
 };
 
 const mapIncidentData = (incidents: Incident[]): IncidentTableRow[] => {

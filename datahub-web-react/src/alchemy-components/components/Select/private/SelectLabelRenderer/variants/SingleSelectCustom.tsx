@@ -17,7 +17,7 @@ export default function SingleSelectCustom({
     renderCustomSelectedValue,
 }: SelectLabelVariantProps) {
     return (
-        <LabelsWrapper>
+        <LabelsWrapper shouldShowGap={false}>
             {!selectedValues?.length && <Placeholder>{placeholder}</Placeholder>}
             {!isMultiSelect && !!selectedValues?.length && (
                 <>

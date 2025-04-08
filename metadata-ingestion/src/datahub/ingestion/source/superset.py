@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import lru_cache
@@ -100,6 +101,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
 from datahub.utilities import config_clean
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -208,6 +210,11 @@ class SupersetConfig(
 
     timeout: int = Field(
         default=10, description="Timeout of single API call to superset."
+    )
+
+    max_threads: int = Field(
+        default_factory=lambda: os.cpu_count() or 40,
+        description="Max parallelism for API calls. Defaults to cpuCount or 40",
     )
 
     # TODO: Check and remove this if no longer needed.
@@ -339,6 +346,7 @@ class SupersetSource(StatefulIngestionSourceBase):
 
             if response.status_code != 200:
                 logger.warning(f"Failed to get {entity_type} data: {response.text}")
+                continue
 
             payload = response.json()
             # Update total_items with the actual count from the response
@@ -501,33 +509,41 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         return dashboard_snapshot
 
-    def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
-        for dashboard_data in self.paginate_entity_api_results("dashboard/", PAGE_SIZE):
-            try:
-                dashboard_id = str(dashboard_data.get("id"))
-                dashboard_title = dashboard_data.get("dashboard_title", "")
-
-                if not self.config.dashboard_pattern.allowed(dashboard_title):
-                    self.report.report_dropped(
-                        f"Dashboard '{dashboard_title}' (id: {dashboard_id}) filtered by dashboard_pattern"
-                    )
-                    continue
-
-                dashboard_snapshot = self.construct_dashboard_from_api_data(
-                    dashboard_data
+    def _process_dashboard(self, dashboard_data: Any) -> Iterable[MetadataWorkUnit]:
+        dashboard_title = ""
+        try:
+            dashboard_id = str(dashboard_data.get("id"))
+            dashboard_title = dashboard_data.get("dashboard_title", "")
+            if not self.config.dashboard_pattern.allowed(dashboard_title):
+                self.report.report_dropped(
+                    f"Dashboard '{dashboard_title}' (id: {dashboard_id}) filtered by dashboard_pattern"
                 )
-            except Exception as e:
-                self.report.warning(
-                    f"Failed to construct dashboard snapshot. Dashboard name: {dashboard_data.get('dashboard_title')}. Error: \n{e}"
-                )
-                continue
-            # Emit the dashboard
-            mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
-            yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
-            yield from self._get_domain_wu(
-                title=dashboard_title,
-                entity_urn=dashboard_snapshot.urn,
+                return
+            dashboard_snapshot = self.construct_dashboard_from_api_data(dashboard_data)
+        except Exception as e:
+            self.report.warning(
+                f"Failed to construct dashboard snapshot. Dashboard name: {dashboard_data.get('dashboard_title')}. Error: \n{e}"
             )
+            return
+        mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
+        yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
+        yield from self._get_domain_wu(
+            title=dashboard_title, entity_urn=dashboard_snapshot.urn
+        )
+
+    def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
+        dashboard_data_list = [
+            (dashboard_data,)
+            for dashboard_data in self.paginate_entity_api_results(
+                "dashboard/", PAGE_SIZE
+            )
+        ]
+
+        yield from ThreadedIteratorExecutor.process(
+            worker_func=self._process_dashboard,
+            args_list=dashboard_data_list,
+            max_workers=self.config.max_threads,
+        )
 
     def build_input_fields(
         self,
@@ -762,40 +778,46 @@ class SupersetSource(StatefulIngestionSourceBase):
             entity_urn=chart_urn,
         )
 
-    def emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
-        for chart_data in self.paginate_entity_api_results("chart/", PAGE_SIZE):
-            try:
-                chart_id = str(chart_data.get("id"))
-                chart_name = chart_data.get("slice_name", "")
-
-                if not self.config.chart_pattern.allowed(chart_name):
-                    self.report.report_dropped(
-                        f"Chart '{chart_name}' (id: {chart_id}) filtered by chart_pattern"
-                    )
-                    continue
-
-                # Emit a warning if charts use data from a dataset that will be filtered out
-                if self.config.dataset_pattern != AllowDenyPattern.allow_all():
-                    datasource_id = chart_data.get("datasource_id")
-                    if datasource_id:
-                        dataset_response = self.get_dataset_info(datasource_id)
-                        dataset_name = dataset_response.get("result", {}).get(
-                            "table_name", ""
-                        )
-
-                        if dataset_name and not self.config.dataset_pattern.allowed(
-                            dataset_name
-                        ):
-                            self.report.warning(
-                                f"Chart '{chart_name}' (id: {chart_id}) uses dataset '{dataset_name}' which is filtered by dataset_pattern"
-                            )
-
-                yield from self.construct_chart_from_chart_data(chart_data)
-            except Exception as e:
-                self.report.warning(
-                    f"Failed to construct chart snapshot. Chart name: {chart_name}. Error: \n{e}"
+    def _process_chart(self, chart_data: Any) -> Iterable[MetadataWorkUnit]:
+        chart_name = ""
+        try:
+            chart_id = str(chart_data.get("id"))
+            chart_name = chart_data.get("slice_name", "")
+            if not self.config.chart_pattern.allowed(chart_name):
+                self.report.report_dropped(
+                    f"Chart '{chart_name}' (id: {chart_id}) filtered by chart_pattern"
                 )
-                continue
+                return
+            if self.config.dataset_pattern != AllowDenyPattern.allow_all():
+                datasource_id = chart_data.get("datasource_id")
+                if datasource_id:
+                    dataset_response = self.get_dataset_info(datasource_id)
+                    dataset_name = dataset_response.get("result", {}).get(
+                        "table_name", ""
+                    )
+                    if dataset_name and not self.config.dataset_pattern.allowed(
+                        dataset_name
+                    ):
+                        self.report.warning(
+                            f"Chart '{chart_name}' (id: {chart_id}) uses dataset '{dataset_name}' which is filtered by dataset_pattern"
+                        )
+            yield from self.construct_chart_from_chart_data(chart_data)
+        except Exception as e:
+            self.report.warning(
+                f"Failed to construct chart snapshot. Chart name: {chart_name}. Error: \n{e}"
+            )
+            return
+
+    def emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
+        chart_data_list = [
+            (chart_data,)
+            for chart_data in self.paginate_entity_api_results("chart/", PAGE_SIZE)
+        ]
+        yield from ThreadedIteratorExecutor.process(
+            worker_func=self._process_chart,
+            args_list=chart_data_list,
+            max_workers=self.config.max_threads,
+        )
 
     def gen_schema_fields(self, column_data: List[Dict[str, str]]) -> List[SchemaField]:
         schema_fields: List[SchemaField] = []
@@ -1023,33 +1045,38 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         return dataset_snapshot
 
-    def emit_dataset_mces(self) -> Iterable[MetadataWorkUnit]:
-        for dataset_data in self.paginate_entity_api_results("dataset/", PAGE_SIZE):
-            try:
-                dataset_name = dataset_data.get("table_name", "")
-
-                # Check if dataset should be filtered by dataset name
-                if not self.config.dataset_pattern.allowed(dataset_name):
-                    self.report.report_dropped(
-                        f"Dataset '{dataset_name}' filtered by dataset_pattern"
-                    )
-                    continue
-
-                dataset_snapshot = self.construct_dataset_from_dataset_data(
-                    dataset_data
+    def _process_dataset(self, dataset_data: Any) -> Iterable[MetadataWorkUnit]:
+        dataset_name = ""
+        try:
+            dataset_name = dataset_data.get("table_name", "")
+            if not self.config.dataset_pattern.allowed(dataset_name):
+                self.report.report_dropped(
+                    f"Dataset '{dataset_name}' filtered by dataset_pattern"
                 )
-                mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-            except Exception as e:
-                self.report.warning(
-                    f"Failed to construct dataset snapshot. Dataset name: {dataset_data.get('table_name')}. Error: \n{e}"
-                )
-                continue
-            # Emit the dataset
-            yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
-            yield from self._get_domain_wu(
-                title=dataset_data.get("table_name", ""),
-                entity_urn=dataset_snapshot.urn,
+                return
+            dataset_snapshot = self.construct_dataset_from_dataset_data(dataset_data)
+            mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        except Exception as e:
+            self.report.warning(
+                f"Failed to construct dataset snapshot. Dataset name: {dataset_data.get('table_name')}. Error: \n{e}"
             )
+            return
+        yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
+        yield from self._get_domain_wu(
+            title=dataset_data.get("table_name", ""),
+            entity_urn=dataset_snapshot.urn,
+        )
+
+    def emit_dataset_mces(self) -> Iterable[MetadataWorkUnit]:
+        dataset_data_list = [
+            (dataset_data,)
+            for dataset_data in self.paginate_entity_api_results("dataset/", PAGE_SIZE)
+        ]
+        yield from ThreadedIteratorExecutor.process(
+            worker_func=self._process_dataset,
+            args_list=dataset_data_list,
+            max_workers=self.config.max_threads,
+        )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.config.ingest_dashboards:

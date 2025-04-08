@@ -174,6 +174,7 @@ export const SearchSelect = ({
                     onSearch={onSearch}
                     onQueryChange={onSearch}
                     entityRegistry={entityRegistry}
+                    hideRecommendations
                 />
                 <SearchSortSelect selectedSortOption={sortOption} setSelectedSortOption={setSortOption} />
             </SearchBarContainer>

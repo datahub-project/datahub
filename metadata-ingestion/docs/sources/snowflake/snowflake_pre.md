@@ -81,7 +81,7 @@ To set up Key Pair authentication, follow the three steps in [this guide](https:
   - Generate the public key
   - Assign the public key to datahub user to be configured in recipe.
 
-Pass in the following values in recipe config instead of password:
+Pass in the following values in recipe config instead of password, ensuring the private key maintains proper PEM format with line breaks at the beginning, end, and approximately every 64 characters within the key:
 ```yml
 authentication_type: KEY_PAIR_AUTHENTICATOR
 private_key: <Private key in a form of '-----BEGIN PRIVATE KEY-----\nprivate-key\n-----END PRIVATE KEY-----'>
