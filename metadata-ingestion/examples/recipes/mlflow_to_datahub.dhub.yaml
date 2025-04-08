@@ -1,12 +1,9 @@
 source:
   type: mlflow
   config:
-    tracking_uri: "http://127.0.0.1:5050"
+    tracking_uri: "http://127.0.0.1:5000"
 
 sink:
-  type: file
+  type: datahub-rest
   config:
-    filename: "mlflow_to_datahub.json"
-  # type: datahub-rest
-  # config:
-  #   server: "http://localhost:8080"
+    server: "http://localhost:8080"
