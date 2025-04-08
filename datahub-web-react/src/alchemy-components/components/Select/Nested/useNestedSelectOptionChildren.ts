@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { SelectOption } from './types';
+import { NestedSelectOption } from './types';
 
-function getChildrenRecursively(
-    directChildren: SelectOption[],
-    parentValueToOptions: { [parentValue: string]: SelectOption[] },
+function getChildrenRecursively<OptionType extends NestedSelectOption>(
+    directChildren: OptionType[],
+    parentValueToOptions: { [parentValue: string]: OptionType[] },
 ) {
     const visitedParents = new Set<string>();
-    let allChildren: SelectOption[] = [];
+    let allChildren: OptionType[] = [];
 
     function getChildren(parentValue: string) {
         const newChildren = parentValueToOptions[parentValue] || [];
@@ -24,19 +24,19 @@ function getChildrenRecursively(
     return allChildren;
 }
 
-interface Props {
-    option: SelectOption;
-    parentValueToOptions: { [parentValue: string]: SelectOption[] };
+interface Props<OptionType extends NestedSelectOption> {
+    option: OptionType;
+    parentValueToOptions: { [parentValue: string]: OptionType[] };
     areParentsSelectable: boolean;
-    addOptions: (nodes: SelectOption[]) => void;
+    addOptions: (nodes: OptionType[]) => void;
 }
 
-export default function useNestedSelectOptionChildren({
+export default function useNestedSelectOptionChildren<OptionType extends NestedSelectOption>({
     option,
     parentValueToOptions,
     areParentsSelectable,
     addOptions,
-}: Props) {
+}: Props<OptionType>) {
     const [autoSelectChildren, setAutoSelectChildren] = useState(false);
 
     const directChildren = useMemo(

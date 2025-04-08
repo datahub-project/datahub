@@ -87,6 +87,28 @@ class TestHexQueryFetcherExtractHexMetadata(unittest.TestCase):
         result = self.fetcher._extract_hex_metadata(sql)
         assert result is None
 
+    def test_extract_hex_metadata_with_non_scheduled_run(self):
+        sql = """
+        select * 
+        from "LONG_TAIL_COMPANIONS"."ANALYTICS"."PET_DETAILS" 
+        limit 100
+        -- Hex query metadata: {"categories": ["Scratchpad"], "cell_type": "SQL", "connection": "Long Tail Companions", "context": "LOGICAL_VIEW", "project_id": "d73da67d-c87b-4dd8-9e7f-b79cb7f822cf", "project_name": "PlayNotebook", "project_url": "https://app.hex.tech/some-hex-workspace/hex/d73da67d-c87b-4dd8-9e7f-b79cb7f822cf/draft/logic?selectedCellId=67c38da0-e631-4005-9750-5bdae2a2ef3f", "status": "In development", "trace_id": "f316f99947454a7e8aff2947f848f73d", "user_email": "alice@mail.com"}
+        """
+
+        result = self.fetcher._extract_hex_metadata(sql)
+        assert result is None
+
+    def test_extract_hex_metadata_with_missing_context(self):
+        sql = """
+        select * 
+        from "LONG_TAIL_COMPANIONS"."ANALYTICS"."PET_DETAILS" 
+        limit 100
+        -- Hex query metadata: {"categories": ["Scratchpad"], "cell_type": "SQL", "connection": "Long Tail Companions", "project_id": "d73da67d-c87b-4dd8-9e7f-b79cb7f822cf", "project_name": "PlayNotebook", "project_url": "https://app.hex.tech/some-hex-workspace/hex/d73da67d-c87b-4dd8-9e7f-b79cb7f822cf/draft/logic?selectedCellId=67c38da0-e631-4005-9750-5bdae2a2ef3f", "status": "In development", "trace_id": "f316f99947454a7e8aff2947f848f73d", "user_email": "alice@mail.com"}
+        """
+
+        result = self.fetcher._extract_hex_metadata(sql)
+        assert result is None
+
     def test_extract_hex_metadata_with_invalid_json(self):
         # invalid JSON in Hex metadata
         sql = """
@@ -157,13 +179,13 @@ class TestHexQueryFetcherExtractHexMetadata(unittest.TestCase):
         # complex workspace names and paths
         urls_to_test = [
             # URL with hyphens in workspace name
-            """{"project_id": "123", "project_url": "https://app.hex.tech/my-complex-workspace-name/hex/project-id"}""",
+            """{"context": "SCHEDULED_RUN", "project_id": "123", "project_url": "https://app.hex.tech/my-complex-workspace-name/hex/project-id"}""",
             # URL with underscores
-            """{"project_id": "123", "project_url": "https://app.hex.tech/workspace_with_underscores/hex/project-id"}""",
+            """{"context": "SCHEDULED_RUN", "project_id": "123", "project_url": "https://app.hex.tech/workspace_with_underscores/hex/project-id"}""",
             # URL with special chars in domain
-            """{"project_id": "123", "project_url": "https://my-custom-subdomain.hex.tech/some-hex-workspace/hex/project-id"}""",
+            """{"context": "SCHEDULED_RUN", "project_id": "123", "project_url": "https://my-custom-subdomain.hex.tech/some-hex-workspace/hex/project-id"}""",
             # URL with long path after /hex/
-            """{"project_id": "123", "project_url": "https://app.hex.tech/some-hex-workspace/hex/project-id/draft/logic?selectedCellId=67c38da0-e631"}""",
+            """{"context": "SCHEDULED_RUN", "project_id": "123", "project_url": "https://app.hex.tech/some-hex-workspace/hex/project-id/draft/logic?selectedCellId=67c38da0-e631"}""",
         ]
 
         expected_workspaces = [
@@ -226,7 +248,7 @@ class TestHexQueryFetcherFetch(unittest.TestCase):
                     created=AuditStampClass._construct_with_defaults(),
                     lastModified=AuditStampClass._construct_with_defaults(),
                     statement=QueryStatementClass(
-                        value="""SELECT * FROM table -- Hex query metadata: {"project_id": "project1", "project_url": "https://app.hex.tech/workspace1/hex/project1"}"""
+                        value="""SELECT * FROM table -- Hex query metadata: {"context": "SCHEDULED_RUN", "project_id": "project1", "project_url": "https://app.hex.tech/workspace1/hex/project1"}"""
                     ),
                     source=HEX_PLATFORM_URN.urn(),
                 ),
@@ -242,7 +264,7 @@ class TestHexQueryFetcherFetch(unittest.TestCase):
                     created=AuditStampClass._construct_with_defaults(),
                     lastModified=AuditStampClass._construct_with_defaults(),
                     statement=QueryStatementClass(
-                        value="""SELECT * FROM table -- Hex query metadata: {"project_id": "project2", "project_url": "https://app.hex.tech/workspace1/hex/project2"}"""
+                        value="""SELECT * FROM table -- Hex query metadata: {"context": "SCHEDULED_RUN", "project_id": "project2", "project_url": "https://app.hex.tech/workspace1/hex/project2"}"""
                     ),
                     source=HEX_PLATFORM_URN.urn(),
                 ),
@@ -310,7 +332,7 @@ class TestHexQueryFetcherFetch(unittest.TestCase):
     ):
         # force not match in query_urn_2
         self.entities_data[self.query_urn_2][0].statement.value = (  # type: ignore
-            """SELECT * FROM table -- Hex query metadata: {"project_id": "project1", "project_url": "https://app.hex.tech/YET_ANOTHER_WORKSPACE/hex/project1"}"""
+            """SELECT * FROM table -- Hex query metadata: {"context": "SCHEDULED_RUN", "project_id": "project1", "project_url": "https://app.hex.tech/YET_ANOTHER_WORKSPACE/hex/project1"}"""
         )
         mock_fetch_query_urns.return_value = [self.query_urn_1]
         mock_fetch_query_entities.return_value = self.entities_data
