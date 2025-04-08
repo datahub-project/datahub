@@ -1,6 +1,7 @@
+import { useMemo } from 'react';
+
 import { useGetEntities } from '@src/app/sharedV2/useGetEntities';
 import { Entity } from '@src/types.generated';
-import { useMemo } from 'react';
 
 export function useHydratedEntityMap(urns?: (string | undefined | null)[]) {
     // Get unique URNs

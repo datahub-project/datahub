@@ -1,5 +1,5 @@
+import { getDocumentationString } from '@app/entityV2/shared/tabs/Dataset/Schema/history/changeEventToString';
 import { ChangeCategoryType, ChangeEvent, ChangeOperationType } from '@src/types.generated';
-import { getDocumentationString } from '../changeEventToString';
 
 describe('getDocumentationString', () => {
     describe('Technical Schema Changes', () => {

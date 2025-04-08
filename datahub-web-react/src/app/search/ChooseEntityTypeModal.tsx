@@ -1,7 +1,9 @@
 import { Button, Modal, Select } from 'antd';
 import React, { useState } from 'react';
-import { EntityType } from '../../types.generated';
-import { useEntityRegistry } from '../useEntityRegistry';
+
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType } from '@types';
 
 type Props = {
     onCloseModal: () => void;

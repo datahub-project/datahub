@@ -1,5 +1,9 @@
 import React, { useContext, useMemo } from 'react';
-import { DEFAULT_OVERLAY_CLASS_NAME, NESTED_OVERLAY_CLASS_NAME_SUFFIX } from './constants';
+
+import {
+    DEFAULT_OVERLAY_CLASS_NAME,
+    NESTED_OVERLAY_CLASS_NAME_SUFFIX,
+} from '@components/components/Utils/OverlayClassContext/constants';
 
 export const OverlayClassStackContext = React.createContext<string[]>([]);
 

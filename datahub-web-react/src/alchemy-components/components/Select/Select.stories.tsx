@@ -1,11 +1,12 @@
-import { GridList } from '@components/.docs/mdx-components';
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
-import { Select, selectDefaults } from './Select';
-import { SimpleSelect } from './SimpleSelect';
-import { SelectSizeOptions } from './types';
-import { AVAILABLE_ICONS } from '../Icon';
+
+import { GridList } from '@components/.docs/mdx-components';
+import { AVAILABLE_ICONS } from '@components/components/Icon';
+import { Select, selectDefaults } from '@components/components/Select/Select';
+import { SimpleSelect } from '@components/components/Select/SimpleSelect';
+import { SelectSizeOptions } from '@components/components/Select/types';
 
 // Auto Docs
 const meta: Meta = {

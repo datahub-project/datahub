@@ -1,6 +1,5 @@
-import { GetEntityIncidentsDocument } from '../../../../../graphql/incident.generated';
-
-import { IncidentType, IncidentState, Incident } from '../../../../../types.generated';
+import { GetEntityIncidentsDocument } from '@graphql/incident.generated';
+import { Incident, IncidentState, IncidentType } from '@types';
 
 export const PAGE_SIZE = 100;
 

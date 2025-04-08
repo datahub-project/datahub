@@ -2,16 +2,22 @@ import { Tooltip, Typography } from 'antd';
 import { SelectValue } from 'antd/lib/select';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { useGetAssertionRunsLazyQuery } from '../../../../../../graphql/assertion.generated';
-import { AssertionResultType, AssertionRunStatus } from '../../../../../../types.generated';
-import { formatNumber } from '../../../../../shared/formatNumber';
-import { getFixedLookbackWindow, getLocaleTimezone } from '../../../../../shared/time/timeUtils';
-import { ANTD_GRAY } from '../../../constants';
-import PrefixedSelect from '../Stats/historical/shared/PrefixedSelect';
-import { LOOKBACK_WINDOWS } from '../Stats/lookbackWindows';
-import { getResultColor, getResultIcon, getResultText } from './assertionUtils';
-import { BooleanTimeline } from './BooleanTimeline';
-import { DatasetAssertionResultDetails } from './DatasetAssertionResultDetails';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import PrefixedSelect from '@app/entity/shared/tabs/Dataset/Stats/historical/shared/PrefixedSelect';
+import { LOOKBACK_WINDOWS } from '@app/entity/shared/tabs/Dataset/Stats/lookbackWindows';
+import { BooleanTimeline } from '@app/entity/shared/tabs/Dataset/Validations/BooleanTimeline';
+import { DatasetAssertionResultDetails } from '@app/entity/shared/tabs/Dataset/Validations/DatasetAssertionResultDetails';
+import {
+    getResultColor,
+    getResultIcon,
+    getResultText,
+} from '@app/entity/shared/tabs/Dataset/Validations/assertionUtils';
+import { formatNumber } from '@app/shared/formatNumber';
+import { getFixedLookbackWindow, getLocaleTimezone } from '@app/shared/time/timeUtils';
+
+import { useGetAssertionRunsLazyQuery } from '@graphql/assertion.generated';
+import { AssertionResultType, AssertionRunStatus } from '@types';
 
 const RESULT_CHART_WIDTH_PX = 800;
 

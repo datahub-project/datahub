@@ -1,12 +1,14 @@
-import React from 'react';
 import { Select } from 'antd';
-import { EntityType, GlossaryNode } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useEntityData } from '../../../entity/shared/EntityContext';
-import ClickOutside from '../../../shared/ClickOutside';
-import GlossaryBrowser from '../../../glossary/GlossaryBrowser/GlossaryBrowser';
-import { BrowserWrapper } from '../../../shared/tags/AddTagsTermsModal';
-import useParentSelector from './useParentSelector';
+import React from 'react';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import useParentSelector from '@app/entityV2/shared/EntityDropdown/useParentSelector';
+import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
+import ClickOutside from '@app/shared/ClickOutside';
+import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType, GlossaryNode } from '@types';
 
 // filter out entity itself and its children
 export function filterResultsForMove(entity: GlossaryNode, entityUrn: string) {

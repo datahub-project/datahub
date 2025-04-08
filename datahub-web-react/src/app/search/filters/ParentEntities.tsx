@@ -2,9 +2,11 @@ import { FolderOpenOutlined } from '@ant-design/icons';
 import { Tooltip, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Entity } from '../../../types.generated';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { useEntityRegistry } from '../../useEntityRegistry';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Entity } from '@types';
 
 const ParentNodesWrapper = styled.div`
     font-size: 12px;

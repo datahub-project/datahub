@@ -1,16 +1,8 @@
 import { useMemo, useState } from 'react';
-import {
-    GetAutoCompleteMultipleResultsQuery,
-    useAggregateAcrossEntitiesLazyQuery,
-    useGetAutoCompleteMultipleResultsLazyQuery,
-} from '../../../graphql/search.generated';
-import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import useGetSearchQueryInputs from '../useGetSearchQueryInputs';
-import { ENTITY_FILTER_NAME } from '../utils/constants';
-import { FACETS_TO_ENTITY_TYPES } from './constants';
-import { mapFilterOption } from './mapFilterOption';
-import { FilterOptionType } from './types';
+
+import { FACETS_TO_ENTITY_TYPES } from '@app/search/filters/constants';
+import { mapFilterOption } from '@app/search/filters/mapFilterOption';
+import { FilterOptionType } from '@app/search/filters/types';
 import {
     combineAggregations,
     filterEmptyAggregations,
@@ -18,7 +10,17 @@ import {
     getFilterOptions,
     getNewFilters,
     getNumActiveFiltersForFilter,
-} from './utils';
+} from '@app/search/filters/utils';
+import useGetSearchQueryInputs from '@app/search/useGetSearchQueryInputs';
+import { ENTITY_FILTER_NAME } from '@app/search/utils/constants';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import {
+    GetAutoCompleteMultipleResultsQuery,
+    useAggregateAcrossEntitiesLazyQuery,
+    useGetAutoCompleteMultipleResultsLazyQuery,
+} from '@graphql/search.generated';
+import { FacetFilterInput, FacetMetadata } from '@types';
 
 interface Props {
     filter: FacetMetadata;

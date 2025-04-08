@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
-
 import styled from 'styled-components';
 
-import { MatchedField } from '../../../types.generated';
-import { useSearchQuery } from '../../search/context/SearchContext';
-import { useEntityRegistry } from '../../useEntityRegistry';
+import { useSearchQuery } from '@app/search/context/SearchContext';
+import { MatchesGroupedByFieldName } from '@app/searchV2/matches/constants';
+import { getDescriptionSlice, isDescriptionField, isHighlightableEntityField } from '@app/searchV2/matches/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { MatchesGroupedByFieldName } from './constants';
-import { getDescriptionSlice, isDescriptionField, isHighlightableEntityField } from './utils';
+import { MatchedField } from '@types';
 
 const FieldWrapper = styled.div<{ $isClickable: boolean; $color?: string }>`
     border-radius: 50px;

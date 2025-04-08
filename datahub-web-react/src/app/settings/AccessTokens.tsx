@@ -1,22 +1,24 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import styled from 'styled-components';
-import { Alert, Button, Divider, Empty, message, Modal, Pagination, Select, Typography } from 'antd';
-import { DeleteOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { red } from '@ant-design/colors';
-import { EntityType, FacetFilterInput } from '../../types.generated';
-import { useListAccessTokensQuery, useRevokeAccessTokenMutation } from '../../graphql/auth.generated';
-import { Message } from '../shared/Message';
-import TabToolbar from '../entity/shared/components/styled/TabToolbar';
-import { StyledTable } from '../entity/shared/components/styled/StyledTable';
-import CreateTokenModal from './CreateTokenModal';
-import { getLocaleTimezone } from '../shared/time/timeUtils';
-import { scrollToTop } from '../shared/searchUtils';
-import analytics, { EventType } from '../analytics';
-import { useUserContext } from '../context/useUserContext';
-import { useAppConfig } from '../useAppConfig';
-import { useListUsersQuery } from '../../graphql/user.generated';
-import { OwnerLabel } from '../shared/OwnerLabel';
-import { useEntityRegistry } from '../useEntityRegistry';
+import { DeleteOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { Alert, Button, Divider, Empty, Modal, Pagination, Select, Typography, message } from 'antd';
+import React, { useEffect, useMemo, useState } from 'react';
+import styled from 'styled-components';
+
+import analytics, { EventType } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
+import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
+import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import CreateTokenModal from '@app/settings/CreateTokenModal';
+import { Message } from '@app/shared/Message';
+import { OwnerLabel } from '@app/shared/OwnerLabel';
+import { scrollToTop } from '@app/shared/searchUtils';
+import { getLocaleTimezone } from '@app/shared/time/timeUtils';
+import { useAppConfig } from '@app/useAppConfig';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useListAccessTokensQuery, useRevokeAccessTokenMutation } from '@graphql/auth.generated';
+import { useListUsersQuery } from '@graphql/user.generated';
+import { EntityType, FacetFilterInput } from '@types';
 
 const SourceContainer = styled.div`
     width: 100%;

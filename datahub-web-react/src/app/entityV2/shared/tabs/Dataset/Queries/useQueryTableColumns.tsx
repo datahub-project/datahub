@@ -1,16 +1,24 @@
+import { Tooltip } from '@components';
 import moment from 'moment';
 import React from 'react';
 import styled from 'styled-components';
-import { Tooltip } from '@components';
-import { Query } from './types';
-import QueryComponent from './Query';
-import { EditDeleteColumn, QueryCreatedBy, QueryDescription, PopularityColumn, ColumnsColumn } from './queryColumns';
-import { CorpUser, Entity } from '../../../../../../types.generated';
-import { EntityLink } from '../../../../../homeV2/reference/sections/EntityLink';
-import { useEntityRegistryV2 } from '../../../../../useEntityRegistry';
-import { Sorting } from '../../../../../sharedV2/sorting/useSorting';
-import TopUsersFacepile from '../../../containers/profile/sidebar/shared/TopUsersFacepile';
-import { toRelativeTimeString } from '../../../../../shared/time/timeUtils';
+
+import TopUsersFacepile from '@app/entityV2/shared/containers/profile/sidebar/shared/TopUsersFacepile';
+import QueryComponent from '@app/entityV2/shared/tabs/Dataset/Queries/Query';
+import {
+    ColumnsColumn,
+    EditDeleteColumn,
+    PopularityColumn,
+    QueryCreatedBy,
+    QueryDescription,
+} from '@app/entityV2/shared/tabs/Dataset/Queries/queryColumns';
+import { Query } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
+import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
+import { toRelativeTimeString } from '@app/shared/time/timeUtils';
+import { Sorting } from '@app/sharedV2/sorting/useSorting';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+
+import { CorpUser, Entity } from '@types';
 
 const UsersWrapper = styled.div`
     display: flex;

@@ -1,18 +1,20 @@
-import React, { useState, useEffect } from 'react';
 import { LoadingOutlined } from '@ant-design/icons';
 import { colors } from '@components';
 import { KeyboardArrowDownRounded, KeyboardArrowRightRounded } from '@mui/icons-material';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
-import { Entity, EntityType, GlossaryNode, GlossaryTerm } from '../../../types.generated';
-import { GlossaryNodeFragment } from '../../../graphql/fragments.generated';
-import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { useGetGlossaryNodeQuery } from '../../../graphql/glossaryNode.generated';
-import TermItem, { TermLink as NodeLink, NameWrapper } from './TermItem';
-import { sortGlossaryNodes } from '../../entityV2/glossaryNode/utils';
-import { sortGlossaryTerms } from '../../entityV2/glossaryTerm/utils';
-import { useGlossaryEntityData } from '../../entityV2/shared/GlossaryEntityContext';
-import { generateColorFromPalette } from '../colorUtils';
+
+import { sortGlossaryNodes } from '@app/entityV2/glossaryNode/utils';
+import { sortGlossaryTerms } from '@app/entityV2/glossaryTerm/utils';
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import TermItem, { NameWrapper, TermLink as NodeLink } from '@app/glossaryV2/GlossaryBrowser/TermItem';
+import { generateColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { GlossaryNodeFragment } from '@graphql/fragments.generated';
+import { useGetGlossaryNodeQuery } from '@graphql/glossaryNode.generated';
+import { Entity, EntityType, GlossaryNode, GlossaryTerm } from '@types';
 
 interface ItemWrapperProps {
     $isSelected: boolean;

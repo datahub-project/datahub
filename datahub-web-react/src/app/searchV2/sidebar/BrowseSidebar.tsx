@@ -1,13 +1,14 @@
+import { Button, colors } from '@components';
+import { Divider, Typography } from 'antd';
 import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
-import { Divider, Typography } from 'antd';
-import { colors, Button } from '@components';
+
+import { SEARCH_RESULTS_BROWSE_SIDEBAR_ID } from '@app/onboarding/config/SearchOnboardingConfig';
+import { useIsPlatformBrowseMode } from '@app/searchV2/sidebar/BrowseContext';
+import EntityBrowse from '@app/searchV2/sidebar/EntityBrowse';
+import PlatformBrowse from '@app/searchV2/sidebar/PlatformBrowse';
 import { ProfileSidebarResizer } from '@src/app/entityV2/shared/containers/profile/sidebar/ProfileSidebarResizer';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import EntityBrowse from './EntityBrowse';
-import PlatformBrowse from './PlatformBrowse';
-import { useIsPlatformBrowseMode } from './BrowseContext';
-import { SEARCH_RESULTS_BROWSE_SIDEBAR_ID } from '../../onboarding/config/SearchOnboardingConfig';
 
 const PLATFORM_BROWSE_TRANSITION_MS = 200;
 export const MAX_BROWSER_WIDTH = 500;
@@ -36,7 +37,8 @@ const StyledEntitySidebarContainer = styled.div<{
         }
         return props.isCollapsed ? '12px' : '12px 0 12px 12px';
     }};
-    transition: max-width ${PLATFORM_BROWSE_TRANSITION_MS}ms ease-in-out,
+    transition:
+        max-width ${PLATFORM_BROWSE_TRANSITION_MS}ms ease-in-out,
         min-width ${PLATFORM_BROWSE_TRANSITION_MS}ms ease-in-out;
 
     background-color: #ffffff;

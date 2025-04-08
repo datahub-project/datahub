@@ -1,7 +1,9 @@
 import React from 'react';
+
+import { LabelsWrapper, Placeholder } from '@components/components/Select/components';
+import { SelectLabelVariantProps } from '@components/components/Select/types';
+
 import { Pill } from '@src/alchemy-components/components/Pills';
-import { LabelsWrapper, Placeholder } from '../../../components';
-import { SelectLabelVariantProps } from '../../../types';
 
 export default function MultiSelectDefault({
     selectedOptions,

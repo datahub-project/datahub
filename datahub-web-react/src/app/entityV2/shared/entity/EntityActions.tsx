@@ -1,17 +1,19 @@
-import React, { useState } from 'react';
-import { message } from 'antd';
-import { Button, Tooltip } from '@components';
-import styled from 'styled-components/macro';
 import { LinkOutlined, PlusOutlined } from '@ant-design/icons';
-import { SearchSelectModal } from '../components/styled/search/SearchSelectModal';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { EntityCapabilityType } from '../../Entity';
-import { useBatchAddTermsMutation, useBatchSetDomainMutation } from '../../../../graphql/mutations.generated';
-import { handleBatchError } from '../utils';
-import { useBatchSetDataProductMutation } from '../../../../graphql/dataProduct.generated';
-import { useEntityContext, useEntityData } from '../../../entity/shared/EntityContext';
-import CreateGlossaryEntityModal from '../EntityDropdown/CreateGlossaryEntityModal';
-import { EntityType } from '../../../../types.generated';
+import { Button, Tooltip } from '@components';
+import { message } from 'antd';
+import React, { useState } from 'react';
+import styled from 'styled-components/macro';
+
+import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
+import { EntityCapabilityType } from '@app/entityV2/Entity';
+import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
+import { SearchSelectModal } from '@app/entityV2/shared/components/styled/search/SearchSelectModal';
+import { handleBatchError } from '@app/entityV2/shared/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';
+import { useBatchAddTermsMutation, useBatchSetDomainMutation } from '@graphql/mutations.generated';
+import { EntityType } from '@types';
 
 export enum EntityActionItem {
     /**

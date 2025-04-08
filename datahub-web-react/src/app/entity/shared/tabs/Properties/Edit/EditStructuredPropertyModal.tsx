@@ -1,20 +1,17 @@
-import { Button } from '@src/alchemy-components';
-import analytics, { EventType } from '@src/app/analytics';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import { Modal, message } from 'antd';
 import React, { useEffect, useMemo } from 'react';
 import styled from 'styled-components';
-import { useUpsertStructuredPropertiesMutation } from '../../../../../../graphql/structuredProperties.generated';
-import {
-    EntityType,
-    PropertyValueInput,
-    StdDataType,
-    StructuredPropertyEntity,
-} from '../../../../../../types.generated';
-import handleGraphQLError from '../../../../../shared/handleGraphQLError';
-import StructuredPropertyInput from '../../../components/styled/StructuredProperty/StructuredPropertyInput';
-import { useEditStructuredProperty } from '../../../components/styled/StructuredProperty/useEditStructuredProperty';
-import { useEntityContext, useEntityData, useMutationUrn } from '../../../EntityContext';
+
+import { useEntityContext, useEntityData, useMutationUrn } from '@app/entity/shared/EntityContext';
+import StructuredPropertyInput from '@app/entity/shared/components/styled/StructuredProperty/StructuredPropertyInput';
+import { useEditStructuredProperty } from '@app/entity/shared/components/styled/StructuredProperty/useEditStructuredProperty';
+import handleGraphQLError from '@app/shared/handleGraphQLError';
+import { Button } from '@src/alchemy-components';
+import analytics, { EventType } from '@src/app/analytics';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+
+import { useUpsertStructuredPropertiesMutation } from '@graphql/structuredProperties.generated';
+import { EntityType, PropertyValueInput, StdDataType, StructuredPropertyEntity } from '@types';
 
 const Description = styled.div`
     font-size: 14px;

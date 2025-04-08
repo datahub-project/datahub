@@ -1,18 +1,20 @@
 import React from 'react';
 import styled from 'styled-components';
-import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
-import { useUserContext } from '../../context/useUserContext';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { AdvancedFilterSelectValueModal } from '../AdvancedFilterSelectValueModal';
-import { AdvancedSearchAddFilterSelect } from '../AdvancedSearchAddFilterSelect';
-import { AdvancedSearchFilter } from '../AdvancedSearchFilter';
-import { AdvancedSearchFilterOverallUnionTypeSelect } from '../AdvancedSearchFilterOverallUnionTypeSelect';
-import useAdvancedSearchSelectFilters from '../useAdvancedSearchSelectFilters';
-import { UnionType } from '../utils/constants';
-import { FilterButtonsWrapper, FlexSpacer, FlexWrapper } from './BasicFilters';
-import SaveViewButton from './SaveViewButton';
-import { TextButton } from './styledComponents';
-import { hasAdvancedFilters } from '../utils/hasAdvancedFilters';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { AdvancedFilterSelectValueModal } from '@app/search/AdvancedFilterSelectValueModal';
+import { AdvancedSearchAddFilterSelect } from '@app/search/AdvancedSearchAddFilterSelect';
+import { AdvancedSearchFilter } from '@app/search/AdvancedSearchFilter';
+import { AdvancedSearchFilterOverallUnionTypeSelect } from '@app/search/AdvancedSearchFilterOverallUnionTypeSelect';
+import { FilterButtonsWrapper, FlexSpacer, FlexWrapper } from '@app/search/filters/BasicFilters';
+import SaveViewButton from '@app/search/filters/SaveViewButton';
+import { TextButton } from '@app/search/filters/styledComponents';
+import useAdvancedSearchSelectFilters from '@app/search/useAdvancedSearchSelectFilters';
+import { UnionType } from '@app/search/utils/constants';
+import { hasAdvancedFilters } from '@app/search/utils/hasAdvancedFilters';
+
+import { FacetFilterInput, FacetMetadata } from '@types';
 
 const AnyAllToggle = styled.div`
     font-weight: 700;

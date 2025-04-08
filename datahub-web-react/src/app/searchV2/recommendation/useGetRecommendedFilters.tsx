@@ -1,15 +1,16 @@
-import { AggregationMetadata, FacetFilterInput, FacetMetadata } from '../../../types.generated';
-import { EntityRegistry } from '../../../entityRegistryContext';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { getFilterIconAndLabel } from '../filters/utils';
 import {
     DOMAINS_FILTER_NAME,
     ENTITY_FILTER_NAME,
     ENTITY_SUB_TYPE_FILTER_FIELDS,
     PLATFORM_FILTER_NAME,
-} from '../../search/utils/constants';
-import { RecommendedFilter } from './types';
-import { ENTITY_SUB_TYPE_FILTER_NAME, FILTER_DELIMITER } from '../utils/constants';
+} from '@app/search/utils/constants';
+import { getFilterIconAndLabel } from '@app/searchV2/filters/utils';
+import { RecommendedFilter } from '@app/searchV2/recommendation/types';
+import { ENTITY_SUB_TYPE_FILTER_NAME, FILTER_DELIMITER } from '@app/searchV2/utils/constants';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { EntityRegistry } from '@src/entityRegistryContext';
+
+import { AggregationMetadata, FacetFilterInput, FacetMetadata } from '@types';
 
 // Maximum number of recommended filters to show.
 const MAX_FILTERS = 6;

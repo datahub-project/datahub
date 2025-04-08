@@ -1,11 +1,12 @@
 import { UpCircleOutlined } from '@ant-design/icons';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { Typography } from 'antd';
 import React, { MouseEventHandler, ReactNode } from 'react';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { SEARCH_COLORS } from '../../entityV2/shared/constants';
-import { BaseButton, BodyContainer, BodyGridExpander, RotatingButton } from '../../shared/components';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { SEARCH_COLORS } from '@app/entityV2/shared/constants';
+import { BaseButton, BodyContainer, BodyGridExpander, RotatingButton } from '@app/shared/components';
 
 const Layout = styled.div`
     margin-left: 8px;

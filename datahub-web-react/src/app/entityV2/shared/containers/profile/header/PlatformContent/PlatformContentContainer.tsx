@@ -1,14 +1,16 @@
 import React from 'react';
-import { Container, EntityType } from '../../../../../../../types.generated';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { IconStyleType } from '../../../../../Entity';
-import { useEntityData } from '../../../../../../entity/shared/EntityContext';
-import { capitalizeFirstLetterOnly } from '../../../../../../shared/textUtil';
-import { getPlatformName } from '../../../../utils';
-import ContainerIcon from './ContainerIcon';
-import PlatformContentView from './PlatformContentView';
-import useContentTruncation from '../../../../../../shared/useContentTruncation';
-import { getDisplayedEntityType } from '../utils';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { IconStyleType } from '@app/entityV2/Entity';
+import ContainerIcon from '@app/entityV2/shared/containers/profile/header/PlatformContent/ContainerIcon';
+import PlatformContentView from '@app/entityV2/shared/containers/profile/header/PlatformContent/PlatformContentView';
+import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
+import { getPlatformName } from '@app/entityV2/shared/utils';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import useContentTruncation from '@app/shared/useContentTruncation';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Container, EntityType } from '@types';
 
 function PlatformContentContainer() {
     const { entityType, entityData } = useEntityData();

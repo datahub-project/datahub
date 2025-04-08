@@ -1,7 +1,8 @@
-import React, { useMemo, useCallback } from 'react';
+import capitalize from 'lodash/capitalize';
+import React, { useCallback, useMemo } from 'react';
+
 import { NestedSelect } from '@src/alchemy-components/components/Select/Nested/NestedSelect';
 import { SelectOption } from '@src/alchemy-components/components/Select/Nested/types';
-import capitalize from 'lodash/capitalize';
 
 interface FilterOption {
     name: string;

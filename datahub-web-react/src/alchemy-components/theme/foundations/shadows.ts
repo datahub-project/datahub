@@ -1,4 +1,4 @@
-import { BoxShadowOptions } from '../config';
+import { BoxShadowOptions } from '@components/theme/config';
 
 const shadows: Record<BoxShadowOptions, string> = {
     xs: '0px 1px 2px 0px rgba(0, 0, 0, 0.05)',

@@ -1,6 +1,6 @@
 import { Icon, Text, Tooltip } from '@components';
-import { AllowedValue } from '@src/types.generated';
 import React from 'react';
+
 import {
     FieldLabel,
     FlexContainer,
@@ -8,11 +8,12 @@ import {
     RowContainer,
     StyledIcon,
     ValueListContainer,
-    ValuesList,
     ValueType,
+    ValuesList,
     VerticalDivider,
-} from './styledComponents';
-import { isStringOrNumberTypeSelected, PropValueField } from './utils';
+} from '@app/govern/structuredProperties/styledComponents';
+import { PropValueField, isStringOrNumberTypeSelected } from '@app/govern/structuredProperties/utils';
+import { AllowedValue } from '@src/types.generated';
 
 interface Props {
     selectedValueType: string;

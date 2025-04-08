@@ -1,5 +1,6 @@
 import mixpanel from '@analytics/mixpanel';
-import analyticsConfig from '../../../conf/analytics';
+
+import analyticsConfig from '@conf/analytics';
 
 const mixpanelConfigs = analyticsConfig.mixpanel;
 const isEnabled: boolean = mixpanelConfigs || false;

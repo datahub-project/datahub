@@ -1,7 +1,8 @@
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Tooltip } from '@components';
-import { ANTD_GRAY } from '../../../../../entity/shared/constants';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 const Header = styled.div`
     display: flex;

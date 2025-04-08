@@ -1,7 +1,9 @@
 import React from 'react';
-import { TestResult } from '../../../../../../types.generated';
-import { TestResultsList } from './TestResultsList';
-import { TestResultsSummary } from './TestResultsSummary';
+
+import { TestResultsList } from '@app/entity/shared/tabs/Dataset/Governance/TestResultsList';
+import { TestResultsSummary } from '@app/entity/shared/tabs/Dataset/Governance/TestResultsSummary';
+
+import { TestResult } from '@types';
 
 type Props = {
     passing: Array<TestResult>;

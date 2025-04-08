@@ -1,15 +1,16 @@
-import React, { useEffect } from 'react';
 import { Tooltip } from '@components';
+import React, { useEffect } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
-import { useEntityData } from '../../../../../entity/shared/EntityContext';
-import { useGetValidationsTab } from './useGetValidationsTab';
-import { REDESIGN_COLORS } from '../../../constants';
-import { useAppConfig } from '../../../../../useAppConfig';
-import { DataContractTab } from './contract/DataContractTab';
-import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '../../../useIsSeparateSiblingsMode';
-import { AcrylAssertionList } from './AssertionList/AcrylAssertionList';
-import { AcrylAssertionSummaryTab } from './AssertionList/Summary/AcrylAssertionSummaryTab';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { AcrylAssertionList } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionList';
+import { AcrylAssertionSummaryTab } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/Summary/AcrylAssertionSummaryTab';
+import { DataContractTab } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/DataContractTab';
+import { useGetValidationsTab } from '@app/entityV2/shared/tabs/Dataset/Validations/useGetValidationsTab';
+import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
+import { useAppConfig } from '@app/useAppConfig';
 
 const TabTitle = styled.span`
     margin-left: 4px;

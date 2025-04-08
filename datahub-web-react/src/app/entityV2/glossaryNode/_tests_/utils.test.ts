@@ -1,6 +1,7 @@
 import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
-import { EntityType } from '../../../../types.generated';
-import { sortGlossaryNodes } from '../utils';
+import { sortGlossaryNodes } from '@app/entityV2/glossaryNode/utils';
+
+import { EntityType } from '@types';
 
 describe('sortGlossaryNodes', () => {
     it('should correctly sort glossary nodes when both nodes are provided', () => {

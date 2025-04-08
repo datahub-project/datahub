@@ -1,14 +1,17 @@
-import React from 'react';
 import Icon from '@ant-design/icons';
-import { useEntityData } from '../../../entity/shared/EntityContext';
-import { useGetSearchResultsForMultipleQuery } from '../../../../graphql/search.generated';
-import { EntityType } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { HorizontalList } from '../../shared/summary/ListComponents';
-import { HeaderTitle } from '../../shared/summary/HeaderComponents';
-import TableauViewIcon from '../../../../images/tableau-view.svg?react';
-import { CONTAINER_FILTER_NAME } from '../../../searchV2/utils/constants';
-import SummaryEntityCard from '../../../sharedV2/cards/SummaryEntityCard';
+import React from 'react';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { HeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
+import { HorizontalList } from '@app/entityV2/shared/summary/ListComponents';
+import { CONTAINER_FILTER_NAME } from '@app/searchV2/utils/constants';
+import SummaryEntityCard from '@app/sharedV2/cards/SummaryEntityCard';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
+import { EntityType } from '@types';
+
+import TableauViewIcon from '@images/tableau-view.svg?react';
 
 const viewPattern = /.*tableau.com.*\/#(\/site\/[^/]*)?\/views\/(.*)/;
 

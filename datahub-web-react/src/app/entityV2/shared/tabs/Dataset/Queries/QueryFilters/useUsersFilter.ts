@@ -1,8 +1,9 @@
-import { useEntityRegistryV2 } from '../../../../../../useEntityRegistry';
-import { useEntityData } from '../../../../../../entity/shared/EntityContext';
-import { EntityType, FacetFilterInput, QuerySource } from '../../../../../../../types.generated';
-import { useAggregateAcrossEntitiesQuery } from '../../../../../../../graphql/search.generated';
-import { getAndFilters } from '../utils/filterQueries';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { getAndFilters } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/filterQueries';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+
+import { useAggregateAcrossEntitiesQuery } from '@graphql/search.generated';
+import { EntityType, FacetFilterInput, QuerySource } from '@types';
 
 interface Props {
     selectedColumnsFilter: FacetFilterInput;

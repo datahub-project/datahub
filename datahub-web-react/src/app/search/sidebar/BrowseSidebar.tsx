@@ -1,15 +1,17 @@
+import Icon, { CaretDownFilled } from '@ant-design/icons';
+import { Select, Tooltip, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Select, Tooltip, Typography } from 'antd';
-import Icon, { CaretDownFilled } from '@ant-design/icons';
-import EntityNode from './EntityNode';
-import { BrowseProvider } from './BrowseContext';
-import SidebarLoadingError from './SidebarLoadingError';
-import { SEARCH_RESULTS_BROWSE_SIDEBAR_ID } from '../../onboarding/config/SearchOnboardingConfig';
-import useSidebarEntities from './useSidebarEntities';
-import { ANTD_GRAY, ANTD_GRAY_V2 } from '../../entity/shared/constants';
-import { ProfileSidebarResizer } from '../../entity/shared/containers/profile/sidebar/ProfileSidebarResizer';
-import SortIcon from '../../../images/sort.svg?react';
+
+import { ANTD_GRAY, ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+import { ProfileSidebarResizer } from '@app/entity/shared/containers/profile/sidebar/ProfileSidebarResizer';
+import { SEARCH_RESULTS_BROWSE_SIDEBAR_ID } from '@app/onboarding/config/SearchOnboardingConfig';
+import { BrowseProvider } from '@app/search/sidebar/BrowseContext';
+import EntityNode from '@app/search/sidebar/EntityNode';
+import SidebarLoadingError from '@app/search/sidebar/SidebarLoadingError';
+import useSidebarEntities from '@app/search/sidebar/useSidebarEntities';
+
+import SortIcon from '@images/sort.svg?react';
 
 export const MAX_BROWSER_WIDTH = 500;
 export const MIN_BROWSWER_WIDTH = 200;

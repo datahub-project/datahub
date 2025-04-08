@@ -1,17 +1,19 @@
+import { Form, FormInstance, Input, Radio, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
-import { Form, Input, Typography, FormInstance, Radio } from 'antd';
 import styled from 'styled-components';
-import { Editor } from '@src/app/entity/shared/tabs/Documentation/components/editor/Editor';
-import { ANTD_GRAY } from '@src/app/entity/shared/constants';
+
+import { PostEntry } from '@app/settingsV2/posts/PostsListColumns';
 import {
     DESCRIPTION_FIELD_NAME,
     LINK_FIELD_NAME,
     LOCATION_FIELD_NAME,
     TITLE_FIELD_NAME,
     TYPE_FIELD_NAME,
-} from './constants';
-import { PostContentType } from '../../../types.generated';
-import { PostEntry } from './PostsListColumns';
+} from '@app/settingsV2/posts/constants';
+import { ANTD_GRAY } from '@src/app/entity/shared/constants';
+import { Editor } from '@src/app/entity/shared/tabs/Documentation/components/editor/Editor';
+
+import { PostContentType } from '@types';
 
 const TopFormItem = styled(Form.Item)`
     margin-bottom: 24px;

@@ -1,15 +1,17 @@
+import { Collapse, Form, Input, Modal, Tag, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { message, Input, Modal, Typography, Form, Collapse, Tag } from 'antd';
+
+import analytics, { EventType } from '@app/analytics';
+import { useDomainsContext as useDomainsContextV2 } from '@app/domainV2/DomainsContext';
+import DomainParentSelect from '@app/entityV2/shared/EntityDropdown/DomainParentSelect';
+import { ModalButtonContainer } from '@app/shared/button/styledComponents';
+import { validateCustomUrnId } from '@app/shared/textUtil';
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useIsNestedDomainsEnabled } from '@app/useAppConfig';
 import { Button } from '@src/alchemy-components';
-import { useCreateDomainMutation } from '../../graphql/domain.generated';
-import { useEnterKeyListener } from '../shared/useEnterKeyListener';
-import { validateCustomUrnId } from '../shared/textUtil';
-import analytics, { EventType } from '../analytics';
-import DomainParentSelect from '../entityV2/shared/EntityDropdown/DomainParentSelect';
-import { useIsNestedDomainsEnabled } from '../useAppConfig';
-import { useDomainsContext as useDomainsContextV2 } from './DomainsContext';
-import { ModalButtonContainer } from '../shared/button/styledComponents';
+
+import { useCreateDomainMutation } from '@graphql/domain.generated';
 
 const SuggestedNamesGroup = styled.div`
     margin-top: 8px;

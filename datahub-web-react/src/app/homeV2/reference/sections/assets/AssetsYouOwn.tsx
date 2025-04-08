@@ -1,17 +1,13 @@
 import React, { useState } from 'react';
-import { useUserContext } from '../../../../context/useUserContext';
-import { EntityLinkList } from '../EntityLinkList';
-import { EmbeddedListSearchModal } from '../../../../entityV2/shared/components/styled/search/EmbeddedListSearchModal';
-import {
-    ASSET_ENTITY_TYPES,
-    ENTITY_FILTER_NAME,
-    OWNERS_FILTER_NAME,
-    UnionType,
-} from '../../../../searchV2/utils/constants';
-import { useGetAssetsYouOwn } from './useGetAssetsYouOwn';
-import { EmptyAssetsYouOwn } from './EmptyAssetsYouOwn';
-import { ReferenceSectionProps } from '../../types';
-import { ReferenceSection } from '../../../layout/shared/styledComponents';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { EmbeddedListSearchModal } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchModal';
+import { ReferenceSection } from '@app/homeV2/layout/shared/styledComponents';
+import { EntityLinkList } from '@app/homeV2/reference/sections/EntityLinkList';
+import { EmptyAssetsYouOwn } from '@app/homeV2/reference/sections/assets/EmptyAssetsYouOwn';
+import { useGetAssetsYouOwn } from '@app/homeV2/reference/sections/assets/useGetAssetsYouOwn';
+import { ReferenceSectionProps } from '@app/homeV2/reference/types';
+import { ASSET_ENTITY_TYPES, ENTITY_FILTER_NAME, OWNERS_FILTER_NAME, UnionType } from '@app/searchV2/utils/constants';
 
 const DEFAULT_MAX_ENTITIES_TO_SHOW = 5;
 

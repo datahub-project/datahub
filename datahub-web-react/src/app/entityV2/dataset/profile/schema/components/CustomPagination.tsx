@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Button, Menu, Dropdown, Typography } from 'antd';
 import { LeftOutlined, RightOutlined } from '@ant-design/icons';
+import { Button, Dropdown, Menu, Typography } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 
 const CustomPaginationContainer = styled.div`

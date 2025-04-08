@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function useRefreshIngestionData(refresh: () => void, hasActiveExecution: () => boolean) {
     const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null);

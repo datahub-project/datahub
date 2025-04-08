@@ -1,14 +1,16 @@
 import React, { ReactNode, createContext, useContext, useMemo } from 'react';
-import { EntityType, MatchedField, SearchResult } from '../../../types.generated';
+
+import { MatchedFieldName } from '@app/search/matches/constants';
 import {
-    getMatchedFieldsByUrn,
+    getMatchedFieldLabel,
     getMatchedFieldNames,
     getMatchedFieldsByNames,
-    shouldShowInMatchedFieldList,
-    getMatchedFieldLabel,
+    getMatchedFieldsByUrn,
     getMatchesPrioritized,
-} from '../matches/utils';
-import { MatchedFieldName } from '../matches/constants';
+    shouldShowInMatchedFieldList,
+} from '@app/search/matches/utils';
+
+import { EntityType, MatchedField, SearchResult } from '@types';
 
 type SearchResultContextValue = {
     searchResult: SearchResult;

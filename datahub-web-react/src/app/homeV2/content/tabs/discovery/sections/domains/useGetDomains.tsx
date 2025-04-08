@@ -1,6 +1,7 @@
-import { useListRecommendationsQuery } from '../../../../../../../graphql/recommendations.generated';
-import { CorpUser, Domain, ScenarioType } from '../../../../../../../types.generated';
-import { useUserContext } from '../../../../../../context/useUserContext';
+import { useUserContext } from '@app/context/useUserContext';
+
+import { useListRecommendationsQuery } from '@graphql/recommendations.generated';
+import { CorpUser, Domain, ScenarioType } from '@types';
 
 const DOMAINS_MODULE_ID = 'Domains';
 const MAX_DOMAINS = 5;

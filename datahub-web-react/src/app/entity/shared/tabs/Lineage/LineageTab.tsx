@@ -1,7 +1,3 @@
-import React, { useCallback, useState } from 'react';
-import { Button, Select, Tooltip, Typography } from 'antd';
-import * as QueryString from 'query-string';
-import { useHistory, useLocation } from 'react-router';
 import {
     ArrowDownOutlined,
     ArrowUpOutlined,
@@ -11,22 +7,27 @@ import {
     ReloadOutlined,
     SubnodeOutlined,
 } from '@ant-design/icons';
+import { Button, Select, Tooltip, Typography } from 'antd';
+import * as QueryString from 'query-string';
+import React, { useCallback, useState } from 'react';
+import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components/macro';
 
-import { useEntityData } from '../../EntityContext';
-import TabToolbar from '../../components/styled/TabToolbar';
-import { getEntityPath } from '../../containers/profile/utils';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
-import { ImpactAnalysis } from './ImpactAnalysis';
-import { LineageDirection } from '../../../../../types.generated';
-import { generateSchemaFieldUrn } from './utils';
-import { downgradeV2FieldPath } from '../../../dataset/profile/schema/utils/utils';
-import ColumnsLineageSelect from './ColumnLineageSelect';
-import { LineageTabContext } from './LineageTabContext';
-import ManageLineageMenu from '../../../../lineage/manage/ManageLineageMenu';
-import LineageTabTimeSelector from './LineageTabTimeSelector';
-import { useGetLineageTimeParams } from '../../../../lineage/utils/useGetLineageTimeParams';
-import { ANTD_GRAY } from '../../constants';
+import { downgradeV2FieldPath } from '@app/entity/dataset/profile/schema/utils/utils';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
+import ColumnsLineageSelect from '@app/entity/shared/tabs/Lineage/ColumnLineageSelect';
+import { ImpactAnalysis } from '@app/entity/shared/tabs/Lineage/ImpactAnalysis';
+import { LineageTabContext } from '@app/entity/shared/tabs/Lineage/LineageTabContext';
+import LineageTabTimeSelector from '@app/entity/shared/tabs/Lineage/LineageTabTimeSelector';
+import { generateSchemaFieldUrn } from '@app/entity/shared/tabs/Lineage/utils';
+import ManageLineageMenu from '@app/lineage/manage/ManageLineageMenu';
+import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { LineageDirection } from '@types';
 
 const StyledTabToolbar = styled(TabToolbar)`
     justify-content: space-between;

@@ -13,7 +13,7 @@ import {
     summaryHasStats,
     truncate,
     urlEncodeUrn,
-} from '../../utils';
+} from '@app/entityV2/shared/utils';
 
 describe('dictToQueryStringParams', () => {
     it('should convert dictionary to query string', () => {

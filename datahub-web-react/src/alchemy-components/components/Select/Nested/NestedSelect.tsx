@@ -1,7 +1,9 @@
+import { Icon, Pill, colors } from '@components';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
-import { Icon, Pill, colors } from '@components';
 
+import { NestedOption } from '@components/components/Select/Nested/NestedOption';
+import { SelectOption } from '@components/components/Select/Nested/types';
 import {
     ActionButtonsContainer,
     Container,
@@ -14,11 +16,8 @@ import {
     SelectBase,
     SelectLabel,
     StyledClearButton,
-} from '../components';
-
-import { SelectSizeOptions } from '../types';
-import { NestedOption } from './NestedOption';
-import { SelectOption } from './types';
+} from '@components/components/Select/components';
+import { SelectSizeOptions } from '@components/components/Select/types';
 
 const NO_PARENT_VALUE = 'no_parent_value';
 

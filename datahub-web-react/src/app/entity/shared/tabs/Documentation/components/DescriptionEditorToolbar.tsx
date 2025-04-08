@@ -1,7 +1,8 @@
 import { CheckOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React from 'react';
-import TabToolbar from '../../../components/styled/TabToolbar';
+
+import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
 
 type DescriptionEditorToolbarProps = {
     disableSave: boolean;

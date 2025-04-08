@@ -1,7 +1,8 @@
 import { useCallback } from 'react';
-import analytics from '../../analytics/analytics';
-import { EventType } from '../../analytics';
-import { EMBED_LOOKUP_NOT_FOUND_REASON } from './constants';
+
+import { EventType } from '@app/analytics';
+import analytics from '@app/analytics/analytics';
+import { EMBED_LOOKUP_NOT_FOUND_REASON } from '@app/embed/lookup/constants';
 
 const useEmbedLookupAnalytics = () => {
     const trackLookupNotFoundEvent = useCallback((url: string) => {

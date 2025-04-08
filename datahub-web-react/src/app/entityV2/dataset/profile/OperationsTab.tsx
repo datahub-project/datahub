@@ -1,28 +1,25 @@
 import { DeliveredProcedureOutlined } from '@ant-design/icons';
-import { Pagination, Table, Typography } from 'antd';
 import { Tooltip } from '@components';
+import { Pagination, Table, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { GetDatasetRunsQuery, useGetDatasetRunsQuery } from '../../../../graphql/dataset.generated';
-import {
-    DataProcessInstanceRunResultType,
-    DataProcessRunStatus,
-    EntityType,
-    RelationshipDirection,
-} from '../../../../types.generated';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { notEmpty } from '@app/entityV2/shared/utils';
 import {
     getExecutionRequestStatusDisplayColor,
     getExecutionRequestStatusDisplayText,
     getExecutionRequestStatusIcon,
-} from '../../../ingest/source/utils';
-import { CompactEntityNameList } from '../../../recommendations/renderer/component/CompactEntityNameList';
-import { ANTD_GRAY } from '../../shared/constants';
-import { useEntityData } from '../../../entity/shared/EntityContext';
-import LoadingSvg from '../../../../images/datahub-logo-color-loading_pendulum.svg?react';
-import { scrollToTop } from '../../../shared/searchUtils';
-import { formatDuration } from '../../../shared/formatDuration';
-import { notEmpty } from '../../shared/utils';
+} from '@app/ingest/source/utils';
+import { CompactEntityNameList } from '@app/recommendations/renderer/component/CompactEntityNameList';
+import { formatDuration } from '@app/shared/formatDuration';
+import { scrollToTop } from '@app/shared/searchUtils';
+
+import { GetDatasetRunsQuery, useGetDatasetRunsQuery } from '@graphql/dataset.generated';
+import { DataProcessInstanceRunResultType, DataProcessRunStatus, EntityType, RelationshipDirection } from '@types';
+
+import LoadingSvg from '@images/datahub-logo-color-loading_pendulum.svg?react';
 
 const ExternalUrlLink = styled.a`
     font-size: 16px;

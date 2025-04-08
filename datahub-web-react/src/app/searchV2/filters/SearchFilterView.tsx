@@ -1,10 +1,11 @@
-import { FacetFilterInput, AggregationMetadata } from '@src/types.generated';
 import { CaretDownFilled } from '@ant-design/icons';
 import React from 'react';
 import styled, { CSSProperties } from 'styled-components';
-import { SearchFilterLabel } from './styledComponents';
-import { FilterPredicate, FilterValue } from './types';
-import ValueSelector from './value/ValueSelector';
+
+import { SearchFilterLabel } from '@app/searchV2/filters/styledComponents';
+import { FilterPredicate, FilterValue } from '@app/searchV2/filters/types';
+import ValueSelector from '@app/searchV2/filters/value/ValueSelector';
+import { AggregationMetadata, FacetFilterInput } from '@src/types.generated';
 
 export const IconWrapper = styled.div`
     margin-right: 8px;

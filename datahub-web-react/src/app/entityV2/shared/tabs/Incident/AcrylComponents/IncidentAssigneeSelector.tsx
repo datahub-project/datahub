@@ -1,16 +1,17 @@
-import React, { useEffect, useMemo, useState } from 'react';
 import { LoadingOutlined } from '@ant-design/icons';
-import { Entity, EntityType } from '@src/types.generated';
 import _ from 'lodash';
+import React, { useEffect, useMemo, useState } from 'react';
+
+import { LoadingWrapper } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
+import { IncidentTableRow } from '@app/entityV2/shared/tabs/Incident/types';
+import { getAssigneeWithURN } from '@app/entityV2/shared/tabs/Incident/utils';
 import { Avatar, SimpleSelect } from '@src/alchemy-components';
 import { SelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { useGetRecommendations } from '@src/app/shared/recommendation';
-import { useGetAutoCompleteResultsLazyQuery } from '@src/graphql/search.generated';
-import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { getAssigneeWithURN } from '../utils';
-import { LoadingWrapper } from './styledComponents';
-import { IncidentTableRow } from '../types';
+import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
+import { useGetAutoCompleteResultsLazyQuery } from '@src/graphql/search.generated';
+import { Entity, EntityType } from '@src/types.generated';
 
 interface AssigneeSelectorProps {
     data?: IncidentTableRow;

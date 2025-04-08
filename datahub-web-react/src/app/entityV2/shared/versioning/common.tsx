@@ -1,7 +1,8 @@
 import { Pill } from '@components';
-import { PillProps } from '@components/components/Pills/types';
 import React from 'react';
 import styled from 'styled-components';
+
+import { PillProps } from '@components/components/Pills/types';
 
 const StyledPill = styled(Pill)`
     font-weight: 600;

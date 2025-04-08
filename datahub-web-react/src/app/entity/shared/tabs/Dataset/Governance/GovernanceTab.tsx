@@ -1,13 +1,14 @@
-import React, { useEffect } from 'react';
+import { FileDoneOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
+import React, { useEffect } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
-import { FileDoneOutlined } from '@ant-design/icons';
-import { useEntityData } from '../../../EntityContext';
-import { TestResults } from './TestResults';
-import TabToolbar from '../../../components/styled/TabToolbar';
-import { ANTD_GRAY } from '../../../constants';
-import { useGetValidationsTab } from '../Validations/useGetValidationsTab';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { TestResults } from '@app/entity/shared/tabs/Dataset/Governance/TestResults';
+import { useGetValidationsTab } from '@app/entity/shared/tabs/Dataset/Validations/useGetValidationsTab';
 
 const TabTitle = styled.span`
     margin-left: 4px;

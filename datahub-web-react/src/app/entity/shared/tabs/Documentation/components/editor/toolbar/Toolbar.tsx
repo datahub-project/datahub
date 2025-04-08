@@ -1,5 +1,3 @@
-import React from 'react';
-import { Divider } from 'antd';
 import {
     BoldOutlined,
     ItalicOutlined,
@@ -10,13 +8,16 @@ import {
     UnorderedListOutlined,
 } from '@ant-design/icons';
 import { useActive, useCommands } from '@remirror/react';
+import { Divider } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../../../../constants';
-import { CommandButton } from './CommandButton';
-import { HeadingMenu } from './HeadingMenu';
-import { AddImageButton } from './AddImageButton';
-import { AddLinkButton } from './AddLinkButton';
-import { CodeBlockIcon, CodeIcon } from './Icons';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { AddImageButton } from '@app/entity/shared/tabs/Documentation/components/editor/toolbar/AddImageButton';
+import { AddLinkButton } from '@app/entity/shared/tabs/Documentation/components/editor/toolbar/AddLinkButton';
+import { CommandButton } from '@app/entity/shared/tabs/Documentation/components/editor/toolbar/CommandButton';
+import { HeadingMenu } from '@app/entity/shared/tabs/Documentation/components/editor/toolbar/HeadingMenu';
+import { CodeBlockIcon, CodeIcon } from '@app/entity/shared/tabs/Documentation/components/editor/toolbar/Icons';
 
 const Container = styled.div`
     position: sticky;

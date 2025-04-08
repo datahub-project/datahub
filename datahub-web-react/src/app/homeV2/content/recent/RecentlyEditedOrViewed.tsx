@@ -1,8 +1,10 @@
 import React from 'react';
+
+import { EntityCardList } from '@app/homeV2/content/recent/EntityCardList';
+
 // import styled from 'styled-components';
 // import { BulbTwoTone } from '@ant-design/icons';
-import { Entity } from '../../../../types.generated';
-import { EntityCardList } from './EntityCardList';
+import { Entity } from '@types';
 
 // const BULB_COLOR = '#EEAD1C';
 

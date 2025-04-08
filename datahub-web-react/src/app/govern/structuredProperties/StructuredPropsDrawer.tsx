@@ -1,9 +1,36 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { useApolloClient } from '@apollo/client';
+import { Tooltip } from '@components';
+import { Form } from 'antd';
+import React, { useEffect, useState } from 'react';
+
+import AllowedValuesDrawer from '@app/govern/structuredProperties/AllowedValuesDrawer';
+import StructuredPropsForm from '@app/govern/structuredProperties/StructuredPropsForm';
+import { updatePropertiesList } from '@app/govern/structuredProperties/cacheUtils';
+import {
+    DrawerHeader,
+    FooterContainer,
+    StyledDrawer,
+    StyledIcon,
+    StyledSpin,
+    TitleContainer,
+} from '@app/govern/structuredProperties/styledComponents';
+import useStructuredProp from '@app/govern/structuredProperties/useStructuredProp';
+import {
+    PropValueField,
+    StructuredProp,
+    getDisplayName,
+    getNewAllowedTypes,
+    getNewAllowedValues,
+    getNewEntityTypes,
+    getStringOrNumberValueField,
+    getValueType,
+    valueTypes,
+} from '@app/govern/structuredProperties/utils';
 import { Button, Text } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
-import { showToastMessage, ToastType } from '@src/app/sharedV2/toastMessageUtils';
+import { ToastType, showToastMessage } from '@src/app/sharedV2/toastMessageUtils';
 import {
     useCreateStructuredPropertyMutation,
     useUpdateStructuredPropertyMutation,
@@ -17,32 +44,6 @@ import {
     StructuredPropertyEntity,
     UpdateStructuredPropertyInput,
 } from '@src/types.generated';
-import { Form } from 'antd';
-import { Tooltip } from '@components';
-import React, { useEffect, useState } from 'react';
-import AllowedValuesDrawer from './AllowedValuesDrawer';
-import { updatePropertiesList } from './cacheUtils';
-import StructuredPropsForm from './StructuredPropsForm';
-import {
-    DrawerHeader,
-    FooterContainer,
-    StyledDrawer,
-    StyledIcon,
-    StyledSpin,
-    TitleContainer,
-} from './styledComponents';
-import useStructuredProp from './useStructuredProp';
-import {
-    getDisplayName,
-    getNewAllowedTypes,
-    getNewAllowedValues,
-    getNewEntityTypes,
-    getStringOrNumberValueField,
-    getValueType,
-    PropValueField,
-    StructuredProp,
-    valueTypes,
-} from './utils';
 
 interface Props {
     isDrawerOpen: boolean;

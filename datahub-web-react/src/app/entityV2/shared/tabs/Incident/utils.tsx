@@ -1,17 +1,20 @@
-import React from 'react';
-import {
-    EntityType,
-    Incident,
-    IncidentPriority,
-    IncidentStage,
-    IncidentState,
-    IncidentType,
-} from '@src/types.generated';
-import Fuse from 'fuse.js';
 import { format } from 'date-fns';
-import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
-import { SortingState } from '@src/alchemy-components/components/Table/types';
-import { GenericEntityProperties } from '@src/app/entity/shared/types';
+import Fuse from 'fuse.js';
+import React from 'react';
+
+import {
+    INCIDENT_PRIORITY,
+    INCIDENT_PRIORITY_NAME_MAP,
+    INCIDENT_STAGES_TYPES,
+    INCIDENT_STAGE_NAME_MAP,
+    INCIDENT_STATES_TYPES,
+    INCIDENT_STATE_NAME_MAP,
+    INCIDENT_TYPES,
+    INCIDENT_TYPE_NAME_MAP,
+    PRIORITY_ORDER,
+    STAGE_ORDER,
+    STATE_ORDER,
+} from '@app/entityV2/shared/tabs/Incident/constant';
 import {
     IncidentBuilderSiblingOptions,
     IncidentFilterOptions,
@@ -21,21 +24,19 @@ import {
     IncidentRecommendedFilter,
     IncidentTable,
     IncidentTableRow,
-} from './types';
+} from '@app/entityV2/shared/tabs/Incident/types';
+import { getPlatformName } from '@app/entityV2/shared/utils';
+import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
+import { SortingState } from '@src/alchemy-components/components/Table/types';
+import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import {
-    INCIDENT_PRIORITY,
-    INCIDENT_PRIORITY_NAME_MAP,
-    INCIDENT_STAGE_NAME_MAP,
-    INCIDENT_STAGES_TYPES,
-    INCIDENT_STATE_NAME_MAP,
-    INCIDENT_STATES_TYPES,
-    INCIDENT_TYPE_NAME_MAP,
-    INCIDENT_TYPES,
-    PRIORITY_ORDER,
-    STAGE_ORDER,
-    STATE_ORDER,
-} from './constant';
-import { getPlatformName } from '../../utils';
+    EntityType,
+    Incident,
+    IncidentPriority,
+    IncidentStage,
+    IncidentState,
+    IncidentType,
+} from '@src/types.generated';
 
 //  Fuse.js setup for search functionality
 const fuse = new Fuse<any>([], {
@@ -70,7 +71,7 @@ const mapIncidentData = (incidents: Incident[]): IncidentTableRow[] => {
                 source: incident?.source,
                 lastUpdated: incident?.status?.lastUpdated,
                 message: incident?.status?.message,
-            } as IncidentTableRow),
+            }) as IncidentTableRow,
     );
 };
 

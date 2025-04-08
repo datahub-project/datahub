@@ -1,9 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+
+import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
+import NavBarToggler from '@app/homeV2/layout/navBarRedesign/NavBarToggler';
 import { colors } from '@src/alchemy-components';
-import NavBarToggler from './NavBarToggler';
-import { useNavBarContext } from './NavBarContext';
 
 const Container = styled.div`
     display: flex;

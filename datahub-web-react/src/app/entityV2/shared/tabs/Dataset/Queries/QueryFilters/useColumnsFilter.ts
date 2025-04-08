@@ -1,10 +1,12 @@
 import { useEffect, useMemo } from 'react';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { getAndFilters } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/filterQueries';
+import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';
 import { getSourceUrnFromSchemaFieldUrn } from '@src/app/entityV2/schemaField/utils';
-import { useEntityData } from '../../../../../../entity/shared/EntityContext';
-import { EntityType, FacetFilterInput, QuerySource } from '../../../../../../../types.generated';
-import { useAggregateAcrossEntitiesQuery } from '../../../../../../../graphql/search.generated';
-import { getV1FieldPathFromSchemaFieldUrn } from '../../../../../../lineageV2/lineageUtils';
-import { getAndFilters } from '../utils/filterQueries';
+
+import { useAggregateAcrossEntitiesQuery } from '@graphql/search.generated';
+import { EntityType, FacetFilterInput, QuerySource } from '@types';
 
 interface Props {
     selectedColumnsFilter: FacetFilterInput;

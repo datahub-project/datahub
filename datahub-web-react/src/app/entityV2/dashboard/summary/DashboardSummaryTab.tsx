@@ -1,11 +1,12 @@
+import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Divider } from 'antd';
-import { useEntityData } from '../../../entity/shared/EntityContext';
-import { SummaryTabWrapper } from '../../shared/summary/HeaderComponents';
-import SummaryAboutSection from '../../shared/summary/SummaryAboutSection';
-import EmbedPreview from '../../chart/summary/EmbedPreview';
-import DashboardSummaryOverview from './DashboardSummaryOverview';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import EmbedPreview from '@app/entityV2/chart/summary/EmbedPreview';
+import DashboardSummaryOverview from '@app/entityV2/dashboard/summary/DashboardSummaryOverview';
+import { SummaryTabWrapper } from '@app/entityV2/shared/summary/HeaderComponents';
+import SummaryAboutSection from '@app/entityV2/shared/summary/SummaryAboutSection';
 
 const StyledDivider = styled(Divider)`
     width: 100%;

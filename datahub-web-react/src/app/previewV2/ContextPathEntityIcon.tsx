@@ -1,7 +1,8 @@
-import React from 'react';
-import styled from 'styled-components';
 import { FolderOpenOutlined } from '@ant-design/icons';
 import { Maybe } from 'graphql/jsutils/Maybe';
+import React from 'react';
+import styled from 'styled-components';
+
 import { Entity } from '@types';
 
 const IconWrapper = styled.span`

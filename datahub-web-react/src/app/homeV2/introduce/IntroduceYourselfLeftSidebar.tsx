@@ -1,8 +1,9 @@
+import { Image } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Image } from 'antd';
-import dataHubIcon from '../../../images/datahublogo.png';
-import datahubPlatforms from '../../../images/datahub-platforms.svg';
+
+import datahubPlatforms from '@images/datahub-platforms.svg';
+import dataHubIcon from '@images/datahublogo.png';
 
 const Container = styled.div`
     display: flex;

@@ -4,12 +4,14 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components/macro';
-import { useGetAutoCompleteMultipleResultsQuery } from '../../graphql/search.generated';
-import { EntityType } from '../../types.generated';
-import { IconStyleType } from '../entityV2/Entity';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../entityV2/shared/constants';
-import ClickOutside from '../shared/ClickOutside';
-import { useEntityRegistry } from '../useEntityRegistry';
+
+import { IconStyleType } from '@app/entityV2/Entity';
+import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import ClickOutside from '@app/shared/ClickOutside';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetAutoCompleteMultipleResultsQuery } from '@graphql/search.generated';
+import { EntityType } from '@types';
 
 const GlossarySearchWrapper = styled.div`
     position: relative;
@@ -19,7 +21,10 @@ const GlossarySearchWrapper = styled.div`
 const ResultsWrapper = styled.div`
     background-color: white;
     border-radius: 5px;
-    box-shadow: 0 3px 6px -4px rgb(0 0 0 / 12%), 0 6px 16px 0 rgb(0 0 0 / 8%), 0 9px 28px 8px rgb(0 0 0 / 5%);
+    box-shadow:
+        0 3px 6px -4px rgb(0 0 0 / 12%),
+        0 6px 16px 0 rgb(0 0 0 / 8%),
+        0 9px 28px 8px rgb(0 0 0 / 5%);
     padding: 8px;
     position: absolute;
     max-height: 210px;

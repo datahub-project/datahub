@@ -1,13 +1,15 @@
-import { TagOutlined, TagFilled } from '@ant-design/icons';
+import { TagFilled, TagOutlined } from '@ant-design/icons';
 import * as React from 'react';
 import styled from 'styled-components';
-import { Tag, EntityType, SearchResult } from '../../../types.generated';
-import DefaultPreviewCard from '../../previewV2/DefaultPreviewCard';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { urlEncodeUrn } from '../shared/utils';
-import TagProfile from './TagProfile';
-import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
+
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import { urlEncodeUrn } from '@app/entityV2/shared/utils';
+import TagProfile from '@app/entityV2/tag/TagProfile';
+import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
+
+import { EntityType, SearchResult, Tag } from '@types';
 
 const PreviewTagIcon = styled(TagOutlined)`
     font-size: 20px;

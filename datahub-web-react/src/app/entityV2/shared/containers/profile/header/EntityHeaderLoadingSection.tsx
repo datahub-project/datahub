@@ -1,7 +1,8 @@
-import * as React from 'react';
 import { Skeleton, Space } from 'antd';
+import * as React from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../../constants';
+
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 
 const Wrapper = styled(Space)`
     min-height: 50px;

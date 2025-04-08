@@ -1,14 +1,16 @@
 import { FileTextOutlined, TableOutlined } from '@ant-design/icons';
-import VersionSelector from '@app/entityV2/dataset/profile/schema/components/VersionSelector';
-import { Button as AntButton, Typography } from 'antd';
 import { Button, Tooltip } from '@components';
+import { Button as AntButton, Typography } from 'antd';
 import React, { useState } from 'react';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components/macro';
-import { SemanticVersionStruct } from '../../../../../../types.generated';
-import TabToolbar from '../../../../shared/components/styled/TabToolbar';
-import { SchemaFilterType } from '../../../../shared/tabs/Dataset/Schema/utils/filterSchemaRows';
-import SchemaSearchInput from './SchemaSearchInput';
+
+import SchemaSearchInput from '@app/entityV2/dataset/profile/schema/components/SchemaSearchInput';
+import VersionSelector from '@app/entityV2/dataset/profile/schema/components/VersionSelector';
+import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
+import { SchemaFilterType } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/filterSchemaRows';
+
+import { SemanticVersionStruct } from '@types';
 
 const StyledTabToolbar = styled(TabToolbar)`
     height: unset;

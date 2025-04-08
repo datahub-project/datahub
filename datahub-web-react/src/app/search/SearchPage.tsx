@@ -1,30 +1,32 @@
 import React, { useEffect, useState } from 'react';
 import { useHistory } from 'react-router';
-import { FacetFilterInput } from '../../types.generated';
-import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
-import { SearchResults } from './SearchResults';
-import analytics, { EventType } from '../analytics';
-import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
-import { SearchCfg } from '../../conf';
-import { ENTITY_SUB_TYPE_FILTER_FIELDS, UnionType } from './utils/constants';
-import { EntityAndType } from '../entity/shared/types';
-import { scrollToTop } from '../shared/searchUtils';
-import { OnboardingTour } from '../onboarding/OnboardingTour';
+
+import analytics, { EventType } from '@app/analytics';
+import { EntityAndType } from '@app/entity/shared/types';
+import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import {
     SEARCH_RESULTS_ADVANCED_SEARCH_ID,
     SEARCH_RESULTS_BROWSE_SIDEBAR_ID,
     SEARCH_RESULTS_FILTERS_ID,
     SEARCH_RESULTS_FILTERS_V2_INTRO,
-} from '../onboarding/config/SearchOnboardingConfig';
-import { useDownloadScrollAcrossEntitiesSearchResults } from './utils/useDownloadScrollAcrossEntitiesSearchResults';
-import { DownloadSearchResults, DownloadSearchResultsInput } from './utils/types';
-import SearchFilters from './filters/SearchFilters';
-import useGetSearchQueryInputs from './useGetSearchQueryInputs';
-import useSearchFilterAnalytics from './filters/useSearchFilterAnalytics';
-import { useIsBrowseV2, useIsSearchV2, useSearchVersion } from './useSearchAndBrowseVersion';
-import useFilterMode from './filters/useFilterMode';
-import { useToggleEducationStepIdsAllowList } from '../onboarding/useToggleEducationStepIdsAllowList';
-import { useSelectedSortOption } from './context/SearchContext';
+} from '@app/onboarding/config/SearchOnboardingConfig';
+import { useToggleEducationStepIdsAllowList } from '@app/onboarding/useToggleEducationStepIdsAllowList';
+import { SearchResults } from '@app/search/SearchResults';
+import { useSelectedSortOption } from '@app/search/context/SearchContext';
+import SearchFilters from '@app/search/filters/SearchFilters';
+import useFilterMode from '@app/search/filters/useFilterMode';
+import useSearchFilterAnalytics from '@app/search/filters/useSearchFilterAnalytics';
+import useGetSearchQueryInputs from '@app/search/useGetSearchQueryInputs';
+import { useIsBrowseV2, useIsSearchV2, useSearchVersion } from '@app/search/useSearchAndBrowseVersion';
+import { ENTITY_SUB_TYPE_FILTER_FIELDS, UnionType } from '@app/search/utils/constants';
+import { navigateToSearchUrl } from '@app/search/utils/navigateToSearchUrl';
+import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/utils/types';
+import { useDownloadScrollAcrossEntitiesSearchResults } from '@app/search/utils/useDownloadScrollAcrossEntitiesSearchResults';
+import { scrollToTop } from '@app/shared/searchUtils';
+import { SearchCfg } from '@src/conf';
+
+import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
+import { FacetFilterInput } from '@types';
 
 /**
  * A search results page.

@@ -1,20 +1,26 @@
-import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
-import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
+import { ArrowDownOutlined, ArrowUpOutlined, PartitionOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
-import { Tooltip } from '@components';
-import { ArrowDownOutlined, ArrowUpOutlined, PartitionOutlined } from '@ant-design/icons';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import SidebarLineageLoadingSection from '@app/entityV2/shared/containers/profile/sidebar/Lineage/SidebarLineageLoadingSection';
+import {
+    getDirectDownstreamSummary,
+    getDirectUpstreamSummary,
+    getRelatedEntitySummary,
+} from '@app/entityV2/shared/containers/profile/sidebar/Lineage/utils';
+import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
+import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
+import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import UpstreamHealth from '@src/app/entityV2/shared/embed/UpstreamHealth/UpstreamHealth';
-import { useGetSearchAcrossLineageCountsQuery } from '../../../../../../../graphql/lineage.generated';
-import { useEntityData } from '../../../../../../entity/shared/EntityContext';
-import { SidebarSection } from '../SidebarSection';
-import { getDirectDownstreamSummary, getDirectUpstreamSummary, getRelatedEntitySummary } from './utils';
-import SidebarLineageLoadingSection from './SidebarLineageLoadingSection';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../../../constants';
-import SectionActionButton from '../SectionActionButton';
-import { useEmbeddedProfileLinkProps } from '../../../../../../shared/useEmbeddedProfileLinkProps';
+
+import { useGetSearchAcrossLineageCountsQuery } from '@graphql/lineage.generated';
 
 const Section = styled.div`
     display: flex;

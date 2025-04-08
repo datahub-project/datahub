@@ -1,16 +1,18 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled, { CSSObject } from 'styled-components';
-import HealthIcon from '@src/app/previewV2/HealthIcon';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { GlossaryPreviewCardDecoration } from '@app/entityV2/shared/containers/profile/header/GlossaryPreviewCardDecoration';
+import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { DeprecationIcon } from '@src/app/entityV2/shared/components/styled/DeprecationIcon';
-import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
 import PlatformHeaderIcons from '@src/app/entityV2/shared/containers/profile/header/PlatformContent/PlatformHeaderIcons';
 import { getEntityPlatforms } from '@src/app/entityV2/shared/containers/profile/header/utils';
-import { Entity, EntityType } from '../../../../types.generated';
-import { GenericEntityProperties } from '../../../entity/shared/types';
-import { HoverEntityTooltip } from '../../../recommendations/renderer/component/HoverEntityTooltip';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { GlossaryPreviewCardDecoration } from '../../../entityV2/shared/containers/profile/header/GlossaryPreviewCardDecoration';
+import HealthIcon from '@src/app/previewV2/HealthIcon';
+import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
+
+import { Entity, EntityType } from '@types';
 
 const Container = styled.div<{ showHover: boolean; entity: GenericEntityProperties }>`
     display: flex;

@@ -1,8 +1,10 @@
-import React from 'react';
 import { Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { Schema, SchemaMetadata } from '../../../../../../types.generated';
-import { diffJson, formatRawSchema, getRawSchema } from '../utils/utils';
+
+import { diffJson, formatRawSchema, getRawSchema } from '@app/entityV2/dataset/profile/schema/utils/utils';
+
+import { Schema, SchemaMetadata } from '@types';
 
 type Props = {
     schemaDiff: {

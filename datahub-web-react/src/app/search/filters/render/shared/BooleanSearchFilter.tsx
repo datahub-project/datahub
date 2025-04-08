@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import styled from 'styled-components';
 import { CaretDownFilled } from '@ant-design/icons';
 import { Dropdown } from 'antd';
-import { SearchFilterLabel } from '../../styledComponents';
-import BooleanSearchFilterMenu from './BooleanMoreFilterMenu';
-import FilterOption from '../../FilterOption';
+import React, { useState } from 'react';
+import styled from 'styled-components';
+
+import FilterOption from '@app/search/filters/FilterOption';
+import BooleanSearchFilterMenu from '@app/search/filters/render/shared/BooleanMoreFilterMenu';
+import { SearchFilterLabel } from '@app/search/filters/styledComponents';
 
 const IconNameWrapper = styled.span`
     display: flex;

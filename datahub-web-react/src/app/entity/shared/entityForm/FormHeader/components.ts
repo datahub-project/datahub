@@ -1,7 +1,9 @@
 import { ArrowLeftOutlined, ArrowRightOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-import { ANTD_GRAY_V2 } from '../../constants';
-import BackgroundDots from '../../../../../images/background_dots.svg';
+
+import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+
+import BackgroundDots from '@images/background_dots.svg';
 
 export const BulkNavigationWrapper = styled.div<{ $hideBackground?: boolean }>`
     padding: 16px 68px 16px 24px;

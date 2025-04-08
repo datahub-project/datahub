@@ -1,21 +1,23 @@
+import { SlidersOutlined } from '@ant-design/icons';
+import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Divider } from 'antd';
-import { SlidersOutlined } from '@ant-design/icons';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import MoreFilters from '@app/searchV2/filters/MoreFilters';
+import SaveViewButton from '@app/searchV2/filters/SaveViewButton';
+import SearchFilter from '@app/searchV2/filters/SearchFilter';
+import SearchFiltersLoadingSection from '@app/searchV2/filters/SearchFiltersLoadingSection';
+import { FILTERS_TO_REMOVE, NON_FACET_FILTER_FIELDS, SORTED_FILTERS } from '@app/searchV2/filters/constants';
+import { FilterScenarioType } from '@app/searchV2/filters/render/types';
+import { useFilterRendererRegistry } from '@app/searchV2/filters/render/useFilterRenderer';
+import { FilterPredicate } from '@app/searchV2/filters/types';
+import { convertToAvailableFilterPredictes, sortFacets } from '@app/searchV2/filters/utils';
+import { ORIGIN_FILTER_NAME, UnionType } from '@app/searchV2/utils/constants';
 import { useAppConfig } from '@src/app/useAppConfig';
-import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
-import { useUserContext } from '../../context/useUserContext';
-import { ORIGIN_FILTER_NAME, UnionType } from '../utils/constants';
-import { FILTERS_TO_REMOVE, NON_FACET_FILTER_FIELDS, SORTED_FILTERS } from './constants';
-import MoreFilters from './MoreFilters';
-import SaveViewButton from './SaveViewButton';
-import SearchFilter from './SearchFilter';
-import { convertToAvailableFilterPredictes, sortFacets } from './utils';
-import { useFilterRendererRegistry } from './render/useFilterRenderer';
-import { FilterScenarioType } from './render/types';
-import SearchFiltersLoadingSection from './SearchFiltersLoadingSection';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { FilterPredicate } from './types';
+
+import { FacetFilterInput, FacetMetadata } from '@types';
 
 const NUM_VISIBLE_FILTER_DROPDOWNS = 6;
 

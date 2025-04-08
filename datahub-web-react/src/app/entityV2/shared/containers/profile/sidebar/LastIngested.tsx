@@ -1,16 +1,17 @@
 import { green, orange, red } from '@ant-design/colors';
-import { Image } from 'antd';
+import { QuestionCircleOutlined } from '@ant-design/icons';
 import { Popover } from '@components';
-import styled from 'styled-components/macro';
+import { Image } from 'antd';
 import moment from 'moment-timezone';
 import React from 'react';
-import { QuestionCircleOutlined } from '@ant-design/icons';
-import { toLocalDateTimeString, toRelativeTimeString } from '../../../../../shared/time/timeUtils';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../../constants';
-import { useEntityData } from '../../../../../entity/shared/EntityContext';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { getPlatformName } from '../../../utils';
-import { getDisplayedEntityType } from '../header/utils';
+import styled from 'styled-components/macro';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
+import { getPlatformName } from '@app/entityV2/shared/utils';
+import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const StyledDot = styled.div<{ color: string }>`
     border: 1px solid ${ANTD_GRAY[5]};

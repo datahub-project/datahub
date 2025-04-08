@@ -1,18 +1,19 @@
 import React, { useState } from 'react';
+import { Redirect, Route, Switch } from 'react-router-dom';
 import styled from 'styled-components/macro';
-import { Switch, Route, Redirect } from 'react-router-dom';
-import { PageRoutes } from '../../conf/Global';
-import { GlossaryEntityContext } from '../entity/shared/GlossaryEntityContext';
-import { GenericEntityProperties } from '../entity/shared/types';
-import BusinessGlossaryPage from './BusinessGlossaryPage';
-import BusinessGlossaryPageV2 from '../glossaryV2/BusinessGlossaryPage';
-import { EntityPage } from '../entity/EntityPage';
-import GlossarySidebar from './GlossarySidebar';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { useAppConfig } from '../useAppConfig';
-import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
-import { shouldShowGlossary } from '../identity/user/UserUtils';
-import { useIsThemeV2 } from '../useIsThemeV2';
+
+import { EntityPage } from '@app/entity/EntityPage';
+import { GlossaryEntityContext } from '@app/entity/shared/GlossaryEntityContext';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import BusinessGlossaryPage from '@app/glossary/BusinessGlossaryPage';
+import GlossarySidebar from '@app/glossary/GlossarySidebar';
+import BusinessGlossaryPageV2 from '@app/glossaryV2/BusinessGlossaryPage';
+import { shouldShowGlossary } from '@app/identity/user/UserUtils';
+import { useAppConfig } from '@app/useAppConfig';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useGetAuthenticatedUser } from '@app/useGetAuthenticatedUser';
+import { useIsThemeV2 } from '@app/useIsThemeV2';
+import { PageRoutes } from '@conf/Global';
 
 const ContentWrapper = styled.div`
     display: flex;

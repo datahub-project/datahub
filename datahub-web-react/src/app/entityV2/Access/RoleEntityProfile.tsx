@@ -1,13 +1,13 @@
-import React from 'react';
-
-import { useParams } from 'react-router';
-import { Divider, Typography } from 'antd';
 import { grey } from '@ant-design/colors';
+import { Divider, Typography } from 'antd';
+import React from 'react';
+import { useParams } from 'react-router';
 import styled from 'styled-components';
 
-import { Message } from '../../shared/Message';
-import { decodeUrn } from '../shared/utils';
-import { useGetExternalRoleQuery } from '../../../graphql/accessrole.generated';
+import { decodeUrn } from '@app/entityV2/shared/utils';
+import { Message } from '@app/shared/Message';
+
+import { useGetExternalRoleQuery } from '@graphql/accessrole.generated';
 
 const PageContainer = styled.div`
     padding: 32px 100px;

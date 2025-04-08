@@ -1,17 +1,14 @@
 /* eslint-disable @typescript-eslint/dot-notation, no-param-reassign */
-
+import { AxisLeft } from '@visx/axis';
+import { ParentSize } from '@visx/responsive';
+import { scaleBand, scaleLinear } from '@visx/scale';
+import { Bar, BarStackHorizontal } from '@visx/shape';
+import { Grid, XYChart } from '@visx/xychart';
 import React from 'react';
 
-import { Grid, XYChart } from '@visx/xychart';
-import { BarStackHorizontal, Bar } from '@visx/shape';
-import { AxisLeft } from '@visx/axis';
-import { scaleLinear, scaleBand } from '@visx/scale';
-import { ParentSize } from '@visx/responsive';
-
-import { Legend } from '../Legend';
-import { ChartWrapper } from '../components';
-
-import { COMPLETED_COLOR, NOT_STARTED_COLOR, IN_PROGRESS_COLOR } from '../constants';
+import { Legend } from '@app/dataviz/Legend';
+import { ChartWrapper } from '@app/dataviz/components';
+import { COMPLETED_COLOR, IN_PROGRESS_COLOR, NOT_STARTED_COLOR } from '@app/dataviz/constants';
 
 export const HorizontalBarChart = <Data extends object, DataKeys>({
     data,

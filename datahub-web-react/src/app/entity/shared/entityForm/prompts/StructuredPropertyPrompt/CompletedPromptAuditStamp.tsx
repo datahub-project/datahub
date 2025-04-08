@@ -1,9 +1,11 @@
+import Icon from '@ant-design/icons';
 import { Typography } from 'antd';
 import React from 'react';
-import Icon from '@ant-design/icons';
 import styled from 'styled-components';
-import GreenCircleIcon from '../../../../../../images/greenCircleTwoTone.svg?react';
-import { ANTD_GRAY_V2 } from '../../../constants';
+
+import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+
+import GreenCircleIcon from '@images/greenCircleTwoTone.svg?react';
 
 const PadIcon = styled.div`
     align-items: flex-start;

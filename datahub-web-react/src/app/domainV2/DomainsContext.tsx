@@ -1,5 +1,6 @@
 import React, { useContext } from 'react';
-import { GenericEntityProperties } from '../entity/shared/types';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
 
 export interface DomainsContextType {
     entityData: GenericEntityProperties | null;

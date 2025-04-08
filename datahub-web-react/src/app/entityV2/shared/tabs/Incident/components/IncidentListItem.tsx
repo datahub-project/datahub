@@ -1,20 +1,26 @@
-import React, { useState } from 'react';
-import styled from 'styled-components';
-import { Button, Dropdown, List, Menu, message, Tag, Typography } from 'antd';
-import { Tooltip, Popover } from '@components';
 import { CheckCircleFilled, CheckOutlined, MoreOutlined, WarningFilled } from '@ant-design/icons';
+import { Popover, Tooltip } from '@components';
+import { Button, Dropdown, List, Menu, Tag, Typography, message } from 'antd';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { EntityType, IncidentState, IncidentType } from '../../../../../../types.generated';
-import { FAILURE_COLOR_HEX, getNameFromType, SUCCESS_COLOR_HEX } from '../incidentUtils';
-import { useGetUserQuery } from '../../../../../../graphql/user.generated';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { toLocalDateTimeString, toRelativeTimeString } from '../../../../../shared/time/timeUtils';
-import { useEntityData, useRefetch } from '../../../../../entity/shared/EntityContext';
-import analytics, { EntityActionType, EventType } from '../../../../../analytics';
-import { useUpdateIncidentStatusMutation } from '../../../../../../graphql/mutations.generated';
-import { ResolveIncidentModal } from './ResolveIncidentModal';
-import handleGraphQLError from '../../../../../shared/handleGraphQLError';
-import CompactMarkdownViewer from '../../Documentation/components/CompactMarkdownViewer';
+import styled from 'styled-components';
+
+import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
+import { ResolveIncidentModal } from '@app/entityV2/shared/tabs/Incident/components/ResolveIncidentModal';
+import {
+    FAILURE_COLOR_HEX,
+    SUCCESS_COLOR_HEX,
+    getNameFromType,
+} from '@app/entityV2/shared/tabs/Incident/incidentUtils';
+import handleGraphQLError from '@app/shared/handleGraphQLError';
+import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useUpdateIncidentStatusMutation } from '@graphql/mutations.generated';
+import { useGetUserQuery } from '@graphql/user.generated';
+import { EntityType, IncidentState, IncidentType } from '@types';
 
 type Props = {
     incident: any;

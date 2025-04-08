@@ -1,23 +1,25 @@
-import * as React from 'react';
 import { FileDoneOutlined } from '@ant-design/icons';
-import { DataProduct, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { SidebarViewDefinitionSection } from '../shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
-import { GetDatasetQuery } from '../../../graphql/dataset.generated';
-import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { Preview } from './preview/Preview';
-import { useGetDataProductQuery } from '../../../graphql/dataProduct.generated';
-import { DataProductEntitiesTab } from './DataProductEntitiesTab';
-import { EntityActionItem } from '../shared/entity/EntityActions';
-import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
+import * as React from 'react';
+
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entity/Entity';
+import { DataProductEntitiesTab } from '@app/entity/dataProduct/DataProductEntitiesTab';
+import { Preview } from '@app/entity/dataProduct/preview/Preview';
+import { EntityMenuItems } from '@app/entity/shared/EntityDropdown/EntityDropdown';
+import { EntityProfile } from '@app/entity/shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import { SidebarViewDefinitionSection } from '@app/entity/shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
+import { SidebarDomainSection } from '@app/entity/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { SidebarTagsSection } from '@app/entity/shared/containers/profile/sidebar/SidebarTagsSection';
+import SidebarStructuredPropsSection from '@app/entity/shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
+import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
+import { EntityActionItem } from '@app/entity/shared/entity/EntityActions';
+import { DocumentationTab } from '@app/entity/shared/tabs/Documentation/DocumentationTab';
+import { PropertiesTab } from '@app/entity/shared/tabs/Properties/PropertiesTab';
+
+import { useGetDataProductQuery } from '@graphql/dataProduct.generated';
+import { GetDatasetQuery } from '@graphql/dataset.generated';
+import { DataProduct, EntityType, OwnershipType, SearchResult } from '@types';
 
 /**
  * Definition of the DataHub Data Product entity.

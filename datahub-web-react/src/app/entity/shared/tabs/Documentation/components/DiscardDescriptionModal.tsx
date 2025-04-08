@@ -1,5 +1,5 @@
+import { Button, Modal } from 'antd';
 import React from 'react';
-import { Modal, Button } from 'antd';
 
 type Props = {
     cancelModalVisible?: boolean;

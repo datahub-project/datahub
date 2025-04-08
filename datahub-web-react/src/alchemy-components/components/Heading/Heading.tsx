@@ -1,7 +1,7 @@
 import React from 'react';
 
-import { HeadingProps, HeadingPropsDefaults } from './types';
-import { H1, H2, H3, H4, H5, H6 } from './components';
+import { H1, H2, H3, H4, H5, H6 } from '@components/components/Heading/components';
+import { HeadingProps, HeadingPropsDefaults } from '@components/components/Heading/types';
 
 export const headingDefaults: HeadingPropsDefaults = {
     type: 'h1',

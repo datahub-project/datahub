@@ -1,7 +1,9 @@
 import { useContext } from 'react';
-import { EntityType, LineageDirection } from '../../../types.generated';
-import { FetchStatus, LineageNodesContext } from '../common';
-import useSearchAcrossLineage from '../useSearchAcrossLineage';
+
+import { FetchStatus, LineageNodesContext } from '@app/lineageV2/common';
+import useSearchAcrossLineage from '@app/lineageV2/useSearchAcrossLineage';
+
+import { EntityType, LineageDirection } from '@types';
 
 export function useOnClickExpandLineage(urn: string, type: EntityType, direction: LineageDirection, maxDepth: boolean) {
     const context = useContext(LineageNodesContext);

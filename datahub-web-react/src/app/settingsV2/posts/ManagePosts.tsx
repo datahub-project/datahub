@@ -1,7 +1,8 @@
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { PostList } from './PostsList';
+
+import { PostList } from '@app/settingsV2/posts/PostsList';
 
 export const PageContainer = styled.div`
     padding-top: 20px;

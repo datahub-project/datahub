@@ -1,13 +1,14 @@
-import React from 'react';
 import { SlackOutlined } from '@ant-design/icons';
+import React from 'react';
 import styled from 'styled-components';
+
 import {
+    BasicDetailsContainer,
+    DraftsOutlinedIconStyle,
     EmptyValue,
     SocialDetails,
-    BasicDetailsContainer,
     SocialInfo,
-    DraftsOutlinedIconStyle,
-} from '../shared/SidebarStyledComponents';
+} from '@app/entityV2/shared/SidebarStyledComponents';
 
 const StyledBasicDetailsContainer = styled(BasicDetailsContainer)`
     padding: 10px;

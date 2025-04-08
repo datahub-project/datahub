@@ -1,24 +1,22 @@
-import queryString from 'query-string';
-import React, { useEffect } from 'react';
-import { Button } from '@src/alchemy-components';
-import { useLocation } from 'react-router-dom';
-
 import { EditOutlined, ExpandAltOutlined, PlusOutlined } from '@ant-design/icons';
 import { Button as AntButton, Divider, Typography } from 'antd';
+import queryString from 'query-string';
+import React, { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { AddLinkModal } from '../../components/styled/AddLinkModal';
-import { EmptyTab } from '../../components/styled/EmptyTab';
-import TabToolbar from '../../components/styled/TabToolbar';
-import { DescriptionEditor } from './components/DescriptionEditor';
-import { LinkList } from './components/LinkList';
-
-import { useEntityData, useRefetch, useRouteToTab } from '../../../../entity/shared/EntityContext';
-import { REDESIGN_COLORS } from '../../constants';
-import { EDITED_DESCRIPTIONS_CACHE_NAME } from '../../utils';
-import { DescriptionPreviewModal } from './components/DescriptionPreviewModal';
-import { Editor } from './components/editor/Editor';
-import { getAssetDescriptionDetails } from './utils';
+import { useEntityData, useRefetch, useRouteToTab } from '@app/entity/shared/EntityContext';
+import { AddLinkModal } from '@app/entityV2/shared/components/styled/AddLinkModal';
+import { EmptyTab } from '@app/entityV2/shared/components/styled/EmptyTab';
+import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { DescriptionEditor } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionEditor';
+import { DescriptionPreviewModal } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionPreviewModal';
+import { LinkList } from '@app/entityV2/shared/tabs/Documentation/components/LinkList';
+import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
+import { getAssetDescriptionDetails } from '@app/entityV2/shared/tabs/Documentation/utils';
+import { EDITED_DESCRIPTIONS_CACHE_NAME } from '@app/entityV2/shared/utils';
+import { Button } from '@src/alchemy-components';
 
 const DocumentationContainer = styled.div`
     margin: 0 32px;

@@ -1,9 +1,10 @@
 import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { useEntityData } from '../../EntityContext';
-import { getFormAssociations } from '../../containers/profile/sidebar/FormInfo/utils';
-import FormItem from './FormItem';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { getFormAssociations } from '@app/entity/shared/containers/profile/sidebar/FormInfo/utils';
+import FormItem from '@app/entity/shared/entityForm/FormSelectionModal/FormItem';
 
 const FormSelectorWrapper = styled.div`
     font-size: 14px;

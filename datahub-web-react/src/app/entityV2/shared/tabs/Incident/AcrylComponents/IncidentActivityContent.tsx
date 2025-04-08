@@ -1,11 +1,16 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { colors, Text } from '@src/alchemy-components';
+
+import {
+    ActivityStatusText,
+    Content,
+    ContentRow,
+} from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
+import useGetUserName from '@app/entityV2/shared/tabs/Incident/hooks';
+import { TimelineContentDetails } from '@app/entityV2/shared/tabs/Incident/types';
+import { Text, colors } from '@src/alchemy-components';
 import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
-import { ActivityStatusText, Content, ContentRow } from './styledComponents';
-import { TimelineContentDetails } from '../types';
-import useGetUserName from '../hooks';
+import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 
 type TimelineContentProps = {
     incidentActivities: TimelineContentDetails;

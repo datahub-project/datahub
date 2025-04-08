@@ -2,13 +2,15 @@ import { PlusOutlined } from '@ant-design/icons';
 import { Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
+
+import AddRelatedTermsModal from '@app/entity/glossaryTerm/profile/AddRelatedTermsModal';
+import RelatedTerm from '@app/entity/glossaryTerm/profile/RelatedTerm';
+import { EmptyTab } from '@app/entity/shared/components/styled/EmptyTab';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { Message } from '@app/shared/Message';
 import { Button } from '@src/alchemy-components';
-import { TermRelationshipType } from '../../../../types.generated';
-import { Message } from '../../../shared/Message';
-import { EmptyTab } from '../../shared/components/styled/EmptyTab';
-import { ANTD_GRAY } from '../../shared/constants';
-import AddRelatedTermsModal from './AddRelatedTermsModal';
-import RelatedTerm from './RelatedTerm';
+
+import { TermRelationshipType } from '@types';
 
 export enum RelatedTermTypes {
     hasRelatedTerms = 'Contains',

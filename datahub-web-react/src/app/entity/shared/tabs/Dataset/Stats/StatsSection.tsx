@@ -1,6 +1,6 @@
 import { Divider, Row, Typography } from 'antd';
-import styled from 'styled-components';
 import React from 'react';
+import styled from 'styled-components';
 
 const Section = styled.div`
     padding-top: 24px;

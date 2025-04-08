@@ -1,17 +1,19 @@
-import React, { useContext, useState } from 'react';
-
-import { matchPath, useLocation } from 'react-router';
 import { BookOpen } from '@phosphor-icons/react';
+import React, { useContext, useState } from 'react';
+import { matchPath, useLocation } from 'react-router';
 import styled from 'styled-components';
 
-import { PageRoutes } from '../../../conf/Global';
-import EntitySidebarContext from '../../sharedV2/EntitySidebarContext';
-import TagStyleEntity from '../../shared/TagStyleEntity';
-import { StyledEntitySidebarContainer, StyledSidebar } from '../shared/containers/profile/sidebar/EntityProfileSidebar';
-import { EntitySidebarTab } from '../shared/types';
-import EntitySidebarSectionsTab from '../shared/containers/profile/sidebar/EntitySidebarSectionsTab';
-import { EntitySidebarTabs } from '../shared/containers/profile/sidebar/EntitySidebarTabs';
-import { defaultTabDisplayConfig } from '../shared/containers/profile/utils';
+import {
+    StyledEntitySidebarContainer,
+    StyledSidebar,
+} from '@app/entityV2/shared/containers/profile/sidebar/EntityProfileSidebar';
+import EntitySidebarSectionsTab from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebarSectionsTab';
+import { EntitySidebarTabs } from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebarTabs';
+import { defaultTabDisplayConfig } from '@app/entityV2/shared/containers/profile/utils';
+import { EntitySidebarTab } from '@app/entityV2/shared/types';
+import TagStyleEntity from '@app/shared/TagStyleEntity';
+import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import { PageRoutes } from '@conf/Global';
 
 const CompactEntityWrapper = styled.div<{ $isClosed: boolean }>`
     ${(props) => !props.$isClosed && 'padding: 16px;'}

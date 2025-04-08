@@ -1,15 +1,17 @@
+import { Pill, Popover } from '@components';
+import { capitalize } from 'lodash';
+import React from 'react';
+import styled from 'styled-components';
+
 import {
     formatDetailedDuration,
     formatDuration,
     toLocalDateTimeString,
     toRelativeTimeString,
 } from '@app/shared/time/timeUtils';
-import { Pill, Popover } from '@components';
-import { capitalize } from 'lodash';
-import React from 'react';
-import styled from 'styled-components';
 import colors from '@src/alchemy-components/theme/foundations/colors';
-import { DataProcessInstanceRunResultType } from '../../types.generated';
+
+import { DataProcessInstanceRunResultType } from '@types';
 
 const StatContainer = styled.div`
     display: flex;

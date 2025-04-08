@@ -1,7 +1,8 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
-import AutoComplete from './AutoComplete';
+
+import AutoComplete from '@components/components/AutoComplete/AutoComplete';
 
 // Auto Docs
 const meta = {

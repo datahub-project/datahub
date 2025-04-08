@@ -1,6 +1,7 @@
-import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import React from 'react';
 import styled from 'styled-components';
+
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 const ReferenceSectionContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     ${(props) => !props.$isShowNavBarRedesign && 'padding: 0px 12px 0px 12px;'}

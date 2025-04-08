@@ -1,32 +1,36 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { SEMANTIC_VERSION_PARAM } from '@app/entityV2/dataset/profile/schema/components/VersionSelector';
-import useSchemaVersioning from '@app/entityV2/shared/tabs/Dataset/Schema/useSchemaVersioning';
-import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { Empty } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
-import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
-import { useBaseEntity, useEntityData } from '../../../../../entity/shared/EntityContext';
-import SchemaEditableContext from '../../../../../shared/SchemaEditableContext';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import SchemaHeader from '../../../../dataset/profile/schema/components/SchemaHeader';
-import SchemaRawView from '../../../../dataset/profile/schema/components/SchemaRawView';
-import { KEY_SCHEMA_PREFIX } from '../../../../dataset/profile/schema/utils/constants';
-import { groupByFieldPath } from '../../../../dataset/profile/schema/utils/utils';
-import { ANTD_GRAY } from '../../../constants';
-import { TabRenderType } from '../../../types';
-import CompactSchemaTable from './CompactSchemaTable';
-import HistorySidebar from './history/HistorySidebar';
-import SchemaContext from './SchemaContext';
-import SchemaTable from './SchemaTable';
-import { useGetEntityWithSchema } from './useGetEntitySchema';
-import { filterSchemaRows, SchemaFilterType } from './utils/filterSchemaRows';
-import getExpandedDrawerFieldPath from './utils/getExpandedDrawerFieldPath';
-import getSchemaFilterTypesFromUrl from './utils/getSchemaFilterTypesFromUrl';
-import { getMatchedTextFromQueryString, getSchemaFilterFromQueryString } from './utils/queryStringUtils';
-import useUpdateSchemaFilterQueryString from './utils/updateSchemaFilterQueryString';
+import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
+import SchemaHeader from '@app/entityV2/dataset/profile/schema/components/SchemaHeader';
+import SchemaRawView from '@app/entityV2/dataset/profile/schema/components/SchemaRawView';
+import { SEMANTIC_VERSION_PARAM } from '@app/entityV2/dataset/profile/schema/components/VersionSelector';
+import { KEY_SCHEMA_PREFIX } from '@app/entityV2/dataset/profile/schema/utils/constants';
+import { groupByFieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import CompactSchemaTable from '@app/entityV2/shared/tabs/Dataset/Schema/CompactSchemaTable';
+import SchemaContext from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaContext';
+import SchemaTable from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTable';
+import HistorySidebar from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar';
+import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
+import useSchemaVersioning from '@app/entityV2/shared/tabs/Dataset/Schema/useSchemaVersioning';
+import { SchemaFilterType, filterSchemaRows } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/filterSchemaRows';
+import getExpandedDrawerFieldPath from '@app/entityV2/shared/tabs/Dataset/Schema/utils/getExpandedDrawerFieldPath';
+import getSchemaFilterTypesFromUrl from '@app/entityV2/shared/tabs/Dataset/Schema/utils/getSchemaFilterTypesFromUrl';
+import {
+    getMatchedTextFromQueryString,
+    getSchemaFilterFromQueryString,
+} from '@app/entityV2/shared/tabs/Dataset/Schema/utils/queryStringUtils';
+import useUpdateSchemaFilterQueryString from '@app/entityV2/shared/tabs/Dataset/Schema/utils/updateSchemaFilterQueryString';
+import { TabRenderType } from '@app/entityV2/shared/types';
+import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
+import SchemaEditableContext from '@app/shared/SchemaEditableContext';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { GetDatasetQuery } from '@graphql/dataset.generated';
 
 const NoSchema = styled(Empty)`
     color: ${ANTD_GRAY[6]};

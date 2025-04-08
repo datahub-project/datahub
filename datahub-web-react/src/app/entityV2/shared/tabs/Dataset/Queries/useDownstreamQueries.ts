@@ -1,15 +1,17 @@
-import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
 import { useEffect, useState } from 'react';
-import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
-import { useSearchAcrossLineageForQueriesQuery } from '../../../../../../graphql/query.generated';
-import { Entity, EntityType, LineageDirection, QueryEntity } from '../../../../../../types.generated';
-import { useBaseEntity } from '../../../../../entity/shared/EntityContext';
-import { DBT_URN } from '../../../../../ingest/source/builder/constants';
-import { LINEAGE_FILTER_PAGINATION, isQuery } from '../../../../../lineageV2/common';
-import { DEGREE_FILTER_NAME } from '../../../../../search/utils/constants';
-import { MAX_QUERIES_COUNT } from './utils/constants';
-import { filterQueries } from './utils/filterQueries';
-import { mapQuery } from './utils/mapQuery';
+
+import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { MAX_QUERIES_COUNT } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/constants';
+import { filterQueries } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/filterQueries';
+import { mapQuery } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/mapQuery';
+import { DBT_URN } from '@app/ingest/source/builder/constants';
+import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
+import { LINEAGE_FILTER_PAGINATION, isQuery } from '@app/lineageV2/common';
+import { DEGREE_FILTER_NAME } from '@app/search/utils/constants';
+
+import { GetDatasetQuery } from '@graphql/dataset.generated';
+import { useSearchAcrossLineageForQueriesQuery } from '@graphql/query.generated';
+import { Entity, EntityType, LineageDirection, QueryEntity } from '@types';
 
 export default function useDownstreamQueries(filterText: string) {
     const baseEntity = useBaseEntity<GetDatasetQuery>();

@@ -1,17 +1,20 @@
-import React from 'react';
-import styled from 'styled-components';
 import { Popover, Tooltip } from '@components';
 import { Divider, Modal, Typography, message } from 'antd';
-import moment from 'moment';
 import { TooltipPlacement } from 'antd/es/tooltip';
-import DeprecatedIcon from '../../../../../images/deprecated-status.svg?react';
-import { useBatchUpdateDeprecationMutation } from '../../../../../graphql/mutations.generated';
-import { Deprecation, SubResourceType } from '../../../../../types.generated';
-import { EntityLink } from '../../../../homeV2/reference/sections/EntityLink';
-import { getV1FieldPathFromSchemaFieldUrn } from '../../../../lineageV2/lineageUtils';
-import { getLocaleTimezone, toLocalDateString } from '../../../../shared/time/timeUtils';
-import { REDESIGN_COLORS } from '../../constants';
-import MarkAsDeprecatedButton from './MarkAsDeprecatedButton';
+import moment from 'moment';
+import React from 'react';
+import styled from 'styled-components';
+
+import MarkAsDeprecatedButton from '@app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
+import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';
+import { getLocaleTimezone, toLocalDateString } from '@app/shared/time/timeUtils';
+
+import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated';
+import { Deprecation, SubResourceType } from '@types';
+
+import DeprecatedIcon from '@images/deprecated-status.svg?react';
 
 const DeprecatedContainer = styled.div`
     display: flex;

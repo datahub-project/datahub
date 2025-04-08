@@ -1,12 +1,9 @@
-import Icon from '@ant-design/icons/lib/components/Icon';
-import { TimerOutlined } from '@mui/icons-material';
-import TableIcon from '@src/images/table-icon.svg?react';
-import React from 'react';
 import {
+    BuildOutlined,
     CloseCircleOutlined,
-    EnvironmentOutlined,
     DatabaseOutlined,
     DeleteOutlined,
+    EnvironmentOutlined,
     FileOutlined,
     FileTextOutlined,
     FolderOutlined,
@@ -14,10 +11,13 @@ import {
     TagOutlined,
     UserOutlined,
     WarningOutlined,
-    BuildOutlined,
 } from '@ant-design/icons';
+import Icon from '@ant-design/icons/lib/components/Icon';
+import { TimerOutlined } from '@mui/icons-material';
 import { BookmarkSimple, Globe } from '@phosphor-icons/react';
-import { EntityType } from '../../../../types.generated';
+import React from 'react';
+
+import { FieldType, FilterField } from '@app/searchV2/filters/types';
 import {
     BROWSE_PATH_V2_FILTER_NAME,
     CONTAINER_FILTER_NAME,
@@ -35,6 +35,7 @@ import {
     GLOSSARY_TERMS_FILTER_NAME,
     HAS_ACTIVE_INCIDENTS_FILTER_NAME,
     HAS_FAILING_ASSERTIONS_FILTER_NAME,
+    HAS_SIBLINGS_FILTER_NAME,
     LAST_MODIFIED_FILTER_NAME,
     ORIGIN_FILTER_NAME,
     OWNERS_FILTER_NAME,
@@ -43,9 +44,10 @@ import {
     STRUCTURED_PROPERTIES_FILTER_NAME,
     TAGS_FILTER_NAME,
     TYPE_NAMES_FILTER_NAME,
-    HAS_SIBLINGS_FILTER_NAME,
-} from '../../utils/constants';
-import { FieldType, FilterField } from '../types';
+} from '@app/searchV2/utils/constants';
+import TableIcon from '@src/images/table-icon.svg?react';
+
+import { EntityType } from '@types';
 
 export const ENTITY_SUB_TYPE_FILTER: FilterField = {
     field: ENTITY_SUB_TYPE_FILTER_NAME,

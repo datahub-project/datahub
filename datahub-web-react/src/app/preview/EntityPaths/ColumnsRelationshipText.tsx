@@ -1,11 +1,13 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React, { useContext } from 'react';
 import styled from 'styled-components/macro';
-import { Entity, LineageDirection } from '../../../types.generated';
-import { downgradeV2FieldPath } from '../../entity/dataset/profile/schema/utils/utils';
-import { LineageTabContext } from '../../entity/shared/tabs/Lineage/LineageTabContext';
-import { decodeSchemaField } from '../../lineage/utils/columnLineageUtils';
-import DisplayedColumns from './DisplayedColumns';
+
+import { downgradeV2FieldPath } from '@app/entity/dataset/profile/schema/utils/utils';
+import { LineageTabContext } from '@app/entity/shared/tabs/Lineage/LineageTabContext';
+import { decodeSchemaField } from '@app/lineage/utils/columnLineageUtils';
+import DisplayedColumns from '@app/preview/EntityPaths/DisplayedColumns';
+
+import { Entity, LineageDirection } from '@types';
 
 const ColumnNameWrapper = styled.span<{ isBlack?: boolean }>`
     font-family: 'Roboto Mono', monospace;

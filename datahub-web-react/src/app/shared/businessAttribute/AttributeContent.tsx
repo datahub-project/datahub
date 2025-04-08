@@ -1,13 +1,15 @@
-import styled from 'styled-components';
-import { message, Modal, Tag } from 'antd';
 import { GlobalOutlined } from '@ant-design/icons';
+import { Modal, Tag, message } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { BusinessAttributeAssociation, EntityType } from '../../../types.generated';
-import { useHasMatchedFieldByUrn } from '../../search/context/SearchResultContext';
-import { MatchedFieldName } from '../../search/matches/constants';
-import { useRemoveBusinessAttributeMutation } from '../../../graphql/mutations.generated';
+import styled from 'styled-components';
+
+import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
+import { MatchedFieldName } from '@app/search/matches/constants';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useRemoveBusinessAttributeMutation } from '@graphql/mutations.generated';
+import { BusinessAttributeAssociation, EntityType } from '@types';
 
 const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
 

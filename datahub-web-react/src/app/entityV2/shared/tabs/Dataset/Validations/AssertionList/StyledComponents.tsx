@@ -1,5 +1,6 @@
-import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 import styled from 'styled-components';
+
+import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 
 export const StyledTableContainer = styled.div`
     table tr.acryl-selected-table-row {

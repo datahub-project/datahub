@@ -1,8 +1,9 @@
-import React from 'react';
 import { Collapse, Form, Input, Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { validateCustomUrnId } from '../../../shared/textUtil';
-import { DataProductBuilderFormProps } from './types';
+
+import { DataProductBuilderFormProps } from '@app/entity/domain/DataProductsTab/types';
+import { validateCustomUrnId } from '@app/shared/textUtil';
 
 const FormItem = styled(Form.Item)`
     .ant-form-item-label {

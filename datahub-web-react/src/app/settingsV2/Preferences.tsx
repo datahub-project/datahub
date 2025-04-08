@@ -1,12 +1,14 @@
-import React from 'react';
+import { PageTitle, Switch, colors } from '@components';
 import { message } from 'antd';
-import { Switch, PageTitle, colors } from '@components';
+import React from 'react';
 import styled from 'styled-components';
-import { useUpdateUserSettingMutation } from '../../graphql/me.generated';
-import { UserSetting } from '../../types.generated';
-import analytics, { EventType } from '../analytics';
-import { useUserContext } from '../context/useUserContext';
-import { useIsThemeV2, useIsThemeV2EnabledForUser, useIsThemeV2Toggleable } from '../useIsThemeV2';
+
+import analytics, { EventType } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
+import { useIsThemeV2, useIsThemeV2EnabledForUser, useIsThemeV2Toggleable } from '@app/useIsThemeV2';
+
+import { useUpdateUserSettingMutation } from '@graphql/me.generated';
+import { UserSetting } from '@types';
 
 const Page = styled.div`
     width: 100%;

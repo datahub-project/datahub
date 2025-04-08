@@ -1,16 +1,17 @@
 import React, { useEffect } from 'react';
-import { HomePageHeader } from './HomePageHeader';
-import { HomePageBody } from './HomePageBody';
-import analytics, { EventType } from '../analytics';
-import { OnboardingTour } from '../onboarding/OnboardingTour';
+
+import analytics, { EventType } from '@app/analytics';
+import { HomePageBody } from '@app/home/HomePageBody';
+import { HomePageHeader } from '@app/home/HomePageHeader';
+import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import {
     GLOBAL_WELCOME_TO_DATAHUB_ID,
-    HOME_PAGE_INGESTION_ID,
     HOME_PAGE_DOMAINS_ID,
+    HOME_PAGE_INGESTION_ID,
     HOME_PAGE_MOST_POPULAR_ID,
     HOME_PAGE_PLATFORMS_ID,
     HOME_PAGE_SEARCH_BAR_ID,
-} from '../onboarding/config/HomePageOnboardingConfig';
+} from '@app/onboarding/config/HomePageOnboardingConfig';
 
 export const HomePage = () => {
     useEffect(() => {

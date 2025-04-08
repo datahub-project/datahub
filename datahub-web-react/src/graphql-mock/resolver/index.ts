@@ -1,21 +1,21 @@
-import { getBrowseResultsResolver } from './getBrowseResultsResolver';
-import { getSearchResultsResolver } from './getSearchResultsResolver';
-import { getAutoCompleteAllResultsResolver } from './getAutoCompleteAllResultsResolver';
-import { getAutoCompleteResultsResolver } from './getAutoCompleteResultsResolver';
-import { getBrowsePathsResolver } from './getBrowsePathsResolver';
-import { getDatasetResolver } from './getDatasetResolver';
-import { getDashboardResolver } from './getDashboardResolver';
-import { getChartResolver } from './getChartResolver';
-import { getDataFlowResolver } from './getDataFlowResolver';
-import { getDataJobResolver } from './getDataJobResolver';
-import { getTagResolver } from './getTagResolver';
-import { isAnalyticsEnabledResolver } from './isAnalyticsEnabledResolver';
-import { updateDatasetResolver } from './updateDatasetResolver';
-import { updateDashboardResolver } from './updateDashboardResolver';
-import { updateChartResolver } from './updateChartResolver';
-import { updateDataFlowResolver } from './updateDataFlowResolver';
-import { updateDataJobResolver } from './updateDataJobResolver';
-import { updateTagResolver } from './updateTagResolver';
+import { getAutoCompleteAllResultsResolver } from '@graphql-mock/resolver/getAutoCompleteAllResultsResolver';
+import { getAutoCompleteResultsResolver } from '@graphql-mock/resolver/getAutoCompleteResultsResolver';
+import { getBrowsePathsResolver } from '@graphql-mock/resolver/getBrowsePathsResolver';
+import { getBrowseResultsResolver } from '@graphql-mock/resolver/getBrowseResultsResolver';
+import { getChartResolver } from '@graphql-mock/resolver/getChartResolver';
+import { getDashboardResolver } from '@graphql-mock/resolver/getDashboardResolver';
+import { getDataFlowResolver } from '@graphql-mock/resolver/getDataFlowResolver';
+import { getDataJobResolver } from '@graphql-mock/resolver/getDataJobResolver';
+import { getDatasetResolver } from '@graphql-mock/resolver/getDatasetResolver';
+import { getSearchResultsResolver } from '@graphql-mock/resolver/getSearchResultsResolver';
+import { getTagResolver } from '@graphql-mock/resolver/getTagResolver';
+import { isAnalyticsEnabledResolver } from '@graphql-mock/resolver/isAnalyticsEnabledResolver';
+import { updateChartResolver } from '@graphql-mock/resolver/updateChartResolver';
+import { updateDashboardResolver } from '@graphql-mock/resolver/updateDashboardResolver';
+import { updateDataFlowResolver } from '@graphql-mock/resolver/updateDataFlowResolver';
+import { updateDataJobResolver } from '@graphql-mock/resolver/updateDataJobResolver';
+import { updateDatasetResolver } from '@graphql-mock/resolver/updateDatasetResolver';
+import { updateTagResolver } from '@graphql-mock/resolver/updateTagResolver';
 
 const resolver = {
     ...getSearchResultsResolver,

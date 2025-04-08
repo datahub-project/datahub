@@ -1,26 +1,24 @@
-import React from 'react';
 import { ApiOutlined } from '@ant-design/icons';
-import { Entity as GraphQLEntity } from '@types';
-import { DataProcessInstance, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
-import { Preview } from './preview/Preview';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import {
-    GetDataProcessInstanceQuery,
-    useGetDataProcessInstanceQuery,
-} from '../../../graphql/dataProcessInstance.generated';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { GenericEntityProperties } from '../shared/types';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
-import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { getDataProduct } from '../shared/utils';
-import SummaryTab from './profile/DataProcessInstanceSummary';
+import React from 'react';
+
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entity/Entity';
+import { Preview } from '@app/entity/dataProcessInstance/preview/Preview';
+import SummaryTab from '@app/entity/dataProcessInstance/profile/DataProcessInstanceSummary';
+import { EntityMenuItems } from '@app/entity/shared/EntityDropdown/EntityDropdown';
+import { EntityProfile } from '@app/entity/shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import DataProductSection from '@app/entity/shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import { SidebarDomainSection } from '@app/entity/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { SidebarTagsSection } from '@app/entity/shared/containers/profile/sidebar/SidebarTagsSection';
+import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
+import { LineageTab } from '@app/entity/shared/tabs/Lineage/LineageTab';
+import { PropertiesTab } from '@app/entity/shared/tabs/Properties/PropertiesTab';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { getDataProduct } from '@app/entity/shared/utils';
+
+import { GetDataProcessInstanceQuery, useGetDataProcessInstanceQuery } from '@graphql/dataProcessInstance.generated';
+import { DataProcessInstance, EntityType, Entity as GraphQLEntity, OwnershipType, SearchResult } from '@types';
 
 const getParentEntities = (data: DataProcessInstance): GraphQLEntity[] => {
     const parentEntity = data?.relationships?.relationships?.find(

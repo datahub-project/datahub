@@ -1,19 +1,20 @@
-import React from 'react';
-import Cookies from 'js-cookie';
-import { BrowserRouter as Router } from 'react-router-dom';
-import { ApolloClient, ApolloProvider, createHttpLink, InMemoryCache, ServerError } from '@apollo/client';
+import { ApolloClient, ApolloProvider, InMemoryCache, ServerError, createHttpLink } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
+import Cookies from 'js-cookie';
+import React from 'react';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
-import './App.less';
-import './AppV2.less';
-import { Routes } from './app/Routes';
-import { PageRoutes } from './conf/Global';
-import { isLoggedInVar } from './app/auth/checkAuthStatus';
-import { GlobalCfg } from './conf';
-import possibleTypesResult from './possibleTypes.generated';
-import { ErrorCodes } from './app/shared/constants';
-import CustomThemeProvider from './CustomThemeProvider';
-import { useCustomTheme } from './customThemeContext';
+import { BrowserRouter as Router } from 'react-router-dom';
+
+import { Routes } from '@app/Routes';
+import { isLoggedInVar } from '@app/auth/checkAuthStatus';
+import { ErrorCodes } from '@app/shared/constants';
+import { PageRoutes } from '@conf/Global';
+import '@src/App.less';
+import '@src/AppV2.less';
+import CustomThemeProvider from '@src/CustomThemeProvider';
+import { GlobalCfg } from '@src/conf';
+import { useCustomTheme } from '@src/customThemeContext';
+import possibleTypesResult from '@src/possibleTypes.generated';
 
 /*
     Construct Apollo Client

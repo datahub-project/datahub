@@ -1,10 +1,3 @@
-import React, { useContext, useEffect } from 'react';
-import { HOME_PAGE_INGESTION_ID } from '@src/app/onboarding/config/HomePageOnboardingConfig';
-import { useHandleOnboardingTour } from '@src/app/onboarding/useHandleOnboardingTour';
-import { useUpdateEducationStepsAllowList } from '@src/app/onboarding/useUpdateEducationStepsAllowList';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { HelpLinkRoutes, PageRoutes } from '@src/conf/Global';
-import { EntityType } from '@src/types.generated';
 import {
     BookBookmark,
     Gear,
@@ -13,24 +6,37 @@ import {
     Question,
     SignOut,
     SquaresFour,
+    Tag,
     TextColumns,
     TrendUp,
     UserCircle,
-    Tag,
 } from '@phosphor-icons/react';
+import React, { useContext, useEffect } from 'react';
 import styled, { useTheme } from 'styled-components';
-import useGetLogoutHandler from '@src/app/auth/useGetLogoutHandler';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
+import NavBarHeader from '@app/homeV2/layout/navBarRedesign/NavBarHeader';
+import NavBarMenu from '@app/homeV2/layout/navBarRedesign/NavBarMenu';
+import NavSkeleton from '@app/homeV2/layout/navBarRedesign/NavBarSkeleton';
+import {
+    NavBarMenuDropdownItemElement,
+    NavBarMenuItemTypes,
+    NavBarMenuItems,
+} from '@app/homeV2/layout/navBarRedesign/types';
+import useSelectedKey from '@app/homeV2/layout/navBarRedesign/useSelectedKey';
+import OnboardingContext from '@app/onboarding/OnboardingContext';
+import { useAppConfig } from '@app/useAppConfig';
 import { colors } from '@src/alchemy-components';
-import AcrylIcon from '../../../../images/acryl-light-mark.svg?react';
-import { useUserContext } from '../../../context/useUserContext';
-import OnboardingContext from '../../../onboarding/OnboardingContext';
-import { useAppConfig } from '../../../useAppConfig';
-import NavBarHeader from './NavBarHeader';
-import NavBarMenu from './NavBarMenu';
-import NavSkeleton from './NavBarSkeleton';
-import { NavBarMenuDropdownItemElement, NavBarMenuItems, NavBarMenuItemTypes } from './types';
-import { useNavBarContext } from './NavBarContext';
-import useSelectedKey from './useSelectedKey';
+import useGetLogoutHandler from '@src/app/auth/useGetLogoutHandler';
+import { HOME_PAGE_INGESTION_ID } from '@src/app/onboarding/config/HomePageOnboardingConfig';
+import { useHandleOnboardingTour } from '@src/app/onboarding/useHandleOnboardingTour';
+import { useUpdateEducationStepsAllowList } from '@src/app/onboarding/useUpdateEducationStepsAllowList';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { HelpLinkRoutes, PageRoutes } from '@src/conf/Global';
+import { EntityType } from '@src/types.generated';
+
+import AcrylIcon from '@images/acryl-light-mark.svg?react';
 
 const Container = styled.div`
     height: 100vh;

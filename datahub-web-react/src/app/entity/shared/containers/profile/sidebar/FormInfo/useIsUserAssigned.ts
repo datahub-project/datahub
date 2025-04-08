@@ -1,7 +1,8 @@
-import { FormAssociation } from '../../../../../../../types.generated';
-import { useUserContext } from '../../../../../../context/useUserContext';
-import { useEntityData } from '../../../../EntityContext';
-import { getFormAssociations } from './utils';
+import { useUserContext } from '@app/context/useUserContext';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { getFormAssociations } from '@app/entity/shared/containers/profile/sidebar/FormInfo/utils';
+
+import { FormAssociation } from '@types';
 
 export function isAssignedToForm(formAssociation: FormAssociation, isUserAnOwner: boolean) {
     const { isAssignedToMe, owners: isAssignedToOwners } = formAssociation.form.info.actors;

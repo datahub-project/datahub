@@ -2,10 +2,11 @@ import { CaretDownFilled } from '@ant-design/icons';
 import { Dropdown } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+
+import OptionsDropdownMenu from '@app/search/filters/OptionsDropdownMenu';
+import { DisplayedFilterOption } from '@app/search/filters/mapFilterOption';
+import { SearchFilterLabel } from '@app/search/filters/styledComponents';
 import { FacetFilterInput, FacetMetadata } from '@src/types.generated';
-import OptionsDropdownMenu from './OptionsDropdownMenu';
-import { DisplayedFilterOption } from './mapFilterOption';
-import { SearchFilterLabel } from './styledComponents';
 
 export const IconWrapper = styled.div`
     margin-right: 8px;

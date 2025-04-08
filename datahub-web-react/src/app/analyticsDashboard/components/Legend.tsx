@@ -1,7 +1,7 @@
-import React from 'react';
+import { LegendItem, LegendLabel, LegendOrdinal } from '@visx/legend';
 import { Col, Row } from 'antd';
-import { LegendOrdinal, LegendItem, LegendLabel } from '@visx/legend';
 import { ScaleOrdinal } from 'd3-scale/src/ordinal';
+import React from 'react';
 import styled from 'styled-components';
 
 const legendGlyphSize = 10;

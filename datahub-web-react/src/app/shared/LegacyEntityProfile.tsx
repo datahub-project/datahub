@@ -1,13 +1,12 @@
-import * as React from 'react';
-
-import { Col, Row, Divider, Layout, Card, Typography } from 'antd';
-import { LayoutProps } from 'antd/lib/layout';
-import styled from 'styled-components';
 import { TagOutlined } from '@ant-design/icons';
+import { Card, Col, Divider, Layout, Row, Typography } from 'antd';
+import { LayoutProps } from 'antd/lib/layout';
+import * as React from 'react';
 import { Link } from 'react-router-dom';
+import styled from 'styled-components';
 
-import { RoutedTabs } from './RoutedTabs';
-import CompactContext from './CompactContext';
+import CompactContext from '@app/shared/CompactContext';
+import { RoutedTabs } from '@app/shared/RoutedTabs';
 
 export interface EntityProfileProps {
     title: string;

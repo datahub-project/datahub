@@ -1,14 +1,16 @@
 import { Button } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
 import Tour from 'reactour';
-import { useBatchUpdateStepStatesMutation } from '../../graphql/step.generated';
-import { EducationStepsContext } from '../../providers/EducationStepsContext';
-import { StepStateResult } from '../../types.generated';
-import { useUserContext } from '../context/useUserContext';
-import { REDESIGN_COLORS } from '../entityV2/shared/constants';
-import { useIsThemeV2 } from '../useIsThemeV2';
-import { convertStepId, getConditionalStepIdsToAdd, getStepsToRender } from './utils';
-import useShouldSkipOnboardingTour from './useShouldSkipOnboardingTour';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import useShouldSkipOnboardingTour from '@app/onboarding/useShouldSkipOnboardingTour';
+import { convertStepId, getConditionalStepIdsToAdd, getStepsToRender } from '@app/onboarding/utils';
+import { useIsThemeV2 } from '@app/useIsThemeV2';
+import { EducationStepsContext } from '@providers/EducationStepsContext';
+
+import { useBatchUpdateStepStatesMutation } from '@graphql/step.generated';
+import { StepStateResult } from '@types';
 
 type Props = {
     stepIds: string[];
@@ -52,7 +54,7 @@ export const OnboardingTour = ({ stepIds }: Props) => {
         const convertedIds = finalStepIds.map((id) => convertStepId(id, userUrn || ''));
         const stepStates = convertedIds.map((id) => ({ id, properties: [] }));
         batchUpdateStepStates({ variables: { input: { states: stepStates } } }).then(() => {
-            const results = convertedIds.map((id) => ({ id, properties: [{}] } as StepStateResult));
+            const results = convertedIds.map((id) => ({ id, properties: [{}] }) as StepStateResult);
             setEducationSteps((existingSteps) => (existingSteps ? [...existingSteps, ...results] : results));
         });
     }

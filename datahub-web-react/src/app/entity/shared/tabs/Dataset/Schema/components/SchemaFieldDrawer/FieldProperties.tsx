@@ -1,13 +1,15 @@
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import React from 'react';
 import styled from 'styled-components';
-import { SchemaField, SearchResult, StdDataType } from '../../../../../../../../types.generated';
-import AddPropertyButton from '../../../../Properties/AddPropertyButton';
-import { EditColumn } from '../../../../Properties/Edit/EditColumn';
-import StructuredPropertyValue from '../../../../Properties/StructuredPropertyValue';
-import { mapStructuredPropertyValues } from '../../../../Properties/useStructuredProperties';
-import { useGetEntityWithSchema } from '../../useGetEntitySchema';
-import { StyledDivider } from './components';
+
+import { StyledDivider } from '@app/entity/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
+import { useGetEntityWithSchema } from '@app/entity/shared/tabs/Dataset/Schema/useGetEntitySchema';
+import AddPropertyButton from '@app/entity/shared/tabs/Properties/AddPropertyButton';
+import { EditColumn } from '@app/entity/shared/tabs/Properties/Edit/EditColumn';
+import StructuredPropertyValue from '@app/entity/shared/tabs/Properties/StructuredPropertyValue';
+import { mapStructuredPropertyValues } from '@app/entity/shared/tabs/Properties/useStructuredProperties';
+import { useEntityData } from '@src/app/entity/shared/EntityContext';
+
+import { SchemaField, SearchResult, StdDataType } from '@types';
 
 export const PropertyTitle = styled.div`
     font-size: 14px;

@@ -1,9 +1,11 @@
 import React, { useEffect } from 'react';
-import './App.less';
-import { THIRD_PARTY_LOGGING_KEY } from './app/analytics/analytics';
-import { checkAuthStatus } from './app/auth/checkAuthStatus';
-import { AppConfigContext, DEFAULT_APP_CONFIG } from './appConfigContext';
-import { useAppConfigQuery } from './graphql/app.generated';
+
+import { THIRD_PARTY_LOGGING_KEY } from '@app/analytics/analytics';
+import { checkAuthStatus } from '@app/auth/checkAuthStatus';
+import '@src/App.less';
+import { AppConfigContext, DEFAULT_APP_CONFIG } from '@src/appConfigContext';
+
+import { useAppConfigQuery } from '@graphql/app.generated';
 
 function changeFavicon(src) {
     const links = document.querySelectorAll("link[rel~='icon']") as any;

@@ -1,12 +1,14 @@
 import { Radio, Typography } from 'antd';
 import React, { useState } from 'react';
-import styled from 'styled-components';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
-import { ANTD_GRAY } from '../../../constants';
-import { useBaseEntity } from '../../../EntityContext';
-import { InfoItem } from '../../../components/styled/InfoItem';
-import { DBT_URN } from '../../../../../ingest/source/builder/constants';
+import styled from 'styled-components';
+
+import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { InfoItem } from '@app/entity/shared/components/styled/InfoItem';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { DBT_URN } from '@app/ingest/source/builder/constants';
+
+import { GetDatasetQuery } from '@graphql/dataset.generated';
 
 const InfoSection = styled.div`
     border-bottom: 1px solid ${ANTD_GRAY[4.5]};

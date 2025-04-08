@@ -1,4 +1,4 @@
-import { RecipeField, FieldType, setListValuesOnRecipe } from './common';
+import { FieldType, RecipeField, setListValuesOnRecipe } from '@app/ingest/source/builder/RecipeForm/common';
 
 export const TABLEAU_CONNECTION_URI: RecipeField = {
     name: 'connect_uri',

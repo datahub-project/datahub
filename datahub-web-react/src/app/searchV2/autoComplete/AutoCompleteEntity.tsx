@@ -1,16 +1,18 @@
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Entity, EntityType } from '../../../types.generated';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { getAutoCompleteEntityText } from './utils';
-import { ANTD_GRAY_V2 } from '../../entity/shared/constants';
-import AutoCompleteEntityIcon from './AutoCompleteEntityIcon';
-import { SuggestionText } from './styledComponents';
-import AutoCompletePlatformNames from './AutoCompletePlatformNames';
-import { getPlatformName } from '../../entity/shared/utils';
-import { getParentEntities } from '../filters/utils';
-import ParentEntities from '../filters/ParentEntities';
+
+import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+import { getPlatformName } from '@app/entity/shared/utils';
+import AutoCompleteEntityIcon from '@app/searchV2/autoComplete/AutoCompleteEntityIcon';
+import AutoCompletePlatformNames from '@app/searchV2/autoComplete/AutoCompletePlatformNames';
+import { SuggestionText } from '@app/searchV2/autoComplete/styledComponents';
+import { getAutoCompleteEntityText } from '@app/searchV2/autoComplete/utils';
+import ParentEntities from '@app/searchV2/filters/ParentEntities';
+import { getParentEntities } from '@app/searchV2/filters/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Entity, EntityType } from '@types';
 
 const AutoCompleteEntityWrapper = styled.div`
     display: flex;

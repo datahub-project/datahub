@@ -1,6 +1,7 @@
-import { useGetUserGroupsQuery } from '../../../../../graphql/user.generated';
-import { CorpUser, EntityType } from '../../../../../types.generated';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetUserGroupsQuery } from '@graphql/user.generated';
+import { CorpUser, EntityType } from '@types';
 
 const MAX_ASSETS_TO_FETCH = 50;
 

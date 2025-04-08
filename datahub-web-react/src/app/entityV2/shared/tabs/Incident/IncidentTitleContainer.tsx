@@ -1,10 +1,11 @@
-import React, { Dispatch, SetStateAction } from 'react';
 import { Typography } from 'antd';
+import React, { Dispatch, SetStateAction } from 'react';
 import styled from 'styled-components';
-import { EntityPrivileges } from '@src/types.generated';
+
+import { CreateIncidentButton } from '@app/entityV2/shared/tabs/Incident/CreateIncidentButton';
+import { EntityStagedForIncident } from '@app/entityV2/shared/tabs/Incident/types';
 import { colors } from '@src/alchemy-components';
-import { EntityStagedForIncident } from './types';
-import { CreateIncidentButton } from './CreateIncidentButton';
+import { EntityPrivileges } from '@src/types.generated';
 
 const TitleContainer = styled.div`
     display: flex;

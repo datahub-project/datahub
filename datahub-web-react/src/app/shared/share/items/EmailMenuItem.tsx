@@ -1,9 +1,10 @@
+import { CheckOutlined, MailOutlined } from '@ant-design/icons';
+import { Tooltip } from 'antd';
+import qs from 'query-string';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Tooltip } from 'antd';
-import { CheckOutlined, MailOutlined } from '@ant-design/icons';
-import qs from 'query-string';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 interface EmailMenuItemProps {
     urn: string;

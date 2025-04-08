@@ -1,10 +1,9 @@
 /**
  * Generic Component that truncates text and shows a tooltip with the full text when hovered over using Ant Design's Tooltip component
  */
-
-import React from 'react';
-import { TooltipProps, Typography } from 'antd';
 import { Tooltip } from '@components';
+import { TooltipProps, Typography } from 'antd';
+import React from 'react';
 
 type Props = {
     text: string;

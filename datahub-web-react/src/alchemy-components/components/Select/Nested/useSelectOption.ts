@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { SelectOption } from './types';
+
+import { SelectOption } from '@components/components/Select/Nested/types';
 
 interface Props {
     selectedOptions: SelectOption[];

@@ -1,5 +1,6 @@
-import { EntityType } from '../../../types.generated';
-import { getMatchesPrioritized } from './utils';
+import { getMatchesPrioritized } from '@app/search/matches/utils';
+
+import { EntityType } from '@types';
 
 const mapping = new Map();
 mapping.set('fieldPaths', 'column');

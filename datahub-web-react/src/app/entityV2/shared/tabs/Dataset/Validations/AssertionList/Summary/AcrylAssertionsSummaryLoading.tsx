@@ -1,6 +1,6 @@
+import { Card } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Card } from 'antd';
 
 const Body = styled.div`
     display: grid;

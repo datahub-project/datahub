@@ -1,5 +1,6 @@
 import React, { ReactNode, createContext, useContext } from 'react';
-import { FacetFilterInput, FilterOperator } from '../../../types.generated';
+
+import { FacetFilterInput, FilterOperator } from '@types';
 
 type SidebarContextValue = {
     selectedFilters: Array<FacetFilterInput>;

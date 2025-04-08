@@ -1,17 +1,19 @@
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
+
+import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
 // import { ExpandedOwner } from '../../../../../components/styled/ExpandedOwner/ExpandedOwner';
-import { EMPTY_MESSAGES } from '../../../../../constants';
-import { Owner, OwnershipType, OwnershipTypeEntity } from '../../../../../../../../types.generated';
-import { useEntityData, useMutationUrn, useRefetch } from '../../../../../../../entity/shared/EntityContext';
-import { EditOwnersModal } from '../EditOwnersModal';
-import { ENTITY_PROFILE_OWNERS_ID } from '../../../../../../../onboarding/config/EntityProfileOnboardingConfig';
-import { OwnershipTypeSection } from './OwnershipTypeSection';
-import { getOwnershipTypeName } from '../ownershipUtils';
-import { SidebarSection } from '../../SidebarSection';
-import SectionActionButton from '../../SectionActionButton';
-import EmptySectionText from '../../EmptySectionText';
+import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
+import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
+import { EditOwnersModal } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/EditOwnersModal';
+import { getOwnershipTypeName } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/ownershipUtils';
+import { OwnershipTypeSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/OwnershipTypeSection';
+import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { ENTITY_PROFILE_OWNERS_ID } from '@app/onboarding/config/EntityProfileOnboardingConfig';
+
+import { Owner, OwnershipType, OwnershipTypeEntity } from '@types';
 
 const Content = styled.div`
     display: flex;

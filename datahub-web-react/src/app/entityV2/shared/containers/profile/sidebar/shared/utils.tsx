@@ -1,6 +1,8 @@
 import moment from 'moment';
-import { REDESIGN_COLORS } from '../../../../constants';
-import { CorpUser } from '../../../../../../../types.generated';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+
+import { CorpUser } from '@types';
 
 /**
  * A tier of popularity for the dataset.

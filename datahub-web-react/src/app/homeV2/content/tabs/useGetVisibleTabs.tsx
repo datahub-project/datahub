@@ -1,11 +1,12 @@
+import { useUserContext } from '@app/context/useUserContext';
+import { TabType } from '@app/homeV2/content/tabs/tabs';
+import { useUpdateLastViewedAnnouncementTime } from '@app/homeV2/shared/updateLastViewedAnnouncementTime';
+import { useGetLastViewedAnnouncementTime } from '@app/homeV2/shared/useGetLastViewedAnnouncementTime';
+import { hasViewedAnnouncement } from '@app/homeV2/shared/utils';
 import { getHomePagePostsFilters } from '@app/utils/queryUtils';
-import { useListPostsQuery } from '../../../../graphql/post.generated';
-import { PostContentType, PostType } from '../../../../types.generated';
-import { useUserContext } from '../../../context/useUserContext';
-import { useUpdateLastViewedAnnouncementTime } from '../../shared/updateLastViewedAnnouncementTime';
-import { useGetLastViewedAnnouncementTime } from '../../shared/useGetLastViewedAnnouncementTime';
-import { hasViewedAnnouncement } from '../../shared/utils';
-import { TabType } from './tabs';
+
+import { useListPostsQuery } from '@graphql/post.generated';
+import { PostContentType, PostType } from '@types';
 
 const useGetAnnouncementsExists = (): ActiveTab | null => {
     const { user } = useUserContext();

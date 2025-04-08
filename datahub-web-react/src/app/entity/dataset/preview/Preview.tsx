@@ -1,26 +1,28 @@
 import React from 'react';
+
+import { IconStyleType } from '@app/entity/Entity';
+import { DatasetStatsSummary as DatasetStatsSummaryView } from '@app/entity/dataset/shared/DatasetStatsSummary';
+import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
 import {
+    Container,
+    DataProduct,
+    DatasetStatsSummary,
+    Deprecation,
+    Domain,
+    EntityPath,
     EntityType,
     FabricType,
-    Owner,
     GlobalTags,
     GlossaryTerms,
-    SearchInsight,
-    Domain,
-    Container,
-    ParentContainersResult,
-    Maybe,
-    Deprecation,
-    DatasetStatsSummary,
-    DataProduct,
     Health,
-    EntityPath,
-} from '../../../../types.generated';
-import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
-import { IconStyleType } from '../../Entity';
-import { DatasetStatsSummary as DatasetStatsSummaryView } from '../shared/DatasetStatsSummary';
+    Maybe,
+    Owner,
+    ParentContainersResult,
+    SearchInsight,
+} from '@types';
 
 export const Preview = ({
     urn,

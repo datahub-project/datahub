@@ -1,10 +1,12 @@
 import { Button, Modal, Table, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { DatasetProfile } from '../../../../../../../../types.generated';
-import ColumnStats from '../../snapshot/ColumnStats';
-import TableStats from '../../snapshot/TableStats';
-import { formatBytes, formatNumberWithoutAbbreviation } from '../../../../../../../shared/formatNumber';
+
+import ColumnStats from '@app/entity/shared/tabs/Dataset/Stats/snapshot/ColumnStats';
+import TableStats from '@app/entity/shared/tabs/Dataset/Stats/snapshot/TableStats';
+import { formatBytes, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+
+import { DatasetProfile } from '@types';
 
 export const ChartTable = styled(Table)`
     margin-top: 16px;

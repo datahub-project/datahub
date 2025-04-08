@@ -1,24 +1,20 @@
-import SidebarStructuredProperties from '@src/app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import moment from 'moment';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
-import {
-    DatasetFieldProfile,
-    EditableSchemaMetadata,
-    Post,
-    SchemaField,
-    UsageQueryResult,
-} from '../../../../../../../../types.generated';
-import { useMutationUrn } from '../../../../../../../entity/shared/EntityContext';
-import { pathMatchesExact } from '../../../../../../dataset/profile/schema/utils/utils';
-import NotesSection from '../../../../../notes/NotesSection';
-import FieldDescription from './FieldDescription';
-import { FieldDetails } from './FieldDetails';
-import FieldTags from './FieldTags';
-import FieldTerms from './FieldTerms';
-import SampleValuesSection from './SampleValuesSection';
-import StatsSection from './StatsSection';
-import { StyledDivider } from './components';
+
+import { useMutationUrn } from '@app/entity/shared/EntityContext';
+import { pathMatchesExact } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import NotesSection from '@app/entityV2/shared/notes/NotesSection';
+import FieldDescription from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldDescription';
+import { FieldDetails } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldDetails';
+import FieldTags from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldTags';
+import FieldTerms from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldTerms';
+import SampleValuesSection from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SampleValuesSection';
+import StatsSection from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsSection';
+import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
+import SidebarStructuredProperties from '@src/app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
+
+import { DatasetFieldProfile, EditableSchemaMetadata, Post, SchemaField, UsageQueryResult } from '@types';
 
 const MetadataSections = styled.div`
     padding: 16px 12px;

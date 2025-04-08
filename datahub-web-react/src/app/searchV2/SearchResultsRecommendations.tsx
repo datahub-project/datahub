@@ -1,14 +1,12 @@
+import { Divider, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Divider, Typography } from 'antd';
-import {
-    FacetFilterInput,
-    RecommendationModule as RecommendationModuleType,
-    ScenarioType,
-} from '../../types.generated';
-import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
-import { RecommendationModule } from '../recommendations/RecommendationModule';
-import { ANTD_GRAY } from '../entity/shared/constants';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { RecommendationModule } from '@app/recommendations/RecommendationModule';
+
+import { useListRecommendationsQuery } from '@graphql/recommendations.generated';
+import { FacetFilterInput, RecommendationModule as RecommendationModuleType, ScenarioType } from '@types';
 
 const RecommendationsContainer = styled.div`
     margin-left: 40px;

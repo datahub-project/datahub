@@ -1,7 +1,12 @@
 import React from 'react';
-import { buildMostUpdatedFilters, buildMostUpdatedSort } from './useGetMostUpdated';
-import { SearchListInsightCard } from './SearchListInsightCard';
-import { EntityType } from '../../../../../../../../types.generated';
+
+import { SearchListInsightCard } from '@app/homeV2/content/tabs/discovery/sections/insight/cards/SearchListInsightCard';
+import {
+    buildMostUpdatedFilters,
+    buildMostUpdatedSort,
+} from '@app/homeV2/content/tabs/discovery/sections/insight/cards/useGetMostUpdated';
+
+import { EntityType } from '@types';
 
 export const MOST_FREQUENTLY_UPDATED_ID = 'MostFrequentlyUpdated';
 

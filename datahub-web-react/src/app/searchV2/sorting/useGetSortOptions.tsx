@@ -1,4 +1,4 @@
-import { SORT_OPTIONS } from '../context/constants';
+import { SORT_OPTIONS } from '@app/searchV2/context/constants';
 
 export default function useGetSortOptions() {
     // TODO: Add a new endpoint showSortFields() that passes the list of potential sort fields, and verifies

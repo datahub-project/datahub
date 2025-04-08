@@ -1,10 +1,15 @@
 import { Button, Icon } from '@components';
-import { borders, colors, radius, shadows, spacing, transition, typography } from '@components/theme';
 import { Checkbox } from 'antd';
 import styled from 'styled-components';
-import { formLabelTextStyles, inputPlaceholderTextStyles, inputValueTextStyles } from '../commonStyles';
-import { SelectLabelVariants, SelectSizeOptions, SelectStyleProps } from './types';
-import { getOptionLabelStyle, getSelectFontStyles, getSelectStyle } from './utils';
+
+import { SelectLabelVariants, SelectSizeOptions, SelectStyleProps } from '@components/components/Select/types';
+import { getOptionLabelStyle, getSelectFontStyles, getSelectStyle } from '@components/components/Select/utils';
+import {
+    formLabelTextStyles,
+    inputPlaceholderTextStyles,
+    inputValueTextStyles,
+} from '@components/components/commonStyles';
+import { borders, colors, radius, shadows, spacing, transition, typography } from '@components/theme';
 
 const sharedTransition = `${transition.property.colors} ${transition.easing['ease-in-out']} ${transition.duration.normal}`;
 

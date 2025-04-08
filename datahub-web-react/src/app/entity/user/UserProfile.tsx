@@ -1,17 +1,19 @@
 import { Col, Row } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
-import { useGetUserQuery } from '../../../graphql/user.generated';
-import { EntityRelationship, EntityType } from '../../../types.generated';
-import UserGroups from './UserGroups';
-import { RoutedTabs } from '../../shared/RoutedTabs';
-import { UserAssets } from './UserAssets';
-import { decodeUrn } from '../shared/utils';
-import UserInfoSideBar from './UserInfoSideBar';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { ErrorSection } from '../../shared/error/ErrorSection';
-import NonExistentEntityPage from '../shared/entity/NonExistentEntityPage';
+
+import NonExistentEntityPage from '@app/entity/shared/entity/NonExistentEntityPage';
+import { decodeUrn } from '@app/entity/shared/utils';
+import { UserAssets } from '@app/entity/user/UserAssets';
+import UserGroups from '@app/entity/user/UserGroups';
+import UserInfoSideBar from '@app/entity/user/UserInfoSideBar';
+import { RoutedTabs } from '@app/shared/RoutedTabs';
+import useUserParams from '@app/shared/entitySearch/routingUtils/useUserParams';
+import { ErrorSection } from '@app/shared/error/ErrorSection';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetUserQuery } from '@graphql/user.generated';
+import { EntityRelationship, EntityType } from '@types';
 
 export interface Props {
     onTabChange: (selectedTab: string) => void;

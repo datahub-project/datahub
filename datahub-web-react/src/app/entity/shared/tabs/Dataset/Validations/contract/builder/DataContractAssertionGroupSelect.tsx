@@ -1,9 +1,11 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Assertion } from '../../../../../../../../types.generated';
-import { ANTD_GRAY } from '../../../../../constants';
-import { DataContractCategoryType } from './types';
-import { DatasetAssertionsList } from '../../DatasetAssertionsList';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { DatasetAssertionsList } from '@app/entity/shared/tabs/Dataset/Validations/DatasetAssertionsList';
+import { DataContractCategoryType } from '@app/entity/shared/tabs/Dataset/Validations/contract/builder/types';
+
+import { Assertion } from '@types';
 
 const Category = styled.div`
     padding: 20px;

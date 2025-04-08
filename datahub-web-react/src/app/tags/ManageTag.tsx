@@ -1,19 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import { ButtonProps, ColorPicker, Input, Modal, Text } from '@components';
 import { Select, message } from 'antd';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { useGetTagQuery } from '@src/graphql/tag.generated';
+
+import { ExpandedOwner } from '@src/app/entity/shared/components/styled/ExpandedOwner/ExpandedOwner';
+import { OwnerLabel } from '@src/app/shared/OwnerLabel';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import {
+    useBatchAddOwnersMutation,
     useSetTagColorMutation,
     useUpdateDescriptionMutation,
-    useBatchAddOwnersMutation,
 } from '@src/graphql/mutations.generated';
-import { Modal, ButtonProps, ColorPicker, Input, Text } from '@components';
-import { ExpandedOwner } from '@src/app/entity/shared/components/styled/ExpandedOwner/ExpandedOwner';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { useGetSearchResultsLazyQuery } from '@src/graphql/search.generated';
 import { useListOwnershipTypesQuery } from '@src/graphql/ownership.generated';
+import { useGetSearchResultsLazyQuery } from '@src/graphql/search.generated';
+import { useGetTagQuery } from '@src/graphql/tag.generated';
 import { EntityType, OwnerEntityType } from '@src/types.generated';
-import { OwnerLabel } from '@src/app/shared/OwnerLabel';
 
 const FormSection = styled.div`
     margin-bottom: 16px;

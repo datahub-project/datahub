@@ -1,14 +1,13 @@
-import React, { useState, useEffect } from 'react';
-
-import { colors, Icon } from '@components';
-import theme from '@components/theme';
-import styled from 'styled-components';
+import { Icon, colors } from '@components';
 import { Checkbox } from 'antd';
+import React, { useEffect, useState } from 'react';
+import styled from 'styled-components';
 
-import { OptionLabel } from '../components';
-import { SelectOption } from './types';
-import useNestedOption from './useSelectOption';
-import useNestedSelectOptionChildren from './useNestedSelectOptionChildren';
+import { SelectOption } from '@components/components/Select/Nested/types';
+import useNestedSelectOptionChildren from '@components/components/Select/Nested/useNestedSelectOptionChildren';
+import useNestedOption from '@components/components/Select/Nested/useSelectOption';
+import { OptionLabel } from '@components/components/Select/components';
+import theme from '@components/theme';
 
 const ParentOption = styled.div`
     display: flex;

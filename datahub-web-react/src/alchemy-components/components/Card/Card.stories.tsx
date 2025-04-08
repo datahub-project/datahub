@@ -1,10 +1,13 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
-import { GridList } from '@src/alchemy-components/.docs/mdx-components';
-import { colors } from '@src/alchemy-components/theme';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
+
+import { Icon } from '@components/components/Icon';
+
+import { GridList } from '@src/alchemy-components/.docs/mdx-components';
+import { colors } from '@src/alchemy-components/theme';
+
 import { Card, cardDefaults } from '.';
-import { Icon } from '../Icon';
 
 // Auto Docs
 const meta = {

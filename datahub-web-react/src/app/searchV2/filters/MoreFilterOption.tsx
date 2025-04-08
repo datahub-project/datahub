@@ -1,13 +1,15 @@
 import { RightOutlined } from '@ant-design/icons';
 import React, { useRef } from 'react';
 import styled from 'styled-components';
-import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
-import { IconWrapper } from './SearchFilterView';
-import { MoreFilterOptionLabel } from './styledComponents';
-import { FilterPredicate } from './types';
-import useSearchFilterDropdown from './useSearchFilterDropdown';
-import { getFilterDropdownIcon, useElementDimensions, useFilterDisplayName } from './utils';
-import ValueSelector from './value/ValueSelector';
+
+import { IconWrapper } from '@app/searchV2/filters/SearchFilterView';
+import { MoreFilterOptionLabel } from '@app/searchV2/filters/styledComponents';
+import { FilterPredicate } from '@app/searchV2/filters/types';
+import useSearchFilterDropdown from '@app/searchV2/filters/useSearchFilterDropdown';
+import { getFilterDropdownIcon, useElementDimensions, useFilterDisplayName } from '@app/searchV2/filters/utils';
+import ValueSelector from '@app/searchV2/filters/value/ValueSelector';
+
+import { FacetFilterInput, FacetMetadata } from '@types';
 
 const IconNameWrapper = styled.span`
     display: flex;

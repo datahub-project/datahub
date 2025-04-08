@@ -1,4 +1,4 @@
-import { EntityType } from '../../../../types.generated';
+import { EntityType } from '@types';
 
 export const ENTITY_TYPES = [
     EntityType.Dataset,

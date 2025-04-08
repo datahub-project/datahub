@@ -1,25 +1,27 @@
-import * as React from 'react';
 import { DotChartOutlined } from '@ant-design/icons';
-import { MlFeatureTable, EntityType, SearchResult, OwnershipType } from '../../../types.generated';
-import { Preview } from './preview/Preview';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { GenericEntityProperties } from '../shared/types';
-import { useGetMlFeatureTableQuery } from '../../../graphql/mlFeatureTable.generated';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import MlFeatureTableFeatures from './profile/features/MlFeatureTableFeatures';
-import Sources from './profile/Sources';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
-import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { getDataProduct } from '../shared/utils';
-import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
+import * as React from 'react';
+
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entity/Entity';
+import { Preview } from '@app/entity/mlFeatureTable/preview/Preview';
+import Sources from '@app/entity/mlFeatureTable/profile/Sources';
+import MlFeatureTableFeatures from '@app/entity/mlFeatureTable/profile/features/MlFeatureTableFeatures';
+import { EntityMenuItems } from '@app/entity/shared/EntityDropdown/EntityDropdown';
+import { EntityProfile } from '@app/entity/shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import DataProductSection from '@app/entity/shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import { SidebarDomainSection } from '@app/entity/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { SidebarTagsSection } from '@app/entity/shared/containers/profile/sidebar/SidebarTagsSection';
+import SidebarStructuredPropsSection from '@app/entity/shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
+import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
+import { DocumentationTab } from '@app/entity/shared/tabs/Documentation/DocumentationTab';
+import { PropertiesTab } from '@app/entity/shared/tabs/Properties/PropertiesTab';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { getDataProduct } from '@app/entity/shared/utils';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+
+import { useGetMlFeatureTableQuery } from '@graphql/mlFeatureTable.generated';
+import { EntityType, MlFeatureTable, OwnershipType, SearchResult } from '@types';
 
 /**
  * Definition of the DataHub MLFeatureTable entity.

@@ -1,7 +1,8 @@
-import React from 'react';
 import { SelectValue } from 'antd/lib/select';
-import { LookbackWindow, LOOKBACK_WINDOWS } from '../lookbackWindows';
-import PrefixedSelect from './shared/PrefixedSelect';
+import React from 'react';
+
+import PrefixedSelect from '@app/entityV2/shared/tabs/Dataset/Stats/historical/shared/PrefixedSelect';
+import { LOOKBACK_WINDOWS, LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
 
 type Props = {
     lookbackWindow: LookbackWindow;

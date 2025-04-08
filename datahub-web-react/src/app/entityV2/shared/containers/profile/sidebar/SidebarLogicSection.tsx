@@ -1,19 +1,21 @@
-import CopyQuery from '@src/app/entity/shared/tabs/Dataset/Queries/CopyQuery';
-import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { Modal } from 'antd';
-import { GetDataJobQuery } from '@src/graphql/dataJob.generated';
 import React, { useContext, useMemo, useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import styled from 'styled-components/macro';
+
+import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { ViewTab } from '@app/entityV2/shared/tabs/Dataset/View/ViewDefinitionTab';
+import { DBT_URN } from '@app/ingest/source/builder/constants';
+import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 import { Button } from '@src/alchemy-components';
-import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
-import { EntityType, QueryEntity } from '../../../../../../types.generated';
-import { useBaseEntity } from '../../../../../entity/shared/EntityContext';
-import { DBT_URN } from '../../../../../ingest/source/builder/constants';
-import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
-import { ViewTab } from '../../../tabs/Dataset/View/ViewDefinitionTab';
-import { SidebarSection } from './SidebarSection';
+import CopyQuery from '@src/app/entity/shared/tabs/Dataset/Queries/CopyQuery';
+import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { GetDataJobQuery } from '@src/graphql/dataJob.generated';
+
+import { GetDatasetQuery } from '@graphql/dataset.generated';
+import { EntityType, QueryEntity } from '@types';
 
 const PreviewSyntax = styled(SyntaxHighlighter)`
     max-width: 100%;

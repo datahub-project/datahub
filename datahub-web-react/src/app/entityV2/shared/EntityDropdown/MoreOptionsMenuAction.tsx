@@ -1,10 +1,12 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import React from 'react';
-import { ActionMenuItem } from './styledComponents';
-import { EntityMenuItems } from './EntityMenuActions';
-import EntityDropdown from './EntityDropdown';
-import { EntityType } from '../../../../types.generated';
-import { EntityMenuActions } from '../../Entity';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { EntityMenuActions } from '@app/entityV2/Entity';
+import EntityDropdown from '@app/entityV2/shared/EntityDropdown/EntityDropdown';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { ActionMenuItem } from '@app/entityV2/shared/EntityDropdown/styledComponents';
+
+import { EntityType } from '@types';
 
 interface Props {
     menuItems: Set<EntityMenuItems>;

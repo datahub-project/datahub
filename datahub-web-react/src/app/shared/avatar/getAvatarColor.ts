@@ -1,5 +1,5 @@
-import { lineColors } from '../../analyticsDashboard/components/lineColors';
-import { ANTD_GRAY } from '../../entity/shared/constants';
+import { lineColors } from '@app/analyticsDashboard/components/lineColors';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 export function hashString(str: string) {
     let hash = 0;

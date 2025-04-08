@@ -1,10 +1,59 @@
-import moment from 'moment-timezone';
-import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { FolderFilled } from '@ant-design/icons';
-import { DATE_TYPE_URN } from '@src/app/shared/constants';
+import moment from 'moment-timezone';
 import React, { useLayoutEffect, useState } from 'react';
 import styled from 'styled-components';
+
+import { IconStyleType } from '@app/entity/Entity';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { getSubTypeIcon } from '@app/entityV2/shared/components/subtypes';
+import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
+import { TagColor } from '@app/searchV2/filters/FilterOption';
+import { FACETS_TO_ENTITY_TYPES } from '@app/searchV2/filters/constants';
+import { ALL_FILTER_FIELDS, STRUCTURED_PROPERTY_FILTER } from '@app/searchV2/filters/field/fields';
+import { convertBackendToFrontendOperatorType } from '@app/searchV2/filters/operator/operator';
+import {
+    FieldType,
+    FilterField,
+    FilterOperatorType,
+    FilterOptionType,
+    FilterPredicate,
+} from '@app/searchV2/filters/types';
+import {
+    BOOLEAN_FIELDS,
+    BROWSE_PATH_V2_FILTER_NAME,
+    CONTAINER_FILTER_NAME,
+    DATA_PLATFORM_INSTANCE_FILTER_NAME,
+    DOMAINS_FILTER_NAME,
+    ENTITY_FIELDS,
+    ENTITY_FILTER_NAME,
+    ENTITY_SUB_TYPE_FILTER_NAME,
+    ENTITY_TYPE_FIELDS,
+    FIELD_GLOSSARY_TERMS_FILTER_NAME,
+    FIELD_TAGS_FILTER_NAME,
+    FILTER_DELIMITER,
+    GLOSSARY_TERMS_FILTER_NAME,
+    LAST_MODIFIED_FILTER_NAME,
+    LEGACY_ENTITY_FILTER_NAME,
+    OWNERS_FILTER_NAME,
+    PLATFORM_FILTER_NAME,
+    PROPOSED_GLOSSARY_TERMS_FILTER_NAME,
+    PROPOSED_SCHEMA_GLOSSARY_TERMS_FILTER_NAME,
+    PROPOSED_SCHEMA_TAGS_FILTER_NAME,
+    PROPOSED_TAGS_FILTER_NAME,
+    STRUCTURED_PROPERTIES_FILTER_NAME,
+    TAGS_FILTER_NAME,
+    TEXT_FIELDS,
+    TYPE_NAMES_FILTER_NAME,
+    UNIT_SEPARATOR,
+} from '@app/searchV2/utils/constants';
+import { capitalizeFirstLetterOnly, forcePluralize, pluralizeIfIrregular } from '@app/shared/textUtil';
+import getTypeIcon from '@app/sharedV2/icons/getTypeIcon';
+import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
+import { DATE_TYPE_URN } from '@src/app/shared/constants';
+import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { EntityRegistry } from '@src/entityRegistryContext';
+
+import { GetAutoCompleteMultipleResultsQuery } from '@graphql/search.generated';
 import {
     AggregationMetadata,
     DataPlatform,
@@ -18,48 +67,7 @@ import {
     GlossaryTerm,
     StructuredPropertyEntity,
     Tag,
-} from '../../../types.generated';
-import { IconStyleType } from '../../entity/Entity';
-import {
-    BOOLEAN_FIELDS,
-    BROWSE_PATH_V2_FILTER_NAME,
-    CONTAINER_FILTER_NAME,
-    DOMAINS_FILTER_NAME,
-    ENTITY_FIELDS,
-    ENTITY_FILTER_NAME,
-    ENTITY_SUB_TYPE_FILTER_NAME,
-    FILTER_DELIMITER,
-    GLOSSARY_TERMS_FILTER_NAME,
-    LEGACY_ENTITY_FILTER_NAME,
-    OWNERS_FILTER_NAME,
-    PLATFORM_FILTER_NAME,
-    TEXT_FIELDS,
-    TAGS_FILTER_NAME,
-    TYPE_NAMES_FILTER_NAME,
-    UNIT_SEPARATOR,
-    ENTITY_TYPE_FIELDS,
-    DATA_PLATFORM_INSTANCE_FILTER_NAME,
-    FIELD_TAGS_FILTER_NAME,
-    FIELD_GLOSSARY_TERMS_FILTER_NAME,
-    PROPOSED_TAGS_FILTER_NAME,
-    PROPOSED_SCHEMA_TAGS_FILTER_NAME,
-    PROPOSED_GLOSSARY_TERMS_FILTER_NAME,
-    PROPOSED_SCHEMA_GLOSSARY_TERMS_FILTER_NAME,
-    LAST_MODIFIED_FILTER_NAME,
-    STRUCTURED_PROPERTIES_FILTER_NAME,
-} from '../utils/constants';
-import { EntityRegistry } from '../../../entityRegistryContext';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { GetAutoCompleteMultipleResultsQuery } from '../../../graphql/search.generated';
-import { FACETS_TO_ENTITY_TYPES } from './constants';
-import { FieldType, FilterField, FilterOperatorType, FilterOptionType, FilterPredicate } from './types';
-import { capitalizeFirstLetterOnly, forcePluralize, pluralizeIfIrregular } from '../../shared/textUtil';
-import { convertBackendToFrontendOperatorType } from './operator/operator';
-import { ALL_FILTER_FIELDS, STRUCTURED_PROPERTY_FILTER } from './field/fields';
-import { getSubTypeIcon } from '../../entityV2/shared/components/subtypes';
-import getTypeIcon from '../../sharedV2/icons/getTypeIcon';
-import { DomainColoredIcon } from '../../entityV2/shared/links/DomainColoredIcon';
-import { TagColor } from './FilterOption';
+} from '@types';
 
 // either adds or removes selectedFilterValues to/from activeFilters for a given filterField
 export function getNewFilters(

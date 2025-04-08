@@ -1,9 +1,11 @@
 import React from 'react';
 import styled from 'styled-components';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { EntityType } from '../../../../types.generated';
-import { useUserContext } from '../../../context/useUserContext';
-import { getGreetingText } from './getGreetingText';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { getGreetingText } from '@app/homeV2/reference/header/getGreetingText';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType } from '@types';
 
 const Text = styled.div`
     font-size: 20px;

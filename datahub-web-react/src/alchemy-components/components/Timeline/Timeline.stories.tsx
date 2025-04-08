@@ -1,7 +1,8 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
-import { Timeline } from './Timeline';
+
+import { Timeline } from '@components/components/Timeline/Timeline';
 
 // Auto Docs
 const meta = {

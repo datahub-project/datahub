@@ -1,6 +1,7 @@
-import { AssertionResultType, AssertionRunEvent } from '@src/types.generated';
 import React from 'react';
 import styled from 'styled-components';
+
+import { AssertionResultType, AssertionRunEvent } from '@src/types.generated';
 
 const StyledAssertionResultDotContainer = styled.div`
     display: flex;

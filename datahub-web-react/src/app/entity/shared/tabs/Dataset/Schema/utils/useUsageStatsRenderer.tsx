@@ -2,8 +2,10 @@ import { geekblue } from '@ant-design/colors';
 import { Tooltip } from 'antd';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
-import { UsageQueryResult } from '../../../../../../../types.generated';
-import { pathMatchesNewPath } from '../../../../../dataset/profile/schema/utils/utils';
+
+import { pathMatchesNewPath } from '@app/entity/dataset/profile/schema/utils/utils';
+
+import { UsageQueryResult } from '@types';
 
 const USAGE_BAR_MAX_WIDTH = 50;
 

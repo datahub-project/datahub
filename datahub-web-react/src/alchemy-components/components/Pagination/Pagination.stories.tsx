@@ -1,8 +1,9 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
-import { Pagination } from './Pagination';
-import { paginationDefaults } from './types';
+
+import { Pagination } from '@components/components/Pagination/Pagination';
+import { paginationDefaults } from '@components/components/Pagination/types';
 
 // Auto Docs
 const meta = {

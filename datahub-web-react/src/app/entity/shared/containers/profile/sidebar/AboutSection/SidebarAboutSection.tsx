@@ -1,12 +1,13 @@
-import { Button } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
+import { Button } from 'antd';
 import React from 'react';
-import { useEntityData, useRouteToTab } from '../../../../EntityContext';
-import { SidebarHeader } from '../SidebarHeader';
-import DescriptionSection from './DescriptionSection';
-import LinksSection from './LinksSection';
-import SourceRefSection from './SourceRefSection';
-import EmptyContentSection from './EmptyContentSection';
+
+import { useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
+import DescriptionSection from '@app/entity/shared/containers/profile/sidebar/AboutSection/DescriptionSection';
+import EmptyContentSection from '@app/entity/shared/containers/profile/sidebar/AboutSection/EmptyContentSection';
+import LinksSection from '@app/entity/shared/containers/profile/sidebar/AboutSection/LinksSection';
+import SourceRefSection from '@app/entity/shared/containers/profile/sidebar/AboutSection/SourceRefSection';
+import { SidebarHeader } from '@app/entity/shared/containers/profile/sidebar/SidebarHeader';
 
 interface Properties {
     hideLinksButton?: boolean;

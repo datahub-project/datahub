@@ -1,5 +1,5 @@
-import { useUserContext } from '../../context/useUserContext';
-import { PersonaType } from '../shared/types';
+import { useUserContext } from '@app/context/useUserContext';
+import { PersonaType } from '@app/homeV2/shared/types';
 
 export const useLoadUserPersona = () => {
     const user = useUserContext();

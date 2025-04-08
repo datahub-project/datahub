@@ -1,5 +1,6 @@
 import * as faker from 'faker';
-import { CorpUser, EntityType } from '../../../types.generated';
+
+import { CorpUser, EntityType } from '@types';
 
 export type UserEntityArg = {
     username: string;

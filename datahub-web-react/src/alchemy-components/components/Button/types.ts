@@ -1,7 +1,7 @@
-import { IconProps } from '@components/components/Icon/types';
 import { ButtonHTMLAttributes } from 'react';
 
-import type { SizeOptions, ColorOptions } from '@components/theme/config';
+import { IconProps } from '@components/components/Icon/types';
+import type { ColorOptions, SizeOptions } from '@components/theme/config';
 
 export enum ButtonVariantValues {
     filled = 'filled',

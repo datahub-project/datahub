@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import GlossarySearch from './GlossarySearch';
-import GlossaryBrowser from './GlossaryBrowser/GlossaryBrowser';
-import { ProfileSidebarResizer } from '../entity/shared/containers/profile/sidebar/ProfileSidebarResizer';
-import { SidebarWrapper } from '../shared/sidebar/components';
-import { useGlossaryEntityData } from '../entity/shared/GlossaryEntityContext';
+
+import { useGlossaryEntityData } from '@app/entity/shared/GlossaryEntityContext';
+import { ProfileSidebarResizer } from '@app/entity/shared/containers/profile/sidebar/ProfileSidebarResizer';
+import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
+import GlossarySearch from '@app/glossary/GlossarySearch';
+import { SidebarWrapper } from '@app/shared/sidebar/components';
 
 export const MAX_BROWSER_WIDTH = 500;
 export const MIN_BROWSWER_WIDTH = 200;

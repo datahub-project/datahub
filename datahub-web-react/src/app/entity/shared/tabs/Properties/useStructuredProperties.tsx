@@ -1,10 +1,11 @@
-import { PropertyValue, StructuredPropertiesEntry } from '../../../../../types.generated';
-import EntityRegistry from '../../../EntityRegistry';
-import { useEntityData } from '../../EntityContext';
-import { GenericEntityProperties } from '../../types';
-import { getStructuredPropertyValue } from '../../utils';
-import { PropertyRow } from './types';
-import { filterStructuredProperties } from './utils';
+import EntityRegistry from '@app/entity/EntityRegistry';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { PropertyRow } from '@app/entity/shared/tabs/Properties/types';
+import { filterStructuredProperties } from '@app/entity/shared/tabs/Properties/utils';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { getStructuredPropertyValue } from '@app/entity/shared/utils';
+
+import { PropertyValue, StructuredPropertiesEntry } from '@types';
 
 const typeNameToType = {
     StringValue: { type: 'string', nativeDataType: 'text' },

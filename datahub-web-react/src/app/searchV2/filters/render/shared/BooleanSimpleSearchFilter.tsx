@@ -1,9 +1,10 @@
-import * as React from 'react';
 import { DownOutlined, UpOutlined } from '@ant-design/icons';
 import { Checkbox } from 'antd';
-import { useState, useEffect } from 'react';
+import * as React from 'react';
+import { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { SearchFilterLabel } from '../../../SearchFilterLabel';
+
+import { SearchFilterLabel } from '@app/searchV2/SearchFilterLabel';
 
 const SearchFilterWrapper = styled.div`
     padding: 0 25px 15px 25px;

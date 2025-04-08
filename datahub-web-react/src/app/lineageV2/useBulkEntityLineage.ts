@@ -1,25 +1,27 @@
-import pruneAllDuplicateEdges from '@app/lineageV2/pruneAllDuplicateEdges';
-import { useAppConfig } from '@app/useAppConfig';
 import { useCallback, useContext, useEffect, useState } from 'react';
-import { useGetBulkEntityLineageV2Query } from '../../graphql/lineage.generated';
-import { EntityType, LineageDirection } from '../../types.generated';
-import { useGetLineageTimeParams } from '../lineage/utils/useGetLineageTimeParams';
-import usePrevious from '../shared/usePrevious';
-import { useEntityRegistryV2 } from '../useEntityRegistry';
+
+import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import {
-    addToAdjacencyList,
     FetchStatus,
-    getEdgeId,
-    isQuery,
-    isTransformational,
     LineageEdge,
     LineageEntity,
     LineageNodesContext,
     NodeContext,
+    addToAdjacencyList,
+    getEdgeId,
+    isQuery,
+    isTransformational,
     useIgnoreSchemaFieldStatus,
-} from './common';
-import { FetchedEntityV2Relationship } from './types';
-import { addQueryNodes, setEntityNodeDefault } from './useSearchAcrossLineage';
+} from '@app/lineageV2/common';
+import pruneAllDuplicateEdges from '@app/lineageV2/pruneAllDuplicateEdges';
+import { FetchedEntityV2Relationship } from '@app/lineageV2/types';
+import { addQueryNodes, setEntityNodeDefault } from '@app/lineageV2/useSearchAcrossLineage';
+import usePrevious from '@app/shared/usePrevious';
+import { useAppConfig } from '@app/useAppConfig';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+
+import { useGetBulkEntityLineageV2Query } from '@graphql/lineage.generated';
+import { EntityType, LineageDirection } from '@types';
 
 const BATCH_SIZE = 10;
 

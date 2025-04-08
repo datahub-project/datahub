@@ -1,10 +1,12 @@
 import { TeamOutlined } from '@ant-design/icons';
 import * as React from 'react';
-import { CorpGroup, EntityType, SearchResult } from '../../../types.generated';
-import { Entity, IconStyleType, PreviewType } from '../Entity';
-import { Preview } from './preview/Preview';
-import GroupProfile from './GroupProfile';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
+
+import { Entity, IconStyleType, PreviewType } from '@app/entity/Entity';
+import GroupProfile from '@app/entity/group/GroupProfile';
+import { Preview } from '@app/entity/group/preview/Preview';
+import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
+
+import { CorpGroup, EntityType, SearchResult } from '@types';
 
 /**
  * Definition of the DataHub CorpGroup entity.

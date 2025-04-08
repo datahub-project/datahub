@@ -1,9 +1,11 @@
 import { useApolloClient } from '@apollo/client';
-import { removeFromListDomainsCache, updateListDomainsCache } from '../../../domain/utils';
-import { useDomainsContext } from '../../../domain/DomainsContext';
-import { Domain } from '../../../../types.generated';
-import analytics from '../../../analytics/analytics';
-import { EventType } from '../../../analytics';
+
+import { EventType } from '@app/analytics';
+import analytics from '@app/analytics/analytics';
+import { useDomainsContext } from '@app/domain/DomainsContext';
+import { removeFromListDomainsCache, updateListDomainsCache } from '@app/domain/utils';
+
+import { Domain } from '@types';
 
 export function useHandleMoveDomainComplete() {
     const client = useApolloClient();

@@ -1,14 +1,15 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { SearchBar, PageTitle, Pagination } from '@components';
-import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
-import { EntityType } from '@src/types.generated';
+import { PageTitle, Pagination, SearchBar } from '@components';
+import React, { useEffect, useMemo, useState } from 'react';
+import styled from 'styled-components';
+
+import { PageContainer } from '@app/govern/structuredProperties/styledComponents';
+import EmptyTags from '@app/tags/EmptyTags';
+import TagsTable from '@app/tags/TagsTable';
 import { Message } from '@src/app/shared/Message';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import styled from 'styled-components';
-import { PageContainer } from '../govern/structuredProperties/styledComponents';
-import EmptyTags from './EmptyTags';
-import TagsTable from './TagsTable';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
+import { EntityType } from '@src/types.generated';
 
 const HeaderContainer = styled.div`
     display: flex;

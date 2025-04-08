@@ -1,18 +1,26 @@
 import { useMemo } from 'react';
-import { ENTITY_FILTER_NAME } from '@src/app/search/utils/constants';
+
+import {
+    EntityFilterField,
+    FieldType,
+    FilterField,
+    FilterOperatorType,
+    FilterValueOption,
+} from '@app/searchV2/filters/types';
+import { filterOptionsWithSearch, getStructuredPropFilterDisplayName } from '@app/searchV2/filters/utils';
+import { FILTER_DELIMITER } from '@app/searchV2/utils/constants';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import useGetSearchQueryInputs from '@src/app/search/useGetSearchQueryInputs';
-import { EntityRegistry } from '../../../../entityRegistryContext';
+import { ENTITY_FILTER_NAME } from '@src/app/search/utils/constants';
+import { EntityRegistry } from '@src/entityRegistryContext';
+
 import {
     useAggregateAcrossEntitiesQuery,
     useGetAutoCompleteMultipleResultsQuery,
     useGetSearchResultsForMultipleQuery,
-} from '../../../../graphql/search.generated';
-import { EntityType } from '../../../../types.generated';
-import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { FILTER_DELIMITER } from '../../utils/constants';
-import { EntityFilterField, FieldType, FilterField, FilterOperatorType, FilterValueOption } from '../types';
-import { filterOptionsWithSearch, getStructuredPropFilterDisplayName } from '../utils';
+} from '@graphql/search.generated';
+import { EntityType } from '@types';
 
 const MAX_AGGREGATION_COUNT = 40;
 

@@ -1,9 +1,17 @@
-import React from 'react';
 import { CheckCircleOutlined, PlusCircleOutlined, PlusOutlined, StopOutlined } from '@ant-design/icons';
+import React from 'react';
+
+import {
+    FieldType,
+    FilterOperatorInfo,
+    FilterOperatorType,
+    FilterPredicate,
+    FrontendFilterOperator,
+} from '@app/searchV2/filters/types';
+import { getIsDateRangeFilter } from '@app/searchV2/filters/utils';
 import { ENTITY_SUB_TYPE_FILTER_NAME, PLATFORM_FILTER_NAME } from '@src/app/search/utils/constants';
-import { FilterOperator } from '../../../../types.generated';
-import { FieldType, FilterOperatorInfo, FilterOperatorType, FilterPredicate, FrontendFilterOperator } from '../types';
-import { getIsDateRangeFilter } from '../utils';
+
+import { FilterOperator } from '@types';
 
 /**
  * This is a flat version of the supported search filtering operations that can be applied

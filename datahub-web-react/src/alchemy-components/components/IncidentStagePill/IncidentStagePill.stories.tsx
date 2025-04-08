@@ -1,6 +1,7 @@
-import React from 'react';
 import { Meta, StoryObj } from '@storybook/react';
-import { IncidentStagePill } from './IncidentStagePill';
+import React from 'react';
+
+import { IncidentStagePill } from '@components/components/IncidentStagePill/IncidentStagePill';
 
 const meta: Meta<typeof IncidentStagePill> = {
     title: 'Components / IncidentStagePill',

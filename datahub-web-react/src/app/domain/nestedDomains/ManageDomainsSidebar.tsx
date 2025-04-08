@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { MAX_BROWSER_WIDTH, MIN_BROWSWER_WIDTH } from '../../glossary/BusinessGlossaryPage';
-import { ProfileSidebarResizer } from '../../entity/shared/containers/profile/sidebar/ProfileSidebarResizer';
-import DomainsSidebarHeader from './DomainsSidebarHeader';
-import { SidebarWrapper } from '../../shared/sidebar/components';
-import DomainNavigator from './domainNavigator/DomainNavigator';
-import DomainSearch from '../DomainSearch';
+
+import DomainSearch from '@app/domain/DomainSearch';
+import DomainsSidebarHeader from '@app/domain/nestedDomains/DomainsSidebarHeader';
+import DomainNavigator from '@app/domain/nestedDomains/domainNavigator/DomainNavigator';
+import { ProfileSidebarResizer } from '@app/entity/shared/containers/profile/sidebar/ProfileSidebarResizer';
+import { MAX_BROWSER_WIDTH, MIN_BROWSWER_WIDTH } from '@app/glossary/BusinessGlossaryPage';
+import { SidebarWrapper } from '@app/shared/sidebar/components';
 
 export default function ManageDomainsSidebar() {
     const [browserWidth, setBrowserWith] = useState(window.innerWidth * 0.2);

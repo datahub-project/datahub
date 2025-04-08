@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
 import * as QueryString from 'query-string';
+import { useMemo } from 'react';
 
-import { ENTITY_FILTER_NAME, FILTER_URL_PREFIX, LEGACY_ENTITY_FILTER_NAME } from './constants';
-import { FacetFilterInput, FilterOperator } from '../../../types.generated';
-import { decodeComma } from '../../entity/shared/utils';
-import { URL_PARAM_SEPARATOR } from './filtersToQueryStringParams';
+import { decodeComma } from '@app/entity/shared/utils';
+import { ENTITY_FILTER_NAME, FILTER_URL_PREFIX, LEGACY_ENTITY_FILTER_NAME } from '@app/searchV2/utils/constants';
+import { URL_PARAM_SEPARATOR } from '@app/searchV2/utils/filtersToQueryStringParams';
+
+import { FacetFilterInput, FilterOperator } from '@types';
 
 function ifLegacyFieldNameTranslate(fieldName) {
     if (fieldName === LEGACY_ENTITY_FILTER_NAME) {

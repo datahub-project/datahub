@@ -1,14 +1,16 @@
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import translateFieldPath from '../../../../../../dataset/profile/schema/utils/translateFieldPath';
-import TypeLabel from '../TypeLabel';
-import PrimaryKeyLabel from '../PrimaryKeyLabel';
-import PartitioningKeyLabel from '../PartitioningKeyLabel';
-import NullableLabel from '../NullableLabel';
-import MenuColumn from '../MenuColumn';
-import { ANTD_GRAY_V2 } from '../../../../../constants';
-import { SchemaField } from '../../../../../../../../types.generated';
+
+import translateFieldPath from '@app/entity/dataset/profile/schema/utils/translateFieldPath';
+import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+import MenuColumn from '@app/entity/shared/tabs/Dataset/Schema/components/MenuColumn';
+import NullableLabel from '@app/entity/shared/tabs/Dataset/Schema/components/NullableLabel';
+import PartitioningKeyLabel from '@app/entity/shared/tabs/Dataset/Schema/components/PartitioningKeyLabel';
+import PrimaryKeyLabel from '@app/entity/shared/tabs/Dataset/Schema/components/PrimaryKeyLabel';
+import TypeLabel from '@app/entity/shared/tabs/Dataset/Schema/components/TypeLabel';
+
+import { SchemaField } from '@types';
 
 const FieldHeaderWrapper = styled.div`
     padding: 16px;

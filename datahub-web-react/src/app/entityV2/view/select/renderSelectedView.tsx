@@ -1,12 +1,13 @@
+import { Tooltip } from '@components';
+import CloseIcon from '@mui/icons-material/Close';
+import { FadersHorizontal } from '@phosphor-icons/react';
+import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Button } from 'antd';
-import { Tooltip } from '@components';
+
+import { ANTD_GRAY, REDESIGN_COLORS, SEARCH_COLORS } from '@app/entityV2/shared/constants';
+import { ViewLabel } from '@app/entityV2/view/select/styledComponents';
 import { colors } from '@src/alchemy-components';
-import { FadersHorizontal } from '@phosphor-icons/react';
-import CloseIcon from '@mui/icons-material/Close';
-import { ANTD_GRAY, REDESIGN_COLORS, SEARCH_COLORS } from '../../shared/constants';
-import { ViewLabel } from './styledComponents';
 
 const SelectButton = styled(Button)<{ $selectedViewName: string; $isShowNavBarRedesign?: boolean }>`
     background-color: ${(props) => {

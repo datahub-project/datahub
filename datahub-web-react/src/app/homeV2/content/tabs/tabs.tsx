@@ -1,10 +1,10 @@
+import { ActivityTab } from '@app/homeV2/content/tabs/activity/ActivityTab';
+import { AnnouncementsTab } from '@app/homeV2/content/tabs/announcements/AnnouncementsTab';
+import { DiscoveryTab } from '@app/homeV2/content/tabs/discovery/DiscoveryTab';
 import {
     V2_HOME_PAGE_ANNOUNCEMENTS_ID,
     V2_HOME_PAGE_DISCOVER_ID,
-} from '../../../onboarding/configV2/HomePageOnboardingConfig';
-import { DiscoveryTab } from './discovery/DiscoveryTab';
-import { ActivityTab } from './activity/ActivityTab';
-import { AnnouncementsTab } from './announcements/AnnouncementsTab';
+} from '@app/onboarding/configV2/HomePageOnboardingConfig';
 
 // todo: decide whether we want icons for each tab!
 

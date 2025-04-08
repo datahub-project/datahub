@@ -1,18 +1,19 @@
-import React, { useContext, useEffect, useMemo, useState } from 'react';
-
 import { Tooltip } from '@components';
+import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { PageRoutes } from '../../../../../../../../conf/Global';
-import { useListRecommendationsQuery } from '../../../../../../../../graphql/recommendations.generated';
-import { useUserContext } from '../../../../../../../context/useUserContext';
-import { ANTD_GRAY } from '../../../../../../../entity/shared/constants';
-import OnboardingContext from '../../../../../../../onboarding/OnboardingContext';
-import { EntityLinkList } from '../../../../../../reference/sections/EntityLinkList';
-import { RecommendationRenderType, ScenarioType } from '../../../../../../../../types.generated';
-import { useRegisterInsight } from '../InsightStatusProvider';
-import { InsightCard } from '../shared/InsightCard';
-import InsightCardSkeleton from '../shared/InsightCardSkeleton';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { useRegisterInsight } from '@app/homeV2/content/tabs/discovery/sections/insight/InsightStatusProvider';
+import { InsightCard } from '@app/homeV2/content/tabs/discovery/sections/insight/shared/InsightCard';
+import InsightCardSkeleton from '@app/homeV2/content/tabs/discovery/sections/insight/shared/InsightCardSkeleton';
+import { EntityLinkList } from '@app/homeV2/reference/sections/EntityLinkList';
+import OnboardingContext from '@app/onboarding/OnboardingContext';
+import { PageRoutes } from '@conf/Global';
+
+import { useListRecommendationsQuery } from '@graphql/recommendations.generated';
+import { RecommendationRenderType, ScenarioType } from '@types';
 
 const Header = styled.div`
     display: flex;

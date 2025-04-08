@@ -1,7 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
-import { EntityType } from '../../types.generated';
-import { CustomAvatar } from './avatar';
+
+import { CustomAvatar } from '@app/shared/avatar';
+
+import { EntityType } from '@types';
 
 const OwnerContainerWrapper = styled.div`
     display: flex;

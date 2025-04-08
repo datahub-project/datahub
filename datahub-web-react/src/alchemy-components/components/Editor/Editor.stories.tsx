@@ -1,11 +1,13 @@
-import type { Meta, StoryObj } from '@storybook/react';
-import { BoldExtension, ItalicExtension } from 'remirror/extensions';
-import { Remirror, ThemeProvider, useRemirror } from '@remirror/react';
-import React from 'react';
-import UserContextProvider from '@src/app/context/UserContextProvider';
 import { MockedProvider } from '@apollo/client/testing';
-import { Editor } from './Editor';
-import { EditorTheme } from './EditorTheme';
+import { Remirror, ThemeProvider, useRemirror } from '@remirror/react';
+import type { Meta, StoryObj } from '@storybook/react';
+import React from 'react';
+import { BoldExtension, ItalicExtension } from 'remirror/extensions';
+
+import { Editor } from '@components/components/Editor/Editor';
+import { EditorTheme } from '@components/components/Editor/EditorTheme';
+
+import UserContextProvider from '@src/app/context/UserContextProvider';
 
 const meta = {
     title: 'Components / Editor',

@@ -1,15 +1,17 @@
-import React from 'react';
 import { DeleteOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import React from 'react';
 import { Redirect } from 'react-router';
-import { useUserContext } from '../../../context/useUserContext';
-import { isDeleteDisabled, shouldDisplayChildDeletionWarning } from './utils';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import useDeleteEntity from './useDeleteEntity';
-import { getEntityProfileDeleteRedirectPath } from '../../../shared/deleteUtils';
-import { EntityType } from '../../../../types.generated';
-import { useEntityData } from '../../../entity/shared/EntityContext';
-import { ActionMenuItem } from './styledComponents';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { ActionMenuItem } from '@app/entityV2/shared/EntityDropdown/styledComponents';
+import useDeleteEntity from '@app/entityV2/shared/EntityDropdown/useDeleteEntity';
+import { isDeleteDisabled, shouldDisplayChildDeletionWarning } from '@app/entityV2/shared/EntityDropdown/utils';
+import { getEntityProfileDeleteRedirectPath } from '@app/shared/deleteUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType } from '@types';
 
 interface Props {
     options?: any;

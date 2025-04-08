@@ -1,7 +1,9 @@
+import styled from 'styled-components';
+
+import { getAvatarColorStyles, getAvatarNameSizes, getAvatarSizes } from '@components/components/Avatar/utils';
+
 import { colors } from '@src/alchemy-components/theme';
 import { AvatarSizeOptions } from '@src/alchemy-components/theme/config';
-import styled from 'styled-components';
-import { getAvatarColorStyles, getAvatarNameSizes, getAvatarSizes } from './utils';
 
 export const Container = styled.div<{ $hasOnClick: boolean; $showInPill?: boolean }>`
     display: inline-flex;

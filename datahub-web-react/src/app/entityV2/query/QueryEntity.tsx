@@ -1,18 +1,20 @@
-import * as React from 'react';
 import { ConsoleSqlOutlined, FileOutlined } from '@ant-design/icons';
-import { DataPlatform, EntityType, QueryEntity as Query } from '../../../types.generated';
-import { Entity, IconStyleType } from '../Entity';
-import { GenericEntityProperties } from '../../entity/shared/types';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { useGetQueryQuery } from '../../../graphql/query.generated';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import SidebarQueryUpdatedAtSection from '../shared/containers/profile/sidebar/Query/SidebarQueryUpdatedAtSection';
-import SidebarQueryDescriptionSection from '../shared/containers/profile/sidebar/Query/SidebarQueryDescriptionSection';
-import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
-import SidebarQueryOperationsSection from '../shared/containers/profile/sidebar/Query/SidebarQueryOperationsSection';
-import SidebarQueryDefinitionSection from '../shared/containers/profile/sidebar/Query/SidebarQueryDefinitionSection';
-import { SidebarQueryLogicSection } from '../shared/containers/profile/sidebar/SidebarLogicSection';
+import * as React from 'react';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { Entity, IconStyleType } from '@app/entityV2/Entity';
+import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
+import SidebarQueryDefinitionSection from '@app/entityV2/shared/containers/profile/sidebar/Query/SidebarQueryDefinitionSection';
+import SidebarQueryDescriptionSection from '@app/entityV2/shared/containers/profile/sidebar/Query/SidebarQueryDescriptionSection';
+import SidebarQueryOperationsSection from '@app/entityV2/shared/containers/profile/sidebar/Query/SidebarQueryOperationsSection';
+import SidebarQueryUpdatedAtSection from '@app/entityV2/shared/containers/profile/sidebar/Query/SidebarQueryUpdatedAtSection';
+import { SidebarQueryLogicSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarLogicSection';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
+
+import { useGetQueryQuery } from '@graphql/query.generated';
+import { DataPlatform, EntityType, QueryEntity as Query } from '@types';
 
 /**
  * Definition of the DataHub DataPlatformInstance entity.

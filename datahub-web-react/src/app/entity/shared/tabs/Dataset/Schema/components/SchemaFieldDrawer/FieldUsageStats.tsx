@@ -1,12 +1,17 @@
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
-import { GetDatasetQuery } from '../../../../../../../../graphql/dataset.generated';
-import { useBaseEntity } from '../../../../../EntityContext';
-import { ANTD_GRAY_V2 } from '../../../../../constants';
-import { SectionHeader, StyledDivider } from './components';
-import { pathMatchesNewPath } from '../../../../../../dataset/profile/schema/utils/utils';
-import { UsageBar } from '../../utils/useUsageStatsRenderer';
-import { SchemaField } from '../../../../../../../../types.generated';
+
+import { pathMatchesNewPath } from '@app/entity/dataset/profile/schema/utils/utils';
+import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+import {
+    SectionHeader,
+    StyledDivider,
+} from '@app/entity/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
+import { UsageBar } from '@app/entity/shared/tabs/Dataset/Schema/utils/useUsageStatsRenderer';
+
+import { GetDatasetQuery } from '@graphql/dataset.generated';
+import { SchemaField } from '@types';
 
 const USAGE_BAR_MAX_WIDTH = 100;
 

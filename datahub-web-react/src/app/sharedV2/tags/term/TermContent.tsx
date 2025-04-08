@@ -1,16 +1,18 @@
 import { ThunderboltOutlined } from '@ant-design/icons';
-import { message, Modal, Tag } from 'antd';
+import CloseIcon from '@mui/icons-material/Close';
+import { Modal, Tag, message } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
-import CloseIcon from '@mui/icons-material/Close';
-import { useRemoveTermMutation } from '../../../../graphql/mutations.generated';
-import { EntityType, GlossaryTermAssociation, SubResourceType } from '../../../../types.generated';
-import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
-import { useHasMatchedFieldByUrn } from '../../../search/context/SearchResultContext';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { generateColorFromPalette } from '../../../glossaryV2/colorUtils';
-import LabelPropagationDetails from '../../propagation/LabelPropagationDetails';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { generateColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
+import LabelPropagationDetails from '@app/sharedV2/propagation/LabelPropagationDetails';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useRemoveTermMutation } from '@graphql/mutations.generated';
+import { EntityType, GlossaryTermAssociation, SubResourceType } from '@types';
 
 const PROPAGATOR_URN = 'urn:li:corpuser:__datahub_propagator';
 

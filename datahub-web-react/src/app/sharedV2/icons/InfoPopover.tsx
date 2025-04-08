@@ -1,8 +1,9 @@
 import { InfoCircleFilled, InfoCircleOutlined } from '@ant-design/icons';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { Popover } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 const InfoWrapper = styled.div`
     color: ${REDESIGN_COLORS.TITLE_PURPLE};

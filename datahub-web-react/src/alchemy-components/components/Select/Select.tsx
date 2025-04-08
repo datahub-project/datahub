@@ -1,6 +1,7 @@
 import React from 'react';
-import { BasicSelect } from './BasicSelect';
-import { SelectProps } from './types';
+
+import { BasicSelect } from '@components/components/Select/BasicSelect';
+import { SelectProps } from '@components/components/Select/types';
 
 export const selectDefaults: SelectProps = {
     options: [],

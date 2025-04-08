@@ -1,5 +1,6 @@
-import { TimelineContentDetails } from '@src/app/entityV2/shared/tabs/Incident/types';
 import React from 'react';
+
+import { TimelineContentDetails } from '@src/app/entityV2/shared/tabs/Incident/types';
 
 export type TimelineItem = {
     key: string;

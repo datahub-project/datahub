@@ -1,5 +1,5 @@
-import React from 'react';
 import { EditOutlined, ReadOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
+import React from 'react';
 
 export const mapRoleIcon = (roleName) => {
     let icon = <UserOutlined />;

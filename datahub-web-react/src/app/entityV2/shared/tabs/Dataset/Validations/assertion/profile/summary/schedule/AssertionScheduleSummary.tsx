@@ -1,14 +1,14 @@
-import React from 'react';
-
-import styled from 'styled-components';
 import { ClockCircleOutlined, StopOutlined } from '@ant-design/icons';
+import React from 'react';
+import styled from 'styled-components';
 
-import { Assertion, CronSchedule } from '../../../../../../../../../../types.generated';
-import { getLocaleTimezone } from '../../../../../../../../../shared/time/timeUtils';
-import { getCronAsText } from '../../../../acrylUtils';
-import { AssertionScheduleSummarySection } from './AssertionScheduleSummarySection';
-import { isExternalAssertion } from '../../shared/isExternalAssertion';
-import { ProviderSummarySection } from './ProviderSummarySection';
+import { getCronAsText } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { isExternalAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/isExternalAssertion';
+import { AssertionScheduleSummarySection } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/schedule/AssertionScheduleSummarySection';
+import { ProviderSummarySection } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/schedule/ProviderSummarySection';
+import { getLocaleTimezone } from '@app/shared/time/timeUtils';
+
+import { Assertion, CronSchedule } from '@types';
 
 const Container = styled.div`
     margin-top: 20px;

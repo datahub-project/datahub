@@ -1,6 +1,6 @@
-import { BrowseInput, BrowseResultGroup, BrowseResults, Entity, EntityType, SearchResult } from '../../types.generated';
-import { toLowerCaseEntityType, toTitleCase } from '../helper';
-import { EntityBrowseFn, EntityBrowsePath, GetBrowseResults, StringNumber } from '../types';
+import { toLowerCaseEntityType, toTitleCase } from '@graphql-mock/helper';
+import { EntityBrowseFn, EntityBrowsePath, GetBrowseResults, StringNumber } from '@graphql-mock/types';
+import { BrowseInput, BrowseResultGroup, BrowseResults, Entity, EntityType, SearchResult } from '@types';
 
 type ToFlatPathsArg = {
     flatPaths: StringNumber[][];

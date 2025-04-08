@@ -1,11 +1,13 @@
-import { message, Tag } from 'antd';
-import React, { useState } from 'react';
 import { FetchResult, MutationFunctionOptions } from '@apollo/client';
+import { Tag, message } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components';
-import MarkdownViewer from './MarkdownViewer';
-import UpdateDescriptionModal from './DescriptionModal';
-import analytics, { EventType, EntityActionType } from '../../../../analytics';
-import { EntityType } from '../../../../../types.generated';
+
+import analytics, { EntityActionType, EventType } from '@app/analytics';
+import UpdateDescriptionModal from '@app/entity/shared/components/legacy/DescriptionModal';
+import MarkdownViewer from '@app/entity/shared/components/legacy/MarkdownViewer';
+
+import { EntityType } from '@types';
 
 const DescriptionText = styled(MarkdownViewer)`
     ${(props) => (props.isCompact ? 'max-width: 377px;' : '')};

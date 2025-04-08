@@ -1,7 +1,8 @@
 import { Icon } from '@components';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { SuggestionText } from './styledComponents';
+
+import { SuggestionText } from '@app/searchV2/autoComplete/styledComponents';
 
 const TextWrapper = styled.span``;
 

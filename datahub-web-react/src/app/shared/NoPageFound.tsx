@@ -1,7 +1,7 @@
-import React from 'react';
 import { Button } from 'antd';
-import styled from 'styled-components';
+import React from 'react';
 import { useHistory } from 'react-router';
+import styled from 'styled-components';
 
 const MainContainer = styled.div`
     height: 100vh;

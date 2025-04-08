@@ -1,9 +1,11 @@
-import React from 'react';
 import { DeleteOutlined, EditOutlined } from '@ant-design/icons';
-import { Dropdown, Menu, message, Modal } from 'antd';
-import { MenuIcon } from '../../entity/shared/EntityDropdown/EntityDropdown';
-import { useDeletePostMutation } from '../../../graphql/post.generated';
-import handleGraphQLError from '../../shared/handleGraphQLError';
+import { Dropdown, Menu, Modal, message } from 'antd';
+import React from 'react';
+
+import { MenuIcon } from '@app/entity/shared/EntityDropdown/EntityDropdown';
+import handleGraphQLError from '@app/shared/handleGraphQLError';
+
+import { useDeletePostMutation } from '@graphql/post.generated';
 
 type Props = {
     urn: string;

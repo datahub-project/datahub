@@ -1,7 +1,8 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
-import ClickOutside from './ClickOutside';
+
+import ClickOutside from '@components/components/Utils/ClickOutside/ClickOutside';
 
 // Auto Docs
 const meta = {

@@ -1,7 +1,9 @@
 import React from 'react';
-import GroupMembersSideBarSectionContent from './GroupMembersSidebarSectionContent';
-import { SidebarSection } from '../shared/containers/profile/sidebar/SidebarSection';
-import { EntityRelationshipsResult } from '../../../types.generated';
+
+import GroupMembersSideBarSectionContent from '@app/entityV2/group/GroupMembersSidebarSectionContent';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+
+import { EntityRelationshipsResult } from '@types';
 
 type Props = {
     groupMemberRelationships: EntityRelationshipsResult;

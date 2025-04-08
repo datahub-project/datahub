@@ -1,6 +1,8 @@
 import React from 'react';
-import { Assertion, DataContract } from '../../../../../../types.generated';
-import { AcrylAssertionsTable } from './AcrylAssertionsTable';
+
+import { AcrylAssertionsTable } from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylAssertionsTable';
+
+import { Assertion, DataContract } from '@types';
 
 type Props = {
     assertions: Array<Assertion>;

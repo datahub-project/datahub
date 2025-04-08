@@ -1,35 +1,41 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
-import ContainerPath from '@app/lineageV2/LineageEntityNode/ContainerPath';
-import GhostEntityMenu from '@app/lineageV2/LineageEntityNode/GhostEntityMenu';
-import SchemaFieldNodeContents from '@app/lineageV2/LineageEntityNode/SchemaFieldNodeContents';
-import MatchTextSizeWrapper from '@app/sharedV2/text/MatchTextSizeWrapper';
 import { Tooltip } from '@components';
 import { KeyboardArrowDown, KeyboardArrowUp } from '@mui/icons-material';
-import { DeprecationIcon } from '@src/app/entityV2/shared/components/styled/DeprecationIcon';
-import StructuredPropertyBadge from '@src/app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 import { Skeleton, Spin } from 'antd';
 import React, { Dispatch, SetStateAction, useCallback } from 'react';
 import { Handle, Position } from 'reactflow';
 import styled from 'styled-components';
-import { EntityType, LineageDirection } from '../../../types.generated';
-import { EventType } from '../../analytics';
-import analytics from '../../analytics/analytics';
-import { ANTD_GRAY, LINEAGE_COLORS, REDESIGN_COLORS } from '../../entityV2/shared/constants';
-import HealthIcon from '../../previewV2/HealthIcon';
-import getTypeIcon from '../../sharedV2/icons/getTypeIcon';
-import OverflowTitle from '../../sharedV2/text/OverflowTitle';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { FetchStatus, getNodeColor, isGhostEntity, LineageEntity, onClickPreventSelect } from '../common';
-import { NUM_COLUMNS_PER_PAGE } from '../constants';
-import { FetchedEntityV2 } from '../types';
-import Columns from './Columns';
-import { ContractLineageButton } from './ContractLineageButton';
-import { ExpandLineageButton } from './ExpandLineageButton';
-import ManageLineageMenu from './ManageLineageMenu';
-import NodeSkeleton from './NodeSkeleton';
-import useAvoidIntersections from './useAvoidIntersections';
-import { DisplayedColumns, LINEAGE_NODE_HEIGHT, LINEAGE_NODE_WIDTH } from './useDisplayedColumns';
+
+import { EventType } from '@app/analytics';
+import analytics from '@app/analytics/analytics';
+import { ANTD_GRAY, LINEAGE_COLORS, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
+import Columns from '@app/lineageV2/LineageEntityNode/Columns';
+import ContainerPath from '@app/lineageV2/LineageEntityNode/ContainerPath';
+import { ContractLineageButton } from '@app/lineageV2/LineageEntityNode/ContractLineageButton';
+import { ExpandLineageButton } from '@app/lineageV2/LineageEntityNode/ExpandLineageButton';
+import GhostEntityMenu from '@app/lineageV2/LineageEntityNode/GhostEntityMenu';
+import ManageLineageMenu from '@app/lineageV2/LineageEntityNode/ManageLineageMenu';
+import NodeSkeleton from '@app/lineageV2/LineageEntityNode/NodeSkeleton';
+import SchemaFieldNodeContents from '@app/lineageV2/LineageEntityNode/SchemaFieldNodeContents';
+import useAvoidIntersections from '@app/lineageV2/LineageEntityNode/useAvoidIntersections';
+import {
+    DisplayedColumns,
+    LINEAGE_NODE_HEIGHT,
+    LINEAGE_NODE_WIDTH,
+} from '@app/lineageV2/LineageEntityNode/useDisplayedColumns';
+import { FetchStatus, LineageEntity, getNodeColor, isGhostEntity, onClickPreventSelect } from '@app/lineageV2/common';
+import { NUM_COLUMNS_PER_PAGE } from '@app/lineageV2/constants';
+import { FetchedEntityV2 } from '@app/lineageV2/types';
+import HealthIcon from '@app/previewV2/HealthIcon';
+import getTypeIcon from '@app/sharedV2/icons/getTypeIcon';
+import MatchTextSizeWrapper from '@app/sharedV2/text/MatchTextSizeWrapper';
+import OverflowTitle from '@app/sharedV2/text/OverflowTitle';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { DeprecationIcon } from '@src/app/entityV2/shared/components/styled/DeprecationIcon';
+import StructuredPropertyBadge from '@src/app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
+
+import { EntityType, LineageDirection } from '@types';
 
 const NodeWrapper = styled.div<{
     selected: boolean;

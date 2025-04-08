@@ -1,7 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Editor } from './editor/Editor';
-import { DescriptionPreviewToolbar } from './DescriptionPreviewToolbar';
+
+import { DescriptionPreviewToolbar } from '@app/entity/shared/tabs/Documentation/components/DescriptionPreviewToolbar';
+import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 
 const EditorContainer = styled.div`
     overflow: auto;

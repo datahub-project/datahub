@@ -1,5 +1,6 @@
-import { SourceConfig } from '../types';
-import bigqueryLogo from '../../../../../images/bigquerylogo.png';
+import { SourceConfig } from '@app/ingest/source/conf/types';
+
+import bigqueryLogo from '@images/bigquerylogo.png';
 
 const placeholderRecipe = `\
 source:

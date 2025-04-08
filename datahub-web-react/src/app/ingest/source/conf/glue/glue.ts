@@ -1,5 +1,6 @@
-import { SourceConfig } from '../types';
-import glueLogo from '../../../../../images/gluelogo.png';
+import { SourceConfig } from '@app/ingest/source/conf/types';
+
+import glueLogo from '@images/gluelogo.png';
 
 const placeholderRecipe = `\
 source:

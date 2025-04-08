@@ -1,17 +1,19 @@
+import { Tooltip } from '@components';
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
-import { Tooltip } from '@components';
-import { InsightCard } from '../shared/InsightCard';
-import { EntityLinkList } from '../../../../../../reference/sections/EntityLinkList';
-import { EmbeddedListSearchModal } from '../../../../../../../entityV2/shared/components/styled/search/EmbeddedListSearchModal';
-import { ANTD_GRAY } from '../../../../../../../entity/shared/constants';
-import { EntityType, SortCriterion } from '../../../../../../../../types.generated';
-import { FilterSet } from '../../../../../../../entityV2/shared/components/styled/search/types';
-import { useGetSearchAssets } from './useGetSearchAssets';
-import { useRegisterInsight } from '../InsightStatusProvider';
-import { useUserContext } from '../../../../../../../context/useUserContext';
-import OnboardingContext from '../../../../../../../onboarding/OnboardingContext';
-import InsightCardSkeleton from '../shared/InsightCardSkeleton';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { EmbeddedListSearchModal } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchModal';
+import { FilterSet } from '@app/entityV2/shared/components/styled/search/types';
+import { useRegisterInsight } from '@app/homeV2/content/tabs/discovery/sections/insight/InsightStatusProvider';
+import { useGetSearchAssets } from '@app/homeV2/content/tabs/discovery/sections/insight/cards/useGetSearchAssets';
+import { InsightCard } from '@app/homeV2/content/tabs/discovery/sections/insight/shared/InsightCard';
+import InsightCardSkeleton from '@app/homeV2/content/tabs/discovery/sections/insight/shared/InsightCardSkeleton';
+import { EntityLinkList } from '@app/homeV2/reference/sections/EntityLinkList';
+import OnboardingContext from '@app/onboarding/OnboardingContext';
+
+import { EntityType, SortCriterion } from '@types';
 
 export const INSIGHT_CARD_MIN_WIDTH = 340;
 

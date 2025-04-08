@@ -1,7 +1,8 @@
 import { Text } from '@components';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
-import { Input } from '../Input';
+
+import { Input } from '@components/components/Input';
 import {
     ActionButtonsContainer,
     Container,
@@ -17,8 +18,8 @@ import {
     SelectLabelContainer,
     StyledClearButton,
     StyledIcon,
-} from './components';
-import { ActionButtonsProps, SelectProps } from './types';
+} from '@components/components/Select/components';
+import { ActionButtonsProps, SelectProps } from '@components/components/Select/types';
 
 const NoSuggestions = styled.div`
     padding: 8px;

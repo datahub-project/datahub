@@ -1,6 +1,7 @@
 import { Button } from 'antd';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../entity/shared/constants';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 export const HomePageButton = styled(Button)`
     margin-right: 12px;

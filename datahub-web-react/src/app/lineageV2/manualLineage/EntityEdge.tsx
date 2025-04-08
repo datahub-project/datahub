@@ -1,11 +1,13 @@
-import { Icon } from '@src/alchemy-components';
 import Text from 'antd/lib/typography/Text';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { CorpUser, Entity } from '../../../types.generated';
-import { ANTD_GRAY, DEFAULT_SYSTEM_ACTOR_URNS } from '../../entity/shared/constants';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import UserAvatar from './UserAvatar';
+
+import { ANTD_GRAY, DEFAULT_SYSTEM_ACTOR_URNS } from '@app/entity/shared/constants';
+import UserAvatar from '@app/lineageV2/manualLineage/UserAvatar';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Icon } from '@src/alchemy-components';
+
+import { CorpUser, Entity } from '@types';
 
 const EntityItem = styled.div`
     border-bottom: 1px solid ${ANTD_GRAY[4]};

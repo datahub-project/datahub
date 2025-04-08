@@ -1,5 +1,6 @@
-import { StringMapEntry } from '../../../types.generated';
-import { useGetEntities } from '../useGetEntities';
+import { useGetEntities } from '@app/sharedV2/useGetEntities';
+
+import { StringMapEntry } from '@types';
 
 export enum PropagationRelationshipType {
     LINEAGE = 'lineage',

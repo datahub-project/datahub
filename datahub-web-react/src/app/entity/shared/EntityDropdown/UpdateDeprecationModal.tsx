@@ -1,10 +1,12 @@
+import { Button, DatePicker, Form, Modal, message } from 'antd';
 import React from 'react';
-import { Button, DatePicker, Form, message, Modal } from 'antd';
 import styled from 'styled-components';
-import { useBatchUpdateDeprecationMutation } from '../../../../graphql/mutations.generated';
-import { handleBatchError } from '../utils';
-import { Editor } from '../tabs/Documentation/components/editor/Editor';
-import { ANTD_GRAY } from '../constants';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
+import { handleBatchError } from '@app/entity/shared/utils';
+
+import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated';
 
 type Props = {
     urns: string[];

@@ -1,12 +1,12 @@
-import React from 'react';
-
 import { Button, Table } from 'antd';
-import styled from 'styled-components';
+import React from 'react';
 import { useHistory } from 'react-router';
+import styled from 'styled-components';
 
-import { Cell, EntityType, FacetFilterInput, TableChart as TableChartType } from '../../../types.generated';
-import { navigateToSearchUrl } from '../../search/utils/navigateToSearchUrl';
-import { useEntityRegistry } from '../../useEntityRegistry';
+import { navigateToSearchUrl } from '@app/search/utils/navigateToSearchUrl';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Cell, EntityType, FacetFilterInput, TableChart as TableChartType } from '@types';
 
 type Props = {
     chartData: TableChartType;

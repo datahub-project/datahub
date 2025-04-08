@@ -1,5 +1,5 @@
-import { Tag } from '../../types.generated';
-import { tagDb } from '../fixtures/tag';
+import { tagDb } from '@graphql-mock/fixtures/tag';
+import { Tag } from '@types';
 
 type GetTag = {
     data: { tag: Tag | undefined };

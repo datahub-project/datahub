@@ -1,22 +1,24 @@
+import { Popover } from '@components';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { Modal, Typography, message } from 'antd';
-import { Popover } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import MarkdownViewer from '@src/app/entity/shared/components/legacy/MarkdownViewer';
-import { useDeleteQueryMutation } from '../../../../../../graphql/query.generated';
-import { CorpUser, EntityType } from '../../../../../../types.generated';
-import { useEntityRegistryV2 } from '../../../../../useEntityRegistry';
-import ActorAvatar from '../../../ActorAvatar';
-import { ActionButton } from '../../../containers/profile/sidebar/SectionActionButton';
+
+import ActorAvatar from '@app/entityV2/shared/ActorAvatar';
+import { ActionButton } from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import {
     getBarsStatusFromPopularityTier,
     getQueryPopularityTier,
-} from '../../../containers/profile/sidebar/shared/utils';
-import { PopularityBars } from '../Schema/components/SchemaFieldDrawer/PopularityBars';
-import QueryBuilderModal from './QueryBuilderModal';
-import { Query } from './types';
+} from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
+import QueryBuilderModal from '@app/entityV2/shared/tabs/Dataset/Queries/QueryBuilderModal';
+import { Query } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
+import { PopularityBars } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/PopularityBars';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import MarkdownViewer from '@src/app/entity/shared/components/legacy/MarkdownViewer';
+
+import { useDeleteQueryMutation } from '@graphql/query.generated';
+import { CorpUser, EntityType } from '@types';
 
 /*
  * Description Column

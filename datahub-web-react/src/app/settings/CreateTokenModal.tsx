@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { message, Button, Input, Modal, Typography, Form, Select } from 'antd';
-import styled from 'styled-components';
 import { red } from '@ant-design/colors';
+import { Button, Form, Input, Modal, Select, Typography, message } from 'antd';
+import React, { useEffect, useState } from 'react';
+import styled from 'styled-components';
 
-import { useEnterKeyListener } from '../shared/useEnterKeyListener';
-import { ACCESS_TOKEN_DURATIONS, getTokenExpireDate } from './utils';
-import { useCreateAccessTokenMutation } from '../../graphql/auth.generated';
-import { AccessTokenDuration, AccessTokenType, CreateAccessTokenInput } from '../../types.generated';
-import { AccessTokenModal } from './AccessTokenModal';
-import analytics, { EventType } from '../analytics';
+import analytics, { EventType } from '@app/analytics';
+import { AccessTokenModal } from '@app/settings/AccessTokenModal';
+import { ACCESS_TOKEN_DURATIONS, getTokenExpireDate } from '@app/settings/utils';
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+
+import { useCreateAccessTokenMutation } from '@graphql/auth.generated';
+import { AccessTokenDuration, AccessTokenType, CreateAccessTokenInput } from '@types';
 
 type Props = {
     currentUserUrn: string;

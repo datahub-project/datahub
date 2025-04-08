@@ -1,4 +1,4 @@
-import { ListSecretsDocument, ListSecretsQuery } from '../../../graphql/ingestion.generated';
+import { ListSecretsDocument, ListSecretsQuery } from '@graphql/ingestion.generated';
 
 export const removeSecretFromListSecretsCache = (urn, client, page, pageSize) => {
     const currData: ListSecretsQuery | null = client.readQuery({

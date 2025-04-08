@@ -1,8 +1,9 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
 
-import { Entity, EntityType, EntityRelationshipsResult, DataProduct, PropertyValue } from '../../../types.generated';
-import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-import { GenericEntityProperties } from './types';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+
+import { DataProduct, Entity, EntityRelationshipsResult, EntityType, PropertyValue } from '@types';
 
 export function dictToQueryStringParams(params: Record<string, string | boolean>) {
     return Object.keys(params)

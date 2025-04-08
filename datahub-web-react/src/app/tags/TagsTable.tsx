@@ -1,11 +1,8 @@
-import React, { useState, useMemo } from 'react';
 import { NetworkStatus } from '@apollo/client';
 import { Table } from '@components';
-import { AlignmentOptions } from '@src/alchemy-components/theme/config';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { GetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
-import { EntityType } from '@src/types.generated';
-import { ManageTag } from './ManageTag';
+import React, { useMemo, useState } from 'react';
+
+import { ManageTag } from '@app/tags/ManageTag';
 import {
     TagActionsColumn,
     TagAppliedToColumn,
@@ -13,7 +10,11 @@ import {
     TagDescriptionColumn,
     TagNameColumn,
     TagOwnersColumn,
-} from './TagsTableColumns';
+} from '@app/tags/TagsTableColumns';
+import { AlignmentOptions } from '@src/alchemy-components/theme/config';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { GetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
+import { EntityType } from '@src/types.generated';
 
 interface Props {
     searchQuery: string;

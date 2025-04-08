@@ -1,16 +1,18 @@
 import React from 'react';
 import styled from 'styled-components';
-import { GetChartQuery } from '../../../../graphql/chart.generated';
-import { Entity, EntityType } from '../../../../types.generated';
-import { useBaseEntity, useEntityData } from '../../../entity/shared/EntityContext';
-import Loading from '../../../shared/Loading';
-import SummaryEntityCard from '../../../sharedV2/cards/SummaryEntityCard';
-import { useEntityRegistryV2 } from '../../../useEntityRegistry';
-import { SubType } from '../../shared/components/subtypes';
-import { HorizontalList, SummaryColumns } from '../../shared/summary/ListComponents';
-import SummaryCreatedBySection from '../../shared/summary/SummaryCreatedBySection';
-import SummaryQuerySection from './SummaryQuerySection';
-import { MainSection, StyledTitle, SummaryHeader, VerticalDivider } from './styledComponents';
+
+import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
+import SummaryQuerySection from '@app/entityV2/chart/summary/SummaryQuerySection';
+import { MainSection, StyledTitle, SummaryHeader, VerticalDivider } from '@app/entityV2/chart/summary/styledComponents';
+import { SubType } from '@app/entityV2/shared/components/subtypes';
+import { HorizontalList, SummaryColumns } from '@app/entityV2/shared/summary/ListComponents';
+import SummaryCreatedBySection from '@app/entityV2/shared/summary/SummaryCreatedBySection';
+import Loading from '@app/shared/Loading';
+import SummaryEntityCard from '@app/sharedV2/cards/SummaryEntityCard';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+
+import { GetChartQuery } from '@graphql/chart.generated';
+import { Entity, EntityType } from '@types';
 
 const Count = styled.div`
     padding: 1px 8px;

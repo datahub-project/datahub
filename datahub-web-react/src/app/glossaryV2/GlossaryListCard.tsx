@@ -1,12 +1,14 @@
+import { BookmarkSimple, BookmarksSimple } from '@phosphor-icons/react';
+import { Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { ANTD_GRAY_V2, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { generateColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { colors } from '@src/alchemy-components';
-import { Tooltip } from 'antd';
-import { BookmarkSimple, BookmarksSimple } from '@phosphor-icons/react';
-import { ANTD_GRAY_V2, REDESIGN_COLORS } from '../entityV2/shared/constants';
-import { EntityType, Maybe } from '../../types.generated';
-import { generateColorFromPalette } from './colorUtils';
-import { GenericEntityProperties } from '../entity/shared/types';
+
+import { EntityType, Maybe } from '@types';
 
 const SmallDescription = styled.div`
     color: ${REDESIGN_COLORS.SUB_TEXT};

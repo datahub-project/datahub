@@ -1,9 +1,10 @@
 import { LinkOutlined } from '@ant-design/icons';
 import { Typography } from 'antd';
 import React from 'react';
-import { useEntityData } from '../../../../../../entity/shared/EntityContext';
-import { StyledLink } from '../LinkButton';
-import { SidebarSection } from '../SidebarSection';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { StyledLink } from '@app/entityV2/shared/containers/profile/sidebar/LinkButton';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 
 export default function SourceRefSection() {
     const { entityData } = useEntityData();

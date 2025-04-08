@@ -1,9 +1,11 @@
-import React from 'react';
-import { Button, Image, Typography } from 'antd';
 import { ArrowRightOutlined } from '@ant-design/icons';
+import { Button, Image, Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components/macro';
-import { ANTD_GRAY } from '../entity/shared/constants';
-import { Post } from '../../types.generated';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+
+import { Post } from '@types';
 
 const CardContainer = styled(Button)`
     display: flex;

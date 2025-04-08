@@ -1,9 +1,10 @@
 /* eslint-disable import/no-cycle */
 import { Dropdown } from 'antd';
 import React, { useState } from 'react';
+
+import { FilterField, FilterValue, FilterValueOption } from '@app/searchV2/filters/types';
+import ValueMenu from '@app/searchV2/filters/value/ValueMenu';
 import { FacetFilterInput } from '@src/types.generated';
-import { FilterField, FilterValue, FilterValueOption } from '../types';
-import ValueMenu from './ValueMenu';
 
 interface Props {
     field: FilterField;

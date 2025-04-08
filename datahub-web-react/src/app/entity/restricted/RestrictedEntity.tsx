@@ -1,10 +1,13 @@
-import React from 'react';
 import { QuestionOutlined } from '@ant-design/icons';
-import { EntityType, Restricted, SearchResult } from '../../../types.generated';
-import { Entity, IconStyleType, PreviewType } from '../Entity';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import RestrictedIcon from '../../../images/restricted.svg';
-import { RestrictedEntityProfile } from './RestrictedEntityProfile';
+import React from 'react';
+
+import { Entity, IconStyleType, PreviewType } from '@app/entity/Entity';
+import { RestrictedEntityProfile } from '@app/entity/restricted/RestrictedEntityProfile';
+import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
+
+import { EntityType, Restricted, SearchResult } from '@types';
+
+import RestrictedIcon from '@images/restricted.svg';
 
 /**
  * Definition of the DataHub Data Product entity.

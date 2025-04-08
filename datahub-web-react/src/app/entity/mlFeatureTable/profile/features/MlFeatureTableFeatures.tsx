@@ -1,10 +1,11 @@
 import React from 'react';
 
-import { MlPrimaryKey, MlFeature } from '../../../../../types.generated';
-import { GetMlFeatureTableQuery } from '../../../../../graphql/mlFeatureTable.generated';
-import { useBaseEntity } from '../../../shared/EntityContext';
-import { notEmpty } from '../../../shared/utils';
-import TableOfMlFeatures from './TableOfMlFeatures';
+import TableOfMlFeatures from '@app/entity/mlFeatureTable/profile/features/TableOfMlFeatures';
+import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { notEmpty } from '@app/entity/shared/utils';
+
+import { GetMlFeatureTableQuery } from '@graphql/mlFeatureTable.generated';
+import { MlFeature, MlPrimaryKey } from '@types';
 
 export default function MlFeatureTableFeatures() {
     const baseEntity = useBaseEntity<GetMlFeatureTableQuery>();

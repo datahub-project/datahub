@@ -1,9 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import NavigateNextOutlinedIcon from '@mui/icons-material/NavigateNextOutlined';
 import NavigateBeforeOutlinedIcon from '@mui/icons-material/NavigateBeforeOutlined';
+import NavigateNextOutlinedIcon from '@mui/icons-material/NavigateNextOutlined';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
-import { REDESIGN_COLORS, SEARCH_COLORS } from '../../entityV2/shared/constants';
-import { HorizontalList } from '../../entityV2/shared/summary/ListComponents';
+
+import { REDESIGN_COLORS, SEARCH_COLORS } from '@app/entityV2/shared/constants';
+import { HorizontalList } from '@app/entityV2/shared/summary/ListComponents';
 
 const Wrapper = styled.div`
     position: relative;

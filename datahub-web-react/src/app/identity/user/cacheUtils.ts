@@ -1,4 +1,4 @@
-import { ListUsersDocument, ListUsersQuery } from '../../../graphql/user.generated';
+import { ListUsersDocument, ListUsersQuery } from '@graphql/user.generated';
 
 export const DEFAULT_USER_LIST_PAGE_SIZE = 25;
 

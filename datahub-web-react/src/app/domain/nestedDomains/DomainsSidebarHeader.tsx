@@ -1,15 +1,16 @@
-import { useApolloClient } from '@apollo/client';
 import { PlusOutlined } from '@ant-design/icons';
+import { useApolloClient } from '@apollo/client';
 import { Button } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { ANTD_GRAY, ANTD_GRAY_V2 } from '../../entity/shared/constants';
-import DomainsTitle from './DomainsTitle';
-import { PageRoutes } from '../../../conf/Global';
-import CreateDomainModal from '../CreateDomainModal';
-import { updateListDomainsCache } from '../utils';
-import { useDomainsContext } from '../DomainsContext';
+
+import CreateDomainModal from '@app/domain/CreateDomainModal';
+import { useDomainsContext } from '@app/domain/DomainsContext';
+import DomainsTitle from '@app/domain/nestedDomains/DomainsTitle';
+import { updateListDomainsCache } from '@app/domain/utils';
+import { ANTD_GRAY, ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+import { PageRoutes } from '@conf/Global';
 
 const HeaderWrapper = styled.div`
     border-bottom: 1px solid ${ANTD_GRAY[4]};

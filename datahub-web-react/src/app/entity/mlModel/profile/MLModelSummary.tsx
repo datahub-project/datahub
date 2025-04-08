@@ -1,16 +1,19 @@
-import React from 'react';
-import styled from 'styled-components';
 import { Space, Table, Typography } from 'antd';
+import React from 'react';
 import { Link } from 'react-router-dom';
+import styled from 'styled-components';
+
+import { Pill } from '@components/components/Pills';
+
+import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { InfoItem } from '@app/entity/shared/components/styled/InfoItem';
+import { notEmpty } from '@app/entity/shared/utils';
+import { TimestampPopover } from '@app/sharedV2/TimestampPopover';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { colors } from '@src/alchemy-components/theme';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { MlHyperParam, MlMetric, EntityType } from '../../../../types.generated';
-import { useBaseEntity } from '../../shared/EntityContext';
-import { GetMlModelQuery } from '../../../../graphql/mlModel.generated';
-import { InfoItem } from '../../shared/components/styled/InfoItem';
-import { notEmpty } from '../../shared/utils';
-import { Pill } from '../../../../alchemy-components/components/Pills';
-import { TimestampPopover } from '../../../sharedV2/TimestampPopover';
+
+import { GetMlModelQuery } from '@graphql/mlModel.generated';
+import { EntityType, MlHyperParam, MlMetric } from '@types';
 
 const TabContent = styled.div`
     padding: 16px;

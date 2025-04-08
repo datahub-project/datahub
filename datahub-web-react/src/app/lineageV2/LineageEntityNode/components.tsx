@@ -1,5 +1,6 @@
 import styled from 'styled-components';
-import { ANTD_GRAY, LINEAGE_COLORS } from '../../entityV2/shared/constants';
+
+import { ANTD_GRAY, LINEAGE_COLORS } from '@app/entityV2/shared/constants';
 
 export const ExpandContractButton = styled.div<{ expandOnHover?: boolean }>`
     background-color: white;

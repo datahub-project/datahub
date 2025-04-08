@@ -1,6 +1,6 @@
-import { DataJob, SearchResult, SearchResults } from '../../../types.generated';
-import { dataJobEntity } from '../entity/dataJobEntity';
-import { generateData } from './dataGenerator';
+import { dataJobEntity } from '@graphql-mock/fixtures/entity/dataJobEntity';
+import { generateData } from '@graphql-mock/fixtures/searchResult/dataGenerator';
+import { DataJob, SearchResult, SearchResults } from '@types';
 
 const searchResult = (): SearchResult => {
     return {

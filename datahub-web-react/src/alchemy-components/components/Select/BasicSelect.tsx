@@ -1,6 +1,7 @@
 import { Button, Text } from '@components';
 import { isEqual } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
 import {
     ActionButtonsContainer,
     Container,
@@ -21,10 +22,10 @@ import {
     StyledCheckbox,
     StyledClearButton,
     StyledIcon,
-} from './components';
-import SelectLabelRenderer from './private/SelectLabelRenderer/SelectLabelRenderer';
-import { ActionButtonsProps, SelectOption, SelectProps } from './types';
-import { getFooterButtonSize } from './utils';
+} from '@components/components/Select/components';
+import SelectLabelRenderer from '@components/components/Select/private/SelectLabelRenderer/SelectLabelRenderer';
+import { ActionButtonsProps, SelectOption, SelectProps } from '@components/components/Select/types';
+import { getFooterButtonSize } from '@components/components/Select/utils';
 
 const SelectActionButtons = ({
     selectedValues,

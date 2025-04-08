@@ -1,27 +1,29 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Empty, message, Pagination, Select, Tag } from 'antd';
-import styled from 'styled-components/macro';
-import * as QueryString from 'query-string';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { Button, Empty, Pagination, Select, Tag, message } from 'antd';
+import * as QueryString from 'query-string';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router';
-import PolicyBuilderModal from './PolicyBuilderModal';
-import { AndFilterInput, Policy, PolicyState, FilterOperator } from '../../../types.generated';
-import { useAppConfig } from '../../useAppConfig';
-import PolicyDetailsModal from './PolicyDetailsModal';
-import { useListPoliciesQuery } from '../../../graphql/policy.generated';
-import { Message } from '../../shared/Message';
-import { DEFAULT_PAGE_SIZE, EMPTY_POLICY } from './policyUtils';
-import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
-import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
-import AvatarsGroup from '../AvatarsGroup';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { SearchBar } from '../../search/SearchBar';
-import { scrollToTop } from '../../shared/searchUtils';
-import analytics, { EventType } from '../../analytics';
-import { POLICIES_CREATE_POLICY_ID, POLICIES_INTRO_ID } from '../../onboarding/config/PoliciesOnboardingConfig';
-import { OnboardingTour } from '../../onboarding/OnboardingTour';
-import { usePolicy } from './usePolicy';
+import styled from 'styled-components/macro';
+
+import analytics, { EventType } from '@app/analytics';
+import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
+import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { OnboardingTour } from '@app/onboarding/OnboardingTour';
+import { POLICIES_CREATE_POLICY_ID, POLICIES_INTRO_ID } from '@app/onboarding/config/PoliciesOnboardingConfig';
+import AvatarsGroup from '@app/permissions/AvatarsGroup';
+import PolicyBuilderModal from '@app/permissions/policy/PolicyBuilderModal';
+import PolicyDetailsModal from '@app/permissions/policy/PolicyDetailsModal';
+import { DEFAULT_PAGE_SIZE, EMPTY_POLICY } from '@app/permissions/policy/policyUtils';
+import { usePolicy } from '@app/permissions/policy/usePolicy';
+import { SearchBar } from '@app/search/SearchBar';
+import { Message } from '@app/shared/Message';
+import { scrollToTop } from '@app/shared/searchUtils';
+import { useAppConfig } from '@app/useAppConfig';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useListPoliciesQuery } from '@graphql/policy.generated';
+import { AndFilterInput, FilterOperator, Policy, PolicyState } from '@types';
 
 const SourceContainer = styled.div`
     overflow: auto;

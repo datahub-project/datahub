@@ -2,10 +2,11 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { ANTD_GRAY, SEARCH_COLORS } from '../../entityV2/shared/constants';
-import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { SearchBar } from '../SearchBar';
+
+import { ANTD_GRAY, SEARCH_COLORS } from '@app/entityV2/shared/constants';
+import { SearchBar } from '@app/searchV2/SearchBar';
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const StyledButton = styled(Button)`
     width: 100%;

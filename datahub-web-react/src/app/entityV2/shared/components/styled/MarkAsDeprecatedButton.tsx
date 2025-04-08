@@ -1,8 +1,10 @@
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import DeprecatedIcon from '../../../../../images/deprecated-status.svg?react';
-import { REDESIGN_COLORS } from '../../constants';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+
+import DeprecatedIcon from '@images/deprecated-status.svg?react';
 
 // Styled Components
 // Todo(Gabe): replace this with the @components button once it supports text buttons with hover states

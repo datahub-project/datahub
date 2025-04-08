@@ -2,9 +2,10 @@ import { CaretDownFilled } from '@ant-design/icons';
 import { Dropdown } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import FilterOption from '../../FilterOption';
-import { SearchFilterLabel } from '../../styledComponents';
-import BooleanSearchFilterMenu from './BooleanMoreFilterMenu';
+
+import FilterOption from '@app/searchV2/filters/FilterOption';
+import BooleanSearchFilterMenu from '@app/searchV2/filters/render/shared/BooleanMoreFilterMenu';
+import { SearchFilterLabel } from '@app/searchV2/filters/styledComponents';
 
 const IconNameWrapper = styled.div`
     display: flex;

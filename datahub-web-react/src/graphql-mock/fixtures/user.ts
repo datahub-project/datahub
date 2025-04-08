@@ -1,4 +1,4 @@
-import { getUsers } from './searchResult/userSearchResult';
+import { getUsers } from '@graphql-mock/fixtures/searchResult/userSearchResult';
 
 const createCorpUserSchema = ({ server, user }) => {
     const { info, editableInfo } = user;

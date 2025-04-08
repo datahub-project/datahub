@@ -1,4 +1,4 @@
-import { ChartProperties } from '../../../../../../../../types.generated';
+import { ChartProperties } from '@types';
 
 // This util is used for Charts and Dashboards who get last updated differently than others
 export function getLastUpdatedMs(

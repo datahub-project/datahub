@@ -1,9 +1,11 @@
 import { Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { PropertyCardinality, StructuredPropertyEntity } from '../../../../../types.generated';
-import { PropertyTypeBadge } from '../Dataset/Schema/components/PropertyTypeLabel';
-import { getStructuredPropertyValue } from '../../utils';
+
+import { PropertyTypeBadge } from '@app/entity/shared/tabs/Dataset/Schema/components/PropertyTypeLabel';
+import { getStructuredPropertyValue } from '@app/entity/shared/utils';
+
+import { PropertyCardinality, StructuredPropertyEntity } from '@types';
 
 const Header = styled.div`
     font-size: 10px;

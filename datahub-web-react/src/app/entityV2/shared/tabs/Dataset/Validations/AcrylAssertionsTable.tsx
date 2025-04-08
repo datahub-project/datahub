@@ -1,13 +1,18 @@
+import { Checkbox, Empty, Table, TableProps } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Checkbox, Empty, Table, TableProps } from 'antd';
-import { Assertion, AssertionRunStatus, DataContract } from '../../../../../../types.generated';
-import { useEntityData } from '../../../../../entity/shared/EntityContext';
-import { ActionsColumn, DetailsColumn } from './AcrylAssertionsTableColumns';
-import { AssertionProfileDrawer } from './assertion/profile/AssertionProfileDrawer';
-import { ANTD_GRAY } from '../../../constants';
-import { useOpenAssertionDetailModal } from './assertion/builder/hooks';
-import { getEntityUrnForAssertion, getSiblingWithUrn } from './acrylUtils';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import {
+    ActionsColumn,
+    DetailsColumn,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylAssertionsTableColumns';
+import { getEntityUrnForAssertion, getSiblingWithUrn } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { useOpenAssertionDetailModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/hooks';
+import { AssertionProfileDrawer } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileDrawer';
+
+import { Assertion, AssertionRunStatus, DataContract } from '@types';
 
 type StyledTableProps = {
     showSelect?: boolean;

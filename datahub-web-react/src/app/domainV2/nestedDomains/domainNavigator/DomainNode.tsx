@@ -1,17 +1,19 @@
+import { Tooltip, colors } from '@components';
 import { Typography } from 'antd';
-import { colors, Tooltip } from '@components';
 import React, { useEffect, useMemo } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
-import { Domain } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { RotatingTriangle } from '../../../sharedV2/sidebar/components';
-import useListDomains from '../../useListDomains';
-import useToggle from '../../../shared/useToggle';
-import { BodyContainer, BodyGridExpander } from '../../../shared/components';
-import { useDomainsContext as useDomainsContextV2 } from '../../DomainsContext';
-import { DomainColoredIcon } from '../../../entityV2/shared/links/DomainColoredIcon';
-import { REDESIGN_COLORS, SEARCH_COLORS } from '../../../entityV2/shared/constants';
+
+import { useDomainsContext as useDomainsContextV2 } from '@app/domainV2/DomainsContext';
+import useListDomains from '@app/domainV2/useListDomains';
+import { REDESIGN_COLORS, SEARCH_COLORS } from '@app/entityV2/shared/constants';
+import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
+import { BodyContainer, BodyGridExpander } from '@app/shared/components';
+import useToggle from '@app/shared/useToggle';
+import { RotatingTriangle } from '@app/sharedV2/sidebar/components';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Domain } from '@types';
 
 const Count = styled.div`
     color: ${colors.gray[1700]};

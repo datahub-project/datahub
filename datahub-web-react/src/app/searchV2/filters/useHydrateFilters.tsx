@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FieldType, FilterPredicate } from './types';
-import { Entity } from '../../../types.generated';
-import { useGetEntitiesLazyQuery } from '../../../graphql/entity.generated';
-import { buildEntityCache, isResolutionRequired } from '../../entityV2/view/builder/utils';
+
+import { buildEntityCache, isResolutionRequired } from '@app/entityV2/view/builder/utils';
+import { FieldType, FilterPredicate } from '@app/searchV2/filters/types';
+
+import { useGetEntitiesLazyQuery } from '@graphql/entity.generated';
+import { Entity } from '@types';
 
 export const useHydrateFilters = (filters: FilterPredicate[]): FilterPredicate[] => {
     // Stores an URN to the resolved entity.

@@ -1,8 +1,10 @@
-import { message, Modal } from 'antd';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useEntityData, useRefetch } from '../../shared/EntityContext';
-import { useRemoveRelatedTermsMutation } from '../../../../graphql/glossaryTerm.generated';
-import { TermRelationshipType } from '../../../../types.generated';
+import { Modal, message } from 'antd';
+
+import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useRemoveRelatedTermsMutation } from '@graphql/glossaryTerm.generated';
+import { TermRelationshipType } from '@types';
 
 function useRemoveRelatedTerms(termUrn: string, relationshipType: TermRelationshipType, displayName: string) {
     const { urn, entityType } = useEntityData();

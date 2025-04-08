@@ -1,4 +1,4 @@
-import { hasViewedAnnouncement } from '../utils';
+import { hasViewedAnnouncement } from '@app/homeV2/shared/utils';
 
 describe('home V2 utils test ->', () => {
     it('should return whether user has viewed announcement for valid input - true', () => {

@@ -1,22 +1,24 @@
-import React, { useEffect, useState } from 'react';
+import { PlusOutlined } from '@ant-design/icons';
 import { Button, Empty, Pagination, Typography } from 'antd';
+import * as QueryString from 'query-string';
+import { AlignType } from 'rc-table/lib/interface';
+import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
-import * as QueryString from 'query-string';
-import { PlusOutlined } from '@ant-design/icons';
-import { AlignType } from 'rc-table/lib/interface';
+
+import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
+import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import { SearchBar } from '@app/search/SearchBar';
+import CreatePostModal from '@app/settingsV2/posts/CreatePostModal';
+import { PostColumn, PostEntry, PostListMenuColumn } from '@app/settingsV2/posts/PostsListColumns';
+import { POST_TYPE_TO_DISPLAY_TEXT } from '@app/settingsV2/posts/constants';
+import { addToListPostCache, removeFromListPostCache } from '@app/settingsV2/posts/utils';
+import { Message } from '@app/shared/Message';
+import { scrollToTop } from '@app/shared/searchUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { getHomePagePostsFilters } from '@app/utils/queryUtils';
-import CreatePostModal from './CreatePostModal';
-import { PostColumn, PostEntry, PostListMenuColumn } from './PostsListColumns';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { useListPostsQuery } from '../../../graphql/post.generated';
-import { scrollToTop } from '../../shared/searchUtils';
-import { addToListPostCache, removeFromListPostCache } from './utils';
-import { Message } from '../../shared/Message';
-import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
-import { SearchBar } from '../../search/SearchBar';
-import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
-import { POST_TYPE_TO_DISPLAY_TEXT } from './constants';
+
+import { useListPostsQuery } from '@graphql/post.generated';
 
 const PostsContainer = styled.div`
     display: flex;

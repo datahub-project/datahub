@@ -1,9 +1,9 @@
+import { Button, Form, Modal } from 'antd';
 import React, { useState } from 'react';
-import { Button, Modal, Form } from 'antd';
 import styled from 'styled-components';
 
-import { Editor } from '../shared/tabs/Documentation/components/editor/Editor';
-import { ANTD_GRAY } from '../shared/constants';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 
 type Props = {
     onClose: () => void;

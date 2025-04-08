@@ -1,16 +1,18 @@
 import React from 'react';
-import OwnersDropdown from './action/OwnersDropdown';
-import GlossaryTermDropdown from './action/GlossaryTermsDropdown';
-import TagsDropdown from './action/TagsDropdown';
-import DomainDropdown from './action/DomainsDropdown';
-import DeprecationDropdown from './action/DeprecationDropdown';
-import DeleteDropdown from './action/DeleteDropdown';
-import DataProductsDropdown from './action/DataProductsDropdown';
-import { EntityType } from '../../../../../../types.generated';
-import { EntityCapabilityType } from '../../../../Entity';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { EntityAndType } from '../../../types';
-import { SelectActionGroups } from './types';
+
+import { EntityCapabilityType } from '@app/entity/Entity';
+import DataProductsDropdown from '@app/entity/shared/components/styled/search/action/DataProductsDropdown';
+import DeleteDropdown from '@app/entity/shared/components/styled/search/action/DeleteDropdown';
+import DeprecationDropdown from '@app/entity/shared/components/styled/search/action/DeprecationDropdown';
+import DomainDropdown from '@app/entity/shared/components/styled/search/action/DomainsDropdown';
+import GlossaryTermDropdown from '@app/entity/shared/components/styled/search/action/GlossaryTermsDropdown';
+import OwnersDropdown from '@app/entity/shared/components/styled/search/action/OwnersDropdown';
+import TagsDropdown from '@app/entity/shared/components/styled/search/action/TagsDropdown';
+import { SelectActionGroups } from '@app/entity/shared/components/styled/search/types';
+import { EntityAndType } from '@app/entity/shared/types';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType } from '@types';
 
 /**
  * The set of action groups that are visible by default.

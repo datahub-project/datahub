@@ -1,7 +1,8 @@
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
-import { Tooltip } from '@components';
-import { REDESIGN_COLORS } from '../../../constants';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 export const ActionButton = styled.div<{ privilege: boolean }>`
     color: ${(props) =>

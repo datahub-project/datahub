@@ -1,6 +1,7 @@
+import { Button, Form, Input, Modal } from 'antd';
 import React from 'react';
-import { Modal, Button, Form, Input } from 'antd';
-import { IncidentState } from '../../../../../../types.generated';
+
+import { IncidentState } from '@types';
 
 const { TextArea } = Input;
 

@@ -1,12 +1,14 @@
+import { ScanOutlined } from '@ant-design/icons';
+import { Button, Tooltip, Typography } from 'antd';
 import React from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
-import { Button, Tooltip, Typography } from 'antd';
-import { ScanOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-import { SchemaField, SchemaFieldBlame } from '../../../../../../../types.generated';
-import { pathMatchesNewPath } from '../../../../../dataset/profile/schema/utils/utils';
-import { toRelativeTimeString } from '../../../../../../shared/time/timeUtils';
-import { navigateToVersionedDatasetUrl } from './navigateToVersionedDatasetUrl';
+
+import { pathMatchesNewPath } from '@app/entity/dataset/profile/schema/utils/utils';
+import { navigateToVersionedDatasetUrl } from '@app/entity/shared/tabs/Dataset/Schema/utils/navigateToVersionedDatasetUrl';
+import { toRelativeTimeString } from '@app/shared/time/timeUtils';
+
+import { SchemaField, SchemaFieldBlame } from '@types';
 
 const HeadingDiv = styled.div`
     vertical-align: top;

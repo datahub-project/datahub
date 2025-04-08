@@ -1,5 +1,6 @@
-import { FacetFilterInput } from '../../../../../../../types.generated';
-import { Query } from '../types';
+import { Query } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
+
+import { FacetFilterInput } from '@types';
 
 /**
  * Filter queries by a search string. Compares name, description, and query statement.

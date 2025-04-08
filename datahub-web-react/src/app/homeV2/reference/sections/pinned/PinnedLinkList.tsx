@@ -1,8 +1,9 @@
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
+
+import { PinnedLink } from '@app/homeV2/reference/sections/pinned/PinnedLink';
 import { Carousel } from '@src/app/sharedV2/carousel/Carousel';
-import { Tooltip } from '@components';
-import { PinnedLink } from './PinnedLink';
 
 const Title = styled.div<{ hasAction: boolean }>`
     ${(props) => props.hasAction && `:hover { cursor: pointer; }`}

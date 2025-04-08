@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { getInitialAllowListIds, getStepIds } from '../app/onboarding/utils';
-import { useBatchGetStepStatesQuery } from '../graphql/step.generated';
-import { EducationStepsContext } from './EducationStepsContext';
-import { StepStateResult } from '../types.generated';
-import { useUserContext } from '../app/context/useUserContext';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { getInitialAllowListIds, getStepIds } from '@app/onboarding/utils';
+import { EducationStepsContext } from '@providers/EducationStepsContext';
+
+import { useBatchGetStepStatesQuery } from '@graphql/step.generated';
+import { StepStateResult } from '@types';
 
 export function EducationStepsProvider({ children }: { children: React.ReactNode }) {
     const userUrn = useUserContext()?.user?.urn;

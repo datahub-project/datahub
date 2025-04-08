@@ -1,8 +1,9 @@
 import { Button, Icon } from '@components';
-import { ColorOptions, ColorValues, PillVariantOptions, PillVariantValues, SizeValues } from '@components/theme/config';
 import React from 'react';
-import { PillContainer, PillText } from './components';
-import { PillProps, PillPropsDefaults } from './types';
+
+import { PillContainer, PillText } from '@components/components/Pills/components';
+import { PillProps, PillPropsDefaults } from '@components/components/Pills/types';
+import { ColorOptions, ColorValues, PillVariantOptions, PillVariantValues, SizeValues } from '@components/theme/config';
 
 export const SUPPORTED_CONFIGURATIONS: Record<PillVariantOptions, ColorOptions[]> = {
     [PillVariantValues.filled]: [

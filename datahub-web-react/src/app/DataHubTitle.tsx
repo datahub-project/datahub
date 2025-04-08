@@ -1,8 +1,9 @@
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useLocation } from 'react-router';
-import { useCustomTheme } from '../customThemeContext';
-import { useAppConfig } from './useAppConfig';
+
+import { useAppConfig } from '@app/useAppConfig';
+import { useCustomTheme } from '@src/customThemeContext';
 
 const PATH_FRAGMENT_TO_TITLE_OVERRIDES = {
     sso: 'SSO',

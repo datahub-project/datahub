@@ -1,4 +1,4 @@
-import { ListGroupsDocument, ListGroupsQuery } from '../../../graphql/group.generated';
+import { ListGroupsDocument, ListGroupsQuery } from '@graphql/group.generated';
 
 export const DEFAULT_GROUP_LIST_PAGE_SIZE = 25;
 

@@ -1,7 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
-import { UnionType } from '../../search/utils/constants';
-import { EmbeddedListSearchSection } from '../shared/components/styled/search/EmbeddedListSearchSection';
+
+import { EmbeddedListSearchSection } from '@app/entity/shared/components/styled/search/EmbeddedListSearchSection';
+import { UnionType } from '@app/search/utils/constants';
 
 const UserAssetsWrapper = styled.div`
     height: calc(100vh - 114px);

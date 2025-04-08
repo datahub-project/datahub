@@ -1,7 +1,9 @@
 import moment from 'moment/moment';
-import { FilterOperator, SortCriterion, SortOrder } from '../../../../../../../../types.generated';
-import { FilterSet } from '../../../../../../../entityV2/shared/components/styled/search/types';
-import { UnionType } from '../../../../../../../searchV2/utils/constants';
+
+import { FilterSet } from '@app/entityV2/shared/components/styled/search/types';
+import { UnionType } from '@app/searchV2/utils/constants';
+
+import { FilterOperator, SortCriterion, SortOrder } from '@types';
 
 export const buildRecentlyCreatedDatasetsFilters = (sinceDays: number): FilterSet => {
     const startDate = moment().utcOffset(0).subtract(sinceDays, 'days').set({

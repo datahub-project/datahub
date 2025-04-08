@@ -1,11 +1,13 @@
 import { UserOutlined } from '@ant-design/icons';
 import * as React from 'react';
-import { CorpUser, EntityType, SearchResult } from '../../../types.generated';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { Preview } from './preview/Preview';
-import UserProfile from './UserProfile';
-import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
+
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import UserProfile from '@app/entityV2/user/UserProfile';
+import { Preview } from '@app/entityV2/user/preview/Preview';
+
+import { CorpUser, EntityType, SearchResult } from '@types';
 
 /**
  * Definition of the DataHub Dataset entity.

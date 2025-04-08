@@ -1,7 +1,12 @@
 import React from 'react';
-import { buildMostQueriedFilters, buildMostQueriedSort } from './useGetMostQueried';
-import { SearchListInsightCard } from './SearchListInsightCard';
-import { EntityType } from '../../../../../../../../types.generated';
+
+import { SearchListInsightCard } from '@app/homeV2/content/tabs/discovery/sections/insight/cards/SearchListInsightCard';
+import {
+    buildMostQueriedFilters,
+    buildMostQueriedSort,
+} from '@app/homeV2/content/tabs/discovery/sections/insight/cards/useGetMostQueried';
+
+import { EntityType } from '@types';
 
 export const MOST_QUERIED_ID = 'MostQueried';
 

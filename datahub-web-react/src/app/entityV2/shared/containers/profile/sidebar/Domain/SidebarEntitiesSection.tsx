@@ -1,14 +1,20 @@
 import React, { useEffect } from 'react';
-import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
-import { useEntityContext, useEntityData } from '../../../../../../entity/shared/EntityContext';
-import { SidebarSection } from '../SidebarSection';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { getContentsSummary, getContentsSummaryText, navigateToDomainEntities } from './utils';
-import { useGetDomainEntitySummaryQuery } from '../../../../../../../graphql/domain.generated';
-import SidebarEntitiesLoadingSection from './SidebarEntitiesLoadingSection';
-import EmptySectionText from '../EmptySectionText';
-import { REDESIGN_COLORS } from '../../../../constants';
+import styled from 'styled-components/macro';
+
+import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import SidebarEntitiesLoadingSection from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarEntitiesLoadingSection';
+import {
+    getContentsSummary,
+    getContentsSummaryText,
+    navigateToDomainEntities,
+} from '@app/entityV2/shared/containers/profile/sidebar/Domain/utils';
+import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetDomainEntitySummaryQuery } from '@graphql/domain.generated';
 
 const Section = styled.div`
     display: flex;

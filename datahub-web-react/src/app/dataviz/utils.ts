@@ -1,7 +1,7 @@
-import dayjs from 'dayjs';
 import { scaleOrdinal } from '@visx/scale';
+import dayjs from 'dayjs';
 
-import { COMPLETED_COLOR, NOT_STARTED_COLOR, IN_PROGRESS_COLOR } from './constants';
+import { COMPLETED_COLOR, IN_PROGRESS_COLOR, NOT_STARTED_COLOR } from '@app/dataviz/constants';
 
 // Mock Data Util
 export const generateDateSeries = (numOfDays) =>

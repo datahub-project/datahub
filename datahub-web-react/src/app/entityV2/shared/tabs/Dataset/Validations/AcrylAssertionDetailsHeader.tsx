@@ -1,13 +1,15 @@
+import { ClockCircleOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
+import { Divider, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Divider, Typography } from 'antd';
-import { Tooltip } from '@components';
-import { ClockCircleOutlined } from '@ant-design/icons';
-import { CronSchedule } from '../../../../../../types.generated';
-import { getLocaleTimezone } from '../../../../../shared/time/timeUtils';
-import { ANTD_GRAY } from '../../../constants';
-import { getCronAsText } from './acrylUtils';
-import { TruncatedTextWithTooltip } from '../../../../../shared/TruncatedTextWithTooltip';
+
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { getCronAsText } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { TruncatedTextWithTooltip } from '@app/shared/TruncatedTextWithTooltip';
+import { getLocaleTimezone } from '@app/shared/time/timeUtils';
+
+import { CronSchedule } from '@types';
 
 const TimeLabel = styled.div`
     max-width: 280px;

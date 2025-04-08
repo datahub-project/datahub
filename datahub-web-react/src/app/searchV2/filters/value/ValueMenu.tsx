@@ -1,15 +1,16 @@
 /* eslint-disable import/no-cycle */
+import React, { useEffect, useRef, useState } from 'react';
+
+import { FieldType, FilterField, FilterValue, FilterValueOption } from '@app/searchV2/filters/types';
+import { getIsDateRangeFilter } from '@app/searchV2/filters/utils';
+import BooleanValueMenu from '@app/searchV2/filters/value/BooleanValueMenu';
+import DateRangeMenu from '@app/searchV2/filters/value/DateRangeMenu';
+import EntityTypeMenu from '@app/searchV2/filters/value/EntityTypeMenu';
+import EntityValueMenu from '@app/searchV2/filters/value/EntityValueMenu';
+import EnumValueMenu from '@app/searchV2/filters/value/EnumValueMenu';
+import TextValueMenu from '@app/searchV2/filters/value/TextValueMenu';
 import TimeBucketMenu from '@app/searchV2/filters/value/TimeBucketMenu';
 import { FacetFilterInput } from '@src/types.generated';
-import React, { useEffect, useRef, useState } from 'react';
-import { FilterField, FilterValueOption, FilterValue, FieldType } from '../types';
-import TextValueMenu from './TextValueMenu';
-import BooleanValueMenu from './BooleanValueMenu';
-import EntityValueMenu from './EntityValueMenu';
-import EntityTypeMenu from './EntityTypeMenu';
-import EnumValueMenu from './EnumValueMenu';
-import DateRangeMenu from './DateRangeMenu';
-import { getIsDateRangeFilter } from '../utils';
 
 interface Props {
     field: FilterField;

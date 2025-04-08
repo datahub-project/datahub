@@ -1,7 +1,8 @@
-import { FacetFilterInput, AndFilterInput, QuickFilter, EntityType } from '../../../types.generated';
-import { FilterSet } from '../../entity/shared/components/styled/search/types';
-import { QuickFilterField } from '../autoComplete/quickFilters/utils';
-import { UnionType } from './constants';
+import { FilterSet } from '@app/entity/shared/components/styled/search/types';
+import { QuickFilterField } from '@app/search/autoComplete/quickFilters/utils';
+import { UnionType } from '@app/search/utils/constants';
+
+import { AndFilterInput, EntityType, FacetFilterInput, QuickFilter } from '@types';
 
 /**
  * Combines 2 sets of conjunctive filters in Disjunctive Normal Form

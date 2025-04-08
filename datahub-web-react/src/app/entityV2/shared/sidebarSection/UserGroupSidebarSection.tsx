@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { SidebarSection } from '../containers/profile/sidebar/SidebarSection';
-import { GroupsSection } from '../SidebarStyledComponents';
-import { EntityLink } from '../../../homeV2/reference/sections/EntityLink';
-import { ANTD_GRAY, ANTD_GRAY_V2 } from '../constants';
-import { EntityRelationship } from '../../../../types.generated';
-import { ShowMoreSection } from './ShowMoreSection';
+
+import { GroupsSection } from '@app/entityV2/shared/SidebarStyledComponents';
+import { ANTD_GRAY, ANTD_GRAY_V2 } from '@app/entityV2/shared/constants';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { ShowMoreSection } from '@app/entityV2/shared/sidebarSection/ShowMoreSection';
+import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
+
+import { EntityRelationship } from '@types';
 
 const DEFAULT_MAX_ENTITIES_TO_SHOW = 4;
 

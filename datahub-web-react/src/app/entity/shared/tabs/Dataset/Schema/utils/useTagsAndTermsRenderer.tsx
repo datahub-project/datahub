@@ -1,9 +1,11 @@
 import React from 'react';
-import { EditableSchemaMetadata, EntityType, GlobalTags, SchemaField } from '../../../../../../../types.generated';
-import TagTermGroup from '../../../../../../shared/tags/TagTermGroup';
-import { pathMatchesNewPath } from '../../../../../dataset/profile/schema/utils/utils';
-import { useSchemaRefetch } from '../SchemaContext';
-import { useMutationUrn, useRefetch } from '../../../../EntityContext';
+
+import { pathMatchesNewPath } from '@app/entity/dataset/profile/schema/utils/utils';
+import { useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
+import { useSchemaRefetch } from '@app/entity/shared/tabs/Dataset/Schema/SchemaContext';
+import TagTermGroup from '@app/shared/tags/TagTermGroup';
+
+import { EditableSchemaMetadata, EntityType, GlobalTags, SchemaField } from '@types';
 
 export default function useTagsAndTermsRenderer(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,

@@ -1,16 +1,22 @@
-import React, { useState } from 'react';
 import { ApolloError } from '@apollo/client';
-import useSortInput from '@src/app/searchV2/sorting/useSortInput';
-import { useSelectedSortOption } from '@src/app/search/context/SearchContext';
-import { FacetFilterInput } from '../../../../../../types.generated';
-import { FilterSet, GetSearchResultsParams, SearchResultsInterface } from './types';
-import { EmbeddedListSearch } from './EmbeddedListSearch';
-import { UnionType } from '../../../../../search/utils/constants';
+import React, { useState } from 'react';
+
+import { EmbeddedListSearch } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearch';
+import {
+    FilterSet,
+    GetSearchResultsParams,
+    SearchResultsInterface,
+} from '@app/entityV2/shared/components/styled/search/types';
+import { UnionType } from '@app/search/utils/constants';
 import {
     DownloadSearchResults,
     DownloadSearchResultsInput,
     DownloadSearchResultsParams,
-} from '../../../../../search/utils/types';
+} from '@app/search/utils/types';
+import { useSelectedSortOption } from '@src/app/search/context/SearchContext';
+import useSortInput from '@src/app/searchV2/sorting/useSortInput';
+
+import { FacetFilterInput } from '@types';
 
 type Props = {
     emptySearchQuery?: string | null;

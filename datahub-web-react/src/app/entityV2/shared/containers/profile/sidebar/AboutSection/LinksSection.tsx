@@ -1,8 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
-import LinkButton from '../LinkButton';
-import { useEntityData, useRefetch } from '../../../../../../entity/shared/EntityContext';
-import { AddLinkModal } from '../../../../components/styled/AddLinkModal';
+
+import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { AddLinkModal } from '@app/entityV2/shared/components/styled/AddLinkModal';
+import LinkButton from '@app/entityV2/shared/containers/profile/sidebar/LinkButton';
 
 const AddLinksWrapper = styled.div`
     margin-left: -15px;

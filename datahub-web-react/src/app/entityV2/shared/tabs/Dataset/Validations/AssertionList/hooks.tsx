@@ -1,16 +1,17 @@
-import React, { Dispatch, SetStateAction, useEffect, useMemo, useRef, useState } from 'react';
 import { Typography } from 'antd';
+import React, { Dispatch, SetStateAction, useEffect, useMemo, useRef, useState } from 'react';
+import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
+
+import { ActionsColumn } from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylAssertionsTableColumns';
+import { AssertionName } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AssertionName';
+import { AcrylAssertionTagColumn } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/Tags/AcrylAssertionTagColumn';
+import { AssertionListFilter } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
+import { getAssertionGroupName } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
 import { AssertionResultType, AssertionType } from '@src/types.generated';
-import { useHistory, useLocation } from 'react-router';
-import { AssertionName } from './AssertionName';
-import { getAssertionGroupName } from '../acrylUtils';
-import { ActionsColumn } from '../AcrylAssertionsTableColumns';
-import { AssertionListFilter } from './types';
-import { getQueryParams } from '../assertionUtils';
-import { AcrylAssertionTagColumn } from './Tags/AcrylAssertionTagColumn';
 
 const CategoryType = styled.div`
     font-family: Mulish;

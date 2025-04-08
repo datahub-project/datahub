@@ -1,10 +1,12 @@
-import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
 import React from 'react';
 import styled from 'styled-components';
-import { ChangeTransaction, DataPlatform } from '../../../../../../../types.generated';
-import { formatTimestamp } from './historyUtils';
-import ChangeEventComponent from './ChangeEvent';
-import { REDESIGN_COLORS } from '../../../../constants';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import ChangeEventComponent from '@app/entityV2/shared/tabs/Dataset/Schema/history/ChangeEvent';
+import { formatTimestamp } from '@app/entityV2/shared/tabs/Dataset/Schema/history/historyUtils';
+import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
+
+import { ChangeTransaction, DataPlatform } from '@types';
 
 const TitleText = styled.span`
     color: ${REDESIGN_COLORS.TEXT_HEADING};
@@ -106,11 +108,7 @@ export default function ChangeTransactionView({ transaction, platform, semanticV
                         {semanticVersion && <TitleText>{`(${semanticVersion})`}</TitleText>}
                     </ChangeTransactionTitle>
                 </TransactionDateHeader>
-                <div>
-                    {transaction?.changes?.map((change) => (
-                        <ChangeEventComponent changeEvent={change} />
-                    ))}
-                </div>
+                <div>{transaction?.changes?.map((change) => <ChangeEventComponent changeEvent={change} />)}</div>
             </ChangeTransactionMainContent>
         </ChangeTransactionContainer>
     );

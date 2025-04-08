@@ -1,7 +1,9 @@
 import React from 'react';
-import { PropertyRow } from './types';
-import { StdDataType } from '../../../../../types.generated';
-import StructuredPropertyValue from './StructuredPropertyValue';
+
+import StructuredPropertyValue from '@app/entity/shared/tabs/Properties/StructuredPropertyValue';
+import { PropertyRow } from '@app/entity/shared/tabs/Properties/types';
+
+import { StdDataType } from '@types';
 
 interface Props {
     propertyRow: PropertyRow;

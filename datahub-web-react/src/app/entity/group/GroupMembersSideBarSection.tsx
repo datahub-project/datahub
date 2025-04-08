@@ -2,9 +2,7 @@ import { Tag, Tooltip } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { CorpUser, EntityRelationship, EntityType } from '../../../types.generated';
-import { CustomAvatar } from '../../shared/avatar';
-import { useEntityRegistry } from '../../useEntityRegistry';
+
 import {
     DisplayCount,
     EmptyValue,
@@ -12,7 +10,11 @@ import {
     GroupSectionTitle,
     GroupsSeeMoreText,
     TagsSection,
-} from '../shared/SidebarStyledComponents';
+} from '@app/entity/shared/SidebarStyledComponents';
+import { CustomAvatar } from '@app/shared/avatar';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { CorpUser, EntityRelationship, EntityType } from '@types';
 
 const TITLE = 'Members';
 

@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { useGetDatasetAssertionsQuery } from '../../../../../../graphql/dataset.generated';
-import { Assertion, AssertionResultType } from '../../../../../../types.generated';
-import { useEntityData } from '../../../EntityContext';
-import { DatasetAssertionsList } from './DatasetAssertionsList';
-import { DatasetAssertionsSummary } from './DatasetAssertionsSummary';
-import { sortAssertions } from './assertionUtils';
-import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '../../../siblingUtils';
-import { useGetDatasetContractQuery } from '../../../../../../graphql/contract.generated';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
+import { DatasetAssertionsList } from '@app/entity/shared/tabs/Dataset/Validations/DatasetAssertionsList';
+import { DatasetAssertionsSummary } from '@app/entity/shared/tabs/Dataset/Validations/DatasetAssertionsSummary';
+import { sortAssertions } from '@app/entity/shared/tabs/Dataset/Validations/assertionUtils';
+
+import { useGetDatasetContractQuery } from '@graphql/contract.generated';
+import { useGetDatasetAssertionsQuery } from '@graphql/dataset.generated';
+import { Assertion, AssertionResultType } from '@types';
 
 /**
  * Returns a status summary for the assertions associated with a Dataset.

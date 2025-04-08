@@ -1,19 +1,26 @@
+import { Popover } from '@components';
+import { AxisBottom } from '@visx/axis';
+import { GlyphCircle } from '@visx/glyph';
+import { GridColumns } from '@visx/grid';
+import { Group } from '@visx/group';
+import { scaleUtc } from '@visx/scale';
+import { LinePath } from '@visx/shape';
 import React, { useMemo } from 'react';
 
-import { Popover } from '@components';
-import { Group } from '@visx/group';
-import { AxisBottom } from '@visx/axis';
-import { scaleUtc } from '@visx/scale';
-import { GlyphCircle } from '@visx/glyph';
-import { LinePath } from '@visx/shape';
-import { GridColumns } from '@visx/grid';
-
-import { ANTD_GRAY } from '../../../../../../../../../constants';
-import { LinkWrapper } from '../../../../../../../../../../../shared/LinkWrapper';
-import { ACCENT_COLOR_HEX, generateTimeScaleTickValues, getCustomTimeScaleTickValue, getFillColor } from './utils';
-import { AssertionResultChartData, TimeRange } from './types';
-import { AssertionResultPopoverContent } from '../../../../shared/result/AssertionResultPopoverContent';
-import { getTimeRangeDisplay } from '../utils';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { AssertionResultPopoverContent } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopoverContent';
+import {
+    AssertionResultChartData,
+    TimeRange,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/types';
+import {
+    ACCENT_COLOR_HEX,
+    generateTimeScaleTickValues,
+    getCustomTimeScaleTickValue,
+    getFillColor,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/utils';
+import { getTimeRangeDisplay } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/utils';
+import { LinkWrapper } from '@app/shared/LinkWrapper';
 
 type Props = {
     data: AssertionResultChartData;

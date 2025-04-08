@@ -1,17 +1,19 @@
-import { message, Button, Modal, Select, Tag } from 'antd';
+import { Button, Modal, Select, Tag, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { useAddRelatedTermsMutation } from '../../../../graphql/glossaryTerm.generated';
-import { useGetSearchResultsLazyQuery } from '../../../../graphql/search.generated';
-import { EntityType, SearchResult, TermRelationshipType } from '../../../../types.generated';
-import GlossaryBrowser from '../../../glossary/GlossaryBrowser/GlossaryBrowser';
-import ClickOutside from '../../../shared/ClickOutside';
-import { BrowserWrapper } from '../../../shared/tags/AddTagsTermsModal';
-import TermLabel from '../../../shared/TermLabel';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useEntityData, useRefetch } from '../../../entity/shared/EntityContext';
-import ParentEntities from '../../../searchV2/filters/ParentEntities';
-import { getParentEntities } from '../../../searchV2/filters/utils';
+
+import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
+import ParentEntities from '@app/searchV2/filters/ParentEntities';
+import { getParentEntities } from '@app/searchV2/filters/utils';
+import ClickOutside from '@app/shared/ClickOutside';
+import TermLabel from '@app/shared/TermLabel';
+import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useAddRelatedTermsMutation } from '@graphql/glossaryTerm.generated';
+import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
+import { EntityType, SearchResult, TermRelationshipType } from '@types';
 
 const StyledSelect = styled(Select)`
     width: 480px;

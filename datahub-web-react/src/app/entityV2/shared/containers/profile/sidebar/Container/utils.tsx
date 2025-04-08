@@ -1,9 +1,11 @@
 import React from 'react';
 import styled from 'styled-components';
-import { AggregationMetadata, EntityType, FacetMetadata, SearchResults } from '../../../../../../../types.generated';
-import { pluralize } from '../../../../../../shared/textUtil';
-import { EntityRegistry } from '../../../../../../../entityRegistryContext';
-import { ANTD_GRAY } from '../../../../constants';
+
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { pluralize } from '@app/shared/textUtil';
+import { EntityRegistry } from '@src/entityRegistryContext';
+
+import { AggregationMetadata, EntityType, FacetMetadata, SearchResults } from '@types';
 
 const UNIT_SEPARATOR = '␞';
 

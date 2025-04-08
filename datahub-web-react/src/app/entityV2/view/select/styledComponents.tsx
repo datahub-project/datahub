@@ -1,8 +1,9 @@
 import { RightOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import styled from 'styled-components';
+
+import { ANTD_GRAY, REDESIGN_COLORS, SEARCH_COLORS } from '@app/entityV2/shared/constants';
 import { colors } from '@src/alchemy-components';
-import { ANTD_GRAY, REDESIGN_COLORS, SEARCH_COLORS } from '../../shared/constants';
 
 export const NoMarginButton = styled(Button)`
     && {

@@ -1,11 +1,13 @@
 import { Radio, Select } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY_V2 } from '../../../constants';
-import { getStructuredPropertyValue } from '../../../utils';
-import ValueDescription from '../../../entityForm/prompts/StructuredPropertyPrompt/ValueDescription';
-import { AllowedValue } from '../../../../../../types.generated';
-import DropdownLabel from './DropdownLabel';
+
+import DropdownLabel from '@app/entity/shared/components/styled/StructuredProperty/DropdownLabel';
+import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+import ValueDescription from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/ValueDescription';
+import { getStructuredPropertyValue } from '@app/entity/shared/utils';
+
+import { AllowedValue } from '@types';
 
 const StyledRadio = styled(Radio)`
     display: block;

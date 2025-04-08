@@ -1,14 +1,17 @@
 import Icon from '@ant-design/icons/lib/components/Icon';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
-import GreenCircleIcon from '../../../../../images/greenCircleTwoTone.svg?react';
-import { SchemaField } from '../../../../../types.generated';
-import translateFieldPath from '../../../dataset/profile/schema/utils/translateFieldPath';
-import { getNumPromptsCompletedForField } from '../../containers/profile/sidebar/FormInfo/utils';
-import { useEntityData } from '../../EntityContext';
-import { ANTD_GRAY_V2 } from '../../constants';
-import { pluralize } from '../../../../shared/textUtil';
-import { useEntityFormContext } from '../EntityFormContext';
+
+import translateFieldPath from '@app/entity/dataset/profile/schema/utils/translateFieldPath';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+import { getNumPromptsCompletedForField } from '@app/entity/shared/containers/profile/sidebar/FormInfo/utils';
+import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
+import { pluralize } from '@app/shared/textUtil';
+
+import { SchemaField } from '@types';
+
+import GreenCircleIcon from '@images/greenCircleTwoTone.svg?react';
 
 const HeaderWrapper = styled.div`
     display: flex;

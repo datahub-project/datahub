@@ -1,14 +1,15 @@
-import { CorpUser, Entity, LineageDirection } from '../../../types.generated';
 import {
-    addToAdjacencyList,
     FetchStatus,
+    NodeContext,
+    addToAdjacencyList,
     getEdgeId,
     isTransformational,
-    NodeContext,
     removeFromAdjacencyList,
     setDefault,
-} from '../common';
-import { entityNodeDefault } from '../useSearchAcrossLineage';
+} from '@app/lineageV2/common';
+import { entityNodeDefault } from '@app/lineageV2/useSearchAcrossLineage';
+
+import { CorpUser, Entity, LineageDirection } from '@types';
 
 export default function updateNodeContext(
     urn: string,

@@ -1,13 +1,15 @@
 import { Checkbox, Empty, List } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Entity, EntityPath, EntityType, SearchResult } from '../../../../../../types.generated';
-import { useSearchContext } from '../../../../../search/context/SearchContext';
-import { MATCHES_CONTAINER_HEIGHT } from '../../../../../searchV2/SearchResultList';
-import { MatchContextContainer } from '../../../../../searchV2/matches/MatchContextContainer';
-import { PreviewSection } from '../../../../../shared/MatchesContext';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { useInitializeColumnLineageCards } from './useInitializeColumnLineageCards';
+
+import { useInitializeColumnLineageCards } from '@app/entityV2/shared/components/styled/search/useInitializeColumnLineageCards';
+import { useSearchContext } from '@app/search/context/SearchContext';
+import { MATCHES_CONTAINER_HEIGHT } from '@app/searchV2/SearchResultList';
+import { MatchContextContainer } from '@app/searchV2/matches/MatchContextContainer';
+import { PreviewSection } from '@app/shared/MatchesContext';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Entity, EntityPath, EntityType, SearchResult } from '@types';
 
 export const StyledList = styled(List)`
     height: 100%;

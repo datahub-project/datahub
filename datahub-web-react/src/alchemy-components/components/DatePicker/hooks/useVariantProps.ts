@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
-import { DatePickerVariant } from '../constants';
-import { VariantProps } from '../types';
-import { CommonVariantProps, DateSwitcherVariantProps } from '../variants';
+
+import { DatePickerVariant } from '@components/components/DatePicker/constants';
+import { VariantProps } from '@components/components/DatePicker/types';
+import { CommonVariantProps, DateSwitcherVariantProps } from '@components/components/DatePicker/variants';
 
 export default function useVariantProps(variant: DatePickerVariant | undefined): VariantProps {
     return useMemo(() => {

@@ -1,9 +1,11 @@
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { StepStateResult } from '../../types.generated';
-import { OnboardingConfig } from './OnboardingConfig';
-import { OnboardingStep } from './OnboardingStep';
+
+import { OnboardingConfig } from '@app/onboarding/OnboardingConfig';
+import { OnboardingStep } from '@app/onboarding/OnboardingStep';
+
+import { StepStateResult } from '@types';
 
 export function convertStepId(stepId: string, userUrn: string) {
     const step = OnboardingConfig.find((configStep) => configStep.id === stepId);

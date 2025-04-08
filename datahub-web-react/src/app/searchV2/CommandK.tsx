@@ -1,7 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
+
+import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { colors } from '@src/alchemy-components';
-import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 
 const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     color: ${(props) => (props.$isShowNavBarRedesign ? colors.gray[1700] : '#dcdcdc')};

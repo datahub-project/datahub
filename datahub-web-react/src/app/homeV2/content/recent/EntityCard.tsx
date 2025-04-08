@@ -1,14 +1,16 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { GenericEntityProperties } from '../../../entity/shared/types';
-import { Entity, EntityType } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { getDisplayedEntityType } from '../../../entityV2/shared/containers/profile/header/utils';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
-import { HoverEntityTooltip } from '../../../recommendations/renderer/component/HoverEntityTooltip';
-import { SEARCH_COLORS } from '../../../entityV2/shared/constants';
-import PlatformIcon from '../../../sharedV2/icons/PlatformIcon';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { SEARCH_COLORS } from '@app/entityV2/shared/constants';
+import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
+import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
+import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Entity, EntityType } from '@types';
 
 const Container = styled.div`
     display: flex;

@@ -1,7 +1,8 @@
-import React from 'react';
 import { Pill } from '@components';
-import { ActionButtonsContainer, LabelsWrapper, SelectValue } from '../../../components';
-import { SelectLabelVariantProps } from '../../../types';
+import React from 'react';
+
+import { ActionButtonsContainer, LabelsWrapper, SelectValue } from '@components/components/Select/components';
+import { SelectLabelVariantProps } from '@components/components/Select/types';
 
 export default function MultiSelectLabeled({ selectedOptions, label }: SelectLabelVariantProps) {
     return (

@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { Input } from 'antd';
-import styled from 'styled-components/macro';
-import * as QueryString from 'query-string';
-import { useHistory, useLocation } from 'react-router';
 import { SearchOutlined } from '@ant-design/icons';
-import filterSearchQuery from './utils/filterSearchQuery';
-import useGetSearchQueryInputs from './useGetSearchQueryInputs';
+import { Input } from 'antd';
+import * as QueryString from 'query-string';
+import React, { useEffect, useState } from 'react';
+import { useHistory, useLocation } from 'react-router';
+import styled from 'styled-components/macro';
+
+import useGetSearchQueryInputs from '@app/searchV2/useGetSearchQueryInputs';
+import filterSearchQuery from '@app/searchV2/utils/filterSearchQuery';
 
 const SearchIcon = styled(SearchOutlined)`
     color: #8088a3;

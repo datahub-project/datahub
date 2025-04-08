@@ -1,14 +1,15 @@
-import { Icon } from '@components';
-import React, { useContext, useState } from 'react';
-import { Button, Input } from 'antd';
-import { Group } from '@visx/group';
-import styled from 'styled-components';
-import { DownOutlined, UpOutlined } from '@ant-design/icons';
 import { blue } from '@ant-design/colors';
-import { NodeData } from './types';
-import { getTitleHeight } from './utils/titleUtils';
-import { LineageExplorerContext } from './utils/LineageExplorerContext';
-import { centerY, EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT, iconX, width } from './constants';
+import { DownOutlined, UpOutlined } from '@ant-design/icons';
+import { Icon } from '@components';
+import { Group } from '@visx/group';
+import { Button, Input } from 'antd';
+import React, { useContext, useState } from 'react';
+import styled from 'styled-components';
+
+import { EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT, centerY, iconX, width } from '@app/lineage/constants';
+import { NodeData } from '@app/lineage/types';
+import { LineageExplorerContext } from '@app/lineage/utils/LineageExplorerContext';
+import { getTitleHeight } from '@app/lineage/utils/titleUtils';
 
 const HeaderWrapper = styled.div`
     align-items: center;

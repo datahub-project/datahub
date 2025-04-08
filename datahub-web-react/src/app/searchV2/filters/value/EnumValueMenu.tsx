@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
-import { FilterField, FilterValue, FilterValueOption } from '../types';
-import { mapFilterOption } from '../mapFilterOption';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import OptionsDropdownMenu from '../OptionsDropdownMenu';
-import { deduplicateOptions, useFilterOptionsBySearchQuery, useLoadAggregationOptions } from './utils';
-import { OptionMenu } from './styledComponents';
-import { getStructuredPropFilterDisplayName, useFilterDisplayName } from '../utils';
-import { STRUCTURED_PROPERTIES_FILTER_NAME } from '../../utils/constants';
+
+import OptionsDropdownMenu from '@app/searchV2/filters/OptionsDropdownMenu';
+import { mapFilterOption } from '@app/searchV2/filters/mapFilterOption';
+import { FilterField, FilterValue, FilterValueOption } from '@app/searchV2/filters/types';
+import { getStructuredPropFilterDisplayName, useFilterDisplayName } from '@app/searchV2/filters/utils';
+import { OptionMenu } from '@app/searchV2/filters/value/styledComponents';
+import {
+    deduplicateOptions,
+    useFilterOptionsBySearchQuery,
+    useLoadAggregationOptions,
+} from '@app/searchV2/filters/value/utils';
+import { STRUCTURED_PROPERTIES_FILTER_NAME } from '@app/searchV2/utils/constants';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 interface Props {
     field: FilterField;

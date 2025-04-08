@@ -1,10 +1,10 @@
-import React from 'react';
-
 import { Card, Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
 
-import { Highlight as HighlightType } from '../../../types.generated';
-import { formatNumber } from '../../shared/formatNumber';
+import { formatNumber } from '@app/shared/formatNumber';
+
+import { Highlight as HighlightType } from '@types';
 
 type Props = {
     highlight: HighlightType;

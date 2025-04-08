@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
 import DOMPurify from 'dompurify';
-import { BusinessAttribute } from '../../../types.generated';
-import DescriptionField from '../../entity/dataset/profile/schema/components/SchemaDescriptionField';
-import { useUpdateDescriptionMutation } from '../../../graphql/mutations.generated';
+import React, { useState } from 'react';
+
+import DescriptionField from '@app/entity/dataset/profile/schema/components/SchemaDescriptionField';
+
+import { useUpdateDescriptionMutation } from '@graphql/mutations.generated';
+import { BusinessAttribute } from '@types';
 
 export default function useDescriptionRenderer(businessAttributeRefetch: () => Promise<any>) {
     const [updateDescription] = useUpdateDescriptionMutation();

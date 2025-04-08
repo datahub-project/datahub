@@ -1,13 +1,15 @@
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { GlossaryNodeFragment } from '../../graphql/fragments.generated';
-import { ChildGlossaryTermFragment } from '../../graphql/glossaryNode.generated';
-import { GlossaryNode, GlossaryTerm } from '../../types.generated';
-import { useEntityData } from '../entity/shared/EntityContext';
-import { REDESIGN_COLORS } from '../entityV2/shared/constants';
-import { useEntityRegistry } from '../useEntityRegistry';
-import GlossaryEntityItem from './GlossaryEntityItem';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import GlossaryEntityItem from '@app/glossaryV2/GlossaryEntityItem';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { GlossaryNodeFragment } from '@graphql/fragments.generated';
+import { ChildGlossaryTermFragment } from '@graphql/glossaryNode.generated';
+import { GlossaryNode, GlossaryTerm } from '@types';
 
 const SectionTitle = styled(Typography)`
     margin: 12px 0 12px 16px;

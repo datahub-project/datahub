@@ -1,12 +1,13 @@
 import { Tooltip, Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
 import Highlight from 'react-highlighter';
-import { PropertyRow } from './types';
-import ChildCountLabel from '../Dataset/Schema/components/ChildCountLabel';
-import PropertyTypeLabel from '../Dataset/Schema/components/PropertyTypeLabel';
-import StructuredPropertyTooltip from './StructuredPropertyTooltip';
-import CardinalityLabel from './CardinalityLabel';
+import styled from 'styled-components';
+
+import ChildCountLabel from '@app/entity/shared/tabs/Dataset/Schema/components/ChildCountLabel';
+import PropertyTypeLabel from '@app/entity/shared/tabs/Dataset/Schema/components/PropertyTypeLabel';
+import CardinalityLabel from '@app/entity/shared/tabs/Properties/CardinalityLabel';
+import StructuredPropertyTooltip from '@app/entity/shared/tabs/Properties/StructuredPropertyTooltip';
+import { PropertyRow } from '@app/entity/shared/tabs/Properties/types';
 
 const ParentNameText = styled(Typography.Text)`
     color: #373d44;

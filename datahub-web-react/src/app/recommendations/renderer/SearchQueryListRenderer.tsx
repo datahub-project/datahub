@@ -1,7 +1,8 @@
 import React from 'react';
-import { RecommendationRenderProps } from '../types';
-import { recommendationClickEvent } from '../util/recommendationClickEvent';
-import { SearchQueryList } from './component/SearchQueryList';
+
+import { SearchQueryList } from '@app/recommendations/renderer/component/SearchQueryList';
+import { RecommendationRenderProps } from '@app/recommendations/types';
+import { recommendationClickEvent } from '@app/recommendations/util/recommendationClickEvent';
 
 export const SearchQueryListRenderer = ({
     renderId,

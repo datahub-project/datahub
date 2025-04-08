@@ -1,27 +1,23 @@
-import { DataProduct, DatasetStatsSummary, EntityType } from '../../../../types.generated';
 import {
-    dictToQueryStringParams,
-    getNumberWithOrdinal,
-    encodeComma,
     decodeComma,
-    notEmpty,
-    truncate,
-    singularizeCollectionName,
+    dictToQueryStringParams,
+    encodeComma,
     getDataProduct,
-    isOutputPort,
-    getPlatformName,
-    isListSubset,
-    urlEncodeUrn,
-    handleBatchError,
     getFineGrainedLineageWithSiblings,
+    getNumberWithOrdinal,
+    getPlatformName,
+    handleBatchError,
+    isListSubset,
+    isOutputPort,
+    notEmpty,
+    singularizeCollectionName,
     summaryHasStats,
-} from '../utils';
-import {
-    mockEntityRelationShipResult,
-    mockFineGrainedLineages1,
-    mockRecord,
-    mockSearchResult,
-} from '../../../../Mocks';
+    truncate,
+    urlEncodeUrn,
+} from '@app/entityV2/shared/utils';
+import { mockEntityRelationShipResult, mockFineGrainedLineages1, mockRecord, mockSearchResult } from '@src/Mocks';
+
+import { DataProduct, DatasetStatsSummary, EntityType } from '@types';
 
 describe('entity V2 utils test ->', () => {
     describe('dictToQueryStringParams ->', () => {

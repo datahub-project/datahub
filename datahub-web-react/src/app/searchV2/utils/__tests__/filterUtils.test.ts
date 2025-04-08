@@ -1,5 +1,5 @@
-import { QuickFilterField } from '../../autoComplete/quickFilters/utils';
-import { getAutoCompleteInputFromQuickFilter, getFiltersWithQuickFilter } from '../filterUtils';
+import { QuickFilterField } from '@app/searchV2/autoComplete/quickFilters/utils';
+import { getAutoCompleteInputFromQuickFilter, getFiltersWithQuickFilter } from '@app/searchV2/utils/filterUtils';
 
 describe('getAutoCompleteInputFromQuickFilter', () => {
     it('should create a platform filter if the selected quick filter is a platform', () => {

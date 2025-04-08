@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { SelectOption } from './types';
+
+import { SelectOption } from '@components/components/Select/Nested/types';
 
 function getChildrenRecursively(
     directChildren: SelectOption[],

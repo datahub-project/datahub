@@ -1,15 +1,16 @@
+import { CloseOutlined, NotificationOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
+import { Button, Carousel } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { Carousel, Button } from 'antd';
-import { Tooltip } from '@components';
-import { NotificationOutlined, CloseOutlined } from '@ant-design/icons';
-import AnnouncementsSkeleton from '../../content/tabs/announcements/AnnouncementsSkeleton';
-import { Announcement } from './Announcement';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
-import { useUserContext } from '../../../context/useUserContext';
-import { useUpdateLastViewedAnnouncementTime } from '../../shared/updateLastViewedAnnouncementTime';
-import { useGetUnseenAnnouncements } from './useGetUnseenAnnouncements';
-import OnboardingContext from '../../../onboarding/OnboardingContext';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { Announcement } from '@app/homeV2/action/announcement/Announcement';
+import { useGetUnseenAnnouncements } from '@app/homeV2/action/announcement/useGetUnseenAnnouncements';
+import AnnouncementsSkeleton from '@app/homeV2/content/tabs/announcements/AnnouncementsSkeleton';
+import { useUpdateLastViewedAnnouncementTime } from '@app/homeV2/shared/updateLastViewedAnnouncementTime';
+import OnboardingContext from '@app/onboarding/OnboardingContext';
 
 const Card = styled.div`
     border: 1px solid ${ANTD_GRAY[4]};

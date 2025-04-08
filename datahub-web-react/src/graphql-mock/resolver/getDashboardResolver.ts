@@ -1,5 +1,5 @@
-import { Dashboard } from '../../types.generated';
-import { findDashboardByURN } from '../fixtures/searchResult/dashboardSearchResult';
+import { findDashboardByURN } from '@graphql-mock/fixtures/searchResult/dashboardSearchResult';
+import { Dashboard } from '@types';
 
 type GetDashboard = {
     data: { dashboard: Dashboard };

@@ -1,7 +1,8 @@
 import { Group } from '@visx/group';
 import React from 'react';
-import { PopularityTier } from '../utils';
-import PopularityIconBar from './PopularityIconBar';
+
+import PopularityIconBar from '@app/entityV2/shared/containers/profile/sidebar/shared/popularity/PopularityIconBar';
+import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 
 type Props = {
     tier: PopularityTier;

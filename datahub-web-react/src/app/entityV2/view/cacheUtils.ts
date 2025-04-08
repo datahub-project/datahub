@@ -1,11 +1,12 @@
+import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '@app/entityV2/view/utils';
+
 import {
     ListGlobalViewsDocument,
     ListGlobalViewsQuery,
     ListMyViewsDocument,
     ListMyViewsQuery,
-} from '../../../graphql/view.generated';
-import { DataHubViewType, DataHubView } from '../../../types.generated';
-import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from './utils';
+} from '@graphql/view.generated';
+import { DataHubView, DataHubViewType } from '@types';
 
 /**
  * This file contains utility classes for manipulating the Apollo Cache

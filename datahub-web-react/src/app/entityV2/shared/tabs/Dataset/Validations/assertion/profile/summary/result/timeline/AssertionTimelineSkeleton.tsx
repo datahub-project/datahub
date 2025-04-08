@@ -1,7 +1,8 @@
-import React from 'react';
 import { Col, Row, Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../../../../../../../constants';
+
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 
 const SKELETON_MARGIN_BOTTOM_PX = 12;
 const Body = styled.div`

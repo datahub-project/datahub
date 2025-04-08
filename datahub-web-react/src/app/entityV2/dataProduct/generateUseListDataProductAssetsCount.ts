@@ -1,5 +1,5 @@
-import { useListDataProductAssetsQuery } from '@src/graphql/search.generated';
 import { GetSearchResultsParams } from '@src/app/entity/shared/components/styled/search/types';
+import { useListDataProductAssetsQuery } from '@src/graphql/search.generated';
 
 export function generateUseListDataProductAssetsCount({ urn }: { urn: string }) {
     return function useListDataProductAssetsCount({ variables: { input } }: GetSearchResultsParams) {

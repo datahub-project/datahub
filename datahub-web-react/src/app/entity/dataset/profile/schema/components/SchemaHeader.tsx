@@ -1,8 +1,3 @@
-import { Icon } from '@components';
-import React from 'react';
-import { useHistory, useLocation } from 'react-router-dom';
-import { Button, Input, Popover, Select, Tooltip, Typography } from 'antd';
-import { debounce } from 'lodash';
 import {
     AuditOutlined,
     CaretDownOutlined,
@@ -10,14 +5,21 @@ import {
     QuestionCircleOutlined,
     TableOutlined,
 } from '@ant-design/icons';
+import { Icon } from '@components';
+import { Button, Input, Popover, Select, Tooltip, Typography } from 'antd';
+import { debounce } from 'lodash';
+import React from 'react';
+import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
-import CustomPagination from './CustomPagination';
-import TabToolbar from '../../../../shared/components/styled/TabToolbar';
-import { SemanticVersionStruct } from '../../../../../../types.generated';
-import { toRelativeTimeString } from '../../../../../shared/time/timeUtils';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../../../shared/constants';
-import { navigateToVersionedDatasetUrl } from '../../../../shared/tabs/Dataset/Schema/utils/navigateToVersionedDatasetUrl';
-import getSchemaFilterFromQueryString from '../../../../shared/tabs/Dataset/Schema/utils/getSchemaFilterFromQueryString';
+
+import CustomPagination from '@app/entity/dataset/profile/schema/components/CustomPagination';
+import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entity/shared/constants';
+import getSchemaFilterFromQueryString from '@app/entity/shared/tabs/Dataset/Schema/utils/getSchemaFilterFromQueryString';
+import { navigateToVersionedDatasetUrl } from '@app/entity/shared/tabs/Dataset/Schema/utils/navigateToVersionedDatasetUrl';
+import { toRelativeTimeString } from '@app/shared/time/timeUtils';
+
+import { SemanticVersionStruct } from '@types';
 
 const SchemaHeaderContainer = styled.div`
     display: flex;

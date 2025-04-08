@@ -1,13 +1,15 @@
+import { Button, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Button, Typography } from 'antd';
-import { DataHubViewType } from '../../../../types.generated';
-import { ANTD_GRAY } from '../../shared/constants';
-import { ViewTypeLabel } from '../ViewTypeLabel';
-import { ViewDropdownMenu } from '../menu/ViewDropdownMenu';
-import { UserDefaultViewIcon } from '../shared/UserDefaultViewIcon';
-import { GlobalDefaultViewIcon } from '../shared/GlobalDefaultViewIcon';
-import { useUserContext } from '../../../context/useUserContext';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { ViewTypeLabel } from '@app/entity/view/ViewTypeLabel';
+import { ViewDropdownMenu } from '@app/entity/view/menu/ViewDropdownMenu';
+import { GlobalDefaultViewIcon } from '@app/entity/view/shared/GlobalDefaultViewIcon';
+import { UserDefaultViewIcon } from '@app/entity/view/shared/UserDefaultViewIcon';
+
+import { DataHubViewType } from '@types';
 
 const StyledDescription = styled.div`
     max-width: 300px;

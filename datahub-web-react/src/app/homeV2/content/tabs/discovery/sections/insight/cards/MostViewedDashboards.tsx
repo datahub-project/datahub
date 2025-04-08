@@ -1,7 +1,12 @@
 import React from 'react';
-import { EntityType } from '../../../../../../../../types.generated';
-import { SearchListInsightCard } from './SearchListInsightCard';
-import { buildMostViewedDashboardsFilter, buildMostViewedDashboardsSort } from './useGetMostViewedDashboards';
+
+import { SearchListInsightCard } from '@app/homeV2/content/tabs/discovery/sections/insight/cards/SearchListInsightCard';
+import {
+    buildMostViewedDashboardsFilter,
+    buildMostViewedDashboardsSort,
+} from '@app/homeV2/content/tabs/discovery/sections/insight/cards/useGetMostViewedDashboards';
+
+import { EntityType } from '@types';
 
 export const MOST_VIEWED_DASHBOARDS_ID = 'MostViewedDashboards';
 

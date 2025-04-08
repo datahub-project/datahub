@@ -1,6 +1,6 @@
+import { Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Typography } from 'antd';
 
 export type Props = {
     description: any;

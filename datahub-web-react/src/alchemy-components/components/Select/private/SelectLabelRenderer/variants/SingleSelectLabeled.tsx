@@ -1,13 +1,14 @@
-import React from 'react';
 import { Pill } from '@components';
+import React from 'react';
+
 import {
     ActionButtonsContainer,
     DescriptionContainer,
     LabelsWrapper,
     Placeholder,
     SelectValue,
-} from '../../../components';
-import { SelectLabelVariantProps } from '../../../types';
+} from '@components/components/Select/components';
+import { SelectLabelVariantProps } from '@components/components/Select/types';
 
 export default function SingleSelectLabeled({
     selectedOptions,

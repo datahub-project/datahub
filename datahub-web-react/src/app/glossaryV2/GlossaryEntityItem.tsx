@@ -1,14 +1,16 @@
+import { Tooltip } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Tooltip } from 'antd';
-import { GlossaryNodeFragment } from '../../graphql/fragments.generated';
-import { ChildGlossaryTermFragment } from '../../graphql/glossaryNode.generated';
-import { DisplayProperties, EntityType, GlossaryNode, GlossaryTerm } from '../../types.generated';
-import { useEntityData } from '../entity/shared/EntityContext';
-import { useEntityRegistry } from '../useEntityRegistry';
-import GlossaryNodeCard from './GlossaryNodeCard';
-import GlossaryListCard from './GlossaryListCard';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import GlossaryListCard from '@app/glossaryV2/GlossaryListCard';
+import GlossaryNodeCard from '@app/glossaryV2/GlossaryNodeCard';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { GlossaryNodeFragment } from '@graphql/fragments.generated';
+import { ChildGlossaryTermFragment } from '@graphql/glossaryNode.generated';
+import { DisplayProperties, EntityType, GlossaryNode, GlossaryTerm } from '@types';
 
 interface Props {
     name: string;

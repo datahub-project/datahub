@@ -1,14 +1,14 @@
-import React from 'react';
-import { Switch, Tooltip } from 'antd';
 import { QuestionCircleOutlined } from '@ant-design/icons';
+import { Switch, Tooltip } from 'antd';
+import React from 'react';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { navigateToLineageUrl } from '../utils/navigateToLineageUrl';
-import { useIsSeparateSiblingsMode } from '../../entity/shared/siblingUtils';
-import { useIsShowColumnsMode } from '../utils/useIsShowColumnsMode';
-import { useIsShowSeparateSiblingsEnabled } from '../../useAppConfig';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
+import { navigateToLineageUrl } from '@app/lineage/utils/navigateToLineageUrl';
+import { useIsShowColumnsMode } from '@app/lineage/utils/useIsShowColumnsMode';
+import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 
 const ControlDiv = styled.div`
     display: flex;

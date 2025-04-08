@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { useUserContext } from '../../../../context/useUserContext';
-import { EntityLinkList } from '../EntityLinkList';
-import { EmbeddedListSearchModal } from '../../../../entityV2/shared/components/styled/search/EmbeddedListSearchModal';
-import { ENTITY_FILTER_NAME, OWNERS_FILTER_NAME, UnionType } from '../../../../searchV2/utils/constants';
-import { useGetTagsYouOwn } from './useGetTagsYouOwn';
-import { EmptyTagsYouOwn } from './EmptyTagsYouOwn';
-import { EntityType } from '../../../../../types.generated';
-import TagLink from '../../../../sharedV2/tags/TagLink';
-import { ReferenceSectionProps } from '../../types';
-import { ReferenceSection } from '../../../layout/shared/styledComponents';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { EmbeddedListSearchModal } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchModal';
+import { ReferenceSection } from '@app/homeV2/layout/shared/styledComponents';
+import { EntityLinkList } from '@app/homeV2/reference/sections/EntityLinkList';
+import { EmptyTagsYouOwn } from '@app/homeV2/reference/sections/tags/EmptyTagsYouOwn';
+import { useGetTagsYouOwn } from '@app/homeV2/reference/sections/tags/useGetTagsYouOwn';
+import { ReferenceSectionProps } from '@app/homeV2/reference/types';
+import { ENTITY_FILTER_NAME, OWNERS_FILTER_NAME, UnionType } from '@app/searchV2/utils/constants';
+import TagLink from '@app/sharedV2/tags/TagLink';
+
+import { EntityType } from '@types';
 
 const DEFAULT_MAX_ENTITIES_TO_SHOW = 10;
 

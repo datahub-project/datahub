@@ -1,10 +1,11 @@
 import React from 'react';
 import styled from 'styled-components';
+
+import { DataProducts } from '@app/homeV2/content/tabs/discovery/sections/dataProducts/DataProducts';
+import { Domains } from '@app/homeV2/content/tabs/discovery/sections/domains/Domains';
+import { Insights } from '@app/homeV2/content/tabs/discovery/sections/insight/Insights';
+import { Platforms } from '@app/homeV2/content/tabs/discovery/sections/platform/Platforms';
 import { PinnedLinks } from '@src/app/homeV2/reference/sections/pinned/PinnedLinks';
-import { Domains } from './sections/domains/Domains';
-import { DataProducts } from './sections/dataProducts/DataProducts';
-import { Insights } from './sections/insight/Insights';
-import { Platforms } from './sections/platform/Platforms';
 
 const Container = styled.div`
     display: flex;

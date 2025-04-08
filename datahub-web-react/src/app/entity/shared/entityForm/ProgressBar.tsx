@@ -1,8 +1,9 @@
 import { Progress } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import useGetPromptInfo from '../containers/profile/sidebar/FormInfo/useGetPromptInfo';
-import { ANTD_GRAY } from '../constants';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import useGetPromptInfo from '@app/entity/shared/containers/profile/sidebar/FormInfo/useGetPromptInfo';
 
 const StyledProgress = styled(Progress)`
     &&& .ant-progress-outer {

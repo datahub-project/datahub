@@ -1,8 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
-import FailingEntity from './FailingEntity';
-import { getNumAssertionsFailing, UpstreamSummary } from './utils';
+
+import FailingEntity from '@app/entity/shared/embed/UpstreamHealth/FailingEntity';
+import { UpstreamSummary, getNumAssertionsFailing } from '@app/entity/shared/embed/UpstreamHealth/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const FailingSectionWrapper = styled.div`
     margin: 5px 0 0 34px;

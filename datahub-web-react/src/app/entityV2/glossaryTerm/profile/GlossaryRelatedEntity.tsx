@@ -1,9 +1,9 @@
 import * as React from 'react';
-import { UnionType } from '../../../search/utils/constants';
-import { EmbeddedListSearchSection } from '../../shared/components/styled/search/EmbeddedListSearchSection';
 
-import { useEntityData } from '../../../entity/shared/EntityContext';
-import { SearchCardContext } from '../../shared/SearchCardContext';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { SearchCardContext } from '@app/entityV2/shared/SearchCardContext';
+import { EmbeddedListSearchSection } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchSection';
+import { UnionType } from '@app/search/utils/constants';
 
 export default function GlossaryRelatedEntity() {
     const { entityData } = useEntityData();

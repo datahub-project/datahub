@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
-import { Button, message } from 'antd';
 import { LinkOutlined } from '@ant-design/icons';
-import { SearchSelectModal } from '../components/styled/search/SearchSelectModal';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { EntityCapabilityType } from '../../Entity';
-import { useBatchAddTermsMutation, useBatchSetDomainMutation } from '../../../../graphql/mutations.generated';
-import { handleBatchError } from '../utils';
-import { useBatchSetDataProductMutation } from '../../../../graphql/dataProduct.generated';
-import { useEntityContext } from '../EntityContext';
+import { Button, message } from 'antd';
+import React, { useState } from 'react';
+
+import { EntityCapabilityType } from '@app/entity/Entity';
+import { useEntityContext } from '@app/entity/shared/EntityContext';
+import { SearchSelectModal } from '@app/entity/shared/components/styled/search/SearchSelectModal';
+import { handleBatchError } from '@app/entity/shared/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';
+import { useBatchAddTermsMutation, useBatchSetDomainMutation } from '@graphql/mutations.generated';
 
 export enum EntityActionItem {
     /**

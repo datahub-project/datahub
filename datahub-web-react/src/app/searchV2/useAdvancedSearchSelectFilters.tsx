@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { FacetFilterInput, FilterOperator } from '../../types.generated';
-import { TEXT_FIELDS } from './utils/constants';
+
+import { TEXT_FIELDS } from '@app/searchV2/utils/constants';
+
+import { FacetFilterInput, FilterOperator } from '@types';
 
 interface Props {
     selectedFilters: FacetFilterInput[];
