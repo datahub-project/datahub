@@ -80,6 +80,8 @@ include ':metadata-integration:java:datahub-schematron:lib'
 include ':metadata-integration:java:datahub-schematron:cli'
 include ':metadata-service:iceberg-catalog'
 include ':metadata-service:events-service'
+include ':datahub-actions:datahub-actions'
+include ':datahub-actions:smoke-test'
 
 buildCache {
     def depotSecret = System.getenv('DEPOT_TOKEN');
