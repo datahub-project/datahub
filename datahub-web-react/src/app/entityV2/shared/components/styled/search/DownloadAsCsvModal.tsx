@@ -213,17 +213,8 @@ export default function DownloadAsCsvModal({
                             Results may vary
                         </Text>
                         <SubText>
-                            Using lineage search cache, this can cause downloaded results to differ
-                            <InfoPopover
-                                content={
-                                    <>
-                                        Downloaded results will only be assets that exist in DataHub while the list view
-                                        in
-                                        <br />
-                                        the UI may include soft deleted or non existent assets
-                                    </>
-                                }
-                            />
+                            Search results include referenced assets even if they don't exist. We'll only download the
+                            assets that exist in DataHub.
                         </SubText>
                     </div>
                 </ImpactAnalysisWarning>

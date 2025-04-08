@@ -155,21 +155,11 @@ export default function EmbeddedListSearchHeader({
             {showLightningWarning && lineageSearchPath === LineageSearchPath.Lightning && (
                 <ImpactAnalysisWarning data-testid="lightning-cache-warning">
                     <ExclamationCircleFilled style={{ color: colors.yellow[1000], fontSize: 16 }} />
-                    Using lineage search cache, results may be unexpected
-                    <InfoPopover
-                        iconColor="rgba(0, 0, 0, 0.85)"
-                        content={
-                            <>
-                                When there are enough results, we use a lineage search cache which may return
-                                <br />
-                                assets that do not exist in your DataHub instance
-                            </>
-                        }
-                    />
+                    Some results shown may not exist yet in DataHub
                     <StyledButton
                         onClick={() => setShowLightningWarning(false)}
                         variant="text"
-                        icon="Close"
+                        icon={{ icon: 'Close' }}
                         size="xl"
                         data-testid="close-lightning-cache-warning"
                     />
