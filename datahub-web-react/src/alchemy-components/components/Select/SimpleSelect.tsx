@@ -36,6 +36,7 @@ const SelectActionButtons = ({
                     icon={{ icon: 'Close', source: 'material', size: 'lg' }}
                     isCircle
                     onClick={handleClearSelection}
+                    variant="secondary"
                 />
             )}
             <StyledIcon icon="CaretDown" source="phosphor" rotate={isOpen ? '180' : '0'} size="md" color="gray" />
