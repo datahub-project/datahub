@@ -12,7 +12,7 @@ ext {
 
 docker {
     dependsOn(build)
-    name "${docker_registry}/${docker_repo}:v${version}"
+    name "${docker_registry}/${docker_repo}:${versionTag}"
     dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
     files fileTree(rootProject.projectDir) {
         include '.dockerignore'

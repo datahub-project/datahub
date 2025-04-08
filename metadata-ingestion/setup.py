@@ -317,7 +317,7 @@ delta_lake = {
     *s3_base,
     *abs_base,
     # Version 0.18.0 broken on ARM Macs: https://github.com/delta-io/delta-rs/issues/2577
-    "deltalake>=0.6.3, != 0.6.4, < 0.18.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
+    "deltalake>=0.6.3, != 0.6.4, != 0.18.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
     "deltalake>=0.6.3, != 0.6.4; platform_system != 'Darwin' or platform_machine != 'arm64'",
 }
 

@@ -5,7 +5,6 @@ import { Icon, Pill, colors } from '@components';
 import {
     ActionButtonsContainer,
     Container,
-    CountBadge,
     Dropdown,
     OptionList,
     Placeholder,
@@ -55,7 +54,7 @@ const SelectLabelDisplay = ({
             {showCount && selectedOptions.length > 0 ? (
                 <StyledCountBadgeContainer>
                     {placeholder}
-                    <CountBadge>{selectedOptions.length}</CountBadge>
+                    <Pill label={`${selectedOptions.length}`} size="sm" variant="filled" />
                 </StyledCountBadgeContainer>
             ) : (
                 !!selectedOptions.length &&
@@ -106,7 +105,7 @@ const SelectActionButtons = ({
                     data-testid="dropdown-option-clear-icon"
                 />
             )}
-            <Icon icon="ChevronLeft" rotate={isOpen ? '90' : '270'} size="xl" color="gray" />
+            <Icon icon="CaretDown" source="phosphor" rotate={isOpen ? '180' : '0'} size="md" color="gray" />
         </ActionButtonsContainer>
     );
 };
