@@ -3,7 +3,6 @@ import { message } from 'antd';
 import { Modal } from '@components';
 import { useCreateTagMutation } from '../../../graphql/tag.generated';
 import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
-import { useUserContext } from '../../context/useUserContext';
 import { useBatchAddOwnersMutation, useSetTagColorMutation } from '../../../graphql/mutations.generated';
 import { CreateNewTagModalProps, ModalButton, PendingOwner } from './types';
 import TagDetailsSection from './TagDetailsSection';
@@ -30,19 +29,10 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
     const [setTagColorMutation] = useSetTagColorMutation();
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
 
-    // Check permissions using UserContext
-    const userContext = useUserContext();
-    const canCreateTags = userContext?.platformPrivileges?.createTags || userContext?.platformPrivileges?.manageTags;
-
     /**
      * Handler for creating the tag and applying it to entities
      */
     const onOk = async () => {
-        if (!canCreateTags) {
-            message.error('You do not have permission to create tags');
-            return;
-        }
-
         if (!tagName) {
             message.error('Tag name is required');
             return;
@@ -65,7 +55,9 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
             const newTagUrn = createTagResult.data?.createTag;
 
             if (!newTagUrn) {
-                throw new Error('Failed to create tag: No URN returned');
+                message.error('Failed to create tag. An unexpected error occurred');
+                setIsLoading(false);
+                return;
             }
 
             // Step 2: Add color
@@ -94,7 +86,7 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
             onClose();
         } catch (e: any) {
             message.destroy();
-            message.error({ content: `Failed to create tag: \n ${e.message || ''}`, duration: 3 });
+            message.error('Failed to create tag. An unexpected error occurred');
         } finally {
             setIsLoading(false);
         }
@@ -119,19 +111,10 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
             color: 'violet',
             variant: 'filled',
             onClick: onOk,
-            disabled: !tagName || isLoading || !canCreateTags,
+            disabled: !tagName || isLoading,
             isLoading,
         },
     ];
-
-    // Render permission denied modal if user can't create tags
-    if (!canCreateTags) {
-        return (
-            <Modal title="Create New Tag" onCancel={onClose} buttons={buttons} open={open} centered width={400}>
-                <p>You don&apos;t have permission to create tags. Please contact your DataHub administrator.</p>
-            </Modal>
-        );
-    }
 
     return (
         <Modal title="Create New Tag" onCancel={onClose} buttons={buttons} open={open} centered width={500}>

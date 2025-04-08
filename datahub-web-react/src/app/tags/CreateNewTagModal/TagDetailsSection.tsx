@@ -46,7 +46,7 @@ const TagDetailsSection: React.FC<TagDetailsProps> = ({
         <SectionContainer>
             <FormSection>
                 <Input
-                    label="Name *"
+                    label="Name"
                     value={tagName}
                     setValue={handleTagNameChange}
                     placeholder="Enter tag name"

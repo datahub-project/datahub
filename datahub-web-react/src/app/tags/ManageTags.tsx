@@ -120,24 +120,19 @@ const ManageTags = () => {
     // Create the Create Tag button with proper permissions handling
     const renderCreateTagButton = () => {
         if (!canCreateTags) {
-            // Option: don't show the button at all if no permissions
-            // return null;
-
-            // Option: show disabled button with tooltip
             return (
                 <Tooltip2
-                    title="Permission Required"
-                    sections={[
-                        {
-                            title: 'Error',
-                            content: 'You do not have permission to create tags',
-                        },
-                    ]}
-                    placement="bottom"
+                    title="You do not have permission to create tags"
+                    placement="left"
+                    showArrow
+                    mouseEnterDelay={0.1}
+                    mouseLeaveDelay={0.1}
                 >
-                    <Button size="md" color="violet" icon={{ icon: 'Plus', source: 'phosphor' }} disabled>
-                        Create Tag
-                    </Button>
+                    <span>
+                        <Button size="md" color="violet" icon={{ icon: 'Plus', source: 'phosphor' }} disabled>
+                            Create Tag
+                        </Button>
+                    </span>
                 </Tooltip2>
             );
         }
@@ -198,7 +193,7 @@ const ManageTags = () => {
                 open={showCreateTagModal}
                 onClose={() => {
                     setShowCreateTagModal(false);
-                    refetch(); // Refresh the tag list after creating a new tag
+                    setTimeout(() => refetch(), 3000);
                 }}
             />
         </PageContainer>

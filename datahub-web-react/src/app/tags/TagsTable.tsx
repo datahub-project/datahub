@@ -32,7 +32,7 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
     const [deleteTagMutation] = useDeleteTagMutation();
 
     // Check if user has permission to manage or delete tags
-    const canManageTags = userContext?.platformPrivileges?.manageTags;
+    const canManageTags = Boolean(userContext?.platformPrivileges?.manageTags);
 
     // Optimize the tagsData with useMemo to prevent unnecessary filtering on re-renders
     const tagsData = useMemo(() => {
@@ -81,11 +81,14 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
     // Function to delete a tag with confirmation
     const deleteTag = useCallback(
         (tagUrn: string) => {
-            const fullDisplayName = entityRegistry.getDisplayName(EntityType.Tag, { urn: tagUrn } as any);
+            // Find the tag entity from tagsData
+            const tagData = tagsData.find((result) => result.entity.urn === tagUrn);
+            if (!tagData) {
+                message.error('Failed to find tag information');
+                return;
+            }
 
-            // Extract just the tag name without the URN prefix
-            // This assumes URNs are in the format "urn:li:tag:TagName"
-            const displayName = tagUrn.startsWith('urn:li:tag:') ? tagUrn.replace('urn:li:tag:', '') : fullDisplayName;
+            const fullDisplayName = entityRegistry.getDisplayName(EntityType.Tag, tagData.entity);
 
             // Show a confirmation modal using the @components Modal
             const confirmDeleteTag = () => {
@@ -95,7 +98,7 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
                     },
                 })
                     .then(() => {
-                        message.success(`Tag "${displayName}" has been deleted`);
+                        message.success(`Tag "${fullDisplayName}" has been deleted`);
                         refetch(); // Refresh the tag list
                     })
                     .catch((e: any) => {
@@ -107,11 +110,11 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
             setShowDeleteModal(true);
             setTagToDelete({
                 urn: tagUrn,
-                displayName,
+                displayName: fullDisplayName,
                 onConfirm: confirmDeleteTag,
             });
         },
-        [deleteTagMutation, refetch, entityRegistry, setShowDeleteModal, setTagToDelete],
+        [deleteTagMutation, refetch, entityRegistry, setShowDeleteModal, setTagToDelete, tagsData],
     );
 
     const columns = useMemo(
@@ -178,6 +181,7 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
                                     message.error('You do not have permission to delete tags');
                                 }
                             }}
+                            canManageTags={canManageTags}
                         />
                     );
                 },
@@ -217,7 +221,7 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
             {/* Delete confirmation modal */}
             {showDeleteModal && tagToDelete && (
                 <Modal
-                    title={`Delete tag: ${tagToDelete.displayName}`}
+                    title={`Delete tag ${tagToDelete.displayName}`}
                     onCancel={() => setShowDeleteModal(false)}
                     open={showDeleteModal}
                     centered

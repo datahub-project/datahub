@@ -226,7 +226,17 @@ export const TagAppliedToColumn = React.memo(({ tagUrn }: { tagUrn: string }) =>
 });
 
 export const TagActionsColumn = React.memo(
-    ({ tagUrn, onEdit, onDelete }: { tagUrn: string; onEdit: () => void; onDelete: () => void }) => {
+    ({
+        tagUrn,
+        onEdit,
+        onDelete,
+        canManageTags,
+    }: {
+        tagUrn: string;
+        onEdit: () => void;
+        onDelete: () => void;
+        canManageTags: boolean;
+    }) => {
         const items = [
             {
                 key: '0',
@@ -236,14 +246,22 @@ export const TagActionsColumn = React.memo(
                     </MenuItem>
                 ),
             },
-            {
-                key: '1',
-                label: (
-                    <MenuItem onClick={onDelete} data-testid="action-delete" style={{ color: colors.red[500] }}>
-                        Delete
-                    </MenuItem>
-                ),
-            },
+            ...(canManageTags
+                ? [
+                      {
+                          key: '1',
+                          label: (
+                              <MenuItem
+                                  onClick={onDelete}
+                                  data-testid="action-delete"
+                                  style={{ color: colors.red[500] }}
+                              >
+                                  Delete
+                              </MenuItem>
+                          ),
+                      },
+                  ]
+                : []),
         ];
 
         return (
