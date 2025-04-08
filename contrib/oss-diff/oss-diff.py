@@ -1,7 +1,10 @@
 #!/usr/bin/env -S uv run
 # /// script
+# # We use pathlib.Path.full_match(), which was added in Python 3.13.
 # requires-python = ">=3.13"
 # dependencies = ["loguru", "PyYAML", "typer", "dash", "pandas"]
+# [tool.uv]
+# exclude-newer = "2025-04-07T00:00:00Z"
 # ///
 
 import collections
@@ -481,7 +484,7 @@ class DiffValidator:
         # Validate changes
         errors = self.validate_changes(changes)
         if errors:
-            logger.error(f"Found {len(errors)} diff size violations:")
+            logger.error(f"Found {len(errors)} diff violations:")
             for message in errors:
                 logger.error(f"  - {message}")
             exit(1)
@@ -492,7 +495,7 @@ class DiffValidator:
         if self._allow_exception_changes:
             self._print_exception_change_summary()
         else:
-            logger.info("Success: no new diff size violations")
+            logger.info("Success: no new diff violations")
 
     def _remove_unused_exceptions(self) -> None:
         # TODO: Tricky - in order to fully implement exception removal, we'd need
@@ -667,7 +670,7 @@ def ui(
     app.layout = html.Main(
         [
             dcc.Markdown(
-                f"# SaaS Diff Viewer\n\nShowing {len(exceptions)} diff rule violations"
+                f"# OSS/SaaS Diff Viewer\n\nShowing {len(exceptions)} diff rule violations"
             ),
             dcc.Graph(id="sunburst", figure=sunburst, style={"height": "800px"}),
             html.Div(id="selected-file", style={"margin-top": "20px"}),

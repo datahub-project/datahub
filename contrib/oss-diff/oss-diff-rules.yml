@@ -54,8 +54,7 @@ rules:
   - pattern:
       - "**/entity-registry.yml"
       - "test-models/src/main/resources/test-entity-registry.yml"
-    max_removals: 0
-  - pattern: "**/*.pdl"
+      - "**/*.pdl"
     max_removals: 0
 
   # Most code should be append-only.
@@ -81,6 +80,15 @@ rules:
       - "smoke-test/**/*.js"
     max_removals: 0
 
+  # GitHub Actions.
+  - pattern:
+      - ".github/actions/**"
+      - ".github/scripts/**"
+    max_removals: 0 # purely additive
+  - pattern: ".github/workflows/**"
+    max_removals: 5
+    max_total: 10
+
   # Various other files.
   - pattern: "docker/**"
     max_removals: 0
@@ -94,14 +102,6 @@ rules:
     max_removals: 0
     max_total: 10
 
-  - pattern:
-      - ".github/actions/**"
-      - ".github/scripts/**"
-    max_removals: 0 # purely additive
-  - pattern: ".github/workflows/**"
-    max_removals: 5
-    max_total: 10
-
-  # For all other files, we expect them to be identical to OSS.
+  # Catch-all: For all other files, we expect them to be identical to OSS.
   - pattern: "**"
     max_total: 0
