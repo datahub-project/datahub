@@ -19,7 +19,7 @@ export function FacetsUpdater({ fieldNames, query, onFacetsUpdated }: Props) {
     const [isInitialized, setIsInitialized] = useState<boolean>(false);
     const { fieldToAppliedFiltersMap } = useSearchFiltersContext();
 
-    const [aggregateAcrossEntities, { data, loading }] = useAggregateAcrossEntitiesLazyQuery();
+    const [aggregateAcrossEntities, { data, loading, called }] = useAggregateAcrossEntitiesLazyQuery();
 
     const appliedFiltersForAnotherFields = useMemo(
         () =>
@@ -61,14 +61,14 @@ export function FacetsUpdater({ fieldNames, query, onFacetsUpdated }: Props) {
     );
 
     useEffect(() => {
-        if (!loading) {
+        if (called && !loading) {
             setFacets(data?.aggregateAcrossEntities?.facets ?? []);
             setIsInitialized(true);
         }
-    }, [loading, data, setFacets]);
+    }, [loading, data, called]);
 
     useEffect(() => {
-        if (isInitialized)
+        if (isInitialized) {
             onFacetsUpdated(
                 new Map(
                     fieldNames.map((fieldName) => [
@@ -80,6 +80,7 @@ export function FacetsUpdater({ fieldNames, query, onFacetsUpdated }: Props) {
                     ]),
                 ),
             );
+        }
     }, [onFacetsUpdated, facets, loading, isInitialized, fieldNames]);
 
     return null;
