@@ -31,7 +31,7 @@
   --ifm-navbar-item-padding-horizontal: 1rem;
 
   /* Announcement Bar */
-  --docusaurus-announcement-bar-height: 48px !important;
+  --docusaurus-announcement-bar-height: 52px !important;
 
   /* Rule */
   --ifm-hr-border-width: 1px 0 0 0;
@@ -104,69 +104,90 @@ main>h1 {
 /* Announcement Bar */
 
 div[class^="announcementBar"] {
-  z-index: calc(var(--ifm-z-index-fixed) - 1);
+  z-index: 9999 !important;
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  right: 0;
 
   div {
     display: flex;
     align-items: center;
-    padding: 0 .5rem;
-    justify-content: space-between;
+    justify-content: center;
+    padding: 0;
     font-size: 1rem;
 
-    >div {
+    .shimmer-banner {
+      width: 100%;
+      padding: 8px 16px;
       display: flex;
+      justify-content: center;
       align-items: center;
-      > div {
-        @media (max-width: 580px) {
-            display: none;
-          }
-      }
-      a>span {
-        @media (max-width: 580px) {
-          display: none;
-        }
-      }
+      background: linear-gradient(
+        45deg,
+        #4C39BE 0%,    /* Primary violet-600 */
+        #5B4AC7 25%,   /* Slightly lighter */
+        #6A5BD0 50%,   /* Mid-point */
+        #5B4AC7 75%,   /* Slightly lighter */
+        #4C39BE 100%   /* Primary violet-600 */
+      );
+      background-size: 200% 200%;
+      animation: shimmer 3s ease-in-out infinite;
 
-      >p {
-        text-align: left;
-        line-height: 1.1rem;
+      p {
         margin: 0;
-
-        @media (max-width: 580px) {
-          font-size: .9rem;
-        }
-        // >span {
-        //   @media (max-width: 780px) {
-        //     display: none;
-        //   }
-        // }
-
-        // @media (max-width: 480px) {
-        //   display: none;
-        // }
+        padding: 0;
+        color: white;
+        font-weight: 500;
       }
-    }
 
-    img {
-      width: 24px;
-      height: auto;
-      margin-right: 1rem;
-    }
+      .button {
+        background: rgba(241, 243, 253, 0.2);  /* violet-0 with transparency */
+        border: 1px solid rgba(241, 243, 253, 0.4);  /* violet-0 with transparency */
+        border-radius: 4px;
+        padding: 4px 12px;
+        margin-left: 12px;
+        color: white;
+        text-decoration: none;
+        transition: all 0.2s ease;
 
-    a {
-      color: #EFB300;
-      text-decoration: none;
-      font-size: 1rem;
-      padding-right: 0;
-      padding-left: 12px;
-      min-width: 108px;
+        &:hover {
+          background: rgba(241, 243, 253, 0.3);  /* violet-0 with more opacity */
+          border-color: rgba(241, 243, 253, 0.6);  /* violet-0 with more opacity */
+        }
+      }
     }
   }
 }
 
-/** Navbar */
+@keyframes shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
 
+/* Add padding to body to prevent content from hiding under fixed elements */
+body {
+  padding-top: calc(var(--docusaurus-announcement-bar-height) + var(--ifm-navbar-height));
+}
+
+/** Navbar */
 .navbar {
+  position: fixed !important;
+  top: var(--docusaurus-announcement-bar-height);
+  left: 0;
+  right: 0;
+  margin-top: 0;
+  z-index: 9998;
+  background-color: var(--ifm-navbar-background-color);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.1);
+
   .navbar__logo {
     height: 3rem;
   }
