@@ -1,0 +1,13 @@
+---
+version: '3.8'
+services:
+   datahub-actions:
+     image: acryldata/datahub-actions:latest
+     hostname: actions
+     env_file:
+       - actions.env
+
+networks:
+  default:
+    name: datahub_network
+
