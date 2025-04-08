@@ -1,20 +1,26 @@
 #!/usr/bin/env -S uv run
 # /// script
 # requires-python = ">=3.13"
-# dependencies = ["loguru", "PyYAML", "typer", "pydantic"]
+# dependencies = ["loguru", "PyYAML", "typer", "dash", "pandas"]
 # ///
 
 import collections
 import copy
 import json
+import math
 import subprocess
 from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
 from typing import Dict, List, Literal, Optional, Tuple
 
+import dash
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
 import typer
 import yaml
+from dash import dcc, html
 from loguru import logger
 
 _script_dir = Path(__file__).parent
@@ -113,6 +119,7 @@ def load_rules(rules_file: Path) -> List[Rule]:
     rules = []
     for rule_dict in config.get("rules", []):
         # Convert YAML keys to our internal format
+        # TODO: Move to pydantic.
         limits_dict = {}
         for key, value in rule_dict.items():
             if key in ("pattern", "change_type"):
@@ -143,6 +150,7 @@ class DiffValidator:
         rules: List[Rule],
         exceptions: Dict[str, ExceptionLimit],
         allow_new_exceptions: bool = False,
+        allow_exception_removal: bool = False,
         allow_exception_loosening: bool = False,
         allow_exception_tightening: bool = False,
     ):
@@ -154,6 +162,7 @@ class DiffValidator:
         self._exceptions = copy.deepcopy(exceptions)
 
         self._allow_new_exceptions = allow_new_exceptions
+        self._allow_exception_removal = allow_exception_removal
         self._allow_exception_loosening = allow_exception_loosening
         self._allow_exception_tightening = allow_exception_tightening
 
@@ -161,6 +170,7 @@ class DiffValidator:
     def _allow_exception_changes(self) -> bool:
         return (
             self._allow_new_exceptions
+            or self._allow_exception_removal
             or self._allow_exception_loosening
             or self._allow_exception_tightening
         )
@@ -302,12 +312,9 @@ class DiffValidator:
         for change in changes:
             check = self.get_applicable_check(change)
 
-            # TODO: When in tightening mode, we should be able to
-            # remove exceptions that are no longer needed.
-
             if isinstance(check, ExceptionLimit):
                 # logger.info(f"Exception found for {change.filepath}: {rule}")
-                if self._allow_exception_tightening and (
+                if self._allow_exception_removal and (
                     rule := self._get_applicable_rule(change)
                 ):
                     rule_errors = self._check_change_against_rule(
@@ -528,6 +535,7 @@ def check(
         allow_new_exceptions=loosen,
         allow_exception_loosening=loosen,
         allow_exception_tightening=tighten,
+        allow_exception_removal=tighten,
     )
     validator.run()
 
@@ -547,6 +555,141 @@ def show_diff(
 @app.command()
 def restore_oss(filepath: str):
     subprocess.run(["git", "checkout", _oss_branch, "--", filepath], check=True)
+
+
+def _smart_split_path(filepath: str, max_parts: int) -> list[str]:
+    raw_parts = filepath.split("/")
+
+    parts: list[str] = []
+    merge_into_prev = False
+    i = 0
+    while i < len(raw_parts):
+        if not merge_into_prev and len(parts) > max_parts:
+            parts.append("/".join(raw_parts[i:]))
+            break
+        else:
+            part = raw_parts[i]
+            if merge_into_prev:
+                parts[-1] = parts[-1] + "/" + raw_parts[i]
+                merge_into_prev = False
+            else:
+                parts.append(part)
+            if part in {
+                "src",
+                "tests",
+                "test",
+                "main",
+                "java",
+                "com",
+                "linkedin",
+                "datahub",
+                "cypress",
+            }:
+                merge_into_prev = True
+
+        i += 1
+
+    return parts
+
+
+def _build_sunburst_chart(exceptions: Dict[str, ExceptionLimit]) -> go.Figure:
+    """Build a DataFrame with directory levels for the sunburst chart."""
+
+    def coerce(x: int | Literal["inf"] | None) -> int:
+        if x is None:
+            return 0
+        if x == "inf":
+            return 5
+        return x
+
+    rows = []
+
+    for filepath, limits in exceptions.items():
+        parts = _smart_split_path(filepath, max_parts=3)
+
+        additions = limits.additions
+        deletions = limits.deletions
+        row = {
+            "dir0": "<root>",
+            "dir1": parts[0],
+            "dir2": parts[1] if len(parts) > 1 else None,
+            "dir3": parts[2] if len(parts) > 2 else None,
+            "remaining": "/".join(parts[3:]) if len(parts) > 3 else None,
+            "filepath": filepath,
+            # Harshal's hacked-together heuristic for diff "badness".
+            "value": max(1, math.log2(max(1, coerce(additions) + coerce(deletions)))),
+            "additions": additions,
+            "deletions": deletions,
+        }
+        rows.append(row)
+
+    df = pd.DataFrame(rows)
+
+    return px.sunburst(
+        df,
+        path=["dir0", "dir1", "dir2", "dir3", "remaining"],
+        values="value",
+        hover_data=["additions", "deletions", "filepath"],
+        title="Diffs with OSS",
+    )
+
+
+@app.command()
+def ui(debug: bool = False) -> None:
+    # Create Dash app
+    app = dash.Dash(
+        __name__,
+        external_scripts=[
+            "https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/highlight.min.js",
+            "https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/languages/diff.min.js",
+        ],
+        external_stylesheets=[
+            "https://unpkg.com/mvp.css",
+            "https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/styles/default.min.css",
+        ],
+    )
+
+    # Create figure
+    exceptions = load_exceptions(_exceptions_file)
+    sunburst = _build_sunburst_chart(exceptions)
+    # fig.update_layout(margin=dict(t=50, l=0, r=0, b=0), height=800)
+    # fig.show()
+
+    # Set up layout
+    app.layout = html.Main(
+        [
+            dcc.Markdown(
+                f"# SaaS Diff Viewer\n\nShowing {len(exceptions)} diff rule violations"
+            ),
+            dcc.Graph(id="sunburst", figure=sunburst, style={"height": "800px"}),
+            html.Div(id="selected-file", style={"margin-top": "20px"}),
+        ]
+    )
+
+    @app.callback(
+        dash.Output(component_id="selected-file", component_property="children"),
+        dash.Input(component_id="sunburst", component_property="clickData"),
+    )
+    def show_file_diff(clickData):
+        if clickData is None:
+            return dash.no_update
+
+        # logger.info(f"Click data: {clickData}")
+        filepath = clickData["points"][0]["customdata"][2]
+        if filepath == "(?)":
+            return dash.no_update
+
+        logger.info(f"Showing diff for {filepath}")
+
+        diff = subprocess.check_output(
+            ["git", "diff", f"{_oss_branch}...", "--", filepath],
+            text=True,
+        )
+        # logger.debug(f"Diff for {filepath}: {diff}")
+        return dcc.Markdown(f"## Diff for `{filepath}`:\n\n```diff\n{diff}\n```")
+
+    # Run app
+    app.run(debug=debug)
 
 
 if __name__ == "__main__":
