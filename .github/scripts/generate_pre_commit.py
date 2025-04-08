@@ -19,6 +19,7 @@ class ProjectType(Enum):
 
     JAVA = auto()
     PYTHON = auto()
+    JAVASCRIPT_MANUAL = auto()
 
 
 @dataclass
@@ -60,18 +61,13 @@ class ProjectFinder:
         self.root_path = Path(root_dir)
 
     def find_all_projects(self) -> list[Project]:
-        """Find all Java and Python projects in the repository."""
-        java_projects = self._find_java_projects()
-        python_projects = self._find_python_projects()
+        """Find all Java, Python, and JavaScript projects in the repository."""
 
-        all_projects = []
-        all_projects.extend(
-            Project(path=p, type=ProjectType.JAVA) for p in java_projects
-        )
-        all_projects.extend(
-            Project(path=p, type=ProjectType.PYTHON) for p in python_projects
-        )
-
+        all_projects = [
+            *(Project(path=p, type=ProjectType.JAVA) for p in self._find_java_projects()),
+            *(Project(path=p, type=ProjectType.PYTHON) for p in self._find_python_projects()),
+            *(Project(path=p, type=ProjectType.JAVASCRIPT_MANUAL) for p in self._find_javascript_projects_with_pre_commit_sh())
+        ]
         return sorted(all_projects, key=lambda p: p.path)
 
     def _find_java_projects(self) -> set[str]:
@@ -107,6 +103,20 @@ class ProjectFinder:
                     python_projects.add(rel_path)
 
         return python_projects
+
+    def _find_javascript_projects_with_pre_commit_sh(self) -> set[str]:
+        """Find all JavaScript projects that have a pre-commit.sh."""
+        projects = set()
+
+        for path in self.root_path.rglob("package.json"):
+            if self._should_skip_directory(path.parent):
+                continue
+
+            rel_path = self._get_relative_path(path.parent)
+            if "pre-commit.sh" in os.listdir(path.parent):
+                projects.add(rel_path)
+
+        return projects
 
     def _should_skip_directory(self, path: Path) -> bool:
         """Check if directory should be skipped."""
@@ -151,8 +161,12 @@ class HookGenerator:
         for project in self.projects:
             if project.type == ProjectType.PYTHON:
                 hooks.append(self._generate_lint_fix_hook(project))
-            else:  # ProjectType.JAVA
+            elif project.type == ProjectType.JAVA:
                 hooks.append(self._generate_spotless_hook(project))
+            elif project.type == ProjectType.JAVASCRIPT_MANUAL:
+                hooks.append(self._generate_javascript_pre_commit_sh_hook(project))
+            else:
+                raise ValueError(f"Unsupported project type: {project.type}")
 
         config = {"repos": [{"repo": "local", "hooks": hooks}]}
         
@@ -190,6 +204,17 @@ class HookGenerator:
             "language": "system",
             "files": f"^{project.path}/.*\\.py$",
             "pass_filenames": False,
+        }
+
+    def _generate_javascript_pre_commit_sh_hook(self, project: Project) -> dict:
+        """Generate a hook that runs pre-commit.sh."""
+        return {
+            "id": f"{project.project_id}-pre-commit-sh",
+            "name": f"{project.path} Pre Commit",
+            "entry": f"sh {project.path}/pre-commit.sh",
+            "language": "system",
+            "files": f"^{project.path}/.*\\.(js|jsx|ts|tsx)$",
+            "pass_filenames": True,
         }
 
     def _generate_spotless_hook(self, project: Project) -> dict:
@@ -257,15 +282,11 @@ def main():
 
     # Print summary
     print("Found projects:")
-    print("\nJava projects:")
-    for project in projects:
-        if project.type == ProjectType.JAVA:
-            print(f"  - {project.path}")
-
-    print("\nPython projects:")
-    for project in projects:
-        if project.type == ProjectType.PYTHON:
-            print(f"  - {project.path}")
+    for project_type in ProjectType:
+        print(f"\n{project_type.name.title()} projects:")
+        for project in projects:
+            if project.type == project_type:
+                print(f"  - {project.path}")
 
     # Generate and write config
     generator = HookGenerator(projects, override_file)
