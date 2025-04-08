@@ -21,7 +21,6 @@ from datahub_executor.common.types import (
     AssertionEvaluationContext,
     AssertionEvaluationParameters,
 )
-from datahub_executor.config import ONLINE_SMART_ASSERTIONS_ENABLED
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +54,7 @@ class AssertionAdjustmentTransformer(AssertionTransformer):
         context: AssertionEvaluationContext,
     ) -> Tuple[Assertion, AssertionEvaluationParameters, AssertionEvaluationContext]:
         if (
-            not ONLINE_SMART_ASSERTIONS_ENABLED
+            not context.online_smart_assertions
             and assertion.is_inferred
             and (
                 assertion.is_volume_row_count_total_assertion

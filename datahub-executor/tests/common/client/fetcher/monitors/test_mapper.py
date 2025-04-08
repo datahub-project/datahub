@@ -622,6 +622,10 @@ def mock_inferred_monitor() -> Monitor:
     return monitor
 
 
+@patch(
+    "datahub_executor.common.client.fetcher.monitors.mapper.ONLINE_SMART_ASSERTIONS_ENABLED",
+    True,
+)
 def test_generate_assertion_tasks(mock_monitor: Monitor) -> None:
     """Test generation of assertion tasks."""
     # Given a monitor with one assertion
@@ -656,6 +660,7 @@ def test_generate_assertion_tasks(mock_monitor: Monitor) -> None:
     assert "context" in exec_request.args
     assert exec_request.args["context"]["dry_run"] is False
     assert exec_request.args["context"]["monitor_urn"] == mock_monitor.urn
+    assert exec_request.args["context"]["online_smart_assertions"] is True
 
 
 def test_generate_assertion_tasks_dry_run(mock_monitor: Monitor) -> None:
@@ -725,10 +730,6 @@ def test_generate_assertion_tasks_no_assertion_monitor(mock_monitor: Monitor) ->
     assert len(execution_requests) == 0
 
 
-@patch(
-    "datahub_executor.common.client.fetcher.monitors.mapper.ONLINE_SMART_ASSERTIONS_ENABLED",
-    False,
-)
 def test_generate_training_tasks_not_inferred(mock_monitor: Monitor) -> None:
     """Test that training tasks are not generated for non-inferred assertions."""
     # Given a monitor with a NATIVE assertion
@@ -742,7 +743,7 @@ def test_generate_training_tasks_not_inferred(mock_monitor: Monitor) -> None:
 
 @patch(
     "datahub_executor.common.client.fetcher.monitors.mapper.ONLINE_SMART_ASSERTIONS_ENABLED",
-    False,
+    True,
 )
 @patch("datahub_executor.common.client.fetcher.monitors.mapper.IS_LOCAL_DEV", False)
 def test_generate_training_tasks_inferred(mock_inferred_monitor: Monitor) -> None:
@@ -786,12 +787,9 @@ def test_generate_training_tasks_inferred(mock_inferred_monitor: Monitor) -> Non
     assert "context" in exec_request.args
     assert exec_request.args["context"]["dry_run"] is False
     assert exec_request.args["context"]["monitor_urn"] == mock_inferred_monitor.urn
+    assert exec_request.args["context"]["online_smart_assertions"] is True
 
 
-@patch(
-    "datahub_executor.common.client.fetcher.monitors.mapper.ONLINE_SMART_ASSERTIONS_ENABLED",
-    False,
-)
 @patch("datahub_executor.common.client.fetcher.monitors.mapper.IS_LOCAL_DEV", True)
 def test_generate_training_tasks_local_dev(mock_inferred_monitor: Monitor) -> None:
     """Test generation of training tasks in local dev mode."""

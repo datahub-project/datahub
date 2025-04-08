@@ -1370,6 +1370,8 @@ class AssertionEvaluationContext:
 
     dry_run: bool = False
 
+    online_smart_assertions: Optional[bool] = False
+
     monitor_urn: Optional[str] = Field(alias="monitorUrn")
 
     evaluation_spec: Optional[AssertionEvaluationSpec] = None
@@ -1382,12 +1384,14 @@ class AssertionEvaluationContext:
     def __init__(
         self,
         dry_run: bool = False,
+        online_smart_assertions: Optional[bool] = False,
         monitor_urn: Optional[str] = None,
         monitor: Optional[AssertionMonitor] = None,
         assertion_evaluation_spec: Optional[AssertionEvaluationSpec] = None,
         base_assertion: Optional[RawAspect] = None,
     ):
         self.dry_run = dry_run
+        self.online_smart_assertions = online_smart_assertions
         self.monitor_urn = monitor_urn
         self.monitor = monitor
         self.evaluation_spec = assertion_evaluation_spec

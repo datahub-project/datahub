@@ -64,6 +64,9 @@ class AssertionExecutor:
 
         context = AssertionEvaluationContext(
             dry_run=execution_request.args["context"]["dry_run"],
+            online_smart_assertions=execution_request.args["context"][
+                "online_smart_assertions"
+            ],
             monitor_urn=execution_request.args["context"]["monitor_urn"],
             assertion_evaluation_spec=assertion_spec,
         )
