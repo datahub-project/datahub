@@ -16,9 +16,11 @@ This document lists environment variables specific to Acryl DataHub Cloud / SaaS
 | `HIDE_DBT_SOURCE_IN_LINEAGE`           | `false` | boolean   | [`GMS`]    | Hides dbt source entities from lineage graphs when used with specific dbt ingestion settings.                        |
 | `LINEAGE_DEFAULT_LAST_DAYS_FILTER`     |         | integer   | [`GMS`]    | Default filter for lineage within the last X days. When set, lineage UI defaults to showing data within this window. |
 | `METADATA_SHARE_ENABLED`               | `false` | boolean   | [`GMS`]    | Enables sharing an entity with another Acryl instance via the share menu on entity profiles.                         |
-| `SHOW_NAV_BAR_REDESIGN`                | `false` | boolean   | [`GMS`]    | Enables the new navigation bar redesign.                                                                             |
+| `SHOW_NAV_BAR_REDESIGN`                | `true`  | boolean   | [`GMS`]    | Enables the new navigation bar redesign.                                                                             |
 | `USER_TRACKING_ENABLED`                | `false` | boolean   | [`GMS`]    | Enables Hotjar for user tracking, session recording (with data redacted), and in-app feedback.                       |
 | `SEPARATE_SIBLINGS_LINEAGE_BY_DEFAULT` | `false` | boolean   | [`GMS`]    | Controls whether to separate siblings when fetching lineage data in search results by default.                       |
+| `SHOW_TASK_CENTER_REDESIGN`            | `false` | boolean   | [`GMS`]    | Flag to enable the new proposals redesign in the app, mostly in the task center.                                     |
+| `SHOW_DEFAULT_EXTERNAL_LINKS`          | `true`  | boolean   | [`GMS`]    | Controls whether or not we show the external links for an entity like "View in Snowflake"                            |
 
 ## Compliance Forms
 
@@ -34,6 +36,7 @@ This document lists environment variables specific to Acryl DataHub Cloud / SaaS
 | `SLACK_INTEGRATIONS_SERVICE_NOTIFICATIONS_ENABLED` | `true`  | boolean   | [`GMS`]                  | Controls whether some Slack notification types are routed to the integrations service for decoration and additional functionality. |
 | `REQUEST_MINIMAL_SLACK_PERMISSIONS`                | `false` | boolean   | [`GMS`]                  | If turned on, request minimal required slack permissions for Slack integration.                                                    |
 | `STATEFUL_SLACK_INCIDENT_MESSAGES_ENABLED`         | `false` | boolean   | [`Integrations Service`] | Enables updating messages based on state recorded in datahub-gms backend.                                                          |
+| `DATAHUB_SLACK_AT_MENTION_ENABLED`                 | `false` | boolean   | [`Integrations Service`] | Enables the Slackbot, which replies to the @datahub mentions.                                                                      |
 
 ## Classification
 
@@ -45,6 +48,8 @@ AI terms classification is covered below.
 | `CLASSIFICATION_AUTOMATIONS_SNOWFLAKE_ENABLED` | `false` | boolean   | [`GMS`]    | Controls whether the classification automations snowflake feature is enabled. |
 
 ## AI Features
+
+The AI-powered Slack bot, which replies to the @datahub mentions, is covered in the Slack Integration section.
 
 | Variable                                     | Default            | Unit/Type | Components | Description                                                                           |
 | -------------------------------------------- | ------------------ | --------- | ---------- | ------------------------------------------------------------------------------------- |
@@ -59,7 +64,7 @@ AI terms classification is covered below.
 | Variable                                                           | Default             | Unit/Type | Components               | Description                                                                                                          |
 | ------------------------------------------------------------------ | ------------------- | --------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------- |
 | `DISPLAY_EXECUTOR_POOLS`                                           | `false`             | boolean   | [`GMS`]                  | Enables displaying executor pools across ingestion tab and ingestion/automation creation/editing wizards.            |
-| `EXECUTOR_POOL_HOOK_ENABLED`                                           | `false`             | boolean   | [`GMS`, `MAE Consumer`]                  | Auto provisions SQS queue on pool create, and auto-deletes queue on pool delete.            |
+| `EXECUTOR_POOL_HOOK_ENABLED`                                       | `false`             | boolean   | [`GMS`, `MAE Consumer`]  | Auto provisions SQS queue on pool create, and auto-deletes queue on pool delete.                                     |
 | `DATAHUB_EXECUTOR_HOST`                                            | `localhost`         | string    | [`GMS`]                  | Hostname of the DataHub executor service.                                                                            |
 | `DATAHUB_EXECUTOR_PORT`                                            | `9004`              | integer   | [`GMS`]                  | Port of the DataHub executor service.                                                                                |
 | `DATAHUB_EXECUTOR_USE_SSL`                                         | `false`             | boolean   | [`GMS`]                  | Whether to use SSL when connecting to the DataHub executor.                                                          |
@@ -84,12 +89,12 @@ AI terms classification is covered below.
 
 ## Acryl Observe and Incidents
 
-| Variable                                 | Default | Unit/Type | Components | Description                                                                       |
-| ---------------------------------------- | ------- | --------- | ---------- | --------------------------------------------------------------------------------- |
-| `ENABLE_INCIDENT_ACTIVITY_EVENTS`        | `true`  | boolean   | [`GMS`]    | Enables generating incident activity events via the incident activity event hook. |
-| `BROADCAST_NEW_INCIDENT_UPDATES_ENABLED` | `true`  | boolean   | [`GMS`]    | Enables broadcasting stateful incident update notifications to other systems.     |
-| `SCHEMA_ASSERTION_MONITORS_ENABLED`      | `false` | boolean   | [`GMS`]    | Enables schema assertion authoring in the UI.                                     |
-| `ONLINE_SMART_ASSERTIONS_ENABLED`      | `false` | boolean   | [`GMS`, `Executor`]    | Allow on-demand creation of smart assertions in the UI, and let them run online.                                     |
+| Variable                                 | Default | Unit/Type | Components          | Description                                                                       |
+| ---------------------------------------- | ------- | --------- | ------------------- | --------------------------------------------------------------------------------- |
+| `ENABLE_INCIDENT_ACTIVITY_EVENTS`        | `true`  | boolean   | [`GMS`]             | Enables generating incident activity events via the incident activity event hook. |
+| `BROADCAST_NEW_INCIDENT_UPDATES_ENABLED` | `true`  | boolean   | [`GMS`]             | Enables broadcasting stateful incident update notifications to other systems.     |
+| `SCHEMA_ASSERTION_MONITORS_ENABLED`      | `false` | boolean   | [`GMS`]             | Enables schema assertion authoring in the UI.                                     |
+| `ONLINE_SMART_ASSERTIONS_ENABLED`        | `false` | boolean   | [`GMS`, `Executor`] | Allow on-demand creation of smart assertions in the UI, and let them run online.  |
 
 ## Metadata Change Proposal (MCP) Throttling
 
