@@ -308,7 +308,7 @@ module.exports = {
             },
             {
               type: "doc",
-              id: "docs/managed-datahub/remote-executor/configuration",
+              id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
               className: "saasOnly",
             },
             {
@@ -353,11 +353,6 @@ module.exports = {
         },
         {
           "Operator Guides": [
-            // {
-            //   type: "doc",
-            //   id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
-            //   className: "saasOnly",
-            // },
             {
               type: "doc",
               id: "docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge",
