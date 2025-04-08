@@ -1,3 +1,7 @@
+# These rules are evaluated against all diffs between OSS and SaaS.
+# They are checked in order for each file, with the first matching
+# rule being applied to the file. Exceptions listed in the .json
+# file take precedence over rules.
 rules:
   # Areas of the codebase that are SaaS only.
   - pattern: "metadata-ingestion-modules/acryl-cloud/**"
