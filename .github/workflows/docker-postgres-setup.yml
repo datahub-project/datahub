@@ -53,8 +53,10 @@ jobs:
           images: |
             acryldata/datahub-postgres-setup
           image_tag: ${{ needs.setup.outputs.tag }}
-          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
-          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+          dockerhub-username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
+          dockerhub-password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish == 'true' }}
           context: .
           file: ./docker/postgres-setup/Dockerfile
