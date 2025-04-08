@@ -17,18 +17,15 @@ import { SidebarSection } from './SidebarSection';
 
 const PreviewSyntax = styled(SyntaxHighlighter)`
     max-width: 100%;
-    max-height: 150px;
+    max-height: 600px;
     overflow: hidden;
-    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) 80%, rgba(255, 0, 0, 0.5) 85%, rgba(255, 0, 0, 0) 90%);
-
+    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) 85%, rgba(0, 0, 0, 0) 100%);
     span {
         font-family: 'Roboto Mono', monospace;
     }
 `;
 
-const ModalSyntaxContainer = styled.div`
-    margin: 20px;
-`;
+const ModalSyntaxContainer = styled.div``;
 
 export const ViewHeader = styled.div`
     display: flex;

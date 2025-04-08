@@ -1,7 +1,6 @@
-import { Button } from 'antd';
 import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { REDESIGN_COLORS } from '../../../constants';
+import { Button } from '@src/alchemy-components';
 import { Editor } from './editor/Editor';
 
 const LINE_HEIGHT = 1.5;
@@ -31,8 +30,7 @@ const MarkdownContainer = styled.div<{ lineLimit?: number | null }>`
 `;
 
 const CustomButton = styled(Button)`
-    padding: 0;
-    color: ${REDESIGN_COLORS.ACTION_ICON_GREY};
+    padding: 8px 0px;
 `;
 
 const MarkdownViewContainer = styled.div<{ scrollableY: boolean }>`
@@ -150,8 +148,15 @@ export default function CompactMarkdownViewer({
                 (isShowingMore || isTruncated) && ( // "show more" when isTruncated, "show less" when isShowingMore
                     <ShowMoreWrapper>
                         <CustomButton
-                            type="link"
-                            onClick={() => (handleShowMore ? handleShowMore() : setIsShowingMore(!isShowingMore))}
+                            variant="text"
+                            onClick={(e) => {
+                                if (handleShowMore) {
+                                    handleShowMore();
+                                } else {
+                                    setIsShowingMore(!isShowingMore);
+                                }
+                                e.stopPropagation();
+                            }}
                         >
                             {isShowingMore ? 'show less' : 'show more'}
                         </CustomButton>
