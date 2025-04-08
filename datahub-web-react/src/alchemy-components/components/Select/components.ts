@@ -95,7 +95,6 @@ export const DropdownContainer = styled.div<{ ignoreMaxHeight?: boolean }>(({ ig
     marginTop: '4px',
     overflow: 'auto',
     width: '100%',
-    minWidth: '250px',
     maxHeight: ignoreMaxHeight ? undefined : '360px',
 }));
 
