@@ -270,7 +270,6 @@ export const getFinalSidebarTabs = (tabs: EntitySidebarTab[], sidebarSections: E
             {
                 name: 'Summary',
                 icon: BookOpen,
-                selectedIcon: BookOpen,
                 component: EntitySidebarSectionsTab,
                 properties: {
                     sections: sidebarSections || [],
