@@ -354,6 +354,11 @@ export const SearchBarV2 = ({
         }
     }, []);
 
+    const onSearchBarValueChanged = useCallback((value: string) => {
+        setSearchQuery(value);
+        if (value === '') clear();
+    }, [clear])
+
     return (
         <>
             {isLoading ? (
@@ -427,7 +432,7 @@ export const SearchBarV2 = ({
                                 onPressEnter={() => runSearching()}
                                 style={{ ...inputStyle, color: '#fff' }}
                                 value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onChange={(e) => onSearchBarValueChanged(e.target.value)}
                                 data-testid="search-input"
                                 onFocus={onFocusHandler}
                                 onBlur={onBlurHandler}
