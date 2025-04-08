@@ -19,13 +19,12 @@ import { useListUsersQuery } from '../../graphql/user.generated';
 import { OwnerLabel } from '../shared/OwnerLabel';
 import { useEntityRegistry } from '../useEntityRegistry';
 
-const SourceContainer = styled.div`
+const Container = styled.div`
     width: 100%;
     padding: 16px 20px;
     display: flex;
     flex-direction: column;
     overflow: auto;
-    gap: 16px;
 `;
 
 const TokensContainer = styled.div`
@@ -35,6 +34,7 @@ const TokensContainer = styled.div`
 const TokensHeaderContainer = styled.div`
     && {
         padding-left: 0px;
+        padding-bottom: 24px;
     }
 `;
 
@@ -298,7 +298,7 @@ export const AccessTokens = () => {
     };
 
     return (
-        <SourceContainer>
+        <Container>
             {tokensLoading && !tokensData && (
                 <Message type="loading" content="Loading tokens..." style={{ marginTop: '10%' }} />
             )}
@@ -308,7 +308,7 @@ export const AccessTokens = () => {
                 <TokensHeaderContainer>
                     <PageTitle
                         title="Manage Access Tokens"
-                        subTitle="Manage Access Tokens for use with DataHub APIs."
+                        subTitle="Personal Access Tokens enable API access to DataHub with your permissions. They expire and should never be shared."
                     />
                 </TokensHeaderContainer>
             </TokensContainer>
@@ -426,6 +426,6 @@ export const AccessTokens = () => {
                     }, 3000);
                 }}
             />
-        </SourceContainer>
+        </Container>
     );
 };
