@@ -26,9 +26,9 @@ export default function ViewAllResults({ searchText }: Props) {
         <Container>
             <LeftInternalContainer>
                 <MagnifyingGlass size={16} color={colors.gray[500]} />
-                <Text color="gray" size="lg">
+                <Text color="gray">
                     View all results for&nbsp;
-                    <Text type="span" color="gray" size="lg" weight="semiBold">
+                    <Text type="span" color="gray" weight="semiBold">
                         {searchText}
                     </Text>
                 </Text>
