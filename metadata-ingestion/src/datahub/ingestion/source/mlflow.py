@@ -1,5 +1,4 @@
 import json
-import logging
 import os
 import time
 from dataclasses import dataclass
@@ -75,8 +74,6 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import DataPlatformUrn, DatasetUrn, MlModelUrn, VersionSetUrn
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
-
-logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
