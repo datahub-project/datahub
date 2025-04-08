@@ -8,6 +8,7 @@ from typing import Any, Callable, Iterable, List, Optional, Tuple, TypeVar, Unio
 from mlflow import MlflowClient
 from mlflow.entities import Dataset as MlflowDataset, Experiment, Run
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
+from mlflow.exceptions import MlflowException
 from mlflow.store.entities import PagedList
 from pydantic.fields import Field
 
@@ -605,13 +606,11 @@ class MLflowSource(StatefulIngestionSourceBase):
                 next_page_token = paged_list.token
                 if not next_page_token:
                     return
-        except Exception as e:
-            if (
-                "API request to endpoint /api/2.0/mlflow/experiments/search failed with error code 404"
-                in str(e)
-            ):
+        except MlflowException as e:
+            if e.error_code == "ENDPOINT_NOT_FOUND":
+                logger.warning(e.message)
                 logger.warning(
-                    f"Please upgrade your MLflow server to version 1.28.0 or higher. {str(e)}"
+                    "Please upgrade your MLflow server to version 1.28.0 or higher"
                 )
                 logger.warning("Skipping ingestion for experiments")
                 return
