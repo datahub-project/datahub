@@ -87,8 +87,9 @@ class HexApiAccessType(StrEnum):
     """Access type enum."""
 
     NONE = "NONE"
-    VIEW = "VIEW"
-    EDIT = "EDIT"
+    APP_ONLY = "APP_ONLY"
+    CAN_VIEW = "CAN_VIEW"
+    CAN_EDIT = "CAN_EDIT"
     FULL_ACCESS = "FULL_ACCESS"
 
 
