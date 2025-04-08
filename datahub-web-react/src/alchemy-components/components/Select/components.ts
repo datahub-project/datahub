@@ -20,7 +20,6 @@ export const SelectBase = styled.div<SelectStyleProps>(
         transition: sharedTransition,
         justifyContent: 'space-between',
         alignSelf: position || 'end',
-        // minHeight: '42px',
         alignItems: 'center',
         overflow: 'auto',
         textWrapMode: 'nowrap',
