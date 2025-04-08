@@ -65,6 +65,7 @@ export const IncidentEditor = ({
         assignees: cachedAssignees,
         linkedAssets: cachedLinkedAssets,
         entity,
+        currentIncident: data,
     });
     const formValues = Form.useWatch([], form);
 

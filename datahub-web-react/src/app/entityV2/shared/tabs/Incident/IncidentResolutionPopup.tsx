@@ -73,6 +73,7 @@ export const IncidentResolutionPopup = ({ incident, handleClose }: IncidentResol
                     message: formData?.note,
                     linkedAssets: incident.linkedAssets,
                     assignees: incident.assignees,
+                    created: incident.created,
                 };
 
                 const updatedIncident = getCacheIncident({

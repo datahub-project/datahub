@@ -161,6 +161,20 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
                     },
                 ];
             }
+        } else if (incident?.state === IncidentState.Resolved) {
+            return [
+                {
+                    actor: incidentCreator,
+                    action: INCIDENT_STATE_TO_ACTIVITY.RAISED,
+                    time: incident?.creator?.time,
+                },
+                {
+                    actor: incidentResolver,
+                    action: INCIDENT_STATE_TO_ACTIVITY.RESOLVED,
+                    time: incident?.lastUpdated?.time,
+                    message: incident?.message,
+                },
+            ];
         }
 
         return [
@@ -168,12 +182,6 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
                 actor: incidentCreator,
                 action: INCIDENT_STATE_TO_ACTIVITY.RAISED,
                 time: incident?.creator?.time,
-            },
-            {
-                actor: incidentResolver,
-                action: INCIDENT_STATE_TO_ACTIVITY.RESOLVED,
-                time: incident?.lastUpdated?.time,
-                message: incident?.message,
             },
         ];
     })();
