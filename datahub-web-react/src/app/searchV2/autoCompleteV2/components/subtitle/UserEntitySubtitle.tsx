@@ -6,7 +6,7 @@ import { EntitySubtitleProps } from './types';
 export default function UserEntitySubtitle({ entity }: EntitySubtitleProps) {
     if (!isCorpUser(entity)) return null;
 
-    const userName = entity?.username;
+    const userName = entity.username;
 
     return (
         <Text color="gray" size="sm">
