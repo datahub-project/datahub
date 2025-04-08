@@ -18,15 +18,16 @@ const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 16px;
     padding-right: 16px;
     background-color: white;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
-        overflow: hidden;
         margin: 5px;
         box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
-        height: 100%;
     `}
 `;
 
@@ -63,7 +64,12 @@ const Tab = styled(Tabs.TabPane)`
     line-height: 22px;
 `;
 
-const ListContainer = styled.div``;
+const ListContainer = styled.div`
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+`;
 
 export const ManageIngestionPage = () => {
     /**
