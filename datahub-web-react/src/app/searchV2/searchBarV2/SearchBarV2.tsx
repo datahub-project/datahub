@@ -354,10 +354,13 @@ export const SearchBarV2 = ({
         }
     }, []);
 
-    const onSearchBarValueChanged = useCallback((value: string) => {
-        setSearchQuery(value);
-        if (value === '') clear();
-    }, [clear])
+    const onSearchBarValueChanged = useCallback(
+        (value: string) => {
+            setSearchQuery(value);
+            if (value === '') clear();
+        },
+        [clear],
+    );
 
     return (
         <>
