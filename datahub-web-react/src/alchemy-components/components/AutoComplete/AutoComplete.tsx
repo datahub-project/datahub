@@ -31,7 +31,7 @@ export default function AutoComplete({
 
     useEffect(() => {
         if (value !== undefined) setInternalValue(value);
-    }, [value])
+    }, [value]);
 
     const onChangeHandler = (newValue: string, option: OptionType | OptionType[]) => {
         if (!internalOpen && newValue !== '') setInternalOpen(true);
