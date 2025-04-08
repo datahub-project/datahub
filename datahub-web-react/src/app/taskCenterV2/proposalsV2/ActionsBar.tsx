@@ -7,7 +7,7 @@ import styled from 'styled-components';
 import { useForm } from 'antd/lib/form/Form';
 import { ProposalModalType } from './utils';
 
-const ActionsContainer = styled.div`
+const ActionsContainer = styled.div<{ $hasPagination?: boolean }>`
     display: flex;
     padding: 8px;
     margin: 2px 16px 16px 16px;
@@ -22,7 +22,7 @@ const ActionsContainer = styled.div`
     background-color: white;
     position: absolute;
     left: 50%;
-    bottom: 44px;
+    bottom: ${(props) => (props.$hasPagination ? '44px' : '12px')};
     transform: translateX(-55%);
 `;
 
@@ -63,9 +63,10 @@ interface Props {
     selectedUrns: string[];
     setSelectedUrns: React.Dispatch<React.SetStateAction<string[]>>;
     onActionRequestUpdate: () => void;
+    hasPagination?: boolean;
 }
 
-const ActionsBar = ({ selectedUrns, setSelectedUrns, onActionRequestUpdate }: Props) => {
+const ActionsBar = ({ selectedUrns, setSelectedUrns, onActionRequestUpdate, hasPagination }: Props) => {
     const [form] = useForm();
     const [modalType, setModalType] = useState<ModalType>(null);
 
@@ -118,7 +119,7 @@ const ActionsBar = ({ selectedUrns, setSelectedUrns, onActionRequestUpdate }: Pr
     };
 
     return (
-        <ActionsContainer>
+        <ActionsContainer $hasPagination={hasPagination}>
             <SelectedContainer>
                 <Text color="gray">{`${selectedUrns.length} Selected`}</Text>
             </SelectedContainer>
