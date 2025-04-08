@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import time
 from dataclasses import dataclass
@@ -73,6 +74,8 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import DataPlatformUrn, DatasetUrn, MlModelUrn, VersionSetUrn
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
@@ -595,12 +598,25 @@ class MLflowSource(StatefulIngestionSourceBase):
         Utility to traverse an MLflow search_* functions which return PagedList.
         """
         next_page_token = None
-        while True:
-            paged_list = search_func(page_token=next_page_token, **kwargs)
-            yield from paged_list.to_list()
-            next_page_token = paged_list.token
-            if not next_page_token:
+        try:
+            while True:
+                paged_list = search_func(page_token=next_page_token, **kwargs)
+                yield from paged_list.to_list()
+                next_page_token = paged_list.token
+                if not next_page_token:
+                    return
+        except Exception as e:
+            if (
+                "API request to endpoint /api/2.0/mlflow/experiments/search failed with error code 404"
+                in str(e)
+            ):
+                logger.warning(
+                    f"Please upgrade your MLflow server to version 1.28.0 or higher. {str(e)}"
+                )
+                logger.warning("Skipping ingestion for experiments")
                 return
+            else:
+                raise  # Only re-raise other exceptions
 
     def _get_latest_version(self, registered_model: RegisteredModel) -> Optional[str]:
         return (
