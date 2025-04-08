@@ -81,7 +81,7 @@ export interface SelectProps<OptionType extends NestedSelectOption = NestedSelec
     shouldAlwaysSyncParentValues?: boolean;
     hideParentCheckbox?: boolean;
     implicitlySelectChildren?: boolean;
-    shouldManuallyUpdate?: boolean;
+    shouldDisplayConfirmationFooter?: boolean;
     selectLabelProps?: SelectLabelProps;
     renderCustomOptionText?: CustomOptionRenderer<OptionType>;
 }
@@ -97,7 +97,7 @@ export const selectDefaults: SelectProps = {
     isMultiSelect: false,
     width: 255,
     height: 425,
-    shouldManuallyUpdate: false,
+    shouldDisplayConfirmationFooter: false,
 };
 
 export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelectOption>({
@@ -122,7 +122,7 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
     shouldAlwaysSyncParentValues = false,
     hideParentCheckbox = false,
     implicitlySelectChildren = true,
-    shouldManuallyUpdate = selectDefaults.shouldManuallyUpdate,
+    shouldDisplayConfirmationFooter = selectDefaults.shouldDisplayConfirmationFooter,
     selectLabelProps,
     renderCustomOptionText,
     ...props
@@ -145,8 +145,6 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [initialValues]);
-
-    // TODO: handle searching inside of a nested component on the FE only
 
     const handleDocumentClick = useCallback((e: MouseEvent) => {
         const clickedOutsideOfSelect = selectRef.current && !selectRef.current.contains(e.target as Node);
@@ -179,7 +177,6 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
     );
 
     const filteredOptions = useMemo(() => {
-        // if (!shouldFilterOptions) return options;
         return filterNestedSelectOptions(options, searchQuery);
     }, [options, searchQuery]);
 
@@ -192,10 +189,10 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedOptions]);
 
-    // Sync staged and selected options automaticly when shouldManuallyUpdate disabled
+    // Sync staged and selected options automaticly when shouldDisplayConfirmationFooter disabled
     useEffect(() => {
-        if (!shouldManuallyUpdate) setSelectedOptions(stagedOptions);
-    }, [shouldManuallyUpdate, stagedOptions]);
+        if (!shouldDisplayConfirmationFooter) setSelectedOptions(stagedOptions);
+    }, [shouldDisplayConfirmationFooter, stagedOptions]);
 
     const onClickUpdateButton = useCallback(() => {
         setSelectedOptions(stagedOptions); // update selected options
@@ -261,12 +258,12 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
         (open: boolean) => {
             setIsOpen(open);
 
-            // reset staged options on dropdown's closing when shouldManuallyUpdate enabled
-            if (shouldManuallyUpdate && !open) {
+            // reset staged options on dropdown's closing when shouldDisplayConfirmationFooter enabled
+            if (shouldDisplayConfirmationFooter && !open) {
                 setStagedOptions(selectedOptions);
             }
         },
-        [selectedOptions, shouldManuallyUpdate],
+        [selectedOptions, shouldDisplayConfirmationFooter],
     );
 
     useEffect(() => {
@@ -328,7 +325,7 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
                                 );
                             })}
                         </OptionList>
-                        {shouldManuallyUpdate && (
+                        {shouldDisplayConfirmationFooter && (
                             <DropdownFooterActions onUpdate={onClickUpdateButton} onCancel={onClickCancelButton} />
                         )}
                     </DropdownContainer>
