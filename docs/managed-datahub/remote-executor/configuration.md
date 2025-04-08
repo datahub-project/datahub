@@ -46,7 +46,7 @@ Before deploying a Remote Executor, ensure you have the following:
    - For AWS: Provide your AWS account ID to Acryl
    - For Kubernetes: Work with Acryl to set up access to the Remote Executor Docker Image Registry
 
-## Creating and managing Executor Pools
+## Creating and Managing Executor Pools
 
 Complete the following steps to create a new Executor Pool from the DataHub Cloud UI:
 
@@ -333,11 +333,13 @@ The following environment variables can be configured to manage memory-intensive
 ### Frequently Asked Questions
 
 **Do AWS Secrets Manager secrets automatically update in the executor?**
+
 No. Secrets are wired into the executor container at deployment time. The ECS Task needs to be restarted when secrets change.
 
 **How can I verify successful deployment?**
+
 For ECS deployments, check AWS Console:
 1. Navigate to **ECS > Cluster > Stack Name > Services > Logs**
 2. Look for the log line: `Starting datahub executor worker`
 
-This indicates successful connection to DataHub Cloud. 
+This indicates successful connection to DataHub Cloud.
