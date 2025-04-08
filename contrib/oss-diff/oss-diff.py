@@ -8,6 +8,7 @@ import collections
 import copy
 import json
 import math
+import os
 import subprocess
 from dataclasses import dataclass
 from enum import Enum, auto
@@ -24,12 +25,16 @@ from dash import dcc, html
 from loguru import logger
 
 _script_dir = Path(__file__).parent
-_rules_file = _script_dir / "oss-first-rules.yml"
-_exceptions_file = _script_dir / "oss-first-exceptions.json"
+_rules_file = _script_dir / "oss-diff-rules.yml"
+_exceptions_file = _script_dir / "oss-diff-exceptions.json"
+
+_repo_root = _script_dir.parent.parent
+assert (_repo_root / ".git").exists(), f"Expected {_repo_root} to be a git repo"
 
 app = typer.Typer()
 
-_oss_branch = "master"
+_default_oss_branch = os.getenv("OSS_BRANCH", "master")
+_default_change_specifier = f"{_default_oss_branch}..."
 
 
 class ChangeType(Enum):
@@ -519,7 +524,7 @@ class DiffValidator:
 
 @app.command()
 def check(
-    change_specifier: str = f"{_oss_branch}...",
+    change_specifier: str = _default_change_specifier,
     loosen: bool = False,
     tighten: bool = False,
 ):
@@ -547,14 +552,14 @@ def check(
 @app.command()
 def show_diff(
     filepath: str,
-    change_specifier: str = f"{_oss_branch}...",
+    change_specifier: str = _default_change_specifier,
 ):
     subprocess.run(["git", "diff", change_specifier, "--", filepath], check=True)
 
 
 @app.command()
-def restore_oss(filepath: str):
-    subprocess.run(["git", "checkout", _oss_branch, "--", filepath], check=True)
+def restore_from_oss(filepath: str, oss_branch: str = _default_oss_branch):
+    subprocess.run(["git", "checkout", oss_branch, "--", filepath], check=True)
 
 
 def _smart_split_path(filepath: str, max_parts: int) -> list[str]:
@@ -635,7 +640,10 @@ def _build_sunburst_chart(exceptions: Dict[str, ExceptionLimit]) -> go.Figure:
 
 
 @app.command()
-def ui(debug: bool = False) -> None:
+def ui(
+    debug: bool = False,
+    change_specifier: str = _default_change_specifier,
+) -> None:
     # Create Dash app
     app = dash.Dash(
         __name__,
@@ -682,8 +690,9 @@ def ui(debug: bool = False) -> None:
         logger.info(f"Showing diff for {filepath}")
 
         diff = subprocess.check_output(
-            ["git", "diff", f"{_oss_branch}...", "--", filepath],
+            ["git", "diff", change_specifier, "--", filepath],
             text=True,
+            cwd=_repo_root,
         )
         # logger.debug(f"Diff for {filepath}: {diff}")
         return dcc.Markdown(f"## Diff for `{filepath}`:\n\n```diff\n{diff}\n```")
