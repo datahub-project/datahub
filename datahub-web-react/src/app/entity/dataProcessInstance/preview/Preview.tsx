@@ -12,6 +12,7 @@ import {
     SearchInsight,
     Container,
     ParentContainersResult,
+    DataProcessRunEvent,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -39,7 +40,7 @@ export const Preview = ({
     health,
     parentEntities,
     parentContainers,
-    dataProcessInstanceProps,
+    lastRunEvent,
 }: {
     urn: string;
     name: string;
@@ -62,11 +63,7 @@ export const Preview = ({
     health?: Health[] | null;
     parentEntities?: Array<GeneratedEntity> | null;
     parentContainers?: ParentContainersResult | null;
-    dataProcessInstanceProps?: {
-        startTime?: number;
-        duration?: number;
-        status?: string;
-    };
+    lastRunEvent?: DataProcessRunEvent | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -95,7 +92,7 @@ export const Preview = ({
             paths={paths}
             health={health || undefined}
             parentEntities={parentEntities}
-            dataProcessInstanceProps={dataProcessInstanceProps}
+            lastRunEvent={lastRunEvent}
         />
     );
 };
