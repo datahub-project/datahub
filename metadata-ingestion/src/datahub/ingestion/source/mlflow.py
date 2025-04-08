@@ -76,6 +76,10 @@ from datahub.sdk.dataset import Dataset
 
 T = TypeVar("T")
 
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 class MLflowConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     tracking_uri: Optional[str] = Field(
@@ -229,14 +233,18 @@ class MLflowSource(StatefulIngestionSourceBase):
 
     def _get_experiment_workunits(self) -> Iterable[MetadataWorkUnit]:
         experiments = self._get_mlflow_experiments()
+        logger.info(f"!!! total {len(list(experiments))} experiments")
         for experiment in experiments:
-            yield from self._get_experiment_container_workunit(experiment)
-
+            # yield from self._get_experiment_container_workunit(experiment)
+        
             runs = self._get_mlflow_runs_from_experiment(experiment)
-            if runs:
-                for run in runs:
-                    yield from self._get_run_workunits(experiment, run)
-                    yield from self._get_dataset_input_workunits(run)
+            logger.info(f"!!! experiment name: {experiment.name}")
+            logger.info(f"!!! total {len(list(runs))} runs")
+            # if runs:
+            #     for run in runs:
+            #         yield from self._get_run_workunits(experiment, run)
+            #         yield from self._get_dataset_input_workunits(run)
+        return iter([])  # Return empty iterable instead of yielding it
 
     def _get_experiment_custom_properties(self, experiment):
         experiment_custom_props = getattr(experiment, "tags", {}) or {}
@@ -684,26 +692,19 @@ class MLflowSource(StatefulIngestionSourceBase):
             return None
 
     def _get_ml_model_workunits(self) -> Iterable[MetadataWorkUnit]:
-        """
-        Traverse each Registered Model in Model Registry and generate a corresponding workunit.
-        """
         registered_models = self._get_mlflow_registered_models()
+        logger.info(f"!!! total {len(list(registered_models))} registered models")
+        logger.info("iterating over registered models")
         for registered_model in registered_models:
+            logger.info(f"!!! registered model name: {registered_model.name}")
             version_set_urn = self._get_version_set_urn(registered_model)
-            yield self._get_ml_group_workunit(registered_model)
+            logger.info(f"!!! version set urn: {version_set_urn}")
             model_versions = self._get_mlflow_model_versions(registered_model)
+            logger.info(f"!!! total {len(model_versions)} model versions")
             for model_version in model_versions:
                 run = self._get_mlflow_run(model_version)
-                yield self._get_ml_model_properties_workunit(
-                    registered_model=registered_model,
-                    model_version=model_version,
-                    run=run,
-                )
-                yield self._get_ml_model_version_properties_workunit(
-                    model_version=model_version,
-                    version_set_urn=version_set_urn,
-                )
-                yield self._get_global_tags_workunit(model_version=model_version)
+        # Return empty iterable since we don't want to emit events
+        return iter([])
 
     def _get_version_set_urn(self, registered_model: RegisteredModel) -> VersionSetUrn:
         guid_dict = {"platform": self.platform, "name": registered_model.name}
