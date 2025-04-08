@@ -13,9 +13,10 @@
 # limitations under the License.
 
 # Defining environment
-ARG APP_ENV=prod
+ARG BASE_IMAGE=acryldata/datahub-ingestion-base
+ARG DOCKER_VERSION=head-full
 
-FROM acryldata/datahub-ingestion-base:head-full AS base
+FROM $BASE_IMAGE:$DOCKER_VERSION AS base
 
 USER root
 
@@ -31,7 +32,7 @@ RUN chmod a+x /start_datahub_actions.sh && \
     apt-get clean && \
     rm -rf /var/lib/{apt,dpkg,cache,log}/
 
-COPY --chown=datahub:datahub datahub-actions /actions-src
+COPY --chown=datahub:datahub ./datahub-actions/datahub-actions /actions-src
 # Add other default configurations into this!
 COPY --chown=datahub:datahub ./docker/config /etc/datahub/actions/system/conf
 
