@@ -662,7 +662,10 @@ fingerprinted_queries as (
         CASE 
             WHEN CONTAINS(query_history.query_text, '-- Hex query metadata:')
             -- Extract project id and hash it
-            THEN CAST(HASH(REGEXP_SUBSTR(query_history.query_text, '"project_id"\\\\s*:\\\\s*"([^"]+)"', 1, 1, 'e', 1)) AS VARCHAR)
+            THEN CAST(HASH(
+                REGEXP_SUBSTR(query_history.query_text, '"project_id"\\\\s*:\\\\s*"([^"]+)"', 1, 1, 'e', 1),
+                REGEXP_SUBSTR(query_history.query_text, '"context"\\\\s*:\\\\s*"([^"]+)"', 1, 1, 'e', 1)
+            ) AS VARCHAR)
             ELSE NULL 
         END as query_secondary_fingerprint
     FROM
