@@ -1,0 +1,45 @@
+
+ext {
+  python_executable = 'python3'
+  venv_name = 'venv'
+}
+
+
+task installDev(type: Exec) {
+    inputs.file file('pyproject.toml')
+    inputs.file file('requirements.txt')
+    outputs.file("${venv_name}/.build_install_dev_sentinel")
+    commandLine 'bash', '-c',
+        "set -x && " +
+        "${python_executable} -m venv ${venv_name} && " +
+        "${venv_name}/bin/python -m pip install --upgrade pip uv wheel setuptools && " +
+        "set +x && source ${venv_name}/bin/activate && set -x && " +
+        "uv pip install -r requirements.txt && " +
+        "touch ${venv_name}/.build_install_dev_sentinel"
+}
+
+task pythonLint(type: Exec, dependsOn: installDev) {
+    commandLine 'bash', '-c',
+        "source ${venv_name}/bin/activate && set -x && " +
+        "black --check --diff tests/ && " +
+        "isort --check --diff tests/ && " +
+        "ruff --statistics tests/ && " +
+        "mypy tests/"
+}
+task pythonLintFix(type: Exec, dependsOn: installDev) {
+    commandLine 'bash', '-c',
+        "source ${venv_name}/bin/activate && set -x && " +
+        "black tests/ && " +
+        "isort tests/ && " +
+        "ruff --fix tests/ && " +
+        "mypy tests/"
+}
+
+
+task lint {
+    dependsOn pythonLint
+}
+
+task lintFix {
+    dependsOn pythonLintFix
+}
