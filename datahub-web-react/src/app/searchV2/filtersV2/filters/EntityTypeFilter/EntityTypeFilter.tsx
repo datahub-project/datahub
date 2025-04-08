@@ -35,7 +35,7 @@ export default function EntityTypeFilter({ fieldName, facetState, appliedFilters
             showSearch
             renderCustomOptionText={(option) => option.displayName}
             showClear
-            shouldManuallyUpdate
+            shouldDisplayConfirmationFooter
             selectLabelProps={{ variant: 'labeled', label: 'Types' }}
         />
     );

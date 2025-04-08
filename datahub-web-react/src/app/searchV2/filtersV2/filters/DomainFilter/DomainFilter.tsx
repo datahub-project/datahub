@@ -55,7 +55,7 @@ export default function DomainFilter({ fieldName, facetState, appliedFilters, on
             size="sm"
             showSearch
             showClear
-            shouldManuallyUpdate
+            shouldDisplayConfirmationFooter
             shouldAlwaysSyncParentValues
             selectLabelProps={{ variant: 'labeled', label: 'Domains' }}
         />
