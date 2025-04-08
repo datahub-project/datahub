@@ -44,7 +44,7 @@ Monitor Remote Executor health directly in the DataHub UI:
 
 ## Advanced: Prometheus Metrics
 
-The Remote Executor exposes metrics on port `9087/tcp` in Prometheus/OpenMetrics format.
+The Remote Executor exposes metrics on port `9087/tcp` in Prometheus/OpenMetrics format. Metrics can be collected by Prometheus stack or compatible agents, such as DataDog.
 
 ### Metric Categories
 
@@ -60,23 +60,20 @@ The Remote Executor exposes metrics on port `9087/tcp` in Prometheus/OpenMetrics
 
 ### Prometheus Configuration
 
+Example ServiceMonitor resource to allow scraping Remote Executor metrics in Prometheus:
+
 ```yaml
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
+  labels:
   name: datahub-remote-executor
 spec:
   endpoints:
   - port: metrics
-    path: /metrics
-    interval: 30s
-    scrapeTimeout: 10s
   selector:
     matchLabels:
       app.kubernetes.io/name: datahub-remote-executor
-  namespaceSelector:
-    matchNames:
-      - default  # adjust to your namespace
 ```
 
 ### Discovering Available Metrics
