@@ -12,7 +12,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 The Remote Executor is a powerful feature of DataHub Cloud that enables secure metadata ingestion from private sources while maintaining full control over credentials and network access. It serves as a bridge between your private infrastructure and DataHub Cloud, allowing you to:
 
-- Ingest metadata and execute DataHub Cloud observability from sources behind firewalls or in private networks
+- Ingest metadata and execute DataHub Cloud Observe monitors from sources behind firewalls or in private networks
 - Monitor ingestion sources and run assertions from within your environment
 
 ## Key Benefits
