@@ -34,6 +34,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.ForbiddenException;
+import org.apache.iceberg.exceptions.NoSuchNamespaceException;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @Slf4j
@@ -67,6 +68,7 @@ public class AbstractIcebergController {
     }
 
     EntitySpec entitySpec = new EntitySpec(DATASET_ENTITY_NAME, urn.get().toString());
+
     try {
       return authorize(
           operationContext,
@@ -88,16 +90,27 @@ public class AbstractIcebergController {
       Namespace namespace,
       DataOperation operation,
       boolean returnHighestPrivilege) {
+
+    if (!entityService.exists(
+        operationContext, containerUrn(warehouse.getPlatformInstance(), namespace))) {
+      throw new NoSuchNamespaceException("Namespace does not exist: " + namespace);
+    }
+
     EntitySpec entitySpec =
         new EntitySpec(
             CONTAINER_ENTITY_NAME,
             containerUrn(warehouse.getPlatformInstance(), namespace).toString());
-    return authorize(
-        operationContext,
-        entitySpec,
-        platformInstanceEntitySpec(warehouse.getPlatformInstance()),
-        operation,
-        returnHighestPrivilege);
+    try {
+      return authorize(
+          operationContext,
+          entitySpec,
+          platformInstanceEntitySpec(warehouse.getPlatformInstance()),
+          operation,
+          returnHighestPrivilege);
+    } catch (ForbiddenException e) {
+      // specify namespace in error message instead of container-urn
+      throw new ForbiddenException("Data operation %s not authorized on %s", operation, namespace);
+    }
   }
 
   protected PoliciesConfig.Privilege authorize(
