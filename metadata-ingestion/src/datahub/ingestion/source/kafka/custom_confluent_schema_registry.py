@@ -71,10 +71,10 @@ class CustomConfluentSchemaRegistry(ConfluentSchemaRegistry):
                         .replace("-key", "")
                         .replace("-value", "")
                     )
-                    if (
-                        subject_name.startswith(topic + "-")
-                        or subject_name.startswith(topic + ".")
-                    ) and subject_name not in topic_list:
+                    if subject_name == topic or (
+                        subject_name.startswith(topic)
+                        and subject_name not in topic_list
+                    ):
                         record_name = subject_name
                         subjects.add(record_name)
         return list(subjects)
@@ -150,10 +150,10 @@ class CustomConfluentSchemaRegistry(ConfluentSchemaRegistry):
                     if column_name not in unique_fields:
                         unique_fields[column_name] = field
 
+                schema_name = subject if len(subjects) > 1 else topic
+                print(f"topic : {topic},  schema_name : {schema_name}")
                 schema_metadata = SchemaMetadata(
-                    schemaName=subject
-                    if len(subjects) > 1
-                    else topic,  # topic or SchemaName => topic or topic.recordName or SchemaName
+                    schemaName=schema_name,  # topic or SchemaName => topic or topic.recordName or SchemaName
                     version=0,
                     hash=md5_hash,
                     platform=platform_urn,
@@ -167,7 +167,9 @@ class CustomConfluentSchemaRegistry(ConfluentSchemaRegistry):
                 )
                 dataset_metadata_list.append(schema_metadata)
 
-        if len(subjects) > 1:  # 1:N 일때도 토픽 추출되도록 추가
+        if (
+            len(subjects) > 1 and topic not in subjects
+        ):  # 1:N 일때도 토픽 추출되도록 추가
             dataset_metadata_list.append(
                 SchemaMetadata(
                     schemaName=topic,

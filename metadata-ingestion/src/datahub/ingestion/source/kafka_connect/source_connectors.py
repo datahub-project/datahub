@@ -11,6 +11,7 @@ from datahub.ingestion.source.kafka_connect.common import (
     BaseConnector,
     ConnectorManifest,
     KafkaConnectLineage,
+    fix_oracle_tibero_url,
     get_dataset_name,
     has_three_level_hierarchy,
     remove_prefix,
@@ -101,9 +102,14 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         url = remove_prefix(
             str(connector_manifest.config.get("connection.url")), "jdbc:"
         )
+        db_type = "external"
+        if "tibero" in url or "oracle" in url:
+            url = fix_oracle_tibero_url(url)
+            db_type = "tibero" if "tibero" in url else "oracle"
         url_instance = make_url(url)
-        source_platform = get_platform_from_sqlalchemy_uri(str(url_instance))
-        database_name = url_instance.database
+        platform = get_platform_from_sqlalchemy_uri(str(url_instance))
+        source_platform = db_type if platform == "external" else platform
+        database_name = url_instance.database or url_instance.query.get("service_name")
         assert database_name
         db_connection_url = f"{url_instance.drivername}://{url_instance.host}:{url_instance.port}/{database_name}"
 
@@ -434,12 +440,21 @@ class DebeziumSourceConnector(BaseConnector):
         source_platform: str
         server_name: Optional[str]
         database_name: Optional[str]
+        table_name: list
 
     def get_server_name(self, connector_manifest: ConnectorManifest) -> str:
         if "topic.prefix" in connector_manifest.config:
             return connector_manifest.config["topic.prefix"]
         else:
             return connector_manifest.config.get("database.server.name", "")
+
+    def get_table_name(self, connector_manifest: ConnectorManifest) -> list:
+        table_name = (
+            connector_manifest.config.get("table.include.list")
+            or connector_manifest.config.get("collection.include.list")
+            or ""
+        )
+        return table_name.split(",") if table_name != "" else []
 
     def get_parser(
         self,
@@ -455,24 +470,28 @@ class DebeziumSourceConnector(BaseConnector):
                 source_platform="mysql",
                 server_name=self.get_server_name(connector_manifest),
                 database_name=None,
+                table_name=self.get_table_name(connector_manifest),
             )
         elif connector_class == "io.debezium.connector.mongodb.MongoDbConnector":
             parser = self.DebeziumParser(
                 source_platform="mongodb",
                 server_name=self.get_server_name(connector_manifest),
                 database_name=None,
+                table_name=self.get_table_name(connector_manifest),
             )
         elif connector_class == "io.debezium.connector.postgresql.PostgresConnector":
             parser = self.DebeziumParser(
                 source_platform="postgres",
                 server_name=self.get_server_name(connector_manifest),
                 database_name=connector_manifest.config.get("database.dbname"),
+                table_name=self.get_table_name(connector_manifest),
             )
         elif connector_class == "io.debezium.connector.oracle.OracleConnector":
             parser = self.DebeziumParser(
                 source_platform="oracle",
                 server_name=self.get_server_name(connector_manifest),
                 database_name=connector_manifest.config.get("database.dbname"),
+                table_name=self.get_table_name(connector_manifest),
             )
         elif connector_class == "io.debezium.connector.sqlserver.SqlServerConnector":
             database_name = connector_manifest.config.get(
@@ -488,18 +507,21 @@ class DebeziumSourceConnector(BaseConnector):
                 source_platform="mssql",
                 server_name=self.get_server_name(connector_manifest),
                 database_name=database_name,
+                table_name=self.get_table_name(connector_manifest),
             )
         elif connector_class == "io.debezium.connector.db2.Db2Connector":
             parser = self.DebeziumParser(
                 source_platform="db2",
                 server_name=self.get_server_name(connector_manifest),
                 database_name=connector_manifest.config.get("database.dbname"),
+                table_name=self.get_table_name(connector_manifest),
             )
         elif connector_class == "io.debezium.connector.vitess.VitessConnector":
             parser = self.DebeziumParser(
                 source_platform="vitess",
                 server_name=self.get_server_name(connector_manifest),
                 database_name=connector_manifest.config.get("vitess.keyspace"),
+                table_name=self.get_table_name(connector_manifest),
             )
         else:
             raise ValueError(f"Connector class '{connector_class}' is unknown.")
@@ -514,24 +536,36 @@ class DebeziumSourceConnector(BaseConnector):
             source_platform = parser.source_platform
             server_name = parser.server_name
             database_name = parser.database_name
+            table_names = parser.table_name
             topic_naming_pattern = rf"({server_name})\.(\w+\.\w+)"
 
             if not self.connector_manifest.topic_names:
                 return lineages
 
             for topic in self.connector_manifest.topic_names:
-                found = re.search(re.compile(topic_naming_pattern), topic)
+                if table_names:
+                    for table in table_names:
+                        table_name = get_dataset_name(database_name, table)
+                        lineage = KafkaConnectLineage(
+                            source_dataset=table_name,
+                            source_platform=source_platform,
+                            target_dataset=topic,
+                            target_platform=KAFKA,
+                        )
+                        lineages.append(lineage)
+                else:
+                    found = re.search(re.compile(topic_naming_pattern), topic)
 
-                if found:
-                    table_name = get_dataset_name(database_name, found.group(2))
+                    if found:
+                        table_name = get_dataset_name(database_name, found.group(2))
 
-                    lineage = KafkaConnectLineage(
-                        source_dataset=table_name,
-                        source_platform=source_platform,
-                        target_dataset=topic,
-                        target_platform=KAFKA,
-                    )
-                    lineages.append(lineage)
+                        lineage = KafkaConnectLineage(
+                            source_dataset=table_name,
+                            source_platform=source_platform,
+                            target_dataset=topic,
+                            target_platform=KAFKA,
+                        )
+                        lineages.append(lineage)
             return lineages
         except Exception as e:
             self.report.warning(
@@ -541,6 +575,158 @@ class DebeziumSourceConnector(BaseConnector):
             )
 
         return []
+
+
+@dataclass
+class KafkaMirrorSourceConnector(BaseConnector):
+    @dataclass
+    class KafkaMirrorSourceParser:
+        source_url: Optional[str]
+        source_platform: str
+        source_topics: List[str]
+        target_prefix: Optional[str]
+        target_source_map: Optional[Dict[str, str]]
+        source_cluster: str
+
+    def get_parser(
+        self,
+        connector_manifest: ConnectorManifest,
+    ) -> KafkaMirrorSourceParser:
+        source_url = connector_manifest.config.get("source.cluster.bootstrap.servers")
+        platform_instance_key = next(
+            (k for k in self.config.extra_platform_instance_map if k in source_url),
+            None,
+        )
+        topic_map = connector_manifest.config.get("replication.policy.naming")
+        parser = self.KafkaMirrorSourceParser(
+            source_url=source_url,
+            source_platform="kafka",
+            source_topics=connector_manifest.config.get("topics").split(","),
+            # replication.policy.class = com.spitha.replicationpolicy.FeliceNamingReplicationPolicy 일 경우
+            target_source_map={
+                item.split(":")[1]: item.split(":")[0]
+                for item in (topic_map or "").split(",")
+                if ":" in item
+            },
+            # replication.policy.class = com.spitha.replicationpolicy.FeliceAffixReplicationPolicy 일 경우
+            target_prefix=connector_manifest.config.get("replication.policy.prefix"),
+            source_cluster=self.config.extra_platform_instance_map.get(
+                platform_instance_key
+            ),
+        )
+        return parser
+
+    def extract_lineages(self) -> List[KafkaConnectLineage]:
+        lineages: List[KafkaConnectLineage] = list()
+        parser = self.get_parser(self.connector_manifest)
+        source_platform = parser.source_platform
+
+        if not self.connector_manifest.topic_names:
+            return lineages
+
+        for topic in self.connector_manifest.topic_names:
+            # FeliceNamingReplicationPolicy 일 경우 map 에서 source_topic 추출
+            # FeliceAffixReplicationPolicy 일 경우 prefix 를 뺀 name 이 source_topic
+            topic_prefix = f"{parser.target_prefix}-" if parser.target_prefix else ""
+            source_topic = parser.target_source_map.get(topic) or topic.removeprefix(
+                topic_prefix
+            )
+            lineage = KafkaConnectLineage(
+                source_dataset=source_topic,
+                source_platform=source_platform,
+                target_dataset=topic,
+                target_platform=KAFKA,
+                job_property_bag={"source_platform_instance": parser.source_cluster}
+                if parser.source_cluster
+                else {},
+            )
+            lineages.append(lineage)
+        return lineages
+
+    def extract_flow_property_bag(self) -> Dict[str, str]:
+        exclude_keywords = ["sasl", "security", "username", "password"]
+        flow_property_bag = {
+            k: v
+            for k, v in self.connector_manifest.config.items()
+            if (all(keyword not in k for keyword in exclude_keywords))
+        }
+
+        return flow_property_bag
+
+
+@dataclass
+class VMetaSourceConnector(BaseConnector):
+    @dataclass
+    class VMetaSourceSourceParser:
+        source_url: Optional[str]
+        source_platform: str
+        source_topics: List[str]
+        target_source_map: Dict[str, str]
+        source_cluster: str
+
+    def get_parser(
+        self,
+        connector_manifest: ConnectorManifest,
+    ) -> VMetaSourceSourceParser:
+        topic_map = connector_manifest.config.get("kafka.src.sink.topic.map")
+        source_url = connector_manifest.config.get("kafka.src.bootstrap")
+        platform_instance_key = next(
+            (k for k in self.config.extra_platform_instance_map if k in source_url),
+            None,
+        )
+        parser = self.VMetaSourceSourceParser(
+            source_url=source_url,
+            source_platform="kafka",
+            source_topics=connector_manifest.config.get("kafka.src.topic").split(","),
+            target_source_map={
+                item.split(">>")[1]: item.split(">>")[0]
+                for item in (topic_map or "").split(",")
+                if ">>" in item
+            },
+            source_cluster=self.config.extra_platform_instance_map.get(
+                platform_instance_key
+            ),
+        )
+        return parser
+
+    def extract_lineages(self) -> List[KafkaConnectLineage]:
+        lineages: List[KafkaConnectLineage] = list()
+        parser = self.get_parser(self.connector_manifest)
+        source_platform = parser.source_platform
+
+        if not self.connector_manifest.topic_names:
+            return lineages
+
+        for topic in self.connector_manifest.topic_names:
+            if parser.target_source_map and parser.target_source_map.get(topic):
+                source_topic = parser.target_source_map.get(topic)
+                source_topics = [source_topic]
+            else:
+                source_topics = parser.source_topics
+
+            for source_topic in source_topics:
+                lineage = KafkaConnectLineage(
+                    source_dataset=source_topic,
+                    source_platform=source_platform,
+                    target_dataset=topic,
+                    target_platform=KAFKA,
+                    job_property_bag={"source_platform_instance": parser.source_cluster}
+                    if parser.source_cluster
+                    else {},
+                )
+                lineages.append(lineage)
+
+        return lineages
+
+    def extract_flow_property_bag(self) -> Dict[str, str]:
+        exclude_keywords = ["sasl", "security"]
+        flow_property_bag = {
+            k: v
+            for k, v in self.connector_manifest.config.items()
+            if (all(keyword not in k for keyword in exclude_keywords))
+        }
+
+        return flow_property_bag
 
 
 @dataclass
@@ -565,3 +751,7 @@ class ConfigDrivenSourceConnector(BaseConnector):
 JDBC_SOURCE_CONNECTOR_CLASS = "io.confluent.connect.jdbc.JdbcSourceConnector"
 DEBEZIUM_SOURCE_CONNECTOR_PREFIX = "io.debezium.connector"
 MONGO_SOURCE_CONNECTOR_CLASS = "com.mongodb.kafka.connect.MongoSourceConnector"
+KAFKA_MIRROR_SOURCE_CONNECTOR_CLASS = (
+    "org.apache.kafka.connect.mirror.MirrorSourceConnector"
+)
+VMETA_SOURCE_CONNECTOR_CLASS = "VMetaSourceConnector"

@@ -77,7 +77,10 @@ class KafkaConnectSourceConfig(
         default=[],
         description="Provide lineage graph for sources connectors other than Confluent JDBC Source Connector, Debezium Source Connector, and Mongo Source Connector",
     )
-
+    extra_platform_instance_map: Optional[Dict[str, str]] = Field(
+        default=None,
+        description='Platform instance mapping when multiple instances for a platform is available. Defines platform instance mappings for cases not covered by `platform_instance_map` or `connect_to_platform_map`. Use `extra_platform_instance_map` with the format `host_ip: platform`. Example: `extra_platform_instance_map: {"10.0.0.1": "hive"}`',
+    )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
 
@@ -183,6 +186,30 @@ def transform_connector_config(
 # TODO: Find a more automated way to discover new platforms with 3 level naming hierarchy.
 def has_three_level_hierarchy(platform: str) -> bool:
     return platform in ["postgres", "trino", "redshift", "snowflake"]
+
+
+def fix_oracle_tibero_url(jdbc_url: str) -> str:
+    """
+    Tibero & Oracle JDBC URL을 SQLAlchemy URL로 변환
+    """
+    # "jdbc:" 및 "thin:" 제거
+    clean_url = jdbc_url.replace("thin:", "")
+
+    # Oracle과 Tibero 구분
+    driver = "tibero+cx_oracle" if "tibero" in clean_url else "oracle+cx_oracle"
+
+    # SID 방식 → jdbc:oracle:thin:@host:port:SID
+    if clean_url.count(":") == 3:
+        _, host, port, sid = clean_url.split(":")
+        host = host.lstrip("@")
+        return f"{driver}://{host}:{port}/{sid}"
+
+    # Service Name 방식 → jdbc:oracle:thin:@//host:port/service_name ( in oracle )
+    elif "@//" in clean_url:
+        host_port, service = clean_url.split("@//")[1].split("/")
+        return f"{driver}://{host_port}/?service_name={service}"
+
+    raise ValueError(f"Invalid Oracle/Tibero URL format: {jdbc_url}")
 
 
 @dataclass

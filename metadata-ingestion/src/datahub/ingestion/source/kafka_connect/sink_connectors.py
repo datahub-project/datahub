@@ -1,12 +1,21 @@
+import logging
 import re
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Tuple
+
+from sqlalchemy.engine.url import make_url
 
 from datahub.ingestion.source.kafka_connect.common import (
     KAFKA,
     BaseConnector,
     ConnectorManifest,
     KafkaConnectLineage,
+    fix_oracle_tibero_url,
+    get_dataset_name,
+    remove_prefix,
+)
+from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
+    get_platform_from_sqlalchemy_uri,
 )
 
 
@@ -336,6 +345,258 @@ class BigQuerySinkConnector(BaseConnector):
         return lineages
 
 
+@dataclass
+class JdbcSinkConnector(BaseConnector):
+    REGEXROUTER = "org.apache.kafka.connect.transforms.RegexRouter"
+    KNOWN_TOPICROUTING_TRANSFORMS = [REGEXROUTER]
+    # https://kafka.apache.org/documentation/#connect_included_transformation
+    KAFKA_NONTOPICROUTING_TRANSFORMS = [
+        "InsertField",
+        "InsertField$Key",
+        "InsertField$Value",
+        "ReplaceField",
+        "ReplaceField$Key",
+        "ReplaceField$Value",
+        "MaskField",
+        "MaskField$Key",
+        "MaskField$Value",
+        "ValueToKey",
+        "ValueToKey$Key",
+        "ValueToKey$Value",
+        "HoistField",
+        "HoistField$Key",
+        "HoistField$Value",
+        "ExtractField",
+        "ExtractField$Key",
+        "ExtractField$Value",
+        "SetSchemaMetadata",
+        "SetSchemaMetadata$Key",
+        "SetSchemaMetadata$Value",
+        "Flatten",
+        "Flatten$Key",
+        "Flatten$Value",
+        "Cast",
+        "Cast$Key",
+        "Cast$Value",
+        "HeadersFrom",
+        "HeadersFrom$Key",
+        "HeadersFrom$Value",
+        "TimestampConverter",
+        "Filter",
+        "InsertHeader",
+        "DropHeaders",
+    ]
+    # https://docs.confluent.io/platform/current/connect/transforms/overview.html
+    CONFLUENT_NONTOPICROUTING_TRANSFORMS = [
+        "Drop",
+        "Drop$Key",
+        "Drop$Value",
+        "Filter",
+        "Filter$Key",
+        "Filter$Value",
+        "TombstoneHandler",
+    ]
+    KNOWN_NONTOPICROUTING_TRANSFORMS = (
+        KAFKA_NONTOPICROUTING_TRANSFORMS
+        + [
+            f"org.apache.kafka.connect.transforms.{t}"
+            for t in KAFKA_NONTOPICROUTING_TRANSFORMS
+        ]
+        + CONFLUENT_NONTOPICROUTING_TRANSFORMS
+        + [
+            f"io.confluent.connect.transforms.{t}"
+            for t in CONFLUENT_NONTOPICROUTING_TRANSFORMS
+        ]
+    )
+
+    @dataclass
+    class JdbcParser:
+        db_connection_url: str
+        target_platform: str
+        database_name: str
+        table_name: Optional[str]
+        transforms: list
+
+    def get_parser(
+        self,
+        connector_manifest: ConnectorManifest,
+    ) -> JdbcParser:
+        url = remove_prefix(
+            str(connector_manifest.config.get("connection.url")), "jdbc:"
+        )
+        db_type = "external"
+        if "tibero" in url or "oracle" in url:
+            url = fix_oracle_tibero_url(url)
+            db_type = "tibero" if "tibero" in url else "oracle"
+        url_instance = make_url(url)
+        platform = get_platform_from_sqlalchemy_uri(str(url_instance))
+        target_platform = db_type if platform == "external" else platform
+        database_name = url_instance.database or url_instance.query.get("service_name")
+        assert database_name
+        db_connection_url = f"{url_instance.drivername}://{url_instance.host}:{url_instance.port}/{database_name}"
+
+        # table 이름은 동적명 또는 고정된 문자열
+        # "${topic}"일 경우 topic 이름이 그대로 / RegexRouter로 적재 테이블명이 변경될 수 있음
+        table_name = self.connector_manifest.config.get("table.name.format")
+        schema_name = url_instance.query.get("currentSchema")
+        if schema_name:
+            table_name = f"{schema_name}.{table_name}"
+
+        transform_names = (
+            self.connector_manifest.config.get("transforms", "").split(",")
+            if self.connector_manifest.config.get("transforms")
+            else []
+        )
+
+        transforms = []
+        for name in transform_names:
+            transform = {"name": name}
+            transforms.append(transform)
+            for key in self.connector_manifest.config.keys():
+                if key.startswith(f"transforms.{name}."):
+                    transform[key.replace(f"transforms.{name}.", "")] = (
+                        self.connector_manifest.config[key]
+                    )
+
+        return self.JdbcParser(
+            db_connection_url,
+            target_platform,
+            database_name,
+            table_name,
+            transforms,
+        )
+
+    def default_get_lineages(
+        self,
+        database_name: str,
+        table_name: str,
+        target_platform: str,
+        topic_names: Optional[Iterable[str]] = None,
+    ) -> List[KafkaConnectLineage]:
+        lineages: List[KafkaConnectLineage] = []
+        if not topic_names:
+            topic_names = self.connector_manifest.topic_names
+
+        for topic in topic_names:
+            dataset_name: str = get_dataset_name(database_name, table_name)
+            lineage = KafkaConnectLineage(
+                source_dataset=topic,
+                source_platform=KAFKA,
+                target_dataset=dataset_name,
+                target_platform=target_platform,
+            )
+            lineages.append(lineage)
+        return lineages
+
+    def extract_flow_property_bag(self) -> Dict[str, str]:
+        flow_property_bag = {
+            k: v
+            for k, v in self.connector_manifest.config.items()
+            if k not in ["connection.password", "connection.user"]
+        }
+
+        # Mask/Remove properties that may reveal credentials
+        flow_property_bag["connection.url"] = self.get_parser(
+            self.connector_manifest
+        ).db_connection_url
+
+        return flow_property_bag
+
+    def extract_lineages(self) -> List[KafkaConnectLineage]:
+        lineages: List[KafkaConnectLineage] = list()
+        parser = self.get_parser(self.connector_manifest)
+        target_platform = parser.target_platform
+        database_name = parser.database_name
+        table_name = parser.table_name
+        transforms = parser.transforms
+        topic_names = self.connector_manifest.topic_names
+
+        logging.debug(
+            f"Extracting source platform: {target_platform} and database name: {database_name} from connection url "
+        )
+
+        if not topic_names:
+            return lineages
+
+        SINGLE_TRANSFORM = len(transforms) == 1
+        NO_TRANSFORM = len(transforms) == 0
+        UNKNOWN_TRANSFORM = any(
+            [
+                transform.get("type")
+                not in self.KNOWN_TOPICROUTING_TRANSFORMS
+                + self.KNOWN_NONTOPICROUTING_TRANSFORMS
+                for transform in transforms
+            ]
+        )
+        ALL_TRANSFORMS_NON_TOPICROUTING = all(
+            [
+                transform.get("type") in self.KNOWN_NONTOPICROUTING_TRANSFORMS
+                for transform in transforms
+            ]
+        )
+
+        # Case 1: No transform or only non-topic-routing transforms → default 처리
+        if NO_TRANSFORM or ALL_TRANSFORMS_NON_TOPICROUTING:
+            return self.default_get_lineages(
+                database_name=database_name,
+                table_name=table_name,
+                target_platform=target_platform,
+                topic_names=topic_names,
+            )
+
+        if SINGLE_TRANSFORM and transforms[0]["type"] == self.REGEXROUTER:
+            from java.util.regex import Pattern
+
+            transform_regex = Pattern.compile(transforms[0]["regex"])
+            transform_replacement = transforms[0]["replacement"]
+
+            for topic in topic_names:
+                matcher = transform_regex.matcher(topic)
+                # RegexRouter를 적용하여 변환된 테이블 이름 계산
+                transformed_topic = (
+                    str(matcher.replaceFirst(transform_replacement))
+                    if matcher.matches()
+                    else topic
+                )
+
+                # table.name.format 에 "${topic}"이 포함된 경우 대체
+                table_name_format = self.connector_manifest.config.get(
+                    "table.name.format", "${topic}"
+                )
+                resolved_table_name = table_name_format.replace(
+                    "${topic}", transformed_topic
+                )
+
+                dataset_name = get_dataset_name(database_name, resolved_table_name)
+                lineage = KafkaConnectLineage(
+                    source_dataset=topic,
+                    source_platform=KAFKA,
+                    target_dataset=dataset_name,
+                    target_platform=target_platform,
+                )
+                lineages.append(lineage)
+
+            return lineages
+        else:
+            if SINGLE_TRANSFORM and UNKNOWN_TRANSFORM:
+                self.report.warning(
+                    "Could not find input dataset, connector has unknown transform",
+                    f"{self.connector_manifest.name} : {transforms[0]['type']}",
+                )
+            if not SINGLE_TRANSFORM and UNKNOWN_TRANSFORM:
+                self.report.warning(
+                    "Could not find input dataset, connector has one or more unknown transforms",
+                    self.connector_manifest.name,
+                )
+            lineages = self.default_get_lineages(
+                database_name=database_name,
+                table_name=table_name,
+                target_platform=target_platform,
+            )
+            return lineages
+
+
 BIGQUERY_SINK_CONNECTOR_CLASS = "com.wepay.kafka.connect.bigquery.BigQuerySinkConnector"
 S3_SINK_CONNECTOR_CLASS = "io.confluent.connect.s3.S3SinkConnector"
 SNOWFLAKE_SINK_CONNECTOR_CLASS = "com.snowflake.kafka.connector.SnowflakeSinkConnector"
+JDBC_SINK_CONNECTOR_CLASS = "io.confluent.connect.jdbc.JdbcSinkConnector"
