@@ -19,7 +19,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1743454402490,
+        "lastObserved": 1744091635205,
         "runId": "glue-source-tes",
         "lastRunId": "no-run-id-provided"
     }
@@ -35,7 +35,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1743454402490,
+        "lastObserved": 1744091635205,
         "runId": "glue-source-tes",
         "lastRunId": "no-run-id-provided"
     }
@@ -52,7 +52,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1743454402491,
+        "lastObserved": 1744091635205,
         "runId": "glue-source-tes",
         "lastRunId": "no-run-id-provided"
     }
@@ -70,7 +70,28 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1743454402491,
+        "lastObserved": 1744091635205,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:275c7ea5ecf956fd8d45e14228757a8a",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,delta_platform_instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,delta_platform_instance)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1744091635205,
         "runId": "glue-source-tes",
         "lastRunId": "no-run-id-provided"
     }
@@ -123,7 +144,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1743454402491,
+        "lastObserved": 1744091635206,
         "runId": "glue-source-tes",
         "lastRunId": "no-run-id-provided"
     }
@@ -141,7 +162,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1743454402491,
+        "lastObserved": 1744091635206,
         "runId": "glue-source-tes",
         "lastRunId": "no-run-id-provided"
     }
@@ -157,7 +178,32 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1743454402491,
+        "lastObserved": 1744091635206,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,delta_platform_instance.delta-database.delta_table_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,delta_platform_instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,delta_platform_instance)"
+                },
+                {
+                    "id": "urn:li:container:275c7ea5ecf956fd8d45e14228757a8a",
+                    "urn": "urn:li:container:275c7ea5ecf956fd8d45e14228757a8a"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1744091635206,
         "runId": "glue-source-tes",
         "lastRunId": "no-run-id-provided"
     }
