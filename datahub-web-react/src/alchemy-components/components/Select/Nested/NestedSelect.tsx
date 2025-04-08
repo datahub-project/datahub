@@ -49,6 +49,7 @@ const SelectActionButtons = <OptionType extends NestedSelectOption = NestedSelec
                     onClick={handleClearSelection}
                     size={fontSize}
                     data-testid="dropdown-option-clear-icon"
+                    variant="secondary"
                 />
             )}
             <Icon icon="CaretDown" source="phosphor" rotate={isOpen ? '180' : '0'} size="md" color="gray" />
