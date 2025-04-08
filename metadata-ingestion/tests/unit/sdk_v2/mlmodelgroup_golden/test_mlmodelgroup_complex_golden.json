@@ -1,0 +1,27 @@
+[
+{
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,test_model_group,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "mlModelGroupProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "key1": "value1",
+                "key2": "value2"
+            },
+            "name": "Test Model Group",
+            "description": "A test model group",
+            "created": {
+                "time": 1628580000000,
+                "actor": "urn:li:corpuser:datahub"
+            },
+            "lastModified": {
+                "time": 1628580000000,
+                "actor": "urn:li:corpuser:datahub"
+            },
+            "models": []
+        }
+    }
+}
+]

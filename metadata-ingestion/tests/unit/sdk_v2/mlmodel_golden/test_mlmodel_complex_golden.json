@@ -1,0 +1,68 @@
+[
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test_model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "mlModelProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "externalUrl": "https://example.com/model",
+            "trainingJobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_flow,prod),test_job)"
+            ],
+            "name": "Test Model",
+            "description": "A test model",
+            "created": {
+                "time": 1628580000000,
+                "actor": "urn:li:corpuser:datahub"
+            },
+            "lastModified": {
+                "time": 1628580000000,
+                "actor": "urn:li:corpuser:datahub"
+            },
+            "hyperParams": [
+                {
+                    "name": "learning_rate",
+                    "value": "0.01"
+                },
+                {
+                    "name": "batch_size",
+                    "value": "32"
+                }
+            ],
+            "trainingMetrics": [
+                {
+                    "name": "accuracy",
+                    "value": "0.95"
+                },
+                {
+                    "name": "f1",
+                    "value": "0.92"
+                }
+            ],
+            "tags": [],
+            "groups": [
+                "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,test_group,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test_model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "versionProperties",
+    "aspect": {
+        "json": {
+            "versionSet": "urn:li:versionSet:(mlmodel_test_model_versions,mlModel)",
+            "version": {
+                "versionTag": "1.0.0"
+            },
+            "aliases": [],
+            "sortId": "000001.0.0",
+            "versioningScheme": "LEXICOGRAPHIC_STRING"
+        }
+    }
+}
+]

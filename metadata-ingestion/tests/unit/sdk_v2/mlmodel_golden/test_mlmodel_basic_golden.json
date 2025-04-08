@@ -1,0 +1,34 @@
+[
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test_model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "mlModelProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "trainingJobs": [],
+            "name": "Test Model",
+            "tags": [],
+            "groups": []
+        }
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test_model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "versionProperties",
+    "aspect": {
+        "json": {
+            "versionSet": "urn:li:versionSet:(mlmodel_test_model_versions,mlModel)",
+            "version": {
+                "versionTag": "1.0.0"
+            },
+            "aliases": [],
+            "sortId": "000001.0.0",
+            "versioningScheme": "LEXICOGRAPHIC_STRING"
+        }
+    }
+}
+]
