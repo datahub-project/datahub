@@ -21,7 +21,8 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
-
+from datahub.ingestion.source.excel.config import ExcelSourceConfig
+from datahub.ingestion.source.excel.report import ExcelSourceReport
 # from datahub.ingestion.source.hdf5.util import (
 #     decode_type,
 #     get_column_count,
@@ -85,8 +86,8 @@ class HDF5ContainerKey(ContainerKey):
     path: str
 
 
-@platform_name("HDF5")
-@config_class(HDF5SourceConfig)
+@platform_name("Excel")
+@config_class(ExcelSourceConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
@@ -96,28 +97,21 @@ class HDF5ContainerKey(ContainerKey):
     "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
     supported=True,
 )
-class HDF5Source(StatefulIngestionSourceBase):
-    config: HDF5SourceConfig
-    report: HDF5SourceReport
+class ExcelSource(StatefulIngestionSourceBase):
+    config: ExcelSourceConfig
+    report: ExcelSourceReport
     container_WU_creator: ContainerWUCreator
     platform: str = "hdf5"
 
-    def __init__(self, ctx: PipelineContext, config: HDF5SourceConfig):
+    def __init__(self, ctx: PipelineContext, config: ExcelSourceConfig):
         super().__init__(config, ctx)
         self.ctx = ctx
         self.config = config
-        self.report: HDF5SourceReport = HDF5SourceReport()
-
-        self.max_schema_size = (
-            self.config.max_schema_size if self.config.max_schema_size else 100
-        )
-
-        # if self.config.stateful_ingestion:
-        #     self.config.stateful_ingestion.remove_stale_metadata = False
+        self.report: ExcelSourceReport = ExcelSourceReport()
 
     @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "HDF5Source":
-        config = HDF5SourceConfig.parse_obj(config_dict)
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "ExcelSource":
+        config = ExcelSourceConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
@@ -294,7 +288,7 @@ class HDF5Source(StatefulIngestionSourceBase):
         )
 
         with PerfTimer() as timer:
-            for path_spec in self.config.path_list:
+            for path_spec in self.config.path_specs:
                 for browse_path in self.local_browser(path_spec):
                     if not self.config.path_pattern.allowed(browse_path.file):
                         self.report.report_dropped(browse_path.file)
