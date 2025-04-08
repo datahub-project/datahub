@@ -81,7 +81,16 @@ Work with Acryl to receive deployment templates specific to your environment (He
 
 ### Deploy on Amazon ECS
 
-1. **Configure CloudFormation Template**
+1. **AWS Account Configuration**
+
+To access the private Acryl ECR registry, you'll need to provide your AWS account ID to Acryl. You can securely share your account ID through:
+- Your Acryl representative
+- A secure secret-sharing service like [One Time Secret](https://onetimesecret.com/)
+
+This step is required to grant your AWS account access to pull the Remote Executor container image.
+
+2. **Configure CloudFormation Template**
+
 The Acryl Team will provide a [Cloudformation Template](https://raw.githubusercontent.com/acryldata/datahub-cloudformation/master/remote-executor/datahub-executor.ecs.template.yaml) that you can run to provision an ECS cluster with a single remote ingestion task. It will also provision an AWS role for the task which grants the permissions necessary to read and delete from the private queue created for you, along with reading the secrets you've specified. At minimum, the template requires the following parameters:
 
    - Deployment Location (VPC and subnet)
@@ -97,7 +106,7 @@ The Acryl Team will provide a [Cloudformation Template](https://raw.githubuserco
 Configuring Secrets enables you to manage ingestion sources from the DataHub UI without storing credentials inside DataHub. Once defined, secrets can be referenced by name inside of your DataHub Ingestion Source configurations using the usual convention: `${SECRET_NAME}`.
 :::
 
-2. **Deploy Stack**
+3. **Deploy Stack**
    ```bash
    # Using AWS CLI
    aws cloudformation create-stack \
@@ -108,13 +117,48 @@ Configuring Secrets enables you to manage ingestion sources from the DataHub UI 
 
    Or use the [CloudFormation Console](https://console.aws.amazon.com/cloudformation)
 
-3. **Configure Secrets (Optional)**
+4. **Configure Secrets (Optional)**
    ```bash
    # Create a secret in AWS Secrets Manager
    aws secretsmanager create-secret \
      --name my-source-secret \
      --secret-string '{"username":"user","password":"pass"}'
    ```
+
+### Update Amazon ECS Deployment
+
+To update your Remote Executor deployment (e.g., to deploy a new container version or modify configuration), you'll need to update your existing CloudFormation Stack. This process involves re-deploying the CloudFormation template with your updated parameters while preserving your existing resources.
+
+1. **Access CloudFormation**
+   - Navigate to the AWS CloudFormation Console
+   - Locate and select your Remote Executor stack
+   - Click the **Update** button
+
+2. **Update Template**
+   - Select **Replace current template**
+   - Choose **Upload a template file**
+   - Download the latest Acryl Remote Executor [CloudFormation Template](https://raw.githubusercontent.com/acryldata/datahub-cloudformation/master/Ingestion/templates/python.ecs.template.yaml)
+   - Upload the template file
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/Screen-Shot-2023-01-19-at-4.23.32-PM.png"/>
+</p>
+
+3. **Configure Parameters**
+   - Review and update parameters as needed:
+     - `ImageTag`: Specify a new version if upgrading
+     - `DatahubGmsURL`: Verify your DataHub URL is correct
+     - Other parameters will retain their previous values unless changed
+   - Click **Next** to proceed
+
+4. **Review and Deploy**
+   - Review the configuration changes
+   - Acknowledge any capabilities if prompted
+   - Click **Update stack** to begin the update process
+
+:::note
+The update process will maintain your existing resources (e.g., secrets, IAM roles) while deploying the new configuration. Monitor the stack events to track the update progress.
+:::
 
 </TabItem>
 <TabItem value="k8s" label="Kubernetes">
