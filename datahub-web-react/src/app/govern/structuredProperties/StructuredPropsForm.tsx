@@ -111,6 +111,7 @@ const StructuredPropsForm = ({
                             showDescriptions
                             data-testid="structured-props-select-input-type"
                             optionListTestId="structured-props-property-type-options-list"
+                            width="full"
                         />
                     </GridFormItem>
                 </Tooltip>

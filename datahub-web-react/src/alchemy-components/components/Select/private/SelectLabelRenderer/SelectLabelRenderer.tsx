@@ -1,14 +1,16 @@
 import { useMemo } from 'react';
+import { SelectOption, SelectLabelDisplayProps } from '../../types';
+import MultiSelectDefault from './variants/MultiSelectDefault';
+import MultiSelectLabeled from './variants/MultiSelectLabeled';
+import SingleSelectDefault from './variants/SingleSelectDefault';
+import SingleSelectLabeled from './variants/SingleSelectLabeled';
+import SingleSelectCustom from './variants/SingleSelectCustom';
+import MultiSelectCustom from './variants/MultiSelectCustom';
 
-import MultiSelectCustom from '@components/components/Select/private/SelectLabelRenderer/variants/MultiSelectCustom';
-import MultiSelectDefault from '@components/components/Select/private/SelectLabelRenderer/variants/MultiSelectDefault';
-import MultiSelectLabeled from '@components/components/Select/private/SelectLabelRenderer/variants/MultiSelectLabeled';
-import SingleSelectCustom from '@components/components/Select/private/SelectLabelRenderer/variants/SingleSelectCustom';
-import SingleSelectDefault from '@components/components/Select/private/SelectLabelRenderer/variants/SingleSelectDefault';
-import SingleSelectLabeled from '@components/components/Select/private/SelectLabelRenderer/variants/SingleSelectLabeled';
-import { SelectLabelDisplayProps } from '@components/components/Select/types';
-
-export default function SelectLabelRenderer({ variant, ...props }: SelectLabelDisplayProps) {
+export default function SelectLabelRenderer<OptionType extends SelectOption>({
+    variant,
+    ...props
+}: SelectLabelDisplayProps<OptionType>) {
     const { isMultiSelect, options, selectedValues } = props;
 
     const selectedOptions = useMemo(

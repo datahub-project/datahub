@@ -1,11 +1,9 @@
 import React from 'react';
-
-import { LabelsWrapper, Placeholder } from '@components/components/Select/components';
-import { SelectLabelVariantProps } from '@components/components/Select/types';
-
 import { Pill } from '@src/alchemy-components/components/Pills';
+import { LabelsWrapper, Placeholder } from '../../../components';
+import { SelectLabelVariantProps, SelectOption } from '../../../types';
 
-export default function MultiSelectCustom({
+export default function MultiSelectCustom<OptionType extends SelectOption>({
     selectedOptions,
     selectedValues,
     disabledValues,
@@ -13,7 +11,7 @@ export default function MultiSelectCustom({
     placeholder,
     isMultiSelect,
     renderCustomSelectedValue,
-}: SelectLabelVariantProps) {
+}: SelectLabelVariantProps<OptionType>) {
     return (
         <LabelsWrapper shouldShowGap={selectedOptions.length > 1}>
             {!selectedValues.length && <Placeholder>{placeholder}</Placeholder>}

@@ -1,15 +1,10 @@
 import { Button, Icon } from '@components';
+import { colors, radius, shadows, spacing, transition, typography, zIndices } from '@components/theme';
 import { Checkbox } from 'antd';
 import styled from 'styled-components';
-
-import { SelectLabelVariants, SelectSizeOptions, SelectStyleProps } from '@components/components/Select/types';
-import { getOptionLabelStyle, getSelectFontStyles, getSelectStyle } from '@components/components/Select/utils';
-import {
-    formLabelTextStyles,
-    inputPlaceholderTextStyles,
-    inputValueTextStyles,
-} from '@components/components/commonStyles';
-import { borders, colors, radius, shadows, spacing, transition, typography } from '@components/theme';
+import { formLabelTextStyles, inputPlaceholderTextStyles, inputValueTextStyles } from '../commonStyles';
+import { SelectLabelVariants, SelectSizeOptions, SelectStyleProps } from './types';
+import { getOptionLabelStyle, getSelectFontStyles, getSelectStyle } from './utils';
 
 const sharedTransition = `${transition.property.colors} ${transition.easing['ease-in-out']} ${transition.duration.normal}`;
 
@@ -25,7 +20,6 @@ export const SelectBase = styled.div<SelectStyleProps>(
         transition: sharedTransition,
         justifyContent: 'space-between',
         alignSelf: position || 'end',
-        minHeight: '42px',
         alignItems: 'center',
         overflow: 'auto',
         textWrapMode: 'nowrap',
@@ -50,24 +44,36 @@ export const SelectLabelContainer = styled.div({
 // Container for the Basic Select component
 interface ContainerProps {
     size: SelectSizeOptions;
-    width?: number | 'full';
+    width?: number | 'full' | 'fit-content';
     $selectLabelVariant?: SelectLabelVariants;
     isSelected?: boolean;
 }
 
 export const Container = styled.div<ContainerProps>(({ size, width, $selectLabelVariant, isSelected }) => {
     const getMinWidth = () => {
+        if (width === 'fit-content') return 'undefined';
         if ($selectLabelVariant === 'labeled') {
             return isSelected ? '145px' : '103px';
         }
         return '175px';
     };
 
+    const getWitdh = () => {
+        switch (width) {
+            case 'full':
+                return '100%';
+            case 'fit-content':
+                return 'fit-content';
+            default:
+                return `${width}px`;
+        }
+    };
+
     return {
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',
-        width: width === 'full' ? '100%' : `${width}px`,
+        width: getWitdh(),
         gap: '4px',
         transition: sharedTransition,
         minWidth: getMinWidth(),
@@ -76,57 +82,21 @@ export const Container = styled.div<ContainerProps>(({ size, width, $selectLabel
     };
 });
 
-export const Dropdown = styled.div<{ ignoreMaxHeight?: boolean }>(({ ignoreMaxHeight }) => {
-    return {
-        position: 'absolute',
-        top: '100%',
-        left: 0,
-        right: 0,
-        borderRadius: radius.md,
-        background: colors.white,
-        zIndex: 900,
-        transition: sharedTransition,
-        boxShadow: shadows.dropdown,
-        padding: spacing.xsm,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '8px',
-        marginTop: '4px',
-        maxHeight: ignoreMaxHeight ? undefined : '360px',
-        overflow: 'auto',
-    };
-});
-
-export const SearchInputContainer = styled.div({
-    position: 'relative',
-    width: '100%',
-    display: 'flex',
-    justifyContent: 'center',
-});
-
-export const SearchInput = styled.input({
-    width: '100%',
+export const DropdownContainer = styled.div<{ ignoreMaxHeight?: boolean }>(({ ignoreMaxHeight }) => ({
     borderRadius: radius.md,
-    border: `1px solid ${colors.gray[200]}`,
-    color: colors.gray[500],
-    fontFamily: typography.fonts.body,
-    fontSize: typography.fontSizes.sm,
+    background: colors.white,
+    zIndex: zIndices.dropdown,
+    transition: sharedTransition,
+    boxShadow: shadows.dropdown,
     padding: spacing.xsm,
-    paddingRight: spacing.xlg,
-
-    '&:focus': {
-        borderColor: colors.violet[200],
-        outline: `${borders['1px']} ${colors.violet[200]}`,
-    },
-});
-
-export const SearchIcon = styled(Icon)({
-    position: 'absolute',
-    right: spacing.sm,
-    top: '50%',
-    transform: 'translateY(-50%)',
-    pointerEvents: 'none',
-});
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+    marginTop: '4px',
+    overflow: 'auto',
+    width: '100%',
+    maxHeight: ignoreMaxHeight ? undefined : '360px',
+}));
 
 // Styled components for SelectValue (Selected value display)
 export const SelectValue = styled.span({
@@ -150,14 +120,6 @@ export const ActionButtonsContainer = styled.div({
  * Components that can be reused to create new Select variants
  */
 
-export const FooterBase = styled.div({
-    display: 'flex',
-    justifyContent: 'flex-end',
-    gap: spacing.sm,
-    paddingTop: spacing.sm,
-    borderTop: `1px solid ${colors.gray[100]}`,
-});
-
 export const OptionList = styled.div({
     display: 'flex',
     flexDirection: 'column' as const,
@@ -167,6 +129,7 @@ export const LabelContainer = styled.div({
     display: 'flex',
     justifyContent: 'space-between',
     width: '100%',
+    alignItems: 'center',
 });
 
 export const OptionContainer = styled.div({
@@ -201,33 +164,11 @@ export const OptionLabel = styled.label<{
 }>(({ isSelected, isMultiSelect, isDisabled, applyHoverWidth }) => ({
     ...getOptionLabelStyle(isSelected, isMultiSelect, isDisabled, applyHoverWidth),
 }));
-export const SelectAllOption = styled.div<{ isSelected: boolean; isDisabled?: boolean }>(
-    ({ isSelected, isDisabled }) => ({
-        cursor: isDisabled ? 'not-allowed' : 'pointer',
-        padding: spacing.xsm,
-        color: isSelected ? colors.violet[700] : colors.gray[500],
-        fontWeight: typography.fontWeights.semiBold,
-        fontSize: typography.fontSizes.md,
-        display: 'flex',
-        alignItems: 'center',
-    }),
-);
 
 export const SelectLabel = styled.label({
     ...formLabelTextStyles,
     marginBottom: spacing.xxsm,
     textAlign: 'left',
-});
-
-export const StyledCancelButton = styled(Button)({
-    backgroundColor: colors.violet[100],
-    color: colors.violet[500],
-    borderColor: colors.violet[100],
-
-    '&:hover': {
-        backgroundColor: colors.violet[200],
-        borderColor: colors.violet[200],
-    },
 });
 
 export const StyledIcon = styled(Icon)({

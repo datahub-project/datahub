@@ -6,7 +6,7 @@ import { LoadingWrapper } from '@app/entityV2/shared/tabs/Incident/AcrylComponen
 import { IncidentTableRow } from '@app/entityV2/shared/tabs/Incident/types';
 import { getAssigneeWithURN } from '@app/entityV2/shared/tabs/Incident/utils';
 import { Avatar, SimpleSelect } from '@src/alchemy-components';
-import { SelectOption } from '@src/alchemy-components/components/Select/Nested/types';
+import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { useGetRecommendations } from '@src/app/shared/recommendation';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
@@ -19,11 +19,11 @@ interface AssigneeSelectorProps {
     setCachedAssignees: React.Dispatch<React.SetStateAction<any[]>>;
 }
 
-const renderSelectedAssignee = (selectedOption: SelectOption) => {
+const renderSelectedAssignee = (selectedOption: NestedSelectOption) => {
     return selectedOption ? <Avatar name={selectedOption?.label} showInPill /> : null;
 };
 
-const renderCustomAssigneeOption = (option: SelectOption) => {
+const renderCustomAssigneeOption = (option: NestedSelectOption) => {
     return <Avatar name={option?.label} showInPill />;
 };
 
@@ -31,7 +31,7 @@ export const IncidentAssigneeSelector = ({ data, form, setCachedAssignees }: Ass
     const { recommendedData, loading: recommendationsLoading } = useGetRecommendations([EntityType.CorpUser]);
     const [useSearch, setUseSearch] = useState(false);
     const assigneeValues = data?.assignees && getAssigneeWithURN(data.assignees);
-    const [selectedAssigneeOptions, setSelectedAssigneeOptions] = useState<SelectOption[]>([]);
+    const [selectedAssigneeOptions, setSelectedAssigneeOptions] = useState<NestedSelectOption[]>([]);
 
     const [assigneeList, setAssigneeList] = useState<any>(assigneeValues || []);
 
@@ -87,7 +87,7 @@ export const IncidentAssigneeSelector = ({ data, form, setCachedAssignees }: Ass
     }, [resolvedAssigneeEntities]);
 
     const onUpdateAssignees = (values: string[]) => {
-        const newSelectedAssigneeOptions: SelectOption[] = [];
+        const newSelectedAssigneeOptions: NestedSelectOption[] = [];
         values.forEach((value) => {
             const alreadySelected = newSelectedAssigneeOptions.some((item) => item?.value === value);
 
@@ -97,7 +97,7 @@ export const IncidentAssigneeSelector = ({ data, form, setCachedAssignees }: Ass
                     selectedAssigneeOptions.find((o) => o?.value === value);
 
                 if (option) {
-                    newSelectedAssigneeOptions.push(option as SelectOption);
+                    newSelectedAssigneeOptions.push(option as NestedSelectOption);
                 }
             }
         });

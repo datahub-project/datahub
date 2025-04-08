@@ -1,18 +1,18 @@
-import { Check, Warning } from '@phosphor-icons/react';
-import { FormInstance } from 'antd/es/form/Form';
 import React from 'react';
-
-import { SelectFormItem, SelectWrapper } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
-import { INCIDENT_OPTION_LABEL_MAPPING } from '@app/entityV2/shared/tabs/Incident/constant';
-import { IncidentConstant } from '@app/entityV2/shared/tabs/Incident/types';
-import { SimpleSelect, colors } from '@src/alchemy-components';
-import { IconLabel } from '@src/alchemy-components/components/IconLabel';
-import { IconType } from '@src/alchemy-components/components/IconLabel/types';
+import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { IncidentPriorityLabel } from '@src/alchemy-components/components/IncidentPriorityLabel';
 import { IncidentStagePill } from '@src/alchemy-components/components/IncidentStagePill';
-import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
-import { SelectOption } from '@src/alchemy-components/components/Select/Nested/types';
+import { colors, SimpleSelect } from '@src/alchemy-components';
 import { IncidentState } from '@src/types.generated';
+import { Check, Warning } from '@phosphor-icons/react';
+import { IconLabel } from '@src/alchemy-components/components/IconLabel';
+import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
+import { IconType } from '@src/alchemy-components/components/IconLabel/types';
+import { FormInstance } from 'antd/es/form/Form';
+
+import { INCIDENT_OPTION_LABEL_MAPPING } from '../constant';
+import { SelectFormItem, SelectWrapper } from './styledComponents';
+import { IncidentConstant } from '../types';
 
 const IncidentStates = {
     [IncidentState.Active]: {
@@ -57,7 +57,7 @@ export const IncidentSelectField = ({
     const { label, name } = incidentLabelMap;
     const placeholder = label.toLowerCase() === IncidentConstant.PRIORITY ? 'priority level' : label.toLowerCase();
     const isRequiredField = label.toLowerCase() === IncidentConstant.CATEGORY;
-    const renderOption = (option: SelectOption) => {
+    const renderOption = (option: NestedSelectOption) => {
         switch (label) {
             case INCIDENT_OPTION_LABEL_MAPPING.category.label:
                 return option.label;
@@ -87,7 +87,7 @@ export const IncidentSelectField = ({
         }
     };
 
-    const renderSelectedValue = (selectedOption: SelectOption) => {
+    const renderSelectedValue = (selectedOption: NestedSelectOption) => {
         if (!selectedOption) {
             return null;
         }
