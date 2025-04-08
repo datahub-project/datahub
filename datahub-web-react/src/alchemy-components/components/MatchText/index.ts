@@ -1,3 +1,3 @@
-import MatchText from './MatchText';
+import MatchText from '@components/components/MatchText/MatchText';
 
 export { MatchText };

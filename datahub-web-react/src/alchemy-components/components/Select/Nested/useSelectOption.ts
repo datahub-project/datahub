@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { NestedSelectOption } from './types';
+
+import { NestedSelectOption } from '@components/components/Select/Nested/types';
 
 interface Props<OptionType extends NestedSelectOption> {
     selectedOptions: OptionType[];

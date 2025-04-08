@@ -1,7 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
+
+import { LabelContainer, StyledCheckbox } from '@components/components/Select/components';
 import { colors, spacing, typography } from '@components/theme';
-import { LabelContainer, StyledCheckbox } from '../components';
 
 const SelectAllOption = styled.div<{ isSelected: boolean; isDisabled?: boolean }>(({ isSelected, isDisabled }) => ({
     cursor: isDisabled ? 'not-allowed' : 'pointer',

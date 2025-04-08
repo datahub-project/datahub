@@ -1,7 +1,8 @@
 import { Dropdown as AntdDropdown } from 'antd';
 import React, { useMemo } from 'react';
-import { useOverlayClassStackContext } from '../Utils/OverlayClassContext/OverlayClassContext';
-import { DropdownProps } from './types';
+
+import { DropdownProps } from '@components/components/Dropdown/types';
+import { useOverlayClassStackContext } from '@components/components/Utils/OverlayClassContext/OverlayClassContext';
 
 export default function Dropdown({ children, overlayClassName, ...props }: React.PropsWithChildren<DropdownProps>) {
     // Get all overlay classes from parents

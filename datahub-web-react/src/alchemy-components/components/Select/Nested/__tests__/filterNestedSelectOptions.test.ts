@@ -1,5 +1,5 @@
-import { NestedSelectOption } from '../types';
-import { filterNestedSelectOptions } from '../utils';
+import { NestedSelectOption } from '@components/components/Select/Nested/types';
+import { filterNestedSelectOptions } from '@components/components/Select/Nested/utils';
 
 describe('filterNestedSelectOptions', () => {
     const options: NestedSelectOption[] = [
