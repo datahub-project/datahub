@@ -22,6 +22,7 @@ export default function ManagePosts() {
     return (
         <PageContainer>
             <PageTitle
+                data-testid="managePostsV2"
                 title="Home Page"
                 subTitle="View and manage pinned announcements and links that appear to all users on the landing page."
             />
