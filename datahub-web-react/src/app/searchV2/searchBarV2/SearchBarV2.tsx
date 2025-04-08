@@ -325,7 +325,6 @@ export const SearchBarV2 = ({
             } else {
                 // Navigate directly to the entity profile.
                 history.push(getEntityPath(option.type, value, entityRegistry, false, false));
-                // setSelectedValue('');
                 onClearHandler();
                 analytics.event({
                     type: EventType.SelectAutoCompleteOption,
@@ -334,6 +333,7 @@ export const SearchBarV2 = ({
                     entityUrn: value,
                 } as Event);
             }
+            setIsDropdownVisible(false);
         },
         [onSearch, onClearHandler, entityRegistry, flatAppliedFilters, history],
     );
@@ -342,6 +342,17 @@ export const SearchBarV2 = ({
         ...style,
         backgroundColor: inputStyle?.backgroundColor,
     };
+
+    const onDropdownVisibilityChange = useCallback((isOpen) => {
+        if (!isOpen) {
+            setIsDropdownVisible(isOpen);
+        } else {
+            // set timeout so that we allow search bar to grow in width and therefore allow autocomplete to grow
+            setTimeout(() => {
+                setIsDropdownVisible(isOpen);
+            }, 0);
+        }
+    }, []);
 
     return (
         <>
@@ -405,16 +416,7 @@ export const SearchBarV2 = ({
                                       }
                                     : {}),
                             }}
-                            onDropdownVisibleChange={(isOpen) => {
-                                if (!isOpen) {
-                                    setIsDropdownVisible(isOpen);
-                                } else {
-                                    // set timeout so that we allow search bar to grow in width and therefore allow autocomplete to grow
-                                    setTimeout(() => {
-                                        setIsDropdownVisible(isOpen);
-                                    }, 0);
-                                }
-                            }}
+                            onDropdownVisibleChange={onDropdownVisibilityChange}
                             open={isDropdownVisible}
                             dropdownContentHeight={480}
                             dropdownMatchSelectWidth={isShowNavBarRedesign ? 664 : true}
