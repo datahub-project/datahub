@@ -673,8 +673,8 @@ export default function PolicyPrivilegeForm({
             {showResourceFilterInput && (
                 <Form.Item label={<Typography.Text strong>Select Containers</Typography.Text>}>
                     <Typography.Paragraph>
-                        The policy will apply to any chosen containers. If <b>none</b> are selected, the policy is
-                        applied to <b>all</b> containers.
+                        The policy will apply to resources only in the chosen containers. If <b>none</b> are
+                        selected, the policy is applied to resources in <b>all</b> containers.
                     </Typography.Paragraph>
                     <Select
                         showSearch
