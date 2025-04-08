@@ -26,6 +26,7 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DataTransformClass,
     DataTransformLogicClass,
+    QueryLanguageClass,
     QueryStatementClass,
     SubTypesClass,
 )
@@ -176,7 +177,13 @@ def _generate_job_workunits(
                     DataTransformClass(
                         queryStatement=QueryStatementClass(
                             value=procedure.procedure_definition,
-                            language=procedure.language,
+                            # Our language enum has a single value: "SQL". For all other languages,
+                            # we map them to "UNKNOWN" for now.
+                            language=(
+                                QueryLanguageClass.SQL
+                                if procedure.language == "SQL"
+                                else QueryLanguageClass.UNKNOWN
+                            ),
                         ),
                     )
                 ]
