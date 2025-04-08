@@ -31,12 +31,12 @@ A Remote Executor Pool provides a way to organize and manage your Remote Executo
 
 ## Configuration Prerequisites
 
-Before deploying a Remote Executor, ensure you have:
+Before deploying a Remote Executor, ensure you have the following:
 
 1. **DataHub Cloud**
    - A DataHub User with the **Manage Metadata Ingestion** Platform privilege
    - A DataHub Remote Executor Access Token (generate from **Settings > Access Tokens > Generate new token > Remote Executor**)
-   - Your DataHub Cloud URL (e.g., `<your-company>.acryl.io/gms`)
+   - Your DataHub Cloud URL (e.g., `<your-company>.acryl.io/gms`). **NOTE:** you MUST include the trailing `/gms` when configuring the executor.
 
 2. **Deployment Environment**
    - Access to your deployment platform (AWS ECS or Kubernetes)
@@ -82,16 +82,20 @@ Work with Acryl to receive deployment templates specific to your environment (He
 ### Deploy on Amazon ECS
 
 1. **Configure CloudFormation Template**
-   
-   Required parameters:
+The Acryl Team will provide a [Cloudformation Template](https://raw.githubusercontent.com/acryldata/datahub-cloudformation/master/remote-executor/datahub-executor.ecs.template.yaml) that you can run to provision an ECS cluster with a single remote ingestion task. It will also provision an AWS role for the task which grants the permissions necessary to read and delete from the private queue created for you, along with reading the secrets you've specified. At minimum, the template requires the following parameters:
+
    - Deployment Location (VPC and subnet)
    - DataHub Personal Access Token
-   - DataHub Cloud URL
-   - Acryl Remote Executor Version
+   - DataHub Cloud URL (e.g., `<your-company>.acryl.io/gms`)
+   - Optional: Acryl Remote Executor Version; defaults to latest
 
    Optional parameters:
-   - Source Secrets: `SECRET_NAME=SECRET_ARN` (up to 10)
-   - Environment Variables: `ENV_VAR_NAME=ENV_VAR_VALUE` (up to 10)
+   - Source Secrets: `SECRET_NAME=SECRET_ARN` (up to 10); separate multiple secrets by comma, e.g. `SECRET_NAME_1=SECRET_ARN_1,SECRET_NAME_2,SECRET_ARN_2`.
+   - Environment Variables: `ENV_VAR_NAME=ENV_VAR_VALUE` (up to 10); separate multiple variable by comma, e.g. `ENV_VAR_NAME_1=ENV_VAR_VALUE_1,ENV_VAR_NAME_2,ENV_VAR_VALUE_2`.
+
+:::note
+Configuring Secrets enables you to manage ingestion sources from the DataHub UI without storing credentials inside DataHub. Once defined, secrets can be referenced by name inside of your DataHub Ingestion Source configurations using the usual convention: `${SECRET_NAME}`.
+:::
 
 2. **Deploy Stack**
    ```bash
@@ -139,7 +143,7 @@ Work with Acryl to receive deployment templates specific to your environment (He
    ```bash
    helm install \
      --set global.datahub.executor.pool_id="remote" \
-     --set global.datahub.gms.url="https://company.acryl.io/gms" \
+     --set global.datahub.gms.url="https://<your-company>.acryl.io/gms" \
      --set image.tag=v0.3.1 \
      acryl datahub-executor-worker
    ```
