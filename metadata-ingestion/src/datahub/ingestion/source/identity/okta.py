@@ -8,9 +8,6 @@ from time import sleep
 from typing import Dict, Iterable, List, Optional, Set, Union
 
 import nest_asyncio
-from okta.client import Client as OktaClient
-from okta.exceptions import OktaAPIException
-from okta.models import Group, GroupProfile, User, UserProfile, UserStatus
 from pydantic import validator
 from pydantic.fields import Field
 
@@ -50,6 +47,9 @@ from datahub.metadata.schema_classes import (
     StatusClass,
 )
 from datahub.utilities.lossy_collections import LossyList
+from okta.client import Client as OktaClient
+from okta.exceptions import OktaAPIException
+from okta.models import Group, GroupProfile, User, UserProfile, UserStatus
 
 logger = logging.getLogger(__name__)
 nest_asyncio.apply()

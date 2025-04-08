@@ -1,7 +1,7 @@
+import { ClockCircleOutlined } from '@ant-design/icons';
+import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Divider } from 'antd';
-import { ClockCircleOutlined } from '@ant-design/icons';
 import { FreshnessContract } from '../../../../../../../types.generated';
 import { ANTD_GRAY } from '../../../../constants';
 import { DataContractSummaryFooter } from './DataContractSummaryFooter';
@@ -66,7 +66,7 @@ export const FreshnessContractSummary = ({ contracts, showAction = false }: Prop
             <SummaryContainer>
                 <Header>
                     <ClockCircleOutlined style={{ marginRight: 8 }} />
-                    UPDATE FREQUENCY
+                    Update Frequency
                 </Header>
                 <Body>
                     {!assertionDefinition && <>No contract found :(</>}

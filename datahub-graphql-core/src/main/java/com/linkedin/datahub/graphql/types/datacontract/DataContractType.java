@@ -28,6 +28,7 @@ public class DataContractType
       ImmutableSet.of(
           Constants.DATA_CONTRACT_KEY_ASPECT_NAME,
           Constants.DATA_CONTRACT_PROPERTIES_ASPECT_NAME,
+          Constants.STRUCTURED_PROPERTIES_ASPECT_NAME,
           Constants.DATA_CONTRACT_STATUS_ASPECT_NAME);
   private final EntityClient _entityClient;
 
@@ -74,7 +75,7 @@ public class DataContractType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<DataContract>newResult()
-                          .data(DataContractMapper.mapContract(gmsResult))
+                          .data(DataContractMapper.mapContract(context, gmsResult))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {

@@ -41,6 +41,8 @@ interface Props {
         fieldUrn?: string;
         fieldProperties?: Maybe<StructuredProperties>;
         refetch?: () => void;
+        disableEdit?: boolean;
+        disableSearch?: boolean;
     };
     renderType?: TabRenderType;
 }
@@ -98,7 +100,8 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
     ];
 
     const canEditProperties =
-        entityData?.parent?.privileges?.canEditProperties || entityData?.privileges?.canEditProperties;
+        (entityData?.parent?.privileges?.canEditProperties || entityData?.privileges?.canEditProperties) &&
+        !properties?.disableEdit;
 
     if (canEditProperties) {
         propertyTableColumns.push({
@@ -117,12 +120,14 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
 
     return (
         <>
-            <TabHeader
-                setFilterText={setFilterText}
-                fieldUrn={fieldUrn}
-                fieldProperties={fieldProperties}
-                refetch={refetch}
-            />
+            {!properties?.disableSearch && (
+                <TabHeader
+                    setFilterText={setFilterText}
+                    fieldUrn={fieldUrn}
+                    fieldProperties={fieldProperties}
+                    refetch={refetch}
+                />
+            )}
             <StyledTable
                 pagination={false}
                 // typescript is complaining that default sort order is not a valid column field- overriding this here

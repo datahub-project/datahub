@@ -83,7 +83,7 @@ public class EntityDataContractResolver implements DataFetcher<CompletableFuture
 
               if (entityResponse != null) {
                 // Step 4: Package and return result
-                return DataContractMapper.mapContract(entityResponse);
+                return DataContractMapper.mapContract(context, entityResponse);
               }
             }
             // No contract found

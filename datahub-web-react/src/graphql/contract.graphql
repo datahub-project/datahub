@@ -36,6 +36,11 @@ fragment dataContractDetails on DataContract {
     status {
         state
     }
+    structuredProperties {
+        properties {
+            ...structuredPropertiesFields
+        }
+    }
 }
 
 query getDatasetContract($urn: String!) {
