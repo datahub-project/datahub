@@ -177,12 +177,16 @@ def _generate_job_workunits(
                     DataTransformClass(
                         queryStatement=QueryStatementClass(
                             value=procedure.procedure_definition,
-                            # Our language enum has a single value: "SQL". For all other languages,
-                            # we map them to "UNKNOWN" for now.
                             language=(
                                 QueryLanguageClass.SQL
                                 if procedure.language == "SQL"
-                                else QueryLanguageClass.UNKNOWN
+                                # The language field uses a pretty limited enum.
+                                # The "UNKNOWN" enum value is pretty new, so we don't want to
+                                # emit it until it has broader server-side support. As a
+                                # short-term solution, we map all languages to "SQL".
+                                # TODO: Once we've released server 1.1.0, we should change
+                                # this to be "UNKNOWN" for all languages except "SQL".
+                                else QueryLanguageClass.SQL
                             ),
                         ),
                     )
