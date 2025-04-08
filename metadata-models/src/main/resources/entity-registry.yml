@@ -665,6 +665,12 @@ entities:
       - dataPlatformInstance
       - platformResourceInfo
       - status
+  - name: dataHubOpenAPISchema
+    doc: Contains aspects which are used in OpenAPI requests/responses which are not otherwise present in the data model.
+    category: internal
+    keyAspect: dataHubOpenAPISchemaKey
+    aspects:
+      - systemMetadata
 events:
 plugins:
   aspectPayloadValidators:
