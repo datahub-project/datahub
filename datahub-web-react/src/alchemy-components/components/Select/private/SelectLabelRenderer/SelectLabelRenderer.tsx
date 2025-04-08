@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { SelectLabelDisplayProps } from '../../types';
+import { SelectOption, SelectLabelDisplayProps } from '../../types';
 import MultiSelectDefault from './variants/MultiSelectDefault';
 import MultiSelectLabeled from './variants/MultiSelectLabeled';
 import SingleSelectDefault from './variants/SingleSelectDefault';
@@ -7,7 +7,10 @@ import SingleSelectLabeled from './variants/SingleSelectLabeled';
 import SingleSelectCustom from './variants/SingleSelectCustom';
 import MultiSelectCustom from './variants/MultiSelectCustom';
 
-export default function SelectLabelRenderer({ variant, ...props }: SelectLabelDisplayProps) {
+export default function SelectLabelRenderer<OptionType extends SelectOption>({
+    variant,
+    ...props
+}: SelectLabelDisplayProps<OptionType>) {
     const { isMultiSelect, options, selectedValues } = props;
 
     const selectedOptions = useMemo(
