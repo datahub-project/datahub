@@ -590,8 +590,8 @@ class MLflowSource(StatefulIngestionSourceBase):
         )
         return runs
 
-    @staticmethod
     def _traverse_mlflow_search_func(
+        self,
         search_func: Callable[..., PagedList[T]],
         **kwargs: Any,
     ) -> Iterable[T]:
@@ -608,11 +608,11 @@ class MLflowSource(StatefulIngestionSourceBase):
                     return
         except MlflowException as e:
             if e.error_code == "ENDPOINT_NOT_FOUND":
-                logger.warning(e.message)
-                logger.warning(
-                    "Please upgrade your MLflow server to version 1.28.0 or higher"
+                self.report.warning(
+                    title="MLflow API Endpoint Not Found for Experiments.",
+                    message="Please upgrade to version 1.28.0 or higher to ensure compatibility. Skipping ingestion for experiments and runs.",
+                    context=e.message,
                 )
-                logger.warning("Skipping ingestion for experiments")
                 return
             else:
                 raise  # Only re-raise other exceptions
