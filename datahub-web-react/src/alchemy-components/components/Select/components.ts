@@ -180,13 +180,13 @@ export const DescriptionContainer = styled.span({
     marginTop: spacing.xxsm,
 });
 
-export const LabelsWrapper = styled.div({
+export const LabelsWrapper = styled.div<{ shouldShowGap?: boolean }>(({ shouldShowGap = false }) => ({
     display: 'flex',
     flexWrap: 'wrap',
-    gap: spacing.xxsm,
+    gap: shouldShowGap ? spacing.xxsm : '0px',
     maxHeight: '150px',
     maxWidth: '100%',
-});
+}));
 
 export const OptionLabel = styled.label<{
     isSelected: boolean;
@@ -276,14 +276,6 @@ export const StyledBubbleButton = styled(Button)({
     border: `1px solid ${colors.gray[200]}`,
     color: colors.black,
     padding: '1px',
-});
-
-export const CountBadge = styled.div({
-    backgroundColor: colors.gray[200],
-    color: colors.black,
-    padding: '3px 5px',
-    borderRadius: 50,
-    fontSize: typography.fontSizes.sm,
 });
 
 export const HighlightedLabel = styled.span`

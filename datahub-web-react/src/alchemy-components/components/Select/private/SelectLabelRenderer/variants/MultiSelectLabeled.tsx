@@ -1,13 +1,14 @@
 import React from 'react';
-import { ActionButtonsContainer, HighlightedLabel, LabelsWrapper, SelectValue } from '../../../components';
+import { Pill } from '@components';
+import { ActionButtonsContainer, LabelsWrapper, SelectValue } from '../../../components';
 import { SelectLabelVariantProps } from '../../../types';
 
 export default function MultiSelectLabeled({ selectedOptions, label }: SelectLabelVariantProps) {
     return (
-        <LabelsWrapper>
+        <LabelsWrapper shouldShowGap={false}>
             <ActionButtonsContainer>
                 <SelectValue>{label}</SelectValue>
-                <HighlightedLabel>{selectedOptions.length}</HighlightedLabel>
+                <Pill label={`${selectedOptions.length}`} size="sm" variant="filled" />
             </ActionButtonsContainer>
         </LabelsWrapper>
     );

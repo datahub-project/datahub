@@ -170,7 +170,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             if self.config.workspace_pattern.allowed(workspace.name):
                 allowed_workspaces.append(workspace)
             else:
-                self.reporter.workspaces.dropped(workspace.workspaceId)
+                self.reporter.workspaces.dropped(
+                    f"{workspace.name} ({workspace.workspaceId})"
+                )
         logger.info(f"Number of allowed workspaces = {len(allowed_workspaces)}")
 
         return allowed_workspaces
@@ -661,7 +663,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             yield from self._gen_workbook_workunit(workbook)
 
         for workspace in self._get_allowed_workspaces():
-            self.reporter.workspaces.processed(workspace.workspaceId)
+            self.reporter.workspaces.processed(
+                f"{workspace.name} ({workspace.workspaceId})"
+            )
             yield from self._gen_workspace_workunit(workspace)
         yield from self._gen_sigma_dataset_upstream_lineage_workunit()
 
