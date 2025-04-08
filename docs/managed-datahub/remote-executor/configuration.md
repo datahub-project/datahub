@@ -165,15 +165,22 @@ The update process will maintain your existing resources (e.g., secrets, IAM rol
 
 ### Deploy on Kubernetes
 
-1. **Add Helm Repository**
-   ```bash
-   helm repo add acryl https://executor-helm.acryl.io
-   helm repo update
-   ```
+The [datahub-executor-worker](https://executor-helm.acryl.io/index.yaml) Helm chart provides a streamlined way to deploy Remote Executors on any Kubernetes cluster, including Amazon EKS and Google GKE.
 
-2. **Create Secrets**
+1. **Registry Access Configuration**
+
+To access the private Acryl container registry, you'll need to work with your Acryl representative to set up the necessary permissions:
+- For AWS EKS: Provide the IAM principal that will pull from the ECR repository
+- For Google Cloud: Provide the cluster's IAM service account
+- For other platforms: Contact Acryl for specific requirements
+
+2. **Configure Secrets**
+
+Create the required secrets in your Kubernetes cluster:
+
    ```bash
-   # Create DataHub PAT secret
+   # Create DataHub PAT secret (required)
+   # Generate token from Settings > Access Tokens in DataHub UI
    kubectl create secret generic datahub-access-token-secret \
      --from-literal=datahub-access-token-secret-key=<DATAHUB-ACCESS-TOKEN>
 
@@ -184,7 +191,15 @@ The update process will maintain your existing resources (e.g., secrets, IAM rol
    ```
 
 3. **Install Helm Chart**
+
+Add the Acryl Helm repository and install the chart:
+
    ```bash
+   # Add Helm repository
+   helm repo add acryl https://executor-helm.acryl.io
+   helm repo update
+
+   # Install the chart
    helm install \
      --set global.datahub.executor.pool_id="remote" \
      --set global.datahub.gms.url="https://<your-company>.acryl.io/gms" \
@@ -192,9 +207,29 @@ The update process will maintain your existing resources (e.g., secrets, IAM rol
      acryl datahub-executor-worker
    ```
 
-4. **Mount Secrets (Optional)**
+   Required parameters:
+   - `global.datahub.executor.pool_id`: Your Executor Pool ID
+   - `global.datahub.gms.url`: Your DataHub Cloud URL (must include `/gms`)
+   - `image.tag`: Acryl Remote Executor version
+
+4. **Configure Secret Mounting (Optional)**
+
+Starting from DataHub Cloud v0.3.8.2, you can manage secrets using Kubernetes Secret CRDs. This enables runtime secret updates without executor restarts.
+
+Create a Kubernetes secret:
    ```yaml
-   # In your values.yaml
+   # secret.yaml
+   apiVersion: v1
+   kind: Secret
+   metadata:
+     name: datahub-secret-store
+   data:
+     REDSHIFT_PASSWORD: <base64-encoded-password>
+     SNOWFLAKE_PASSWORD: <base64-encoded-password>
+   ```
+
+Mount the secret in your `values.yaml`:
+   ```yaml
    extraVolumes:
      - name: datahub-secret-store
        secret:
@@ -203,6 +238,26 @@ The update process will maintain your existing resources (e.g., secrets, IAM rol
      - mountPath: /mnt/secrets
        name: datahub-secret-store
    ```
+
+:::note
+Secret Configuration:
+- Default mount path: `/mnt/secrets` (override with `DATAHUB_EXECUTOR_FILE_SECRET_BASEDIR`)
+- Default file size limit: 1MB (override with `DATAHUB_EXECUTOR_FILE_SECRET_MAXLEN`)
+- Reference secrets in ingestion recipes using `${SECRET_NAME}` syntax
+:::
+
+Example ingestion recipe using mounted secrets:
+   ```yaml
+   source:
+     type: redshift
+     config:
+       host_port: '<redshift-host:port>'
+       username: connector_test
+       password: '${REDSHIFT_PASSWORD}'
+       # ... other configuration ...
+   ```
+
+For additional configuration options, refer to the [values.yaml](https://github.com/acryldata/datahub-executor-helm/blob/main/charts/datahub-executor-worker/values.yaml) file in the Helm chart repository.
 
 </TabItem>
 </Tabs>
