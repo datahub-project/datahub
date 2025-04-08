@@ -74,7 +74,6 @@ export const useIncidentHandler = ({
     mode,
     onSubmit,
     incidentUrn,
-    onClose,
     user,
     assignees,
     linkedAssets,
