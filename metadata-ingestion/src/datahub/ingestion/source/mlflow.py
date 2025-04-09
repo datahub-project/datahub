@@ -205,6 +205,7 @@ class MLflowSource(StatefulIngestionSourceBase):
         """
         Create tags for each Stage in MLflow Model Registry.
         """
+        logger.info("!!! getting tags workunits")
         for stage_info in self.registered_model_stages_info:
             tag_urn = self._make_stage_tag_urn(stage_info.name)
             tag_properties = TagPropertiesClass(
@@ -319,6 +320,7 @@ class MLflowSource(StatefulIngestionSourceBase):
         """
         Get all Registered Models in MLflow Model Registry.
         """
+        logger.info("!!! getting mlflow registered models")
         registered_models: Iterable[RegisteredModel] = (
             self._traverse_mlflow_search_func(
                 search_func=self.client.search_registered_models,
@@ -347,13 +349,18 @@ class MLflowSource(StatefulIngestionSourceBase):
         """
         Utility to traverse an MLflow search_* functions which return PagedList.
         """
-        next_page_token = None
-        while True:
-            paged_list = search_func(page_token=next_page_token, **kwargs)
-            yield from paged_list.to_list()
-            next_page_token = paged_list.token
-            if not next_page_token:
-                return
+        logger.info(f"!!! traversing mlflow search function with {search_func.__name__}")
+        try:
+            next_page_token = None
+            while True:
+                paged_list = search_func(page_token=next_page_token, **kwargs)
+                yield from paged_list.to_list()
+                next_page_token = paged_list.token
+                if not next_page_token:
+                    return
+        except Exception as e:
+            logger.error(f"Error traversing MLflow search function: {e}")
+            return
 
     def _get_latest_version(self, registered_model: RegisteredModel) -> Optional[str]:
         return (
@@ -434,7 +441,10 @@ class MLflowSource(StatefulIngestionSourceBase):
         """
         Traverse each Registered Model in Model Registry and generate a corresponding workunit.
         """
+        logger.info("!!! getting ml model workunits")
         registered_models = self._get_mlflow_registered_models()
+        logger.info(f"!!! got registered models")
+        logger.info(f"!!! iterating through registered models")
         for registered_model in registered_models:
             self._get_ml_group_workunit(registered_model)
             model_versions = self._get_mlflow_model_versions(registered_model)
