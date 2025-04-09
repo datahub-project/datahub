@@ -27,11 +27,11 @@
 
   /* Navbar */
   --ifm-navbar-background-color: var(--ifm-background-color);
-  --ifm-navbar-height: 70px;
+  --ifm-navbar-height: 60px;
   --ifm-navbar-item-padding-horizontal: 1rem;
 
   /* Announcement Bar */
-  --docusaurus-announcement-bar-height: 52px !important;
+  --docusaurus-announcement-bar-height: 45px !important;
 
   /* Rule */
   --ifm-hr-border-width: 1px 0 0 0;
@@ -110,7 +110,8 @@ div[class^="announcementBar"] {
   left: 0;
   right: 0;
   height: var(--docusaurus-announcement-bar-height);
-  
+  font-size: 0.9rem;
+
   div {
     height: 100%;
     display: flex;
@@ -192,7 +193,7 @@ body {
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.1);
 
   .navbar__logo {
-    height: 3rem;
+    height: 2.5rem;
   }
 
   .navbar__link {
@@ -557,4 +558,8 @@ body {
   to {
       transform: scaleY(1);
   }
+}
+
+.announcementBar .button {
+  border-radius: 50px;
 }
