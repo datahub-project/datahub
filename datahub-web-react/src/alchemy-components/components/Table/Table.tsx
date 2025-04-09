@@ -201,8 +201,8 @@ export const Table = <T,>({
                                     }}
                                     isFocused={focusedRowIndex === index}
                                     isRowClickable={isRowClickable}
-                                    isRowHovered
                                     data-testId={rowDataTestId?.(row)}
+                                    canHover
                                 >
                                     {/* Render each cell in the row */}
 
@@ -249,7 +249,7 @@ export const Table = <T,>({
                                 </TableRow>
                                 {/* Render expanded content if row is expanded */}
                                 {isExpanded && expandable?.expandedRowRender && (
-                                    <TableRow isRowClickable={isRowClickable}>
+                                    <TableRow isRowClickable={isRowClickable} canHover={false}>
                                         <TableCell
                                             colSpan={columns.length + (expandable?.expandIconPosition ? 1 : 0)}
                                             style={{ padding: 0 }}

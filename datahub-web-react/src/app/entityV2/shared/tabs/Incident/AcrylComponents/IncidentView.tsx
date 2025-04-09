@@ -131,43 +131,16 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
     };
 
     const renderActivities = (() => {
-        // TODO Amit: Move this into a separate utilities file.
-        const { creator, lastUpdated } = incidentActivityActors;
-        const isCreatedAndUpdatedBySameUser = creator === lastUpdated;
+        const baseActivity = {
+            actor: incidentCreator,
+            action: INCIDENT_STATE_TO_ACTIVITY.RAISED,
+            time: incident?.creator?.time,
+        };
 
-        if (isCreatedAndUpdatedBySameUser) {
-            if (incident?.state === IncidentState.Resolved) {
-                return [
-                    {
-                        actor: incidentCreator,
-                        action: INCIDENT_STATE_TO_ACTIVITY.RAISED,
-                        time: incident?.creator?.time,
-                    },
-                    {
-                        actor: incidentResolver,
-                        action: INCIDENT_STATE_TO_ACTIVITY.RESOLVED,
-                        time: incident?.lastUpdated?.time,
-                        message: incident?.message,
-                    },
-                ];
-            }
-
-            if (incident?.state === IncidentState.Active) {
-                return [
-                    {
-                        actor: incidentCreator,
-                        action: INCIDENT_STATE_TO_ACTIVITY.RAISED,
-                        time: incident?.creator?.time,
-                    },
-                ];
-            }
-        } else if (incident?.state === IncidentState.Resolved) {
+        // Only add the resolved activity if the incident state is Resolved
+        if (incident?.state === IncidentState.Resolved) {
             return [
-                {
-                    actor: incidentCreator,
-                    action: INCIDENT_STATE_TO_ACTIVITY.RAISED,
-                    time: incident?.creator?.time,
-                },
+                baseActivity,
                 {
                     actor: incidentResolver,
                     action: INCIDENT_STATE_TO_ACTIVITY.RESOLVED,
@@ -177,13 +150,8 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
             ];
         }
 
-        return [
-            {
-                actor: incidentCreator,
-                action: INCIDENT_STATE_TO_ACTIVITY.RAISED,
-                time: incident?.creator?.time,
-            },
-        ];
+        // Otherwise just return the base activity
+        return [baseActivity];
     })();
 
     /** Assertion Related Logic. */

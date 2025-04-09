@@ -57,15 +57,15 @@ export const TableRow = styled.tr<{
     canExpand?: boolean;
     isRowClickable?: boolean;
     isFocused?: boolean;
-    isRowHovered?: boolean;
-}>(({ canExpand, isRowClickable, isFocused, isRowHovered }) => ({
+    canHover?: boolean;
+}>(({ canExpand, isRowClickable, isFocused, canHover }) => ({
     background: canExpand ? colors.gray[100] : 'transparent',
     ...(isFocused
         ? {
               background: `linear-gradient(180deg, rgba(83,63,209,0.04) -3.99%, rgba(112,94,228,0.04) 53.04%, rgba(112,94,228,0.04) 100%)`,
           }
         : {}),
-    '&:hover': isRowHovered && !canExpand ? { backgroundColor: colors.gray[1500] } : {},
+    '&:hover': canHover ? { backgroundColor: colors.gray[1500] } : {},
     cursor: isRowClickable ? 'pointer' : 'normal',
     '&:last-child': {
         '& td': {
