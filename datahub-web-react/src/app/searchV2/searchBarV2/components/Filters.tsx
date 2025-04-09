@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import styled from 'styled-components';
 
 import SearchFilters from '@app/searchV2/filtersV2/SearchFilters';
@@ -8,6 +8,7 @@ import {
     FieldToAppliedFieldFiltersMap,
     FiltersRendererProps,
 } from '@app/searchV2/filtersV2/types';
+import { convertFacetsToFieldToFacetStateMap } from '@app/searchV2/filtersV2/utils';
 import {
     DOMAINS_FILTER_NAME,
     ENTITY_SUB_TYPE_FILTER_NAME,
@@ -15,6 +16,7 @@ import {
     PLATFORM_FILTER_NAME,
     TAGS_FILTER_NAME,
 } from '@app/searchV2/utils/constants';
+import { FacetMetadata } from '@src/types.generated';
 
 const FILTER_FIELDS = [
     PLATFORM_FILTER_NAME,
@@ -44,9 +46,12 @@ interface Props {
     query: string;
     appliedFilters?: FieldToAppliedFieldFiltersMap;
     updateFieldAppliedFilters?: AppliedFieldFilterUpdater;
+    facets?: FacetMetadata[];
 }
 
-export default function Filters({ query, appliedFilters, updateFieldAppliedFilters }: Props) {
+export default function Filters({ query, appliedFilters, updateFieldAppliedFilters, facets }: Props) {
+    const fieldToFacetStateMap = useMemo(() => convertFacetsToFieldToFacetStateMap(facets), [facets]);
+
     return (
         <SearchFilters
             fields={FILTER_FIELDS}
@@ -54,6 +59,7 @@ export default function Filters({ query, appliedFilters, updateFieldAppliedFilte
             appliedFilters={appliedFilters}
             updateFieldAppliedFilters={updateFieldAppliedFilters}
             filtersRenderer={MemoFiltersRenderer}
+            fieldToFacetStateMap={fieldToFacetStateMap}
         />
     );
 }

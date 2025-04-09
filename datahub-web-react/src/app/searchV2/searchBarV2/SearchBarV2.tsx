@@ -23,7 +23,7 @@ import {
     EXACT_AUTOCOMPLETE_OPTION_TYPE,
     RELEVANCE_QUERY_OPTION_TYPE,
 } from '@app/searchV2/searchBarV2/constants';
-import useAutocompleteSuggestionsOptions from '@app/searchV2/searchBarV2/hooks/useAutocompleteSuggestionsOptions';
+import useSearchResultsOptions from '@app/searchV2/searchBarV2/hooks/useAutocompleteSuggestionsOptions';
 import useFocusElementByCommandK from '@app/searchV2/searchBarV2/hooks/useFocusSearchBarByCommandK';
 import useRecentlySearchedQueriesOptions from '@app/searchV2/searchBarV2/hooks/useRecentlySearchedQueriesOptions';
 import useRecentlyViewedEntitiesOptions from '@app/searchV2/searchBarV2/hooks/useRecentlyViewedEntitiesOptions';
@@ -176,8 +176,6 @@ export const SearchBarV2 = ({
     isLoading,
     initialQuery,
     placeholderText,
-    suggestions,
-    isSuggestionsLoading,
     onSearch,
     onQueryChange,
     onFilter,
@@ -195,6 +193,9 @@ export const SearchBarV2 = ({
     textColor,
     placeholderColor,
     isShowNavBarRedesign,
+    facets,
+    entities,
+    isDataLoading,
 }: SearchBarProps) => {
     const history = useHistory();
     const appConfig = useAppConfig();
@@ -205,7 +206,7 @@ export const SearchBarV2 = ({
     const [searchQuery, setSearchQuery] = useState<string>(initialQuery || '');
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
     // used to show Loader when we searching for suggestions in both cases for the first time and after clearing searchQuery
-    const [isSuggestionsInitialized, setIsSuggestionsInitialized] = useState<boolean>(false);
+    const [isDataInitialized, setIsDataInitialized] = useState<boolean>(false);
     const [isSearchBarFocused, setIsFocused] = useState(false);
     const { appliedFilters, hasAppliedFilters, flatAppliedFilters, clear, updateFieldFilters } = useAppliedFilters();
 
@@ -215,12 +216,12 @@ export const SearchBarV2 = ({
     useEffect(() => onFilter?.(appliedFilters), [appliedFilters, onFilter]);
 
     useEffect(() => {
-        if (searchQuery === '') setIsSuggestionsInitialized(false);
+        if (searchQuery === '') setIsDataInitialized(false);
     }, [searchQuery]);
 
     useEffect(() => {
-        if (!isSuggestionsLoading) setIsSuggestionsInitialized(true);
-    }, [isSuggestionsLoading]);
+        if (!isDataLoading) setIsDataInitialized(true);
+    }, [isDataLoading]);
 
     const recentlySearchedQueriesOptions = useRecentlySearchedQueriesOptions();
     const recentlyViewedEntitiesOptions = useRecentlyViewedEntitiesOptions();
@@ -236,13 +237,13 @@ export const SearchBarV2 = ({
         return hasSearchQuery || hasAppliedFilters;
     }, [searchQuery, hasAppliedFilters]);
 
-    const hasAutocompleteResults = useMemo(() => suggestions.length > 0, [suggestions.length]);
+    const hasResults = useMemo(() => (entities?.length ?? 0) > 0, [entities?.length]);
 
-    const autocompleteSuggestionsOptions = useAutocompleteSuggestionsOptions(
-        suggestions,
+    const searchResultsOptions = useSearchResultsOptions(
+        entities,
         searchQuery,
-        isSuggestionsLoading,
-        isSuggestionsInitialized,
+        isDataLoading,
+        isDataInitialized,
         finalCombineSiblings,
     );
 
@@ -250,19 +251,19 @@ export const SearchBarV2 = ({
         if (!isSearching) return initialOptions;
 
         if (showAutoCompleteResults) {
-            if (!isSuggestionsLoading && !hasAutocompleteResults) return [];
-            return [...viewAllResultsOptions, ...autocompleteSuggestionsOptions];
+            if (!isDataLoading && !hasResults) return [];
+            return [...viewAllResultsOptions, ...searchResultsOptions];
         }
 
         return [];
     }, [
         isSearching,
-        hasAutocompleteResults,
+        hasResults,
         initialOptions,
-        autocompleteSuggestionsOptions,
+        searchResultsOptions,
         viewAllResultsOptions,
         showAutoCompleteResults,
-        isSuggestionsLoading,
+        isDataLoading,
     ]);
 
     const searchBarWrapperRef = useRef<HTMLDivElement>(null);
@@ -387,6 +388,7 @@ export const SearchBarV2 = ({
                                                 query={searchQuery ?? ''}
                                                 appliedFilters={appliedFilters}
                                                 updateFieldAppliedFilters={updateFieldFilters}
+                                                facets={facets}
                                             />
                                         )}
                                         {props}
