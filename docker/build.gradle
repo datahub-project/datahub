@@ -19,7 +19,8 @@ ext {
             ':metadata-service:war',
     ]
 
-    python_services_modules = []
+    python_services_modules = [
+    ]
 
     // Common configuration for all tasks
     common_config = [
@@ -35,6 +36,7 @@ ext {
                             ':datahub-frontend',
                             ':metadata-jobs:mce-consumer-job',
                             ':metadata-jobs:mae-consumer-job',
+                            ':datahub-actions:datahub-actions',
                     ]
             ],
             'quickstartDebug': [

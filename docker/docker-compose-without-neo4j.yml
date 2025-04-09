@@ -22,7 +22,7 @@ services:
 
   datahub-actions:
     hostname: actions
-    image: ${DATAHUB_ACTIONS_IMAGE:-acryldata/datahub-actions}:${ACTIONS_VERSION:-head}
+    image: ${DATAHUB_ACTIONS_IMAGE:-acryldata/datahub-actions}:${DATAHUB_VERSION:-head}
     build:
       context: ../
       dockerfile: docker/datahub-actions/Dockerfile
