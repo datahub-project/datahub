@@ -77,6 +77,10 @@ from datahub.sdk.dataset import Dataset
 
 T = TypeVar("T")
 
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 class MLflowConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     tracking_uri: Optional[str] = Field(
@@ -195,8 +199,8 @@ class MLflowSource(StatefulIngestionSourceBase):
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        yield from self._get_tags_workunits()
-        yield from self._get_experiment_workunits()
+        # yield from self._get_tags_workunits()
+        # yield from self._get_experiment_workunits()
         yield from self._get_ml_model_workunits()
 
     def _get_tags_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -232,14 +236,18 @@ class MLflowSource(StatefulIngestionSourceBase):
 
     def _get_experiment_workunits(self) -> Iterable[MetadataWorkUnit]:
         experiments = self._get_mlflow_experiments()
+        logger.info(f"!!! found {len(list(experiments))} experiments")
         for experiment in experiments:
-            yield from self._get_experiment_container_workunit(experiment)
-
+            # yield from self._get_experiment_container_workunit(experiment)
+        
             runs = self._get_mlflow_runs_from_experiment(experiment)
-            if runs:
-                for run in runs:
-                    yield from self._get_run_workunits(experiment, run)
-                    yield from self._get_dataset_input_workunits(run)
+            logger.info(f"!!! experiment name: {experiment.name}")
+            logger.info(f"!!! total {len(list(runs))} runs")
+            # if runs:
+            #     for run in runs:
+            #         yield from self._get_run_workunits(experiment, run)
+            #         yield from self._get_dataset_input_workunits(run)
+        return iter([])  # Return empty iterable instead of yielding it
 
     def _get_experiment_custom_properties(self, experiment):
         experiment_custom_props = getattr(experiment, "tags", {}) or {}
@@ -597,13 +605,45 @@ class MLflowSource(StatefulIngestionSourceBase):
         """
         Utility to traverse an MLflow search_* functions which return PagedList.
         """
+        logger.info(f"!!! Starting search with function: {search_func.__name__} and kwargs: {kwargs}")
         next_page_token = None
-        while True:
-            paged_list = search_func(page_token=next_page_token, **kwargs)
-            yield from paged_list.to_list()
-            next_page_token = paged_list.token
-            if not next_page_token:
-                return
+        page_count = 0
+        total_items = 0
+        
+        try:
+            while True:
+                page_count += 1
+                logger.info(f"!!! Fetching page {page_count} with token: {next_page_token}")
+                
+                paged_list = search_func(page_token=next_page_token, **kwargs)
+                
+                items = paged_list.to_list()
+                page_items_count = len(items)
+                total_items += page_items_count
+                
+                logger.info(f"!!! Page {page_count} returned {page_items_count} items")
+                logger.info(f"!!! First few items: {items[:3] if items else 'None'}")
+                
+                if items:
+                    first_item = items[0]
+                    logger.info(f"!!! First item type: {type(first_item)}")
+                    if hasattr(first_item, 'name'):
+                        logger.info(f"!!! First item name: {first_item.name}")
+                    if hasattr(first_item, 'version'):
+                        logger.info(f"!!! First item version: {first_item.version}")
+                
+                yield from items
+                
+                next_page_token = paged_list.token
+                logger.info(f"!!! Next page token: {next_page_token}")
+                
+                if not next_page_token:
+                    logger.info(f"!!! Search complete, found {total_items} total items across {page_count} pages")
+                    return
+        except Exception as e:
+            logger.error(f"!!! Error in search function: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
 
     def _get_latest_version(self, registered_model: RegisteredModel) -> Optional[str]:
         return (
@@ -690,23 +730,30 @@ class MLflowSource(StatefulIngestionSourceBase):
         """
         Traverse each Registered Model in Model Registry and generate a corresponding workunit.
         """
-        registered_models = self._get_mlflow_registered_models()
-        for registered_model in registered_models:
+        registered_models_list = list(self._get_mlflow_registered_models())
+        logger.info(f"Found {len(registered_models_list)} registered models")
+        
+        for i, registered_model in enumerate(registered_models_list):
+            logger.info(f"!!! {i+1} registered model name: {registered_model.name}")
             version_set_urn = self._get_version_set_urn(registered_model)
-            yield self._get_ml_group_workunit(registered_model)
-            model_versions = self._get_mlflow_model_versions(registered_model)
-            for model_version in model_versions:
+            
+            model_versions_list = list(self._get_mlflow_model_versions(registered_model))
+            logger.info(f"Found {len(model_versions_list)} versions for model {registered_model.name}")
+            
+            for model_version in model_versions_list:
+                logger.info(f"!!! model version: {model_version.version}")
                 run = self._get_mlflow_run(model_version)
-                yield self._get_ml_model_properties_workunit(
-                    registered_model=registered_model,
-                    model_version=model_version,
-                    run=run,
-                )
-                yield self._get_ml_model_version_properties_workunit(
-                    model_version=model_version,
-                    version_set_urn=version_set_urn,
-                )
-                yield self._get_global_tags_workunit(model_version=model_version)
+                # yield self._get_ml_model_properties_workunit(
+                #     registered_model=registered_model,
+                #     model_version=model_version,
+                #     run=run,
+                # )
+                # yield self._get_ml_model_version_properties_workunit(
+                #     model_version=model_version,
+                #     version_set_urn=version_set_urn,
+                # )
+                # yield self._get_global_tags_workunit(model_version=model_version)
+        return iter([])
 
     def _get_version_set_urn(self, registered_model: RegisteredModel) -> VersionSetUrn:
         guid_dict = {"platform": self.platform, "name": registered_model.name}
