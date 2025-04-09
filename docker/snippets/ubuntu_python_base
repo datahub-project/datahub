@@ -1,29 +1,3 @@
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
-
-ARG PIP_MIRROR_URL=https://pypi.python.org/simple
-RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi
-ENV UV_INDEX_URL=${PIP_MIRROR_URL}
-
-RUN apt-get update && apt-get install --no-install-recommends -y -qq \
-    libldap2-dev \
-    libsasl2-dev \
-    libsasl2-modules \
-    libaio-dev \
-    libaio1t64 \
-    libsasl2-modules-gssapi-mit \
-    krb5-user \
-    krb5-config \
-    libkrb5-dev \
-    librdkafka-dev \
-    git \
-    wget \
-    curl \
-    zip \
-    unzip \
-    ldap-utils \
-    unixodbc \
-    libodbc2 \
-    && rm -rf /var/lib/apt/lists/*
 
 ENV HOME=/home/datahub
 RUN existing_group=$(getent group 1000 | cut -d: -f1) && \
@@ -46,6 +20,56 @@ RUN existing_group=$(getent group 1000 | cut -d: -f1) && \
     # Create and set proper permissions for datahub directories
     mkdir -p $HOME && \
     chown -R datahub:datahub $HOME
+
+
+# Setup the PPA for alternative Python versions.
+# TODO: Eventually we should switch to using uv's support for python-build-standalone.
+RUN apt-get update && apt-get install -y \
+    software-properties-common \
+    lsb-release \
+    gnupg \
+    ca-certificates \
+    && add-apt-repository --no-update ppa:deadsnakes/ppa \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update && apt-get install -y \
+    python${PYTHON_VERSION} \
+    python${PYTHON_VERSION}-venv \
+    python${PYTHON_VERSION}-dev \
+    python${PYTHON_VERSION}-distutils \
+    python3-pip \
+    python3-ldap \
+    python-is-python3 \
+    libldap2-dev \
+    libsasl2-dev \
+    libsasl2-modules \
+    libaio-dev \
+    libaio1t64 \
+    libsasl2-modules-gssapi-mit \
+    krb5-user \
+    krb5-config \
+    libkrb5-dev \
+    librdkafka-dev \
+    git \
+    wget \
+    curl \
+    zip \
+    unzip \
+    ldap-utils \
+    unixodbc \
+    libodbc2 \
+    && apt-get clean \
+    && rm -rf /var/lib/{apt,dpkg,cache,log}/
+
+# Set the default python version.
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1 \
+    && update-alternatives --install /usr/bin/python python /usr/bin/python3 1
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+ARG PIP_MIRROR_URL=https://pypi.python.org/simple
+RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi
+ENV UV_INDEX_URL=${PIP_MIRROR_URL}
 
 USER datahub
 WORKDIR $HOME
