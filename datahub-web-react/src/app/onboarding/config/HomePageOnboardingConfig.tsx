@@ -25,7 +25,7 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
                     style={{ marginLeft: '50px' }}
                     src={dataHubFlowDiagram}
                 />
-                <Typography.Title level={3}>Welcome to DataHub! 👋</Typography.Title>
+                <Typography.Title level={3}>Welcome to DataHub Core! 👋</Typography.Title>
                 <Typography.Paragraph style={{ lineHeight: '22px' }}>
                     <strong>DataHub</strong> helps you discover and organize the important data within your
                     organization. You can:
