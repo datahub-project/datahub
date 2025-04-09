@@ -16,7 +16,7 @@ import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
-import { AutoCompleteResultForEntity } from '@types';
+import { AutoCompleteResultForEntity, Entity, FacetMetadata } from '@types';
 
 const getStyles = ($isShowNavBarRedesign?: boolean) => {
     return {
@@ -127,11 +127,13 @@ type Props = {
     initialQuery: string;
     placeholderText: string;
     suggestions: Array<AutoCompleteResultForEntity>;
-    isSuggestionsLoading?: boolean;
     onSearch: (query: string) => void;
     onQueryChange: (query: string) => void;
     onFilter?: FiltersAppliedHandler;
     entityRegistry: EntityRegistry;
+    facets?: FacetMetadata[];
+    entities?: Entity[];
+    isDataLoading?: boolean;
 };
 
 /**
@@ -141,11 +143,13 @@ export const SearchHeader = ({
     initialQuery,
     placeholderText,
     suggestions,
-    isSuggestionsLoading,
     onSearch,
     onQueryChange,
     entityRegistry,
     onFilter,
+    facets,
+    entities,
+    isDataLoading,
 }: Props) => {
     const [, setIsSearchBarFocused] = useState(false);
     const appConfig = useAppConfig();
@@ -179,7 +183,6 @@ export const SearchHeader = ({
                             initialQuery={initialQuery}
                             placeholderText={placeholderText}
                             suggestions={suggestions}
-                            isSuggestionsLoading={isSuggestionsLoading}
                             onSearch={onSearch}
                             onQueryChange={onQueryChange}
                             entityRegistry={entityRegistry}
@@ -192,6 +195,9 @@ export const SearchHeader = ({
                             showQuickFilters
                             showViewAllResults
                             showCommandK
+                            facets={facets}
+                            entities={entities}
+                            isDataLoading={isDataLoading}
                         />
                         {isShowNavBarRedesign && (
                             <StyledButton type="link" onClick={searchViewAll}>
