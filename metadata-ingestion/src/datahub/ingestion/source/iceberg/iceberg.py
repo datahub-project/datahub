@@ -2,6 +2,7 @@ import json
 import logging
 import threading
 import uuid
+from functools import partial
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from dateutil import parser as dateutil_parser
@@ -47,6 +48,12 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import NamespaceKey
+from datahub.ingestion.api.auto_work_units.auto_dataset_properties_aspect import (
+    auto_patch_last_modified,
+)
+from datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size import (
+    EnsureAspectSizeProcessor,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -57,6 +64,14 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
+from datahub.ingestion.api.source_helpers import (
+    AutoSystemMetadata,
+    auto_fix_duplicate_schema_field_paths,
+    auto_fix_empty_field_paths,
+    auto_lowercase_urns,
+    auto_materialize_referenced_tags_terms,
+    auto_workunit_reporter,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.source.common.subtypes import (
@@ -82,6 +97,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaMetadata,
 )
 from datahub.metadata.schema_classes import (
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
     ContainerClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
@@ -134,6 +151,7 @@ class IcebergSource(StatefulIngestionSourceBase):
         super().__init__(config, ctx)
         self.report: IcebergSourceReport = IcebergSourceReport()
         self.config: IcebergSourceConfig = config
+        self.ctx: PipelineContext = ctx
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "IcebergSource":
@@ -141,8 +159,47 @@ class IcebergSource(StatefulIngestionSourceBase):
         return cls(config, ctx)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        # This source needs to overwrite standard `get_workunit_processor`, because it is unique in terms of usage
+        # of parallelism. Because of this, 2 processors won't work as expected:
+        # 1. browse_path_processor - it needs aspects for a single entity to be continuous - which is not guaranteed
+        #    in this source
+        # 2. automatic stamping with systemMetadata - in current implementation of the Source class this processor
+        #    would have been applied in a thread (single) shared between the source, processors and transformers.
+        #    Since the metadata scraping happens in separate threads, this could lead to difference between
+        #    time used by systemMetadata and actual time at which metadata was read
+        auto_lowercase_dataset_urns: Optional[MetadataWorkUnitProcessor] = None
+        if (
+            self.ctx.pipeline_config
+            and self.ctx.pipeline_config.source
+            and self.ctx.pipeline_config.source.config
+            and (
+                (
+                    hasattr(
+                        self.ctx.pipeline_config.source.config,
+                        "convert_urns_to_lowercase",
+                    )
+                    and self.ctx.pipeline_config.source.config.convert_urns_to_lowercase
+                )
+                or (
+                    hasattr(self.ctx.pipeline_config.source.config, "get")
+                    and self.ctx.pipeline_config.source.config.get(
+                        "convert_urns_to_lowercase"
+                    )
+                )
+            )
+        ):
+            auto_lowercase_dataset_urns = auto_lowercase_urns
+
         return [
-            *super().get_workunit_processors(),
+            auto_lowercase_dataset_urns,
+            auto_materialize_referenced_tags_terms,
+            partial(
+                auto_fix_duplicate_schema_field_paths, platform=self._infer_platform()
+            ),
+            partial(auto_fix_empty_field_paths, platform=self._infer_platform()),
+            partial(auto_workunit_reporter, self.get_report()),
+            auto_patch_last_modified,
+            EnsureAspectSizeProcessor(self.get_report()).ensure_aspect_size,
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx
             ).workunit_processor,
@@ -208,6 +265,12 @@ class IcebergSource(StatefulIngestionSourceBase):
                     )
                     thread_local.local_catalog = self.config.get_catalog()
 
+                if not hasattr(thread_local, "stamping_processor"):
+                    LOGGER.debug(
+                        f"Didn't find stamping_processor in thread_local ({thread_local}), initializing new workunit processor"
+                    )
+                    thread_local.stamping_processor = AutoSystemMetadata(self.ctx)
+
                 with PerfTimer() as timer:
                     table = thread_local.local_catalog.load_table(dataset_path)
                     time_taken = timer.elapsed_seconds()
@@ -224,9 +287,11 @@ class IcebergSource(StatefulIngestionSourceBase):
                 for aspect in self._create_iceberg_table_aspects(
                     dataset_name, table, namespace_urn
                 ):
-                    yield MetadataChangeProposalWrapper(
-                        entityUrn=dataset_urn, aspect=aspect
-                    ).as_workunit()
+                    yield thread_local.stamping_processor.stamp_wu(
+                        MetadataChangeProposalWrapper(
+                            entityUrn=dataset_urn, aspect=aspect
+                        ).as_workunit()
+                    )
             except NoSuchPropertyException as e:
                 self.report.warning(
                     title="Unable to process table",
@@ -308,6 +373,7 @@ class IcebergSource(StatefulIngestionSourceBase):
             return
 
         try:
+            stamping_processor = AutoSystemMetadata(self.ctx)
             namespace_ids = self._get_namespaces(catalog)
             namespaces: List[Tuple[Identifier, str]] = []
             for namespace in namespace_ids:
@@ -323,9 +389,11 @@ class IcebergSource(StatefulIngestionSourceBase):
                 )
                 namespaces.append((namespace, namespace_urn))
                 for aspect in self._create_iceberg_namespace_aspects(namespace):
-                    yield MetadataChangeProposalWrapper(
-                        entityUrn=namespace_urn, aspect=aspect
-                    ).as_workunit()
+                    yield stamping_processor.stamp_wu(
+                        MetadataChangeProposalWrapper(
+                            entityUrn=namespace_urn, aspect=aspect
+                        ).as_workunit()
+                    )
             LOGGER.debug("Namespaces ingestion completed")
         except Exception as e:
             self.report.report_failure(
@@ -366,7 +434,9 @@ class IcebergSource(StatefulIngestionSourceBase):
                 yield dataset_ownership
 
             yield self._create_schema_metadata(dataset_name, table)
-            yield self._get_dataplatform_instance_aspect()
+            dpi = self._get_dataplatform_instance_aspect()
+            yield dpi
+            yield self._create_browse_paths_aspect(dpi.instance, str(namespace_urn))
             yield ContainerClass(container=str(namespace_urn))
 
         self.report.report_table_processing_time(
@@ -376,6 +446,22 @@ class IcebergSource(StatefulIngestionSourceBase):
         if self.config.is_profiling_enabled():
             profiler = IcebergProfiler(self.report, self.config.profiling)
             yield from profiler.profile_table(dataset_name, table)
+
+    def _create_browse_paths_aspect(
+        self,
+        platform_instance_urn: Optional[str] = None,
+        container_urn: Optional[str] = None,
+    ) -> BrowsePathsV2Class:
+        path = []
+        if platform_instance_urn:
+            path.append(
+                BrowsePathEntryClass(
+                    id=platform_instance_urn, urn=platform_instance_urn
+                )
+            )
+        if container_urn:
+            path.append(BrowsePathEntryClass(id=container_urn, urn=container_urn))
+        return BrowsePathsV2Class(path=path)
 
     def _get_partition_aspect(self, table: Table) -> Optional[str]:
         """Extracts partition information from the provided table and returns a JSON array representing the [partition spec](https://iceberg.apache.org/spec/?#partition-specs) of the table.
@@ -425,23 +511,21 @@ class IcebergSource(StatefulIngestionSourceBase):
     def _get_dataset_properties_aspect(
         self, dataset_name: str, table: Table
     ) -> DatasetPropertiesClass:
-        additional_properties = {}
+        created: Optional[TimeStampClass] = None
         custom_properties = table.metadata.properties.copy()
         custom_properties["location"] = table.metadata.location
         custom_properties["format-version"] = str(table.metadata.format_version)
         custom_properties["partition-spec"] = str(self._get_partition_aspect(table))
+        last_modified: Optional[int] = table.metadata.last_updated_ms
         if table.current_snapshot():
             custom_properties["snapshot-id"] = str(table.current_snapshot().snapshot_id)
             custom_properties["manifest-list"] = table.current_snapshot().manifest_list
-            additional_properties["lastModified"] = TimeStampClass(
-                int(table.current_snapshot().timestamp_ms)
-            )
+            if not last_modified:
+                last_modified = int(table.current_snapshot().timestamp_ms)
         if "created-at" in custom_properties:
             try:
                 dt = dateutil_parser.isoparse(custom_properties["created-at"])
-                additional_properties["created"] = TimeStampClass(
-                    int(dt.timestamp() * 1000)
-                )
+                created = TimeStampClass(int(dt.timestamp() * 1000))
             except Exception as ex:
                 LOGGER.warning(
                     f"Exception while trying to parse creation date {custom_properties['created-at']}, ignoring: {ex}"
@@ -451,8 +535,10 @@ class IcebergSource(StatefulIngestionSourceBase):
             name=table.name()[-1],
             description=table.metadata.properties.get("comment", None),
             customProperties=custom_properties,
-            lastModified=additional_properties.get("lastModified"),
-            created=additional_properties.get("created"),
+            lastModified=TimeStampClass(last_modified)
+            if last_modified is not None
+            else None,
+            created=created,
             qualifiedName=dataset_name,
         )
 
@@ -530,7 +616,9 @@ class IcebergSource(StatefulIngestionSourceBase):
             name=namespace_repr, qualifiedName=namespace_repr, env=self.config.env
         )
         yield SubTypes(typeNames=[DatasetContainerSubTypes.NAMESPACE])
-        yield self._get_dataplatform_instance_aspect()
+        dpi = self._get_dataplatform_instance_aspect()
+        yield dpi
+        yield self._create_browse_paths_aspect(dpi.instance)
 
 
 class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):

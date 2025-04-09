@@ -94,7 +94,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
-from datahub.metadata.urns import ChartUrn
+from datahub.metadata.urns import ChartUrn, DatasetUrn
 from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo
 from datahub.utilities.dedup_list import deduplicate_list
 from datahub.utilities.urns.urn_iter import lowercase_dataset_urn
@@ -263,7 +263,7 @@ class Mapper:
             for upstream_dpt in lineage.upstreams:
                 if (
                     upstream_dpt.data_platform_pair.powerbi_data_platform_name
-                    not in self.__config.dataset_type_mapping.keys()
+                    not in self.__config.dataset_type_mapping
                 ):
                     logger.debug(
                         f"Skipping upstream table for {ds_urn}. The platform {upstream_dpt.data_platform_pair.powerbi_data_platform_name} is not part of dataset_type_mapping",
@@ -1083,6 +1083,7 @@ class Mapper:
         report: powerbi_data_classes.Report,
         chart_mcps: List[MetadataChangeProposalWrapper],
         user_mcps: List[MetadataChangeProposalWrapper],
+        dataset_edges: List[EdgeClass],
     ) -> List[MetadataChangeProposalWrapper]:
         """
         Map PowerBi report to Datahub dashboard
@@ -1104,6 +1105,7 @@ class Mapper:
             charts=chart_urn_list,
             lastModified=ChangeAuditStamps(),
             dashboardUrl=report.webUrl,
+            datasetEdges=dataset_edges,
         )
 
         info_mcp = self.new_mcp(
@@ -1197,12 +1199,23 @@ class Mapper:
         ds_mcps = self.to_datahub_dataset(report.dataset, workspace)
         chart_mcps = self.pages_to_chart(report.pages, workspace, ds_mcps)
 
+        # collect all upstream datasets; using a set to retain unique urns
+        dataset_urns = {
+            dataset.entityUrn
+            for dataset in ds_mcps
+            if dataset.entityType == DatasetUrn.ENTITY_TYPE and dataset.entityUrn
+        }
+        dataset_edges = [
+            EdgeClass(destinationUrn=dataset_urn) for dataset_urn in dataset_urns
+        ]
+
         # Let's convert report to datahub dashboard
         report_mcps = self.report_to_dashboard(
             workspace=workspace,
             report=report,
             chart_mcps=chart_mcps,
             user_mcps=user_mcps,
+            dataset_edges=dataset_edges,
         )
 
         # Now add MCPs in sequence
@@ -1340,7 +1353,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             for data_platform in SupportedDataPlatform
         ]
 
-        for key in self.source_config.dataset_type_mapping.keys():
+        for key in self.source_config.dataset_type_mapping:
             if key not in powerbi_data_platforms:
                 raise ValueError(f"PowerBI DataPlatform {key} is not supported")
 
