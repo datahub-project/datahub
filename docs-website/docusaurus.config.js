@@ -376,6 +376,12 @@ module.exports = {
           }
           return undefined; // Return a falsy value: no redirect created
         },
+        redirects: [
+          {
+            from: '/docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor',
+            to: '/docs/managed-datahub/remote-executor/about',
+          },
+        ],
       },
     ],
     ["@docusaurus/plugin-ideal-image", { quality: 100, sizes: [320, 640, 1280, 1440, 1600] }],

@@ -33,8 +33,9 @@ env:
   #### IMPORTANT ####
 
   DOCKER_CACHE: "DEPOT"
-  DEPOT_PROJECT_ID: ${{ vars.DEPOT_PROJECT_ID }}
-  DEPOT_TOKEN: ${{ secrets.DEPOT_TOKEN }}
+  DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
+  DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
+
 
 permissions:
   contents: read
@@ -1131,7 +1132,7 @@ jobs:
         uses: depot/setup-action@v1
 
       - name: configure-docker
-        if: ${{ env.DOCKER_CACHE == 'DEPOT' }}  
+        if: ${{ env.DOCKER_CACHE == 'DEPOT' && env.DOCKER_PROJECT_ID != '' }}
         run: |
           depot configure-docker
 
