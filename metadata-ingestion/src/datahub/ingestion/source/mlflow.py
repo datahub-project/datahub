@@ -315,29 +315,6 @@ class MLflowSource(StatefulIngestionSourceBase):
         # If the schema is not formatted, return None
         return None
 
-    def _get_external_dataset_urn(self, platform: str, dataset_name: str) -> str:
-        """
-        Get the URN for an external dataset.
-        Args:
-            platform: The platform of the external dataset (e.g., 's3', 'bigquery')
-            dataset: The MLflow dataset
-        Returns:
-            str: The URN of the external dataset
-        """
-        registered_models = self._get_mlflow_registered_models()
-        for registered_model in registered_models:
-            self._get_ml_group_workunit(registered_model)
-            model_versions = self._get_mlflow_model_versions(registered_model)
-            for model_version in model_versions:
-                run = self._get_mlflow_run(model_version)
-                self._get_ml_model_properties_workunit(
-                    registered_model=registered_model,
-                    model_version=model_version,
-                    run=run,
-                )
-                self._get_global_tags_workunit(model_version=model_version)
-        return iter([])
-
     def _get_mlflow_registered_models(self) -> Iterable[RegisteredModel]:
         """
         Get all Registered Models in MLflow Model Registry.
@@ -459,21 +436,17 @@ class MLflowSource(StatefulIngestionSourceBase):
         """
         registered_models = self._get_mlflow_registered_models()
         for registered_model in registered_models:
-            version_set_urn = self._get_version_set_urn(registered_model)
-            yield self._get_ml_group_workunit(registered_model)
+            self._get_ml_group_workunit(registered_model)
             model_versions = self._get_mlflow_model_versions(registered_model)
             for model_version in model_versions:
                 run = self._get_mlflow_run(model_version)
-                yield self._get_ml_model_properties_workunit(
+                self._get_ml_model_properties_workunit(
                     registered_model=registered_model,
                     model_version=model_version,
                     run=run,
                 )
-                yield self._get_ml_model_version_properties_workunit(
-                    model_version=model_version,
-                    version_set_urn=version_set_urn,
-                )
-                yield self._get_global_tags_workunit(model_version=model_version)
+                self._get_global_tags_workunit(model_version=model_version)
+        return iter([])
 
     def _get_version_set_urn(self, registered_model: RegisteredModel) -> VersionSetUrn:
         guid_dict = {"platform": self.platform, "name": registered_model.name}
