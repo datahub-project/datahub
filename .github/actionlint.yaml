@@ -1,0 +1,7 @@
+self-hosted-runner:
+  labels:
+    - "depot-ubuntu-22.04-small"
+    - "depot-ubuntu-22.04-4"
+    - "depot-ubuntu-22.04"
+    - "depot-ubuntu-24.04"
+    - "depot-ubuntu-24.04-small"
