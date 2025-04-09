@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 class DataHubReportingExtractGraphSourceConfig(ConfigModel):
+    enabled: bool = True
     server: Optional[DatahubClientConfig] = None
     search_index: ElasticSearchClientConfig = ElasticSearchClientConfig()
     extract_graph_store: FileStoreBackedDatasetConfig
@@ -118,6 +119,10 @@ class DataHubReportingExtractGraphSource(Source):
         return skip_extract
 
     def get_workunits(self):
+        if not self.config.enabled:
+            logger.info("Source is disabled, stopping")
+            return
+
         self.graph = (
             self.ctx.require_graph("Loading default graph coordinates.")
             if self.config.server is None
