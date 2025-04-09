@@ -341,8 +341,8 @@ class MLflowSource(StatefulIngestionSourceBase):
         )
         return runs
 
-    @staticmethod
     def _traverse_mlflow_search_func(
+        self,
         search_func: Callable[..., PagedList[T]],
         **kwargs: Any,
     ) -> Iterable[T]:
@@ -352,41 +352,45 @@ class MLflowSource(StatefulIngestionSourceBase):
         page_count = 0
         total_items = 0
         next_page_token = None
-
         logger.info(f"!!! traversing mlflow search function with {search_func.__name__} with kwargs: {kwargs}")
-        try:
-            while True:
-                page_count += 1
-                logger.info(f"!!! Fetching page {page_count} with token: {next_page_token}")
-
+        while True:
+            page_count += 1
+            logger.info(f"!!! Fetching page {page_count} with token: {next_page_token}")
+            paged_list = None
+            items = []
+            
+            try:
                 paged_list = search_func(page_token=next_page_token, **kwargs)
+            except Exception as e:
+                logger.error(f"Error fetching page {page_count}: {e}")
+                import traceback
+                logger.error(f"Full traceback: {traceback.format_exc()}")
+                return
 
-                items = paged_list.to_list()
-                page_items_count = len(items)
-                total_items += page_items_count
+            items = paged_list.to_list()
+            page_items_count = len(items)
+            total_items += page_items_count
 
-                logger.info(f"!!! Page {page_count} returned {page_items_count} items")
-                logger.info(f"!!! First few items: {items[:3] if items else 'None'}")
+            logger.info(f"!!! Page {page_count} returned {page_items_count} items")
+            logger.info(f"!!! First few items: {items[:3] if items else 'None'}")
 
-                if items:
-                    first_item = items[0]
-                    logger.info(f"!!! First item type: {type(first_item)}")
-                    if hasattr(first_item, 'name'):
-                        logger.info(f"!!! First item name: {first_item.name}")
-                    if hasattr(first_item, 'version'):
-                        logger.info(f"!!! First item version: {first_item.version}")
+            if items:
+                first_item = items[0]
+                logger.info(f"!!! First item type: {type(first_item)}")
+                if hasattr(first_item, 'name'):
+                    logger.info(f"!!! First item name: {first_item.name}")
+                if hasattr(first_item, 'version'):
+                    logger.info(f"!!! First item version: {first_item.version}")
 
-                yield from items
+            yield from items
 
-                next_page_token = paged_list.token
-                logger.info(f"!!! Next page token: {next_page_token}")
+            next_page_token = paged_list.token
+            logger.info(f"!!! Next page token: {next_page_token}")
 
-                if not next_page_token:
-                    logger.info(f"!!! Search complete, found {total_items} total items across {page_count} pages")
-                    return
-        except Exception as e:
-            logger.error(f"Error traversing MLflow search function: {e}")
-            return
+            if not next_page_token:
+                logger.info(f"!!! Search complete, found {total_items} total items across {page_count} pages")
+                return
+
 
     def _get_latest_version(self, registered_model: RegisteredModel) -> Optional[str]:
         return (
