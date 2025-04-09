@@ -13,6 +13,7 @@ import {
     EntityType,
     IncidentSourceType,
     IncidentState,
+    IncidentType,
 } from '@src/types.generated';
 import { Check, Warning } from '@phosphor-icons/react';
 import { IconLabel } from '@src/alchemy-components/components/IconLabel';
@@ -130,49 +131,27 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
     };
 
     const renderActivities = (() => {
-        // TODO Amit: Move this into a separate utilities file.
-        const { creator, lastUpdated } = incidentActivityActors;
-        const isCreatedAndUpdatedBySameUser = creator === lastUpdated;
+        const baseActivity = {
+            actor: incidentCreator,
+            action: INCIDENT_STATE_TO_ACTIVITY.RAISED,
+            time: incident?.creator?.time,
+        };
 
-        if (isCreatedAndUpdatedBySameUser) {
-            if (incident?.state === IncidentState.Resolved) {
-                return [
-                    {
-                        actor: incidentCreator,
-                        action: INCIDENT_STATE_TO_ACTIVITY.RAISED,
-                        time: incident?.creator?.time,
-                    },
-                    {
-                        actor: incidentResolver,
-                        action: INCIDENT_STATE_TO_ACTIVITY.RESOLVED,
-                        time: incident?.lastUpdated?.time,
-                    },
-                ];
-            }
-
-            if (incident?.state === IncidentState.Active) {
-                return [
-                    {
-                        actor: incidentCreator,
-                        action: INCIDENT_STATE_TO_ACTIVITY.RAISED,
-                        time: incident?.creator?.time,
-                    },
-                ];
-            }
+        // Only add the resolved activity if the incident state is Resolved
+        if (incident?.state === IncidentState.Resolved) {
+            return [
+                baseActivity,
+                {
+                    actor: incidentResolver,
+                    action: INCIDENT_STATE_TO_ACTIVITY.RESOLVED,
+                    time: incident?.lastUpdated?.time,
+                    message: incident?.message,
+                },
+            ];
         }
 
-        return [
-            {
-                actor: incidentCreator,
-                action: INCIDENT_STATE_TO_ACTIVITY.RAISED,
-                time: incident?.creator?.time,
-            },
-            {
-                actor: incidentResolver,
-                action: INCIDENT_STATE_TO_ACTIVITY.RESOLVED,
-                time: incident?.lastUpdated?.time,
-            },
-        ];
+        // Otherwise just return the base activity
+        return [baseActivity];
     })();
 
     /** Assertion Related Logic. */
@@ -184,6 +163,10 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
     if (isAssertionFailureIncident && source) {
         assertionDescription = getPlainTextDescriptionFromAssertion(assertion.info as AssertionInfo);
     }
+
+    const categoryName = getCapitalizeWord(
+        incident?.type === IncidentType.Custom ? incident.customType : incident.type,
+    );
 
     return (
         <Container>
@@ -200,7 +183,7 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
             </DescriptionSection>
             <DetailsSection>
                 <DetailsLabel>Category</DetailsLabel>
-                <CategoryText>{incident?.type && getCapitalizeWord(incident?.type)}</CategoryText>
+                <CategoryText>{categoryName}</CategoryText>
             </DetailsSection>
             <DetailsSection>
                 <DetailsLabel>Priority</DetailsLabel>
