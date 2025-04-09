@@ -11,7 +11,7 @@ This source extracts the following:
 1. Refer [doc](https://help.sigmacomputing.com/docs/generate-api-client-credentials) to generate an API client credentials.
 2. Provide the generated Client ID and Secret in Recipe.
 
-We have observed issues with the Sigma API, where certain API endpoints do not return the expected results, even when the user is an admin. In those cases, a workaround is the manually add the user associated with the Client ID/Secret to each workspace with missing metadata.
+We have observed issues with the Sigma API, where certain API endpoints do not return the expected results, even when the user is an admin. In those cases, a workaround is to manually add the user associated with the Client ID/Secret to each workspace with missing metadata.
 
 ## Concept mapping
 
