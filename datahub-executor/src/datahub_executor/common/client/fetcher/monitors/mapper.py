@@ -173,6 +173,7 @@ def generate_training_tasks(monitor: Monitor) -> List[ExecutionRequestSchedule]:
                 exec_id=monitor.urn,
                 name=RUN_MONITOR_TRAINING_TASK_NAME,
                 args={
+                    "urn": monitor.urn,
                     "monitor": monitor.dict(by_alias=True),
                     "context": context.__dict__,
                 },

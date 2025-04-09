@@ -12,13 +12,12 @@ class TestApplyRemoteMonitorTraining(unittest.TestCase):
     def setUp(self) -> None:
         # Create a sample ExecutionRequest for monitor training
         self.executor_id = "test-executor"
-        self.sample_urn = "urn:li:assertionRunEvent:1234"
         self.sample_exec_id = "exec-1234"
         self.monitor_urn = "urn:li:assertion:monitor-1234"
 
         # Create a sample monitor argument
         self.monitor_args: Dict[str, Any] = {
-            "urn": self.sample_urn,
+            "urn": self.monitor_urn,
             "monitor": {
                 "urn": self.monitor_urn,
                 "type": "METADATA_VALUE_ASSERTION",
@@ -105,7 +104,7 @@ class TestApplyRemoteMonitorTraining(unittest.TestCase):
             )
 
         # Should return the URN when credentials fail
-        self.assertEqual(result, self.sample_urn)
+        self.assertEqual(result, self.monitor_urn)
 
         # Verify method calls
         mock_logger.info.assert_called_once()

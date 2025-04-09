@@ -785,6 +785,8 @@ def test_generate_training_tasks_inferred(mock_inferred_monitor: Monitor) -> Non
     # Check args
     assert "monitor" in exec_request.args
     assert "context" in exec_request.args
+    assert "urn" in exec_request.args
+    assert exec_request.args["urn"]
     assert exec_request.args["context"]["dry_run"] is False
     assert exec_request.args["context"]["monitor_urn"] == mock_inferred_monitor.urn
     assert exec_request.args["context"]["online_smart_assertions"] is True

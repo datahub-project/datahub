@@ -82,7 +82,7 @@ def apply_remote_monitor_training_request(
             logger.error(
                 f"Monitor Training ExecutionRequest {execution_request.args['urn']} is too big ({message_size}) to send via SQS and will be dropped."
             )
-            return execution_request.args["monitor"]["urn"]
+            return execution_request.args["urn"]
 
         # for others (monitors/assertions) we directly trigger the task run.
         monitor_training_request.apply_async(
