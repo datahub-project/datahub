@@ -3,7 +3,7 @@ import collections
 import os
 import pathlib
 import re
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 import asyncer
 import more_itertools
@@ -16,6 +16,8 @@ from datahub_integrations.gen_ai.bedrock import (
     get_bedrock_model_env_variable,
 )
 from datahub_integrations.gen_ai.description_v2 import (
+    ColumnMetadataInfo,
+    TableInfo,
     call_bedrock_llm,
     extract_metadata_for_urn,
     transform_table_info_for_llm,
@@ -160,22 +162,20 @@ def split_list_in_equal_parts(columns: list[str], limit: int) -> list[list[str]]
     return list(more_itertools.chunked_even(columns, limit))
 
 
-def filter_table_information(table_info: dict, column_info: dict) -> tuple[dict, dict]:
-    for column in column_info.keys():
-        column_info[column].update(
-            {
-                "datatype": column_info[column]
-                .get("metadata", {})
-                .get("nativeDataType", "")
-            }
-        )
+def filter_table_information(
+    table_info: TableInfo, column_info: Dict[str, ColumnMetadataInfo]
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     table_info_filtered = {
-        k: v for k, v in table_info.items() if k in _TABLE_INFO_FOR_PROMPT
+        k: v
+        for k, v in table_info.dict(exclude_none=True).items()
+        if k in _TABLE_INFO_FOR_PROMPT
     }
     column_info_filtered = {}
-    for column_name, column_info_dict in column_info.items():
+    for column_name, column_metadata in column_info.items():
         column_info_filtered[column_name] = {
-            k: v for k, v in column_info_dict.items() if k in _COLUMN_INFO_FOR_PROMPT
+            k: v
+            for k, v in column_metadata.dict(exclude_none=True).items()
+            if k in _COLUMN_INFO_FOR_PROMPT
         }
     return table_info_filtered, column_info_filtered
 

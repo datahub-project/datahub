@@ -13,7 +13,6 @@ from datahub_integrations.gen_ai.cached_graph import make_cached_graph
 from datahub_integrations.gen_ai.description_v2 import (
     ShellEntityError,
     generate_entity_descriptions_for_urn,
-    parse_llm_output,
 )
 from datahub_integrations.gen_ai.suggest_query_description import (
     generate_query_desc,
@@ -72,18 +71,15 @@ class DescriptionV2ParsingError(Exception):
     retry=tenacity.retry_if_exception_type(DescriptionV2ParsingError),
 )
 def _description_v2(graph: DataHubGraph, urn: DatasetUrn) -> SuggestedDescription:
-    raw_llm_output, _ = generate_entity_descriptions_for_urn(
-        graph_client=graph, urn=str(urn)
-    )
-    table_description, column_descriptions = parse_llm_output(raw_llm_output)
-    if column_descriptions is None:
+    result = generate_entity_descriptions_for_urn(graph_client=graph, urn=str(urn))
+    if result.column_descriptions is None:
         raise DescriptionV2ParsingError(
-            f"Failed to parse structured output from raw output: {raw_llm_output}"
+            f"Failed to parse structured output from raw output: {result.raw_llm_output}"
         )
 
     return SuggestedDescription(
-        entity_description=table_description or "",
-        column_descriptions=column_descriptions,
+        entity_description=result.table_description or "",
+        column_descriptions=result.column_descriptions,
     )
 
 
