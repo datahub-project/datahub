@@ -81,7 +81,6 @@ export const useIncidentHandler = ({
     currentIncident,
     currentDatasetUrn,
 }) => {
-    console.log('currentIncident: ', currentIncident);
     const [raiseIncidentMutation] = useRaiseIncidentMutation();
     const [updateIncidentMutation] = useUpdateIncidentMutation();
     const [form] = Form.useForm();
