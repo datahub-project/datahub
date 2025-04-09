@@ -10,7 +10,7 @@ const DomainIconContainer = styled.div<{ color: string; size: number }>`
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 8px;
+    border-radius: ${(props) => props.size / 4}px;
     height: ${(props) => props.size}px;
     width: ${(props) => props.size}px;
     min-width: ${(props) => props.size}px;

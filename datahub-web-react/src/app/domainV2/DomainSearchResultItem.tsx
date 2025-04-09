@@ -3,13 +3,14 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components/macro';
-import { Entity, EntityType } from '../../types.generated';
+import colors from '@src/alchemy-components/theme/foundations/colors';
+import { Domain, Entity, EntityType } from '../../types.generated';
 import { IconStyleType } from '../entity/Entity';
 import { ANTD_GRAY } from '../entity/shared/constants';
-import DomainIcon from './DomainIcon';
 import ParentEntities from '../search/filters/ParentEntities';
 import { getParentDomains } from './utils';
 import EntityRegistry from '../entity/EntityRegistry';
+import { DomainColoredIcon } from '../entityV2/shared/links/DomainColoredIcon';
 
 type Props = {
     entity: Entity;
@@ -19,7 +20,7 @@ type Props = {
 };
 
 const SearchResult = styled(Link)`
-    color: #262626;
+    color: ${colors.gray[600]};
     display: flex;
     align-items: center;
     gap: 8px;
@@ -32,12 +33,21 @@ const SearchResult = styled(Link)`
     }
 `;
 
+const ContentWrapper = styled.div`
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 1;
+    align-self: flex-start;
+    overflow: hidden;
+`;
+
 const IconWrapper = styled.span``;
 
 const highlightMatchStyle = {
     fontWeight: 'bold',
     background: 'none',
     padding: 0,
+    color: colors.gray[600],
 };
 
 function DomainSearchResultItem({ entity, entityRegistry, query, onResultClick }: Props) {
@@ -45,22 +55,17 @@ function DomainSearchResultItem({ entity, entityRegistry, query, onResultClick }
         <SearchResult to={entityRegistry.getEntityUrl(entity.type, entity.urn)} onClick={onResultClick}>
             <IconWrapper>
                 {entity.type === EntityType.Domain ? (
-                    <DomainIcon
-                        style={{
-                            fontSize: 16,
-                            color: '#BFBFBF',
-                        }}
-                    />
+                    <DomainColoredIcon size={24} fontSize={12} domain={entity as Domain} />
                 ) : (
                     entityRegistry.getIcon(entity.type, 12, IconStyleType.ACCENT)
                 )}
             </IconWrapper>
-            <div>
-                <ParentEntities parentEntities={getParentDomains(entity, entityRegistry)} />
+            <ContentWrapper>
                 <Highlight matchStyle={highlightMatchStyle} search={query}>
                     {entityRegistry.getDisplayName(entity.type, entity)}
                 </Highlight>
-            </div>
+                <ParentEntities parentEntities={getParentDomains(entity, entityRegistry)} />
+            </ContentWrapper>
         </SearchResult>
     );
 }

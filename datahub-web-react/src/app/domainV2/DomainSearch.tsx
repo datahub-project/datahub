@@ -23,8 +23,8 @@ const ResultsWrapper = styled.div`
     position: absolute;
     max-height: 210px;
     overflow: auto;
-    width: calc(100% - 32px);
-    left: 16px;
+    width: calc(100% - 8px);
+    left: 4px;
     top: 55px;
     z-index: 1;
 `;
