@@ -9,28 +9,35 @@ const colorModes = {
         'text-primary': colors.gray[600],
         'text-secondary': colors.gray[1700],
         'text-tertiary': colors.gray[1800],
-        'placeholder-text': colors.gray[1800],
-        'inverse-text': colors.white,
-        'disabled-text': colors.gray[1800],
+        'text-brand': colors.violet[600],
+        'text-placeholder': colors.gray[1800],
+        'text-inverse': colors.white,
+        'text-disabled': colors.gray[1800],
+
+        'body-text': colors.gray[600], // deprecated please use text-primary
+        'subtle-text': colors.gray[1700], // deprecated please use text-secondary
+        'inverse-text': colors.white, // deprecated please use text-inverse
 
         // Background colors
-        bg: colors.white,
-        'surface-bg': colors.gray[1500],
-        'subtle-bg': colors.gray[100],
-        'nav-bg': colors.gray[1600],
+        'bg-primary': colors.white,
+        'bg-surface': colors.gray[1500],
+        'bg-subtle': colors.gray[100],
+        'bg-nav': colors.gray[1600],
+
+        'body-bg': colors.white, // deprecated please use bg-primary
 
         // Border colors
-        border: colors.gray[100],
+        'border-color': colors.gray[100],
         'border-subtle': colors.gray[1400],
 
         // Icon colors
         'icon-color': colors.gray[1800],
 
         // Component specific
-        'placeholder-color': colors.gray[1800],
+        'placeholder-color': colors.gray[1800], // deprecated please use text-placeholder
 
         // Brand/semantic colors
-        primary: colors.violet[500],
+        primary: colors.violet[600],
         secondary: colors.blue[500],
         error: colors.red[500],
         success: colors.green[500],
@@ -56,18 +63,24 @@ const colorModes = {
         'text-primary': colors.white,
         'text-secondary': colors.gray[300],
         'text-tertiary': colors.gray[400],
-        'placeholder-text': colors.gray[400],
-        'inverse-text': colors.gray[800],
-        'disabled-text': colors.gray[500],
+        'text-brand': colors.violet[300],
+        'text-placeholder': colors.gray[400],
+        'text-inverse': colors.gray[800],
+        'text-disabled': colors.gray[500],
+
+        'body-text': colors.white, // deprecated please use text-primary
+        'subtle-text': colors.gray[300], // deprecated please use text-secondary
+        'inverse-text': colors.gray[800], // deprecated please use text-inverse
 
         // Background colors
-        bg: colors.gray[800],
-        'surface-bg': colors.gray[700],
-        'subtle-bg': colors.gray[600],
-        'nav-bg': colors.gray[700],
+        'bg-primary': colors.gray[2100],
+        'bg-surface': colors.gray[2000],
+        'bg-subtle': colors.gray[600],
+        'bg-nav': colors.gray[700],
 
+        'body-bg': colors.gray[2000], // deprecated please use bg-primary
         // Border colors
-        border: colors.gray[600],
+        'border-color': colors.gray[600],
         'border-subtle': colors.gray[500],
 
         // Icon colors

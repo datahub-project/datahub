@@ -2,9 +2,10 @@ const colors = {
     transparent: 'transparent',
     current: 'currentColor',
     white: '#FFFFFF',
-    black: '#000000', // do not use black, use grays 600 for primary text and 1700 for secondary text
+    black: '#000000', // do not use black, use grays 600 for primary text and 1700 for secondary text PLEASE USE SEMANTIC-TOKENS.ts FOR THESE VALUES PLEASE
 
     gray: {
+        // PLEASE USE SEMANTIC-TOKENS.ts FOR THESE VALUES PLEASE
         100: '#EBECF0', // border
         200: '#CFD1DA', // should be deprecated
         300: '#A9ADBD', // should be deprecated
@@ -24,6 +25,8 @@ const colors = {
         1700: '#5F6685', // secondary text
         1800: '#8088A3', // tertiary text, disabled text, placeholder text, icon
         1900: '#A3A7B9',
+        2000: '#1E2338', // dark bg-suface
+        2100: '#171B2B', // dark bg
     },
 
     violet: {
@@ -32,8 +35,8 @@ const colors = {
         200: '#B0A7EA',
         300: '#8C7EE0',
         400: '#7565DA',
-        500: '#533FD1', // primary value
-        600: '#4C39BE',
+        500: '#533FD1',
+        600: '#4C39BE', // primary value
         700: '#3B2D94',
         800: '#2E2373',
         900: '#231A58',
