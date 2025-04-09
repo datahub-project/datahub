@@ -959,8 +959,13 @@ class OdbcLineage(AbstractLineage):
         )
 
         if not connect_string:
+            self.reporter.warning(
+                title="Can not extract ODBC connect string",
+                message="Can not extract ODBC connect string from data access function. Skipping Lineage creation.",
+                context=f"table-name={self.table.full_name}",
+            )
             logger.warning(
-                "Can not extract ODBC connect string from data access function"
+                f"Can not extract ODBC connect string from data access function for table {self.table.full_name}"
             )
             return Lineage.empty()
 
@@ -969,8 +974,13 @@ class OdbcLineage(AbstractLineage):
         server_name = extract_server(connect_string)
 
         if not data_platform or not powerbi_platform:
+            self.reporter.warning(
+                title="Can not determine ODBC platform",
+                message="Can not determine platform from ODBC connect string. Skipping Lineage creation.",
+                context=f"table-name={self.table.full_name}",
+            )
             logger.warning(
-                "Can not determine platform from ODBC connect string. Skipping Lineage creation."
+                f"Can not determine platform from ODBC connect string for table {self.table.full_name}"
             )
             return Lineage.empty()
 
@@ -979,7 +989,10 @@ class OdbcLineage(AbstractLineage):
         )
 
         if not server_name:
-            logger.warning("Can not determine server name from ODBC connect string.")
+            logger.warning(
+                f"No server specified for platform {data_platform} in ODBC connect string "
+                f"for table {self.table.full_name}"
+            )
             server_name = "localhost"
 
         database_name = None
@@ -1019,9 +1032,14 @@ class OdbcLineage(AbstractLineage):
             qualified_table_name = f"{database_name}.{table_name}"
 
         if not qualified_table_name:
+            self.reporter.warning(
+                title="Can not determine qualified table name",
+                message="Can not determine qualified table name for ODBC data source. Skipping Lineage creation.",
+                context=f"table-name={self.table.full_name}, data-platform={data_platform}",
+            )
             logger.warning(
-                f"Can not determine qualified table name for ODBC data source {data_platform}. "
-                f"Skipping Lineage creation."
+                f"Can not determine qualified table name for ODBC data source {data_platform} "
+                f"table {self.table.full_name}."
             )
             return Lineage.empty()
 

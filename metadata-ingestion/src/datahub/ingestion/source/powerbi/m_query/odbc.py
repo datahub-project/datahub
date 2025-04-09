@@ -40,6 +40,7 @@ def extract_server(connection_string: str) -> Union[str, None]:
         str: The extracted server name, or None if not found
     """
     server_patterns = [
+        r"Server=([^:]+)[:][0-9]+/.*",
         r"SERVER=\{([^}]*)\}",
         r"SERVER=([^;]*)",
         r"HOST=\{([^}]*)\}",
