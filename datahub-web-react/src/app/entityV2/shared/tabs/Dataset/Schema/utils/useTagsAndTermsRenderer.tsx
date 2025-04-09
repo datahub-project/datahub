@@ -1,12 +1,29 @@
+import { Tooltip } from '@components';
+import { Typography } from 'antd';
+import { Info } from 'phosphor-react';
 import React from 'react';
+import styled from 'styled-components';
 
 import { useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
 import { useSchemaRefetch } from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaContext';
 import useExtractFieldGlossaryTermsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldGlossaryTermsInfo';
 import useExtractFieldTagsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldTagsInfo';
 import TagTermGroup from '@app/sharedV2/tags/TagTermGroup';
+import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { EditableSchemaMetadata, EntityType, GlobalTags, SchemaField } from '@types';
+
+const TagDisclaimer = styled(Typography.Text)`
+    color: ${colors.gray[500]};
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 24px;
+    align-items: center;
+    display: flex;
+    gap: 4px;
+    width: fit-content;
+    margin-bottom: 4px;
+`;
 
 export default function useTagsAndTermsRenderer(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
@@ -32,6 +49,14 @@ export default function useTagsAndTermsRenderer(
 
         return (
             <div data-testid={`schema-field-${record.fieldPath}-${options.showTags ? 'tags' : 'terms'}`}>
+                {/* If can edit, show disclaimer for uneditable tags */}
+                {canEdit && options.showTags && !uneditableTags?.tags?.length && (
+                    <Tooltip title="Uneditable tags have either been provided by Ingestion or are managed via GraphQL API.">
+                        <TagDisclaimer type="secondary">
+                            <Info /> Some tags are not editable.
+                        </TagDisclaimer>
+                    </Tooltip>
+                )}
                 <TagTermGroup
                     uneditableTags={options.showTags ? uneditableTags : null}
                     editableTags={options.showTags ? editableTags : null}

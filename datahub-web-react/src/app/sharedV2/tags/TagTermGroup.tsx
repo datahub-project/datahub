@@ -198,7 +198,7 @@ export default function TagTermGroup({
                 );
             })}
 
-            {/* uneditable tags are provided by ingestion pipelines exclusively  */}
+            {/* uneditable tags are provided by ingestion pipelines or merged in from v2 fields  */}
 
             {uneditableTags?.tags?.map((tag) => {
                 renderedTags += 1;
