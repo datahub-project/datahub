@@ -1,4 +1,6 @@
-import { DotChartOutlined, PartitionOutlined, UnorderedListOutlined, WarningOutlined } from '@ant-design/icons';
+import { ListBullets, TreeStructure, ChartScatter, WarningCircle, FileText, Infinity } from '@phosphor-icons/react';
+import { IncidentTab } from '@app/entity/shared/tabs/Incident/IncidentTab';
+import TabNameWithCount from '@app/entityV2/shared/tabs/Entity/TabNameWithCount';
 import * as React from 'react';
 import { useGetMlFeatureQuery } from '../../../graphql/mlFeature.generated';
 import { EntityType, MlFeature, SearchResult } from '../../../types.generated';
@@ -19,8 +21,6 @@ import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSec
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
-import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { FeatureTableTab } from '../shared/tabs/ML/MlFeatureFeatureTableTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
@@ -42,22 +42,27 @@ export class MLFeatureEntity implements Entity<MlFeature> {
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <DotChartOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
+            return <ChartScatter className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} weight="regular" />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
             return (
-                <DotChartOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#9633b9' }} />
+                <ChartScatter
+                    className={TYPE_ICON_CLASS_NAME}
+                    style={{ fontSize, color: color || '#9633b9' }}
+                    weight="regular"
+                />
             );
         }
 
         return (
-            <DotChartOutlined
+            <ChartScatter
                 className={TYPE_ICON_CLASS_NAME}
                 style={{
                     fontSize,
                     color: color || '#BFBFBF',
                 }}
+                weight="regular"
             />
         );
     };
@@ -99,22 +104,26 @@ export class MLFeatureEntity implements Entity<MlFeature> {
                 {
                     name: 'Feature Tables',
                     component: FeatureTableTab,
+                    icon: Infinity,
                 },
                 {
                     name: 'Documentation',
                     component: DocumentationTab,
+                    icon: FileText,
                 },
                 {
                     name: 'Lineage',
                     component: LineageTab,
+                    icon: TreeStructure,
                 },
                 {
                     name: 'Properties',
                     component: PropertiesTab,
+                    icon: ListBullets,
                 },
                 {
                     name: 'Incidents',
-                    icon: WarningOutlined,
+                    icon: WarningCircle,
                     component: IncidentTab,
                     getDynamicName: (_, mlFeature, loading) => {
                         const activeIncidentCount = mlFeature?.mlFeature?.activeIncidents?.total;
@@ -168,7 +177,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
             name: 'Lineage',
             component: LineageTab,
             description: "View this data asset's upstream and downstream dependencies",
-            icon: PartitionOutlined,
+            icon: TreeStructure,
             properties: {
                 actionType: SidebarTitleActionType.LineageExplore,
             },
@@ -177,7 +186,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
             name: 'Properties',
             component: PropertiesTab,
             description: 'View additional properties about this asset',
-            icon: UnorderedListOutlined,
+            icon: ListBullets,
         },
     ];
 

@@ -137,6 +137,9 @@ query getDataFlowChildJobs($urn: String!, $start: Int, $count: Int) {
                         deprecation {
                             ...deprecationFields
                         }
+                        subTypes {
+                            typeNames
+                        }
                     }
                 }
             }

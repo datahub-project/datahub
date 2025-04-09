@@ -1,13 +1,22 @@
+import unittest
+import unittest.mock
 from io import StringIO
 
 import pytest
 import yaml
 from pydantic import ValidationError
 
-from datahub.ingestion.graph.filters import SearchFilterRule
-from datahub.sdk.search_client import compile_filters
+from datahub.ingestion.graph.filters import (
+    RemovedStatusFilter,
+    SearchFilterRule,
+    generate_filter,
+)
+from datahub.metadata.urns import DataPlatformUrn, QueryUrn, Urn
+from datahub.sdk.main_client import DataHubClient
+from datahub.sdk.search_client import compile_filters, compute_entity_types
 from datahub.sdk.search_filters import Filter, FilterDsl as F, load_filters
 from datahub.utilities.urns.error import InvalidUrnError
+from tests.test_helpers.graph_helpers import MockDataHubGraph
 
 
 def test_filters_simple() -> None:
@@ -175,6 +184,39 @@ def test_unsupported_not() -> None:
         F.not_(env_filter)
 
 
+_default_status_filter = {
+    "field": "removed",
+    "condition": "EQUAL",
+    "values": ["true"],
+    "negated": True,
+}
+
+
+def test_compute_entity_types() -> None:
+    assert compute_entity_types(
+        [
+            {
+                "and": [
+                    SearchFilterRule(
+                        field="_entityType",
+                        condition="EQUAL",
+                        values=["DATASET"],
+                    )
+                ]
+            },
+            {
+                "and": [
+                    SearchFilterRule(
+                        field="_entityType",
+                        condition="EQUAL",
+                        values=["CHART"],
+                    )
+                ]
+            },
+        ]
+    ) == ["DATASET", "CHART"]
+
+
 def test_compile_filters() -> None:
     filter = F.and_(F.env("PROD"), F.platform("snowflake"))
     expected_filters = [
@@ -184,14 +226,13 @@ def test_compile_filters() -> None:
                     "field": "origin",
                     "condition": "EQUAL",
                     "values": ["PROD"],
-                    "negated": False,
                 },
                 {
                     "field": "platform.keyword",
                     "condition": "EQUAL",
                     "values": ["urn:li:dataPlatform:snowflake"],
-                    "negated": False,
                 },
+                _default_status_filter,
             ]
         },
         {
@@ -200,15 +241,151 @@ def test_compile_filters() -> None:
                     "field": "env",
                     "condition": "EQUAL",
                     "values": ["PROD"],
-                    "negated": False,
                 },
                 {
                     "field": "platform.keyword",
                     "condition": "EQUAL",
                     "values": ["urn:li:dataPlatform:snowflake"],
-                    "negated": False,
                 },
+                _default_status_filter,
             ]
         },
     ]
-    assert compile_filters(filter) == expected_filters
+    types, compiled = compile_filters(filter)
+    assert types is None
+    assert compiled == expected_filters
+
+
+def test_compile_no_default_status() -> None:
+    filter = F.and_(
+        F.platform("snowflake"), F.soft_deleted(RemovedStatusFilter.ONLY_SOFT_DELETED)
+    )
+
+    _, compiled = compile_filters(filter)
+
+    # Check that no status filter was added.
+    assert compiled == [
+        {
+            "and": [
+                {
+                    "condition": "EQUAL",
+                    "field": "platform.keyword",
+                    "values": ["urn:li:dataPlatform:snowflake"],
+                },
+                {
+                    "condition": "EQUAL",
+                    "field": "removed",
+                    "values": ["true"],
+                },
+            ],
+        },
+    ]
+
+
+def test_generate_filters() -> None:
+    types, compiled = compile_filters(
+        F.and_(
+            F.entity_type(QueryUrn.ENTITY_TYPE),
+            F.custom_filter("origin", "EQUAL", [DataPlatformUrn("snowflake").urn()]),
+        )
+    )
+    assert types == ["QUERY"]
+    assert compiled == [
+        {
+            "and": [
+                {"field": "_entityType", "condition": "EQUAL", "values": ["QUERY"]},
+                {
+                    "field": "origin",
+                    "condition": "EQUAL",
+                    "values": ["urn:li:dataPlatform:snowflake"],
+                },
+                _default_status_filter,
+            ]
+        }
+    ]
+
+    assert generate_filter(
+        platform=None,
+        platform_instance=None,
+        env=None,
+        container=None,
+        status=RemovedStatusFilter.NOT_SOFT_DELETED,
+        extra_filters=None,
+        extra_or_filters=compiled,
+    ) == [
+        {
+            "and": [
+                # This filter appears twice - once from the compiled filters, and once
+                # from the status arg to generate_filter.
+                _default_status_filter,
+                {
+                    "field": "_entityType",
+                    "condition": "EQUAL",
+                    "values": ["QUERY"],
+                },
+                {
+                    "field": "origin",
+                    "condition": "EQUAL",
+                    "values": ["urn:li:dataPlatform:snowflake"],
+                },
+                _default_status_filter,
+            ]
+        }
+    ]
+
+
+def test_get_urns() -> None:
+    graph = MockDataHubGraph()
+
+    with unittest.mock.patch.object(graph, "execute_graphql") as mock_execute_graphql:
+        mock_execute_graphql.return_value = {
+            "scrollAcrossEntities": {
+                "nextScrollId": None,
+                "searchResults": [{"entity": {"urn": "urn:li:corpuser:datahub"}}],
+            }
+        }
+
+        result_urns = ["urn:li:corpuser:datahub"]
+        mock_execute_graphql.return_value = {
+            "scrollAcrossEntities": {
+                "nextScrollId": None,
+                "searchResults": [{"entity": {"urn": urn}} for urn in result_urns],
+            }
+        }
+
+        client = DataHubClient(graph=graph)
+        urns = client.search.get_urns(
+            filter=F.and_(
+                F.entity_type("corpuser"),
+            )
+        )
+        assert list(urns) == [Urn.from_string(urn) for urn in result_urns]
+
+        assert mock_execute_graphql.call_count == 1
+        assert "scrollAcrossEntities" in mock_execute_graphql.call_args.args[0]
+        mock_execute_graphql.assert_called_once_with(
+            unittest.mock.ANY,
+            variables={
+                "types": ["CORP_USER"],
+                "query": "*",
+                "orFilters": [
+                    {
+                        "and": [
+                            {
+                                "field": "_entityType",
+                                "condition": "EQUAL",
+                                "values": ["CORP_USER"],
+                            },
+                            {
+                                "field": "removed",
+                                "condition": "EQUAL",
+                                "values": ["true"],
+                                "negated": True,
+                            },
+                        ]
+                    }
+                ],
+                "batchSize": unittest.mock.ANY,
+                "scrollId": None,
+            },
+        )

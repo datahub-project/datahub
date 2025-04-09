@@ -219,6 +219,7 @@ class AcrylCustomer:
         self._emitted_containers: Dict[str, bool] = {}
 
     def _get_owner_from_assignee(self, assignee: ExternalUser) -> str:
+        assert assignee.email, "Assignee must have an email"
         owner_urn_options = [
             urn
             for urn in self.graph.get_urns_by_filter(
@@ -233,7 +234,6 @@ class AcrylCustomer:
             )
         ]
         if not owner_urn_options:
-            assert assignee.email, "Assignee must have an email"
             owner_urn = "urn:li:corpuser:" + assignee.email
             self.graph.emit(
                 MetadataChangeProposalWrapper(

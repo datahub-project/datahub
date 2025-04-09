@@ -6,6 +6,6 @@ export default styled.div`
     z-index: 1;
     justify-content: space-between;
     height: 46px;
-    padding: 7px 16px;
+    padding: 8px 16px;
     flex: 0 0 auto;
 `;

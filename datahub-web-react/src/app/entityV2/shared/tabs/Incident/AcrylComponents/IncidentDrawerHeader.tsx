@@ -57,10 +57,8 @@ export const IncidentDrawerHeader = ({
                         <Tooltip2 title={canEditIncidents ? 'Edit Incident' : noPermissionsMessage}>
                             <span>
                                 <Button
-                                    icon="PencilSimpleLine"
+                                    icon={{ icon: 'PencilSimpleLine', color: 'gray', source: 'phosphor' }}
                                     variant="text"
-                                    iconColor="gray"
-                                    iconSource="phosphor"
                                     onClick={() => setIsEditActive(!isEditActive)}
                                     disabled={!canEditIncidents}
                                     data-testid="edit-incident-icon"
@@ -70,10 +68,8 @@ export const IncidentDrawerHeader = ({
                         </Tooltip2>
                         <Tooltip2 title="Copy Link">
                             <Button
-                                icon="Link"
+                                icon={{ icon: 'Link', color: 'gray', source: 'phosphor' }}
                                 variant="text"
-                                iconColor="gray"
-                                iconSource="phosphor"
                                 onClick={handleIncidentLinkCopy}
                                 size="xl"
                             />
@@ -81,10 +77,8 @@ export const IncidentDrawerHeader = ({
                     </>
                 )}
                 <Button
-                    icon="X"
+                    icon={{ icon: 'X', color: 'gray', source: 'phosphor' }}
                     variant="text"
-                    iconColor="gray"
-                    iconSource="phosphor"
                     onClick={() => onClose?.()}
                     data-testid="incident-drawer-close-button"
                     size="xl"

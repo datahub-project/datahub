@@ -45,6 +45,7 @@ class DatasetContainerSubTypes(StrEnum):
     GCS_BUCKET = "GCS bucket"
     ABS_CONTAINER = "ABS container"
     KEYSPACE = "Keyspace"  # Cassandra
+    NAMESPACE = "Namespace"  # Iceberg
 
 
 class BIContainerSubTypes(StrEnum):

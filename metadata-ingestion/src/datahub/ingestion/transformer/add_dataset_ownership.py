@@ -86,7 +86,7 @@ class AddDatasetOwnership(OwnershipTransformer):
         logger.debug("Generating Ownership for containers")
         ownership_container_mapping: Dict[str, List[OwnerClass]] = {}
         for entity_urn, data_ownerships in (
-            (urn, self.config.get_owners_to_add(urn)) for urn in self.entity_map.keys()
+            (urn, self.config.get_owners_to_add(urn)) for urn in self.entity_map
         ):
             if not data_ownerships:
                 continue

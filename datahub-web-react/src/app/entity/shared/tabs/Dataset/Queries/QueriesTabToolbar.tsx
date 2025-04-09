@@ -1,6 +1,6 @@
-import { Button, Input } from 'antd';
-import { Tooltip } from '@components';
-import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import { Icon } from '@components';
+import { Button, Input, Tooltip } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import React from 'react';
 import TabToolbar from '../../../components/styled/TabToolbar';
@@ -32,7 +32,7 @@ export default function QueriesTabToolbar({ addQueryDisabled, onAddQuery, onChan
                 placeholder="Search in queries..."
                 onChange={onChangeSearch}
                 allowClear
-                prefix={<SearchOutlined />}
+                prefix={<Icon icon="MagnifyingGlass" source="phosphor" />}
                 data-testid="search-query-input"
             />
         </TabToolbar>

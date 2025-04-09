@@ -17,6 +17,7 @@ import {
     Maybe,
     PropertyValueInput,
     SchemaFieldEntity,
+    StdDataType,
     StructuredPropertyEntity,
     SubResourceType,
 } from '../../../../../../types.generated';
@@ -42,6 +43,9 @@ interface Props {
     fieldEntity?: Maybe<SchemaFieldEntity>;
 }
 
+const SEARCH_SELECT_MODAL_WIDTH = 1400;
+const DEFAULT_MODAL_WIDTH = 650;
+
 export default function EditStructuredPropertyModal({
     isOpen,
     structuredProperty,
@@ -61,6 +65,7 @@ export default function EditStructuredPropertyModal({
     const { selectedValues, selectSingleValue, toggleSelectedValue, updateSelectedValues, setSelectedValues } =
         useEditStructuredProperty(initialValues);
     const [upsertStructuredProperties] = useUpsertStructuredPropertiesMutation();
+    const { allowedValues } = structuredProperty.definition;
 
     // is schema field urn
     const isSchemaField = urn.includes('urn:li:schemaField');
@@ -196,6 +201,8 @@ export default function EditStructuredPropertyModal({
         }
     };
 
+    const isUrnInput = structuredProperty.definition.valueType.info.type === StdDataType.Urn && !allowedValues;
+
     return (
         <>
             {!showProposeModal && (
@@ -206,7 +213,8 @@ export default function EditStructuredPropertyModal({
                     )}`}
                     onCancel={closeModal}
                     open={isOpen}
-                    width={650}
+                    // Urn input is a special case that requires a wider modal since it employs a search select component
+                    width={isUrnInput ? SEARCH_SELECT_MODAL_WIDTH : DEFAULT_MODAL_WIDTH}
                     buttons={[
                         { text: 'Cancel', key: 'Cancel', variant: 'text', onClick: closeModal, type: 'button' },
                         {
@@ -233,6 +241,7 @@ export default function EditStructuredPropertyModal({
                         <Description>{structuredProperty.definition.description}</Description>
                     )}
                     <StructuredPropertyInput
+                        canUseSearchSelectUrnInput
                         structuredProperty={structuredProperty}
                         selectedValues={selectedValues}
                         selectSingleValue={selectSingleValue}

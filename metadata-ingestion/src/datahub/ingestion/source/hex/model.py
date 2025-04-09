@@ -1,6 +1,8 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Union
+
+from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
 
 
 @dataclass
@@ -51,6 +53,12 @@ class Project:
     creator: Optional[Owner] = None
     owner: Optional[Owner] = None
     analytics: Optional[Analytics] = None
+    upstream_datasets: List[Union[DatasetUrn, SchemaFieldUrn]] = field(
+        default_factory=list
+    )
+    upstream_schema_fields: List[Union[DatasetUrn, SchemaFieldUrn]] = field(
+        default_factory=list
+    )
 
 
 @dataclass

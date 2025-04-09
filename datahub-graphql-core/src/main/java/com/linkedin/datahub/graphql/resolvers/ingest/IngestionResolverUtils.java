@@ -237,7 +237,8 @@ public class IngestionResolverUtils {
     final EnvelopedAspectMap aspectMap = entityResponse.getAspects();
 
     // https://linear.app/acryl-data/issue/OBS-56/collect-the-last-run-id-in-the-system-metadata-payload
-    // this runId may or may not be the correct (last one) - so in some cases this resolver may
+    // this runId may or may not be the correct (last one) - so in some cases this
+    // resolver may
     // return false incorrectly.
     final List<RunInfo> runs = SystemMetadataUtils.getLastIngestionRuns(aspectMap);
 
@@ -291,7 +292,8 @@ public class IngestionResolverUtils {
         new ExecutionRequestInput(executionRequestEnvelopedInput.getValue().data());
     final ExecutionRequestSource execRequestSource = executionRequestInput.getSource();
 
-    // Get the ingestionSource entity to check for the source -> config -> executorId.
+    // Get the ingestionSource entity to check for the source -> config ->
+    // executorId.
     final EntityResponse ingestionSourceEntityResponse =
         entityClient.getV2(
             context.getOperationContext(),
@@ -315,7 +317,8 @@ public class IngestionResolverUtils {
         new DataHubIngestionSourceInfo(ingestionSourceEnvelopedInfo.getValue().data());
     final DataHubIngestionSourceConfig ingestionSourceConfig = ingestionSourceInfo.getConfig();
 
-    // executorId's from the CLI OR REMOTE executor are not valid because we don't have auth info to
+    // executorId's from the CLI OR REMOTE executor are not valid because we don't
+    // have auth info to
     // fetch data.
     final String executorId = ingestionSourceConfig.getExecutorId();
     final boolean isCorrectSource =
@@ -330,9 +333,11 @@ public class IngestionResolverUtils {
   private static Boolean isMatchingDataPlatform(
       @Nonnull final Urn entityUrn, @Nonnull final String type) {
     if (Constants.DATASET_ENTITY_NAME.equals(entityUrn.getEntityType())) {
-      // it's possible that another ingestion source produced an aspect for the entity in cases of
+      // it's possible that another ingestion source produced an aspect for the entity
+      // in cases of
       // Datasets
-      // e.g. for DBT. here we check the data platform urn and compare it to the ingestion source
+      // e.g. for DBT. here we check the data platform urn and compare it to the
+      // ingestion source
       // type.
       Urn dataPlatformUrn = UrnUtils.getUrn(entityUrn.getEntityKey().get(0));
       return type.equalsIgnoreCase(dataPlatformUrn.getId()) || isDatabricksEntity(entityUrn, type);
@@ -340,7 +345,8 @@ public class IngestionResolverUtils {
     return true;
   }
 
-  // For databricks entities, the data platform URN will not necessarily match the ingestion source
+  // For databricks entities, the data platform URN will not necessarily match the
+  // ingestion source
   // type.
   private static boolean isDatabricksEntity(
       @Nonnull final Urn entityUrn, @Nonnull final String type) {

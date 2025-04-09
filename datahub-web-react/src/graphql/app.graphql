@@ -119,6 +119,7 @@ query appConfig {
             showAutoCompleteResults
             showHasSiblingsFilter
             showSearchBarAutocompleteRedesign
+            showManageTags
             showFormAnalytics
             showStatsTabRedesign
             requestMinimalSlackPermissions

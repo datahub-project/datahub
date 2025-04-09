@@ -375,7 +375,7 @@ class BigqueryLineageExtractor:
                 memory_footprint.total_size(lineage)
             )
 
-        for lineage_key in lineage.keys():
+        for lineage_key in lineage:
             # For views, we do not use the upstreams obtained by parsing audit logs
             # as they may contain indirectly referenced tables.
             if (

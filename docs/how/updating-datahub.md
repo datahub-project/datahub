@@ -20,6 +20,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- #13004: The `acryl-datahub-airflow-plugin` dropped support for Airflow 2.3 and 2.4.
+
 ### Potential Downtime
 
 ### Deprecations

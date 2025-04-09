@@ -104,6 +104,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         entityVersioningEnabled: false,
         showHasSiblingsFilter: false,
         showSearchBarAutocompleteRedesign: false,
+        showManageTags: false,
         showTaskCenterRedesign: false,
         usePropagationsFramework: false,
         displayExecutorPools: false,

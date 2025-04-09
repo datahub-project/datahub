@@ -121,7 +121,7 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         for name in transform_names:
             transform = {"name": name}
             transforms.append(transform)
-            for key in self.connector_manifest.config.keys():
+            for key in self.connector_manifest.config:
                 if key.startswith(f"transforms.{name}."):
                     transform[key.replace(f"transforms.{name}.", "")] = (
                         self.connector_manifest.config[key]

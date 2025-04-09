@@ -84,7 +84,7 @@ const AutomationPage = React.memo(() => {
                     <AutomationsContentHeader $isShowNavBarRedesign={isShowNavBarRedesign}>
                         <PageTitle title="Automations" subTitle="Manage automated actions across your data assets" />
                         <div>
-                            <Button size="lg" icon="Add" onClick={() => setIsCreateOpen(!isCreateOpen)}>
+                            <Button size="lg" icon={{ icon: 'Add' }} onClick={() => setIsCreateOpen(!isCreateOpen)}>
                                 Create
                             </Button>
                         </div>

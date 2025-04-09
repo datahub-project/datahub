@@ -8,6 +8,7 @@ import {
     UnorderedListOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
+import { ListBullets, TreeStructure } from '@phosphor-icons/react';
 import * as React from 'react';
 import { GetChartQuery, useGetChartQuery, useUpdateChartMutation } from '../../../graphql/chart.generated';
 import { Chart, EntityType, LineageDirection, SearchResult } from '../../../types.generated';
@@ -249,7 +250,7 @@ export class ChartEntity implements Entity<Chart> {
             name: 'Lineage',
             component: LineageTab,
             description: "View this data asset's upstream and downstream dependencies",
-            icon: PartitionOutlined,
+            icon: TreeStructure,
             properties: {
                 actionType: SidebarTitleActionType.LineageExplore,
             },
@@ -258,7 +259,7 @@ export class ChartEntity implements Entity<Chart> {
             name: 'Properties',
             component: PropertiesTab,
             description: 'View additional properties about this asset',
-            icon: UnorderedListOutlined,
+            icon: ListBullets,
         },
     ];
 

@@ -26,6 +26,14 @@ vi.mock('../../../useEntityRegistry', () => ({
         getEntityUrl: vi.fn().mockImplementation((urn) => `/entity/${urn}`),
         getSearchEntityTypes: vi.fn().mockReturnValue([EntityType.Dataset, EntityType.Dashboard]),
     }),
+    useEntityRegistryV2: () => ({
+        getDisplayName: vi.fn().mockImplementation((type, entity) => {
+            if (type === EntityType.DataPlatform) return 'Hive';
+            return entity?.name || 'Test Entity';
+        }),
+        getEntityUrl: vi.fn().mockImplementation((urn) => `/entity/${urn}`),
+        getSearchEntityTypes: vi.fn().mockReturnValue([EntityType.Dataset, EntityType.Dashboard]),
+    }),
 }));
 
 // Mock the useUserContext hook

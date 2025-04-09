@@ -66,7 +66,7 @@ const StructuredProperties = () => {
                     <ButtonContainer>
                         <Button
                             disabled={!canEditProps}
-                            icon="Add"
+                            icon={{ icon: 'Add', source: 'material' }}
                             data-testid="structured-props-create-button"
                             onClick={() => {
                                 setIsDrawerOpen(true);
@@ -78,7 +78,12 @@ const StructuredProperties = () => {
                     </ButtonContainer>
                 </Tooltip>
             </HeaderContainer>
-            <SearchBar placeholder="Search" value={searchQuery} onChange={(value) => handleSearch(value)} />
+            <SearchBar
+                placeholder="Search"
+                value={searchQuery}
+                onChange={(value) => handleSearch(value)}
+                width="272px"
+            />
             <TableContainer>
                 <StructuredPropsTable
                     searchQuery={searchQuery}

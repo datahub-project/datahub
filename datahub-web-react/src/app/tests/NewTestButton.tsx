@@ -59,7 +59,7 @@ export const NewTestButton = ({ onCreated }: Props) => {
 
     return (
         <ButtonContainer>
-            <Button icon="Add" onClick={() => setShowCreateTestModal(true)}>
+            <Button icon={{ icon: 'Add' }} onClick={() => setShowCreateTestModal(true)}>
                 Create
             </Button>
             {showCreateTestModal && (

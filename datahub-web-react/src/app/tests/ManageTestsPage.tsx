@@ -69,7 +69,7 @@ export const ManageTestsPage = () => {
             <Input
                 label=""
                 placeholder="Search..."
-                icon={{ name: 'MagnifyingGlass', source: 'phosphor' }}
+                icon={{ icon: 'MagnifyingGlass', source: 'phosphor' }}
                 value={searchValue}
                 setValue={setSearchValue}
                 style={{ maxWidth: '330px' }}

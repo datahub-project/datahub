@@ -138,7 +138,6 @@ export const IngestionSourceList = ({ onSwitchTab, showCreateModal, setShowCreat
     const paramsPoolFilter = (params?.[INGESTION_TAB_QUERY_PARAMS.pool] as string) || undefined; // SaaS only
 
     const [query, setQuery] = useState<undefined | string>(undefined);
-
     const searchInputRef = useRef<HTMLInputElement | null>(null);
     // highlight search input if user arrives with a query preset for salience
     useEffect(() => {

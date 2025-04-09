@@ -578,7 +578,7 @@ jobs:
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :datahub-frontend:dist -x test -x yarnTest -x yarnLint --parallel
-          mv ./datahub-frontend/build/distributions/datahub-frontend-*.zip datahub-frontend.zip
+          mv datahub-frontend/build/stage/main .
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -1263,7 +1263,7 @@ jobs:
 
   smoke_test:
     name: Run Smoke Tests
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-4
     needs:
       [
         setup,

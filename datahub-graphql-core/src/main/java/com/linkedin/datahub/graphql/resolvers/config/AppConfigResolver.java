@@ -60,7 +60,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final FeatureFlags _featureFlags;
   private final ChromeExtensionConfiguration _chromeExtensionConfiguration;
   private final ClassificationConfiguration _classificationConfiguration;
-  //  private final ClassificationAutomations _automations;
+  // private final ClassificationAutomations _automations;
   private final Integer _defaultLineageLastDaysFilter;
 
   public AppConfigResolver(
@@ -141,7 +141,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     appConfig.setActionRequestsConfig(actionRequestsConfig);
     final IdentityManagementConfig identityManagementConfig = new IdentityManagementConfig();
     identityManagementConfig.setEnabled(
-        true); // Identity Management always enabled. TODO: Understand if there's a case where this
+        true); // Identity Management always enabled. TODO: Understand if there's a case where
+    // this
     // should change.
 
     final ManagedIngestionConfig ingestionConfig = new ManagedIngestionConfig();
@@ -269,6 +270,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setDisplayExecutorPools(_featureFlags.isDisplayExecutorPools())
             .setShowSearchBarAutocompleteRedesign(
                 _featureFlags.isShowSearchBarAutocompleteRedesign())
+            .setShowManageTags(_featureFlags.isShowManageTags())
             .setOnlineSmartAssertionsEnabled(_featureFlags.isOnlineSmartAssertionsEnabled())
             .setShowDefaultExternalLinks(_featureFlags.isShowDefaultExternalLinks())
             .build();
@@ -317,7 +319,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   }
 
   private EntityType mapResourceTypeToEntityType(final String resourceType) {
-    // TODO: Is there a better way to instruct the UI to present a searchable resource?
+    // TODO: Is there a better way to instruct the UI to present a searchable
+    // resource?
     if (com.linkedin.metadata.authorization.PoliciesConfig.DATASET_PRIVILEGES
         .getResourceType()
         .equals(resourceType)) {

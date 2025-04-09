@@ -192,7 +192,12 @@ export default function DescriptionField({
                         scrollableY={false}
                     />
                     {isSchemaEditable && !!description && (
-                        <EditButton icon="Edit" size="md" variant="text" onClick={() => setShowAddModal(true)} />
+                        <EditButton
+                            icon={{ icon: 'Edit' }}
+                            size="md"
+                            variant="text"
+                            onClick={() => setShowAddModal(true)}
+                        />
                     )}
                 </DescriptionWrapper>
             </>

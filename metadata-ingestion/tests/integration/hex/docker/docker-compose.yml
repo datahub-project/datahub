@@ -7,10 +7,27 @@ services:
       - "8000:8000"
     volumes:
       - ./hex_projects_response.json:/app/hex_projects_response.json
-      - ./mock_server.py:/app/mock_server.py
-    command: ["python", "/app/mock_server.py"]
+      - ./mock_hex_server.py:/app/mock_hex_server.py
+    command: ["python", "/app/mock_hex_server.py"]
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+  datahub-mock-api:
+    image: python:3.9-alpine
+    container_name: datahub-mock-api
+    ports:
+      - "8010:8010"
+    volumes:
+      - ./datahub_entities_v3_page1.json:/app/datahub_entities_v3_page1.json
+      - ./datahub_entities_v3_page2.json:/app/datahub_entities_v3_page2.json
+      - ./datahub_get_urns_by_filter_page1.json:/app/datahub_get_urns_by_filter_page1.json
+      - ./datahub_get_urns_by_filter_page2.json:/app/datahub_get_urns_by_filter_page2.json
+      - ./mock_datahub_server.py:/app/mock_datahub_server.py
+    command: ["python", "/app/mock_datahub_server.py"]
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8010/health"]
       interval: 5s
       timeout: 5s
       retries: 3

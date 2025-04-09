@@ -31,5 +31,13 @@ class MultipleSubtypesWarning(Warning):
     pass
 
 
+class SearchFilterWarning(Warning):
+    pass
+
+
 class ExperimentalWarning(Warning):
+    pass
+
+
+class APITracingWarning(Warning):
     pass

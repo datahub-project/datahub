@@ -35,7 +35,7 @@ export default function SampleValueDetailed({ sample }: SampleValueDetailedProps
             </Sample>
 
             <Button
-                icon="ContentCopy"
+                icon={{ icon: 'ContentCopy' }}
                 iconPosition="left"
                 isCircle
                 onClick={copySample}

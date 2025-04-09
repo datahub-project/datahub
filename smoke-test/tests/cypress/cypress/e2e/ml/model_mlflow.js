@@ -21,8 +21,7 @@ describe("models", () => {
     cy.wait("@graphqlRequest");
 
     // Ensure page has loaded by checking for specific content
-    cy.contains("2025-03-03").should("be.visible");
-    cy.contains("2025-03-04").should("be.visible");
+    cy.contains("ago").should("be.visible"); // relative time
     cy.contains("urn:li:corpuser:datahub").should("be.visible");
 
     // Navigate to Properties tab with verification

@@ -6,8 +6,8 @@ import ClickOutside from '@src/app/shared/ClickOutside';
 import { BrowserWrapper } from '@src/app/shared/tags/AddTagsTermsModal';
 import styled from 'styled-components';
 import { Entity, EntityType, FormPromptType } from '../../../../../../../types.generated';
-import useUrnInput from './useUrnInput';
 import SelectedEntity from './SelectedEntity';
+import useUrnInput from './useUrnInput';
 
 const EntitySelect = styled(Select)`
     width: 100%;

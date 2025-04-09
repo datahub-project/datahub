@@ -1,7 +1,7 @@
 import React, { useContext, useState } from 'react';
 
 import { matchPath, useLocation } from 'react-router';
-import { ReadOutlined } from '@ant-design/icons';
+import { BookOpen } from '@phosphor-icons/react';
 import styled from 'styled-components';
 
 import { PageRoutes } from '../../../conf/Global';
@@ -37,7 +37,7 @@ export default function CompactTagProfile({ urn }: Props) {
     const tabs: EntitySidebarTab[] = [
         {
             name: 'About',
-            icon: ReadOutlined,
+            icon: BookOpen,
             component: EntitySidebarSectionsTab,
             display: defaultTabDisplayConfig,
         },
