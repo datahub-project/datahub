@@ -110,7 +110,7 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
     const proposedEntityUrns = proposedRows
         .flatMap((row) => {
             const { values } = row;
-            return values.map((value) => value.entity?.urn);
+            return values?.map((value) => value.entity?.urn);
         })
         .filter(Boolean);
 
@@ -130,7 +130,7 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                     propertyRow?.dataType?.info?.type === StdDataType.RichText ||
                     proposedPropRows[0]?.dataType?.info?.type === StdDataType.RichText;
 
-                const proposedValues = proposedPropRows.flatMap((row) => row.values);
+                const proposedValues = proposedPropRows.flatMap((row) => row.values || []);
 
                 return (
                     <>

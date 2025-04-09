@@ -24,7 +24,10 @@ export function mapStructuredPropertyValues(structuredPropertiesEntry: Structure
         }));
 }
 
-export function mapStructuredPropertyToPropertyRow(structuredPropertiesEntry: StructuredPropertiesEntry) {
+export function mapStructuredPropertyToPropertyRow(
+    structuredPropertiesEntry: StructuredPropertiesEntry,
+    isProposed = false,
+) {
     const { displayName, qualifiedName } = structuredPropertiesEntry.structuredProperty.definition;
     return {
         displayName: displayName || qualifiedName,
@@ -40,6 +43,7 @@ export function mapStructuredPropertyToPropertyRow(structuredPropertiesEntry: St
                   }
                 : undefined,
         associatedUrn: structuredPropertiesEntry.associatedUrn,
+        isProposed,
     };
 }
 

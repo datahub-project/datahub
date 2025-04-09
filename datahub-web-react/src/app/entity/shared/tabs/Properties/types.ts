@@ -23,9 +23,5 @@ export interface PropertyRow {
     isParentRow?: boolean;
     structuredProperty?: StructuredPropertyEntity;
     associatedUrn?: string;
-}
-
-export interface PropertyTableRow {
-    mainRow?: PropertyRow;
-    proposedRows?: PropertyRow[];
+    isProposed?: boolean;
 }

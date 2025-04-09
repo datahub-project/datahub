@@ -2,6 +2,7 @@ import { ActionRequestType } from '@src/types.generated';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { getProposedItemsByType } from '../../utils';
 import { mapStructuredPropertyToPropertyRow } from './useStructuredProperties';
+import { PropertyRow, ValueColumnData } from './types';
 
 interface Props {
     fieldPath?: string;
@@ -37,11 +38,13 @@ export const useGetProposedProperties = ({ fieldPath, propertyUrn }: Props = {})
                   [],
           );
 
-    const proposedRows = proposedProperties.flatMap((property) => {
-        return mapStructuredPropertyToPropertyRow(property);
+    const proposedRows: PropertyRow[] = proposedProperties.flatMap((property, index) => {
+        const propertyRow = mapStructuredPropertyToPropertyRow(property, true);
+        // need to add index to qualified name for unique keys in table
+        return { ...propertyRow, qualifiedName: `${propertyRow.qualifiedName}-${index}` };
     });
 
-    const proposedValues = proposedRows.flatMap((row) => row.values);
+    const proposedValues: ValueColumnData[] = proposedRows.flatMap((row) => row.values || []);
 
     return { proposedProperties, proposedRows, proposedValues };
 };
