@@ -6,6 +6,7 @@ from mlflow.entities import Run
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.store.entities import PagedList
 from pydantic.fields import Field
+import logging
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.source_common import EnvConfigMixin
@@ -34,6 +35,7 @@ from datahub.metadata.schema_classes import (
 
 T = TypeVar("T")
 
+logger = logging.getLogger(__name__)
 
 class MLflowConfig(EnvConfigMixin):
     tracking_uri: Optional[str] = Field(
@@ -132,7 +134,7 @@ class MLflowSource(Source):
                 colorHex=stage_info.color_hex,
             )
             wu = self._create_workunit(urn=tag_urn, aspect=tag_properties)
-            yield wu
+        return iter([])
 
     def _make_stage_tag_urn(self, stage_name: str) -> str:
         tag_name = self._make_stage_tag_name(stage_name)
@@ -157,16 +159,17 @@ class MLflowSource(Source):
         """
         registered_models = self._get_mlflow_registered_models()
         for registered_model in registered_models:
-            yield self._get_ml_group_workunit(registered_model)
+            self._get_ml_group_workunit(registered_model)
             model_versions = self._get_mlflow_model_versions(registered_model)
             for model_version in model_versions:
                 run = self._get_mlflow_run(model_version)
-                yield self._get_ml_model_properties_workunit(
+                self._get_ml_model_properties_workunit(
                     registered_model=registered_model,
                     model_version=model_version,
                     run=run,
                 )
-                yield self._get_global_tags_workunit(model_version=model_version)
+                self._get_global_tags_workunit(model_version=model_version)
+        return iter([])
 
     def _get_mlflow_registered_models(self) -> Iterable[RegisteredModel]:
         """
@@ -203,16 +206,23 @@ class MLflowSource(Source):
         Generate an MLModelGroup workunit for an MLflow Registered Model.
         """
         ml_model_group_urn = self._make_ml_model_group_urn(registered_model)
-        ml_model_group_properties = MLModelGroupPropertiesClass(
-            customProperties=registered_model.tags,
-            description=registered_model.description,
-            createdAt=registered_model.creation_timestamp,
-        )
-        wu = self._create_workunit(
-            urn=ml_model_group_urn,
-            aspect=ml_model_group_properties,
-        )
-        return wu
+        logger.info(f"!!! getting tags for registered model {registered_model.name}")
+        try:
+            tags = registered_model.tags
+            print("!!! got tags:", tags)
+        except Exception as e:
+            logger.error(f"Error getting tags for registered model {registered_model.name}: {e}")
+        # ml_model_group_properties = MLModelGroupPropertiesClass(
+        #     customProperties=registered_model.tags,
+        #     description=registered_model.description,
+        #     createdAt=registered_model.creation_timestamp,
+        # )
+        # wu = self._create_workunit(
+        #     urn=ml_model_group_urn,
+        #     aspect=ml_model_group_properties,
+        # )
+        # return wu
+        return iter([])
 
     def _make_ml_model_group_urn(self, registered_model: RegisteredModel) -> str:
         urn = builder.make_ml_model_group_urn(
@@ -251,7 +261,7 @@ class MLflowSource(Source):
         registered_model: RegisteredModel,
         model_version: ModelVersion,
         run: Union[None, Run],
-    ) -> MetadataWorkUnit:
+    ) -> Optional[MetadataWorkUnit]:
         """
         Generate an MLModel workunit for an MLflow Model Version.
         Every Model Version is a DataHub MLModel entity associated with an MLModelGroup corresponding to a Registered Model.
@@ -270,20 +280,30 @@ class MLflowSource(Source):
         else:
             hyperparams = None
             training_metrics = None
-        ml_model_properties = MLModelPropertiesClass(
-            customProperties=model_version.tags,
-            externalUrl=self._make_external_url(model_version),
-            description=model_version.description,
-            date=model_version.creation_timestamp,
-            version=VersionTagClass(versionTag=str(model_version.version)),
-            hyperParams=hyperparams,
-            trainingMetrics=training_metrics,
-            # mlflow tags are dicts, but datahub tags are lists. currently use only keys from mlflow tags
-            tags=list(model_version.tags.keys()),
-            groups=[ml_model_group_urn],
-        )
-        wu = self._create_workunit(urn=ml_model_urn, aspect=ml_model_properties)
-        return wu
+        try:
+            print("!!! getting tags for model version:", model_version.name)
+            model_version_tags = model_version.tags
+            print("!!! got tags:", model_version_tags)
+            print("!!! getting tags keys")
+            tag_keys = list(model_version_tags.keys())
+            print("!!! got tag keys:", tag_keys)
+        except Exception as e:
+            logger.warning(f"Error getting tags for model version {model_version.name}: {e}")
+
+        # ml_model_properties = MLModelPropertiesClass(
+        #     customProperties=model_version_tags,
+        #     externalUrl=self._make_external_url(model_version),
+        #     description=model_version.description,
+        #     date=model_version.creation_timestamp,
+        #     version=VersionTagClass(versionTag=str(model_version.version)),
+        #     hyperParams=hyperparams,
+        #     trainingMetrics=training_metrics,
+        #     tags=tag_keys,
+        #     groups=[ml_model_group_urn],
+        # )
+
+        # return self._create_workunit(urn=ml_model_urn, aspect=ml_model_properties)
+        return iter([])
 
     def _make_ml_model_urn(self, model_version: ModelVersion) -> str:
         urn = builder.make_ml_model_urn(
