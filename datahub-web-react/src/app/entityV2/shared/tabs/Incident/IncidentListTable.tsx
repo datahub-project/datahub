@@ -33,8 +33,8 @@ export const IncidentListTable = ({ incidentData, filter, refetch, privileges }:
     // get columns data from the custom hooks
     const incidentsTableCols = useIncidentsTableColumns(refetch, privileges);
     const [sortedOptions, setSortedOptions] = useState<{ sortColumn: string; sortOrder: SortingState }>({
-        sortColumn: '',
-        sortOrder: SortingState.ORIGINAL,
+        sortColumn: 'created',
+        sortOrder: SortingState.ASCENDING,
     });
 
     const [focusIncidentUrn, setFocusIncidentUrn] = useState<string | null>(null);
