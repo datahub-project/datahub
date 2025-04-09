@@ -35,6 +35,7 @@ from datahub.ingestion.source.sigma.config import (
     PlatformDetail,
     SigmaSourceConfig,
     SigmaSourceReport,
+    WorkspaceCounts,
 )
 from datahub.ingestion.source.sigma.data_classes import (
     Element,
@@ -284,6 +285,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         yield self._gen_dataset_properties(dataset_urn, dataset)
 
         if dataset.workspaceId:
+            self.reporter.workspaces.increment_datasets_count(dataset.workspaceId)
             yield from add_entity_to_container(
                 container_key=self._gen_workspace_key(dataset.workspaceId),
                 entity_type="dataset",
@@ -467,6 +469,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             ).as_workunit()
 
             if workbook.workspaceId:
+                self.reporter.workspaces.increment_elements_count(workbook.workspaceId)
+
                 yield self._gen_entity_browsepath_aspect(
                     entity_urn=chart_urn,
                     parent_entity_urn=builder.make_container_urn(
@@ -524,6 +528,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             all_input_fields: List[InputFieldClass] = []
 
             if workbook.workspaceId:
+                self.reporter.workspaces.increment_pages_count(workbook.workspaceId)
                 yield self._gen_entity_browsepath_aspect(
                     entity_urn=dashboard_urn,
                     parent_entity_urn=builder.make_container_urn(
@@ -613,6 +618,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         paths = workbook.path.split("/")[1:]
         if workbook.workspaceId:
+            self.reporter.workspaces.increment_workbooks_count(workbook.workspaceId)
+
             yield self._gen_entity_browsepath_aspect(
                 entity_urn=dashboard_urn,
                 parent_entity_urn=builder.make_container_urn(
@@ -666,6 +673,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 f"{workspace.name} ({workspace.workspaceId})"
             )
             yield from self._gen_workspace_workunit(workspace)
+            if self.reporter.workspaces.workspace_counts.get(
+                workspace.workspaceId, WorkspaceCounts()
+            ).is_empty():
+                logger.warning(
+                    f"Workspace {workspace.name} ({workspace.workspaceId}) is empty. If this is not expected, add the user associated with the Client ID/Secret to each workspace with missing metadata"
+                )
+                self.reporter.empty_workspaces.append(
+                    f"{workspace.name} ({workspace.workspaceId})"
+                )
         yield from self._gen_sigma_dataset_upstream_lineage_workunit()
 
     def get_report(self) -> SourceReport:
