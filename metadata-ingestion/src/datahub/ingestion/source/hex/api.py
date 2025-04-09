@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 # The following models were Claude-generated from Hex API OpenAPI definition https://static.hex.site/openapi.json
 # To be exclusively used internally for the deserialization of the API response
+# Model is incomplete and fields may have not been mapped if not used in the ingestion
 
 
 class HexApiAppViewStats(BaseModel):
@@ -83,21 +84,10 @@ class HexApiUser(BaseModel):
     email: str
 
 
-class HexApiAccessType(StrEnum):
-    """Access type enum."""
-
-    NONE = "NONE"
-    APP_ONLY = "APP_ONLY"
-    CAN_VIEW = "CAN_VIEW"
-    CAN_EDIT = "CAN_EDIT"
-    FULL_ACCESS = "FULL_ACCESS"
-
-
 class HexApiUserAccess(BaseModel):
     """User access model."""
 
     user: HexApiUser
-    access: Optional[HexApiAccessType] = None
 
 
 class HexApiCollectionData(BaseModel):
@@ -110,13 +100,6 @@ class HexApiCollectionAccess(BaseModel):
     """Collection access model."""
 
     collection: HexApiCollectionData
-    access: Optional[HexApiAccessType] = None
-
-
-class HexApiAccessSettings(BaseModel):
-    """Access settings model."""
-
-    access: Optional[HexApiAccessType] = None
 
 
 class HexApiWeeklySchedule(BaseModel):
@@ -146,9 +129,6 @@ class HexApiSharing(BaseModel):
     users: Optional[List[HexApiUserAccess]] = []
     collections: Optional[List[HexApiCollectionAccess]] = []
     groups: Optional[List[Any]] = []
-    workspace: Optional[HexApiAccessSettings] = None
-    public_web: Optional[HexApiAccessSettings] = Field(default=None, alias="publicWeb")
-    support: Optional[HexApiAccessSettings] = None
 
     class Config:
         extra = "ignore"  # Allow extra fields in the JSON
