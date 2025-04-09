@@ -23,7 +23,7 @@ class EnsureAspectSizeProcessor:
     ):
         self.report = report
         self.payload_constraint = payload_constraint
-        self.schema_size_constraint = self.payload_constraint - 500000
+        self.schema_size_constraint = self.payload_constraint - 250000
 
     def ensure_dataset_profile_size(
         self, dataset_urn: str, profile: DatasetProfileClass
