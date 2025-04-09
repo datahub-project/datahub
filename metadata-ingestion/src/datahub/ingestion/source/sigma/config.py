@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 import pydantic
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
@@ -80,7 +80,11 @@ class WorkspaceCounts(BaseModel):
 
 class SigmaWorkspaceEntityFilterReport(EntityFilterReport):
     type: str = "workspace"
-    workspace_counts: LossyDict[str, WorkspaceCounts] = LossyDict()
+
+    workspace_counts: LossyDict[str, WorkspaceCounts] = Field(
+        default_factory=LossyDict,
+        description="Counts of workbooks, datasets, elements and pages in each workspace.",
+    )
 
     def increment_workbooks_count(self, workspace_id: str) -> None:
         if workspace_id not in self.workspace_counts:
