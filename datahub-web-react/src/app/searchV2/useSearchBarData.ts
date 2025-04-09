@@ -1,6 +1,6 @@
 import {
     useGetAutoCompleteMultipleResultsLazyQuery,
-    useGetSearchResultsForMultipleLazyQuery,
+    useGetSearchResultsForMultipleForSearchBarLazyQuery,
 } from '@src/graphql/search.generated';
 import { AndFilterInput, Entity, EntityType, FacetMetadata } from '@src/types.generated';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -64,8 +64,9 @@ const useSearchAPI = (): APIResponse => {
     const [entities, setEntities] = useState<Entity[] | undefined>();
     const [facets, setFacets] = useState<FacetMetadata[] | undefined>();
 
-    const [getSearchResultsForMultiple, { data, loading }] = useGetSearchResultsForMultipleLazyQuery();
+    const [getSearchResultsForMultiple, { data, loading }] = useGetSearchResultsForMultipleForSearchBarLazyQuery();
 
+    // TODO:: pass types and viewUrn
     const updateData = useCallback(
         (query: string, orFilters: AndFilterInput[], types: EntityType[], viewUrn: string | undefined) => {
             // SearchAPI supports queries with 3 or longer characters
