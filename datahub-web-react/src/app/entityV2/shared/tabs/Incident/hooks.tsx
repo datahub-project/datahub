@@ -8,14 +8,14 @@ import { IncidentPriorityLabel } from '@src/alchemy-components/components/Incide
 import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { CorpUser } from '@src/types.generated';
+import { CorpUser, EntityPrivileges, IncidentType } from '@src/types.generated';
 import { getQueryParams } from '../Dataset/Validations/assertionUtils';
 import { getAssigneeNamesWithAvatarUrl, getLinkedAssetsCount } from './utils';
 import { IncidentResolveButton } from './IncidentResolveButton';
 import { IncidentAssigneeAvatarStack } from './IncidentAssigneeAvatarStack';
 import { CategoryType } from './styledComponents';
 
-export const useIncidentsTableColumns = (refetch: () => void) => {
+export const useIncidentsTableColumns = (refetch: () => void, privileges?: EntityPrivileges) => {
     return useMemo(() => {
         const columns = [
             {
@@ -49,12 +49,18 @@ export const useIncidentsTableColumns = (refetch: () => void) => {
                 title: 'Category',
                 dataIndex: 'type',
                 key: 'type',
-                render: (record) =>
-                    !record.groupName && (
-                        <CategoryType data-testid="incident-category" title={getCapitalizeWord(String(record?.type))}>
-                            {getCapitalizeWord(String(record?.type))}
-                        </CategoryType>
-                    ),
+                render: (record) => {
+                    const categoryName = getCapitalizeWord(
+                        record?.type === IncidentType.Custom ? record?.customType : record?.type,
+                    );
+                    return (
+                        !record.groupName && (
+                            <CategoryType data-testid="incident-category" title={categoryName}>
+                                {categoryName}
+                            </CategoryType>
+                        )
+                    );
+                },
                 sorter: (a, b) => {
                     return (b.type || '').localeCompare(a.type || '', undefined, { sensitivity: 'base' });
                 },
@@ -107,13 +113,17 @@ export const useIncidentsTableColumns = (refetch: () => void) => {
                 key: 'actions',
                 width: '15%',
                 render: (record) => {
-                    return !record.groupName && <IncidentResolveButton incident={record} refetch={refetch} />;
+                    return (
+                        !record.groupName && (
+                            <IncidentResolveButton incident={record} privileges={privileges} refetch={refetch} />
+                        )
+                    );
                 },
                 alignment: 'right' as AlignmentOptions,
             },
         ];
         return columns;
-    }, [refetch]);
+    }, [privileges, refetch]);
 };
 
 export const useIncidentURNCopyLink = (Urn: string) => {

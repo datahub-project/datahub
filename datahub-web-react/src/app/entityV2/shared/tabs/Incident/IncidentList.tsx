@@ -8,7 +8,7 @@ import { EntityPrivileges, Incident } from '../../../../../types.generated';
 import { combineEntityDataWithSiblings } from '../../../../entity/shared/siblingUtils';
 import { useIsSeparateSiblingsMode } from '../../useIsSeparateSiblingsMode';
 import { IncidentTitleContainer } from './IncidentTitleContainer';
-import { IncidentListFilter, IncidentTable } from './types';
+import { EntityStagedForIncident, IncidentListFilter, IncidentTable } from './types';
 import { INCIDENT_DEFAULT_FILTERS, IncidentAction } from './constant';
 import { IncidentFilterContainer } from './IncidentFilterContainer';
 import { IncidentListTable } from './IncidentListTable';
@@ -21,9 +21,10 @@ export const IncidentList = () => {
     const { urn } = useEntityData();
     const refetchEntity = useRefetch();
     const [showIncidentBuilder, setShowIncidentBuilder] = useState(false);
+    const [entity, setEntity] = useState<EntityStagedForIncident>();
     const [visibleIncidents, setVisibleIncidents] = useState<IncidentTable>({
         incidents: [],
-        groupBy: { type: [], priority: [], stage: [], state: [] },
+        groupBy: { category: [], priority: [], stage: [], state: [] },
     });
     const [allIncidentData, setAllIncidentData] = useState<Incident[]>([]);
 
@@ -83,6 +84,8 @@ export const IncidentList = () => {
         refetchIncidents();
     };
 
+    const privileges = (data?.entity as any)?.privileges as EntityPrivileges;
+
     const renderListTable = () => {
         if (loading) {
             return <IncidentListLoading />;
@@ -95,17 +98,20 @@ export const IncidentList = () => {
                     refetch={() => {
                         refetch();
                     }}
+                    privileges={privileges}
                 />
             );
         }
         return <Empty description="No incidents yet" image={Empty.PRESENTED_IMAGE_SIMPLE} />;
     };
 
-    const privileges = (data?.entity as any)?.privileges as EntityPrivileges;
-
     return (
         <>
-            <IncidentTitleContainer privileges={privileges} setShowIncidentBuilder={setShowIncidentBuilder} />
+            <IncidentTitleContainer
+                privileges={privileges}
+                setShowIncidentBuilder={setShowIncidentBuilder}
+                setEntity={setEntity}
+            />
             {allIncidentData?.length > 0 && !loading && (
                 <IncidentFilterContainer
                     filteredIncidents={visibleIncidents}
@@ -126,6 +132,7 @@ export const IncidentList = () => {
                         }, 3000);
                     }}
                     onCancel={() => setShowIncidentBuilder(false)}
+                    entity={entity}
                 />
             )}
         </>

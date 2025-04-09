@@ -30,7 +30,14 @@ import { IncidentSelectField } from './IncidentSelectedField';
 import { IncidentAssigneeSelector } from './IncidentAssigneeSelector';
 import { useIncidentHandler } from './hooks/useIncidentHandler';
 
-export const IncidentEditor = ({ incidentUrn, onSubmit, data, mode = IncidentAction.CREATE }: IncidentEditorProps) => {
+export const IncidentEditor = ({
+    incidentUrn,
+    onSubmit,
+    data,
+    mode = IncidentAction.CREATE,
+    entity,
+    urn,
+}: IncidentEditorProps) => {
     const assigneeValues = data?.assignees && getAssigneeWithURN(data.assignees);
     const isFormValid = Boolean(
         data?.title?.length &&
@@ -56,6 +63,9 @@ export const IncidentEditor = ({ incidentUrn, onSubmit, data, mode = IncidentAct
         user,
         assignees: cachedAssignees,
         linkedAssets: cachedLinkedAssets,
+        entity,
+        currentIncident: data,
+        urn,
     });
     const formValues = Form.useWatch([], form);
 
@@ -202,6 +212,7 @@ export const IncidentEditor = ({ incidentUrn, onSubmit, data, mode = IncidentAct
                         mode={mode}
                         setCachedLinkedAssets={setCachedLinkedAssets}
                         setIsLinkedAssetsLoading={setIsLoadingAssigneeOrAssets}
+                        urn={urn}
                     />
                 </SelectFormItem>
                 {mode === IncidentAction.EDIT && (

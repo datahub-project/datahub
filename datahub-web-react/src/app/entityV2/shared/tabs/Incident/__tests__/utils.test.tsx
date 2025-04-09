@@ -40,7 +40,7 @@ describe('Utility Functions', () => {
                 priority: ['Low'],
                 stage: [],
                 state: [],
-                type: [],
+                category: [],
             },
         };
 

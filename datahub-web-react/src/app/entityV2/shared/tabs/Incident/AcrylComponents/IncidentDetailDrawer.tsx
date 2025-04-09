@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 
 import { Drawer, Modal } from 'antd';
 import ClickOutside from '@src/app/shared/ClickOutside';
-import { Incident } from '@src/types.generated';
+import { EntityPrivileges, Incident } from '@src/types.generated';
 import { IncidentDrawerHeader } from './IncidentDrawerHeader';
 import { IncidentView } from './IncidentView';
 import { IncidentEditor } from './IncidentEditor';
-import { IncidentTableRow } from '../types';
+import { EntityStagedForIncident, IncidentTableRow } from '../types';
 import { IncidentAction } from '../constant';
 
 const modalBodyStyle = { padding: 0, fontFamily: 'Mulish, sans-serif' };
@@ -17,9 +17,19 @@ type IncidentDetailDrawerProps = {
     incident?: IncidentTableRow;
     onCancel?: () => void;
     onSubmit?: (incident?: Incident) => void;
+    entity?: EntityStagedForIncident;
+    privileges?: EntityPrivileges;
 };
 
-export const IncidentDetailDrawer = ({ mode, onCancel, onSubmit, incident }: IncidentDetailDrawerProps) => {
+export const IncidentDetailDrawer = ({
+    urn,
+    mode,
+    onCancel,
+    onSubmit,
+    incident,
+    entity,
+    privileges,
+}: IncidentDetailDrawerProps) => {
     const [isEditView, setIsEditView] = useState<boolean>(false);
     const showEditor = isEditView || mode === IncidentAction.CREATE;
 
@@ -62,9 +72,18 @@ export const IncidentDetailDrawer = ({ mode, onCancel, onSubmit, incident }: Inc
                     isEditActive={isEditView}
                     setIsEditActive={setIsEditView}
                     data={incident}
+                    platform={entity?.platform}
+                    privileges={privileges}
                 />
                 {showEditor ? (
-                    <IncidentEditor data={incident} mode={mode} incidentUrn={incident?.urn} onSubmit={handleSubmit} />
+                    <IncidentEditor
+                        data={incident}
+                        mode={mode}
+                        incidentUrn={incident?.urn}
+                        onSubmit={handleSubmit}
+                        entity={entity}
+                        urn={urn}
+                    />
                 ) : (
                     <IncidentView incident={incident as IncidentTableRow} />
                 )}

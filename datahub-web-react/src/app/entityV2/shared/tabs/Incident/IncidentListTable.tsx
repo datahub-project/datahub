@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { Table } from '@src/alchemy-components';
 import { SortingState } from '@src/alchemy-components/components/Table/types';
+import { EntityPrivileges } from '@src/types.generated';
 import { IncidentDetailDrawer } from './AcrylComponents/IncidentDetailDrawer';
 import { IncidentListFilter, IncidentTable } from './types';
 import { useIncidentsTableColumns, useOpenIncidentDetailModal } from './hooks';
@@ -15,9 +16,10 @@ type Props = {
     incidentData: IncidentTable;
     filter: IncidentListFilter;
     refetch: () => void;
+    privileges?: EntityPrivileges;
 };
 
-export const IncidentListTable = ({ incidentData, filter, refetch }: Props) => {
+export const IncidentListTable = ({ incidentData, filter, refetch, privileges }: Props) => {
     const { entityData } = useEntityData();
     const { groupBy } = filter;
 
@@ -29,10 +31,10 @@ export const IncidentListTable = ({ incidentData, filter, refetch }: Props) => {
     );
 
     // get columns data from the custom hooks
-    const incidentsTableCols = useIncidentsTableColumns(refetch);
+    const incidentsTableCols = useIncidentsTableColumns(refetch, privileges);
     const [sortedOptions, setSortedOptions] = useState<{ sortColumn: string; sortOrder: SortingState }>({
-        sortColumn: '',
-        sortOrder: SortingState.ORIGINAL,
+        sortColumn: 'created',
+        sortOrder: SortingState.ASCENDING,
     });
 
     const [focusIncidentUrn, setFocusIncidentUrn] = useState<string | null>(null);
@@ -125,6 +127,7 @@ export const IncidentListTable = ({ incidentData, filter, refetch }: Props) => {
                     urn={focusIncidentUrn}
                     mode={IncidentAction.EDIT}
                     incident={focusedIncident}
+                    privileges={privileges}
                     onCancel={() => setFocusIncidentUrn(null)}
                     onSubmit={() => {
                         setTimeout(() => {
