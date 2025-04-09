@@ -1,10 +1,27 @@
 import React from 'react';
+import { Typography } from 'antd';
+import { Info } from 'phosphor-react';
+import { Tooltip } from '@components';
+import styled from 'styled-components';
+import colors from '@src/alchemy-components/theme/foundations/colors';
 import { EditableSchemaMetadata, EntityType, GlobalTags, SchemaField } from '../../../../../../../types.generated';
 import { useMutationUrn, useRefetch } from '../../../../../../entity/shared/EntityContext';
 import TagTermGroup from '../../../../../../sharedV2/tags/TagTermGroup';
 import { useSchemaRefetch } from '../SchemaContext';
 import useExtractFieldGlossaryTermsInfo from './useExtractFieldGlossaryTermsInfo';
 import useExtractFieldTagsInfo from './useExtractFieldTagsInfo';
+
+const TagDisclaimer = styled(Typography.Text)`
+    color: ${colors.gray[500]};
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 24px;
+    align-items: center;
+    display: flex;
+    gap: 4px;
+    width: fit-content;
+    margin-bottom: 4px;
+`;
 
 export default function useTagsAndTermsRenderer(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
@@ -30,6 +47,14 @@ export default function useTagsAndTermsRenderer(
 
         return (
             <div data-testid={`schema-field-${record.fieldPath}-${options.showTags ? 'tags' : 'terms'}`}>
+                {/* If can edit, show disclaimer for uneditable tags */}
+                {canEdit && options.showTags && !uneditableTags?.tags?.length && (
+                    <Tooltip title="Uneditable tags have either been provided by Ingestion or are managed via GraphQL API.">
+                        <TagDisclaimer type="secondary">
+                            <Info /> Some tags are not editable.
+                        </TagDisclaimer>
+                    </Tooltip>
+                )}
                 <TagTermGroup
                     uneditableTags={options.showTags ? uneditableTags : null}
                     editableTags={options.showTags ? editableTags : null}
