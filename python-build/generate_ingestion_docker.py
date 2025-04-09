@@ -61,6 +61,8 @@ def update_template(template_file: Path) -> None:
 if __name__ == "__main__":
     files = [
         "docker/datahub-ingestion-base/Dockerfile",
+        "docker/datahub-ingestion/Dockerfile",
+        "docker/datahub-ingestion/Dockerfile-slim-only",
     ]
     for file in files:
         update_template(Path(_repo_root / file))

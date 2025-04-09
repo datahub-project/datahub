@@ -1,0 +1,56 @@
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+ARG PIP_MIRROR_URL=https://pypi.python.org/simple
+RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi
+ENV UV_INDEX_URL=${PIP_MIRROR_URL}
+
+RUN apt-get update && apt-get install --no-install-recommends -y -qq \
+    libldap2-dev \
+    libsasl2-dev \
+    libsasl2-modules \
+    libaio-dev \
+    libaio1t64 \
+    libsasl2-modules-gssapi-mit \
+    krb5-user \
+    krb5-config \
+    libkrb5-dev \
+    librdkafka-dev \
+    git \
+    wget \
+    curl \
+    zip \
+    unzip \
+    ldap-utils \
+    unixodbc \
+    libodbc2 \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV HOME=/home/datahub
+RUN existing_group=$(getent group 1000 | cut -d: -f1) && \
+    if [ -n "$existing_group" ] && [ "$existing_group" != "datahub" ]; then \
+        echo "Renaming existing group $existing_group to datahub"; \
+        groupmod -n datahub "$existing_group"; \
+    elif [ -z "$existing_group" ]; then \
+        echo "Creating new group datahub with GID 1000"; \
+        addgroup --gid 1000 datahub; \
+    fi && \
+    existing_user=$(id -nu 1000 2>/dev/null || echo "") && \
+    if [ -n "$existing_user" ] && [ "$existing_user" != "datahub" ]; then \
+        echo "Renaming existing user $existing_user to datahub"; \
+        usermod -l datahub -d $HOME "$existing_user"; \
+        usermod -g datahub datahub; \
+    elif [ -z "$existing_user" ]; then \
+        echo "Creating new user datahub with UID 1000"; \
+        adduser --disabled-password --uid 1000 --gid 1000 --home $HOME datahub; \
+    fi && \
+    # Create and set proper permissions for datahub directories
+    mkdir -p $HOME && \
+    chown -R datahub:datahub $HOME
+
+USER datahub
+WORKDIR $HOME
+RUN uv venv --python "$PYTHON_VERSION"
+ENV VIRTUAL_ENV=$HOME/.venv
+ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
+# Requests comes with it's own CA bundle, but we want to use always use the system CA bundle.
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
