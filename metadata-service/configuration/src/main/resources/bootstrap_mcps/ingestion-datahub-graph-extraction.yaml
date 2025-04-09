@@ -1,0 +1,31 @@
+# Instructions to add additional entry or update on the target system
+# 1. Edit this file
+# 2. Increment version in bootstrap_mcps.yaml for the entry referring to this file
+- entityType: dataHubIngestionSource
+  entityUrn: urn:li:dataHubIngestionSource:datahub-graph-extraction
+  aspectName: dataHubIngestionSourceInfo
+  changeType: UPSERT
+  aspect:
+    type: 'datahub-reporting-extract-graph'
+    name: '{{ingestion.name}}{{^ingestion.name}}datahub-reporting-extract-graph{{/ingestion.name}}'
+    schedule:
+      timezone: '{{schedule.timezone}}{{^schedule.timezone}}UTC{{/schedule.timezone}}'
+      interval: '{{schedule.interval}}{{^schedule.interval}}0 1 30 2 *{{/schedule.interval}}'
+    config:
+      version: '{{&ingestion.version}}{{^ingestion.version}}0.15.0.5{{/ingestion.version}}'
+      recipe:
+        source:
+          type: 'datahub-reporting-extract-graph'
+          config:
+            enabled: {{#enabled}}{{enabled}}{{/enabled}}{{^enabled}}false{{/enabled}}
+            extract_graph_store:
+              dataset_name: '{{extract_graph_store.dataset_name}}{{^extract_graph_store.dataset_name}}graph_raw{{/extract_graph_store.dataset_name}}'
+              dataset_urn: '{{extract_graph_store.dataset_urn}}{{^extract_graph_store.dataset_urn}}{{/extract_graph_store.dataset_urn}}'
+              bucket_prefix: '{{extract_graph_store.bucket_prefix}}{{^extract_graph_store.bucket_prefix}}{{/extract_graph_store.bucket_prefix}}'
+      extraArgs:
+        extra_pip_requirements: '{{&ingestion.extra_pip_requirements}}{{^ingestion.extra_pip_requirements}}["{{&ingestion.acryl-cloud-package}}{{^ingestion.acryl-cloud-package}}acryl-datahub-cloud[datahub-reporting-extract-graph]@/acryl-cloud{{/ingestion.acryl-cloud-package}}"]{{/ingestion.extra_pip_requirements}}'
+      debugMode: false
+      executorId: default
+    source:
+      type: {{source}}{{^source}}SYSTEM{{/source}}
+  headers: {}

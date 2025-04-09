@@ -155,7 +155,7 @@ export default function CreateRemoteExecutorPoolModal({ visible, onCancel, onSuc
                                     : Promise.reject(new Error('Only use alphanumerics and _.-')),
                         },
                         { whitespace: true, message: 'No spaces' },
-                        { min: 1, max: 50 },
+                        { min: 1, max: 200 },
                     ]}
                 >
                     <div>

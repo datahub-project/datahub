@@ -1029,10 +1029,6 @@ class TestFieldEvaluator:
             )
 
     @patch(
-        "datahub_executor.common.assertion.engine.evaluator.field_evaluator.ONLINE_SMART_ASSERTIONS_ENABLED",
-        True,
-    )
-    @patch(
         "datahub_executor.common.assertion.engine.evaluator.field_evaluator.is_training_required"
     )
     def test_evaluate_field_metric_assertion_step_smart_assertions(
@@ -1041,6 +1037,10 @@ class TestFieldEvaluator:
         """Test _evaluate_field_metric_assertion_step with smart assertions."""
         # Configure smart assertions to be required
         mock_is_training_required.return_value = True
+
+        context = AssertionEvaluationContext(
+            monitor_urn="urn:li:monitor:test", online_smart_assertions=True
+        )
 
         field_assertion = FieldAssertion(
             type=FieldAssertionType.FIELD_METRIC,
@@ -1060,14 +1060,14 @@ class TestFieldEvaluator:
         self.assertion.field_assertion = field_assertion
 
         # Set up a context with no evaluation spec
-        self.context.evaluation_spec = Mock(spec=AssertionEvaluationSpec)
-        self.context.evaluation_spec.context = None
+        context.evaluation_spec = Mock(spec=AssertionEvaluationSpec)
+        context.evaluation_spec.context = None
 
         # Call the method
         result = self.evaluator._evaluate_field_metric_assertion_step(
             10.0,  # metric_value
             self.assertion,
-            self.context,
+            context,
         )
 
         # Verify the result is INIT
@@ -1076,14 +1076,14 @@ class TestFieldEvaluator:
         assert result.parameters["metric_value"] == "10.0"
 
         # Set up a context with evaluation spec but no inference details
-        self.context.evaluation_spec = Mock(spec=AssertionEvaluationSpec)
-        self.context.evaluation_spec.context = None
+        context.evaluation_spec = Mock(spec=AssertionEvaluationSpec)
+        context.evaluation_spec.context = None
 
         # Call the method
         result = self.evaluator._evaluate_field_metric_assertion_step(
             10.0,  # metric_value
             self.assertion,
-            self.context,
+            context,
         )
 
         # Verify the result is still INIT
@@ -1092,15 +1092,15 @@ class TestFieldEvaluator:
         # Set up a context with evaluation spec and inference details but generated_at = 0
         inference_details = Mock(spec=AssertionInferenceDetails)
         inference_details.generated_at = 0
-        self.context.evaluation_spec = Mock(spec=AssertionEvaluationSpec)
-        self.context.evaluation_spec.context = Mock(spec=AssertionEvaluationSpecContext)
-        self.context.evaluation_spec.context.inference_details = inference_details
+        context.evaluation_spec = Mock(spec=AssertionEvaluationSpec)
+        context.evaluation_spec.context = Mock(spec=AssertionEvaluationSpecContext)
+        context.evaluation_spec.context.inference_details = inference_details
 
         # Call the method
         result = self.evaluator._evaluate_field_metric_assertion_step(
             10.0,  # metric_value
             self.assertion,
-            self.context,
+            context,
         )
 
         # Verify the result is still INIT
@@ -1113,7 +1113,7 @@ class TestFieldEvaluator:
         result = self.evaluator._evaluate_field_metric_assertion_step(
             10.0,  # metric_value
             self.assertion,
-            self.context,
+            context,
         )
 
         # Verify the result is now SUCCESS (since metric_value = 10.0 matches the expected value)
@@ -1123,7 +1123,7 @@ class TestFieldEvaluator:
         result = self.evaluator._evaluate_field_metric_assertion_step(
             20.0,  # metric_value
             self.assertion,
-            self.context,
+            context,
         )
 
         # Verify the result is FAILURE

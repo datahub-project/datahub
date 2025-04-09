@@ -188,8 +188,11 @@ export const Table = <T,>({
                                     key={key}
                                     canExpand={canExpand}
                                     onClick={(e) => {
-                                        // Can add unfocussed functionality here
-                                        setFocusedRowIndex(index);
+                                        if (focusedRowIndex === index) {
+                                            setFocusedRowIndex(null);
+                                        } else {
+                                            setFocusedRowIndex(index);
+                                        }
                                         if (canExpand) onExpand?.(row); // Handle row expansion
                                         onRowClick?.(row); // Handle row click
                                         e.stopPropagation();
@@ -204,6 +207,7 @@ export const Table = <T,>({
                                     }}
                                     isRowClickable={isRowClickable}
                                     data-testId={rowDataTestId?.(row)}
+                                    canHover
                                 >
                                     {/* Render each cell in the row */}
 
@@ -250,7 +254,7 @@ export const Table = <T,>({
                                 </TableRow>
                                 {/* Render expanded content if row is expanded */}
                                 {isExpanded && expandable?.expandedRowRender && (
-                                    <TableRow isRowClickable={isRowClickable}>
+                                    <TableRow isRowClickable={isRowClickable} canHover={false}>
                                         <TableCell
                                             colSpan={columns.length + (expandable?.expandIconPosition ? 1 : 0)}
                                             style={{ padding: 0 }}

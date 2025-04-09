@@ -56,6 +56,9 @@ eval_parameters = AssertionEvaluationParameters(
 )
 schedule = CronSchedule(cron="* * * * *", timezone="America/Los_Angeles")
 assertion_context = AssertionEvaluationContext()
+assertion_context_online_smart_assertions_enabled = AssertionEvaluationContext(
+    online_smart_assertions=True
+)
 
 
 @pytest.fixture
@@ -143,10 +146,6 @@ def field_assertion_default_adjustment(
     return assertion
 
 
-@patch(
-    "datahub_executor.common.assertion.engine.transformer.assertion_adjustment_transformer.ONLINE_SMART_ASSERTIONS_ENABLED",
-    False,
-)
 def test_assertion_tranformer_no_adjustment(assertion_no_adjustment: Assertion) -> None:
     """Test that non-inferred assertions are not transformed"""
     graph = MagicMock(spec=DataHubGraph)
@@ -160,10 +159,6 @@ def test_assertion_tranformer_no_adjustment(assertion_no_adjustment: Assertion) 
     assert context == assertion_context
 
 
-@patch(
-    "datahub_executor.common.assertion.engine.transformer.assertion_adjustment_transformer.ONLINE_SMART_ASSERTIONS_ENABLED",
-    False,
-)
 def test_assertion_tranformer_default_adjustment(
     assertion_default_adjustment: Assertion,
 ) -> None:
@@ -190,10 +185,6 @@ def test_assertion_tranformer_default_adjustment(
     assert parameters == eval_parameters
 
 
-@patch(
-    "datahub_executor.common.assertion.engine.transformer.assertion_adjustment_transformer.ONLINE_SMART_ASSERTIONS_ENABLED",
-    False,
-)
 def test_assertion_tranformer_field_metric_adjustment(
     field_assertion_default_adjustment: Assertion,
 ) -> None:
@@ -220,10 +211,6 @@ def test_assertion_tranformer_field_metric_adjustment(
     assert parameters == eval_parameters
 
 
-@patch(
-    "datahub_executor.common.assertion.engine.transformer.assertion_adjustment_transformer.ONLINE_SMART_ASSERTIONS_ENABLED",
-    False,
-)
 def test_assertion_tranformer_default_adjustment_std_dev(
     assertion_default_adjustment: Assertion,
 ) -> None:
@@ -264,10 +251,6 @@ def test_assertion_tranformer_default_adjustment_std_dev(
     assert parameters == eval_parameters
 
 
-@patch(
-    "datahub_executor.common.assertion.engine.transformer.assertion_adjustment_transformer.ONLINE_SMART_ASSERTIONS_ENABLED",
-    False,
-)
 def test_assertion_tranformer_default_adjustment_std_dev_with_floor(
     assertion_default_adjustment: Assertion,
 ) -> None:
@@ -308,24 +291,22 @@ def test_assertion_tranformer_default_adjustment_std_dev_with_floor(
     assert parameters == eval_parameters
 
 
-@patch(
-    "datahub_executor.common.assertion.engine.transformer.assertion_adjustment_transformer.ONLINE_SMART_ASSERTIONS_ENABLED",
-    True,
-)
 def test_assertion_transformer_no_adjustment_with_v2_enabled(
     assertion_default_adjustment: Assertion,
 ) -> None:
-    """Test that when ONLINE_SMART_ASSERTIONS_ENABLED is True, no adjustments are made"""
+    """Test that when online_smart_assertions is True, no adjustments are made"""
     graph = MagicMock(spec=DataHubGraph)
     transformer = AssertionAdjustmentTransformer(graph)
     new_assertion, parameters, context = transformer.transform(
-        assertion_default_adjustment, eval_parameters, assertion_context
+        assertion_default_adjustment,
+        eval_parameters,
+        assertion_context_online_smart_assertions_enabled,
     )
 
     # Should not be adjusted when V2 is enabled
     assert new_assertion == assertion_default_adjustment
     assert parameters == eval_parameters
-    assert context == assertion_context
+    assert context == assertion_context_online_smart_assertions_enabled
 
 
 def test_get_adjustment_algorithm_from_settings_std_dev(
@@ -360,10 +341,6 @@ def test_get_adjustment_algorithm_from_settings_default() -> None:
     assert isinstance(algorithm, IQRAdjustmentAlgorithm)
 
 
-@patch(
-    "datahub_executor.common.assertion.engine.transformer.assertion_adjustment_transformer.ONLINE_SMART_ASSERTIONS_ENABLED",
-    False,
-)
 def test_assertion_transformer_with_exception(
     assertion_default_adjustment: Assertion,
 ) -> None:

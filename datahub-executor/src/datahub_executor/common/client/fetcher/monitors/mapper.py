@@ -123,6 +123,7 @@ def generate_assertion_tasks(monitor: Monitor) -> List[ExecutionRequestSchedule]
     for assertion_spec in assertion_specs:
         context = AssertionEvaluationContext(
             dry_run=dry_run,
+            online_smart_assertions=ONLINE_SMART_ASSERTIONS_ENABLED,
             monitor_urn=monitor.urn,
             assertion_evaluation_spec=assertion_spec,
         )
@@ -163,6 +164,7 @@ def generate_training_tasks(monitor: Monitor) -> List[ExecutionRequestSchedule]:
             context = AssertionEvaluationContext(
                 dry_run=is_dry_run_mode(monitor),
                 monitor_urn=monitor.urn,
+                online_smart_assertions=ONLINE_SMART_ASSERTIONS_ENABLED,
                 assertion_evaluation_spec=assertion_spec,
             )
 

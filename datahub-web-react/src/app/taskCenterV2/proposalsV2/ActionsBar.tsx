@@ -1,11 +1,13 @@
-import { Button, colors, Text } from '@src/alchemy-components';
+import { Button, colors, Text, Modal } from '@src/alchemy-components';
 import analytics, { EventType, EntityActionType } from '@src/app/analytics';
 import { useAcceptProposalsMutation, useRejectProposalsMutation } from '@src/graphql/actionRequest.generated';
-import { Divider, message, Modal } from 'antd';
-import React from 'react';
+import { Divider, Form, Input, message } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components';
+import { useForm } from 'antd/lib/form/Form';
+import { ProposalModalType } from './utils';
 
-const ActionsContainer = styled.div`
+const ActionsContainer = styled.div<{ $hasPagination?: boolean }>`
     display: flex;
     padding: 8px;
     margin: 2px 16px 16px 16px;
@@ -20,7 +22,7 @@ const ActionsContainer = styled.div`
     background-color: white;
     position: absolute;
     left: 50%;
-    bottom: 44px;
+    bottom: ${(props) => (props.$hasPagination ? '44px' : '12px')};
     transform: translateX(-55%);
 `;
 
@@ -41,80 +43,129 @@ const VerticalDivider = styled(Divider)`
     align-self: stretch;
 `;
 
+type ModalType = ProposalModalType | null;
+const PROPOSALS_REVIEW_NOTE = 'proposalsReviewNote';
+
+const modalConfig = {
+    [ProposalModalType.AcceptAll]: {
+        title: 'Accept All',
+        subtitle: 'Please provide a reason for approving changes...',
+        placeholder: 'Why are you approving the proposals?',
+    },
+    [ProposalModalType.RejectAll]: {
+        title: 'Reject All',
+        subtitle: 'Please provide a reason for declining changes...',
+        placeholder: 'Why are you declining the proposals?',
+    },
+};
+
 interface Props {
     selectedUrns: string[];
     setSelectedUrns: React.Dispatch<React.SetStateAction<string[]>>;
     onActionRequestUpdate: () => void;
+    hasPagination?: boolean;
 }
 
-const ActionsBar = ({ selectedUrns, setSelectedUrns, onActionRequestUpdate }: Props) => {
+const ActionsBar = ({ selectedUrns, setSelectedUrns, onActionRequestUpdate, hasPagination }: Props) => {
+    const [form] = useForm();
+    const [modalType, setModalType] = useState<ModalType>(null);
+
     const [acceptProposalsMutation] = useAcceptProposalsMutation();
     const [rejectProposalsMutation] = useRejectProposalsMutation();
 
     const acceptSelectedProposals = () => {
-        Modal.confirm({
-            title: 'Accept Proposals',
-            content: `Are you sure you want to accept these (${selectedUrns.length}) proposals?`,
-            okText: 'Yes',
-            onOk() {
-                acceptProposalsMutation({ variables: { urns: Array.from(selectedUrns) } })
-                    .then(() => {
-                        analytics.event({
-                            type: EventType.BatchEntityActionEvent,
-                            actionType: EntityActionType.ProposalsAccepted,
-                            entityUrns: Array.from(selectedUrns),
-                        });
-                        message.success('Accepted proposals!');
-                        onActionRequestUpdate();
-                        setSelectedUrns([]);
-                    })
-                    .catch((err) => {
-                        console.log(err);
-                        message.error('Failed to accept proposals. An unexpected error occurred.');
-                    });
-            },
-        });
+        acceptProposalsMutation({
+            variables: { urns: selectedUrns, note: form.getFieldValue(PROPOSALS_REVIEW_NOTE) },
+        })
+            .then(() => {
+                analytics.event({
+                    type: EventType.BatchEntityActionEvent,
+                    actionType: EntityActionType.ProposalsAccepted,
+                    entityUrns: selectedUrns,
+                });
+                message.success('Accepted proposals!');
+                onActionRequestUpdate();
+                setSelectedUrns([]);
+            })
+            .catch((err) => {
+                console.log(err);
+                message.error('Failed to accept proposals. An unexpected error occurred.');
+            });
     };
 
     const rejectSelectedProposals = () => {
-        Modal.confirm({
-            title: 'Reject Proposals',
-            content: `Are you sure you want to reject these (${selectedUrns.length}) proposals?`,
-            okText: 'Yes',
-            onOk() {
-                rejectProposalsMutation({ variables: { urns: Array.from(selectedUrns) } })
-                    .then(() => {
-                        analytics.event({
-                            type: EventType.BatchEntityActionEvent,
-                            actionType: EntityActionType.ProposalsRejected,
-                            entityUrns: Array.from(selectedUrns),
-                        });
-                        message.success('Proposals declined.');
-                        onActionRequestUpdate();
-                        setSelectedUrns([]);
-                    })
-                    .catch((err) => {
-                        console.log(err);
-                        message.error('Failed to reject proposals. An unexpected error occurred.');
-                    });
-            },
-        });
+        rejectProposalsMutation({
+            variables: { urns: selectedUrns, note: form.getFieldValue(PROPOSALS_REVIEW_NOTE) },
+        })
+            .then(() => {
+                analytics.event({
+                    type: EventType.BatchEntityActionEvent,
+                    actionType: EntityActionType.ProposalsRejected,
+                    entityUrns: selectedUrns,
+                });
+                message.success('Proposals declined.');
+                onActionRequestUpdate();
+                setSelectedUrns([]);
+            })
+            .catch((err) => {
+                console.log(err);
+                message.error('Failed to reject proposals. An unexpected error occurred.');
+            });
+    };
+
+    const handleCancel = () => {
+        setModalType(null);
+        form.resetFields();
     };
 
     return (
-        <ActionsContainer>
+        <ActionsContainer $hasPagination={hasPagination}>
             <SelectedContainer>
                 <Text color="gray">{`${selectedUrns.length} Selected`}</Text>
             </SelectedContainer>
             <VerticalDivider type="vertical" />
             <ButtonsContainer>
-                <Button color="red" variant="filled" onClick={rejectSelectedProposals}>
-                    Decline All
+                <Button color="red" variant="filled" onClick={() => setModalType(ProposalModalType.RejectAll)}>
+                    Reject All
                 </Button>
-                <Button color="green" variant="filled" onClick={acceptSelectedProposals}>
-                    Approve All
+                <Button color="green" variant="filled" onClick={() => setModalType(ProposalModalType.AcceptAll)}>
+                    Accept All
                 </Button>
             </ButtonsContainer>
+            {!!modalType && (
+                <Modal
+                    title={modalConfig[modalType]?.title}
+                    subtitle={
+                        modalType === ProposalModalType.AcceptAll
+                            ? `Are you sure you want to accept these (${selectedUrns.length}) proposals?`
+                            : `Are you sure you want to reject these (${selectedUrns.length}) proposals?`
+                    }
+                    onCancel={handleCancel}
+                    buttons={[
+                        {
+                            text: 'Cancel',
+                            variant: 'text',
+                            onClick: handleCancel,
+                        },
+                        {
+                            text: 'Submit',
+                            onClick:
+                                modalType === ProposalModalType.AcceptAll
+                                    ? acceptSelectedProposals
+                                    : rejectSelectedProposals,
+                        },
+                    ]}
+                >
+                    <Form form={form} initialValues={{}} layout="vertical">
+                        <div>
+                            <div>Reason</div>
+                            <Form.Item name={PROPOSALS_REVIEW_NOTE}>
+                                <Input.TextArea rows={4} placeholder={modalConfig[modalType]?.placeholder} />
+                            </Form.Item>
+                        </div>
+                    </Form>
+                </Modal>
+            )}
         </ActionsContainer>
     );
 };

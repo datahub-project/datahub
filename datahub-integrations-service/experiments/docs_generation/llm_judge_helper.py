@@ -138,9 +138,9 @@ def get_llm_response_comparison_score(
 ) -> dict[EntityRef, str]:
     comparison_scores_dict: dict[EntityRef, str] = {}
     for ref in tqdm.tqdm(table_info_with_descriptions.keys()):
-        if ref.instance == "longtailcompanions":
-            logger.debug(f"Skipping {ref}")
-            continue
+        #if ref.instance == "longtailcompanions":
+        #    logger.debug(f"Skipping {ref}")
+        #    continue
         # print(ref)
         comparison_scores_dict[ref] = get_llm_response_comparison_score_single(
             table_info_with_descriptions[ref]

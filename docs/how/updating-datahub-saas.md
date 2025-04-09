@@ -23,12 +23,53 @@ This is over and above updating-datahub.md file
 
 ## Next
 
+### Breaking Changes
+
+### Potential Downtime
+
+### Deprecations
+
+### Other Notable Changes
+
+### Environment variables
+
+## v0.3.10.1
+
+### Breaking Changes
+
+### Potential Downtime
+
+### Deprecations
+
+### Other Notable Changes
+
+### Environment variables
+
+- [frontend] `AUTH_OIDC_IMPLICIT_ENABLED`, `AUTH_OIDC_IMPLICIT_CLIENT_ISSUER`, `AUTH_OIDC_IMPLICIT_JWKS_JSON`: Controls OIDC implicit authentication flow. The client issue and jwks keys must be proved by the customer. This is the URL for the IDP, i.e. `https://accounts.google.com` and their JWKS keys (public keys for the IDP).
+
+## v0.3.10
+
+### Breaking Changes
+
+- There was a regression introduced in the integrations service GraphQL client code that made generating queries either sometimes or always fail. This breaks our slack app. This was prompty fixed and we moved to 0.3.10.1 as a result.
+
+### Potential Downtime
+
+### Deprecations
+- Deprecated `assertionInferenceDetails` aspect. However, the record is still used within the monitor entity.
+
+### Other Notable Changes
+- New nav bar is switched on by default in the V2 UI ([datahub-gms] `SHOW_NAV_BAR_REDESIGN`)
+
 ### Environment variables
 
 - [datahub-gms] `ONLINE_SMART_ASSERTIONS_ENABLED`: Flag to allow on-demand creation of smart assertions in the UI, and let them run online. (TODO @John extend to indicate that this variable is also in use in executor)
 - [datahub-gms] `DISPLAY_EXECUTOR_POOLS`: Flag to enable displaying executor pools across the ingestion tab and the ingestion/automation creation/editing wizards.
 - [datahub-upgrade] `BOOTSTRAP_SYSTEM_UPDATE_EXECUTOR_POOLS_ENABLED`: Flag to enable bootstrapping remote executor pools when instance is setup.
 - [datahub-mae-consumer | datahub-gms] `EXECUTOR_POOL_HOOK_ENABLED`: Auto provisions SQS queue on pool create, and auto-deletes queue on pool delete.
+- [datahub-gms] `SHOW_DEFAULT_EXTERNAL_LINKS`: Flag to disable showing the external links we produce by default like "View in snowflake." This was requested by Rokos when they start populating their custom external links they may want to choose to hide the default ones and we can do that with this flag. This is default true.
+- [datahub-gms] `SHOW_TASK_CENTER_REDESIGN`: Flag to enable the new proposals redesign in the app, mostly in the task center. This should be off for most folks for 0.3.10 but we may turn on depending what gets into the release.
+- [integrations-service] `DATAHUB_SLACK_AT_MENTION_ENABLED` (default: false) - Whether to enable the Slackbot, which replies to the @datahub mentions.
 
 
 ## v0.3.9

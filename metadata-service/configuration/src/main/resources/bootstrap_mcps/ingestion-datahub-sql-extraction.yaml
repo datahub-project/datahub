@@ -1,0 +1,36 @@
+# Instructions to add additional entry or update on the target system
+# 1. Edit this file
+# 2. Increment version in bootstrap_mcps.yaml for the entry referring to this file
+- entityType: dataHubIngestionSource
+  entityUrn: urn:li:dataHubIngestionSource:datahub-sql-extraction
+  aspectName: dataHubIngestionSourceInfo
+  changeType: UPSERT
+  aspect:
+    type: 'datahub-reporting-extract-sql'
+    name: '{{ingestion.name}}{{^ingestion.name}}datahub-reporting-extract-sql{{/ingestion.name}}'
+    schedule:
+      timezone: '{{schedule.timezone}}{{^schedule.timezone}}UTC{{/schedule.timezone}}'
+      interval: '{{schedule.interval}}{{^schedule.interval}}0 1 30 2 *{{/schedule.interval}}'
+    config:
+      version: '{{&ingestion.version}}{{^ingestion.version}}0.15.0.5{{/ingestion.version}}'
+      recipe:
+        source:
+          type: 'datahub-reporting-extract-sql'
+          config:
+            enabled: {{#enabled}}{{enabled}}{{/enabled}}{{^enabled}}false{{/enabled}}
+            sql_backup_config:
+              bucket: '{{sql_backup_config.bucket}}{{^sql_backup_config.bucket}}{{/sql_backup_config.bucket}}'
+            extract_sql_store:
+              dataset_name: '{{extract_sql_store.dataset_name}}{{^extract_sql_store.dataset_name}}sql_raw{{/extract_sql_store.dataset_name}}'
+              file: '{{extract_sql_store.file}}{{^extract_sql_store.file}}data.zip{{/extract_sql_store.file}}'
+              dataset_urn: '{{extract_sql_store.dataset_urn}}{{^extract_sql_store.dataset_urn}}urn:li:dataset:(urn:li:dataPlatform:acryl,reporting.extract.sql_raw,PROD){{/extract_sql_store.dataset_urn}}'
+              bucket_prefix: '{{extract_sql_store.bucket_prefix}}{{^extract_sql_store.bucket_prefix}}{{/extract_sql_store.bucket_prefix}}'
+              dataset_registration_spec:
+                profile: {{#extract_sql_store.dataset_registration_spec.profile}}{{extract_sql_store.dataset_registration_spec.profile}}{{/extract_sql_store.dataset_registration_spec.profile}}{{^extract_sql_store.dataset_registration_spec.profile}}false{{/extract_sql_store.dataset_registration_spec.profile}}
+      extraArgs:
+        extra_pip_requirements: '{{&ingestion.extra_pip_requirements}}{{^ingestion.extra_pip_requirements}}["{{&ingestion.acryl-cloud-package}}{{^ingestion.acryl-cloud-package}}acryl-datahub-cloud[datahub-reporting-extract-sql]@/acryl-cloud{{/ingestion.acryl-cloud-package}}"]{{/ingestion.extra_pip_requirements}}'
+      debugMode: false
+      executorId: default
+    source:
+      type: {{source}}{{^source}}SYSTEM{{/source}}
+  headers: {}

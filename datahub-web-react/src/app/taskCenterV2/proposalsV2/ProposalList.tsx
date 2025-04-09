@@ -120,6 +120,7 @@ export const ProposalList = ({
 
     const actionRequests = useMemo(() => data?.listActionRequests?.actionRequests || [], [data]);
     const totalActionRequests = data?.listActionRequests?.total || 0;
+    const hasPagination = totalActionRequests > pageSize;
 
     const onActionRequestUpdate = () => {
         refetch();
@@ -161,6 +162,7 @@ export const ProposalList = ({
                             selectedUrns={selectedUrns}
                             setSelectedUrns={setSelectedUrns}
                             onActionRequestUpdate={onActionRequestUpdate}
+                            hasPagination={hasPagination}
                         />
                     )}
                     <Pagination

@@ -117,6 +117,7 @@ export const Proposals = ({ onProposalClick }: Props) => {
                         : ACTION_REQUEST_DEFAULT_FACETS
                 }
                 showPendingView={activeActionRequestGroup.name === MY_PROPOSALS_GROUP_NAME}
+                key={activeActionRequestGroup.name}
             />
         </ActiveGroupTabViewContainer>
     );

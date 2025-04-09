@@ -65,9 +65,6 @@ from datahub_executor.common.types import (
     FieldMetricType,
     FieldValuesFailThresholdType,
 )
-from datahub_executor.config import (
-    ONLINE_SMART_ASSERTIONS_ENABLED,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -532,7 +529,7 @@ class FieldAssertionEvaluator(AssertionEvaluator):
             "Missing required field metric assertion!"
         )
 
-        if ONLINE_SMART_ASSERTIONS_ENABLED and is_training_required(assertion):
+        if context.online_smart_assertions and is_training_required(assertion):
             # If we have smart assertions v2, there might not be an assertion present yet.
             if context.evaluation_spec:
                 last_inferred_at = (

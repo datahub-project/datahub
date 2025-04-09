@@ -13,8 +13,6 @@ import { IngestionSource } from '../../../types.generated';
 import { IngestionSourceExecutionList } from './executions/IngestionSourceExecutionList';
 import { getDisplayablePoolId } from '../executor_saas/utils';
 
-const PAGE_HEADER_HEIGHT = 395;
-
 const StyledSourceTable = styled(StyledTable)`
     .cliIngestion {
         td {
@@ -24,13 +22,27 @@ const StyledSourceTable = styled(StyledTable)`
 ` as typeof StyledTable;
 
 const StyledSourceTableWithNavBarRedesign = styled(StyledSourceTable)`
-    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+
+    &&& .ant-table {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    &&& .ant-table-container {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
 
     &&& .ant-table-body {
-        overflow-y: auto;
-        height: calc(100vh - ${PAGE_HEADER_HEIGHT}px);
+        flex: 1;
+        min-height: 200px;
     }
-` as typeof StyledSourceTable;
+` as typeof StyledTable;
 
 const LinkButton = styled(Button)`
     border: none;
@@ -178,7 +190,7 @@ function IngestionSourceTable({
             columns={tableColumns}
             onChange={handleTableChange}
             dataSource={tableData}
-            scroll={isShowNavBarRedesign ? { y: 'max-content', x: 'max-content' } : {}}
+            scroll={{ x: 'max-content' }}
             rowKey="urn"
             rowClassName={(record, _) => (record.cliIngestion ? 'cliIngestion' : '')}
             locale={{

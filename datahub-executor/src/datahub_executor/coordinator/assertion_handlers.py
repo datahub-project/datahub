@@ -38,6 +38,7 @@ from datahub_executor.config import (
     DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED,
     DATAHUB_EXECUTOR_MONITORS_MAX_WORKERS,
     DATAHUB_EXECUTOR_POOL_ID,
+    ONLINE_SMART_ASSERTIONS_ENABLED,
 )
 from datahub_executor.coordinator.utils import (
     extract_assertion_entity_from_graphql,
@@ -143,6 +144,7 @@ def _evaluate_assertion(
     )
     context = AssertionEvaluationContext(
         dry_run=dry_run,
+        online_smart_assertions=ONLINE_SMART_ASSERTIONS_ENABLED,
         monitor_urn=monitor_urn,
     )
     is_embedded = DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED and (

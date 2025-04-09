@@ -753,10 +753,6 @@ class TestVolumeEvaluator:
                 )
 
     @patch(
-        "datahub_executor.common.assertion.engine.evaluator.volume_evaluator.ONLINE_SMART_ASSERTIONS_ENABLED",
-        True,
-    )
-    @patch(
         "datahub_executor.common.assertion.engine.evaluator.volume_evaluator.is_training_required"
     )
     def test_evaluate_smart_assertion_v2_inference_required_no_inferred_at(
@@ -782,6 +778,7 @@ class TestVolumeEvaluator:
         evaluation_context.evaluation_spec.context = Mock(
             AssertionEvaluationSpecContext
         )
+        evaluation_context.online_smart_assertions = True
         evaluation_context.evaluation_spec.context.inference_details = (
             None  # No inference details
         )
@@ -799,10 +796,6 @@ class TestVolumeEvaluator:
         # Verify that init state is returned
         assert result.type == AssertionResultType.INIT
 
-    @patch(
-        "datahub_executor.common.assertion.engine.evaluator.volume_evaluator.ONLINE_SMART_ASSERTIONS_ENABLED",
-        True,
-    )
     @patch(
         "datahub_executor.common.assertion.engine.evaluator.volume_evaluator.is_training_required"
     )
@@ -846,6 +839,7 @@ class TestVolumeEvaluator:
             inference_details  # Some infernce details
         )
         evaluation_context.monitor_urn = "urn:li:monitor:test"
+        evaluation_context.online_smart_assertions = True
 
         # Create a source mock to return row_count
         source_mock = Mock(spec=Source)

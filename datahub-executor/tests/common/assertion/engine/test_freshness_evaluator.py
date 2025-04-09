@@ -897,10 +897,6 @@ class TestFreshnessEvaluator:
             )
 
     @patch(
-        "datahub_executor.common.assertion.engine.evaluator.freshness_evaluator.ONLINE_SMART_ASSERTIONS_ENABLED",
-        True,
-    )
-    @patch(
         "datahub_executor.common.assertion.engine.evaluator.freshness_evaluator.is_training_required"
     )
     def test_evaluate_internal_smart_assertions_inference_required(
@@ -910,14 +906,16 @@ class TestFreshnessEvaluator:
         # Setup
         mock_is_training_required.return_value = True
 
+        context = AssertionEvaluationContext(
+            monitor_urn="urn:li:monitor:test", online_smart_assertions=True
+        )
+
         # No evaluation spec
-        self.context.evaluation_spec = Mock(AssertionEvaluationSpec)
-        self.context.evaluation_spec.context = None
+        context.evaluation_spec = Mock(AssertionEvaluationSpec)
+        context.evaluation_spec.context = None
 
         # Execute
-        result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.context
-        )
+        result = self.evaluator._evaluate_internal(self.assertion, self.params, context)
 
         # Verify
         assert result.type == AssertionResultType.INIT
@@ -925,13 +923,11 @@ class TestFreshnessEvaluator:
         # With evaluation spec but no inference details
         eval_context = Mock()
         eval_context.inference_details = None
-        self.context.evaluation_spec = Mock(spec=AssertionEvaluationSpec)
-        self.context.evaluation_spec.context = eval_context
+        context.evaluation_spec = Mock(spec=AssertionEvaluationSpec)
+        context.evaluation_spec.context = eval_context
 
         # Execute
-        result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.context
-        )
+        result = self.evaluator._evaluate_internal(self.assertion, self.params, context)
 
         # Verify
         assert result.type == AssertionResultType.INIT
@@ -942,9 +938,7 @@ class TestFreshnessEvaluator:
         eval_context.inference_details = inference_details
 
         # Execute
-        result = self.evaluator._evaluate_internal(
-            self.assertion, self.params, self.context
-        )
+        result = self.evaluator._evaluate_internal(self.assertion, self.params, context)
 
         # Verify
         assert result.type == AssertionResultType.INIT
@@ -960,7 +954,7 @@ class TestFreshnessEvaluator:
         ) as mock_eval_step:
             # Execute
             result = self.evaluator._evaluate_internal(
-                self.assertion, self.params, self.context
+                self.assertion, self.params, context
             )
 
             # Verify

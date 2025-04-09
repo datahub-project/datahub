@@ -50,9 +50,6 @@ from datahub_executor.common.types import (
     FreshnessCronSchedule,
     FreshnessFieldKind,
 )
-from datahub_executor.config import (
-    ONLINE_SMART_ASSERTIONS_ENABLED,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -636,7 +633,7 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
         # If there is no freshness condition yet, we are still in training.
         # Note that training depends on Operations being present, obtained from the a
         # audit log. Currently, this only happens based on ingestion.
-        if ONLINE_SMART_ASSERTIONS_ENABLED and is_training_required(assertion):
+        if context.online_smart_assertions and is_training_required(assertion):
             # Check whether there is an assertion that has been generated!
             # if not, reporting an initializing state.
             if context.evaluation_spec:

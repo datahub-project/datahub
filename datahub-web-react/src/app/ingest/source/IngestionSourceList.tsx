@@ -36,11 +36,22 @@ const PLACEHOLDER_URN = 'placeholder-urn';
 const SourceContainer = styled.div`
     display: flex;
     flex-direction: column;
+    height: 100%;
 `;
 
-const SourcePaginationContainer = styled.div`
+const HeaderContainer = styled.div`
+    flex-shrink: 0;
+`;
+
+const TableContainer = styled.div`
+    flex: 1;
+    overflow: auto;
+`;
+
+const PaginationContainer = styled.div`
     display: flex;
     justify-content: center;
+    flex-shrink: 0;
 `;
 
 const StyledTabToolbar = styled(TabToolbar)`
@@ -51,6 +62,7 @@ const StyledTabToolbar = styled(TabToolbar)`
         padding: 8px 20px;
         height: auto;
         box-shadow: none;
+        flex-shrink: 0;
     }
 `;
 
@@ -471,51 +483,55 @@ export const IngestionSourceList = ({ onSwitchTab, showCreateModal, setShowCreat
             )}
             <SourceContainer>
                 <OnboardingTour stepIds={[INGESTION_REFRESH_SOURCES_ID]} />
-                <StyledTabToolbar>
-                    <SearchContainer>
-                        <StyledSearchBar
-                            placeholder="Search..."
-                            value={query || ''}
-                            onChange={(value) => handleSearch(value)}
-                        />
-                        <StyledSimpleSelect
-                            options={[
-                                { label: 'All', value: '0' },
-                                { label: 'UI', value: '1' },
-                                { label: 'CLI', value: '2' },
-                            ]}
-                            values={[sourceFilter.toString()]}
-                            onUpdate={(values) => setSourceFilter(Number(values[0]))}
-                            showClear={false}
-                            width={60}
-                        />
-                    </SearchContainer>
-                    <RefreshButtonContainer>
-                        <Button id={INGESTION_REFRESH_SOURCES_ID} variant="text" onClick={onRefresh}>
-                            <ArrowClockwise /> Refresh
-                        </Button>
-                    </RefreshButtonContainer>
-                </StyledTabToolbar>
-                {/* SaaS only: Pools filter query param indicator with an 'x' button */}
-                {paramsPoolFilter && (
-                    <PoolsFilterButton variant="text" onClick={clearPoolFilter}>
-                        Showing sources on the &quot;{paramsPoolFilter}&quot; pool{' '}
-                        <CloseButton color={colors.gray[500]} size={12} />
-                    </PoolsFilterButton>
-                )}
-                <IngestionSourceTable
-                    lastRefresh={lastRefresh}
-                    sources={filteredSources || []}
-                    setFocusExecutionUrn={setFocusExecutionUrn}
-                    onExecute={onExecute}
-                    onEdit={onEdit}
-                    onView={onView}
-                    onDelete={onDelete}
-                    onRefresh={onRefresh}
-                    onChangeSort={onChangeSort}
-                    saasProps={{ onViewPool }}
-                />
-                <SourcePaginationContainer>
+                <HeaderContainer>
+                    <StyledTabToolbar>
+                        <SearchContainer>
+                            <StyledSearchBar
+                                placeholder="Search..."
+                                value={query || ''}
+                                onChange={(value) => handleSearch(value)}
+                            />
+                            <StyledSimpleSelect
+                                options={[
+                                    { label: 'All', value: '0' },
+                                    { label: 'UI', value: '1' },
+                                    { label: 'CLI', value: '2' },
+                                ]}
+                                values={[sourceFilter.toString()]}
+                                onUpdate={(values) => setSourceFilter(Number(values[0]))}
+                                showClear={false}
+                                width={60}
+                            />
+                        </SearchContainer>
+                        <RefreshButtonContainer>
+                            <Button id={INGESTION_REFRESH_SOURCES_ID} variant="text" onClick={onRefresh}>
+                                <ArrowClockwise /> Refresh
+                            </Button>
+                        </RefreshButtonContainer>
+                    </StyledTabToolbar>
+                    {/* SaaS only: Pools filter query param indicator with an 'x' button */}
+                    {paramsPoolFilter && (
+                        <PoolsFilterButton variant="text" onClick={clearPoolFilter}>
+                            Showing sources on the &quot;{paramsPoolFilter}&quot; pool{' '}
+                            <CloseButton color={colors.gray[500]} size={12} />
+                        </PoolsFilterButton>
+                    )}
+                </HeaderContainer>
+                <TableContainer>
+                    <IngestionSourceTable
+                        lastRefresh={lastRefresh}
+                        sources={filteredSources || []}
+                        setFocusExecutionUrn={setFocusExecutionUrn}
+                        onExecute={onExecute}
+                        onEdit={onEdit}
+                        onView={onView}
+                        onDelete={onDelete}
+                        onRefresh={onRefresh}
+                        onChangeSort={onChangeSort}
+                        saasProps={{ onViewPool }}
+                    />
+                </TableContainer>
+                <PaginationContainer>
                     <StyledPagination
                         current={page}
                         pageSize={pageSize}
@@ -524,7 +540,7 @@ export const IngestionSourceList = ({ onSwitchTab, showCreateModal, setShowCreat
                         onChange={onChangePage}
                         showSizeChanger={false}
                     />
-                </SourcePaginationContainer>
+                </PaginationContainer>
             </SourceContainer>
             <IngestionSourceBuilderModal
                 initialState={removeExecutionsFromIngestionSource(focusSource)}

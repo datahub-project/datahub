@@ -3,6 +3,7 @@ fragment actionRequestFields on ActionRequest {
     type
     status
     result
+    resultNote
     description
     entity {
         urn
@@ -301,10 +302,10 @@ query listActionRequests($input: ListActionRequestsInput!) {
     }
 }
 
-mutation acceptProposals($urns: [String!]!) {
-    acceptProposals(urns: $urns)
+mutation acceptProposals($urns: [String!]!, $note: String) {
+    acceptProposals(urns: $urns, note: $note)
 }
 
-mutation rejectProposals($urns: [String!]!) {
-    rejectProposals(urns: $urns)
+mutation rejectProposals($urns: [String!]!, $note: String) {
+    rejectProposals(urns: $urns, note: $note)
 }

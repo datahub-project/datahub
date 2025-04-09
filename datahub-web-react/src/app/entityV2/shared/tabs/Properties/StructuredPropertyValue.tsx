@@ -66,6 +66,8 @@ const BorderedContainer = styled.div<{ $isProposed?: boolean }>`
 
 const Container = styled.div`
     display: inline-flex;
+    max-width: 100%;
+    width: 100%;
 `;
 
 const ViewerContainer = styled.div`

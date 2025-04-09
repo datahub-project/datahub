@@ -83,3 +83,17 @@ bootstrap:
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/embedded-executor-pool.yaml"
+
+    - name: ingestion-datahub-sql-extraction
+      version: v1
+      optional: true
+      mcps_location: "bootstrap_mcps/ingestion-datahub-sql-extraction.yaml"
+      values_env: "DATAHUB_SQL_EXTRACTION_BOOTSTRAP_VALUES"
+      revision_env: "DATAHUB_SQL_EXTRACTION_REVISION"
+
+    - name: ingestion-datahub-graph-extraction
+      version: v1
+      optional: true
+      mcps_location: "bootstrap_mcps/ingestion-datahub-graph-extraction.yaml"
+      values_env: "DATAHUB_GRAPH_EXTRACTION_BOOTSTRAP_VALUES"
+      revision_env: "DATAHUB_GRAPH_EXTRACTION_REVISION"

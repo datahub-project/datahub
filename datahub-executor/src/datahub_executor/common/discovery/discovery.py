@@ -32,6 +32,7 @@ class DatahubExecutorDiscovery:
     def __init__(self, graph: DataHubGraph):
         self.graph = graph
         self.start_time = time.time()
+        self.enabled = False
 
         self.stop_event = Event()
         self.stop_flag = False
@@ -41,6 +42,12 @@ class DatahubExecutorDiscovery:
         return time.time() - self.start_time
 
     def _ping(self) -> None:
+        if not self.enabled:
+            if not self.is_backend_discovery_capable():
+                logger.error("Discovery disabled: backend is not discovery-capable.")
+                return
+            self.enabled = True
+
         with METRIC(
             "WORKER_DISCOVERY_PING_REQUESTS", pool_name=DATAHUB_EXECUTOR_POOL_ID
         ).time():
@@ -87,10 +94,6 @@ class DatahubExecutorDiscovery:
         return revision >= REQUIRED_MIN_BACKEND_REVISION
 
     def start(self) -> None:
-        if not self.is_backend_discovery_capable():
-            logger.error("Discovery disabled: backend is not discovery-capable.")
-            return
-
         version = DATAHUB_EXECUTOR_IDENTITY_BUILD_INFO.get_version()
         logger.warning(
             f"Discovery: starting discovery loop; Instance ID = {DATAHUB_EXECUTOR_IDENTITY}; Version = {version}; Update interval = {DATAHUB_EXECUTOR_DISCOVERY_INTERVAL}"
@@ -101,9 +104,6 @@ class DatahubExecutorDiscovery:
         self.loop.start()
 
     def stop(self) -> None:
-        if not self.is_backend_discovery_capable():
-            return
-
         logger.info("Discovery: shutting down")
 
         self.stop_flag = True

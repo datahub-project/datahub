@@ -38,6 +38,7 @@ class S3ClientConfig(ConfigModel):
 
 
 class DataHubReportingExtractSQLSourceConfig(ConfigModel):
+    enabled: bool = True
     server: Optional[DatahubClientConfig] = None
     sql_backup_config: S3ClientConfig
     extract_sql_store: FileStoreBackedDatasetConfig
@@ -112,12 +113,16 @@ class DataHubReportingExtractSQLSource(Source):
 
             if skip_extract:
                 logger.info(
-                    f"Skipping graph extract as dataset has been updated today {ts}"
+                    f"Skipping sql extract as dataset has been updated today {ts}"
                 )
 
         return skip_extract
 
     def get_workunits(self):
+        if not self.config.enabled:
+            logger.info("Source is disabled, stopping")
+            return
+
         self.graph = (
             self.ctx.require_graph("Loading default graph coordinates.")
             if self.config.server is None

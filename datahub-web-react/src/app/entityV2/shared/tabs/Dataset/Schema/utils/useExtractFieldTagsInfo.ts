@@ -1,5 +1,5 @@
 import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
-import { pathMatchesExact } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
+import { pathMatchesExact, pathMatchesInsensitiveToV2 } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
 import { getProposedItemsByType } from '@src/app/entityV2/shared/utils';
 import { findFieldPathProposal } from '@src/app/shared/tags/utils/proposalUtils';
 import { GetDatasetQuery } from '@src/graphql/dataset.generated';
@@ -19,7 +19,23 @@ export default function useExtractFieldTagsInfo(editableSchemaMetadata: Editable
             pathMatchesExact(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         )?.globalTags;
 
-        const uneditableTags = defaultUneditableTags || record?.globalTags;
+        const uneditableTags: GlobalTags = defaultUneditableTags || record?.globalTags || {};
+
+        // Add tags from other fields that match the field path insensitive to V2
+        const extraUneditableTags = editableSchemaMetadata?.editableSchemaFieldInfo
+            .filter((candidateEditableFieldInfo) =>
+                pathMatchesInsensitiveToV2(candidateEditableFieldInfo.fieldPath, record.fieldPath),
+            )
+            .flatMap((el) => el.globalTags?.tags || [])
+            // Filter out tags that are already in the uneditableTags or editableTags
+            .filter(
+                (tag) =>
+                    !uneditableTags?.tags?.some((t) => t.tag.urn === tag.tag.urn) &&
+                    !editableTags?.tags?.some((t) => t.tag.urn === tag.tag.urn),
+            );
+        if (extraUneditableTags?.length) {
+            uneditableTags.tags = [...(uneditableTags?.tags || []), ...extraUneditableTags];
+        }
 
         const proposedTags: ActionRequest[] =
             findFieldPathProposal(
