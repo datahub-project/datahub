@@ -4,7 +4,13 @@ import { CloseCircleFilled, SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
 import { Button, colors } from '@src/alchemy-components';
-import { AutoCompleteResultForEntity, FacetFilterInput, ScenarioType } from '../../types.generated';
+import {
+    AutoCompleteResultForEntity,
+    Entity,
+    FacetFilterInput,
+    FacetMetadata,
+    ScenarioType,
+} from '../../types.generated';
 import { EntityRegistry } from '../../entityRegistryContext';
 import filterSearchQuery from './utils/filterSearchQuery';
 import { ANTD_GRAY_V2 } from '../entity/shared/constants';
@@ -150,9 +156,6 @@ export interface SearchBarProps {
     initialQuery?: string;
     placeholderText: string;
     suggestions: Array<AutoCompleteResultForEntity>;
-    // Used in SearchBarV2 (both components must have the same props)
-    // eslint-disable-next-line react/no-unused-prop-types
-    isSuggestionsLoading?: boolean;
     onSearch: (query: string, filters?: FacetFilterInput[]) => void;
     onQueryChange?: (query: string) => void;
     style?: React.CSSProperties;
@@ -175,6 +178,15 @@ export interface SearchBarProps {
     // Used in SearchBarV2 (both components must have the same props)
     // eslint-disable-next-line react/no-unused-prop-types
     onFilter?: FiltersAppliedHandler;
+    // Used in SearchBarV2 (both components must have the same props)
+    // eslint-disable-next-line react/no-unused-prop-types
+    facets?: FacetMetadata[];
+    // Used in SearchBarV2 (both components must have the same props)
+    // eslint-disable-next-line react/no-unused-prop-types
+    entities?: Entity[];
+    // Used in SearchBarV2 (both components must have the same props)
+    // eslint-disable-next-line react/no-unused-prop-types
+    isDataLoading?: boolean;
 }
 
 const defaultProps = {

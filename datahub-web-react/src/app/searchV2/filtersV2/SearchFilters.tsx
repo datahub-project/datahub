@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useEffect, useCallback, useMemo, useState } from 'react';
 import DynamicFacetsUpdater from './defaults/DefaultFacetsUpdater/DefaultFacetsUpdater';
 import FiltersRenderingRunner from './FiltersRenderingRunner';
 import {
@@ -20,6 +20,7 @@ interface Props {
     updateFieldAppliedFilters?: AppliedFieldFilterUpdater;
     fields: FieldName[];
     filtersRenderer?: FiltersRenderer;
+    fieldToFacetStateMap?: FieldToFacetStateMap;
 }
 
 export default function SearchFilters({
@@ -29,8 +30,13 @@ export default function SearchFilters({
     appliedFilters,
     updateFieldAppliedFilters,
     filtersRenderer = DefaultFiltersRenderer,
+    fieldToFacetStateMap,
 }: Props) {
-    const [fieldToFacetStateMap, setFieldToFacetStateMap] = useState<FieldToFacetStateMap>(new Map());
+    const [internalFieldToFacetStateMap, setInternalFieldToFacetStateMap] = useState<FieldToFacetStateMap>(new Map());
+
+    useEffect(() => {
+        if (fieldToFacetStateMap !== undefined) setInternalFieldToFacetStateMap(fieldToFacetStateMap);
+    }, [fieldToFacetStateMap]);
 
     const wrappedQuery = useMemo(() => {
         const cleanedQuery = query.trim();
@@ -41,25 +47,27 @@ export default function SearchFilters({
     }, [query]);
 
     const onFieldFacetsUpdated = useCallback((facets: FieldToFacetStateMap) => {
-        setFieldToFacetStateMap((currentFieldFacets) => new Map([...currentFieldFacets, ...facets]));
+        setInternalFieldToFacetStateMap((currentFieldFacets) => new Map([...currentFieldFacets, ...facets]));
     }, []);
 
     return (
         <SearchFiltersProvider
             fields={fields}
             fieldToAppliedFiltersMap={appliedFilters}
-            fieldToFacetStateMap={fieldToFacetStateMap}
+            fieldToFacetStateMap={internalFieldToFacetStateMap}
             filtersRegistry={defaultFiltersRegistry}
             onFiltersApplied={onFiltersApplied}
             updateFieldAppliedFilters={updateFieldAppliedFilters}
             filtersRenderer={filtersRenderer}
         >
-            {/* Updates facets depending on query and applied filters */}
-            <DynamicFacetsUpdater
-                fieldNames={fields}
-                query={wrappedQuery}
-                onFieldFacetsUpdated={onFieldFacetsUpdated}
-            />
+            {/* Updates facets depending on query and applied filters if they are not controlled by `fieldToFacetStateMap` */}
+            {fieldToFacetStateMap === undefined && (
+                <DynamicFacetsUpdater
+                    fieldNames={fields}
+                    query={wrappedQuery}
+                    onFieldFacetsUpdated={onFieldFacetsUpdated}
+                />
+            )}
             {/* Renders filters */}
             <FiltersRenderingRunner fieldNames={fields} hideEmptyFilters />
         </SearchFiltersProvider>
