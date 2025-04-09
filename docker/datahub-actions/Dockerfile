@@ -15,6 +15,7 @@
 # Defining environment
 ARG BASE_IMAGE=acryldata/datahub-ingestion-base
 ARG DOCKER_VERSION=head-full
+ARG APP_ENV=prod
 
 FROM $BASE_IMAGE:$DOCKER_VERSION AS base
 
@@ -34,7 +35,7 @@ RUN chmod a+x /start_datahub_actions.sh && \
 
 COPY --chown=datahub:datahub ./datahub-actions/datahub-actions /actions-src
 # Add other default configurations into this!
-COPY --chown=datahub:datahub ./docker/config /etc/datahub/actions/system/conf
+COPY --chown=datahub:datahub ./docker/datahub-actions/config /etc/datahub/actions/system/conf
 
 USER datahub
 WORKDIR /actions-src
