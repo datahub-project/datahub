@@ -5,7 +5,7 @@ FROM golang:1-alpine3.21 AS binary
 
 ARG ALPINE_REPO_URL
 
-ENV DOCKERIZE_VERSION=v0.9.1
+ENV DOCKERIZE_VERSION=v0.9.3
 WORKDIR /go/src/github.com/jwilder
 
 # Optionally set corporate mirror for apk
