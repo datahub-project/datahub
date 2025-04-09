@@ -200,7 +200,7 @@ class MLflowSource(StatefulIngestionSourceBase):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # yield from self._get_tags_workunits()
-        # yield from self._get_experiment_workunits()
+        yield from self._get_experiment_workunits()
         yield from self._get_ml_model_workunits()
 
     def _get_tags_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -697,12 +697,17 @@ class MLflowSource(StatefulIngestionSourceBase):
         """
         Traverse each Registered Model in Model Registry and generate a corresponding workunit.
         """
-        registered_models = self._get_mlflow_registered_models()
-        for i, registered_model in enumerate(registered_models):
+        registered_models_list = list(self._get_mlflow_registered_models())
+        logger.info(f"Found {len(registered_models_list)} registered models")
+        
+        for i, registered_model in enumerate(registered_models_list):
             logger.info(f"!!! {i+1} registered model name: {registered_model.name}")
             version_set_urn = self._get_version_set_urn(registered_model)
-            model_versions = self._get_mlflow_model_versions(registered_model)
-            for model_version in model_versions:
+            
+            model_versions_list = list(self._get_mlflow_model_versions(registered_model))
+            logger.info(f"Found {len(model_versions_list)} versions for model {registered_model.name}")
+            
+            for model_version in model_versions_list:
                 logger.info(f"!!! model version: {model_version.version}")
                 run = self._get_mlflow_run(model_version)
                 # yield self._get_ml_model_properties_workunit(
