@@ -1,8 +1,9 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import pydantic
+from pydantic import BaseModel
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
@@ -17,6 +18,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.utilities.lossy_collections import LossyDict
 
 logger = logging.getLogger(__name__)
 
@@ -53,9 +55,66 @@ class Constant:
     DEFAULT_API_URL = "https://aws-api.sigmacomputing.com/v2"
 
 
+class WorkspaceCounts(BaseModel):
+    workbooks_count: int = 0
+    datasets_count: int = 0
+    elements_count: int = 0
+    pages_count: int = 0
+
+    def is_empty(self) -> bool:
+        return (
+            self.workbooks_count == 0
+            and self.datasets_count == 0
+            and self.elements_count == 0
+            and self.pages_count == 0
+        )
+
+    def as_obj(self) -> dict:
+        return {
+            "workbooks_count": self.workbooks_count,
+            "datasets_count": self.datasets_count,
+            "elements_count": self.elements_count,
+            "pages_count": self.pages_count,
+        }
+
+
+class SigmaWorkspaceEntityFilterReport(EntityFilterReport):
+    type: str = "workspace"
+    workspace_counts: LossyDict[str, WorkspaceCounts] = LossyDict()
+
+    def increment_workbooks_count(self, workspace_id: str) -> None:
+        if workspace_id not in self.workspace_counts:
+            self.workspace_counts[workspace_id] = WorkspaceCounts()
+        self.workspace_counts[workspace_id].workbooks_count += 1
+
+    def increment_datasets_count(self, workspace_id: str) -> None:
+        if workspace_id not in self.workspace_counts:
+            self.workspace_counts[workspace_id] = WorkspaceCounts()
+        self.workspace_counts[workspace_id].datasets_count += 1
+
+    def increment_elements_count(self, workspace_id: str) -> None:
+        if workspace_id not in self.workspace_counts:
+            self.workspace_counts[workspace_id] = WorkspaceCounts()
+        self.workspace_counts[workspace_id].elements_count += 1
+
+    def increment_pages_count(self, workspace_id: str) -> None:
+        if workspace_id not in self.workspace_counts:
+            self.workspace_counts[workspace_id] = WorkspaceCounts()
+        self.workspace_counts[workspace_id].pages_count += 1
+
+    def as_obj(self) -> dict:
+        return {
+            "filtered": self.dropped_entities.as_obj(),
+            "processed": self.processed_entities.as_obj(),
+            "workspace_counts": {
+                key: item.as_obj() for key, item in self.workspace_counts.items()
+            },
+        }
+
+
 @dataclass
 class SigmaSourceReport(StaleEntityRemovalSourceReport):
-    workspaces: EntityFilterReport = EntityFilterReport.field(type="workspace")
+    workspaces: SigmaWorkspaceEntityFilterReport = SigmaWorkspaceEntityFilterReport()
     non_accessible_workspaces_count: int = 0
 
     datasets: EntityFilterReport = EntityFilterReport.field(type="dataset")
@@ -65,6 +124,7 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     workbooks_without_workspace: int = 0
 
     number_of_files_metadata: Dict[str, int] = field(default_factory=dict)
+    empty_workspaces: List[str] = field(default_factory=list)
 
 
 class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
