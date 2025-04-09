@@ -170,6 +170,8 @@ jobs:
           python-version: "3.10"
       - name: Quickstart Compose Validation
         run: ./docker/quickstart/generate_and_compare.sh
+      - name: Docker Snippet Validation
+        run: python python-build/generate_ingestion_docker.py --check
 
   event-file:
     runs-on: ubuntu-latest
