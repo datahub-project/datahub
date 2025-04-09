@@ -3,24 +3,42 @@
     "entityType": "mlModelGroup",
     "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,test_model_group,PROD)",
     "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:mlflow"
+        }
+    }
+},
+{
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,test_model_group,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "mlModelGroupProperties",
     "aspect": {
         "json": {
             "customProperties": {
-                "key1": "value1",
-                "key2": "value2"
+                "purpose": "research",
+                "environment": "development",
+                "owner": "research_team"
             },
-            "name": "Test Model Group",
-            "description": "A test model group",
+            "trainingJobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,training_pipeline,prod),validate_models)",
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,training_pipeline,prod),retrain_models)"
+            ],
+            "downstreamJobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,monitoring_pipeline,prod),monitor_models)",
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,serving_pipeline,prod),update_models)"
+            ],
+            "externalUrl": "https://example.com/new",
+            "name": "New Name",
+            "description": "New Description",
             "created": {
-                "time": 1628580000000,
-                "actor": "urn:li:corpuser:datahub"
+                "time": 1744206188000
             },
             "lastModified": {
-                "time": 1628580000000,
-                "actor": "urn:li:corpuser:datahub"
-            },
-            "models": []
+                "time": 1744206188000
+            }
         }
     }
 }

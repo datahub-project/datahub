@@ -3,11 +3,40 @@
     "entityType": "mlModelGroup",
     "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,test_model_group,PROD)",
     "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:mlflow"
+        }
+    }
+},
+{
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,test_model_group,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "mlModelGroupProperties",
     "aspect": {
         "json": {
-            "customProperties": {},
-            "name": "Test Model Group"
+            "customProperties": {
+                "purpose": "testing",
+                "environment": "development",
+                "owner": "ml_team"
+            },
+            "trainingJobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,training_pipeline,prod),train_models)"
+            ],
+            "downstreamJobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,serving_pipeline,prod),serve_models)"
+            ],
+            "externalUrl": "https://mlflow.example.com/groups/test_group",
+            "name": "Test Model Group",
+            "description": "A group of test models for demonstration",
+            "created": {
+                "time": 1744237800000
+            },
+            "lastModified": {
+                "time": 1744237800000
+            }
         }
     }
 }

@@ -3,14 +3,58 @@
     "entityType": "mlModel",
     "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test_model,PROD)",
     "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:mlflow"
+        }
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test_model,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "mlModelProperties",
     "aspect": {
         "json": {
-            "customProperties": {},
-            "trainingJobs": [],
+            "customProperties": {
+                "framework": "pytorch",
+                "task": "classification",
+                "dataset": "mnist"
+            },
+            "externalUrl": "https://mlflow.example.com/models/test_model",
+            "trainingJobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,training_pipeline,prod),train_model)"
+            ],
             "name": "Test Model",
-            "tags": [],
-            "groups": []
+            "description": "A basic test model for demonstration",
+            "created": {
+                "time": 1744237800000
+            },
+            "lastModified": {
+                "time": 1744237800000
+            },
+            "hyperParams": [
+                {
+                    "name": "learning_rate",
+                    "value": "0.001"
+                },
+                {
+                    "name": "batch_size",
+                    "value": "64"
+                }
+            ],
+            "trainingMetrics": [
+                {
+                    "name": "accuracy",
+                    "value": "0.85"
+                },
+                {
+                    "name": "loss",
+                    "value": "0.12"
+                }
+            ],
+            "tags": []
         }
     }
 },
@@ -25,9 +69,31 @@
             "version": {
                 "versionTag": "1.0.0"
             },
-            "aliases": [],
+            "aliases": [
+                {
+                    "versionTag": "test_model_v1"
+                },
+                {
+                    "versionTag": "mnist_classifier"
+                }
+            ],
             "sortId": "000001.0.0",
             "versioningScheme": "LEXICOGRAPHIC_STRING"
+        }
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test_model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:test_tag"
+                }
+            ]
         }
     }
 }
