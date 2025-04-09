@@ -349,14 +349,40 @@ class MLflowSource(StatefulIngestionSourceBase):
         """
         Utility to traverse an MLflow search_* functions which return PagedList.
         """
-        logger.info(f"!!! traversing mlflow search function with {search_func.__name__}")
+        page_count = 0
+        total_items = 0
+        next_page_token = None
+
+        logger.info(f"!!! traversing mlflow search function with {search_func.__name__} with kwargs: {kwargs}")
         try:
-            next_page_token = None
             while True:
+                page_count += 1
+                logger.info(f"!!! Fetching page {page_count} with token: {next_page_token}")
+
                 paged_list = search_func(page_token=next_page_token, **kwargs)
-                yield from paged_list.to_list()
+
+                items = paged_list.to_list()
+                page_items_count = len(items)
+                total_items += page_items_count
+
+                logger.info(f"!!! Page {page_count} returned {page_items_count} items")
+                logger.info(f"!!! First few items: {items[:3] if items else 'None'}")
+
+                if items:
+                    first_item = items[0]
+                    logger.info(f"!!! First item type: {type(first_item)}")
+                    if hasattr(first_item, 'name'):
+                        logger.info(f"!!! First item name: {first_item.name}")
+                    if hasattr(first_item, 'version'):
+                        logger.info(f"!!! First item version: {first_item.version}")
+
+                yield from items
+
                 next_page_token = paged_list.token
+                logger.info(f"!!! Next page token: {next_page_token}")
+
                 if not next_page_token:
+                    logger.info(f"!!! Search complete, found {total_items} total items across {page_count} pages")
                     return
         except Exception as e:
             logger.error(f"Error traversing MLflow search function: {e}")
@@ -442,8 +468,8 @@ class MLflowSource(StatefulIngestionSourceBase):
         Traverse each Registered Model in Model Registry and generate a corresponding workunit.
         """
         logger.info("!!! getting ml model workunits")
-        registered_models = self._get_mlflow_registered_models()
-        logger.info(f"!!! got registered models")
+        registered_models = list(self._get_mlflow_registered_models())
+        logger.info(f"!!! got {len(registered_models)} registered models")
         logger.info(f"!!! iterating through registered models")
         for registered_model in registered_models:
             self._get_ml_group_workunit(registered_model)
