@@ -277,7 +277,7 @@ from datahub._codegen.aspect import _Aspect
 """
 
     for aspect in aspects:
-        className = f'{aspect["name"]}Class'
+        className = f"{aspect['name']}Class"
         aspectName = aspect["Aspect"]["name"]
         class_def_original = f"class {className}(DictWrapper):"
 
@@ -299,9 +299,9 @@ from datahub._codegen.aspect import _Aspect
         schema_classes_lines[empty_line] = "\n"
         schema_classes_lines[empty_line] += f"\n    ASPECT_NAME = '{aspectName}'"
         if "type" in aspect["Aspect"]:
-            schema_classes_lines[
-                empty_line
-            ] += f"\n    ASPECT_TYPE = '{aspect['Aspect']['type']}'"
+            schema_classes_lines[empty_line] += (
+                f"\n    ASPECT_TYPE = '{aspect['Aspect']['type']}'"
+            )
 
         aspect_info = {
             k: v for k, v in aspect["Aspect"].items() if k not in {"name", "type"}
@@ -315,7 +315,7 @@ from datahub._codegen.aspect import _Aspect
     schema_classes_lines.append(
         f"""
 ASPECT_CLASSES: List[Type[_Aspect]] = [
-    {f',{newline}    '.join(f"{aspect['name']}Class" for aspect in aspects)}
+    {f",{newline}    ".join(f"{aspect['name']}Class" for aspect in aspects)}
 ]
 
 ASPECT_NAME_MAP: Dict[str, Type[_Aspect]] = {{
@@ -323,15 +323,23 @@ ASPECT_NAME_MAP: Dict[str, Type[_Aspect]] = {{
     for aspect in ASPECT_CLASSES
 }}
 
+from typing import Literal
 from typing_extensions import TypedDict
 
 class AspectBag(TypedDict, total=False):
-    {f'{newline}    '.join(f"{aspect['Aspect']['name']}: {aspect['name']}Class" for aspect in aspects)}
+    {f"{newline}    ".join(f"{aspect['Aspect']['name']}: {aspect['name']}Class" for aspect in aspects)}
 
 
 KEY_ASPECTS: Dict[str, Type[_Aspect]] = {{
-    {f',{newline}    '.join(f"'{aspect['Aspect']['keyForEntity']}': {aspect['name']}Class" for aspect in aspects if aspect['Aspect'].get('keyForEntity'))}
+    {f",{newline}    ".join(f"'{aspect['Aspect']['keyForEntity']}': {aspect['name']}Class" for aspect in aspects if aspect["Aspect"].get("keyForEntity"))}
 }}
+
+ENTITY_TYPE_NAMES: List[str] = [
+    {f",{newline}    ".join(f"'{aspect['Aspect']['keyForEntity']}'" for aspect in aspects if aspect["Aspect"].get("keyForEntity"))}
+]
+EntityTypeName = Literal[
+    {f",{newline}    ".join(f"'{aspect['Aspect']['keyForEntity']}'" for aspect in aspects if aspect["Aspect"].get("keyForEntity"))}
+]
 """
     )
 
@@ -346,7 +354,7 @@ def write_urn_classes(key_aspects: List[dict], urn_dir: Path) -> None:
     code = """
 # This file contains classes corresponding to entity URNs.
 
-from typing import ClassVar, List, Optional, Type, TYPE_CHECKING, Union
+from typing import ClassVar, List, Optional, Type, TYPE_CHECKING, Union, Literal
 
 import functools
 from deprecated.sphinx import deprecated as _sphinx_deprecated
@@ -518,6 +526,36 @@ def get_notebook_id(self) -> str:
 """
     ],
     "tag": [_create_from_id.format(class_name="TagUrn")],
+    "chart": [
+        """
+@classmethod
+def create_from_ids(
+    cls,
+    platform: str,
+    name: str,
+    platform_instance: Optional[str] = None,
+) -> "ChartUrn":
+    return ChartUrn(
+        dashboard_tool=platform,
+        chart_id=f"{platform_instance}.{name}" if platform_instance else name,
+    )
+        """
+    ],
+    "dashboard": [
+        """
+@classmethod
+def create_from_ids(
+    cls,
+    platform: str,
+    name: str,
+    platform_instance: Optional[str] = None,
+) -> "DashboardUrn":
+    return DashboardUrn(
+        dashboard_tool=platform,
+        dashboard_id=f"{platform_instance}.{name}" if platform_instance else name,
+    )
+        """
+    ],
 }
 
 
@@ -546,6 +584,7 @@ def generate_urn_class(entity_type: str, key_aspect: dict) -> str:
         assert field_name(fields[0]) == "guid"
         assert fields[0]["type"] == ["null", "string"]
         fields[0]["type"] = "string"
+    arg_count = len(fields)
 
     field_urn_type_classes = {}
     for field in fields:
@@ -561,6 +600,12 @@ def generate_urn_class(entity_type: str, key_aspect: dict) -> str:
                 field_urn_type_class = "Urn"
 
         field_urn_type_classes[field_name(field)] = field_urn_type_class
+    if arg_count == 1:
+        field = fields[0]
+
+        if field_urn_type_classes[field_name(field)] is None:
+            # All single-arg urn types should accept themselves.
+            field_urn_type_classes[field_name(field)] = class_name
 
     _init_arg_parts: List[str] = []
     for field in fields:
@@ -579,7 +624,6 @@ def generate_urn_class(entity_type: str, key_aspect: dict) -> str:
 
     super_init_args = ", ".join(field_name(field) for field in fields)
 
-    arg_count = len(fields)
     parse_ids_mapping = ", ".join(
         f"{field_name(field)}=entity_ids[{i}]" for i, field in enumerate(fields)
     )
@@ -601,8 +645,26 @@ def generate_urn_class(entity_type: str, key_aspect: dict) -> str:
 
         # Generalized mechanism for validating embedded urns.
         field_urn_type_class = field_urn_type_classes[field_name(field)]
-        if field_urn_type_class:
-            init_validation += f"{field_name(field)} = str({field_name(field)})\n"
+        if field_urn_type_class and field_urn_type_class == class_name:
+            # First, we need to extract the main piece from the urn type.
+            init_validation += (
+                f"if isinstance({field_name(field)}, {field_urn_type_class}):\n"
+                f"    {field_name(field)} = {field_name(field)}.{field_name(field)}\n"
+            )
+
+            # If it's still an urn type, that's a problem.
+            init_validation += (
+                f"elif isinstance({field_name(field)}, Urn):\n"
+                f"    raise InvalidUrnError(f'Expecting a {field_urn_type_class} but got {{{field_name(field)}}}')\n"
+            )
+
+            # Then, we do character validation as normal.
+            init_validation += (
+                f"if UrnEncoder.contains_reserved_char({field_name(field)}):\n"
+                f"    raise InvalidUrnError(f'{class_name} {field_name(field)} contains reserved characters')\n"
+            )
+        elif field_urn_type_class:
+            init_validation += f"{field_name(field)} = str({field_name(field)})  # convert urn type to str\n"
             init_validation += (
                 f"assert {field_urn_type_class}.from_string({field_name(field)})\n"
             )
@@ -611,17 +673,29 @@ def generate_urn_class(entity_type: str, key_aspect: dict) -> str:
                 f"if UrnEncoder.contains_reserved_char({field_name(field)}):\n"
                 f"    raise InvalidUrnError(f'{class_name} {field_name(field)} contains reserved characters')\n"
             )
+        # TODO add ALL_ENV_TYPES validation
 
+        # Field coercion logic.
         if field_name(field) == "env":
             init_coercion += "env = env.upper()\n"
-        # TODO add ALL_ENV_TYPES validation
-        elif entity_type == "dataPlatform" and field_name(field) == "platform_name":
-            init_coercion += 'if platform_name.startswith("urn:li:dataPlatform:"):\n'
-            init_coercion += "    platform_name = DataPlatformUrn.from_string(platform_name).platform_name\n"
-
-        if field_name(field) == "platform":
-            init_coercion += "platform = platform.urn() if isinstance(platform, DataPlatformUrn) else DataPlatformUrn(platform).urn()\n"
-        elif field_urn_type_class is None:
+        elif field_name(field) == "platform":
+            # For platform names in particular, we also qualify them when they don't have the prefix.
+            # We can rely on the DataPlatformUrn constructor to do this prefixing.
+            init_coercion += "platform = DataPlatformUrn(platform).urn()\n"
+        elif field_urn_type_class is not None:
+            # For urn types, we need to parse them into urn types where appropriate.
+            # Otherwise, we just need to encode special characters.
+            init_coercion += (
+                f"if isinstance({field_name(field)}, str):\n"
+                f"    if {field_name(field)}.startswith('urn:li:'):\n"
+                f"        try:\n"
+                f"            {field_name(field)} = {field_urn_type_class}.from_string({field_name(field)})\n"
+                f"        except InvalidUrnError:\n"
+                f"            raise InvalidUrnError(f'Expecting a {field_urn_type_class} but got {{{field_name(field)}}}')\n"
+                f"    else:\n"
+                f"        {field_name(field)} = UrnEncoder.encode_string({field_name(field)})\n"
+            )
+        else:
             # For all non-urns, run the value through the UrnEncoder.
             init_coercion += (
                 f"{field_name(field)} = UrnEncoder.encode_string({field_name(field)})\n"
@@ -636,16 +710,16 @@ if TYPE_CHECKING:
     from datahub.metadata.schema_classes import {key_aspect_class}
 
 class {class_name}(_SpecificUrn):
-    ENTITY_TYPE: ClassVar[str] = "{entity_type}"
+    ENTITY_TYPE: ClassVar[Literal["{entity_type}"]] = "{entity_type}"
     _URN_PARTS: ClassVar[int] = {arg_count}
 
     def __init__(self, {init_args}, *, _allow_coercion: bool = True) -> None:
         if _allow_coercion:
             # Field coercion logic (if any is required).
-{textwrap.indent(init_coercion.strip(), prefix=" "*4*3)}
+{textwrap.indent(init_coercion.strip(), prefix=" " * 4 * 3)}
 
         # Validation logic.
-{textwrap.indent(init_validation.strip(), prefix=" "*4*2)}
+{textwrap.indent(init_validation.strip(), prefix=" " * 4 * 2)}
 
         super().__init__(self.ENTITY_TYPE, [{super_init_args}])
 
@@ -678,7 +752,7 @@ class {class_name}(_SpecificUrn):
         code += f"""
     @property
     def {field_name(field)}(self) -> {field_type(field)}:
-        return self.entity_ids[{i}]
+        return self._entity_ids[{i}]
 """
 
     return code
@@ -729,7 +803,7 @@ def generate(
             and aspect["Aspect"]["keyForEntity"] != entity.name
         ):
             raise ValueError(
-                f'Entity key {entity.keyAspect} is used by {aspect["Aspect"]["keyForEntity"]} and {entity.name}'
+                f"Entity key {entity.keyAspect} is used by {aspect['Aspect']['keyForEntity']} and {entity.name}"
             )
 
         # Also require that the aspect list is deduplicated.

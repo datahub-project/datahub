@@ -1,7 +1,7 @@
 import logging
 import sys
 import time
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -93,10 +93,12 @@ def get_data_platform_tables_with_dummy_table(
 
 
 def get_default_instances(
-    override_config: dict = {},
+    override_config: Optional[dict] = None,
 ) -> Tuple[
     PipelineContext, PowerBiDashboardSourceConfig, AbstractDataPlatformInstanceResolver
 ]:
+    if override_config is None:
+        override_config = {}
     config: PowerBiDashboardSourceConfig = PowerBiDashboardSourceConfig.parse_obj(
         {
             "tenant_id": "fake",
@@ -765,14 +767,14 @@ def test_sqlglot_parser():
         }
     )
 
-    lineage: List[
-        datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
-    ] = parser.get_upstream_tables(
-        table,
-        reporter,
-        ctx=ctx,
-        config=config,
-        platform_instance_resolver=platform_instance_resolver,
+    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        parser.get_upstream_tables(
+            table,
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+        )
     )
 
     data_platform_tables: List[DataPlatformTable] = lineage[0].upstreams
@@ -814,9 +816,9 @@ def test_sqlglot_parser():
 def test_databricks_multi_cloud():
     q = M_QUERIES[25]
 
-    lineage: List[
-        datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
-    ] = get_data_platform_tables_with_dummy_table(q=q)
+    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        get_data_platform_tables_with_dummy_table(q=q)
+    )
 
     assert len(lineage) == 1
 
@@ -833,9 +835,9 @@ def test_databricks_multi_cloud():
 def test_databricks_catalog_pattern_1():
     q = M_QUERIES[26]
 
-    lineage: List[
-        datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
-    ] = get_data_platform_tables_with_dummy_table(q=q)
+    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        get_data_platform_tables_with_dummy_table(q=q)
+    )
 
     assert len(lineage) == 1
 
@@ -904,14 +906,14 @@ def test_sqlglot_parser_2():
         }
     )
 
-    lineage: List[
-        datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
-    ] = parser.get_upstream_tables(
-        table,
-        reporter,
-        ctx=ctx,
-        config=config,
-        platform_instance_resolver=platform_instance_resolver,
+    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        parser.get_upstream_tables(
+            table,
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+        )
     )
 
     data_platform_tables: List[DataPlatformTable] = lineage[0].upstreams
@@ -965,9 +967,9 @@ def test_databricks_regular_case_with_view():
 def test_snowflake_double_double_quotes():
     q = M_QUERIES[30]
 
-    lineage: List[
-        datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
-    ] = get_data_platform_tables_with_dummy_table(q=q)
+    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        get_data_platform_tables_with_dummy_table(q=q)
+    )
 
     assert len(lineage) == 1
 
@@ -984,9 +986,9 @@ def test_snowflake_double_double_quotes():
 def test_databricks_multicloud():
     q = M_QUERIES[31]
 
-    lineage: List[
-        datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
-    ] = get_data_platform_tables_with_dummy_table(q=q)
+    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        get_data_platform_tables_with_dummy_table(q=q)
+    )
 
     assert len(lineage) == 1
 
@@ -1003,9 +1005,9 @@ def test_databricks_multicloud():
 def test_snowflake_multi_function_call():
     q = M_QUERIES[32]
 
-    lineage: List[
-        datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
-    ] = get_data_platform_tables_with_dummy_table(q=q)
+    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        get_data_platform_tables_with_dummy_table(q=q)
+    )
 
     assert len(lineage) == 1
 
@@ -1022,9 +1024,9 @@ def test_snowflake_multi_function_call():
 def test_mssql_drop_with_select():
     q = M_QUERIES[33]
 
-    lineage: List[
-        datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
-    ] = get_data_platform_tables_with_dummy_table(q=q)
+    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        get_data_platform_tables_with_dummy_table(q=q)
+    )
 
     assert len(lineage) == 1
 
@@ -1070,23 +1072,23 @@ def test_unsupported_data_platform():
     )  # type :ignore
 
     is_entry_present: bool = False
-    for key, entry in info_entries.items():
+    for entry in info_entries.values():
         if entry.title == "Non-Data Platform Expression":
             is_entry_present = True
             break
 
-    assert (
-        is_entry_present
-    ), 'Info message "Non-Data Platform Expression" should be present in reporter'
+    assert is_entry_present, (
+        'Info message "Non-Data Platform Expression" should be present in reporter'
+    )
 
 
 def test_empty_string_in_m_query():
     # TRIM(TRIM(TRIM(AGENT_NAME, '\"\"'), '+'), '\\'') is in Query
     q = "let\n  Source = Value.NativeQuery(Snowflake.Databases(\"bu10758.ap-unknown-2.fakecomputing.com\",\"operations_analytics_warehouse_prod\",[Role=\"OPERATIONS_ANALYTICS_MEMBER\"]){[Name=\"OPERATIONS_ANALYTICS\"]}[Data], \"select #(lf)UPPER(REPLACE(AGENT_NAME,'-','')) AS CLIENT_DIRECTOR,#(lf)TRIM(TRIM(TRIM(AGENT_NAME, '\"\"'), '+'), '\\'') AS TRIM_AGENT_NAME,#(lf)TIER,#(lf)UPPER(MANAGER),#(lf)TEAM_TYPE,#(lf)DATE_TARGET,#(lf)MONTHID,#(lf)TARGET_TEAM,#(lf)SELLER_EMAIL,#(lf)concat((UPPER(REPLACE(AGENT_NAME,'-',''))), MONTHID) as AGENT_KEY,#(lf)UNIT_TARGET AS SME_Quota,#(lf)AMV_TARGET AS Revenue_Quota,#(lf)SERVICE_QUOTA,#(lf)BL_TARGET,#(lf)SOFTWARE_QUOTA as Software_Quota#(lf)#(lf)from OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_SME_UNIT_TARGETS inner join OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_SME_UNIT #(lf)#(lf)where YEAR_TARGET >= 2022#(lf)and TEAM_TYPE = 'Accounting'#(lf)and TARGET_TEAM = 'Enterprise'#(lf)AND TIER = 'Client Director'\", null, [EnableFolding=true])\nin\n    Source"
 
-    lineage: List[
-        datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
-    ] = get_data_platform_tables_with_dummy_table(q=q)
+    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        get_data_platform_tables_with_dummy_table(q=q)
+    )
 
     assert len(lineage) == 1
 
@@ -1108,9 +1110,9 @@ def test_double_quotes_in_alias():
     # SELECT CAST(sales_date AS DATE) AS \"\"Date\"\" in query
     q = 'let \n Source = Sql.Database("abc.com", "DB", [Query="SELECT CAST(sales_date AS DATE) AS ""Date"",#(lf) SUM(cshintrpret) / 60.0      AS ""Total Order All Items"",#(lf)#(tab)#(tab)#(tab)  SUM(cshintrpret) / 60.0 - LAG(SUM(cshintrpret) / 60.0, 1) OVER (ORDER BY CAST(sales_date AS DATE)) AS ""Total minute difference"",#(lf)#(tab)#(tab)#(tab)  SUM(sale_price)  / 60.0 - LAG(SUM(sale_price)  / 60.0, 1) OVER (ORDER BY CAST(sales_date AS DATE)) AS ""Normal minute difference""#(lf)        FROM   [DB].[dbo].[sales_t]#(lf)        WHERE  sales_date >= GETDATE() - 365#(lf)        GROUP  BY CAST(sales_date AS DATE),#(lf)#(tab)#(tab)CAST(sales_date AS TIME);"]) \n in \n Source'
 
-    lineage: List[
-        datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
-    ] = get_data_platform_tables_with_dummy_table(q=q)
+    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        get_data_platform_tables_with_dummy_table(q=q)
+    )
 
     assert len(lineage) == 1
 
@@ -1163,14 +1165,14 @@ def test_m_query_timeout(mock_get_lark_parser):
     )  # type :ignore
 
     is_entry_present: bool = False
-    for key, entry in warn_entries.items():
+    for entry in warn_entries.values():
         if entry.title == "M-Query Parsing Timeout":
             is_entry_present = True
             break
 
-    assert (
-        is_entry_present
-    ), 'Warning message "M-Query Parsing Timeout" should be present in reporter'
+    assert is_entry_present, (
+        'Warning message "M-Query Parsing Timeout" should be present in reporter'
+    )
 
 
 def test_comments_in_m_query():

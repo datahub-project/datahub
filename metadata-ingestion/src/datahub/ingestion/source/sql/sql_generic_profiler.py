@@ -278,8 +278,7 @@ class GenericProfiler:
 
         if self.config.profiling.profile_table_size_limit is not None and (
             size_in_bytes is not None
-            and size_in_bytes / (2**30)
-            > self.config.profiling.profile_table_size_limit
+            and size_in_bytes / (2**30) > self.config.profiling.profile_table_size_limit
         ):
             self.report.profiling_skipped_size_limit[schema_name] += 1
             logger.debug(

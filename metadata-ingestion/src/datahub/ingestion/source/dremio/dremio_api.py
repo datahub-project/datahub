@@ -181,7 +181,7 @@ class DremioAPIOperations:
             return
 
         # On-prem Dremio authentication (PAT or Basic Auth)
-        for retry in range(1, self._retry_count + 1):
+        for _ in range(1, self._retry_count + 1):
             try:
                 if connection_args.authentication_method == "PAT":
                     self.session.headers.update(
@@ -191,9 +191,9 @@ class DremioAPIOperations:
                     )
                     return
                 else:
-                    assert (
-                        connection_args.username and connection_args.password
-                    ), "Username and password are required for authentication"
+                    assert connection_args.username and connection_args.password, (
+                        "Username and password are required for authentication"
+                    )
                     host = connection_args.hostname
                     port = connection_args.port
                     protocol = "https" if connection_args.tls else "http"
@@ -271,12 +271,12 @@ class DremioAPIOperations:
                     self.cancel_query(job_id)
                     raise DremioAPIException(
                         f"Query execution timed out after {timeout} seconds"
-                    )
+                    ) from None
                 except RuntimeError as e:
-                    raise DremioAPIException(f"{str(e)}")
+                    raise DremioAPIException() from e
 
         except requests.RequestException as e:
-            raise DremioAPIException(f"Error executing query: {str(e)}")
+            raise DremioAPIException("Error executing query") from e
 
     def fetch_results(self, job_id: str) -> List[Dict]:
         """Fetch job results with status checking"""
@@ -683,11 +683,7 @@ class DremioAPIOperations:
                 # Add end anchor for exact matching
                 regex_pattern = regex_pattern + "$"
 
-        for path in paths:
-            if re.match(regex_pattern, path, re.IGNORECASE):
-                return True
-
-        return False
+        return any(re.match(regex_pattern, path, re.IGNORECASE) for path in paths)
 
     def should_include_container(self, path: List[str], name: str) -> bool:
         """

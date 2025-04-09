@@ -361,6 +361,7 @@
       "type" : "string",
       "doc" : "Title of the chart",
       "Searchable" : {
+        "boostScore" : 10.0,
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM"
@@ -1051,7 +1052,9 @@
         "fieldName" : "glossaryTerms",
         "fieldType" : "URN",
         "filterNameOverride" : "Glossary Term",
-        "hasValuesFieldName" : "hasGlossaryTerms"
+        "hasValuesFieldName" : "hasGlossaryTerms",
+        "includeSystemModifiedAt" : true,
+        "systemModifiedAtFieldName" : "termsModifiedAt"
       }
     }, {
       "name" : "actor",
@@ -1493,14 +1496,14 @@
       "default" : [ ],
       "Relationship" : {
         "/*/destinationUrn" : {
-          "createdActor" : "datasetEdges/*/created/actor",
-          "createdOn" : "datasetEdges/*/created/time",
+          "createdActor" : "dashboards/*/created/actor",
+          "createdOn" : "dashboards/*/created/time",
           "entityTypes" : [ "dashboard" ],
           "isLineage" : true,
           "name" : "DashboardContainsDashboard",
-          "properties" : "datasetEdges/*/properties",
-          "updatedActor" : "datasetEdges/*/lastModified/actor",
-          "updatedOn" : "datasetEdges/*/lastModified/time"
+          "properties" : "dashboards/*/properties",
+          "updatedActor" : "dashboards/*/lastModified/actor",
+          "updatedOn" : "dashboards/*/lastModified/time"
         }
       }
     }, {
@@ -2517,6 +2520,14 @@
       "type" : "string",
       "doc" : "Email address to contact the user",
       "optional" : true
+    }, {
+      "name" : "informationSources",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Urn"
+      },
+      "doc" : "Information sources that have been used to populate this CorpUserEditableInfo.\nThese include platform resources, such as Slack members or Looker users.\nThey can also refer to other semantic urns in the future.",
+      "optional" : true
     } ],
     "Aspect" : {
       "EntityUrns" : [ "com.linkedin.common.CorpuserUrn" ],
@@ -2618,6 +2629,16 @@
       "type" : "string",
       "doc" : "two uppercase letters country code. e.g.  US",
       "optional" : true
+    }, {
+      "name" : "system",
+      "type" : "boolean",
+      "doc" : "Whether the corpUser is a system user.",
+      "default" : false,
+      "optional" : true,
+      "Searchable" : {
+        "fieldType" : "BOOLEAN",
+        "queryByDefault" : false
+      }
     } ],
     "Aspect" : {
       "EntityUrns" : [ "com.linkedin.common.CorpuserUrn" ],
@@ -3425,7 +3446,9 @@
                 "/terms/*/urn" : {
                   "boostScore" : 0.5,
                   "fieldName" : "editedFieldGlossaryTerms",
-                  "fieldType" : "URN"
+                  "fieldType" : "URN",
+                  "includeSystemModifiedAt" : true,
+                  "systemModifiedAtFieldName" : "schemaFieldTermsModifiedAt"
                 }
               }
             } ]
@@ -3830,18 +3853,18 @@
       "type" : "record",
       "name" : "MLModelProperties",
       "namespace" : "com.linkedin.ml.metadata",
-      "doc" : "Properties associated with a ML Model\r",
+      "doc" : "Properties associated with a ML Model",
       "include" : [ "com.linkedin.common.CustomProperties", "com.linkedin.common.ExternalReference", {
         "type" : "record",
         "name" : "MLModelLineageInfo",
-        "doc" : "A set of re-usable fields used to capture lineage information for ML Models and ML Model Groups\r",
+        "doc" : "A set of re-usable fields used to capture lineage information for ML Models and ML Model Groups",
         "fields" : [ {
           "name" : "trainingJobs",
           "type" : {
             "type" : "array",
             "items" : "com.linkedin.common.Urn"
           },
-          "doc" : "List of jobs or process instances (if any) used to train the model or group. Visible in Lineage. Note that ML Models can also be specified as the output of a specific Data Process Instances (runs) via the DataProcessInstanceOutputs aspect.\r",
+          "doc" : "List of jobs or process instances (if any) used to train the model or group. Visible in Lineage. Note that ML Models can also be specified as the output of a specific Data Process Instances (runs) via the DataProcessInstanceOutputs aspect.",
           "optional" : true,
           "Relationship" : {
             "/*" : {
@@ -3856,7 +3879,7 @@
             "type" : "array",
             "items" : "com.linkedin.common.Urn"
           },
-          "doc" : "List of jobs or process instances (if any) that use the model or group.\r",
+          "doc" : "List of jobs or process instances (if any) that use the model or group.",
           "optional" : true,
           "Relationship" : {
             "/*" : {
@@ -3871,7 +3894,7 @@
       "fields" : [ {
         "name" : "name",
         "type" : "string",
-        "doc" : "Display name of the MLModel\r",
+        "doc" : "Display name of the MLModel",
         "optional" : true,
         "Searchable" : {
           "boostScore" : 10.0,
@@ -3882,7 +3905,7 @@
       }, {
         "name" : "description",
         "type" : "string",
-        "doc" : "Documentation of the MLModel\r",
+        "doc" : "Documentation of the MLModel",
         "optional" : true,
         "Searchable" : {
           "fieldType" : "TEXT",
@@ -3891,28 +3914,28 @@
       }, {
         "name" : "date",
         "type" : "com.linkedin.common.Time",
-        "doc" : "Date when the MLModel was developed\r",
+        "doc" : "Date when the MLModel was developed",
         "optional" : true,
         "deprecated" : true
       }, {
         "name" : "created",
         "type" : "com.linkedin.common.TimeStamp",
-        "doc" : "Audit stamp containing who created this and when\r",
+        "doc" : "Audit stamp containing who created this and when",
         "optional" : true
       }, {
         "name" : "lastModified",
         "type" : "com.linkedin.common.TimeStamp",
-        "doc" : "Date when the MLModel was last modified\r",
+        "doc" : "Date when the MLModel was last modified",
         "optional" : true
       }, {
         "name" : "version",
         "type" : "com.linkedin.common.VersionTag",
-        "doc" : "Version of the MLModel\r",
+        "doc" : "Version of the MLModel",
         "optional" : true
       }, {
         "name" : "type",
         "type" : "string",
-        "doc" : "Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc\r",
+        "doc" : "Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc",
         "optional" : true,
         "Searchable" : {
           "fieldType" : "TEXT_PARTIAL"
@@ -3928,7 +3951,7 @@
             "ref" : [ "string", "int", "float", "double", "boolean" ]
           }
         },
-        "doc" : "Hyper Parameters of the MLModel\r\n\r\nNOTE: these are deprecated in favor of hyperParams\r",
+        "doc" : "Hyper Parameters of the MLModel\n\nNOTE: these are deprecated in favor of hyperParams",
         "optional" : true
       }, {
         "name" : "hyperParams",
@@ -3963,7 +3986,7 @@
             }
           }
         },
-        "doc" : "Hyperparameters of the MLModel\r",
+        "doc" : "Hyperparameters of the MLModel",
         "optional" : true
       }, {
         "name" : "trainingMetrics",
@@ -3998,7 +4021,7 @@
             }
           }
         },
-        "doc" : "Metrics of the MLModel used in training\r",
+        "doc" : "Metrics of the MLModel used in training",
         "optional" : true
       }, {
         "name" : "onlineMetrics",
@@ -4006,7 +4029,7 @@
           "type" : "array",
           "items" : "MLMetric"
         },
-        "doc" : "Metrics of the MLModel used in production\r",
+        "doc" : "Metrics of the MLModel used in production",
         "optional" : true
       }, {
         "name" : "mlFeatures",
@@ -4014,7 +4037,7 @@
           "type" : "array",
           "items" : "com.linkedin.common.MLFeatureUrn"
         },
-        "doc" : "List of features used for MLModel training\r",
+        "doc" : "List of features used for MLModel training",
         "optional" : true,
         "Relationship" : {
           "/*" : {
@@ -4029,7 +4052,7 @@
           "type" : "array",
           "items" : "string"
         },
-        "doc" : "Tags for the MLModel\r",
+        "doc" : "Tags for the MLModel",
         "default" : [ ]
       }, {
         "name" : "deployments",
@@ -4037,7 +4060,7 @@
           "type" : "array",
           "items" : "com.linkedin.common.Urn"
         },
-        "doc" : "Deployments for the MLModel\r",
+        "doc" : "Deployments for the MLModel",
         "optional" : true,
         "Relationship" : {
           "/*" : {
@@ -4051,7 +4074,7 @@
           "type" : "array",
           "items" : "com.linkedin.common.Urn"
         },
-        "doc" : "Groups the model belongs to\r",
+        "doc" : "Groups the model belongs to",
         "optional" : true,
         "Relationship" : {
           "/*" : {
@@ -4410,6 +4433,10 @@
         }, {
           "name" : "lePitEpochMs",
           "type" : "long",
+          "optional" : true
+        }, {
+          "name" : "createDefaultAspects",
+          "type" : "boolean",
           "optional" : true
         } ],
         "returns" : "string"

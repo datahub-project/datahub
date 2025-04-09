@@ -13,6 +13,7 @@ query getMLModelGroup($urn: String!) {
                 time
                 actor
             }
+            externalUrl
         }
         ...nonRecursiveMLModelGroupFields
         incoming: relationships(
@@ -49,5 +50,6 @@ query getMLModelGroup($urn: String!) {
         forms {
             ...formsFields
         }
+        ...notes
     }
 }

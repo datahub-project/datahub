@@ -20,7 +20,7 @@ from pydantic import BaseModel, Extra, ValidationError
 from pydantic.fields import Field
 from typing_extensions import Protocol, Self
 
-from datahub.configuration._config_enum import ConfigEnum as ConfigEnum  # noqa: I250
+from datahub.configuration._config_enum import ConfigEnum as ConfigEnum
 from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
 from datahub.utilities.dedup_list import deduplicate_list
 
@@ -130,7 +130,7 @@ class PermissiveConfigModel(ConfigModel):
     # It is usually used for argument bags that are passed through to third-party libraries.
 
     class Config:
-        if PYDANTIC_VERSION_2:
+        if PYDANTIC_VERSION_2:  # noqa: SIM108
             extra = "allow"
         else:
             extra = Extra.allow
@@ -198,10 +198,17 @@ class IgnorableError(MetaError):
     """An error that can be ignored."""
 
 
+class TraceTimeoutError(OperationalError):
+    """Failure to complete an API Trace within the timeout."""
+
+
+class TraceValidationError(OperationalError):
+    """Failure to complete the expected write operation."""
+
+
 @runtime_checkable
 class ExceptionWithProps(Protocol):
-    def get_telemetry_props(self) -> Dict[str, Any]:
-        ...
+    def get_telemetry_props(self) -> Dict[str, Any]: ...
 
 
 def should_show_stack_trace(exc: Exception) -> bool:
@@ -310,7 +317,7 @@ class KeyValuePattern(ConfigModel):
         return KeyValuePattern()
 
     def value(self, string: str) -> List[str]:
-        matching_keys = [key for key in self.rules.keys() if re.match(key, string)]
+        matching_keys = [key for key in self.rules if re.match(key, string)]
         if not matching_keys:
             return []
         elif self.first_match_only:

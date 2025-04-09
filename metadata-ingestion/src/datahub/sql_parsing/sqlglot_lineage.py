@@ -442,9 +442,9 @@ def _create_table_ddl_cll(
 ) -> List[_ColumnLineageInfo]:
     column_lineage: List[_ColumnLineageInfo] = []
 
-    assert (
-        output_table is not None
-    ), "output_table must be set for create DDL statements"
+    assert output_table is not None, (
+        "output_table must be set for create DDL statements"
+    )
 
     create_schema: sqlglot.exp.Schema = statement.this
     sqlglot_columns = create_schema.expressions
@@ -473,7 +473,7 @@ def _create_table_ddl_cll(
     return column_lineage
 
 
-def _select_statement_cll(  # noqa: C901
+def _select_statement_cll(
     statement: _SupportedColumnLineageTypes,
     dialect: sqlglot.Dialect,
     root_scope: sqlglot.optimizer.Scope,

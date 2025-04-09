@@ -36,7 +36,7 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     TagAssociationClass,
 )
-from datahub.metadata.urns import StructuredPropertyUrn
+from datahub.metadata.urns import ContainerUrn, StructuredPropertyUrn
 
 # In https://github.com/datahub-project/datahub/pull/11214, we added a
 # new env field to container properties. However, populating this field
@@ -87,12 +87,42 @@ class ContainerKey(DatahubKey):
     def property_dict(self) -> Dict[str, str]:
         return self.dict(by_alias=True, exclude_none=True)
 
+    def as_urn_typed(self) -> ContainerUrn:
+        return ContainerUrn.from_string(self.as_urn())
+
     def as_urn(self) -> str:
         return make_container_urn(guid=self.guid())
+
+    def parent_key(self) -> Optional["ContainerKey"]:
+        # Find the immediate base class of self.
+        # This is a bit of a hack, but it works.
+        base_classes = self.__class__.__bases__
+        if len(base_classes) != 1:
+            # TODO: Raise a more specific error.
+            raise ValueError(
+                f"Unable to determine parent key for {self.__class__}: {self}"
+            )
+        base_class = base_classes[0]
+        if base_class is DatahubKey or base_class is ContainerKey:
+            return None
+
+        # We need to use `__dict__` instead of `pydantic.BaseModel.dict()`
+        # in order to include "excluded" fields e.g. `backcompat_env_as_instance`.
+        # Tricky: this only works because DatahubKey is a BaseModel and hence
+        # allows extra fields.
+        return base_class(**self.__dict__)
 
 
 # DEPRECATION: Keeping the `PlatformKey` name around for backwards compatibility.
 PlatformKey = ContainerKey
+
+
+class NamespaceKey(ContainerKey):
+    """
+    For Iceberg namespaces (databases/schemas)
+    """
+
+    namespace: str
 
 
 class DatabaseKey(ContainerKey):
@@ -105,6 +135,10 @@ class SchemaKey(DatabaseKey):
 
 class ProjectIdKey(ContainerKey):
     project_id: str
+
+
+class ExperimentKey(ContainerKey):
+    id: str
 
 
 class MetastoreKey(ContainerKey):

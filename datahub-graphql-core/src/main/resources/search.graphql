@@ -172,6 +172,11 @@ input  SearchFlags {
   Whether or not to fetch and request for structured property facets when doing a search
   """
   includeStructuredPropertyFacets: Boolean
+
+  """
+  Determines whether to filter out any non-latest entity version if entity is part of a Version Set, default true
+  """
+  filterNonLatestVersions: Boolean
 }
 
 """
@@ -342,6 +347,11 @@ input ScrollAcrossEntitiesInput {
   Flags controlling search options
   """
   searchFlags: SearchFlags
+
+  """
+  Optional - Information on how to sort this search result
+  """
+  sortInput: SearchSortInput
 }
 
 
@@ -407,6 +417,16 @@ input SearchAcrossLineageInput {
   Flags controlling the lineage query
   """
   lineageFlags: LineageFlags
+
+  """
+  Optional - A View to apply when generating results
+  """
+  viewUrn: String
+
+  """
+  Optional - Information on how to sort this search result
+  """
+  sortInput: SearchSortInput
 }
 
 """
@@ -824,7 +844,7 @@ type EntityPath {
     """
     Path of entities between source and destination nodes
     """
-    path: [Entity]
+    path: [Entity]!
 }
 
 
@@ -906,6 +926,11 @@ type AggregationMetadata {
   Entity corresponding to the facet field
   """
   entity: Entity
+
+  """
+  Optional display name to show in the UI for this filter value
+  """
+  displayName: String
 }
 
 """

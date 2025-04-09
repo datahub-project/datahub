@@ -151,9 +151,9 @@ class LossyDict(Dict[_KT, _VT], Generic[_KT, _VT]):
     def as_obj(self) -> Dict[Union[_KT, str], Union[_VT, str]]:
         base_dict: Dict[Union[_KT, str], Union[_VT, str]] = super().copy()  # type: ignore
         if self.sampled:
-            base_dict[
-                "sampled"
-            ] = f"{len(self.keys())} sampled of at most {self.total_key_count()} entries."
+            base_dict["sampled"] = (
+                f"{len(self.keys())} sampled of at most {self.total_key_count()} entries."
+            )
         return base_dict
 
     def total_key_count(self) -> int:

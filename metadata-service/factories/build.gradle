@@ -51,6 +51,12 @@ dependencies {
   implementation externalDependency.jline
   implementation externalDependency.commonsIo
 
+  implementation externalDependency.opentelemetryApi
+  implementation externalDependency.opentelemetrySdk
+  implementation externalDependency.opentelemetrySdkTrace
+  implementation externalDependency.opentelemetrySdkMetrics
+  implementation externalDependency.opentelemetryAutoConfig
+
   testImplementation externalDependency.springBootTest
   testImplementation externalDependency.mockito
   testImplementation externalDependency.testng

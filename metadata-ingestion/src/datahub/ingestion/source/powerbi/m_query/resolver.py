@@ -188,9 +188,9 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         # - The inner function Table.TransformColumnTypes takes #"Removed Columns1"
         #   (a table reference) as its first argument
         # - Its result is then passed as the first argument to Table.SplitColumn
-        second_invoke_expression: Optional[
-            Tree
-        ] = tree_function.first_invoke_expression_func(first_argument)
+        second_invoke_expression: Optional[Tree] = (
+            tree_function.first_invoke_expression_func(first_argument)
+        )
         if second_invoke_expression:
             # 1. The First argument is function call
             # 2. That function's first argument references next table variable
@@ -304,14 +304,14 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
                 logger.debug(v_statement.pretty())
                 return None
 
-            invoke_expression: Optional[
-                Tree
-            ] = tree_function.first_invoke_expression_func(rh_tree)
+            invoke_expression: Optional[Tree] = (
+                tree_function.first_invoke_expression_func(rh_tree)
+            )
 
             if invoke_expression is not None:
-                result: Union[
-                    DataAccessFunctionDetail, List[str], None
-                ] = self._process_invoke_expression(invoke_expression)
+                result: Union[DataAccessFunctionDetail, List[str], None] = (
+                    self._process_invoke_expression(invoke_expression)
+                )
                 if result is None:
                     return None  # No need to process some un-expected grammar found while processing invoke_expression
                 if isinstance(result, DataAccessFunctionDetail):
@@ -361,6 +361,9 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         )
 
         if output_variable is None:
+            logger.debug(
+                f"Table: {self.table.full_name}: output-variable not found in tree"
+            )
             self.reporter.report_warning(
                 f"{self.table.full_name}-output-variable",
                 "output-variable not found in table expression",
@@ -368,12 +371,15 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
             return lineage
 
         # Parse M-Query and use output_variable as root of tree and create instance of DataAccessFunctionDetail
-        table_links: List[
-            DataAccessFunctionDetail
-        ] = self.create_data_access_functional_detail(output_variable)
+        table_links: List[DataAccessFunctionDetail] = (
+            self.create_data_access_functional_detail(output_variable)
+        )
 
         # Each item is data-access function
         for f_detail in table_links:
+            logger.debug(
+                f"Processing data-access-function {f_detail.data_access_function_name}"
+            )
             # Get & Check if we support data-access-function available in M-Query
             supported_resolver = SupportedPattern.get_pattern_handler(
                 f_detail.data_access_function_name
@@ -390,7 +396,11 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
 
             # From supported_resolver enum get respective handler like AmazonRedshift or Snowflake or Oracle or NativeQuery and create instance of it
             # & also pass additional information that will be need to generate lineage
-            pattern_handler: (AbstractLineage) = supported_resolver.handler()(
+            logger.debug(
+                f"Creating instance of {supported_resolver.handler().__name__} "
+                f"for data-access-function {f_detail.data_access_function_name}"
+            )
+            pattern_handler: AbstractLineage = supported_resolver.handler()(
                 ctx=ctx,
                 table=self.table,
                 config=config,

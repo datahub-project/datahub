@@ -103,7 +103,7 @@ def register_mock_api(
 
     api_vs_response.update(override_data or {})
 
-    for url in api_vs_response.keys():
+    for url in api_vs_response:
         request_mock.register_uri(
             api_vs_response[url]["method"],
             url,
@@ -828,9 +828,9 @@ def dataset_type_mapping_set_to_all_platform(pipeline: Pipeline) -> None:
     # Generate default dataset_type_mapping and compare it with source_config.dataset_type_mapping
     default_dataset_type_mapping: dict = {}
     for item in SupportedDataPlatform:
-        default_dataset_type_mapping[
-            item.value.powerbi_data_platform_name
-        ] = item.value.datahub_data_platform_name
+        default_dataset_type_mapping[item.value.powerbi_data_platform_name] = (
+            item.value.datahub_data_platform_name
+        )
 
     assert default_dataset_type_mapping == source_config.dataset_type_mapping
 
@@ -978,16 +978,16 @@ def validate_pipeline(pipeline: Pipeline) -> None:
         name="demo-workspace",
         type="Workspace",
         datasets={},
-        dashboards=[],
-        reports=[],
+        dashboards={},
+        reports={},
         report_endorsements={},
         dashboard_endorsements={},
         scan_result={},
-        independent_datasets=[],
+        independent_datasets={},
         app=None,
     )
     # Fetch actual reports
-    reports: List[Report] = cast(
+    reports: Dict[str, Report] = cast(
         PowerBiDashboardSource, pipeline.source
     ).powerbi_client.get_reports(workspace=mock_workspace)
 
@@ -1020,8 +1020,8 @@ def validate_pipeline(pipeline: Pipeline) -> None:
             "pages": [],
         },
     ]
-    expected_reports: List[Report] = [
-        Report(
+    expected_reports: Dict[str, Report] = {
+        report[Constant.ID]: Report(
             id=report[Constant.ID],
             name=report[Constant.NAME],
             type=ReportType.PowerBIReport,
@@ -1045,14 +1045,15 @@ def validate_pipeline(pipeline: Pipeline) -> None:
             dataset=mock_workspace.datasets.get(report[Constant.DATASET_ID]),
         )
         for report in mock_reports
-    ]
+    }
     # Compare actual and expected reports
     for i in range(2):
-        assert reports[i].id == expected_reports[i].id
-        assert reports[i].name == expected_reports[i].name
-        assert reports[i].description == expected_reports[i].description
-        assert reports[i].dataset == expected_reports[i].dataset
-        assert reports[i].pages == expected_reports[i].pages
+        report_id = mock_reports[i][Constant.ID]
+        assert reports[report_id].id == expected_reports[report_id].id
+        assert reports[report_id].name == expected_reports[report_id].name
+        assert reports[report_id].description == expected_reports[report_id].description
+        assert reports[report_id].dataset == expected_reports[report_id].dataset
+        assert reports[report_id].pages == expected_reports[report_id].pages
 
 
 @freeze_time(FROZEN_TIME)
@@ -1353,7 +1354,7 @@ def test_cll_extraction_flags(
 
     default_conf: dict = default_source_config()
     pattern: str = re.escape(
-        "Enable all these flags in recipe: ['native_query_parsing', 'enable_advance_lineage_sql_construct', 'extract_lineage']"
+        "Enable all these flags in recipe: ['native_query_parsing', 'enable_advance_lineage_sql_construct', 'extract_lineage', 'extract_dataset_schema']"
     )
 
     with pytest.raises(Exception, match=pattern):
@@ -1438,14 +1439,14 @@ def test_powerbi_cross_workspace_reference_info_message(
 
     is_entry_present: bool = False
     # Printing INFO entries
-    for key, entry in info_entries.items():
-        if entry.title == "Missing Lineage For Tile":
+    for entry in info_entries.values():
+        if entry.title == "Missing Dataset Lineage For Tile":
             is_entry_present = True
             break
 
-    assert (
-        is_entry_present
-    ), 'Info message "Missing Lineage For Tile" should be present in reporter'
+    assert is_entry_present, (
+        'Info message "Missing Dataset Lineage For Tile" should be present in reporter'
+    )
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
@@ -1462,8 +1463,10 @@ def common_app_ingest(
     pytestconfig: pytest.Config,
     requests_mock: Any,
     output_mcp_path: str,
-    override_config: dict = {},
+    override_config: Optional[dict] = None,
 ) -> Pipeline:
+    if override_config is None:
+        override_config = {}
     register_mock_api(
         pytestconfig=pytestconfig,
         request_mock=requests_mock,
@@ -1563,11 +1566,11 @@ def test_powerbi_app_ingest_info_message(
 
     is_entry_present: bool = False
     # Printing INFO entries
-    for key, entry in info_entries.items():
+    for entry in info_entries.values():
         if entry.title == "App Ingestion Is Disabled":
             is_entry_present = True
             break
 
-    assert (
-        is_entry_present
-    ), "The extract_app flag should be set to false by default. We need to keep this flag as false until all GMS instances are updated to the latest release."
+    assert is_entry_present, (
+        "The extract_app flag should be set to false by default. We need to keep this flag as false until all GMS instances are updated to the latest release."
+    )

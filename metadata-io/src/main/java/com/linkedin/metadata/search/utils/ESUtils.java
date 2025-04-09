@@ -503,6 +503,8 @@ public class ESUtils {
 
     return skipKeywordSuffix
             || KEYWORD_FIELDS.contains(fieldName)
+            || KEYWORD_FIELDS.stream()
+                .anyMatch(nestedField -> fieldName.endsWith("." + nestedField))
             || PATH_HIERARCHY_FIELDS.contains(fieldName)
             || SUBFIELDS.stream().anyMatch(subfield -> fieldName.endsWith("." + subfield))
         ? fieldName
@@ -874,7 +876,7 @@ public class ESUtils {
                                         || criterion.getField().equals(REMOVED + KEYWORD_SUFFIX)));
       }
       if (!removedInOrFilter) {
-        filterQuery.mustNot(QueryBuilders.matchQuery(REMOVED, true));
+        filterQuery.mustNot(QueryBuilders.termQuery(REMOVED, true));
       }
     }
   }
@@ -904,5 +906,16 @@ public class ESUtils {
             opContext,
             queryFilterRewriteChain);
     return QueryBuilders.boolQuery().should(isLatest).should(isNotVersioned).minimumShouldMatch(1);
+  }
+
+  public static Optional<String> getSystemModifiedAtFieldName(
+      @Nonnull SearchableFieldSpec searchableFieldSpec) {
+    final String fieldName = searchableFieldSpec.getSearchableAnnotation().getFieldName();
+    return searchableFieldSpec.getSearchableAnnotation().isIncludeSystemModifiedAt()
+        ? searchableFieldSpec
+            .getSearchableAnnotation()
+            .getSystemModifiedAtFieldName()
+            .or(() -> Optional.of(String.format("%sSystemModifiedAt", fieldName)))
+        : Optional.empty();
   }
 }

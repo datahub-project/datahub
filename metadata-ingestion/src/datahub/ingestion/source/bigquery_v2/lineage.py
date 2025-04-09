@@ -375,7 +375,7 @@ class BigqueryLineageExtractor:
                 memory_footprint.total_size(lineage)
             )
 
-        for lineage_key in lineage.keys():
+        for lineage_key in lineage:
             # For views, we do not use the upstreams obtained by parsing audit logs
             # as they may contain indirectly referenced tables.
             if (
@@ -697,7 +697,7 @@ class BigqueryLineageExtractor:
                         if parsed_queries[-1]:
                             query = f"""create table `{destination_table.get_sanitized_table_ref().table_identifier.get_table_name()}` AS
                             (
-                                {parsed_queries[-1].sql(dialect='bigquery')}
+                                {parsed_queries[-1].sql(dialect="bigquery")}
                             )"""
                         else:
                             query = e.query
@@ -809,11 +809,11 @@ class BigqueryLineageExtractor:
                             upstream_lineage, temp_table_upstream
                         )
 
-                        upstreams[
-                            ref_temp_table_upstream
-                        ] = _merge_lineage_edge_columns(
-                            upstreams.get(ref_temp_table_upstream),
-                            collapsed_lineage,
+                        upstreams[ref_temp_table_upstream] = (
+                            _merge_lineage_edge_columns(
+                                upstreams.get(ref_temp_table_upstream),
+                                collapsed_lineage,
+                            )
                         )
             else:
                 upstreams[upstream_table_ref] = _merge_lineage_edge_columns(
@@ -1004,9 +1004,9 @@ class BigqueryLineageExtractor:
                 dataset_urn
             )
             for gcs_dataset_urn in gcs_urns:
-                schema_metadata_for_gcs: Optional[
-                    SchemaMetadataClass
-                ] = graph.get_schema_metadata(gcs_dataset_urn)
+                schema_metadata_for_gcs: Optional[SchemaMetadataClass] = (
+                    graph.get_schema_metadata(gcs_dataset_urn)
+                )
                 if schema_metadata and schema_metadata_for_gcs:
                     fine_grained_lineage = self.get_fine_grained_lineages_with_gcs(
                         dataset_urn,

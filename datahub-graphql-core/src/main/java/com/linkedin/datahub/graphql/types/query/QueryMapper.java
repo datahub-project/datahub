@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
@@ -11,6 +12,7 @@ import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.QueryEntity;
 import com.linkedin.datahub.graphql.generated.QuerySubject;
+import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
 import com.linkedin.datahub.graphql.types.common.mappers.QueryPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -37,16 +39,18 @@ public class QueryMapper implements ModelMapper<EntityResponse, QueryEntity> {
   @Override
   public QueryEntity apply(
       @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
+    Urn entityUrn = entityResponse.getUrn();
     final QueryEntity result = new QueryEntity();
 
-    result.setUrn(entityResponse.getUrn().toString());
+    result.setUrn(entityUrn.toString());
     result.setType(EntityType.QUERY);
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
     MappingHelper<QueryEntity> mappingHelper = new MappingHelper<>(aspectMap, result);
     mappingHelper.mapToResult(
         QUERY_PROPERTIES_ASPECT_NAME,
         (entity, dataMap) ->
-            entity.setProperties(QueryPropertiesMapper.map(context, new QueryProperties(dataMap))));
+            entity.setProperties(
+                QueryPropertiesMapper.map(context, new QueryProperties(dataMap), entityUrn)));
     mappingHelper.mapToResult(QUERY_SUBJECTS_ASPECT_NAME, this::mapQuerySubjects);
     mappingHelper.mapToResult(DATA_PLATFORM_INSTANCE_ASPECT_NAME, this::mapPlatform);
     return mappingHelper.getResult();
@@ -67,10 +71,23 @@ public class QueryMapper implements ModelMapper<EntityResponse, QueryEntity> {
     QuerySubjects querySubjects = new QuerySubjects(dataMap);
     List<QuerySubject> res =
         querySubjects.getSubjects().stream()
-            .map(sub -> new QuerySubject(createPartialDataset(sub.getEntity())))
+            .map(this::mapQuerySubject)
             .collect(Collectors.toList());
 
     query.setSubjects(res);
+  }
+
+  @Nonnull
+  private QuerySubject mapQuerySubject(com.linkedin.query.QuerySubject subject) {
+    QuerySubject result = new QuerySubject();
+    if (subject.getEntity().getEntityType().equals(DATASET_ENTITY_NAME)) {
+      result.setDataset(createPartialDataset(subject.getEntity()));
+    } else if (subject.getEntity().getEntityType().equals(SCHEMA_FIELD_ENTITY_NAME)) {
+      String parentDataset = subject.getEntity().getEntityKey().get(0);
+      result.setDataset(createPartialDataset(UrnUtils.getUrn(parentDataset)));
+      result.setSchemaField(createPartialSchemaField(subject.getEntity()));
+    }
+    return result;
   }
 
   @Nonnull
@@ -78,5 +95,12 @@ public class QueryMapper implements ModelMapper<EntityResponse, QueryEntity> {
     Dataset partialDataset = new Dataset();
     partialDataset.setUrn(datasetUrn.toString());
     return partialDataset;
+  }
+
+  @Nonnull
+  private SchemaFieldEntity createPartialSchemaField(@Nonnull Urn urn) {
+    SchemaFieldEntity partialSchemaField = new SchemaFieldEntity();
+    partialSchemaField.setUrn(urn.toString());
+    return partialSchemaField;
   }
 }

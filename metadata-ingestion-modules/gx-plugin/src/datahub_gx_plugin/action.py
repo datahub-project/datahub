@@ -3,12 +3,37 @@ import logging
 import sys
 import time
 from dataclasses import dataclass
+from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
 from datetime import timezone
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
-import datahub.emitter.mce_builder as builder
 import packaging.version
+from great_expectations.checkpoint.actions import ValidationAction
+from great_expectations.core.batch import Batch
+from great_expectations.core.batch_spec import (
+    RuntimeDataBatchSpec,
+    RuntimeQueryBatchSpec,
+    SqlAlchemyDatasourceBatchSpec,
+)
+from great_expectations.core.expectation_validation_result import (
+    ExpectationSuiteValidationResult,
+)
+from great_expectations.data_asset.data_asset import DataAsset
+from great_expectations.data_context import AbstractDataContext
+from great_expectations.data_context.types.resource_identifiers import (
+    ExpectationSuiteIdentifier,
+    ValidationResultIdentifier,
+)
+from great_expectations.execution_engine import PandasExecutionEngine
+from great_expectations.execution_engine.sqlalchemy_execution_engine import (
+    SqlAlchemyExecutionEngine,
+)
+from great_expectations.validator.validator import Validator
+from sqlalchemy.engine.base import Connection, Engine
+from sqlalchemy.engine.url import make_url
+
+import datahub.emitter.mce_builder as builder
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
@@ -35,31 +60,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
 from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
 from datahub.metadata.schema_classes import PartitionSpecClass, PartitionTypeClass
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
-from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
 from datahub.utilities.urns.dataset_urn import DatasetUrn
-from great_expectations.checkpoint.actions import ValidationAction
-from great_expectations.core.batch import Batch
-from great_expectations.core.batch_spec import (
-    RuntimeDataBatchSpec,
-    RuntimeQueryBatchSpec,
-    SqlAlchemyDatasourceBatchSpec,
-)
-from great_expectations.core.expectation_validation_result import (
-    ExpectationSuiteValidationResult,
-)
-from great_expectations.data_asset.data_asset import DataAsset
-from great_expectations.data_context import AbstractDataContext
-from great_expectations.data_context.types.resource_identifiers import (
-    ExpectationSuiteIdentifier,
-    ValidationResultIdentifier,
-)
-from great_expectations.execution_engine import PandasExecutionEngine
-from great_expectations.execution_engine.sqlalchemy_execution_engine import (
-    SqlAlchemyExecutionEngine,
-)
-from great_expectations.validator.validator import Validator
-from sqlalchemy.engine.base import Connection, Engine
-from sqlalchemy.engine.url import make_url
 
 # TODO: move this and version check used in tests to some common module
 try:
@@ -107,7 +108,6 @@ class DataHubValidationAction(ValidationAction):
         convert_urns_to_lowercase: bool = False,
         name: str = "DataHubValidationAction",
     ):
-
         if has_name_positional_arg:
             if len(args) >= 1 and isinstance(args[0], str):
                 name = args[0]
@@ -163,9 +163,7 @@ class DataHubValidationAction(ValidationAction):
             if isinstance(
                 validation_result_suite_identifier, ValidationResultIdentifier
             ):
-                expectation_suite_name = (
-                    validation_result_suite_identifier.expectation_suite_identifier.expectation_suite_name
-                )
+                expectation_suite_name = validation_result_suite_identifier.expectation_suite_identifier.expectation_suite_name
                 run_id = validation_result_suite_identifier.run_id
                 batch_identifier = validation_result_suite_identifier.batch_identifier
 

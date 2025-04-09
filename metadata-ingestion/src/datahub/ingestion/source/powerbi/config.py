@@ -11,6 +11,9 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin, PlatformDetail
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
+from datahub.ingestion.api.incremental_lineage_helper import (
+    IncrementalLineageConfigMixin,
+)
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
@@ -19,6 +22,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.utilities.global_warning_util import add_global_warning
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
 
@@ -132,6 +136,7 @@ class Constant:
     ACTIVE = "Active"
     SQL_PARSING_FAILURE = "SQL Parsing Failure"
     M_QUERY_NULL = '"null"'
+    REPORT_WEB_URL = "reportWebUrl"
 
 
 @dataclass
@@ -182,6 +187,11 @@ class SupportedDataPlatform(Enum):
         datahub_data_platform_name="databricks",
     )
 
+    MYSQL = DataPlatformPair(
+        powerbi_data_platform_name="MySQL",
+        datahub_data_platform_name="mysql",
+    )
+
 
 @dataclass
 class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
@@ -195,8 +205,8 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
 
     dashboards_scanned: int = 0
     charts_scanned: int = 0
-    filtered_dashboards: List[str] = dataclass_field(default_factory=list)
-    filtered_charts: List[str] = dataclass_field(default_factory=list)
+    filtered_dashboards: LossyList[str] = dataclass_field(default_factory=LossyList)
+    filtered_charts: LossyList[str] = dataclass_field(default_factory=LossyList)
 
     m_query_parse_timer: PerfTimer = dataclass_field(default_factory=PerfTimer)
     m_query_parse_attempts: int = 0
@@ -225,9 +235,9 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
 def default_for_dataset_type_mapping() -> Dict[str, str]:
     dict_: dict = {}
     for item in SupportedDataPlatform:
-        dict_[
-            item.value.powerbi_data_platform_name
-        ] = item.value.datahub_data_platform_name
+        dict_[item.value.powerbi_data_platform_name] = (
+            item.value.datahub_data_platform_name
+        )
 
     return dict_
 
@@ -274,7 +284,7 @@ class PowerBiProfilingConfig(ConfigModel):
 
 
 class PowerBiDashboardSourceConfig(
-    StatefulIngestionConfigBase, DatasetSourceConfigMixin
+    StatefulIngestionConfigBase, DatasetSourceConfigMixin, IncrementalLineageConfigMixin
 ):
     platform_name: str = pydantic.Field(
         default=Constant.PLATFORM_NAME, hidden_from_docs=True
@@ -296,22 +306,30 @@ class PowerBiDashboardSourceConfig(
     # PowerBi workspace identifier
     workspace_id_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns to filter PowerBI workspaces in ingestion."
+        description="Regex patterns to filter PowerBI workspaces in ingestion by ID."
+        " By default all IDs are allowed unless they are filtered by name using 'workspace_name_pattern'."
+        " Note: This field works in conjunction with 'workspace_type_filter' and both must be considered when filtering workspaces.",
+    )
+    # PowerBi workspace name
+    workspace_name_pattern: AllowDenyPattern = pydantic.Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns to filter PowerBI workspaces in ingestion by name."
+        " By default all names are allowed unless they are filtered by ID using 'workspace_id_pattern'."
         " Note: This field works in conjunction with 'workspace_type_filter' and both must be considered when filtering workspaces.",
     )
 
     # Dataset type mapping PowerBI support many type of data-sources. Here user needs to define what type of PowerBI
     # DataSource needs to be mapped to corresponding DataHub Platform DataSource. For example, PowerBI `Snowflake` is
     # mapped to DataHub `snowflake` PowerBI `PostgreSQL` is mapped to DataHub `postgres` and so on.
-    dataset_type_mapping: Union[
-        Dict[str, str], Dict[str, PlatformDetail]
-    ] = pydantic.Field(
-        default_factory=default_for_dataset_type_mapping,
-        description="[deprecated] Use server_to_platform_instance instead. Mapping of PowerBI datasource type to "
-        "DataHub supported datasources."
-        "You can configured platform instance for dataset lineage. "
-        "See Quickstart Recipe for mapping",
-        hidden_from_docs=True,
+    dataset_type_mapping: Union[Dict[str, str], Dict[str, PlatformDetail]] = (
+        pydantic.Field(
+            default_factory=default_for_dataset_type_mapping,
+            description="[deprecated] Use server_to_platform_instance instead. Mapping of PowerBI datasource type to "
+            "DataHub supported datasources."
+            "You can configured platform instance for dataset lineage. "
+            "See Quickstart Recipe for mapping",
+            hidden_from_docs=True,
+        )
     )
     # PowerBI datasource's server to platform instance mapping
     server_to_platform_instance: Dict[
@@ -372,8 +390,9 @@ class PowerBiDashboardSourceConfig(
     )
     # Enable/Disable extracting dataset schema
     extract_dataset_schema: bool = pydantic.Field(
-        default=False,
-        description="Whether to ingest PBI Dataset Table columns and measures",
+        default=True,
+        description="Whether to ingest PBI Dataset Table columns and measures."
+        " Note: this setting must be `true` for schema extraction and column lineage to be enabled.",
     )
     # Enable/Disable extracting lineage information of PowerBI Dataset
     extract_lineage: bool = pydantic.Field(
@@ -509,6 +528,7 @@ class PowerBiDashboardSourceConfig(
             "native_query_parsing",
             "enable_advance_lineage_sql_construct",
             "extract_lineage",
+            "extract_dataset_schema",
         ]
 
         if (
@@ -535,7 +555,7 @@ class PowerBiDashboardSourceConfig(
     def map_data_platform(cls, value):
         # For backward compatibility convert input PostgreSql to PostgreSQL
         # PostgreSQL is name of the data-platform in M-Query
-        if "PostgreSql" in value.keys():
+        if "PostgreSql" in value:
             platform_name = value["PostgreSql"]
             del value["PostgreSql"]
             value["PostgreSQL"] = platform_name
@@ -573,4 +593,12 @@ class PowerBiDashboardSourceConfig(
                 "dataset_type_mapping is deprecated. Use server_to_platform_instance only."
             )
 
+        return values
+
+    @root_validator(skip_on_failure=True)
+    def validate_extract_dataset_schema(cls, values: Dict) -> Dict:
+        if values.get("extract_dataset_schema") is False:
+            add_global_warning(
+                "Please use `extract_dataset_schema: true`, otherwise dataset schema extraction will be skipped."
+            )
         return values

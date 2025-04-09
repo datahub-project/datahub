@@ -1,8 +1,10 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { colors, Icon, Input as InputComponent, Text } from '@src/alchemy-components';
 import { useUserContext } from '@src/app/context/useUserContext';
+import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { getEntityTypesPropertyFilter, getNotHiddenPropertyFilter } from '@src/app/govern/structuredProperties/utils';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { useIsThemeV2 } from '@src/app/useIsThemeV2';
 import { PageRoutes } from '@src/conf/Global';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { Dropdown } from 'antd';
@@ -14,9 +16,9 @@ import styled from 'styled-components';
 import { useEntityData } from '../../EntityContext';
 import EditStructuredPropertyModal from './Edit/EditStructuredPropertyModal';
 
-const AddButton = styled.div<{ isV1Drawer?: boolean }>`
+const AddButton = styled.div<{ isThemeV2: boolean; isV1Drawer?: boolean }>`
     border-radius: 200px;
-    background-color: #5280e2;
+    background-color: ${(props) => (props.isThemeV2 ? colors.violet[500] : REDESIGN_COLORS.LINK_HOVER_BLUE)};
     width: ${(props) => (props.isV1Drawer ? '24px' : '32px')};
     height: ${(props) => (props.isV1Drawer ? '24px' : '32px')};
     display: flex;
@@ -78,6 +80,7 @@ interface Props {
 const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: Props) => {
     const [searchQuery, setSearchQuery] = useState('');
     const { entityData, entityType } = useEntityData();
+    const isThemeV2 = useIsThemeV2();
     const me = useUserContext();
     const entityRegistry = useEntityRegistry();
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
@@ -131,19 +134,20 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
                 )
                 .map((prop) => {
                     const entity = prop.entity as StructuredPropertyEntity;
+                    const name = entityRegistry.getDisplayName(entity.type, entity);
                     return {
                         label: (
                             <Option key={entity.urn} onClick={() => handleOptionClick(entity)}>
                                 <Text weight="semiBold" color="gray">
-                                    {entity.definition?.displayName}
+                                    {name}
                                 </Text>
                             </Option>
                         ),
                         key: entity.urn,
-                        name: entity.definition?.displayName || entity.urn,
+                        name: name || entity.urn,
                     };
                 }),
-        [data, fieldUrn, fieldPropertiesUrns, entityPropertiesUrns],
+        [data, fieldUrn, fieldPropertiesUrns, entityPropertiesUrns, entityRegistry],
     );
 
     const canEditProperties =
@@ -179,7 +183,7 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
                                 label=""
                                 placeholder="Search..."
                                 value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
+                                setValue={setSearchQuery}
                             />
                         </SearchContainer>
                         {loading ? (
@@ -206,7 +210,7 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
                 )}
             >
                 <Tooltip title="Add property" placement="left" showArrow={false}>
-                    <AddButton isV1Drawer={isV1Drawer} data-testid="add-structured-prop-button">
+                    <AddButton isThemeV2={isThemeV2} isV1Drawer={isV1Drawer} data-testid="add-structured-prop-button">
                         <Icon icon="Add" size={isV1Drawer ? 'lg' : '2xl'} color="white" />
                     </AddButton>
                 </Tooltip>

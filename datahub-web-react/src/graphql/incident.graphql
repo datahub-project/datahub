@@ -9,8 +9,10 @@ fragment incidentsFields on EntityIncidentsResult {
         customType
         title
         description
+        startedAt
         status {
             state
+            stage
             message
             lastUpdated {
                 time
@@ -19,6 +21,9 @@ fragment incidentsFields on EntityIncidentsResult {
         }
         source {
             type
+            source {
+                ...assertionDetails
+            }
         }
         created {
             time
@@ -26,6 +31,27 @@ fragment incidentsFields on EntityIncidentsResult {
         }
         tags {
             ...globalTagsFields
+        }
+        priority
+        assignees {
+            ... on CorpUser {
+                urn
+                type
+                username
+                status
+                properties {
+                    displayName
+                }
+            }
+        }
+        linkedAssets: relationships(
+            input: { types: ["IncidentOn"], direction: OUTGOING, start: 0, count: 1000, includeSoftDelete: false }
+        ) {
+            relationships {
+                entity {
+                    ...entityPreview
+                }
+            }
         }
     }
 }
@@ -43,6 +69,21 @@ fragment datasetSiblingIncidents on Dataset {
             }
         }
     }
+    siblingsSearch(input: { query: "*", count: 5 }) {
+        count
+        total
+        searchResults {
+            entity {
+                urn
+                type
+                ... on Dataset {
+                    incidents(start: $start, count: $count, state: $state) {
+                        ...incidentsFields
+                    }
+                }
+            }
+        }
+    }
 }
 
 query getEntityIncidents($urn: String!, $start: Int!, $count: Int!, $state: IncidentState) {
@@ -52,25 +93,40 @@ query getEntityIncidents($urn: String!, $start: Int!, $count: Int!, $state: Inci
                 ...incidentsFields
             }
             ...datasetSiblingIncidents
+            privileges {
+                canEditIncidents
+            }
         }
         ... on DataJob {
             incidents(start: $start, count: $count, state: $state) {
                 ...incidentsFields
+            }
+            privileges {
+                canEditIncidents
             }
         }
         ... on DataFlow {
             incidents(start: $start, count: $count, state: $state) {
                 ...incidentsFields
             }
+            privileges {
+                canEditIncidents
+            }
         }
         ... on Dashboard {
             incidents(start: $start, count: $count, state: $state) {
                 ...incidentsFields
             }
+            privileges {
+                canEditIncidents
+            }
         }
         ... on Chart {
             incidents(start: $start, count: $count, state: $state) {
                 ...incidentsFields
+            }
+            privileges {
+                canEditIncidents
             }
         }
     }

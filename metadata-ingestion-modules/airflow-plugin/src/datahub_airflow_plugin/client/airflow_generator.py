@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple, Union, cast
 
 from airflow.configuration import conf
+
 from datahub.api.entities.datajob import DataFlow, DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
@@ -11,7 +12,6 @@ from datahub.emitter.generic_emitter import Emitter
 from datahub.metadata.schema_classes import DataProcessTypeClass
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
-
 from datahub_airflow_plugin._airflow_compat import AIRFLOW_PATCHED
 from datahub_airflow_plugin._config import DatahubLineageConfig, DatajobUrl
 
@@ -33,7 +33,10 @@ def _task_downstream_task_ids(operator: "Operator") -> Set[str]:
 class AirflowGenerator:
     @staticmethod
     def _get_dependencies(
-        task: "Operator", dag: "DAG", flow_urn: DataFlowUrn
+        task: "Operator",
+        dag: "DAG",
+        flow_urn: DataFlowUrn,
+        config: Optional[DatahubLineageConfig] = None,
     ) -> List[DataJobUrn]:
         from datahub_airflow_plugin._airflow_shims import ExternalTaskSensor
 
@@ -110,6 +113,9 @@ class AirflowGenerator:
                                 orchestrator=flow_urn.orchestrator,
                                 flow_id=task.external_dag_id,
                                 env=flow_urn.cluster,
+                                platform_instance=config.platform_instance
+                                if config
+                                else None,
                             )
                         ),
                     )
@@ -152,6 +158,7 @@ class AirflowGenerator:
             id=id,
             orchestrator=orchestrator,
             description=description,
+            platform_instance=config.platform_instance,
         )
 
         flow_property_bag: Dict[str, str] = {}
@@ -232,9 +239,17 @@ class AirflowGenerator:
         :return: DataJob - returns the generated DataJob object
         """
         dataflow_urn = DataFlowUrn.create_from_ids(
-            orchestrator="airflow", env=cluster, flow_id=dag.dag_id
+            orchestrator="airflow",
+            env=cluster,
+            flow_id=dag.dag_id,
+            platform_instance=config.platform_instance if config else None,
         )
-        datajob = DataJob(id=task.task_id, flow_urn=dataflow_urn)
+
+        datajob = DataJob(
+            id=task.task_id,
+            flow_urn=dataflow_urn,
+            platform_instance=config.platform_instance if config else None,
+        )
 
         # TODO add support for MappedOperator
         datajob.description = AirflowGenerator._get_description(task)
@@ -281,9 +296,9 @@ class AirflowGenerator:
         base_url = conf.get("webserver", "base_url")
 
         if config and config.datajob_url_link == DatajobUrl.GRID:
-            datajob.url = f"{base_url}/dags/{datajob.flow_urn.get_flow_id()}/grid?task_id={task.task_id}"
+            datajob.url = f"{base_url}/dags/{dag.dag_id}/grid?task_id={task.task_id}"
         else:
-            datajob.url = f"{base_url}/taskinstance/list/?flt1_dag_id_equals={datajob.flow_urn.flow_id}&_flt_3_task_id={task.task_id}"
+            datajob.url = f"{base_url}/taskinstance/list/?flt1_dag_id_equals={dag.dag_id}&_flt_3_task_id={task.task_id}"
 
         if capture_owner and dag.owner:
             if config and config.capture_ownership_info:
@@ -299,7 +314,7 @@ class AirflowGenerator:
         if set_dependencies:
             datajob.upstream_urns.extend(
                 AirflowGenerator._get_dependencies(
-                    task=task, dag=dag, flow_urn=datajob.flow_urn
+                    task=task, dag=dag, flow_urn=datajob.flow_urn, config=config
                 )
             )
 

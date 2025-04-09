@@ -43,9 +43,7 @@ class GitReference(ConfigModel):
 
     @validator("repo", pre=True)
     def simplify_repo_url(cls, repo: str) -> str:
-        if repo.startswith("github.com/"):
-            repo = f"https://{repo}"
-        elif repo.startswith("gitlab.com"):
+        if repo.startswith("github.com/") or repo.startswith("gitlab.com"):
             repo = f"https://{repo}"
         elif repo.count("/") == 1:
             repo = f"https://github.com/{repo}"
@@ -121,9 +119,9 @@ class GitInfo(GitReference):
 
         repo: str = values["repo"]
         if repo.startswith(_GITHUB_PREFIX):
-            return f"git@github.com:{repo[len(_GITHUB_PREFIX):]}.git"
+            return f"git@github.com:{repo[len(_GITHUB_PREFIX) :]}.git"
         elif repo.startswith(_GITLAB_PREFIX):
-            return f"git@gitlab.com:{repo[len(_GITLAB_PREFIX):]}.git"
+            return f"git@gitlab.com:{repo[len(_GITLAB_PREFIX) :]}.git"
         else:
             raise ValueError(
                 "Unable to infer repo_ssh_locator from repo. Please set repo_ssh_locator manually."

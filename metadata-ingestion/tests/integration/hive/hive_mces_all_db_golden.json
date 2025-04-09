@@ -1255,7 +1255,8 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "isPartitioningKey": true
                             }
                         ]
                     }

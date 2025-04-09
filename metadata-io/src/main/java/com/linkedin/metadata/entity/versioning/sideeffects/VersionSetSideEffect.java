@@ -3,7 +3,10 @@ package com.linkedin.metadata.entity.versioning.sideeffects;
 import static com.linkedin.metadata.Constants.VERSION_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.VERSION_SET_PROPERTIES_ASPECT_NAME;
 
+import com.datahub.util.RecordUtils;
+import com.linkedin.common.VersionProperties;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCLItem;
@@ -17,7 +20,6 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.versionset.VersionSetProperties;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -40,23 +42,23 @@ public class VersionSetSideEffect extends MCPSideEffect {
   @Override
   protected Stream<ChangeMCP> applyMCPSideEffect(
       Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
-    return Stream.of();
+    return changeMCPS.stream().flatMap(item -> updateLatest(item, retrieverContext));
   }
 
   @Override
   protected Stream<MCPItem> postMCPSideEffect(
       Collection<MCLItem> mclItems, @Nonnull RetrieverContext retrieverContext) {
-    return mclItems.stream().flatMap(item -> updateLatest(item, retrieverContext));
+    return Stream.of();
   }
 
-  private static Stream<MCPItem> updateLatest(
-      MCLItem mclItem, @Nonnull RetrieverContext retrieverContext) {
+  private static Stream<ChangeMCP> updateLatest(
+      ChangeMCP changeMCP, @Nonnull RetrieverContext retrieverContext) {
 
-    if (VERSION_SET_PROPERTIES_ASPECT_NAME.equals(mclItem.getAspectName())) {
-      List<MCPItem> mcpItems = new ArrayList<>();
-      VersionSetProperties versionSetProperties = mclItem.getAspect(VersionSetProperties.class);
+    if (VERSION_SET_PROPERTIES_ASPECT_NAME.equals(changeMCP.getAspectName())) {
+      List<ChangeMCP> mcpItems = new ArrayList<>();
+      VersionSetProperties versionSetProperties = changeMCP.getAspect(VersionSetProperties.class);
       if (versionSetProperties == null) {
-        log.error("Unable to process version set properties for urn: {}", mclItem.getUrn());
+        log.error("Unable to process version set properties for urn: {}", changeMCP.getUrn());
         return Stream.empty();
       }
       // Set old latest isLatest to false, set new latest isLatest to true
@@ -68,19 +70,21 @@ public class VersionSetSideEffect extends MCPSideEffect {
       Urn newLatest = versionSetProperties.getLatest();
 
       VersionSetProperties previousVersionSetProperties =
-          mclItem.getPreviousAspect(VersionSetProperties.class);
+          changeMCP.getPreviousAspect(VersionSetProperties.class);
       if (previousVersionSetProperties != null) {
         Urn previousLatest = previousVersionSetProperties.getLatest();
-        if (!newLatest.equals(previousLatest)
-            && retrieverContext
+        Aspect previousLatestEntity =
+            retrieverContext
                 .getAspectRetriever()
-                .entityExists(Collections.singleton(previousLatest))
-                .getOrDefault(previousLatest, false)) {
+                .getLatestAspectObject(previousLatest, VERSION_PROPERTIES_ASPECT_NAME);
+        if (!newLatest.equals(previousLatest) && previousLatestEntity != null) {
           EntitySpec entitySpec =
               retrieverContext
                   .getAspectRetriever()
                   .getEntityRegistry()
                   .getEntitySpec(previousLatest.getEntityType());
+          VersionProperties previousLatestProperties =
+              RecordUtils.toRecordTemplate(VersionProperties.class, previousLatestEntity.data());
           GenericJsonPatch.PatchOp previousPatch = new GenericJsonPatch.PatchOp();
           previousPatch.setOp(PatchOperationType.ADD.getValue());
           previousPatch.setPath("/isLatest");
@@ -96,17 +100,19 @@ public class VersionSetSideEffect extends MCPSideEffect {
                           .patch(List.of(previousPatch))
                           .build()
                           .getJsonPatch())
-                  .auditStamp(mclItem.getAuditStamp())
-                  .systemMetadata(mclItem.getSystemMetadata())
-                  .build(retrieverContext.getAspectRetriever().getEntityRegistry()));
+                  .auditStamp(changeMCP.getAuditStamp())
+                  .systemMetadata(changeMCP.getSystemMetadata())
+                  .build(retrieverContext.getAspectRetriever().getEntityRegistry())
+                  .applyPatch(previousLatestProperties, retrieverContext.getAspectRetriever()));
         }
       }
 
       // Explicitly error here to avoid downstream patch error with less context
-      if (retrieverContext
+      Aspect newLatestEntity =
+          retrieverContext
               .getAspectRetriever()
-              .getLatestAspectObject(newLatest, VERSION_PROPERTIES_ASPECT_NAME)
-          == null) {
+              .getLatestAspectObject(newLatest, VERSION_PROPERTIES_ASPECT_NAME);
+      if (newLatestEntity == null) {
         throw new UnsupportedOperationException(
             "Cannot set latest version to unversioned entity: " + newLatest);
       }
@@ -116,20 +122,28 @@ public class VersionSetSideEffect extends MCPSideEffect {
               .getAspectRetriever()
               .getEntityRegistry()
               .getEntitySpec(newLatest.getEntityType());
-      GenericJsonPatch.PatchOp currentPatch = new GenericJsonPatch.PatchOp();
-      currentPatch.setOp(PatchOperationType.ADD.getValue());
-      currentPatch.setPath("/isLatest");
-      currentPatch.setValue(true);
-      mcpItems.add(
-          PatchItemImpl.builder()
-              .urn(newLatest)
-              .entitySpec(entitySpec)
-              .aspectName(VERSION_PROPERTIES_ASPECT_NAME)
-              .aspectSpec(entitySpec.getAspectSpec(VERSION_PROPERTIES_ASPECT_NAME))
-              .patch(GenericJsonPatch.builder().patch(List.of(currentPatch)).build().getJsonPatch())
-              .auditStamp(mclItem.getAuditStamp())
-              .systemMetadata(mclItem.getSystemMetadata())
-              .build(retrieverContext.getAspectRetriever().getEntityRegistry()));
+      VersionProperties newLatestProperties =
+          RecordUtils.toRecordTemplate(VersionProperties.class, newLatestEntity.data());
+
+      if (Boolean.FALSE.equals(newLatestProperties.isIsLatest())) {
+        GenericJsonPatch.PatchOp currentPatch = new GenericJsonPatch.PatchOp();
+        currentPatch.setOp(PatchOperationType.ADD.getValue());
+        currentPatch.setPath("/isLatest");
+        currentPatch.setValue(true);
+        mcpItems.add(
+            PatchItemImpl.builder()
+                .urn(newLatest)
+                .entitySpec(entitySpec)
+                .aspectName(VERSION_PROPERTIES_ASPECT_NAME)
+                .aspectSpec(entitySpec.getAspectSpec(VERSION_PROPERTIES_ASPECT_NAME))
+                .patch(
+                    GenericJsonPatch.builder().patch(List.of(currentPatch)).build().getJsonPatch())
+                .auditStamp(changeMCP.getAuditStamp())
+                .systemMetadata(changeMCP.getSystemMetadata())
+                .build(retrieverContext.getAspectRetriever().getEntityRegistry())
+                .applyPatch(newLatestProperties, retrieverContext.getAspectRetriever()));
+      }
+
       return mcpItems.stream();
     }
     return Stream.empty();

@@ -12,6 +12,7 @@
 // -- This is a parent command --
 
 import dayjs from "dayjs";
+import { hasOperationName } from "../e2e/utils";
 
 function selectorWithtestId(id) {
   return `[data-testid="${id}"]`;
@@ -20,6 +21,8 @@ function selectorWithtestId(id) {
 export function getTimestampMillisNumDaysAgo(numDays) {
   return dayjs().subtract(numDays, "day").valueOf();
 }
+
+const SKIP_ONBOARDING_TOUR_KEY = "skipOnboardingTour";
 
 Cypress.Commands.add("login", () => {
   cy.request({
@@ -30,11 +33,11 @@ Cypress.Commands.add("login", () => {
       password: Cypress.env("ADMIN_PASSWORD"),
     },
     retryOnStatusCodeFailure: true,
-  });
+  }).then(() => localStorage.setItem(SKIP_ONBOARDING_TOUR_KEY, "true"));
 });
 
 Cypress.Commands.add("loginWithCredentials", (username, password) => {
-  cy.visit("/");
+  cy.visit("/login");
   if ((username, password)) {
     cy.get("input[data-testid=username]").type(username);
     cy.get("input[data-testid=password]").type(password);
@@ -43,7 +46,16 @@ Cypress.Commands.add("loginWithCredentials", (username, password) => {
     cy.get("input[data-testid=password]").type(Cypress.env("ADMIN_PASSWORD"));
   }
   cy.contains("Sign In").click();
-  cy.contains("Welcome back");
+  cy.get(".ant-avatar-circle").should("be.visible");
+  localStorage.setItem(SKIP_ONBOARDING_TOUR_KEY, "true");
+});
+
+Cypress.Commands.add("visitWithLogin", (url) => {
+  cy.visit(url);
+  cy.get("input[data-testid=username]").type(Cypress.env("ADMIN_USERNAME"));
+  cy.get("input[data-testid=password]").type(Cypress.env("ADMIN_PASSWORD"));
+  localStorage.setItem(SKIP_ONBOARDING_TOUR_KEY, "true");
+  cy.contains("Sign In").click();
 });
 
 Cypress.Commands.add("deleteUrn", (urn) => {
@@ -67,6 +79,12 @@ Cypress.Commands.add("logout", () => {
   cy.waitTextVisible("Password");
 });
 
+Cypress.Commands.add("logoutV2", () => {
+  cy.get(selectorWithtestId("nav-sidebar-sign-out")).click({ force: true });
+  cy.waitTextVisible("Username");
+  cy.waitTextVisible("Password");
+});
+
 Cypress.Commands.add("goToGlossaryList", () => {
   cy.visit("/glossary");
   cy.waitTextVisible("Glossary");
@@ -81,7 +99,6 @@ Cypress.Commands.add("goToBusinessAttributeList", () => {
 Cypress.Commands.add("goToDomainList", () => {
   cy.visit("/domains");
   cy.waitTextVisible("Domains");
-  cy.waitTextVisible("New Domain");
 });
 
 Cypress.Commands.add("goToViewsSettings", () => {
@@ -99,6 +116,16 @@ Cypress.Commands.add("goToHomePagePostSettings", () => {
   cy.waitTextVisible("Home Page Posts");
 });
 
+Cypress.Commands.add("goToHomePagePostSettingsV1", () => {
+  cy.visit("/settings/posts");
+  cy.waitTestIdVisible("managePostsV1");
+});
+
+Cypress.Commands.add("goToHomePagePostSettingsV2", () => {
+  cy.visit("/settings/posts");
+  cy.waitTestIdVisible("managePostsV2");
+});
+
 Cypress.Commands.add("goToAccessTokenSettings", () => {
   cy.visit("/settings/tokens");
   cy.waitTextVisible("Manage Access Tokens");
@@ -107,12 +134,16 @@ Cypress.Commands.add("goToAccessTokenSettings", () => {
 
 Cypress.Commands.add("goToIngestionPage", () => {
   cy.visit("/ingestion");
-  cy.waitTextVisible("Manage Data Sources");
+  cy.waitTextVisible("Sources");
 });
 
-Cypress.Commands.add("goToDataset", (urn, dataset_name) => {
-  cy.visit(`/dataset/${urn}`);
-  cy.wait(5000);
+Cypress.Commands.add("goToDataset", (urn, dataset_name, login) => {
+  if (login) {
+    cy.visitWithLogin(`/dataset/${urn}/`);
+  } else {
+    cy.visit(`/dataset/${urn}/`);
+  }
+  cy.wait(3000);
   cy.waitTextVisible(dataset_name);
 });
 
@@ -137,6 +168,19 @@ Cypress.Commands.add(
   (entity_type, urn, start_time_millis, end_time_millis) => {
     cy.visit(
       `/${entity_type}/${urn}?is_lineage_mode=true&start_time_millis=${start_time_millis}&end_time_millis=${end_time_millis}`,
+    );
+  },
+);
+
+Cypress.Commands.add("goToEntityLineageGraphV2", (entity_type, urn) => {
+  cy.visit(`/${entity_type}/${urn}/Lineage`);
+});
+
+Cypress.Commands.add(
+  "goToEntityLineageGraphV2",
+  (entity_type, urn, start_time_millis, end_time_millis) => {
+    cy.visit(
+      `/${entity_type}/${urn}/Lineage?start_time_millis=${start_time_millis}&end_time_millis=${end_time_millis}`,
     );
   },
 );
@@ -227,7 +271,9 @@ Cypress.Commands.add("addViaFormModal", (text, modelHeader) => {
 
 Cypress.Commands.add("addViaModal", (text, modelHeader, value, dataTestId) => {
   cy.waitTextVisible(modelHeader);
-  cy.get(".ant-input-affix-wrapper > input[type='text']").first().type(text);
+  cy.get(".ant-modal-content .ant-input-affix-wrapper > input[type='text']")
+    .first()
+    .type(text);
   cy.get(`[data-testid="${dataTestId}"]`).click();
   cy.contains(value).should("be.visible");
 });
@@ -247,6 +293,10 @@ Cypress.Commands.add("ensureTextNotPresent", (text) => {
   cy.contains(text).should("not.exist");
 });
 
+Cypress.Commands.add("ensureElementPresent", (element) => {
+  cy.get(element).should("be.visible");
+});
+
 Cypress.Commands.add("waitTextPresent", (text) => {
   cy.contains(text).should("exist");
   cy.contains(text).should("have.length.above", 0);
@@ -258,6 +308,10 @@ Cypress.Commands.add("waitTextVisible", (text) => {
   cy.contains(text).should("be.visible");
   cy.contains(text).should("have.length.above", 0);
   return cy.contains(text);
+});
+
+Cypress.Commands.add("waitTestIdVisible", (testId) => {
+  cy.get(`[data-testid="${testId}"]`).should("exist");
 });
 
 Cypress.Commands.add("openMultiSelect", (data_id) => {
@@ -321,7 +375,7 @@ Cypress.Commands.add("clearView", (viewName) => {
   cy.clickOptionWithTestId("view-select");
   cy.clickOptionWithTestId("view-select-clear");
   cy.get("input[data-testid='search-input']").click();
-  cy.contains(viewName).should("not.be.visible");
+  cy.get("[data-testid='view-select']").should("not.include.text", viewName);
 });
 
 Cypress.Commands.add("addTermToDataset", (urn, dataset_name, term) => {
@@ -384,20 +438,15 @@ Cypress.Commands.add(
 
 Cypress.Commands.add("openEntityTab", (tab) => {
   const selector = `div[id$="${tab}"]:nth-child(1)`;
-  cy.highlighElement(selector);
   cy.get(selector).click();
-});
-
-Cypress.Commands.add("highlighElement", (selector) => {
-  cy.wait(3000);
-  cy.get(selector).then(($button) => {
-    $button.css("border", "1px solid magenta");
-  });
-  cy.wait(3000);
 });
 
 Cypress.Commands.add("mouseover", (selector) =>
   cy.get(selector).trigger("mouseover", { force: true }),
+);
+
+Cypress.Commands.add("mouseHoverOnFirstElement", (selector) =>
+  cy.get(selector).first().trigger("mouseover", { force: true }),
 );
 
 Cypress.Commands.add("createUser", (name, password, email) => {
@@ -415,7 +464,7 @@ Cypress.Commands.add("createUser", (name, password, email) => {
     cy.mouseover("#title").click();
     cy.waitTextVisible("Other").click();
     cy.get("[type=submit]").click();
-    cy.waitTextVisible("Welcome to DataHub");
+    cy.waitTextVisible("Welcome back");
     cy.hideOnboardingTour();
     cy.waitTextVisible(name);
     cy.logout();
@@ -463,6 +512,36 @@ Cypress.Commands.add("createGlossaryTermGroup", (term_group_name) => {
     .contains(term_group_name)
     .should("be.visible");
   cy.waitTextVisible(`Created Term Group!`);
+});
+
+const SKIP_INTRODUCE_PAGE_KEY = "skipAcrylIntroducePage";
+
+Cypress.Commands.add("skipIntroducePage", () => {
+  localStorage.setItem(SKIP_INTRODUCE_PAGE_KEY, "true");
+});
+
+Cypress.Commands.add("setIsThemeV2Enabled", (isEnabled) => {
+  // set the theme V2 enabled flag on/off to show the V2 UI or not
+  cy.intercept("POST", "/api/v2/graphql", (req) => {
+    if (hasOperationName(req, "appConfig")) {
+      req.alias = "gqlappConfigQuery";
+
+      req.on("response", (res) => {
+        res.body.data.appConfig.featureFlags.themeV2Enabled = isEnabled;
+        res.body.data.appConfig.featureFlags.themeV2Default = isEnabled;
+        res.body.data.appConfig.featureFlags.showNavBarRedesign = isEnabled;
+      });
+    }
+  });
+});
+
+Cypress.Commands.add("ignoreResizeObserverLoop", () => {
+  const resizeObserverLoopErrRe = "ResizeObserver loop limit exceeded";
+  cy.on("uncaught:exception", (err) => {
+    if (err.message.includes(resizeObserverLoopErrRe)) {
+      return false;
+    }
+  });
 });
 
 //

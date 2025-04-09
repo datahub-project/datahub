@@ -1,5 +1,6 @@
 namespace com.linkedin.dataprocess
 
+import com.linkedin.common.Edge
 import com.linkedin.common.Urn
 
 /**
@@ -10,12 +11,12 @@ import com.linkedin.common.Urn
 }
 record DataProcessInstanceInput {
   /**
-   * Input datasets to be consumed
+   * Input assets consumed
    */
   @Relationship = {
     "/*": {
       "name": "Consumes",
-      "entityTypes": [ "dataset" ]
+      "entityTypes": [ "dataset", "mlModel" ]
     }
   }
   @Searchable = {
@@ -28,4 +29,23 @@ record DataProcessInstanceInput {
     }
   }
   inputs: array[Urn]
+
+  /**
+   * Input assets consumed by the data process instance, with additional metadata.
+   * Counts as lineage.
+   * Will eventually deprecate the inputs field.
+   */
+  @Relationship = {
+    "/*/destinationUrn": {
+      "name": "DataProcessInstanceConsumes",
+      "entityTypes": [ "dataset", "mlModel", "dataProcessInstance" ],
+      "isLineage": true,
+      "createdOn": "inputEdges/*/created/time",
+      "createdActor": "inputEdges/*/created/actor",
+      "updatedOn": "inputEdges/*/lastModified/time",
+      "updatedActor": "inputEdges/*/lastModified/actor",
+      "properties": "inputEdges/*/properties"
+    }
+  }
+  inputEdges: optional array[Edge]
 }

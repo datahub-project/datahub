@@ -1,3 +1,6 @@
+import { ButtonVariantValues } from '@components/components/Button/types';
+import { MATERIAL_UI_ICONS, PHOSPHOR_ICONS } from '@components/components/Icon/constants';
+import { SizeValues } from '@components/theme/config';
 import React from 'react';
 
 import type { Meta, StoryObj } from '@storybook/react';
@@ -33,7 +36,7 @@ const meta = {
         },
         variant: {
             description: 'The variant of the Button.',
-            options: ['filled', 'outline', 'text'],
+            options: Object.values(ButtonVariantValues),
             table: {
                 defaultValue: { summary: buttonDefaults.variant },
             },
@@ -43,7 +46,7 @@ const meta = {
         },
         color: {
             description: 'The color of the Button.',
-            options: ['violet', 'green', 'red', 'blue', 'gray'],
+            options: ['violet', 'green', 'red', 'gray'],
             table: {
                 defaultValue: { summary: buttonDefaults.color },
             },
@@ -53,7 +56,7 @@ const meta = {
         },
         size: {
             description: 'The size of the Button.',
-            options: ['sm', 'md', 'lg', 'xl'],
+            options: Object.values(SizeValues),
             table: {
                 defaultValue: { summary: buttonDefaults.size },
             },
@@ -65,6 +68,10 @@ const meta = {
             description: 'The icon to display in the Button.',
             type: 'string',
             options: AVAILABLE_ICONS,
+            mapping: Object.fromEntries([
+                ...MATERIAL_UI_ICONS.map((icon) => [icon, { icon, source: 'material', size: '2xl' }]),
+                ...PHOSPHOR_ICONS.map((icon) => [icon, { icon, source: 'phosphor', size: '2xl' }]),
+            ]),
             table: {
                 defaultValue: { summary: 'undefined' },
             },
@@ -130,7 +137,7 @@ const meta = {
 
     // Define defaults
     args: {
-        children: 'Button Content',
+        children: 'Button',
         variant: buttonDefaults.variant,
         color: buttonDefaults.color,
         size: buttonDefaults.size,
@@ -154,7 +161,7 @@ type Story = StoryObj<typeof meta>;
 // Pass props to this so that it can be customized via the UI props panel
 export const sandbox: Story = {
     tags: ['dev'],
-    render: (props) => <Button {...props}>Button</Button>,
+    render: (props) => <Button {...props} />,
 };
 
 export const states = () => (
@@ -178,17 +185,18 @@ export const colors = () => (
 
 export const sizes = () => (
     <GridList>
-        <Button size="sm">Small Button</Button>
-        <Button size="md">Regular Button</Button>
-        <Button size="lg">Large Button</Button>
-        <Button size="xl">XLarge Button</Button>
+        <Button size="xs">XSmall</Button>
+        <Button size="sm">Small</Button>
+        <Button size="md">Regular</Button>
+        <Button size="lg">Large</Button>
+        <Button size="xl">XLarge</Button>
     </GridList>
 );
 
 export const withIcon = () => (
     <GridList>
-        <Button icon="Add">Icon Left</Button>
-        <Button icon="Add" iconPosition="right">
+        <Button icon={{ icon: 'Add', source: 'material' }}>Icon Left</Button>
+        <Button icon={{ icon: 'Add', source: 'material' }} iconPosition="right">
             Icon Right
         </Button>
     </GridList>
@@ -196,8 +204,8 @@ export const withIcon = () => (
 
 export const circleShape = () => (
     <GridList>
-        <Button icon="Add" size="sm" isCircle />
-        <Button icon="Add" isCircle />
-        <Button icon="Add" size="lg" isCircle />
+        <Button icon={{ icon: 'Add', source: 'material' }} size="sm" isCircle />
+        <Button icon={{ icon: 'Add', source: 'material' }} isCircle />
+        <Button icon={{ icon: 'Add', source: 'material' }} size="lg" isCircle />
     </GridList>
 );

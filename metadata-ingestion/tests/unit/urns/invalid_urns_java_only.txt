@@ -1,0 +1,4 @@
+# Not yet handled by python
+
+# Invalid use of colon
+urn:li:dataset:(urn:li:dataPlatform:abc:def,table_name,prod)

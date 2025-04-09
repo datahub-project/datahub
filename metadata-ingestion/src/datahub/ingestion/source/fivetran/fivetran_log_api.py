@@ -190,7 +190,7 @@ class FivetranLogAPI:
         jobs: List[Job] = []
         if connector_sync_log is None:
             return jobs
-        for sync_id in connector_sync_log.keys():
+        for sync_id in connector_sync_log:
             if len(connector_sync_log[sync_id]) != 2:
                 # If both sync-start and sync-end event log not present for this sync that means sync is still in progress
                 continue

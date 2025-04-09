@@ -204,7 +204,7 @@ def get_column_type(
     """
 
     TypeClass: Optional[Type] = None
-    for sql_type in _field_type_mapping.keys():
+    for sql_type in _field_type_mapping:
         if isinstance(column_type, sql_type):
             TypeClass = _field_type_mapping[sql_type]
             break
@@ -351,6 +351,15 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             eager_graph_load=False,
         )
         self.report.sql_aggregator = self.aggregator.report
+
+    def _add_default_options(self, sql_config: SQLCommonConfig) -> None:
+        """Add default SQLAlchemy options. Can be overridden by subclasses to add additional defaults."""
+        # Extra default SQLAlchemy option for better connection pooling and threading.
+        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
+        if sql_config.is_profiling_enabled():
+            sql_config.options.setdefault(
+                "max_overflow", sql_config.profiling.max_workers
+            )
 
     @classmethod
     def test_connection(cls, config_dict: dict) -> TestConnectionReport:
@@ -519,12 +528,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             # Known issue with sqlalchemy https://stackoverflow.com/questions/60804288/pycharm-duplicated-log-for-sqlalchemy-echo-true
             sqlalchemy_log._add_default_handler = lambda x: None  # type: ignore
 
-        # Extra default SQLAlchemy option for better connection pooling and threading.
-        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
-        if sql_config.is_profiling_enabled():
-            sql_config.options.setdefault(
-                "max_overflow", sql_config.profiling.max_workers
-            )
+        self._add_default_options(sql_config)
 
         for inspector in self.get_inspectors():
             profiler = None
@@ -631,7 +635,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
         return None
 
-    def loop_tables(  # noqa: C901
+    def loop_tables(
         self,
         inspector: Inspector,
         schema: str,
@@ -969,7 +973,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     inspector=inspector,
                 )
             ),
-            description=column.get("comment", None),
+            description=column.get("comment"),
             nullable=column["nullable"],
             recursive=False,
             globalTags=gtc,
@@ -1027,16 +1031,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     def _get_view_definition(self, inspector: Inspector, schema: str, view: str) -> str:
         try:
             view_definition = inspector.get_view_definition(view, schema)
-            if view_definition is None:
-                view_definition = ""
-            else:
-                # Some dialects return a TextClause instead of a raw string,
-                # so we need to convert them to a string.
-                view_definition = str(view_definition)
+            # Some dialects return a TextClause instead of a raw string, so we need to convert them to a string.
+            return str(view_definition) if view_definition else ""
         except NotImplementedError:
-            view_definition = ""
-
-        return view_definition
+            return ""
 
     def _process_view(
         self,

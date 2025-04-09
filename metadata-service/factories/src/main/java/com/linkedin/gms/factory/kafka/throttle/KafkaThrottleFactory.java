@@ -1,5 +1,7 @@
 package com.linkedin.gms.factory.kafka.throttle;
 
+import static com.linkedin.gms.factory.kafka.common.AdminClientFactory.buildKafkaAdminClient;
+
 import com.datahub.metadata.dao.throttle.KafkaThrottleSensor;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.MetadataChangeProposalConfig;
@@ -8,13 +10,7 @@ import com.linkedin.metadata.dao.throttle.NoOpSensor;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.Topics;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.clients.admin.AdminClient;
-import org.apache.kafka.clients.admin.AdminClientConfig;
-import org.apache.kafka.clients.admin.KafkaAdminClient;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
@@ -47,7 +43,7 @@ public class KafkaThrottleFactory {
     if (mcpConfig.getThrottle().getUpdateIntervalMs() > 0) {
       return KafkaThrottleSensor.builder()
           .entityRegistry(entityRegistry)
-          .kafkaAdmin(kafkaAdmin(kafkaConfiguration, kafkaProperties))
+          .kafkaAdmin(buildKafkaAdminClient(kafkaConfiguration, kafkaProperties, "throttle-sensor"))
           .config(mcpConfig.getThrottle())
           .mclConsumerGroupId(maeConsumerGroupId)
           .timeseriesTopicName(timeseriesTopicName)
@@ -57,20 +53,5 @@ public class KafkaThrottleFactory {
     } else {
       return new NoOpSensor();
     }
-  }
-
-  private static AdminClient kafkaAdmin(
-      KafkaConfiguration kafkaConfiguration, final KafkaProperties kafkaProperties) {
-    Map<String, Object> adminProperties = new HashMap<>(kafkaProperties.buildAdminProperties(null));
-
-    // KAFKA_BOOTSTRAP_SERVER has precedence over SPRING_KAFKA_BOOTSTRAP_SERVERS
-    if (kafkaConfiguration.getBootstrapServers() != null
-        && !kafkaConfiguration.getBootstrapServers().isEmpty()) {
-      adminProperties.put(
-          AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG,
-          Arrays.asList(kafkaConfiguration.getBootstrapServers().split(",")));
-    } // else we rely on KafkaProperties which defaults to localhost:9092 or environment variables
-
-    return KafkaAdminClient.create(adminProperties);
   }
 }

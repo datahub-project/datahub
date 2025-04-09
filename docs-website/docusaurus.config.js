@@ -11,7 +11,7 @@ module.exports = {
   favicon: "img/favicon.ico",
   organizationName: "datahub-project", // Usually your GitHub org/user name.
   projectName: "datahub", // Usually your repo name.
-  staticDirectories: ["static", "genStatic"],
+  staticDirectories: ["static"],
   stylesheets: ["https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&display=swap"],
   headTags: [
     {
@@ -35,6 +35,13 @@ module.exports = {
     },
     {
       src: "https://app.revenuehero.io/scheduler.min.js"
+    },
+    {
+      src: "https://tag.clearbitscripts.com/v1/pk_2e321cabe30432a5c44c0424781aa35f/tags.js",
+      referrerPolicy: "strict-origin-when-cross-origin"
+    },
+    {
+      src: "/scripts/reo.js",
     }
   ],
   noIndex: isSaas,
@@ -75,13 +82,13 @@ module.exports = {
     //   },
     // }),
     announcementBar: {
-          id: "announcement-3",
-          content:
-            '<div style="display: flex; justify-content: center; align-items: center;width: 100%;"><!--img src="/img/acryl-logo-white-mark.svg" / --><!--div style="font-size: .8rem; font-weight: 600; background-color: white; color: #111; padding: 0px 8px; border-radius: 4px; margin-right:12px;">NEW</div--><p>Watch Metadata & AI Summit sessions on-demand.</p><a href="https://www.youtube.com/@DataHubProject/videos" target="_blank" class="button">Watch Now<span> →</span></a></div>',
-          backgroundColor: "#111",
-          textColor: "#ffffff",
-          isCloseable: false,
-        },
+      id: "announcement-3",
+      content:
+        '<div class="shimmer-banner"><p>DataHub now supports the Model Context Protocol (MCP)</p><a href="https://pages.acryl.io/datahub-mcp-server?utm_source=docs-website&utm_medium=announcement_banner&utm_campaign=mcp_announcement" target="_blank" class="button">Read the announcement<span> →</span></a></div>',
+      backgroundColor: "transparent",
+      textColor: "#ffffff",
+      isCloseable: false,
+    },
     colorMode: {
       // Only support light mode.
       defaultMode: 'light',
@@ -152,7 +159,7 @@ module.exports = {
               label: "Adoption Stories",
             },
             {
-              href: "https://blog.datahubproject.io/",
+              href: "https://medium.com/datahub-project",
               label: "Blog",
             },
             {
@@ -167,7 +174,7 @@ module.exports = {
           position: "right",
           items: [
             {
-              to: "/slack",
+              href: "https://pages.acryl.io/slack?utm_source=docs&utm_medium=header&utm_campaign=docs_header",
               label: "Join Slack",
             },
             {
@@ -189,7 +196,7 @@ module.exports = {
           ],
         },
         {
-          href: "/slack",
+          href: "https://pages.acryl.io/slack?utm_source=docs&utm_medium=header&utm_campaign=docs_header",
           html: `
             <style>
               .slack-logo:hover {
@@ -243,7 +250,7 @@ module.exports = {
             },
             {
               label: "Blog",
-              href: "https://blog.datahubproject.io/",
+              href: "https://medium.com/datahub-project",
             },
             {
               label: "Town Halls",
@@ -290,8 +297,9 @@ module.exports = {
       additionalLanguages: ["ini", "java", "graphql", "shell-session"],
     },
     algolia: {
+      // This is the "Search API Key" in Algolia, which means that it is ok to be public.
+      apiKey: "2adf840a044a5ecbf7bdaac88cbf9ee5",
       appId: "RK0UG797F3",
-      apiKey: "39d7eb90d8b31d464e309375a52d674f",
       indexName: "datahubproject",
       insights: true,
       contextualSearch: true,
@@ -365,6 +373,12 @@ module.exports = {
           }
           return undefined; // Return a falsy value: no redirect created
         },
+        redirects: [
+          {
+            from: '/docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor',
+            to: '/docs/managed-datahub/remote-executor/about',
+          },
+        ],
       },
     ],
     ["@docusaurus/plugin-ideal-image", { quality: 100, sizes: [320, 640, 1280, 1440, 1600] }],

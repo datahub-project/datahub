@@ -3,7 +3,6 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
-from itertools import groupby
 from typing import (
     Any,
     Dict,
@@ -23,6 +22,7 @@ from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.reflection import Inspector
+from sqlalchemy.pool import QueuePool
 from sqlalchemy.sql.expression import text
 from teradatasqlalchemy.dialect import TeradataDialect
 from teradatasqlalchemy.options import configure
@@ -59,6 +59,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 from datahub.metadata.schema_classes import SchemaMetadataClass
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
+from datahub.utilities.groupby import groupby_unsorted
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -179,10 +180,11 @@ def optimized_get_columns(
     connection: Connection,
     table_name: str,
     schema: Optional[str] = None,
-    tables_cache: MutableMapping[str, List[TeradataTable]] = {},
+    tables_cache: Optional[MutableMapping[str, List[TeradataTable]]] = None,
     use_qvci: bool = False,
     **kw: Dict[str, Any],
 ) -> List[Dict]:
+    tables_cache = tables_cache or {}
     if schema is None:
         schema = self.default_schema_name
 
@@ -286,7 +288,7 @@ def optimized_get_foreign_keys(self, connection, table_name, schema=None, **kw):
 
     # TODO: Check if there's a better way
     fk_dicts = list()
-    for constraint_info, constraint_cols in groupby(res, grouper):
+    for constraint_info, constraint_cols in groupby_unsorted(res, grouper):
         fk_dict = {
             "name": str(constraint_info["name"]),
             "constrained_columns": list(),
@@ -313,9 +315,10 @@ def optimized_get_view_definition(
     connection: Connection,
     view_name: str,
     schema: Optional[str] = None,
-    tables_cache: MutableMapping[str, List[TeradataTable]] = {},
+    tables_cache: Optional[MutableMapping[str, List[TeradataTable]]] = None,
     **kw: Dict[str, Any],
 ) -> Optional[str]:
+    tables_cache = tables_cache or {}
     if schema is None:
         schema = self.default_schema_name
 
@@ -599,7 +602,12 @@ ORDER by DataBaseName, TableName;
             setattr(  # noqa: B010
                 TeradataDialect,
                 "get_columns",
-                lambda self, connection, table_name, schema=None, use_qvci=self.config.use_qvci, **kw: optimized_get_columns(
+                lambda self,
+                connection,
+                table_name,
+                schema=None,
+                use_qvci=self.config.use_qvci,
+                **kw: optimized_get_columns(
                     self,
                     connection,
                     table_name,
@@ -613,7 +621,11 @@ ORDER by DataBaseName, TableName;
             setattr(  # noqa: B010
                 TeradataDialect,
                 "get_pk_constraint",
-                lambda self, connection, table_name, schema=None, **kw: optimized_get_pk_constraint(
+                lambda self,
+                connection,
+                table_name,
+                schema=None,
+                **kw: optimized_get_pk_constraint(
                     self, connection, table_name, schema, **kw
                 ),
             )
@@ -621,7 +633,11 @@ ORDER by DataBaseName, TableName;
             setattr(  # noqa: B010
                 TeradataDialect,
                 "get_foreign_keys",
-                lambda self, connection, table_name, schema=None, **kw: optimized_get_foreign_keys(
+                lambda self,
+                connection,
+                table_name,
+                schema=None,
+                **kw: optimized_get_foreign_keys(
                     self, connection, table_name, schema, **kw
                 ),
             )
@@ -635,7 +651,7 @@ ORDER by DataBaseName, TableName;
             )
 
             # Disabling the below because the cached view definition is not the view definition the column in tablesv actually holds the last statement executed against the object... not necessarily the view definition
-            # setattr(  # noqa: B010
+            # setattr(
             #   TeradataDialect,
             #    "get_view_definition",
             #   lambda self, connection, view_name, schema=None, **kw: optimized_get_view_definition(
@@ -665,6 +681,16 @@ ORDER by DataBaseName, TableName;
             if self.config.stateful_ingestion:
                 self.config.stateful_ingestion.remove_stale_metadata = False
 
+    def _add_default_options(self, sql_config: SQLCommonConfig) -> None:
+        """Add Teradata-specific default options"""
+        super()._add_default_options(sql_config)
+        if sql_config.is_profiling_enabled():
+            # Sqlalchemy uses QueuePool by default however Teradata uses SingletonThreadPool.
+            # SingletonThreadPool does not support parellel connections. For using profiling, we need to use QueuePool.
+            # https://docs.sqlalchemy.org/en/20/core/pooling.html#connection-pool-configuration
+            # https://github.com/Teradata/sqlalchemy-teradata/issues/96
+            sql_config.options.setdefault("poolclass", QueuePool)
+
     @classmethod
     def create(cls, config_dict, ctx):
         config = TeradataConfig.parse_obj(config_dict)
@@ -692,6 +718,7 @@ ORDER by DataBaseName, TableName;
         # This method can be overridden in the case that you want to dynamically
         # run on multiple databases.
         url = self.config.get_sql_alchemy_url()
+
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
         with engine.connect() as conn:
@@ -721,7 +748,7 @@ ORDER by DataBaseName, TableName;
         else:
             raise Exception("Unable to get database name from Sqlalchemy inspector")
 
-    def cached_loop_tables(  # noqa: C901
+    def cached_loop_tables(
         self,
         inspector: Inspector,
         schema: str,
@@ -757,7 +784,7 @@ ORDER by DataBaseName, TableName;
                 break
         return description, properties, location
 
-    def cached_loop_views(  # noqa: C901
+    def cached_loop_views(
         self,
         inspector: Inspector,
         schema: str,

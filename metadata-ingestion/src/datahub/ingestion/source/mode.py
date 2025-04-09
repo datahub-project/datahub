@@ -23,13 +23,17 @@ from tenacity import retry_if_exception_type, stop_after_attempt, wait_exponenti
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.configuration.source_common import DatasetLineageProviderConfigBase
+from datahub.configuration.source_common import (
+    DatasetLineageProviderConfigBase,
+)
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
     ContainerKey,
     add_dataset_to_container,
     gen_containers,
 )
+from datahub.emitter.request_helper import make_curl_command
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -136,7 +140,10 @@ class ModeAPIConfig(ConfigModel):
     )
 
 
-class ModeConfig(StatefulIngestionConfigBase, DatasetLineageProviderConfigBase):
+class ModeConfig(
+    StatefulIngestionConfigBase,
+    DatasetLineageProviderConfigBase,
+):
     # See https://mode.com/developer/api-reference/authentication/
     # for authentication
     connect_uri: str = Field(
@@ -153,12 +160,14 @@ class ModeConfig(StatefulIngestionConfigBase, DatasetLineageProviderConfigBase):
     )
 
     workspace: str = Field(
-        description="The Mode workspace name. Find it in Settings > Workspace > Details."
+        description="The Mode workspace username. If you navigate to Workspace Settings > Details, "
+        "the url will be `https://app.mode.com/organizations/<workspace-username>`. "
+        # The lowercase comment is derived from a comment in a Mode API example.
+        # https://mode.com/developer/api-cookbook/management/get-all-reports/
+        # > "Note: workspace_name value should be all lowercase"
+        "This is distinct from the workspace's display name, and should be all lowercase."
     )
-    default_schema: str = Field(
-        default="public",
-        description="Default schema to use when schema is not provided in an SQL query",
-    )
+    _default_schema = pydantic_removed_field("default_schema")
 
     space_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern(
@@ -331,7 +340,8 @@ class ModeSource(StatefulIngestionSourceBase):
 
         # Test the connection
         try:
-            self._get_request_json(f"{self.config.connect_uri}/api/verify")
+            key_info = self._get_request_json(f"{self.config.connect_uri}/api/verify")
+            logger.debug(f"Auth info: {key_info}")
         except ModeRequestError as e:
             self.report.report_failure(
                 title="Failed to Connect",
@@ -374,7 +384,7 @@ class ModeSource(StatefulIngestionSourceBase):
         ]
 
     def _dashboard_urn(self, report_info: dict) -> str:
-        return builder.make_dashboard_urn(self.platform, report_info.get("id", ""))
+        return builder.make_dashboard_urn(self.platform, str(report_info.get("id", "")))
 
     def _parse_last_run_at(self, report_info: dict) -> Optional[int]:
         # Mode queries are refreshed, and that timestamp is reflected correctly here.
@@ -761,9 +771,9 @@ class ModeSource(StatefulIngestionSourceBase):
                 return platform, database
         else:
             self.report.report_warning(
-                title="Failed to create Data Platform Urn",
-                message=f"Cannot create datasource urn for datasource id: "
-                f"{data_source_id}",
+                title="Unable to construct upstream lineage",
+                message="We did not find a data source / connection with a matching ID, meaning that we do not know the platform/database to use in lineage.",
+                context=f"Data Source ID: {data_source_id}",
             )
         return None, None
 
@@ -889,15 +899,15 @@ class ModeSource(StatefulIngestionSourceBase):
                 for match in matches:
                     definition = Template(source=match).render()
                     parameters = yaml.safe_load(definition)
-                    for key in parameters.keys():
+                    for key in parameters:
                         jinja_params[key] = parameters[key].get("default", "")
 
                 normalized_query = re.sub(
-                    r"{% form %}(.*){% endform %}",
-                    "",
-                    query,
-                    0,
-                    re.MULTILINE | re.DOTALL,
+                    pattern=r"{% form %}(.*){% endform %}",
+                    repl="",
+                    string=query,
+                    count=0,
+                    flags=re.MULTILINE | re.DOTALL,
                 )
 
             # Wherever we don't resolve the jinja params, we replace it with NULL
@@ -1477,12 +1487,17 @@ class ModeSource(StatefulIngestionSourceBase):
 
         @r.wraps
         def get_request():
+            curl_command = make_curl_command(self.session, "GET", url, "")
+            logger.debug(f"Issuing request; curl equivalent: {curl_command}")
+
             try:
                 response = self.session.get(
                     url, timeout=self.config.api_options.timeout
                 )
                 if response.status_code == 204:  # No content, don't parse json
                     return {}
+
+                response.raise_for_status()
                 return response.json()
             except HTTPError as http_error:
                 error_response = http_error.response
@@ -1491,8 +1506,11 @@ class ModeSource(StatefulIngestionSourceBase):
                     sleep_time = error_response.headers.get("retry-after")
                     if sleep_time is not None:
                         time.sleep(float(sleep_time))
-                    raise HTTPError429
+                    raise HTTPError429 from None
 
+                logger.debug(
+                    f"Error response ({error_response.status_code}): {error_response.text}"
+                )
                 raise http_error
 
         return get_request()
@@ -1583,7 +1601,7 @@ class ModeSource(StatefulIngestionSourceBase):
 
     def emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
         # Space/collection -> report -> query -> Chart
-        for space_token in self.space_tokens.keys():
+        for space_token in self.space_tokens:
             reports = self._get_reports(space_token)
             for report in reports:
                 report_token = report.get("token", "")

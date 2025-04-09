@@ -10,6 +10,7 @@ dependencies {
   implementation externalDependency.commonsLang
   api externalDependency.dropwizardMetricsCore
   implementation externalDependency.dropwizardMetricsJmx
+  implementation externalDependency.opentelemetrySdk
   api externalDependency.elasticSearchRest
   implementation externalDependency.httpClient
   api externalDependency.neo4jJavaDriver
@@ -33,6 +34,9 @@ dependencies {
   testImplementation project(':test-models')
   testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
   testImplementation externalDependency.testng
+  testImplementation externalDependency.mockito
+  testImplementation externalDependency.mockitoInline
+  testImplementation project(':metadata-operation-context')
 
   constraints {
       implementation(externalDependency.log4jCore) {

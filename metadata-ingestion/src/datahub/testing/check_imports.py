@@ -1,4 +1,5 @@
 import pathlib
+import re
 from typing import List
 
 
@@ -32,3 +33,30 @@ def ensure_no_indirect_model_imports(dirs: List[pathlib.Path]) -> None:
                                 f"Disallowed import found in {file}: `{line.rstrip()}`. "
                                 f"Import from {replacement} instead."
                             )
+
+
+def ban_direct_datahub_imports(dirs: List[pathlib.Path]) -> None:
+    # We also want to ban all direct imports of datahub.
+    # The base `datahub` package is used to export public-facing classes.
+    # If we import it directly, we'll likely end up with circular imports.
+
+    banned_strings = [
+        r"^import datahub[\s$]",
+        r"^from datahub import",
+    ]
+    ignored_files = {
+        __file__,
+    }
+    for dir in dirs:
+        for file in dir.rglob("*.py"):
+            if str(file) in ignored_files:
+                continue
+
+            file_contents = file.read_text()
+
+            for banned_string in banned_strings:
+                if re.search(banned_string, file_contents, re.MULTILINE):
+                    raise ValueError(
+                        f"Disallowed bare datahub import found in {file}. "
+                        f"Do not import datahub directly; instead import from the underlying file."
+                    )

@@ -84,6 +84,7 @@ query getDataFlow($urn: String!) {
         forms {
             ...formsFields
         }
+        ...notes
     }
 }
 
@@ -126,6 +127,9 @@ query getDataFlowChildJobs($urn: String!, $start: Int, $count: Int) {
                         }
                         deprecation {
                             ...deprecationFields
+                        }
+                        subTypes {
+                            typeNames
                         }
                     }
                 }

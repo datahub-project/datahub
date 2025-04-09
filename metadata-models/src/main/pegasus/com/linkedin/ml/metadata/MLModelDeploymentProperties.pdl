@@ -35,5 +35,8 @@ record MLModelDeploymentProperties includes CustomProperties, ExternalReference 
   /**
    * Status of the deployment
    */
+  @Searchable = {
+    "fieldName": "deploymentStatus"
+  }
   status: optional DeploymentStatus
 }

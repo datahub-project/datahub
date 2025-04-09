@@ -23,6 +23,7 @@ import io.swagger.v3.oas.models.parameters.RequestBody;
 import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.responses.ApiResponses;
 import java.math.BigDecimal;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -32,9 +33,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nonnull;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class OpenAPIV3Generator {
+  private static final String PATH_PREFIX = "/openapi/v3";
   private static final String MODEL_VERSION = "_v3";
   private static final String TYPE_OBJECT = "object";
   private static final String TYPE_BOOLEAN = "boolean";
@@ -67,14 +70,18 @@ public class OpenAPIV3Generator {
   private static final String ASPECTS = "Aspects";
   private static final String ENTITIES = "Entities";
 
+  private static final Set<String> EXCLUDE_ENTITIES = Set.of("dataHubOpenAPISchema");
+  private static final Set<String> EXCLUDE_ASPECTS = Set.of("dataHubOpenAPISchemaKey");
+
   public static OpenAPI generateOpenApiSpec(
       EntityRegistry entityRegistry, ConfigurationProvider configurationProvider) {
-    final Set<String> aspectNames = entityRegistry.getAspectSpecs().keySet();
-    final Set<String> entityNames =
-        entityRegistry.getEntitySpecs().values().stream()
-            .filter(e -> aspectNames.contains(e.getKeyAspectName()))
-            .map(EntitySpec::getName)
-            .collect(Collectors.toSet());
+
+    final Map<String, EntitySpec> filteredEntitySpec = getEntitySpecs(entityRegistry);
+    final Map<String, AspectSpec> filteredAspectSpec = getAspectSpecs(entityRegistry);
+
+    final Set<String> entityNames = filteredEntitySpec.keySet();
+    final Set<String> aspectNames = filteredAspectSpec.keySet();
+
     final Set<String> definitionNames =
         Stream.concat(aspectNames.stream(), entityNames.stream()).collect(Collectors.toSet());
     // Info
@@ -88,9 +95,11 @@ public class OpenAPIV3Generator {
 
     // Cross-entity components
     components.addSchemas(
-        ENTITIES + ENTITY_REQUEST_SUFFIX, buildEntitiesRequestSchema(entityRegistry, aspectNames));
+        ENTITIES + ENTITY_REQUEST_SUFFIX,
+        buildEntitiesRequestSchema(filteredEntitySpec, filteredAspectSpec, aspectNames));
     components.addSchemas(
-        ENTITIES + ENTITY_RESPONSE_SUFFIX, buildEntitySchema(entityRegistry, aspectNames, true));
+        ENTITIES + ENTITY_RESPONSE_SUFFIX,
+        buildEntitySchema(filteredAspectSpec, aspectNames, true));
     components.addSchemas(
         "Scroll" + ENTITIES + ENTITY_RESPONSE_SUFFIX, buildEntitiesScrollSchema());
 
@@ -112,10 +121,7 @@ public class OpenAPIV3Generator {
             .nullable(true));
 
     // --> Aspect components
-    components.addSchemas(
-        ASPECTS + ASPECT_RESPONSE_SUFFIX, buildAspectsRefResponseSchema(entityRegistry));
-    entityRegistry
-        .getAspectSpecs()
+    filteredAspectSpec
         .values()
         .forEach(
             a -> {
@@ -130,7 +136,7 @@ public class OpenAPIV3Generator {
             });
 
     List<EntitySpec> definedEntitySpecs =
-        entityRegistry.getEntitySpecs().values().stream()
+        filteredEntitySpec.values().stream()
             .filter(entitySpec -> definitionNames.contains(entitySpec.getName()))
             .sorted(Comparator.comparing(EntitySpec::getName))
             .collect(Collectors.toList());
@@ -150,10 +156,6 @@ public class OpenAPIV3Generator {
         });
 
     components.addSchemas("SortOrder", new Schema()._enum(List.of("ASCENDING", "DESCENDING")));
-    // TODO: Correct handling of SystemMetadata and AuditStamp
-    components.addSchemas(
-        "SystemMetadata", new Schema().type(TYPE_OBJECT).additionalProperties(true));
-    components.addSchemas("AuditStamp", new Schema().type(TYPE_OBJECT).additionalProperties(true));
 
     // Parameters
 
@@ -171,18 +173,19 @@ public class OpenAPIV3Generator {
     final Paths paths = new Paths();
 
     // --> Cross-entity Paths
-    paths.addPathItem("/v3/entity/scroll", buildGenericListEntitiesPath());
+    paths.addPathItem(PATH_PREFIX + "/entity/scroll", buildGenericListEntitiesPath());
 
     // --> Entity Paths
     definedEntitySpecs.forEach(
         e -> {
           paths.addPathItem(
-              String.format("/v3/entity/%s", e.getName().toLowerCase()), buildListEntityPath(e));
+              String.format(PATH_PREFIX + "/entity/%s", e.getName().toLowerCase()),
+              buildListEntityPath(e));
           paths.addPathItem(
-              String.format("/v3/entity/%s/batchGet", e.getName().toLowerCase()),
+              String.format(PATH_PREFIX + "/entity/%s/batchGet", e.getName().toLowerCase()),
               buildBatchGetEntityPath(e));
           paths.addPathItem(
-              String.format("/v3/entity/%s/{urn}", e.getName().toLowerCase()),
+              String.format(PATH_PREFIX + "/entity/%s/{urn}", e.getName().toLowerCase()),
               buildSingleEntityPath(e));
         });
 
@@ -196,8 +199,9 @@ public class OpenAPIV3Generator {
                     a ->
                         paths.addPathItem(
                             String.format(
-                                "/v3/entity/%s/{urn}/%s",
-                                e.getName().toLowerCase(), a.getName().toLowerCase()),
+                                PATH_PREFIX + "/entity/%s/{urn}/%s",
+                                e.getName().toLowerCase(),
+                                a.getName().toLowerCase()),
                             buildSingleEntityAspectPath(e, a))));
     definedEntitySpecs.forEach(
         e ->
@@ -208,8 +212,9 @@ public class OpenAPIV3Generator {
                     a ->
                         paths.addPathItem(
                             String.format(
-                                "/v3/entity/%s/{urn}/%s",
-                                e.getName().toLowerCase(), a.getName().toLowerCase()),
+                                PATH_PREFIX + "/entity/%s/{urn}/%s",
+                                e.getName().toLowerCase(),
+                                a.getName().toLowerCase()),
                             buildSingleEntityAspectPath(e, a))));
 
     // --> Link & Unlink APIs
@@ -219,7 +224,8 @@ public class OpenAPIV3Generator {
           .forEach(
               entitySpec -> {
                 paths.addPathItem(
-                    "/v3/entity/versioning/{versionSetUrn}/relationship/versionOf/{entityUrn}",
+                    PATH_PREFIX
+                        + "/entity/versioning/{versionSetUrn}/relationship/versionOf/{entityUrn}",
                     buildVersioningRelationshipPath());
               });
     }
@@ -355,6 +361,12 @@ public class OpenAPIV3Generator {
                 .$ref(
                     String.format(
                         "#/components/parameters/%s", aspectParameterName + MODEL_VERSION)),
+            new Parameter()
+                .in(NAME_QUERY)
+                .name(NAME_PIT_KEEP_ALIVE)
+                .description(
+                    "Point In Time keep alive, accepts a time based string like \"5m\" for five minutes.")
+                .schema(new Schema().type(TYPE_STRING)._default("5m")),
             new Parameter().$ref("#/components/parameters/PaginationCount" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/ScrollId" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/SortBy" + MODEL_VERSION),
@@ -529,7 +541,7 @@ public class OpenAPIV3Generator {
                 .name(NAME_PIT_KEEP_ALIVE)
                 .description(
                     "Point In Time keep alive, accepts a time based string like \"5m\" for five minutes.")
-                .schema(new Schema().type(TYPE_STRING)._default("5m")),
+                .schema(new Schema().type(TYPE_STRING)._default("5m").nullable(true)),
             new Parameter().$ref("#/components/parameters/PaginationCount" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/ScrollId" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/SortBy" + MODEL_VERSION),
@@ -672,6 +684,7 @@ public class OpenAPIV3Generator {
                   final String newDefinition =
                       definition.replaceAll("definitions", "components/schemas");
                   Schema s = Json.mapper().readValue(newDefinition, Schema.class);
+
                   // Set enums to "string".
                   if (s.getEnum() != null && !s.getEnum().isEmpty()) {
                     s.setType("string");
@@ -680,12 +693,26 @@ public class OpenAPIV3Generator {
                         Optional.ofNullable(s.getRequired())
                             .map(names -> Set.copyOf(names))
                             .orElse(new HashSet());
+
                     Map<String, Schema> properties =
                         Optional.ofNullable(s.getProperties()).orElse(new HashMap<>());
                     properties.forEach(
                         (name, schema) -> {
                           String $ref = schema.get$ref();
+
                           boolean isNameRequired = requiredNames.contains(name);
+
+                          if (definitions.has(n)) {
+                            JsonNode field = definitions.get(n);
+                            boolean hasDefault =
+                                field.get("properties").get(name).has("default")
+                                    && !field.get("properties").get(name).get("default").isNull();
+                            if (hasDefault) {
+                              // A default value means it is not required, regardless of nullability
+                              s.getRequired().remove(name);
+                            }
+                          }
+
                           if ($ref != null && !isNameRequired) {
                             // A non-required $ref property must be wrapped in a { anyOf: [ $ref ] }
                             // object to allow the
@@ -705,43 +732,6 @@ public class OpenAPIV3Generator {
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
-  }
-
-  /**
-   * Generate schema for cross-entity scroll/list response
-   *
-   * @param entityRegistry entity registry
-   * @return schema
-   */
-  private static Schema buildAspectsRefResponseSchema(final EntityRegistry entityRegistry) {
-    final Schema result =
-        new Schema<>()
-            .type(TYPE_OBJECT)
-            .description(ASPECT_DESCRIPTION)
-            .required(List.of(PROPERTY_VALUE));
-
-    entityRegistry
-        .getAspectSpecs()
-        .values()
-        .forEach(
-            aspect ->
-                result.addProperty(
-                    PROPERTY_VALUE, new Schema<>().$ref(PATH_DEFINITIONS + aspect.getName())));
-    result.addProperty(
-        NAME_SYSTEM_METADATA,
-        new Schema<>()
-            .type(TYPE_OBJECT)
-            .anyOf(List.of(new Schema().$ref(PATH_DEFINITIONS + "SystemMetadata")))
-            .description("System metadata for the aspect.")
-            .nullable(true));
-    result.addProperty(
-        NAME_AUDIT_STAMP,
-        new Schema<>()
-            .type(TYPE_OBJECT)
-            .anyOf(List.of(new Schema().$ref(PATH_DEFINITIONS + "AuditStamp")))
-            .description("Audit stamp for the aspect.")
-            .nullable(true));
-    return result;
   }
 
   private static Schema buildAspectRefResponseSchema(final String aspectName) {
@@ -823,16 +813,16 @@ public class OpenAPIV3Generator {
   /**
    * Generate cross-entity schema
    *
-   * @param entityRegistry entity registry
+   * @param aspectSpecs entity registry aspect specs
    * @param withSystemMetadata include system metadata
    * @return schema
    */
   private static Schema buildEntitySchema(
-      final EntityRegistry entityRegistry,
+      final Map<String, AspectSpec> aspectSpecs,
       final Set<String> aspectNames,
       final boolean withSystemMetadata) {
     final Map<String, Schema> properties =
-        entityRegistry.getAspectSpecs().entrySet().stream()
+        aspectSpecs.entrySet().stream()
             .filter(a -> aspectNames.contains(a.getValue().getName()))
             .collect(
                 Collectors.toMap(
@@ -853,17 +843,20 @@ public class OpenAPIV3Generator {
   /**
    * Generate cross-entity schema
    *
-   * @param entityRegistry entity registry
+   * @param entitySpecs filtered map of entity name to entity spec
+   * @param aspectSpecs filtered map of aspect name to aspect specs
    * @param definitionNames include aspects
    * @return schema
    */
   private static Schema buildEntitiesRequestSchema(
-      final EntityRegistry entityRegistry, final Set<String> definitionNames) {
+      final Map<String, EntitySpec> entitySpecs,
+      final Map<String, AspectSpec> aspectSpecs,
+      final Set<String> definitionNames) {
 
     final Set<String> keyAspects = new HashSet<>();
 
     final List<String> entityNames =
-        entityRegistry.getEntitySpecs().values().stream()
+        entitySpecs.values().stream()
             .peek(entitySpec -> keyAspects.add(entitySpec.getKeyAspectName()))
             .map(EntitySpec::getName)
             .sorted()
@@ -873,7 +866,7 @@ public class OpenAPIV3Generator {
         new Schema().type(TYPE_ARRAY).items(new Schema().type(TYPE_STRING)._enum(entityNames));
 
     final List<String> aspectNames =
-        entityRegistry.getAspectSpecs().values().stream()
+        aspectSpecs.values().stream()
             .filter(aspectSpec -> !aspectSpec.isTimeseries())
             .map(AspectSpec::getName)
             .filter(definitionNames::contains) // Only if aspect is defined
@@ -1330,5 +1323,29 @@ public class OpenAPIV3Generator {
                         "404", new ApiResponse().description("Version Set or Entity not found")));
 
     return result.delete(deleteOperation).post(postOperation);
+  }
+
+  private static Map<String, EntitySpec> getEntitySpecs(@Nonnull EntityRegistry entityRegistry) {
+    return entityRegistry.getEntitySpecs().entrySet().stream()
+        .filter(
+            entry ->
+                EXCLUDE_ENTITIES.stream()
+                    .noneMatch(
+                        excludeEntityName -> excludeEntityName.equalsIgnoreCase(entry.getKey())))
+        .collect(Collectors.toMap(e -> e.getValue().getName(), Map.Entry::getValue));
+  }
+
+  private static Map<String, AspectSpec> getAspectSpecs(@Nonnull EntityRegistry entityRegistry) {
+    return Collections.unmodifiableMap(
+        entityRegistry.getAspectSpecs().entrySet().stream()
+            .filter(
+                entry ->
+                    EXCLUDE_ASPECTS.stream()
+                        .noneMatch(
+                            excludeAspectName ->
+                                excludeAspectName.equalsIgnoreCase(entry.getKey())))
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey, Map.Entry::getValue, (existing, replacement) -> existing)));
   }
 }
