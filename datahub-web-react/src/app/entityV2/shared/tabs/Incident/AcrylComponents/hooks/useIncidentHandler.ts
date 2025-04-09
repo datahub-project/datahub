@@ -62,7 +62,7 @@ export const getCacheIncident = ({
 
         priority: values.priority,
         created: {
-            time: Date.now(),
+            time: values.created || new Date(),
             actor: user?.urn,
         },
         assignees: values.assignees,
@@ -70,7 +70,16 @@ export const getCacheIncident = ({
     return newIncident;
 };
 
-export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, user, assignees, linkedAssets, entity }) => {
+export const useIncidentHandler = ({
+    mode,
+    onSubmit,
+    incidentUrn,
+    user,
+    assignees,
+    linkedAssets,
+    entity,
+    currentIncident,
+}) => {
     const [raiseIncidentMutation] = useRaiseIncidentMutation();
     const [updateIncidentMutation] = useUpdateIncidentMutation();
     const [form] = Form.useForm();
@@ -184,6 +193,7 @@ export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, user, assignee
                             priority: values.priority || null,
                             assignees,
                             linkedAssets,
+                            created: currentIncident.created,
                         },
                         user,
                         incidentUrn,
