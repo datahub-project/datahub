@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { colors } from '@src/alchemy-components';
+import { Pill } from '@src/alchemy-components';
 import NavBarToggler from './NavBarToggler';
 import { useNavBarContext } from './NavBarContext';
 
@@ -23,7 +23,7 @@ const Logotype = styled.div`
     width: 28px;
     height: 28px;
     border-radius: 4px;
-    background: ${colors.white};
+    background: transparent;
     padding: 4px;
     position: relative;
 
@@ -42,6 +42,12 @@ const Title = styled.div`
     overflow: hidden;
     max-width: calc(100% - 30px);
     text-overflow: ellipsis;
+`;
+
+const TitleContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
 `;
 
 const StyledLink = styled(Link)`
@@ -63,7 +69,12 @@ export default function NavBarHeader({ logotype }: Props) {
         <Container>
             <StyledLink to="/">
                 <Logotype>{logotype}</Logotype>
-                {!isCollapsed ? <Title>DataHub</Title> : null}
+                {!isCollapsed ? (
+                    <TitleContainer>
+                        <Title>DataHub</Title>
+                        <Pill label="Core" size="sm" color="gray" clickable={false} />
+                    </TitleContainer>
+                ) : null}
             </StyledLink>
             {!isCollapsed && <NavBarToggler />}
         </Container>

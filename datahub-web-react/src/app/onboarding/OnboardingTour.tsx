@@ -1,5 +1,5 @@
 import { Button } from 'antd';
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect } from 'react';
 import Tour from 'reactour';
 import { useBatchUpdateStepStatesMutation } from '../../graphql/step.generated';
 import { EducationStepsContext } from '../../providers/EducationStepsContext';
@@ -9,6 +9,7 @@ import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { useIsThemeV2 } from '../useIsThemeV2';
 import { convertStepId, getConditionalStepIdsToAdd, getStepsToRender } from './utils';
 import useShouldSkipOnboardingTour from './useShouldSkipOnboardingTour';
+import OnboardingContext from './OnboardingContext';
 
 type Props = {
     stepIds: string[];
@@ -16,9 +17,8 @@ type Props = {
 
 export const OnboardingTour = ({ stepIds }: Props) => {
     const { educationSteps, setEducationSteps, educationStepIdsAllowlist } = useContext(EducationStepsContext);
+    const { isTourOpen, setIsTourOpen, tourReshow, setTourReshow } = useContext(OnboardingContext);
     const userUrn = useUserContext()?.user?.urn;
-    const [isOpen, setIsOpen] = useState(true);
-    const [reshow, setReshow] = useState(false);
     const isThemeV2 = useIsThemeV2();
     const accentColor = isThemeV2 ? REDESIGN_COLORS.BACKGROUND_PURPLE : '#5cb7b7';
 
@@ -26,26 +26,28 @@ export const OnboardingTour = ({ stepIds }: Props) => {
         function handleKeyDown(e) {
             // Allow reshow if Cmnd + Ctrl + T is pressed
             if (e.metaKey && e.ctrlKey && e.key === 't') {
-                setReshow(true);
-                setIsOpen(true);
+                setTourReshow(true);
+                setIsTourOpen(true);
             }
             if (e.metaKey && e.ctrlKey && e.key === 'h') {
-                setReshow(false);
-                setIsOpen(false);
+                setTourReshow(false);
+                setIsTourOpen(false);
             }
         }
         document.addEventListener('keydown', handleKeyDown);
-    }, []);
 
-    const steps = getStepsToRender(educationSteps, stepIds, userUrn || '', reshow);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [setIsTourOpen, setTourReshow]);
+
+    const steps = getStepsToRender(educationSteps, stepIds, userUrn || '', tourReshow);
     const filteredSteps = steps.filter((step) => step.id && educationStepIdsAllowlist.has(step.id));
     const filteredStepIds: string[] = filteredSteps.map((step) => step?.id).filter((stepId) => !!stepId) as string[];
 
     const [batchUpdateStepStates] = useBatchUpdateStepStatesMutation();
 
     function closeTour() {
-        setIsOpen(false);
-        setReshow(false);
+        setIsTourOpen(false);
+        setTourReshow(false);
         // add conditional steps where its pre-requisite step ID is in our list of IDs we mark as completed
         const conditionalStepIds = getConditionalStepIdsToAdd(stepIds, filteredStepIds);
         const finalStepIds = [...filteredStepIds, ...conditionalStepIds];
@@ -65,7 +67,7 @@ export const OnboardingTour = ({ stepIds }: Props) => {
         <Tour
             onRequestClose={closeTour}
             steps={filteredSteps}
-            isOpen={isOpen}
+            isOpen={isTourOpen}
             scrollOffset={-100}
             rounded={10}
             scrollDuration={500}
