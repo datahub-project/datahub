@@ -551,55 +551,69 @@ body {
   }
 }
 
+/* Algolia Search Modal Z-index & Position - DESKTOP */
+.DocSearch-Container {
+  z-index: 10000 !important;
+  top: 105px !important; /* Position overlay directly below fixed header+navbar (45px + 60px) */
+}
+
+.DocSearch-Modal {
+  margin-top: 10px !important; /* Add 10px gap between overlay top and modal */
+}
+
 /* Media queries for responsive design */
 @media (max-width: 768px) {
   div[class^="announcementBar"] {
-    div {
-      font-size: 0.8rem;
+    height: 65px !important; /* Increase height for stacked content */
+  }
 
-      .shimmer-banner {
-        font-size: 0.6rem;
-        flex-direction: column; /* Stack items vertically on very small screens */
+  div[class^="announcementBar"] .shimmer-banner {
+    flex-direction: column; /* Stack text and button */
+    padding: 0.3rem 1rem; /* Adjust padding */
+    justify-content: center; /* Center items vertically */
+    text-align: center; /* Center text */
+    gap: 0.5rem; /* Add space BETWEEN flex items */
 
-        p {
-          font-size: 0.8rem;
-        }
-
-        .button {
-          font-size: 0.6rem;
-          margin-top: 1px;
-        }
-      }
+    p {
+      font-size: 0.9rem;
+      margin-right: 0;
+      margin-top: 0;
+      margin-left: 0;
     }
+
+    .button {
+      margin-left: 0;
+      font-size: 0.7rem;
+      padding: 3px 10px;
+    }
+  }
+
+  /* Adjust body padding to account for taller announcement bar */
+  body {
+    padding-top: calc(65px + var(--ifm-navbar-height));
+  }
+
+  /* Adjust navbar top position */
+  .navbar {
+    top: 65px !important;
+  }
+
+  /* Adjust Search Modal position for taller header */
+  .DocSearch-Container {
+    top: 125px !important; /* 65px announcement + 60px navbar */
+  }
+  .DocSearch-Modal {
+    margin-top: 10px !important; /* Maintain 10px gap from container top */
   }
 }
 
 /* Extra small screens */
 @media (max-width: 480px) {
-  div[class^="announcementBar"] {
-    div {
-      font-size: 0.6rem;
-
-      .shimmer-banner {
-        font-size: 0.6rem;
-        justify-content: left;
-        flex-direction: column; /* Stack items vertically on very small screens */
-
-
-        p {
-          font-size: 0.6rem;
-          justify-content: left;
-        }
-
-        .button {
-          font-size: 0.6rem;
-          padding: 3px 10px;
-        }
-      }
-    }
+  div[class^="announcementBar"] .shimmer-banner p {
+    font-size: 0.8rem; /* Slightly smaller font for very narrow screens */
   }
+  /* Other overrides for extra small screens can go here if needed */
 }
-
 
 @keyframes expand-on-scroll {
   from {
