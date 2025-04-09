@@ -141,6 +141,7 @@ services:
         condition: service_healthy
     environment:
     - BACKFILL_BROWSE_PATHS_V2=true
+    - BOOTSTRAP_SYSTEM_UPDATE_EXECUTOR_POOLS_ENABLED=false
     - DATAHUB_GMS_HOST=datahub-gms
     - DATAHUB_GMS_PORT=8080
     - EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
