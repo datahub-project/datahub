@@ -163,9 +163,7 @@ public class ESSearchDAO {
                     .extractResult(opContext, searchResponse, filter, from, size));
           } catch (Exception e) {
             log.error("Search query failed", e);
-            log.error(
-                "Response to the failed search query: {}",
-                searchResponse == null ? "" : searchResponse.toString());
+            log.error("Response to the failed search query: {}", searchResponse);
             throw new ESQueryException("Search query failed:", e);
           } finally {
             log.debug("Returning from request {}.", id);
