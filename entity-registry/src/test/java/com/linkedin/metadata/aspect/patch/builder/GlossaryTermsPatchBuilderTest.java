@@ -21,7 +21,7 @@ public class GlossaryTermsPatchBuilderTest {
   private static final String TEST_ENTITY_URN =
       "urn:li:dataset:(urn:li:dataPlatform:hive,SampleTable,PROD)";
   private static final String TEST_GLOSSARY_TERM_URN =
-      "urn:li:glossaryTerm:TestTerm";
+      "urn:li:glossaryTerm:Test/Term";
 
   // Test helper class to expose protected method
   private static class TestableGlossaryTermsPatchBuilder

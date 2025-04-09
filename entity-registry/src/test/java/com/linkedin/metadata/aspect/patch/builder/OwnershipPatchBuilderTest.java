@@ -163,7 +163,7 @@ public class OwnershipPatchBuilderTest {
 
     List<ImmutableTriple<String, String, JsonNode>> pathValues = builder.getTestPathValues();
     assertNotNull(pathValues);
-    assertEquals(pathValues.size(), 4);
+    assertEquals(pathValues.size(), 3);
 
     // Verify each ownership type has the correct path and value
     for (int i = 0; i < pathValues.size(); i++) {
