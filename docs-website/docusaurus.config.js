@@ -82,13 +82,13 @@ module.exports = {
     //   },
     // }),
     announcementBar: {
-          id: "announcement-3",
-          content:
-            '<div style="display: flex; justify-content: center; align-items: center;width: 100%;"><!--img src="/img/acryl-logo-white-mark.svg" / --><!--div style="font-size: .8rem; font-weight: 600; background-color: white; color: #111; padding: 0px 8px; border-radius: 4px; margin-right:12px;">NEW</div--><p>Learn about DataHub 1.0</p><a href="https://youtu.be/B3IA6cLaKEk" target="_blank" class="button">Watch Now<span> →</span></a></div>',
-          backgroundColor: "#111",
-          textColor: "#ffffff",
-          isCloseable: false,
-        },
+      id: "announcement-3",
+      content:
+        '<div class="shimmer-banner"><p>DataHub now supports the Model Context Protocol (MCP)</p><a href="https://pages.acryl.io/datahub-mcp-server?utm_source=docs-website&utm_medium=announcement_banner&utm_campaign=mcp_announcement" target="_blank" class="button">Read the announcement<span> →</span></a></div>',
+      backgroundColor: "transparent",
+      textColor: "#ffffff",
+      isCloseable: false,
+    },
     colorMode: {
       // Only support light mode.
       defaultMode: 'light',
