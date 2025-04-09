@@ -32,12 +32,14 @@ public class GlossaryTermsPatchBuilder
       value.put(CONTEXT_KEY, context);
     }
 
-    pathValues.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), BASE_PATH + urn, value));
+    pathValues.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), BASE_PATH + encodeValueUrn(urn),
+        value));
     return this;
   }
 
   public GlossaryTermsPatchBuilder removeTerm(@Nonnull GlossaryTermUrn urn) {
-    pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), BASE_PATH + urn, null));
+    pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), BASE_PATH + encodeValueUrn(urn),
+        null));
     return this;
   }
 

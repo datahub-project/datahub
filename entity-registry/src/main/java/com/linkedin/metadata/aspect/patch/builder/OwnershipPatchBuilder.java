@@ -23,7 +23,8 @@ public class OwnershipPatchBuilder extends AbstractMultiFieldPatchBuilder<Owners
 
     pathValues.add(
         ImmutableTriple.of(
-            PatchOperationType.ADD.getValue(), BASE_PATH + owner + "/" + type, value));
+            PatchOperationType.ADD.getValue(), BASE_PATH + encodeValueUrn(owner) + "/" +
+                encodeValue(type.toString()), value));
 
     return this;
   }
@@ -36,7 +37,7 @@ public class OwnershipPatchBuilder extends AbstractMultiFieldPatchBuilder<Owners
    */
   public OwnershipPatchBuilder removeOwner(@Nonnull Urn owner) {
     pathValues.add(
-        ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), BASE_PATH + owner, null));
+        ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), BASE_PATH + encodeValueUrn(owner), null));
 
     return this;
   }
@@ -53,7 +54,8 @@ public class OwnershipPatchBuilder extends AbstractMultiFieldPatchBuilder<Owners
       @Nonnull Urn owner, @Nonnull OwnershipType type) {
     pathValues.add(
         ImmutableTriple.of(
-            PatchOperationType.REMOVE.getValue(), BASE_PATH + owner + "/" + type, null));
+            PatchOperationType.REMOVE.getValue(), BASE_PATH + encodeValueUrn(owner) + "/" +
+                encodeValue(type.toString()), null));
     return this;
   }
 
