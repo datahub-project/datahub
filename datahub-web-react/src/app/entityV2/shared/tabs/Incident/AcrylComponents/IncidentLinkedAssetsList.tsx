@@ -26,6 +26,7 @@ export const IncidentLinkedAssetsList = ({
     mode,
     setCachedLinkedAssets,
     setIsLinkedAssetsLoading,
+    currentDatasetUrn,
 }: IncidentLinkedAssetsListProps) => {
     const { urn } = useEntityData();
     const [getEntities, { data: resolvedLinkedAssets, loading: entitiesLoading }] = useGetEntitiesLazyQuery();
@@ -52,22 +53,27 @@ export const IncidentLinkedAssetsList = ({
     };
 
     const batchAddAssets = (entityUrns: Array<string>) => {
-        const updatedUrns = [...form.getFieldValue(RESOURCE_URN_FIELD_NAME), ...entityUrns];
+        const existingUrns = form.getFieldValue(RESOURCE_URN_FIELD_NAME) || [];
+        const updatedUrns = [...existingUrns, ...entityUrns];
         const uniqueUrns = [...new Set(updatedUrns)];
         form.setFieldValue(RESOURCE_URN_FIELD_NAME, uniqueUrns);
-        setIsBatchAddAssetListModalVisible(false);
         getEntities({
             variables: { urns: form.getFieldValue(RESOURCE_URN_FIELD_NAME) },
         });
+        setIsBatchAddAssetListModalVisible(false);
     };
 
     useEffect(() => {
         if (mode === IncidentAction.CREATE) {
-            getEntities({
-                variables: {
-                    urns: [urn],
-                },
-            });
+            const validUrn = urn || currentDatasetUrn;
+
+            if (validUrn) {
+                getEntities({
+                    variables: {
+                        urns: [validUrn],
+                    },
+                });
+            }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -75,7 +81,7 @@ export const IncidentLinkedAssetsList = ({
     useEffect(() => {
         setLinkedAssets(resolvedLinkedAssets?.entities as any);
         if (mode === IncidentAction.CREATE) {
-            form.setFieldValue(RESOURCE_URN_FIELD_NAME, [urn]);
+            form.setFieldValue(RESOURCE_URN_FIELD_NAME, [urn || currentDatasetUrn]);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [resolvedLinkedAssets]);

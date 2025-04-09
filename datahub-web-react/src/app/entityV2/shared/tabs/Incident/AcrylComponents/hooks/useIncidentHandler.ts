@@ -62,7 +62,7 @@ export const getCacheIncident = ({
 
         priority: values.priority,
         created: {
-            time: values.created || new Date(),
+            time: values.created || Date.now(),
             actor: user?.urn,
         },
         assignees: values.assignees,
@@ -79,7 +79,9 @@ export const useIncidentHandler = ({
     linkedAssets,
     entity,
     currentIncident,
+    currentDatasetUrn,
 }) => {
+    console.log('currentIncident: ', currentIncident);
     const [raiseIncidentMutation] = useRaiseIncidentMutation();
     const [updateIncidentMutation] = useUpdateIncidentMutation();
     const [form] = Form.useForm();
@@ -146,7 +148,7 @@ export const useIncidentHandler = ({
             const values = form.getFieldsValue();
             const baseInput = {
                 ...values,
-                resourceUrn: entity?.urn || urn,
+                resourceUrn: entity?.urn || urn || currentDatasetUrn,
                 status: {
                     stage: values.status,
                     state: values.state || IncidentState.Active,
@@ -174,11 +176,11 @@ export const useIncidentHandler = ({
                     incidentUrn: responseData?.data?.raiseIncident,
                     user,
                 });
-                updateActiveIncidentInCache(client, urn, newIncident, PAGE_SIZE);
+                updateActiveIncidentInCache(client, urn || currentDatasetUrn, newIncident, PAGE_SIZE);
                 analytics.event({
                     type: EventType.EntityActionEvent,
                     entityType,
-                    entityUrn: urn,
+                    entityUrn: urn || currentDatasetUrn,
                     actionType: EntityActionType.AddIncident,
                 });
             } else if (incidentUrn) {
@@ -198,7 +200,7 @@ export const useIncidentHandler = ({
                         user,
                         incidentUrn,
                     });
-                    updateActiveIncidentInCache(client, urn, updatedIncident, PAGE_SIZE);
+                    updateActiveIncidentInCache(client, urn || currentDatasetUrn, updatedIncident, PAGE_SIZE);
                 }
                 showMessage('Incident Updated');
             }

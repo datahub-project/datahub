@@ -22,6 +22,7 @@ type IncidentDetailDrawerProps = {
 };
 
 export const IncidentDetailDrawer = ({
+    urn,
     mode,
     onCancel,
     onSubmit,
@@ -82,6 +83,7 @@ export const IncidentDetailDrawer = ({
                         incidentUrn={incident?.urn}
                         entity={entity}
                         onSubmit={handleSubmit}
+                        currentDatasetUrn={urn}
                     />
                 ) : (
                     <IncidentView incident={incident as IncidentTableRow} />

@@ -101,6 +101,7 @@ export type IncidentEditorProps = {
     data?: IncidentTableRow;
     mode?: IncidentAction;
     entity?: EntityStagedForIncident;
+    currentDatasetUrn?: string;
 };
 
 export type IncidentLinkedAssetsListProps = {
@@ -109,6 +110,7 @@ export type IncidentLinkedAssetsListProps = {
     mode: IncidentAction;
     setCachedLinkedAssets: React.Dispatch<React.SetStateAction<any[]>>;
     setIsLinkedAssetsLoading: React.Dispatch<React.SetStateAction<boolean>>;
+    currentDatasetUrn?: string;
 };
 
 export interface TimelineContentDetails extends BaseItemType {
@@ -127,7 +129,7 @@ export enum IncidentConstant {
 
 export type EntityStagedForIncident = {
     urn: string;
-    platform: DataPlatform;
+    platform?: DataPlatform;
     entityType: EntityType;
 };
 
