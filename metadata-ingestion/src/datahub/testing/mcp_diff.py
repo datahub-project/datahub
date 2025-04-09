@@ -246,15 +246,7 @@ class MCPDiff:
                     print_aspects = False
                     for diff_level in diffs:
                         s.append(self.report_diff_level(diff_level, i))
-                        try:
-                            skip_print_fields = ["changeType", "headers"]
-                            if (
-                                diff_level.path(output_format="list")[1]
-                                not in skip_print_fields
-                            ):
-                                print_aspects = True
-                        except IndexError:
-                            print_aspects = True
+                        print_aspects |= self.is_diff_level_on_aspect(diff_level)
                     if verbose and print_aspects:
                         s.append(f"Old aspect:\n{serialize_aspect(old.aspect)}")
                         s.append(f"New aspect:\n{serialize_aspect(new.aspect)}")
@@ -283,6 +275,14 @@ class MCPDiff:
         return "\t" + deepdiff.serialization.pretty_print_diff(diff).replace(
             f"root[{idx}].", ""
         )
+
+    @staticmethod
+    def is_diff_level_on_aspect(diff: DiffLevel) -> bool:
+        skip_print_fields = ["changeType", "headers"]
+        try:
+            return diff.path(output_format="list")[1] not in skip_print_fields
+        except IndexError:
+            return True
 
 
 def serialize_aspect(aspect: Union[AspectForDiff, Dict[str, Any]]) -> str:
