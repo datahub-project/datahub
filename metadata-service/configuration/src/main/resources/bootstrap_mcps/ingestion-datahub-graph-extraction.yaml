@@ -7,7 +7,7 @@
   changeType: UPSERT
   aspect:
     type: 'datahub-reporting-extract-graph'
-    name: '{{ingestion.name}}{{^ingestion.name}}datahub-reporting-extract-graphq{{/ingestion.name}}'
+    name: '{{ingestion.name}}{{^ingestion.name}}datahub-reporting-extract-graph{{/ingestion.name}}'
     schedule:
       timezone: '{{schedule.timezone}}{{^schedule.timezone}}UTC{{/schedule.timezone}}'
       interval: '{{schedule.interval}}{{^schedule.interval}}0 1 30 2 *{{/schedule.interval}}'
