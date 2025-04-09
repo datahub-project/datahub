@@ -250,7 +250,7 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
                 rowid INTEGER PRIMARY KEY AUTOINCREMENT,
                 key TEXT UNIQUE,
                 value BLOB
-                {"".join(f", {column_name} BLOB" for column_name in self.extra_columns.keys())}
+                {"".join(f", {column_name} BLOB" for column_name in self.extra_columns)}
             )"""
         )
 
@@ -267,7 +267,7 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
         if self.indexes_created:
             return
         # The key column will automatically be indexed, but we need indexes for the extra columns.
-        for column_name in self.extra_columns.keys():
+        for column_name in self.extra_columns:
             self._conn.execute(
                 f"CREATE INDEX {self.tablename}_{column_name} ON {self.tablename} ({column_name})"
             )
@@ -305,12 +305,12 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
                 f"""INSERT INTO {self.tablename} (
                     key,
                     value
-                    {"".join(f", {column_name}" for column_name in self.extra_columns.keys())}
+                    {"".join(f", {column_name}" for column_name in self.extra_columns)}
                 )
                 VALUES ({", ".join(["?"] * (2 + len(self.extra_columns)))})
                 ON CONFLICT (key) DO UPDATE SET
                     value = excluded.value
-                    {"".join(f", {column_name} = excluded.{column_name}" for column_name in self.extra_columns.keys())}
+                    {"".join(f", {column_name} = excluded.{column_name}" for column_name in self.extra_columns)}
                 """,
                 items_to_write,
             )
@@ -321,7 +321,7 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
                         f"""INSERT INTO {self.tablename} (
                             key,
                             value
-                            {"".join(f", {column_name}" for column_name in self.extra_columns.keys())}
+                            {"".join(f", {column_name}" for column_name in self.extra_columns)}
                         )
                         VALUES ({", ".join(["?"] * (2 + len(self.extra_columns)))})""",
                         item,
@@ -330,7 +330,7 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
                     self._conn.execute(
                         f"""UPDATE {self.tablename} SET
                             value = ?
-                            {"".join(f", {column_name} = ?" for column_name in self.extra_columns.keys())}
+                            {"".join(f", {column_name} = ?" for column_name in self.extra_columns)}
                         WHERE key = ?""",
                         (*item[1:], item[0]),
                     )

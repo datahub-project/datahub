@@ -1,5 +1,5 @@
 import React from 'react';
-import { SelectOption } from '@src/alchemy-components/components/Select/Nested/types';
+import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { IncidentPriorityLabel } from '@src/alchemy-components/components/IncidentPriorityLabel';
 import { IncidentStagePill } from '@src/alchemy-components/components/IncidentStagePill';
 import { colors, SimpleSelect } from '@src/alchemy-components';
@@ -57,7 +57,7 @@ export const IncidentSelectField = ({
     const { label, name } = incidentLabelMap;
     const placeholder = label.toLowerCase() === IncidentConstant.PRIORITY ? 'priority level' : label.toLowerCase();
     const isRequiredField = label.toLowerCase() === IncidentConstant.CATEGORY;
-    const renderOption = (option: SelectOption) => {
+    const renderOption = (option: NestedSelectOption) => {
         switch (label) {
             case INCIDENT_OPTION_LABEL_MAPPING.category.label:
                 return option.label;
@@ -87,7 +87,7 @@ export const IncidentSelectField = ({
         }
     };
 
-    const renderSelectedValue = (selectedOption: SelectOption) => {
+    const renderSelectedValue = (selectedOption: NestedSelectOption) => {
         if (!selectedOption) {
             return null;
         }
