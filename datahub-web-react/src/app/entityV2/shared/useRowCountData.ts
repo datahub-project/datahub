@@ -3,8 +3,12 @@ import { getFixedLookbackWindow } from '@src/app/shared/time/timeUtils';
 import { useGetDataProfilesLazyQuery } from '@src/graphql/dataset.generated';
 import { useEffect, useMemo, useState } from 'react';
 import { Datum } from '@src/alchemy-components/components/LineChart/types';
-import { useStatsSectionsContext } from '../../StatsSectionsContext';
-import { addMonthOverMonthValue, groupTimeData, MAX_VALUE_AGGREGATION, TimeInterval } from '../utils';
+import {
+    addMonthOverMonthValue,
+    groupTimeData,
+    MAX_VALUE_AGGREGATION,
+    TimeInterval,
+} from './tabs/Dataset/Stats/StatsTabV2/graphs/utils';
 
 export interface RowCountData extends Datum {
     mom?: number | null;
@@ -15,11 +19,11 @@ interface Response {
     loading: boolean;
 }
 
-export default function useRowCountData(urn: string | undefined, lookbackWindow): Response {
-    const {
-        permissions: { canViewDatasetProfile },
-    } = useStatsSectionsContext();
-
+export default function useRowCountData(
+    urn: string | undefined,
+    lookbackWindow,
+    canViewDatasetProfile: boolean,
+): Response {
     // Required for the loading state to track if the lazy query has been called
     const [queryCalled, setQueryCalled] = useState(false);
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import styled from 'styled-components';
-import RowCountGraph from '../graphs/RowCountGraph/RowCountGraph';
+import StatsTabRowCountGraph from '../graphs/StatsTabRowCountGraph/StatsTabRowCountGraph';
 import { useStatsSectionsContext } from '../StatsSectionsContext';
 import { useGetStatsData } from '../useGetStatsData';
 import TopUsers from './TopUsers';
@@ -52,7 +52,7 @@ const RowsAndUsers = () => {
         <SectionWrapper>
             <Container>
                 <GraphWrapper>
-                    <RowCountGraph />
+                    <StatsTabRowCountGraph />
                 </GraphWrapper>
                 <TopUsers users={users || undefined} />
             </Container>

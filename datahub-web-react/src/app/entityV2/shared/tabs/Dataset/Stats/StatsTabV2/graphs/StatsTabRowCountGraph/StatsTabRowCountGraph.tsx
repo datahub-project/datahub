@@ -1,23 +1,19 @@
-import { GraphCard, LineChart } from '@components';
-import { pluralize } from '@src/app/shared/textUtil';
 import { AssertionType, TimeRange } from '@src/types.generated';
-import dayjs from 'dayjs';
 import React, { useEffect, useState } from 'react';
-import { formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
 import { LookbackWindow } from '../../../lookbackWindows';
 import { useStatsSectionsContext } from '../../StatsSectionsContext';
 import { SectionKeys } from '../../utils';
-import AddAssertionButton from '../components/AddAssertionButton';
-import GraphPopover from '../components/GraphPopover';
-import MonthOverMonthPill from '../components/MonthOverMonthPill';
-import MoreInfoModalContent from '../components/MoreInfoModalContent';
-import TimeRangeSelect from '../components/TimeRangeSelect';
 import { GRAPH_LOOKBACK_WINDOWS, GRAPH_LOOKBACK_WINDOWS_OPTIONS } from '../constants';
 import useGetTimeRangeOptionsByLookbackWindow from '../hooks/useGetTimeRangeOptionsByLookbackWindow';
-import NoPermission from '../NoPermission';
-import useRowCountData, { RowCountData } from './useRowCountData';
+import useRowCountData from '../../../../../../useRowCountData';
+import RowCountGraph from '../../../../../../graphs/RowCountGraph';
+import AddAssertionButton from '../components/AddAssertionButton';
+import TimeRangeSelect from '../components/TimeRangeSelect';
+import MoreInfoModalContent from '../components/MoreInfoModalContent';
 
-export default function RowCountGraph() {
+const DEFAULT_GRAPH_NAME = 'Row Count';
+
+export default function StatsTabRowCountGraph(): JSX.Element {
     const {
         sections,
         setSectionState,
@@ -32,7 +28,7 @@ export default function RowCountGraph() {
     const [lookbackWindow, setLookbackWindow] = useState<LookbackWindow>(GRAPH_LOOKBACK_WINDOWS.MONTH);
     const [rangeType, setRangeType] = useState<string | null>(TimeRange.Month);
 
-    const { data, loading: dataLoading } = useRowCountData(statsEntityUrn, lookbackWindow);
+    const { data, loading: dataLoading } = useRowCountData(statsEntityUrn, lookbackWindow, canViewDatasetProfile);
 
     const loading = capabilitiesLoading || dataLoading;
 
@@ -49,42 +45,22 @@ export default function RowCountGraph() {
         if (rangeType) setLookbackWindow(GRAPH_LOOKBACK_WINDOWS[rangeType]);
     }, [rangeType, setLookbackWindow]);
 
-    const chartName = 'Row Count';
-
     return (
-        <GraphCard
-            title={chartName}
-            isEmpty={data.length === 0 || !canViewDatasetProfile}
-            emptyContent={!canViewDatasetProfile && <NoPermission statName="row count" />}
+        <RowCountGraph
+            data={data}
             loading={loading}
-            graphHeight="290px"
+            canViewDatasetProfile={canViewDatasetProfile}
             renderControls={() => (
                 <>
-                    <AddAssertionButton assertionType={AssertionType.Volume} chartName={chartName} />
-
+                    <AddAssertionButton assertionType={AssertionType.Volume} chartName={DEFAULT_GRAPH_NAME} />
                     <TimeRangeSelect
                         options={timeRangeOptions}
                         values={rangeType ? [rangeType] : []}
                         onUpdate={setRangeType}
                         loading={loading}
-                        chartName={chartName}
+                        chartName={DEFAULT_GRAPH_NAME}
                     />
                 </>
-            )}
-            renderGraph={() => (
-                <LineChart
-                    data={data}
-                    bottomAxisProps={{ tickFormat: (x) => dayjs(x).format('DD MMM') }}
-                    leftAxisProps={{ hideZero: true }}
-                    margin={{ left: 50 }}
-                    popoverRenderer={(datum: RowCountData) => (
-                        <GraphPopover
-                            header={dayjs(datum.x).format('dddd. MMM. D ’YY')}
-                            value={`${formatNumberWithoutAbbreviation(datum.y)} ${pluralize(datum.y, 'Row')}`}
-                            pills={<MonthOverMonthPill value={datum.mom} />}
-                        />
-                    )}
-                />
             )}
             moreInfoModalContent={<MoreInfoModalContent />}
         />

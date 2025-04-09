@@ -11,6 +11,7 @@ import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '../../..
 import { AcrylAssertionList } from './AssertionList/AcrylAssertionList';
 import { AcrylAssertionSummaryTab } from './AssertionList/Summary/AcrylAssertionSummaryTab';
 import { ValidationTabPaths } from './constants';
+import { QualityTabContextProvider } from './QualityTabContextProvider';
 
 const TabTitle = styled.span`
     margin-left: 4px;
@@ -142,9 +143,11 @@ export const AcrylValidationsTab = () => {
                     </Tooltip>
                 ))}
             </TabToolbar>
-            <TabContentWrapper>
-                {tabs.filter((tab) => tab.path === selectedTab).map((tab) => tab.content)}
-            </TabContentWrapper>
+            <QualityTabContextProvider>
+                <TabContentWrapper>
+                    {tabs.filter((tab) => tab.path === selectedTab).map((tab) => tab.content)}
+                </TabContentWrapper>
+            </QualityTabContextProvider>
         </>
     );
 };

@@ -19,6 +19,7 @@ import {
     AI_INFERRED_ASSERTION_DEFAULT_SCHEDULE_TIMEZONE,
 } from '../../constants';
 import { VolumeInferenceAdjuster } from '../inferred/VolumeInferenceAdjuster';
+import QualityTabRowCountGraph from '../../../../shared/QualityTabRowCountGraph';
 
 const Section = styled.div`
     display: flex;
@@ -141,6 +142,8 @@ export const VolumeAssertionBuilder = ({ state, updateState, disabled, isEditMod
                     isEditMode={isEditMode}
                 />
             )}
+            <QualityTabRowCountGraph />
+            <br />
             {/* hidden for ai inferred assertions */}
             {!isAiInferenceSelected && (
                 <VolumeParametersBuilder
