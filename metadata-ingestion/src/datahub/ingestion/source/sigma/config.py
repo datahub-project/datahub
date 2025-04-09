@@ -118,7 +118,9 @@ class SigmaWorkspaceEntityFilterReport(EntityFilterReport):
 
 @dataclass
 class SigmaSourceReport(StaleEntityRemovalSourceReport):
-    workspaces: SigmaWorkspaceEntityFilterReport = SigmaWorkspaceEntityFilterReport()
+    workspaces: SigmaWorkspaceEntityFilterReport = field(
+        default_factory=SigmaWorkspaceEntityFilterReport
+    )
     non_accessible_workspaces_count: int = 0
 
     datasets: EntityFilterReport = EntityFilterReport.field(type="dataset")
