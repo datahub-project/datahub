@@ -1,42 +1,63 @@
+# This image has two variants: full and slim.
 ARG APP_ENV=full
-ARG BASE_IMAGE=base
+ARG PYTHON_VERSION=3.10
 
-# Defining custom repo urls for use in enterprise environments. Re-used between stages below.
-ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
-ARG GITHUB_REPO_URL=https://github.com
-ARG DEBIAN_REPO_URL=https://deb.debian.org/debian
+# INLINE-BEGIN @/docker/snippets/ingestion_base
+# This is the "base" image workflow.
+# While it has a bunch of intermediate stages, it "exports" a couple
+# stages for consumption.
+# - base-empty: A basic stage, with basic deps, Python, and a venv.
+# - base-slim: Currently the same as base-empty.
+# - base-full: Adds a JRE and Oracle client.
+
+FROM ubuntu:24.04 AS base-empty
+
+ARG PYTHON_VERSION
+RUN test -n "${PYTHON_VERSION}"  # PYTHON_VERSION must be set
+
+# TODO: This may not work on Ubuntu 24.04 due to the new deb822 package format.
 ARG UBUNTU_REPO_URL=http://ports.ubuntu.com/ubuntu-ports
-ARG PIP_MIRROR_URL=https://pypi.python.org/simple
-
-FROM ubuntu:24.04 AS base
-
-ARG GITHUB_REPO_URL
-
-ENV DEBIAN_FRONTEND=noninteractive
-
-# Optionally set corporate mirror for deb
-ARG DEBIAN_REPO_URL
-ARG UBUNTU_REPO_URL
-RUN if [ "${DEBIAN_REPO_URL}" != "http://deb.debian.org/debian" ] ; then sed -i "s#http.*://deb.debian.org/debian#${DEBIAN_REPO_URL}#g" /etc/apt/sources.list ; fi
 RUN if [ "${UBUNTU_REPO_URL}" != "http://ports.ubuntu.com/ubuntu-ports" ] ; then sed -i "s#http.*://ports.ubuntu.com/ubuntu-ports#${UBUNTU_REPO_URL}#g" /etc/apt/sources.list ; fi
 
-# Install software-properties-common to add PPAs
+
+ENV HOME=/home/datahub
+RUN existing_group=$(getent group 1000 | cut -d: -f1) && \
+    if [ -n "$existing_group" ] && [ "$existing_group" != "datahub" ]; then \
+        echo "Renaming existing group $existing_group to datahub"; \
+        groupmod -n datahub "$existing_group"; \
+    elif [ -z "$existing_group" ]; then \
+        echo "Creating new group datahub with GID 1000"; \
+        addgroup --gid 1000 datahub; \
+    fi && \
+    existing_user=$(id -nu 1000 2>/dev/null || echo "") && \
+    if [ -n "$existing_user" ] && [ "$existing_user" != "datahub" ]; then \
+        echo "Renaming existing user $existing_user to datahub"; \
+        usermod -l datahub -d $HOME "$existing_user"; \
+        usermod -g datahub datahub; \
+    elif [ -z "$existing_user" ]; then \
+        echo "Creating new user datahub with UID 1000"; \
+        adduser --disabled-password --uid 1000 --gid 1000 --home $HOME datahub; \
+    fi && \
+    # Create and set proper permissions for datahub directories
+    mkdir -p $HOME && \
+    chown -R datahub:datahub $HOME
+
+
+# Setup the PPA for alternative Python versions.
+# TODO: Eventually we should switch to using uv's support for python-build-standalone.
 RUN apt-get update && apt-get install -y \
     software-properties-common \
     lsb-release \
     gnupg \
     ca-certificates \
+    && add-apt-repository --no-update ppa:deadsnakes/ppa \
     && rm -rf /var/lib/apt/lists/*
 
-# Add deadsnakes PPA for Python 3.10
-RUN add-apt-repository ppa:deadsnakes/ppa
-
-RUN apt-get update && apt-get upgrade -y \
-    && apt-get install -y -qq \
-    python3.10 \
-    python3.10-venv \
-    python3.10-dev \
-    python3.10-distutils \
+RUN apt-get update && apt-get install -y \
+    python${PYTHON_VERSION} \
+    python${PYTHON_VERSION}-venv \
+    python${PYTHON_VERSION}-dev \
+    python${PYTHON_VERSION}-distutils \
     python3-pip \
     python3-ldap \
     python-is-python3 \
@@ -61,64 +82,49 @@ RUN apt-get update && apt-get upgrade -y \
     && apt-get clean \
     && rm -rf /var/lib/{apt,dpkg,cache,log}/
 
-# Set Python 3.10 as the default python3
-RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1 \
+# Set the default python version.
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1 \
     && update-alternatives --install /usr/bin/python python /usr/bin/python3 1
 
-# Optionally set corporate mirror for pip
-ARG PIP_MIRROR_URL
-RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+ARG PIP_MIRROR_URL=https://pypi.python.org/simple
+RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi
 ENV UV_INDEX_URL=${PIP_MIRROR_URL}
 
-COPY --from=powerman/dockerize:0.19 /usr/local/bin/dockerize /usr/local/bin
-
-COPY ./docker/datahub-ingestion-base/entrypoint.sh /entrypoint.sh
-
-RUN existing_group=$(getent group 1000 | cut -d: -f1) && \
-    if [ -n "$existing_group" ] && [ "$existing_group" != "datahub" ]; then \
-        echo "Renaming existing group $existing_group to datahub"; \
-        groupmod -n datahub "$existing_group"; \
-    elif [ -z "$existing_group" ]; then \
-        echo "Creating new group datahub with GID 1000"; \
-        addgroup --gid 1000 datahub; \
-    fi && \
-    existing_user=$(id -nu 1000 2>/dev/null || echo "") && \
-    if [ -n "$existing_user" ] && [ "$existing_user" != "datahub" ]; then \
-        echo "Renaming existing user $existing_user to datahub"; \
-        usermod -l datahub -d /datahub-ingestion "$existing_user"; \
-        usermod -g datahub datahub; \
-    elif [ -z "$existing_user" ]; then \
-        echo "Creating new user datahub with UID 1000"; \
-        adduser --disabled-password --uid 1000 --gid 1000 --home /datahub-ingestion datahub; \
-    fi && \
-    # Create and set proper permissions for datahub directories
-    mkdir -p /datahub-ingestion && \
-    chown -R datahub:datahub /datahub-ingestion && \
-    chmod +x /entrypoint.sh
-
 USER datahub
-ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
-ENV VIRTUAL_ENV=/datahub-ingestion/.venv
+WORKDIR $HOME
+RUN uv venv --python "$PYTHON_VERSION"
+ENV VIRTUAL_ENV=$HOME/.venv
 ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
-RUN python3 -m venv $VIRTUAL_ENV && \
-    pip install --no-cache --upgrade pip 'uv>=0.1.10' && \
-    uv pip install --no-cache --upgrade setuptools wheel python-ldap
+# Requests comes with it's own CA bundle, but we want to use always use the system CA bundle.
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 
-# Note: Normally uv will create hardlinks from the cache directory to the venv.
-# In our docker files, we normally use `RUN --mount=type=cache,... uv pip install ...`,
-# which means the cache directory is on a separate filesystem. uv will emit a warning:
-#   Failed to hardlink files; falling back to full copy. This may lead to degraded performance.
-#   If the cache and target directories are on different filesystems, hardlinking may not be supported.
-#   If this is intentional, set `export UV_LINK_MODE=copy` or use `--link-mode=copy` to suppress this warning.
 
-ENTRYPOINT [ "/entrypoint.sh" ]
-
-FROM ${BASE_IMAGE} AS full-install
+FROM base-empty AS full-deps-prebuild
 
 USER 0
-RUN apt-get update && apt-get install -y -qq \
+RUN apt-get update && apt-get install --no-install-recommends -y -qq \
+    build-essential \
+    maven \
+    && rm -rf /var/lib/apt/lists/*
+USER datahub
+
+RUN uv pip install python-ldap==3.4.4
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000 \
+    --mount=type=bind,source=./docker/datahub-ingestion/pyspark_jars.sh,target=/pyspark_jars.sh \
+    uv pip install python-ldap==3.4.4 pyspark~=3.5.0 && \
+    /pyspark_jars.sh
+
+FROM base-empty AS base-slim
+# Nothing to do here.
+
+FROM base-slim AS base-full
+
+USER 0
+RUN apt-get update && apt-get install --no-install-recommends -y -qq \
     default-jre-headless \
-    && rm -rf /var/lib/apt/lists/* /var/cache/apk/*
+    && rm -rf /var/lib/apt/lists/*
 
 RUN if [ $(arch) = "x86_64" ]; then \
     mkdir /opt/oracle && \
@@ -140,9 +146,13 @@ RUN if [ $(arch) = "x86_64" ]; then \
 
 USER datahub
 
-FROM ${BASE_IMAGE} AS slim-install
-# Do nothing else on top of base
+RUN --mount=from=full-deps-prebuild,source=$HOME/.venv,target=/venv-full \
+    rm -r .venv && \
+    cp -r /venv-full .venv
+# INLINE-END
 
-FROM ${APP_ENV}-install
+FROM base-${APP_ENV} AS final
 
+COPY ./docker/datahub-ingestion-base/entrypoint.sh /entrypoint.sh
+ENTRYPOINT [ "/entrypoint.sh" ]
 ENV PATH="/datahub-ingestion/.local/bin:$PATH"
