@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { useRaiseIncidentMutation, useUpdateIncidentMutation } from '@src/graphql/mutations.generated';
 import { EntityType, IncidentSourceType, IncidentState } from '@src/types.generated';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
@@ -79,12 +78,11 @@ export const useIncidentHandler = ({
     linkedAssets,
     entity,
     currentIncident,
-    currentDatasetUrn,
+    urn,
 }) => {
     const [raiseIncidentMutation] = useRaiseIncidentMutation();
     const [updateIncidentMutation] = useUpdateIncidentMutation();
     const [form] = Form.useForm();
-    const { urn, entityType } = useEntityData();
     const client = useApolloClient();
     const isAddIncidentMode = mode === IncidentAction.CREATE;
 
@@ -147,7 +145,7 @@ export const useIncidentHandler = ({
             const values = form.getFieldsValue();
             const baseInput = {
                 ...values,
-                resourceUrn: entity?.urn || urn || currentDatasetUrn,
+                resourceUrn: entity?.urn || urn,
                 status: {
                     stage: values.status,
                     state: values.state || IncidentState.Active,
@@ -175,11 +173,11 @@ export const useIncidentHandler = ({
                     incidentUrn: responseData?.data?.raiseIncident,
                     user,
                 });
-                updateActiveIncidentInCache(client, urn || currentDatasetUrn, newIncident, PAGE_SIZE);
+                updateActiveIncidentInCache(client, urn, newIncident, PAGE_SIZE);
                 analytics.event({
                     type: EventType.EntityActionEvent,
-                    entityType,
-                    entityUrn: urn || currentDatasetUrn,
+                    entityType: entity?.entityType,
+                    entityUrn: urn,
                     actionType: EntityActionType.AddIncident,
                 });
             } else if (incidentUrn) {
@@ -199,7 +197,7 @@ export const useIncidentHandler = ({
                         user,
                         incidentUrn,
                     });
-                    updateActiveIncidentInCache(client, urn || currentDatasetUrn, updatedIncident, PAGE_SIZE);
+                    updateActiveIncidentInCache(client, urn, updatedIncident, PAGE_SIZE);
                 }
                 showMessage('Incident Updated');
             }

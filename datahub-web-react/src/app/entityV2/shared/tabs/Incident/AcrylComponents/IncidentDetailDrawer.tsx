@@ -83,7 +83,7 @@ export const IncidentDetailDrawer = ({
                         incidentUrn={incident?.urn}
                         entity={entity}
                         onSubmit={handleSubmit}
-                        currentDatasetUrn={urn}
+                        urn={urn}
                     />
                 ) : (
                     <IncidentView incident={incident as IncidentTableRow} />
