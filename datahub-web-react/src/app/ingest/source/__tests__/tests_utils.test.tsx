@@ -1,13 +1,14 @@
+import { vi, describe, test, expect, beforeEach, afterAll } from 'vitest';
 import { getEntitiesIngestedByType } from '../utils';
 import { ExecutionRequestResult } from '../../../../types.generated';
-import { vi, describe, test, expect, beforeEach, afterAll } from 'vitest';
+
 
 // Mock the structuredReport property of ExecutionRequestResult
 const mockExecutionRequestResult = (structuredReportData: any): Partial<ExecutionRequestResult> => {
     return {
         structuredReport: {
-            serializedValue: JSON.stringify(structuredReportData)
-        }
+            serializedValue: JSON.stringify(structuredReportData),
+        },
     } as Partial<ExecutionRequestResult>;
 };
 
@@ -35,8 +36,8 @@ describe('getEntitiesIngestedByType', () => {
             source: {
                 report: {
                     // Missing aspects property to trigger exception
-                }
-            }
+                },
+            },
         };
         
         const result = getEntitiesIngestedByType(mockExecutionRequestResult(malformedReport));
@@ -51,18 +52,18 @@ describe('getEntitiesIngestedByType', () => {
                     aspects: {
                         container: {
                             containerProperties: 156,
-                            container: 117
+                            container: 117,
                         },
                         dataset: {
                             status: 1505,
                             schemaMetadata: 1505,
                             datasetProperties: 1505,
                             container: 1505,
-                            operation: 1521
-                        }
-                    }
-                }
-            }
+                            operation: 1521,
+                        },
+                    },
+                },
+            },
         };
         
         const result = getEntitiesIngestedByType(mockExecutionRequestResult(structuredReport));
@@ -70,11 +71,11 @@ describe('getEntitiesIngestedByType', () => {
         expect(result).toEqual([
             {
                 count: 156,
-                displayName: 'container'
+                displayName: 'container',
             },
             {
                 count: 1521,
-                displayName: 'dataset'
+                displayName: 'dataset',
             }
         ]);
     });
@@ -83,9 +84,9 @@ describe('getEntitiesIngestedByType', () => {
         const structuredReport = {
             source: {
                 report: {
-                    aspects: {}
-                }
-            }
+                    aspects: {},
+                },
+            },
         };
         
         const result = getEntitiesIngestedByType(mockExecutionRequestResult(structuredReport));
@@ -99,18 +100,18 @@ describe('getEntitiesIngestedByType', () => {
                     aspects: {
                         container: {
                             containerProperties: '156',
-                            container: 117
-                        }
-                    }
-                }
-            }
+                            container: 117,
+                        },
+                    },
+                },
+            },
         };
         
         const result = getEntitiesIngestedByType(mockExecutionRequestResult(structuredReport));
         expect(result).toEqual([
             {
                 count: 156,
-                displayName: 'container'
+                displayName: 'container',
             }
         ]);
     });
