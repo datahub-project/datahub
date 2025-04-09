@@ -147,6 +147,9 @@
         "lastObserved": 1615443388097,
         "runId": "snowflake-2025_01_07-13_38_56-3fo398",
         "lastRunId": "no-run-id-provided"
+    },
+    "headers": {
+        "If-None-Match": "*"
     }
 },
 {
@@ -3002,6 +3005,9 @@
         "lastObserved": 1615443388097,
         "runId": "snowflake-2025_01_07-13_38_56-3fo398",
         "lastRunId": "no-run-id-provided"
+    },
+    "headers": {
+        "If-None-Match": "*"
     }
 },
 {
@@ -3342,6 +3348,9 @@
         "lastObserved": 1615443388097,
         "runId": "snowflake-2025_01_07-13_38_56-3fo398",
         "lastRunId": "no-run-id-provided"
+    },
+    "headers": {
+        "If-None-Match": "*"
     }
 },
 {
@@ -3371,6 +3380,9 @@
         "lastObserved": 1615443388097,
         "runId": "snowflake-2025_01_07-13_38_56-3fo398",
         "lastRunId": "no-run-id-provided"
+    },
+    "headers": {
+        "If-None-Match": "*"
     }
 },
 {

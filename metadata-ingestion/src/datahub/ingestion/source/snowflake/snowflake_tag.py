@@ -113,6 +113,7 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
             entityUrn=urn,
             aspect=aspect,
             changeType=ChangeTypeClass.CREATE,
+            headers={"If-None-Match": "*"},
         ).as_workunit()
 
     def _get_tags_on_object_with_propagation(
