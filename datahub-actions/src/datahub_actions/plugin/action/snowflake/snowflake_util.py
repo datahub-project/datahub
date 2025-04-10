@@ -127,4 +127,4 @@ class SnowflakeTagHelper(Closeable):
             )
 
     def close(self) -> None:
-        return super().close()
+        return

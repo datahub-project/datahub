@@ -61,7 +61,7 @@ class SnowflakeTagPropagatorAction(Action):
 
     def close(self) -> None:
         self.snowflake_tag_helper.close()
-        return super().close()
+        return
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Action":

@@ -158,4 +158,4 @@ class TagPropagationAction(Action):
                 logger.debug(f"Not propagating {tag_propagation_directive.tag}")
 
     def close(self) -> None:
-        return super().close()
+        return
