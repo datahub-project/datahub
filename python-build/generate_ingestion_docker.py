@@ -31,13 +31,9 @@ def update_template(
 
     render_mode = bool(outfile)
 
-    subs = 0
     content = template_file.read_text()
 
     def handle_multiline(match: re.Match) -> str:
-        nonlocal subs
-        subs += 1
-
         path = match.group(2)
         replacement = _load_file(path, template_file.parent).strip()
         replacement = replacement.strip() + "\n"
@@ -48,7 +44,7 @@ def update_template(
             return f"{match.group(1)}{replacement}{match.group(3)}"
 
     # Handle multiline inline directives
-    content = re.sub(
+    content, subs = re.subn(
         r"^([ \t]*# INLINE-BEGIN (.*?)\n).*?^([ \t]*# INLINE-END)$",
         handle_multiline,
         content,
