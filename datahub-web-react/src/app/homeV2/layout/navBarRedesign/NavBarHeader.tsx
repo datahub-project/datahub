@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { Pill } from '@src/alchemy-components';
+import { colors, Pill } from '@src/alchemy-components';
 import NavBarToggler from './NavBarToggler';
 import { useNavBarContext } from './NavBarContext';
 
@@ -12,7 +12,7 @@ const Container = styled.div`
     min-height: 40px;
     align-items: center;
     gap: 8px;
-    padding-left: 4px;
+    margin-left: -3px;
     transition: padding 250ms ease-in-out;
 `;
 
@@ -20,42 +20,42 @@ const Logotype = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    min-height: 24px;
+    max-height: 24px;
+    max-width: 42px;
     border-radius: 4px;
-    background: transparent;
-    padding: 4px;
     position: relative;
-
-    & svg {
-        height: 20px;
-        width: 20px;
+    object-fit: contain;
+    & svg,
+    img {
+        max-height: 24px;
+        max-width: 42px;
+        min-width: 42px;
+        object-fit: contain;
     }
 `;
 
 const Title = styled.div`
-    color: #374066;
+    color: ${colors.gray[1700]};
     font-style: normal;
-    font: 700 16px/40px Mulish;
+    font: 700 16px Mulish;
     text-wrap: nowrap;
     white-space: nowrap;
     overflow: hidden;
     max-width: calc(100% - 30px);
     text-overflow: ellipsis;
-`;
-
-const TitleContainer = styled.div`
+    height: 24px;
     display: flex;
-    align-items: center;
-    gap: 8px;
+    align-items: end;
 `;
 
 const StyledLink = styled(Link)`
     display: flex;
     height: 40px;
     align-items: center;
-    gap: 8px;
     max-width: calc(100% - 40px);
+    width: 100%;
+    gap: 8px;
 `;
 
 type Props = {
@@ -69,12 +69,8 @@ export default function NavBarHeader({ logotype }: Props) {
         <Container>
             <StyledLink to="/">
                 <Logotype>{logotype}</Logotype>
-                {!isCollapsed ? (
-                    <TitleContainer>
-                        <Title>DataHub</Title>
-                        <Pill label="Core" size="sm" color="gray" clickable={false} />
-                    </TitleContainer>
-                ) : null}
+                {!isCollapsed ? <Title>DataHub</Title> : null}
+                {!isCollapsed && <Pill label="Core" variant="filled" color="gray" size="sm" />}
             </StyledLink>
             {!isCollapsed && <NavBarToggler />}
         </Container>
