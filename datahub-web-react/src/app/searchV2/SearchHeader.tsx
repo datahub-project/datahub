@@ -11,12 +11,13 @@ import { V2_SEARCH_BAR_ID } from '@app/onboarding/configV2/HomePageOnboardingCon
 import { SearchBar } from '@app/searchV2/SearchBar';
 import { FiltersAppliedHandler } from '@app/searchV2/filtersV2/types';
 import { SearchBarV2 } from '@app/searchV2/searchBarV2/SearchBarV2';
+import { SearchResponse } from '@app/searchV2/useSearchBarData';
 import useSearchViewAll from '@app/searchV2/useSearchViewAll';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
-import { AutoCompleteResultForEntity, Entity, FacetMetadata } from '@types';
+import { AutoCompleteResultForEntity } from '@types';
 
 const getStyles = ($isShowNavBarRedesign?: boolean) => {
     return {
@@ -131,9 +132,7 @@ type Props = {
     onQueryChange: (query: string) => void;
     onFilter?: FiltersAppliedHandler;
     entityRegistry: EntityRegistry;
-    facets?: FacetMetadata[];
-    entities?: Entity[];
-    isDataLoading?: boolean;
+    searchResponse?: SearchResponse;
 };
 
 /**
@@ -147,9 +146,7 @@ export const SearchHeader = ({
     onQueryChange,
     entityRegistry,
     onFilter,
-    facets,
-    entities,
-    isDataLoading,
+    searchResponse,
 }: Props) => {
     const [, setIsSearchBarFocused] = useState(false);
     const appConfig = useAppConfig();
@@ -195,9 +192,7 @@ export const SearchHeader = ({
                             showQuickFilters
                             showViewAllResults
                             showCommandK
-                            facets={facets}
-                            entities={entities}
-                            isDataLoading={isDataLoading}
+                            searchResponse={searchResponse}
                         />
                         {isShowNavBarRedesign && (
                             <StyledButton type="link" onClick={searchViewAll}>
