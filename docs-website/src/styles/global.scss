@@ -130,9 +130,9 @@ div[class^="announcementBar"] {
         75deg,
         #1c1e21 0%,    /* Gray 800 */
         #202327 16%,   /* Mid-point */
-        #2d2d23 32%,   /* Slightly lighter - yellow streak */
+        #28343e 32%,   /* Slightly lighter - blue streak */
         #28372e 48%,   /* Slightly lighter - green streak */
-        #28343e 64%,   /* Slightly lighter - blue streak */
+        #2d2d23 64%,   /* Slightly lighter - yellow streak */
         #202327 80%,   /* Mid-point */
         #1c1e21 100%   /* Gray 800 */
       );
@@ -574,7 +574,7 @@ body {
     padding: auto 1rem; /* Adjust padding */
     justify-content: center; /* Center items vertically */
     text-align: center; /* Center text */
-    gap: 0.1rem; /* Add space BETWEEN flex items */
+    gap: 0.2rem; /* Add space BETWEEN flex items */
 
     p {
       font-size: 0.9rem;
