@@ -36,26 +36,28 @@ ext {
                             ':datahub-frontend',
                             ':metadata-jobs:mce-consumer-job',
                             ':metadata-jobs:mae-consumer-job',
-                            ':datahub-actions:datahub-actions',
+                            ':datahub-actions',
                     ]
             ],
             'quickstartDebug': [
                     profile: 'debug',
-                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend'],
+                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
                     isDebug: true
             ],
             'quickstartDebugConsumers': [
                     profile: 'debug-consumers',
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend',
                                                                           ':metadata-jobs:mce-consumer-job',
-                                                                          ':metadata-jobs:mae-consumer-job'],
+                                                                          ':metadata-jobs:mae-consumer-job',
+                                                                          ':datahub-actions:datahub-actions'],
                     isDebug: true
             ],
             'quickstartPg': [
                     profile: 'quickstart-postgres',
                     modules: (backend_profile_modules - [':docker:mysql-setup']) + [
                             ':docker:postgres-setup',
-                            ':datahub-frontend'
+                            ':datahub-frontend',
+                            ':datahub-actions',
                     ]
             ],
             'quickstartPgDebug': [

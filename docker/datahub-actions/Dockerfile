@@ -33,7 +33,7 @@ RUN chmod a+x /start_datahub_actions.sh && \
     apt-get clean && \
     rm -rf /var/lib/{apt,dpkg,cache,log}/
 
-COPY --chown=datahub:datahub ./datahub-actions/datahub-actions /actions-src
+COPY --chown=datahub:datahub ./datahub-actions /actions-src
 # Add other default configurations into this!
 COPY --chown=datahub:datahub ./docker/datahub-actions/config /etc/datahub/actions/system/conf
 

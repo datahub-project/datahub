@@ -4,4 +4,7 @@ docker/datahub-actions/Dockerfile
 **build/
 **venv/
 **tests/
+**smoke-test/
 **/*.xml
+.*/
+datahub-actions/.*/
