@@ -104,6 +104,7 @@ export type IncidentEditorProps = {
 };
 
 export type IncidentLinkedAssetsListProps = {
+    initialUrn?: string;
     form: any;
     data?: IncidentTableRow;
     mode: IncidentAction;
@@ -127,8 +128,8 @@ export enum IncidentConstant {
 
 export type EntityStagedForIncident = {
     urn: string;
-    platform: DataPlatform;
-    entityType: EntityType;
+    platform?: DataPlatform;
+    entityType?: EntityType;
 };
 
 export type IncidentBuilderSiblingOptions = {
@@ -139,5 +140,5 @@ export type IncidentBuilderSiblingOptions = {
 export type CreateIncidentButtonProps = {
     privileges: EntityPrivileges;
     setShowIncidentBuilder: Dispatch<SetStateAction<boolean>>;
-    setEntity: Dispatch<SetStateAction<EntityStagedForIncident | undefined>>;
+    setEntity: Dispatch<SetStateAction<EntityStagedForIncident>>;
 };

@@ -35,7 +35,7 @@ export const IncidentTitleContainer = ({
 }: {
     privileges: EntityPrivileges;
     setShowIncidentBuilder: Dispatch<SetStateAction<boolean>>;
-    setEntity: Dispatch<SetStateAction<EntityStagedForIncident | undefined>>;
+    setEntity: Dispatch<SetStateAction<EntityStagedForIncident>>;
 }) => {
     return (
         <TitleContainer>

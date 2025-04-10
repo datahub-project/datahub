@@ -18,10 +18,13 @@ import { IncidentListLoading } from './IncidentListLoading';
 import { getQueryParams } from '../Dataset/Validations/assertionUtils';
 
 export const IncidentList = () => {
-    const { urn } = useEntityData();
+    const { urn, entityType } = useEntityData();
     const refetchEntity = useRefetch();
     const [showIncidentBuilder, setShowIncidentBuilder] = useState(false);
-    const [entity, setEntity] = useState<EntityStagedForIncident>();
+    const [entity, setEntity] = useState<EntityStagedForIncident>({
+        urn,
+        entityType,
+    });
     const [visibleIncidents, setVisibleIncidents] = useState<IncidentTable>({
         incidents: [],
         groupBy: { category: [], priority: [], stage: [], state: [] },
@@ -123,7 +126,7 @@ export const IncidentList = () => {
             {renderListTable()}
             {showIncidentBuilder && (
                 <IncidentDetailDrawer
-                    urn={urn}
+                    entity={entity}
                     mode={IncidentAction.CREATE}
                     onSubmit={() => {
                         setShowIncidentBuilder(false);
@@ -132,7 +135,6 @@ export const IncidentList = () => {
                         }, 3000);
                     }}
                     onCancel={() => setShowIncidentBuilder(false)}
-                    entity={entity}
                 />
             )}
         </>

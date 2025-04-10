@@ -6,7 +6,6 @@ import styled from 'styled-components';
 import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
 import { EntityCapabilityType } from '@src/app/entityV2/Entity';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { IncidentLinkedAssetsListProps } from '../types';
 import { AssetWrapper, LinkedAssets, LoadingWrapper } from './styledComponents';
 import { LinkedAssetsContainer } from '../styledComponents';
@@ -21,13 +20,13 @@ const StyledButton = styled(Button)`
 `;
 
 export const IncidentLinkedAssetsList = ({
+    initialUrn,
     form,
     data,
     mode,
     setCachedLinkedAssets,
     setIsLinkedAssetsLoading,
 }: IncidentLinkedAssetsListProps) => {
-    const { urn } = useEntityData();
     const [getEntities, { data: resolvedLinkedAssets, loading: entitiesLoading }] = useGetEntitiesLazyQuery();
     const entityRegistry = useEntityRegistryV2();
 
@@ -62,10 +61,10 @@ export const IncidentLinkedAssetsList = ({
     };
 
     useEffect(() => {
-        if (mode === IncidentAction.CREATE) {
+        if (mode === IncidentAction.CREATE && initialUrn) {
             getEntities({
                 variables: {
-                    urns: [urn],
+                    urns: [initialUrn],
                 },
             });
         }
@@ -75,7 +74,7 @@ export const IncidentLinkedAssetsList = ({
     useEffect(() => {
         setLinkedAssets(resolvedLinkedAssets?.entities as any);
         if (mode === IncidentAction.CREATE) {
-            form.setFieldValue(RESOURCE_URN_FIELD_NAME, [urn]);
+            form.setFieldValue(RESOURCE_URN_FIELD_NAME, [initialUrn]);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [resolvedLinkedAssets]);

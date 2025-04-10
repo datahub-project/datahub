@@ -68,7 +68,6 @@ export const IncidentEditor = ({
         assignees: cachedAssignees,
         linkedAssets: cachedLinkedAssets,
         entity,
-        currentIncident: data,
     });
     const formValues = Form.useWatch([], form);
 
@@ -207,6 +206,7 @@ export const IncidentEditor = ({
                     initialValue={getLinkedAssetsData(data?.linkedAssets) || []}
                 >
                     <IncidentLinkedAssetsList
+                        initialUrn={entity?.urn}
                         form={form}
                         data={data}
                         mode={mode}
