@@ -128,11 +128,11 @@ div[class^="announcementBar"] {
       align-items: center;
       background: linear-gradient(
         45deg,
-        #4C39BE 0%,    /* Primary violet-600 */
-        #5B4AC7 25%,   /* Slightly lighter */
-        #6A5BD0 50%,   /* Mid-point */
-        #5B4AC7 75%,   /* Slightly lighter */
-        #4C39BE 100%   /* Primary violet-600 */
+        #1c1e21 0%,    /* Primary gray-900 */
+        #1f2225 25%,   /* Slightly lighter */
+        #26292d 50%,   /* Mid-point */
+        #1f2225 75%,   /* Slightly lighter */
+        #1c1e21 100%   /* Primary gray-900 */
       );
       background-size: 200% 200%;
       animation: shimmer 3s ease-in-out infinite;
