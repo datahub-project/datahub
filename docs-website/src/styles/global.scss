@@ -127,15 +127,13 @@ div[class^="announcementBar"] {
       justify-content: center;
       align-items: center;
       background: linear-gradient(
-        45deg,
-        #4C39BE 0%,    /* Primary violet-600 */
-        #5B4AC7 25%,   /* Slightly lighter */
-        #6A5BD0 50%,   /* Mid-point */
-        #5B4AC7 75%,   /* Slightly lighter */
-        #4C39BE 100%   /* Primary violet-600 */
+        75deg,
+        #1c1e21 0%,    /* Gray 800 */
+        #333c48 50%,   /* Slightly lighter - blue streak */
+        #1c1e21 100%   /* Gray 800 */
       );
-      background-size: 200% 200%;
-      animation: shimmer 3s ease-in-out infinite;
+      background-size: 400% 400%;
+      animation: shimmer 10s ease-in-out infinite;
       font-size: 1rem;
 
       p {
@@ -146,19 +144,51 @@ div[class^="announcementBar"] {
       }
 
       .button {
-        background: rgba(241, 243, 253, 0.2);  /* violet-0 with transparency */
-        border: 1px solid rgba(241, 243, 253, 0.4);  /* violet-0 with transparency */
+        // animation: electric-wire 3s linear infinite;
+        background: transparent;
         border-radius: 50px;
         padding: 4px 12px;
         margin-left: 12px;
-        color: white;
-        font-size: 0.8rem;
-        text-decoration: none;
         transition: all 0.2s ease;
+        position: relative;
+        text-decoration: none;
+
+        div {
+          position: relative;
+          z-index: 1;
+          color: white;
+          font-size: 0.8rem;
+        }
+        &::before {
+          content: '';
+          z-index: 0;
+          background: conic-gradient(from var(--electric-wire-angle, 0deg), transparent, rgba(255, 255, 255, 0.751) 5%, transparent 20%);
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          border-radius: 100px;
+          animation: electric-wire 3s linear infinite;
+        }
+        &::after {
+          content: '';
+          z-index: 0;
+          height: calc(100% - 2px);
+          width: calc(100% - 2px);
+          position: absolute;
+          top: 1px;
+          left: 1px;
+          border-radius: 100px;
+          background-color: #444a50;
+          transition: all 1s;
+        }
 
         &:hover {
-          background: rgba(241, 243, 253, 0.3);
-          border-color: rgba(241, 243, 253, 0.6);
+          border-color: rgba(250, 251, 255, 0.6);
+          &::after {
+            background-color: #767e88;
+          }
         }
       }
     }
@@ -167,13 +197,28 @@ div[class^="announcementBar"] {
 
 @keyframes shimmer {
   0% {
-    background-position: 0% 50%;
+    background-position: -200% 50%;
   }
   50% {
-    background-position: 100% 50%;
+    background-position: 0% 50%;
   }
   100% {
-    background-position: 0% 50%;
+    background-position: 200% 50%;
+  }
+}
+
+@property --electric-wire-angle {
+  syntax: '<angle>';
+  initial-value: 1deg;
+  inherits: false;
+}
+
+@keyframes electric-wire {
+  0% {
+    --electric-wire-angle: 1deg;
+  }
+  100% {
+    --electric-wire-angle: 360deg;
   }
 }
 
