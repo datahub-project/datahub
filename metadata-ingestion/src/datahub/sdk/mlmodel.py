@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Type
 
 from typing_extensions import Self
 
@@ -11,8 +11,6 @@ from datahub.metadata.schema_classes import (
     MLHyperParamClass,
     MLMetricClass,
     MLModelPropertiesClass,
-    VersionPropertiesClass,
-    VersionTagClass,
 )
 from datahub.metadata.urns import (
     DataProcessInstanceUrn,
@@ -218,30 +216,6 @@ class MLModel(
         if props.hyperParams is None:
             props.hyperParams = []
         props.hyperParams.append(MLHyperParamClass(name=name, value=str(value)))
-
-    def set_aliases(self, aliases: Union[str, List[str]]) -> None:
-        """Set aliases for the ML model."""
-        # Convert string to list if needed
-        aliases_list = [aliases] if isinstance(aliases, str) else aliases
-
-        version_props = self._get_aspect(VersionPropertiesClass)
-        if version_props:
-            version_props.aliases = [
-                VersionTagClass(versionTag=alias) for alias in aliases_list
-            ]
-        else:
-            # If no version properties exist, we need to create one with a default version
-            version_set_urn = f"mlmodel_{self.urn.name}_versions"
-            self._set_aspect(
-                VersionPropertiesClass(
-                    version=VersionTagClass(versionTag="0.1.0"),  # Default version
-                    versionSet=version_set_urn,
-                    sortId="0000000.1.0",
-                    aliases=[
-                        VersionTagClass(versionTag=alias) for alias in aliases_list
-                    ],
-                )
-            )
 
     @property
     def groups(self) -> Optional[List[str]]:

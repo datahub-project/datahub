@@ -20,15 +20,15 @@ from datahub.sdk.container import Container
 from datahub.sdk.mlmodel import MLModel
 from datahub.sdk.mlmodelgroup import MLModelGroup
 
-prefix = "mid_test2"
-run_id = f"{prefix}_simple_training_run"
-run_name = f"{prefix}_Simple Training Run"
-experiment_id = f"{prefix}_airline_forecast_experiment"
-experiment_name = f"{prefix}_Airline Forecast Experiment"
-model_id = f"{prefix}_arima_model"
-model_name = f"{prefix}_ARIMA Model"
-model_group_id = f"{prefix}_airline_forecast_models_group"
-model_group_name = f"{prefix}_Airline Forecast Models Group"
+run_id = "simple_training_run"
+run_name = "Simple Training Run"
+experiment_id = "airline_forecast_experiment"
+experiment_name = "Airline Forecast Experiment"
+model_id = "arima_model"
+model_name = "ARIMA Model"
+model_group_id = "airline_forecast_models_group"
+model_group_name = "Airline Forecast Models Group"
+
 
 if __name__ == "__main__":
     # Example usage
