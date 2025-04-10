@@ -159,6 +159,5 @@ FROM base-${APP_ENV} AS final
 
 COPY --from=powerman/dockerize:0.19 /usr/local/bin/dockerize /usr/local/bin
 COPY ./docker/datahub-ingestion-base/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
 ENTRYPOINT [ "/entrypoint.sh" ]
 ENV PATH="/datahub-ingestion/.local/bin:$PATH"
