@@ -36,12 +36,11 @@ const HalfWidthInput = styled(Input)`
 `;
 
 export const IncidentEditor = ({
+    entity,
     incidentUrn,
     onSubmit,
     data,
     mode = IncidentAction.CREATE,
-    entity,
-    urn,
 }: IncidentEditorProps) => {
     const assigneeValues = data?.assignees && getAssigneeWithURN(data.assignees);
     const isFormValid = Boolean(
@@ -69,8 +68,6 @@ export const IncidentEditor = ({
         assignees: cachedAssignees,
         linkedAssets: cachedLinkedAssets,
         entity,
-        currentIncident: data,
-        urn,
     });
     const formValues = Form.useWatch([], form);
 
@@ -209,12 +206,12 @@ export const IncidentEditor = ({
                     initialValue={getLinkedAssetsData(data?.linkedAssets) || []}
                 >
                     <IncidentLinkedAssetsList
+                        initialUrn={entity.urn}
                         form={form}
                         data={data}
                         mode={mode}
                         setCachedLinkedAssets={setCachedLinkedAssets}
                         setIsLinkedAssetsLoading={setIsLoadingAssigneeOrAssets}
-                        urn={urn}
                     />
                 </SelectFormItem>
                 {mode === IncidentAction.EDIT && (

@@ -20,12 +20,12 @@ const StyledButton = styled(Button)`
 `;
 
 export const IncidentLinkedAssetsList = ({
+    initialUrn,
     form,
     data,
     mode,
     setCachedLinkedAssets,
     setIsLinkedAssetsLoading,
-    urn,
 }: IncidentLinkedAssetsListProps) => {
     const [getEntities, { data: resolvedLinkedAssets, loading: entitiesLoading }] = useGetEntitiesLazyQuery();
     const entityRegistry = useEntityRegistryV2();
@@ -62,11 +62,11 @@ export const IncidentLinkedAssetsList = ({
     };
 
     useEffect(() => {
-        if (mode === IncidentAction.CREATE) {
-            if (urn) {
+        if (mode === IncidentAction.CREATE && initialUrn) {
+            if (initialUrn) {
                 getEntities({
                     variables: {
-                        urns: [urn],
+                        urns: [initialUrn],
                     },
                 });
             }
@@ -77,7 +77,7 @@ export const IncidentLinkedAssetsList = ({
     useEffect(() => {
         setLinkedAssets(resolvedLinkedAssets?.entities as any);
         if (mode === IncidentAction.CREATE) {
-            form.setFieldValue(RESOURCE_URN_FIELD_NAME, [urn]);
+            form.setFieldValue(RESOURCE_URN_FIELD_NAME, [initialUrn]);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [resolvedLinkedAssets]);

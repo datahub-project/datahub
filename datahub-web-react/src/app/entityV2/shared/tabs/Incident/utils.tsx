@@ -508,10 +508,7 @@ export const getSortedIncidents = (record: any, sortedOptions: { sortColumn: str
 };
 
 export const getExistingIncidents = (currData) => {
-    return [
-        ...(currData?.entity?.incidents?.incidents || []),
-        ...(currData?.entity?.siblingsSearch?.searchResults[0]?.entity?.incidents?.incidents || []),
-    ];
+    return [...(currData?.entity?.incidents?.incidents || [])];
 };
 
 /**

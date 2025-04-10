@@ -94,23 +94,22 @@ export type IncidentTableRow = {
 };
 
 export type IncidentEditorProps = {
+    entity: EntityStagedForIncident;
     incidentUrn?: string;
     refetch?: () => void;
     onSubmit?: (incident?: Incident) => void;
     onClose?: () => void;
     data?: IncidentTableRow;
     mode?: IncidentAction;
-    entity?: EntityStagedForIncident;
-    urn?: string;
 };
 
 export type IncidentLinkedAssetsListProps = {
+    initialUrn?: string;
     form: any;
     data?: IncidentTableRow;
     mode: IncidentAction;
     setCachedLinkedAssets: React.Dispatch<React.SetStateAction<any[]>>;
     setIsLinkedAssetsLoading: React.Dispatch<React.SetStateAction<boolean>>;
-    urn?: string;
 };
 
 export interface TimelineContentDetails extends BaseItemType {
@@ -130,7 +129,7 @@ export enum IncidentConstant {
 export type EntityStagedForIncident = {
     urn: string;
     platform?: DataPlatform;
-    entityType: EntityType;
+    entityType?: EntityType; // TODO remove this.
 };
 
 export type IncidentBuilderSiblingOptions = {
@@ -141,5 +140,5 @@ export type IncidentBuilderSiblingOptions = {
 export type CreateIncidentButtonProps = {
     privileges: EntityPrivileges;
     setShowIncidentBuilder: Dispatch<SetStateAction<boolean>>;
-    setEntity: Dispatch<SetStateAction<EntityStagedForIncident | undefined>>;
+    setEntity: Dispatch<SetStateAction<EntityStagedForIncident>>;
 };
