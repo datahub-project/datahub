@@ -15,7 +15,12 @@ from datahub.metadata.schema_classes import (
     MLMetricClass,
     MLTrainingRunPropertiesClass,
 )
-from datahub.metadata.urns import CorpUserUrn, DataProcessInstanceUrn
+from datahub.metadata.urns import (
+    CorpUserUrn,
+    DataProcessInstanceUrn,
+    GlossaryTermUrn,
+    TagUrn,
+)
 from datahub.sdk.container import Container
 from datahub.sdk.mlmodel import MLModel
 from datahub.sdk.mlmodelgroup import MLModelGroup
@@ -93,11 +98,9 @@ if __name__ == "__main__":
         external_url="https://www.linkedin.com/in/datahub",
         tags=["urn:li:tag:forecasting", "urn:li:tag:arima"],
         terms=["urn:li:glossaryTerm:forecasting"],
-        training_jobs=[DataProcessInstanceUrn(run_id)],
+        # training_jobs=[DataProcessInstanceUrn(run_id)],
         custom_properties={"team": "forecasting"},
     )
-
-    client._emit_mcps(model_group.as_mcps())
 
     model = MLModel(
         id=model_id,
@@ -110,16 +113,14 @@ if __name__ == "__main__":
         external_url="https://www.linkedin.com/in/datahub",
         tags=["urn:li:tag:forecasting", "urn:li:tag:arima"],
         terms=["urn:li:glossaryTerm:forecasting"],
-        training_jobs=[DataProcessInstanceUrn(run_id)],
+        # training_jobs=[DataProcessInstanceUrn(run_id)],
         custom_properties={"team": "forecasting"},
         version="1",
         aliases=["champion"],
-        group=str(model_group.urn),
+        # group=str(model_group.urn),
         hyper_params={"learning_rate": "0.01"},
         training_metrics={"accuracy": "0.9"},
     )
-
-    client._emit_mcps(model.as_mcps())
 
     # Create datasets
     input_dataset_urns = [
@@ -143,3 +144,21 @@ if __name__ == "__main__":
     client.add_input_datasets_to_run(run_urn=run_urn, dataset_urns=input_dataset_urns)
 
     client.add_output_datasets_to_run(run_urn=run_urn, dataset_urns=output_dataset_urns)
+
+    model.add_training_job(DataProcessInstanceUrn(run_id))
+
+    model_group.add_training_job(DataProcessInstanceUrn(run_id))
+
+    model.add_group(model_group.urn)
+
+    model.add_alias("challenger")
+
+    model.add_term(GlossaryTermUrn("marketing"))
+
+    model.add_tag(TagUrn("marketing"))
+
+    model.set_version("2")
+
+    client._emit_mcps(model_group.as_mcps())
+
+    client._emit_mcps(model.as_mcps())
