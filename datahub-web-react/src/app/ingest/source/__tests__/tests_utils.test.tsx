@@ -76,7 +76,7 @@ describe('getEntitiesIngestedByType', () => {
             {
                 count: 1521,
                 displayName: 'dataset',
-            }
+            },
         ]);
     });
     
@@ -112,7 +112,7 @@ describe('getEntitiesIngestedByType', () => {
             {
                 count: 156,
                 displayName: 'container',
-            }
+            },
         ]);
     });
 });
