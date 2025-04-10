@@ -108,8 +108,21 @@ export const SearchablePage = ({ children }: Props) => {
         }
     }, [suggestionsData]);
 
-    const response = useSearchBarData(searchQuery, appliedFilters, 'searchAcrossEntitiesAPI');
-    // const response = useSearchBarData(searchQuery, appliedFilters, "autocompleteAPI");
+    // Search response for the SearchBarV2 (when showSearchBarAutocompleteRedesign is enabled)
+    const searchResponse = useSearchBarData(
+        searchQuery,
+        appliedFilters,
+        viewUrn,
+        'searchAcrossEntitiesAPI',
+        showSearchBarAutocompleteRedesign,
+    );
+    // const searchResponse = useSearchBarData(
+    //     searchQuery,
+    //     appliedFilters,
+    //     viewUrn,
+    //     'autocompleteAPI',
+    //     showSearchBarAutocompleteRedesign,
+    // );
 
     const search = (query: string, newFilters?: FacetFilterInput[]) => {
         analytics.event({
@@ -176,9 +189,7 @@ export const SearchablePage = ({ children }: Props) => {
                 onQueryChange={showSearchBarAutocompleteRedesign ? setSearchQuery : autoComplete}
                 entityRegistry={entityRegistry}
                 onFilter={(newFilters) => setAppliedFilters(newFilters)}
-                facets={response.facets}
-                entities={response.entities}
-                isDataLoading={response.loading}
+                searchResponse={searchResponse}
             />
             <BodyBackground $isShowNavBarRedesign={isShowNavBarRedesign} />
             <Body>

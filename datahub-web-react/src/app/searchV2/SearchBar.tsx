@@ -19,6 +19,7 @@ import SectionHeader, { EntityTypeLabel } from '@app/searchV2/autoComplete/Secti
 import QuickFilters from '@app/searchV2/autoComplete/quickFilters/QuickFilters';
 import { FiltersAppliedHandler } from '@app/searchV2/filtersV2/types';
 import useFocusElementByCommandK from '@app/searchV2/searchBarV2/hooks/useFocusSearchBarByCommandK';
+import { SearchResponse } from '@app/searchV2/useSearchBarData';
 import useSearchViewAll from '@app/searchV2/useSearchViewAll';
 import { combineSiblingsInAutoComplete } from '@app/searchV2/utils/combineSiblingsInAutoComplete';
 import { EXACT_SEARCH_PREFIX } from '@app/searchV2/utils/constants';
@@ -31,7 +32,7 @@ import { Button, colors } from '@src/alchemy-components';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { useListRecommendationsQuery } from '@graphql/recommendations.generated';
-import { AutoCompleteResultForEntity, Entity, FacetFilterInput, FacetMetadata, ScenarioType } from '@types';
+import { AutoCompleteResultForEntity, FacetFilterInput, ScenarioType } from '@types';
 
 const StyledAutoComplete = styled(AutoComplete)<{ $isShowNavBarRedesign?: boolean }>`
     width: 100%;
@@ -176,13 +177,7 @@ export interface SearchBarProps {
     onFilter?: FiltersAppliedHandler;
     // Used in SearchBarV2 (both components must have the same props)
     // eslint-disable-next-line react/no-unused-prop-types
-    facets?: FacetMetadata[];
-    // Used in SearchBarV2 (both components must have the same props)
-    // eslint-disable-next-line react/no-unused-prop-types
-    entities?: Entity[];
-    // Used in SearchBarV2 (both components must have the same props)
-    // eslint-disable-next-line react/no-unused-prop-types
-    isDataLoading?: boolean;
+    searchResponse?: SearchResponse;
 }
 
 const defaultProps = {
