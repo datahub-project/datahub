@@ -608,7 +608,8 @@ class MLflowSource(StatefulIngestionSourceBase):
                 self.report.warning(
                     title="MLflow API Endpoint Not Found for Experiments.",
                     message="Please upgrade to version 1.28.0 or higher to ensure compatibility. Skipping ingestion for experiments and runs.",
-                    context=e.message,
+                    context=None,
+                    exc=e,
                 )
                 return
             else:
