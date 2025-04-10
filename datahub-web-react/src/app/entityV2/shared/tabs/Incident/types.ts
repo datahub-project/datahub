@@ -138,9 +138,3 @@ export type IncidentBuilderSiblingOptions = {
     title: string;
     disabled?: boolean;
 } & Partial<EntityStagedForIncident>;
-
-export type CreateIncidentButtonProps = {
-    privileges: EntityPrivileges;
-    setShowIncidentBuilder: Dispatch<SetStateAction<boolean>>;
-    setEntity: Dispatch<SetStateAction<EntityStagedForIncident>>;
-};

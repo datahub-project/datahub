@@ -130,9 +130,7 @@ export const createIncidentGroups = (incidents: Array<Incident>): IncidentGroupB
     incidents?.sort((a, b) => a?.created?.time - b?.created?.time);
 
     // Group incidents by type, stage, and priority
-    const typeToIncidents = groupIncidentsBy(incidents, (incident) =>
-        incident?.incidentType === IncidentType.Custom ? incident?.customType : incident?.incidentType,
-    );
+    const typeToIncidents = groupIncidentsBy(incidents, (incident) => getIncidentType(incident));
     const stageToIncidents = groupIncidentsBy(incidents, (incident) => incident?.status?.stage);
     const stateToIncidents = groupIncidentsBy(incidents, (incident) => incident?.status?.state);
     const priorityToIncidents = groupIncidentsBy(incidents, (incident) => incident.priority);
@@ -556,3 +554,6 @@ export const useSiblingOptionsForIncidentBuilder = (
     });
     return optionsToAuthorOn;
 };
+
+export const getIncidentType = (incident: Incident) =>
+    incident.incidentType === IncidentType.Custom ? incident.customType : incident.incidentType;

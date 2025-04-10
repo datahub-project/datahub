@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Dispatch, SetStateAction } from 'react';
 import { Dropdown, message } from 'antd';
 
 import { Tooltip } from '@src/alchemy-components';
@@ -8,8 +8,16 @@ import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
 
 import { useSiblingOptionsForIncidentBuilder } from './utils';
-import { CreateIncidentButtonProps, EntityStagedForIncident } from './types';
+import { EntityStagedForIncident } from './types';
 import { CreateButton, SiblingSelectionDropdownLink } from './styledComponents';
+import { NO_PERMISSIONS_MESSAGE } from './constant';
+import { EntityPrivileges } from '@src/types.generated';
+
+type CreateIncidentButtonProps = {
+    privileges: EntityPrivileges;
+    setShowIncidentBuilder: Dispatch<SetStateAction<boolean>>;
+    setEntity: Dispatch<SetStateAction<EntityStagedForIncident>>;
+};
 
 export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEntity }: CreateIncidentButtonProps) => {
     const { entityData, urn: entityUrn, entityType: dataEntityType } = useEntityData();
@@ -20,9 +28,7 @@ export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEn
 
     const siblingOptionsToAuthorOn = useSiblingOptionsForIncidentBuilder(entityData, entityUrn, dataEntityType) ?? [];
 
-    const noPermissionsMessage = 'You do not have permission to edit incidents for this asset.';
-
-    const canEditIncidents = privileges?.canEditIncidents || false;
+    const canEditIncidents = !!privileges?.canEditIncidents;
 
     const onCreateIncidentForEntity = ({ urn, platform, entityType }: Partial<EntityStagedForIncident>) => {
         if (!urn || !platform || !entityType) {
@@ -69,7 +75,7 @@ export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEn
                     </CreateButton>
                 </Dropdown>
             ) : (
-                <Tooltip showArrow={false} title={!canEditIncidents ? noPermissionsMessage : null}>
+                <Tooltip showArrow={false} title={!canEditIncidents ? NO_PERMISSIONS_MESSAGE : null}>
                     <CreateButton
                         onClick={() => setShowIncidentBuilder(true)}
                         disabled={!canEditIncidents}
