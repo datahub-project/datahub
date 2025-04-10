@@ -1,4 +1,4 @@
-import { isItTagEntity } from '@src/app/entityV2/tag/utils';
+import { isTag } from '@src/app/entityV2/tag/utils';
 import TagLink from '@src/app/sharedV2/tags/TagLink';
 import { Entity, EntityType } from '@src/types.generated';
 import React, { useCallback } from 'react';
@@ -10,7 +10,7 @@ interface PlatformLabelProps {
 }
 
 function TagLabel({ entity }: PlatformLabelProps) {
-    const tag = (isItTagEntity(entity) && entity) || undefined;
+    const tag = (isTag(entity) && entity) || undefined;
 
     if (tag === undefined) return null;
 

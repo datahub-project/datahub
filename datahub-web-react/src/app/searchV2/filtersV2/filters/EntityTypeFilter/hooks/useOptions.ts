@@ -1,4 +1,4 @@
-import { isItEntityType } from '@src/app/entityV2/shared/utils';
+import { isEntityType } from '@src/app/entityV2/shared/utils';
 import { FILTER_DELIMITER } from '@src/app/search/utils/constants';
 import { FeildFacetState } from '@src/app/searchV2/filtersV2/types';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
@@ -37,7 +37,7 @@ export default function useOptions(facetState: FeildFacetState | undefined, valu
                 possibleChildrenValue.includes(value + FILTER_DELIMITER),
             );
 
-            const displayName = (isItEntityType(value) && entityRegistry.getEntityName(value)) || value;
+            const displayName = (isEntityType(value) && entityRegistry.getEntityName(value)) || value;
 
             return {
                 value,

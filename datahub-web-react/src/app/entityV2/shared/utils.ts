@@ -331,7 +331,7 @@ export const tryExtractSubResourceDescription = (entity: Entity, subResource: st
 /**
  * Type guard for entity type
  */
-export function isItEntityType(entityType?: string): entityType is EntityType {
+export function isEntityType(entityType?: string): entityType is EntityType {
     if (entityType === undefined) return false;
 
     const possibleValues: Array<string> = Array.from(Object.values(EntityType));
