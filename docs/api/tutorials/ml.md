@@ -86,9 +86,12 @@ A model group contains different versions of a similar model. For example, all v
 Create a basic model group with just an identifier:
 
 ```python
-client.create_model_group(
-    group_id="airline_forecast_models_group",
+model_group = MLModelGroup(
+    id=model_group_id,
+    platform="mlflow",
 )
+
+client._emit_mcps(model_group.as_mcps())
 ```
 
 </TabItem>
@@ -96,16 +99,22 @@ client.create_model_group(
 Add rich metadata like descriptions, creation timestamps, and team information:
 
 ```python
-client.create_model_group(
-    group_id="airline_forecast_models_group",
-    properties=models.MLModelGroupPropertiesClass(
-        name="Airline Forecast Models Group",
-        description="Group of models for airline passenger forecasting",
-        created=models.TimeStampClass(
-            time=1628580000000, actor="urn:li:corpuser:datahub"
-        ),
-    ),
+model_group = MLModelGroup(
+    id="airline_forecast_models_group"
+    platform="mlflow",
+    name="airline_forecast_models_group",
+    description="Group of models for airline passenger forecasting",
+    created=datetime.now(),
+    last_modified=datetime.now(),
+    owners=[CorpUserUrn("urn:li:corpuser:datahub")],
+    external_url="https://www.linkedin.com/in/datahub",
+    tags=["urn:li:tag:forecasting", "urn:li:tag:arima"],
+    terms=["urn:li:glossaryTerm:forecasting"],
+    training_jobs=[DataProcessInstanceUrn(run_id)],
+    custom_properties={"team": "forecasting"},
 )
+
+client._emit_mcps(model_group.as_mcps())
 ```
 
 </TabItem>
@@ -161,10 +170,12 @@ Next, let's create a specific model version that represents a trained model read
 Create a model with just the required version:
 
 ```python
-client.create_model(
-    model_id="arima_model",
-    version="1.0",
+model = MLModel(
+    id=model_id,
+    platform="mlflow",
 )
+
+client._emit_mcps(model.as_mcps())
 ```
 
 </TabItem>
@@ -172,32 +183,27 @@ client.create_model(
 Include metrics, parameters, and metadata for production use:
 
 ```python
-client.create_model(
-    model_id="arima_model",
-    properties=models.MLModelPropertiesClass(
-        name="ARIMA Model",
+    model = MLModel(
+        id="arima_model",
+        platform="mlflow",
+        name="arima_model",
         description="ARIMA model for airline passenger forecasting",
-        customProperties={"team": "forecasting"},
-        trainingMetrics=[
-            models.MLMetricClass(name="accuracy", value="0.9"),
-            models.MLMetricClass(name="precision", value="0.8"),
-        ],
-        hyperParams=[
-            models.MLHyperParamClass(name="learning_rate", value="0.01"),
-            models.MLHyperParamClass(name="batch_size", value="32"),
-        ],
-        externalUrl="https:localhost:5000",
-        created=models.TimeStampClass(
-            time=1628580000000, actor="urn:li:corpuser:datahub"
-        ),
-        lastModified=models.TimeStampClass(
-            time=1628580000000, actor="urn:li:corpuser:datahub"
-        ),
-        tags=["forecasting", "arima"],
-    ),
-    version="1.0",
-    alias="champion",
-)
+        created=datetime.now(),
+        last_modified=datetime.now(),
+        owners=[CorpUserUrn("urn:li:corpuser:datahub")],
+        external_url="https://www.linkedin.com/in/datahub",
+        tags=["urn:li:tag:forecasting", "urn:li:tag:arima"],
+        terms=["urn:li:glossaryTerm:forecasting"],
+        training_jobs=[DataProcessInstanceUrn(run_id)],
+        custom_properties={"team": "forecasting"},
+        version="1",
+        aliases=["champion"],
+        group=str(model_group.urn),
+        hyper_params={"learning_rate": "0.01"},
+        training_metrics={"accuracy": "0.9"},
+    )
+
+client._emit_mcps(model.as_mcps())
 ```
 
 </TabItem>
@@ -263,9 +269,15 @@ An experiment helps organize multiple training runs for a specific project.
 Create a basic experiment:
 
 ```python
-client.create_experiment(
-    experiment_id="airline_forecast_experiment",
+experiment = Container(
+    container_key=ContainerKey(
+        platform="mlflow",
+        name="test_container"
+    ),
+    display_name="Test Container"
 )
+
+client._emit_mcps(experiment.as_mcps())
 ```
 
 </TabItem>
@@ -273,20 +285,20 @@ client.create_experiment(
 Add context and metadata:
 
 ```python
-client.create_experiment(
-    experiment_id="airline_forecast_experiment",
-    properties=models.ContainerPropertiesClass(
-        name="Airline Forecast Experiment",
-        description="Experiment to forecast airline passenger numbers",
-        customProperties={"team": "forecasting"},
-        created=models.TimeStampClass(
-            time=1628580000000, actor="urn:li:corpuser:datahub"
-        ),
-        lastModified=models.TimeStampClass(
-            time=1628580000000, actor="urn:li:corpuser:datahub"
-        ),
+experiment = Container(
+    container_key=ContainerKey(
+        platform="mlflow",
+        name="airline_forecast_experimen"
     ),
+    display_name="Airline Forecast Experiment",
+    description="Experiment to forecast airline passenger numbers",
+    extra_properties={"team": "forecasting"},
+    created=datetime(2025, 4, 9, 22, 30),
+    last_modified=datetime(2025, 4, 9, 22, 30),
+    subtype=MLAssetSubTypes.MLFLOW_EXPERIMENT,
 )
+
+client._emit_mcps(experiment.as_mcps())
 ```
 
 </TabItem>
@@ -447,7 +459,9 @@ Now let's connect these components to create a comprehensive ML system. These co
 Connect your model to its group:
 
 ```python
-client.add_model_to_model_group(model_urn=model_urn, group_urn=model_group_urn)
+model.add_group(model_group.urn)
+
+client._emit_mcps(model.as_mcps())
 ```
 
 <Tabs>
@@ -585,7 +599,9 @@ View the relationship details:
 Connect a training run to its resulting model:
 
 ```python
-client.add_run_to_model(model_urn=model_urn, run_urn=run_urn)
+model.add_training_job(DataProcessInstanceUrn(run_id))
+
+client._emit_mcps(model.as_mcps())
 ```
 
 This relationship enables you to:
@@ -659,7 +675,9 @@ View the relationship:
 Create a direct connection between a run and a model group:
 
 ```python
-client.add_run_to_model_group(model_group_urn=model_group_urn, run_urn=run_urn)
+model_group.add_training_job(DataProcessInstanceUrn(run_id))
+
+client._emit_mcps(model_group.as_mcps())
 ```
 
 This connection lets you:
