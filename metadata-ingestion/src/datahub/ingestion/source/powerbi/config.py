@@ -567,7 +567,7 @@ class PowerBiDashboardSourceConfig(
     def map_data_platform(cls, value):
         # For backward compatibility convert input PostgreSql to PostgreSQL
         # PostgreSQL is name of the data-platform in M-Query
-        if "PostgreSql" in value.keys():
+        if "PostgreSql" in value:
             platform_name = value["PostgreSql"]
             del value["PostgreSql"]
             value["PostgreSQL"] = platform_name
