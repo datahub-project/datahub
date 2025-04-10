@@ -754,7 +754,7 @@ jobs:
         if: ${{ needs.setup.outputs.ingestion_base_change == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
         with:
-          target: base
+          target: base-empty
           images: |
             ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
           image_tag: ${{ needs.setup.outputs.tag }}
@@ -798,7 +798,6 @@ jobs:
         if: ${{ needs.setup.outputs.ingestion_base_change == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
         with:
-          target: slim-install
           images: |
             ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
           image_tag: ${{ needs.setup.outputs.slim_tag }}
@@ -841,7 +840,6 @@ jobs:
         if: ${{ needs.setup.outputs.ingestion_base_change == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
         with:
-          target: full-install
           images: |
             ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
           image_tag: ${{ needs.setup.outputs.full_tag }}
@@ -864,7 +862,7 @@ jobs:
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
       needs_artifact_download: ${{ needs.setup.outputs.ingestion_change == 'true' && ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true') }}
-    needs: [setup, smoke_test_lint,datahub_ingestion_base_slim_build]
+    needs: [setup, smoke_test_lint]
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
       - name: Check out the repo
@@ -881,11 +879,6 @@ jobs:
       - name: Build codegen
         if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish =='true' }}
         run: ./gradlew :metadata-ingestion:codegen
-      - name: Download Base Image
-        uses: ishworkh/container-image-artifact-download@v2.0.0
-        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && needs.setup.outputs.ingestion_base_change == 'true' }}
-        with:
-          image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ needs.setup.outputs.ingestion_base_change == 'true' && needs.setup.outputs.unique_slim_tag || 'head-slim' }}
       - name: Login to DockerHub
         uses: docker/login-action@v3
         if: ${{ needs.setup.outputs.docker-login == 'true' && needs.setup.outputs.publish == 'false' && needs.setup.outputs.pr-publish == 'false' && needs.setup.outputs.ingestion_base_change == 'false' }}
@@ -896,12 +889,9 @@ jobs:
         if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
         with:
-          target: final
           images: |
             ${{ env.DATAHUB_INGESTION_IMAGE }}
           build-args: |
-            BASE_IMAGE=${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
-            DOCKER_VERSION=${{ needs.setup.outputs.ingestion_base_change == 'true' && needs.setup.outputs.unique_slim_tag || 'head-slim' }}
             RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
             APP_ENV=slim
           image_tag: ${{ needs.setup.outputs.slim_tag }}
@@ -960,7 +950,7 @@ jobs:
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
       needs_artifact_download: ${{ needs.setup.outputs.ingestion_change == 'true' && ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) }}
-    needs: [setup, smoke_test_lint,datahub_ingestion_base_full_build]
+    needs: [setup, smoke_test_lint]
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
       - name: Check out the repo
@@ -978,11 +968,6 @@ jobs:
       - name: Build codegen
         if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         run: ./gradlew :metadata-ingestion:codegen
-      - name: Download Base Image
-        uses: ishworkh/container-image-artifact-download@v2.0.0
-        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && needs.setup.outputs.ingestion_base_change == 'true' }}
-        with:
-          image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ needs.setup.outputs.ingestion_base_change == 'true' && needs.setup.outputs.unique_tag || 'head' }}
       - name: Login to DockerHub
         uses: docker/login-action@v3
         if: ${{ needs.setup.outputs.docker-login == 'true' && needs.setup.outputs.publish == 'false' && needs.setup.outputs.pr-publish == 'false' && needs.setup.outputs.ingestion_base_change == 'false' }}
@@ -993,12 +978,9 @@ jobs:
         if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
         with:
-          target: final
           images: |
             ${{ env.DATAHUB_INGESTION_IMAGE }}
           build-args: |
-            BASE_IMAGE=${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
-            DOCKER_VERSION=${{ needs.setup.outputs.ingestion_base_change == 'true' && needs.setup.outputs.unique_tag || 'head' }}
             RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
           image_tag: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
@@ -1162,7 +1144,7 @@ jobs:
           docker pull confluentinc/cp-kafka:7.4.0 &
           docker pull mysql:8.2 &
           docker pull opensearchproject/opensearch:2.9.0 &
-          docker pull ${{ env.DATAHUB_INGESTION_IMAGE }}:head  &
+          docker pull ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:head-slim  &
 
           wait
           docker images
@@ -1171,7 +1153,7 @@ jobs:
         env:
           DATAHUB_TELEMETRY_ENABLED: false
           DATAHUB_VERSION: ${{ needs.setup.outputs.unique_tag }}
-          DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_INGESTION_IMAGE }}
+          DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
           ACTIONS_VERSION: ${{ needs.datahub_ingestion_slim_build.outputs.tag || 'head-slim' }}
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
