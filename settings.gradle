@@ -79,6 +79,7 @@ include ':metadata-service:openapi-servlet:models'
 include ':metadata-integration:java:datahub-schematron:lib'
 include ':metadata-integration:java:datahub-schematron:cli'
 include ':metadata-service:iceberg-catalog'
+include ':metadata-service:events-service'
 
 buildCache {
     def depotSecret = System.getenv('DEPOT_TOKEN');

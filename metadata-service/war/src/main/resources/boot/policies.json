@@ -39,7 +39,8 @@
         "VIEW_STRUCTURED_PROPERTIES_PAGE",
         "MANAGE_DOCUMENTATION_FORMS",
         "MANAGE_FEATURES",
-        "MANAGE_SYSTEM_OPERATIONS"
+        "MANAGE_SYSTEM_OPERATIONS",
+        "GET_PLATFORM_EVENTS"
       ],
       "displayName": "Root User - All Platform Privileges",
       "description": "Grants all platform privileges to root user.",
