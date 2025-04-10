@@ -1,15 +1,42 @@
 import React from 'react';
-
 import styled from 'styled-components';
+import { Pill, Button, Tooltip2, Switch } from '@components';
+import { Card, Divider } from 'antd';
+import { colors } from '@components/theme';
 
-import { Divider, Typography, Switch, Card, Button, Tooltip } from 'antd';
-import { ArrowRightOutlined } from '@ant-design/icons';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-
-const Title = styled(Typography.Title)`
+const StyledCard = styled(Card)`
     && {
-        margin-bottom: 8px;
+        border-radius: 12px;
+        border: 1px solid ${colors.gray[100]};
+        box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
+        margin-bottom: 24px;
+
+        .ant-card-body {
+            padding: 16px;
+        }
     }
+`;
+
+const Title = styled.div`
+    font-size: 16px;
+    font-weight: 700;
+    color: ${colors.gray[1700]};
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
+
+const TitleDescriptionText = styled.div`
+    font-size: 14px;
+    color: ${colors.gray[1700]};
+`;
+
+const SettingTitle = styled.div`
+    display: flex;
+    align-items: start;
+    font-size: 14px;
+    flex-direction: column;
+    margin-bottom: 24px;
 `;
 
 const FeatureRow = styled.div`
@@ -27,6 +54,10 @@ const FeatureOptionRow = styled.div`
     }
 `;
 
+const StyledDivider = styled(Divider)`
+    color: ${colors.gray[100]};
+`;
+
 const SettingsOptionRow = styled.div`
     display: flex;
     justify-content: space-between;
@@ -38,54 +69,18 @@ const SettingsOptionRow = styled.div`
     }
 `;
 
-const DescriptionText = styled(Typography.Text)`
-    color: ${ANTD_GRAY[7]};
-    font-size: 11px;
+const DescriptionText = styled.div`
+    color: ${colors.gray[1700]};
+    font-size: 12px;
 `;
 
-const SettingTitle = styled.div`
+const OptionTitle = styled.div`
     display: flex;
     align-items: center;
     gap: 8px;
     font-size: 14px;
-    margin-bottom: 4px;
-`;
-
-const OptionTitle = styled(Typography.Text)`
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
-`;
-
-const learnMoreLinkStyle = {
-    flex: 1,
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    color: '#1890FF',
-    fontSize: '12px',
-    cursor: 'pointer',
-};
-
-const NewTag = styled.div`
-    padding: 4px 8px;
-
-    border-radius: 24px;
-    background: #f1fbfe;
-
-    color: #09739a;
-    font-size: 12px;
-`;
-
-const DataHubOnlyTag = styled.div`
-    padding: 2px 8px;
-
-    border-radius: 24px;
-    background: #c9fff2;
-
-    color: #50a494;
-    font-size: 12px;
+    color: ${colors.gray[1700]};
+    font-weight: 600;
 `;
 
 export interface FeatureType {
@@ -114,29 +109,28 @@ export interface FeatureType {
 }
 
 export const Feature = ({ key, title, description, settings, options, isNew, learnMoreLink }: FeatureType) => (
-    <Card style={{ marginBottom: '1rem' }} key={key}>
+    <StyledCard key={key}>
         <FeatureRow>
-            <div style={{ flex: 1 }}>
-                <SettingTitle>
-                    <Title level={5} style={{ marginBottom: 0 }}>
-                        {title}
-                    </Title>
-                    {isNew && <NewTag>New!</NewTag>}
-                </SettingTitle>
-                <div>
-                    <Typography.Paragraph type="secondary">{description}</Typography.Paragraph>
-                </div>
-            </div>
+            <SettingTitle>
+                <Title>
+                    {title} {isNew && <Pill color="blue" size="sm" label="New!" />}
+                </Title>
+                <TitleDescriptionText>{description}</TitleDescriptionText>
+            </SettingTitle>
             <div>
                 {learnMoreLink && (
-                    <a href={learnMoreLink} target="_blank" style={learnMoreLinkStyle} rel="noreferrer">
-                        Learn more <ArrowRightOutlined />
-                    </a>
+                    <Button
+                        variant="text"
+                        onClick={() => window.open(learnMoreLink, '_blank')}
+                        icon={{ icon: 'ArrowRight', source: 'phosphor' }}
+                        iconPosition="right"
+                    >
+                        Learn more
+                    </Button>
                 )}
             </div>
         </FeatureRow>
-        <Divider style={{ margin: `8px 0 24px 0` }} />
-        <Card style={{ margin: `16px auto` }}>
+        <StyledCard>
             {options.map((option, index) => (
                 <>
                     <FeatureOptionRow key={option.key}>
@@ -144,41 +138,67 @@ export const Feature = ({ key, title, description, settings, options, isNew, lea
                             <OptionTitle>
                                 <span>{option.title}</span>
                                 {!option.isAvailable && (
-                                    <DataHubOnlyTag>Only available on DataHub Cloud</DataHubOnlyTag>
+                                    <Pill color="violet" size="sm" label="Only available on DataHub Cloud" />
                                 )}
                             </OptionTitle>
                             <div>
                                 <DescriptionText>{option.description}</DescriptionText>
                             </div>
                         </span>
-                        <Tooltip title={option.disabledMessage}>
+                        {option.disabledMessage ? (
+                            <Tooltip2
+                                title={option.disabledMessage}
+                                placement="top"
+                                showArrow
+                                mouseEnterDelay={0.1}
+                                mouseLeaveDelay={0.1}
+                            >
+                                <span style={{ cursor: 'default' }}>
+                                    <Switch
+                                        label=""
+                                        checked={option.checked}
+                                        onChange={(e) => (option.onChange ? option.onChange(e.target.checked) : null)}
+                                        disabled={!option.isAvailable || option.isDisabled}
+                                    />
+                                </span>
+                            </Tooltip2>
+                        ) : (
                             <Switch
+                                label=""
                                 checked={option.checked}
-                                onChange={(checked) => (option.onChange ? option.onChange(checked) : null)}
+                                onChange={(e) => (option.onChange ? option.onChange(e.target.checked) : null)}
                                 disabled={!option.isAvailable || option.isDisabled}
                             />
-                        </Tooltip>
+                        )}
                     </FeatureOptionRow>
-                    {index !== options.length - 1 && <Divider />}
+                    {index !== options.length - 1 && <StyledDivider />}
                 </>
             ))}
-        </Card>
+        </StyledCard>
         {settings.map((option) => (
             <>
                 <SettingsOptionRow key={option.key}>
                     <span>
                         <OptionTitle>
                             <span>{option.title}</span>
-                            <DataHubOnlyTag>Only available on DataHub Cloud</DataHubOnlyTag>
+                            <Pill color="violet" size="sm" label="DataHub Cloud" />
                         </OptionTitle>
                     </span>
-                    <Tooltip title={option.isAvailable ? '' : 'Only available on DataHub Cloud'}>
-                        <Button onClick={option.onClick} disabled={!option.isAvailable}>
-                            {option.buttonText}
-                        </Button>
-                    </Tooltip>
+                    <Tooltip2
+                        title={option.isAvailable ? '' : 'Only available on DataHub Cloud'}
+                        placement="left"
+                        showArrow
+                        mouseEnterDelay={0.1}
+                        mouseLeaveDelay={0.1}
+                    >
+                        <span>
+                            <Button onClick={option.onClick} disabled={!option.isAvailable}>
+                                {option.buttonText}
+                            </Button>
+                        </span>
+                    </Tooltip2>
                 </SettingsOptionRow>
             </>
         ))}
-    </Card>
+    </StyledCard>
 );

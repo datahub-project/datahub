@@ -31,7 +31,6 @@ import CreateEntityAnnouncementModal from '../announce/CreateEntityAnnouncementM
 import { MarkAsDeprecatedButtonContents } from '../components/styled/MarkAsDeprecatedButton';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../constants';
 import { getEntityPath } from '../containers/profile/utils';
-import { AddIncidentModal } from '../tabs/Incident/components/AddIncidentModal';
 import { useIsSeparateSiblingsMode } from '../useIsSeparateSiblingsMode';
 import CreateGlossaryEntityModal from './CreateGlossaryEntityModal';
 import { EntityMenuItems } from './EntityMenuActions';
@@ -42,6 +41,8 @@ import useDeleteEntity from './useDeleteEntity';
 import { isDeleteDisabled, isMoveDisabled, shouldDisplayChildDeletionWarning } from './utils';
 import LinkAssetVersionModal from './versioning/LinkAssetVersionModal';
 import UnlinkAssetVersionModal from './versioning/UnlinkAssetVersionModal';
+import { IncidentDetailDrawer } from '../tabs/Incident/AcrylComponents/IncidentDetailDrawer';
+import { IncidentAction } from '../tabs/Incident/constant';
 
 const MenuItem = styled.div`
     font-size: 13px;
@@ -396,13 +397,12 @@ const EntityDropdown = (props: Props) => {
             {isMoveModalVisible && isDomainEntity && <MoveDomainModal onClose={() => setIsMoveModalVisible(false)} />}
             {hasBeenDeleted && !onDelete && deleteRedirectPath && <Redirect to={deleteRedirectPath} />}
             {isRaiseIncidentModalVisible && (
-                <AddIncidentModal
+                <IncidentDetailDrawer
                     urn={urn}
-                    entityType={entityType}
-                    visible={isRaiseIncidentModalVisible}
-                    onClose={() => setIsRaiseIncidentModalVisible(false)}
-                    refetch={
-                        (() => {
+                    mode={IncidentAction.CREATE}
+                    onSubmit={() => {
+                        setIsRaiseIncidentModalVisible(false);
+                        setTimeout(() => {
                             refetchForEntity?.();
                             history.push(
                                 `${getEntityPath(
@@ -414,8 +414,14 @@ const EntityDropdown = (props: Props) => {
                                     'Incidents',
                                 )}`,
                             );
-                        }) as any
-                    }
+                        }, 3000);
+                    }}
+                    onCancel={() => setIsRaiseIncidentModalVisible(false)}
+                    entity={{
+                        urn,
+                        entityType,
+                        platform: entityData?.platform ?? entityData?.dataPlatformInstance?.platform,
+                    }}
                 />
             )}
             {isLinkAssetVersionModalVisible && (

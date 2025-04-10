@@ -12,18 +12,17 @@ ext {
     docker_target = project.getProperties().getOrDefault("dockerTarget", "slim")
     docker_version = "${version}${docker_target == 'slim' ? '-slim' : ''}"
 
-    revision = 11 // increment to trigger rebuild
+    revision = 12 // increment to trigger rebuild
 }
 
 dependencies {
-    project(':docker:datahub-ingestion-base')
     project(':metadata-ingestion')
 }
 
 docker {
-    dependsOn 'build', ':docker:datahub-ingestion-base:docker', ':metadata-ingestion:codegen'
-    name "${docker_registry}/${docker_repo}:v${docker_version}"
-    dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile${docker_target == "slim" ? "-slim-only" : ""}")
+    dependsOn 'build', ':metadata-ingestion:codegen'
+    name "${docker_registry}/${docker_repo}:${docker_version}"
+    dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
     files fileTree(rootProject.projectDir) {
         include '.dockerignore'
         include "docker/${docker_dir}/*"
@@ -34,7 +33,7 @@ docker {
     }
 
     version "v${docker_version}"
-    def dockerBuildArgs = [DOCKER_VERSION: version, RELEASE_VERSION: version.replace('-SNAPSHOT', '').replace('v', '').replace("-slim", ''), BASE_IMAGE: "${docker_registry}/datahub-ingestion-base"]
+    def dockerBuildArgs = [RELEASE_VERSION: version.replace('-SNAPSHOT', '').replace('v', '').replace("-slim", '')]
 
     // Add build args if they are defined (needed for some CI or enterprise environments)
     if (project.hasProperty('pipMirrorUrl')) {

@@ -51,6 +51,7 @@ export const Table = <T,>({
 }: TableProps<T>) => {
     const [sortColumn, setSortColumn] = useState<string | null>(null);
     const [sortOrder, setSortOrder] = useState<SortingState>(SortingState.ORIGINAL);
+    const [focusedRowIndex, setFocusedRowIndex] = useState<number | null>(null);
 
     const sortedData = getSortedData(columns, data, sortColumn, sortOrder);
     const isRowClickable = !!onRowClick;
@@ -64,6 +65,10 @@ export const Table = <T,>({
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sortOrder, sortColumn]);
+
+    useEffect(() => {
+        setFocusedRowIndex(null);
+    }, [data]);
 
     if (isLoading) {
         return (
@@ -183,6 +188,7 @@ export const Table = <T,>({
                                     key={key}
                                     canExpand={canExpand}
                                     onClick={() => {
+                                        setFocusedRowIndex(index);
                                         if (canExpand) onExpand?.(row); // Handle row expansion
                                         onRowClick?.(row); // Handle row click
                                     }}
@@ -193,8 +199,10 @@ export const Table = <T,>({
                                             currentRefs[index] = el;
                                         }
                                     }}
+                                    isFocused={focusedRowIndex === index}
                                     isRowClickable={isRowClickable}
                                     data-testId={rowDataTestId?.(row)}
+                                    canHover
                                 >
                                     {/* Render each cell in the row */}
 
@@ -241,7 +249,7 @@ export const Table = <T,>({
                                 </TableRow>
                                 {/* Render expanded content if row is expanded */}
                                 {isExpanded && expandable?.expandedRowRender && (
-                                    <TableRow isRowClickable={isRowClickable}>
+                                    <TableRow isRowClickable={isRowClickable} canHover={false}>
                                         <TableCell
                                             colSpan={columns.length + (expandable?.expandIconPosition ? 1 : 0)}
                                             style={{ padding: 0 }}

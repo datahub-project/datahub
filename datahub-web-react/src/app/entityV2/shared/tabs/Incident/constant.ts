@@ -7,7 +7,7 @@ export const INCIDENT_DEFAULT_FILTERS = {
         searchText: '',
         priority: [],
         stage: [],
-        type: [],
+        category: [],
         state: [IncidentState.Active],
     },
 };
@@ -15,7 +15,7 @@ export const INCIDENT_DEFAULT_FILTERS = {
 export const INCIDENT_GROUP_BY_FILTER_OPTIONS = [
     { label: 'Priority', value: 'priority' },
     { label: 'Stage', value: 'stage' },
-    { label: 'Category', value: 'type' },
+    { label: 'Category', value: 'category' },
     { label: 'State', value: 'state' },
 ];
 
