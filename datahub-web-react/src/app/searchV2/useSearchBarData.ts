@@ -24,6 +24,7 @@ export type SearchResponse = {
     facets?: FacetMetadata[];
     entities?: Entity[];
     loading?: boolean;
+    searchAPIVariant?: string;
 };
 
 const SEARCH_API_RESPONSE_MAX_ITEMS = 20;
@@ -74,7 +75,9 @@ const useSearchAPI = (): APIResponse => {
             // SearchAPI supports queries with 3 or longer characters
             if (query.length < 3) {
                 setEntities(undefined);
-                setFacets(undefined);
+                // set to empty array instead of undefined to forcibly control facets
+                // FYI: undefined triggers requests to get facets. see `filtersV2/SearchFilters` for details
+                setFacets([]);
             } else {
                 getSearchResultsForMultiple({
                     variables: {
@@ -139,5 +142,5 @@ export const useSearchBarData = (
         }
     }, [updateData, debouncedQuery, appliedFilters, viewUrn, enabled]);
 
-    return { entities, facets, loading };
+    return { entities, facets, loading, searchAPIVariant };
 };
