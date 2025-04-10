@@ -10,7 +10,7 @@ from datahub.metadata.schema_classes import (
     AspectBag,
     MLModelGroupPropertiesClass,
 )
-from datahub.metadata.urns import MlModelGroupUrn, Urn
+from datahub.metadata.urns import DataProcessInstanceUrn, MlModelGroupUrn, Urn
 from datahub.sdk._shared import (
     DomainInputType,
     HasDomain,
@@ -65,8 +65,8 @@ class MLModelGroup(
         terms: Optional[TermsInputType] = None,
         domain: Optional[DomainInputType] = None,
         extra_aspects: ExtraAspectsType = None,
-        training_jobs: Optional[List[str]] = None,
-        downstream_jobs: Optional[List[str]] = None,
+        training_jobs: Optional[List[DataProcessInstanceUrn]] = None,
+        downstream_jobs: Optional[List[DataProcessInstanceUrn]] = None,
     ):
         urn = MlModelGroupUrn(platform=platform, name=id, env=env)
         super().__init__(urn)
@@ -180,38 +180,44 @@ class MLModelGroup(
     def training_jobs(self) -> Optional[List[str]]:
         return self._ensure_model_group_props().trainingJobs
 
-    def set_training_jobs(self, training_jobs: List[str]) -> None:
-        self._ensure_model_group_props().trainingJobs = training_jobs
+    def set_training_jobs(self, training_jobs: List[DataProcessInstanceUrn]) -> None:
+        self._ensure_model_group_props().trainingJobs = [
+            str(job) for job in training_jobs
+        ]
 
-    def add_training_jobs(self, training_jobs: List[str]) -> None:
+    def add_training_job(self, training_job: DataProcessInstanceUrn) -> None:
         props = self._ensure_model_group_props()
         if props.trainingJobs is None:
             props.trainingJobs = []
-        props.trainingJobs.extend(training_jobs)
+        props.trainingJobs.append(str(training_job))
 
-    def remove_training_jobs(self, training_jobs: List[str]) -> None:
+    def remove_training_job(self, training_job: DataProcessInstanceUrn) -> None:
         props = self._ensure_model_group_props()
         if props.trainingJobs is not None:
             props.trainingJobs = [
-                job for job in props.trainingJobs if job not in training_jobs
+                job for job in props.trainingJobs if job != str(training_job)
             ]
 
     @property
     def downstream_jobs(self) -> Optional[List[str]]:
         return self._ensure_model_group_props().downstreamJobs
 
-    def set_downstream_jobs(self, downstream_jobs: List[str]) -> None:
-        self._ensure_model_group_props().downstreamJobs = downstream_jobs
+    def set_downstream_jobs(
+        self, downstream_jobs: List[DataProcessInstanceUrn]
+    ) -> None:
+        self._ensure_model_group_props().downstreamJobs = [
+            str(job) for job in downstream_jobs
+        ]
 
-    def add_downstream_jobs(self, downstream_jobs: List[str]) -> None:
+    def add_downstream_job(self, downstream_job: DataProcessInstanceUrn) -> None:
         props = self._ensure_model_group_props()
         if props.downstreamJobs is None:
             props.downstreamJobs = []
-        props.downstreamJobs.extend(downstream_jobs)
+        props.downstreamJobs.append(str(downstream_job))
 
-    def remove_downstream_jobs(self, downstream_jobs: List[str]) -> None:
+    def remove_downstream_job(self, downstream_job: DataProcessInstanceUrn) -> None:
         props = self._ensure_model_group_props()
         if props.downstreamJobs is not None:
             props.downstreamJobs = [
-                job for job in props.downstreamJobs if job not in downstream_jobs
+                job for job in props.downstreamJobs if job != str(downstream_job)
             ]

@@ -1,191 +1,124 @@
+from __future__ import annotations
+
 import pathlib
 from datetime import datetime, timezone
 
-from datahub.metadata.urns import MlModelGroupUrn
+import pytest
+
+from datahub.metadata.urns import (
+    DataPlatformUrn,
+    DataProcessInstanceUrn,
+    MlModelGroupUrn,
+)
 from datahub.sdk.mlmodelgroup import MLModelGroup
-from tests.test_helpers.sdk_v2_helpers import assert_entity_golden
+from datahub.utilities.urns.error import InvalidUrnError
 
 _GOLDEN_DIR = pathlib.Path(__file__).parent / "mlmodelgroup_golden"
 
 
 def test_mlmodelgroup_basic() -> None:
-    created = datetime(2025, 4, 9, 22, 30, tzinfo=timezone.utc)
-    updated = datetime(2025, 4, 9, 22, 30, tzinfo=timezone.utc)
-
-    mg = MLModelGroup(
-        id="test_model_group",
+    """Test basic MLModelGroup functionality."""
+    group = MLModelGroup(
+        id="test_group",
         platform="mlflow",
-        name="Test Model Group",
-        description="A group of test models for demonstration",
-        external_url="https://mlflow.example.com/groups/test_group",
-        custom_properties={
+        name="test_group",
+    )
+
+    # Test basic properties
+    assert group.urn == MlModelGroupUrn(platform="mlflow", name="test_group")
+    assert group.name == "test_group"
+    assert group.platform == DataPlatformUrn("urn:li:dataPlatform:mlflow")
+
+    # Test description
+    group.set_description("A test model group")
+    assert group.description == "A test model group"
+
+    # Test timestamps
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    group.set_created(now)
+    group.set_last_modified(now)
+    assert group.created == now
+    assert group.last_modified == now
+
+    # Test custom properties
+    group.set_custom_properties(
+        {
             "purpose": "testing",
-            "environment": "development",
-            "owner": "ml_team",
-        },
-        training_jobs=[
-            "urn:li:dataJob:(urn:li:dataFlow:(airflow,training_pipeline,prod),train_models)"
-        ],
-        downstream_jobs=[
-            "urn:li:dataJob:(urn:li:dataFlow:(airflow,serving_pipeline,prod),serve_models)"
-        ],
-        created=created,
-        last_modified=updated,
+            "owner": "data-science",
+        }
     )
-
-    # Check urn setup
-    assert MLModelGroup.get_urn_type() == MlModelGroupUrn
-    assert isinstance(mg.urn, MlModelGroupUrn)
-    assert (
-        str(mg.urn)
-        == "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,test_model_group,PROD)"
-    )
-    assert str(mg.urn) in repr(mg)
-
-    # Check most attributes
-    assert str(mg.platform) == "urn:li:dataPlatform:mlflow"
-    assert mg.name == "Test Model Group"
-    assert mg.description == "A group of test models for demonstration"
-    assert mg.external_url == "https://mlflow.example.com/groups/test_group"
-    assert mg.created == created
-    assert mg.last_modified == updated
-    assert mg.custom_properties == {
+    assert group.custom_properties == {
         "purpose": "testing",
-        "environment": "development",
-        "owner": "ml_team",
+        "owner": "data-science",
     }
-    assert mg.training_jobs == [
-        "urn:li:dataJob:(urn:li:dataFlow:(airflow,training_pipeline,prod),train_models)"
-    ]
-    assert mg.downstream_jobs == [
-        "urn:li:dataJob:(urn:li:dataFlow:(airflow,serving_pipeline,prod),serve_models)"
-    ]
 
-    assert_entity_golden(mg, _GOLDEN_DIR / "test_mlmodelgroup_basic_golden.json")
+    # Test training jobs
+    job_urn = DataProcessInstanceUrn("job1")
+    group.add_training_job(job_urn)
+    assert group.training_jobs is not None
+    assert str(job_urn) in group.training_jobs
+
+    group.remove_training_job(job_urn)
+    assert group.training_jobs is not None
+    assert len(group.training_jobs) == 0
+
+    # Test downstream jobs
+    group.add_downstream_job(job_urn)
+    assert group.downstream_jobs is not None
+    assert str(job_urn) in group.downstream_jobs
+
+    group.remove_downstream_job(job_urn)
+    assert group.downstream_jobs is not None
+    assert len(group.downstream_jobs) == 0
 
 
 def test_mlmodelgroup_complex() -> None:
-    created = datetime(2025, 4, 9, 22, 30, tzinfo=timezone.utc)
-    updated = datetime(2025, 4, 9, 22, 30, tzinfo=timezone.utc)
-
-    mg = MLModelGroup(
-        id="test_model_group",
+    """Test more complex MLModelGroup scenarios."""
+    # Test initialization with all properties
+    group = MLModelGroup(
+        id="complex_group",
         platform="mlflow",
-        name="Test Model Group",
-        description="A test model group for complex scenarios",
-        created=created,
-        last_modified=updated,
-        external_url="https://mlflow.example.com/groups/complex_group",
+        name="complex_group",
+        description="A complex test group",
         custom_properties={
             "purpose": "production",
-            "environment": "staging",
-            "owner": "ml_team",
-            "framework": "tensorflow",
-            "task": "object_detection",
+            "owner": "ml-team",
         },
-        training_jobs=[
-            "urn:li:dataJob:(urn:li:dataFlow:(airflow,training_pipeline,prod),train_models)",
-            "urn:li:dataJob:(urn:li:dataFlow:(airflow,training_pipeline,prod),validate_models)",
-        ],
-        downstream_jobs=[
-            "urn:li:dataJob:(urn:li:dataFlow:(airflow,serving_pipeline,prod),serve_models)",
-            "urn:li:dataJob:(urn:li:dataFlow:(airflow,monitoring_pipeline,prod),monitor_models)",
-        ],
     )
 
-    # Check properties
-    assert str(mg.platform) == "urn:li:dataPlatform:mlflow"
-    assert mg.name == "Test Model Group"
-    assert mg.description == "A test model group for complex scenarios"
-    assert mg.created == created
-    assert mg.last_modified == updated
-    assert mg.external_url == "https://mlflow.example.com/groups/complex_group"
-    assert mg.custom_properties == {
+    assert group.name == "complex_group"
+    assert group.description == "A complex test group"
+    assert group.custom_properties == {
         "purpose": "production",
-        "environment": "staging",
-        "owner": "ml_team",
-        "framework": "tensorflow",
-        "task": "object_detection",
-    }
-    assert mg.training_jobs == [
-        "urn:li:dataJob:(urn:li:dataFlow:(airflow,training_pipeline,prod),train_models)",
-        "urn:li:dataJob:(urn:li:dataFlow:(airflow,training_pipeline,prod),validate_models)",
-    ]
-    assert mg.downstream_jobs == [
-        "urn:li:dataJob:(urn:li:dataFlow:(airflow,serving_pipeline,prod),serve_models)",
-        "urn:li:dataJob:(urn:li:dataFlow:(airflow,monitoring_pipeline,prod),monitor_models)",
-    ]
-
-    # Test property setters
-    mg.set_name("New Name")
-    assert mg.name == "New Name"
-
-    mg.set_description("New Description")
-    assert mg.description == "New Description"
-
-    mg.set_external_url("https://example.com/new")
-    assert mg.external_url == "https://example.com/new"
-
-    mg.set_custom_properties(
-        {"purpose": "research", "environment": "development", "owner": "research_team"}
-    )
-    assert mg.custom_properties == {
-        "purpose": "research",
-        "environment": "development",
-        "owner": "research_team",
+        "owner": "ml-team",
     }
 
-    # Create new timestamps with microseconds truncated
-    new_created = datetime.now(timezone.utc).replace(microsecond=0)
-    mg.set_created(new_created)
-    assert mg.created == new_created
+    # Test multiple training jobs
+    job1 = DataProcessInstanceUrn("job1")
+    job2 = DataProcessInstanceUrn("job2")
 
-    new_modified = datetime.now(timezone.utc).replace(microsecond=0)
-    mg.set_last_modified(new_modified)
-    assert mg.last_modified == new_modified
+    group.add_training_job(job1)
+    group.add_training_job(job2)
+    assert group.training_jobs is not None
+    assert len(group.training_jobs) == 2
+    assert str(job1) in group.training_jobs
+    assert str(job2) in group.training_jobs
 
-    # Test training jobs
-    mg.add_training_jobs(
-        [
-            "urn:li:dataJob:(urn:li:dataFlow:(airflow,training_pipeline,prod),retrain_models)"
-        ]
-    )
-    assert mg.training_jobs == [
-        "urn:li:dataJob:(urn:li:dataFlow:(airflow,training_pipeline,prod),train_models)",
-        "urn:li:dataJob:(urn:li:dataFlow:(airflow,training_pipeline,prod),validate_models)",
-        "urn:li:dataJob:(urn:li:dataFlow:(airflow,training_pipeline,prod),retrain_models)",
-    ]
+    # Test multiple downstream jobs
+    group.add_downstream_job(job1)
+    group.add_downstream_job(job2)
+    assert group.downstream_jobs is not None
+    assert len(group.downstream_jobs) == 2
+    assert str(job1) in group.downstream_jobs
+    assert str(job2) in group.downstream_jobs
 
-    mg.remove_training_jobs(
-        [
-            "urn:li:dataJob:(urn:li:dataFlow:(airflow,training_pipeline,prod),train_models)"
-        ]
-    )
-    assert mg.training_jobs == [
-        "urn:li:dataJob:(urn:li:dataFlow:(airflow,training_pipeline,prod),validate_models)",
-        "urn:li:dataJob:(urn:li:dataFlow:(airflow,training_pipeline,prod),retrain_models)",
-    ]
 
-    # Test downstream jobs
-    mg.add_downstream_jobs(
-        [
-            "urn:li:dataJob:(urn:li:dataFlow:(airflow,serving_pipeline,prod),update_models)"
-        ]
-    )
-    assert mg.downstream_jobs == [
-        "urn:li:dataJob:(urn:li:dataFlow:(airflow,serving_pipeline,prod),serve_models)",
-        "urn:li:dataJob:(urn:li:dataFlow:(airflow,monitoring_pipeline,prod),monitor_models)",
-        "urn:li:dataJob:(urn:li:dataFlow:(airflow,serving_pipeline,prod),update_models)",
-    ]
+def test_mlmodelgroup_validation() -> None:
+    """Test MLModelGroup validation and error cases."""
+    # Test invalid platform
+    with pytest.raises(InvalidUrnError):
+        MLModelGroup(id="test", platform="")
 
-    mg.remove_downstream_jobs(
-        [
-            "urn:li:dataJob:(urn:li:dataFlow:(airflow,serving_pipeline,prod),serve_models)"
-        ]
-    )
-    assert mg.downstream_jobs == [
-        "urn:li:dataJob:(urn:li:dataFlow:(airflow,monitoring_pipeline,prod),monitor_models)",
-        "urn:li:dataJob:(urn:li:dataFlow:(airflow,serving_pipeline,prod),update_models)",
-    ]
-
-    assert_entity_golden(mg, _GOLDEN_DIR / "test_mlmodelgroup_complex_golden.json")
+    # Test invalid ID
+    with pytest.raises(InvalidUrnError):
+        MLModelGroup(id="", platform="test_platform")

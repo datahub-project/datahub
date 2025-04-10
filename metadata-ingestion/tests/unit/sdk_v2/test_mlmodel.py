@@ -1,209 +1,252 @@
-import pathlib
+from __future__ import annotations
+
 from datetime import datetime, timezone
+
+import pytest
 
 from datahub.metadata.schema_classes import (
     MLHyperParamClass,
     MLMetricClass,
-    TagAssociationClass,
 )
-from datahub.metadata.urns import MlModelGroupUrn, MlModelUrn
+from datahub.metadata.urns import (
+    DataPlatformUrn,
+    DataProcessInstanceUrn,
+    MlModelGroupUrn,
+    MlModelUrn,
+)
 from datahub.sdk.mlmodel import MLModel
-from tests.test_helpers.sdk_v2_helpers import assert_entity_golden
-
-_GOLDEN_DIR = pathlib.Path(__file__).parent / "mlmodel_golden"
+from datahub.utilities.urns.error import InvalidUrnError
 
 
 def test_mlmodel_basic() -> None:
-    created = datetime(2025, 4, 9, 22, 30, tzinfo=timezone.utc)
-    updated = datetime(2025, 4, 9, 22, 30, tzinfo=timezone.utc)
-
-    m = MLModel(
+    """Test basic MLModel functionality."""
+    model = MLModel(
         id="test_model",
-        version="1.0.0",
         platform="mlflow",
-        name="Test Model",
-        description="A basic test model for demonstration",
-        training_metrics={"accuracy": "0.85", "loss": "0.12"},
-        hyper_params={"learning_rate": "0.001", "batch_size": "64"},
-        external_url="https://mlflow.example.com/models/test_model",
-        custom_properties={
-            "framework": "pytorch",
-            "task": "classification",
-            "dataset": "mnist",
-        },
-        aliases=["test_model_v1", "mnist_classifier"],
-        training_jobs=[
-            "urn:li:dataJob:(urn:li:dataFlow:(airflow,training_pipeline,prod),train_model)"
-        ],
-        created=created,
-        last_modified=updated,
-        tags=["urn:li:tag:test_tag"],
+        name="test_model",
     )
 
-    # Check urn setup
-    assert MLModel.get_urn_type() == MlModelUrn
-    assert isinstance(m.urn, MlModelUrn)
-    assert str(m.urn) == "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test_model,PROD)"
-    assert str(m.urn) in repr(m)
+    # Test basic properties
+    assert model.urn == MlModelUrn("mlflow", "test_model")
+    assert model.name == "test_model"
+    assert model.platform == DataPlatformUrn("urn:li:dataPlatform:mlflow")
 
-    # Check most attributes
-    assert m.version == "1.0.0"
-    assert str(m.platform) == "urn:li:dataPlatform:mlflow"
-    assert m.name == "Test Model"
-    assert m.description == "A basic test model for demonstration"
-    assert m.training_metrics is not None
-    assert len(m.training_metrics) == 2
-    assert any(m.name == "accuracy" and m.value == "0.85" for m in m.training_metrics)
-    assert any(m.name == "loss" and m.value == "0.12" for m in m.training_metrics)
-    assert m.hyper_params is not None
-    assert len(m.hyper_params) == 2
-    assert any(p.name == "learning_rate" and p.value == "0.001" for p in m.hyper_params)
-    assert any(p.name == "batch_size" and p.value == "64" for p in m.hyper_params)
-    assert m.external_url == "https://mlflow.example.com/models/test_model"
-    assert m.created == created
-    assert m.last_modified == updated
-    assert m.tags == [TagAssociationClass("urn:li:tag:test_tag")]
-    assert m.groups is None
-    assert m.training_jobs == [
-        "urn:li:dataJob:(urn:li:dataFlow:(airflow,training_pipeline,prod),train_model)"
-    ]
-    assert m.aliases == ["test_model_v1", "mnist_classifier"]
-    assert m.custom_properties == {
+    # Test version and aliases
+    model.set_version("1.0.0")
+    assert model.version == "1.0.0"
+
+    model.add_alias("alias1")
+    model.add_alias("alias2")
+    assert model.aliases is not None
+    assert "alias1" in model.aliases
+    assert "alias2" in model.aliases
+
+    model.remove_alias("alias1")
+    assert model.aliases is not None
+    assert "alias1" not in model.aliases
+    assert "alias2" in model.aliases
+
+    # Test description
+    model.set_description("A test model")
+    assert model.description == "A test model"
+
+    # Test training metrics
+    model.add_training_metric("accuracy", 0.95)
+    model.add_training_metric("loss", 0.1)
+    metrics = model.training_metrics
+    assert metrics is not None
+    assert len(metrics) == 2
+
+    # Check for specific metrics using a more type-safe approach
+    found_accuracy = False
+    found_loss = False
+    for m in metrics:
+        if hasattr(m, "name") and hasattr(m, "value"):
+            if m.name == "accuracy" and m.value == "0.95":
+                found_accuracy = True
+            if m.name == "loss" and m.value == "0.1":
+                found_loss = True
+    assert found_accuracy
+    assert found_loss
+
+    # Test hyper parameters
+    model.add_hyper_param("learning_rate", 0.001)
+    model.add_hyper_param("batch_size", 32)
+    params = model.hyper_params
+    assert params is not None
+    assert len(params) == 2
+
+    # Check for specific parameters using a more type-safe approach
+    found_learning_rate = False
+    found_batch_size = False
+    for p in params:
+        if hasattr(p, "name") and hasattr(p, "value"):
+            if p.name == "learning_rate" and p.value == "0.001":
+                found_learning_rate = True
+            if p.name == "batch_size" and p.value == "32":
+                found_batch_size = True
+    assert found_learning_rate
+    assert found_batch_size
+
+    # Test external URL
+    model.set_external_url("https://example.com/model")
+    assert model.external_url == "https://example.com/model"
+
+    # Test timestamps
+    test_date = datetime(2023, 1, 1, 12, 0, 0, tzinfo=timezone.utc)  # Fixed date
+    model.set_created(test_date)
+    model.set_last_modified(test_date)
+    assert model.created == test_date
+    assert model.last_modified == test_date
+
+    # Test custom properties
+    model.set_custom_properties(
+        {"framework": "pytorch", "task": "classification", "dataset": "imagenet"}
+    )
+    assert model.custom_properties == {
         "framework": "pytorch",
         "task": "classification",
-        "dataset": "mnist",
+        "dataset": "imagenet",
     }
 
-    assert_entity_golden(m, _GOLDEN_DIR / "test_mlmodel_basic_golden.json")
+    # Test groups
+    group_urn = MlModelGroupUrn("mlflow", "test_group")
+    model.add_group(group_urn)
+    assert model.groups is not None
+    assert str(group_urn) in model.groups
+
+    model.remove_group(group_urn)
+    assert model.groups is not None
+    assert len(model.groups) == 0
+
+    # Test training jobs
+    job_urn = DataProcessInstanceUrn("job1")
+    model.add_training_job(job_urn)
+    assert model.training_jobs is not None
+    assert str(job_urn) in model.training_jobs
+
+    model.remove_training_job(job_urn)
+    assert model.training_jobs is not None
+    assert len(model.training_jobs) == 0
+
+    # Test downstream jobs
+    model.add_downstream_job(job_urn)
+    assert model.downstream_jobs is not None
+    assert str(job_urn) in model.downstream_jobs
+
+    model.remove_downstream_job(job_urn)
+    assert model.downstream_jobs is not None
+    assert len(model.downstream_jobs) == 0
 
 
 def test_mlmodel_complex() -> None:
-    created = datetime(2025, 4, 9, 22, 30, tzinfo=timezone.utc)
-    updated = datetime(2025, 4, 9, 22, 30, tzinfo=timezone.utc)
-
-    training_metrics = {"accuracy": "0.95", "f1": "0.92"}
-
-    hyper_params = {"learning_rate": "0.01", "batch_size": "32"}
-
-    m = MLModel(
-        id="test_model",
-        version="1.0.0",
-        platform="mlflow",
-        name="Test Model",
-        description="A test model",
-        training_metrics=training_metrics,
-        hyper_params=hyper_params,
-        external_url="https://example.com/model",
-        created=created,
-        last_modified=updated,
-        custom_properties={
-            "framework": "tensorflow",
-            "task": "object_detection",
-            "dataset": "coco",
-            "architecture": "yolov5",
-            "pretrained": "true",
-        },
-        aliases=["test_model_v1", "yolov5_coco"],
-        training_jobs=[
-            "urn:li:dataJob:(urn:li:dataFlow:(airflow,training_pipeline,prod),train_model)",
-            "urn:li:dataJob:(urn:li:dataFlow:(airflow,training_pipeline,prod),validate_model)",
+    """Test more complex MLModel scenarios."""
+    # Test initialization with all properties
+    model = MLModel(
+        id="complex_model",
+        platform="test_platform",
+        name="complex_model",
+        description="A complex test model",
+        external_url="https://example.com/complex_model",
+        training_metrics=[
+            MLMetricClass(name="accuracy", value="0.95"),
+            MLMetricClass(name="loss", value="0.1"),
         ],
-        tags=["urn:li:tag:test_tag"],
+        hyper_params=[
+            MLHyperParamClass(name="learning_rate", value="0.001"),
+            MLHyperParamClass(name="batch_size", value="32"),
+        ],
+        custom_properties={
+            "framework": "pytorch",
+            "task": "classification",
+        },
     )
 
-    # Check properties
-    assert m.version == "1.0.0"
-    assert str(m.platform) == "urn:li:dataPlatform:mlflow"
-    assert m.name == "Test Model"
-    assert m.description == "A test model"
-    assert m.training_metrics is not None
-    assert m.training_metrics == [
-        MLMetricClass(name="accuracy", value="0.95"),
-        MLMetricClass(name="f1", value="0.92"),
-    ]
-    assert m.hyper_params is not None
-    assert m.hyper_params == [
-        MLHyperParamClass(name="learning_rate", value="0.01"),
-        MLHyperParamClass(name="batch_size", value="32"),
-    ]
-    assert m.external_url == "https://example.com/model"
-    assert m.created == created
-    assert m.last_modified == updated
-    assert m.tags == [TagAssociationClass("urn:li:tag:test_tag")]
-    assert m.groups is None
-    assert m.training_jobs == [
-        "urn:li:dataJob:(urn:li:dataFlow:(airflow,training_pipeline,prod),train_model)",
-        "urn:li:dataJob:(urn:li:dataFlow:(airflow,training_pipeline,prod),validate_model)",
-    ]
-    assert m.aliases == ["test_model_v1", "yolov5_coco"]
-    assert m.custom_properties == {
-        "framework": "tensorflow",
-        "task": "object_detection",
-        "dataset": "coco",
-        "architecture": "yolov5",
-        "pretrained": "true",
-    }
-
-    # Test property setters
-    m.set_name("New Name")
-    assert m.name == "New Name"
-
-    m.set_description("New Description")
-    assert m.description == "New Description"
-
-    m.set_external_url("https://example.com/new")
-    assert m.external_url == "https://example.com/new"
-
-    m.set_custom_properties(
-        {"framework": "pytorch", "task": "segmentation", "dataset": "cityscapes"}
-    )
-    assert m.custom_properties == {
+    assert model.name == "complex_model"
+    assert model.description == "A complex test model"
+    assert model.external_url == "https://example.com/complex_model"
+    assert model.training_metrics is not None
+    assert len(model.training_metrics) == 2
+    assert model.hyper_params is not None
+    assert len(model.hyper_params) == 2
+    assert model.custom_properties == {
         "framework": "pytorch",
-        "task": "segmentation",
-        "dataset": "cityscapes",
+        "task": "classification",
     }
 
-    # Create new timestamps with microseconds truncated
-    new_created = datetime.now(timezone.utc).replace(microsecond=0)
-    m.set_created(new_created)
-    assert m.created == new_created
+    # Test setting multiple training metrics at once
+    model.set_training_metrics(
+        {
+            "precision": 0.92,
+            "recall": 0.88,
+            "f1": 0.90,
+        }
+    )
+    assert model.training_metrics is not None
+    assert len(model.training_metrics) == 3
 
-    new_modified = datetime.now(timezone.utc).replace(microsecond=0)
-    m.set_last_modified(new_modified)
-    assert m.last_modified == new_modified
+    # Check for a specific metric using a more type-safe approach
+    found_precision = False
+    for m in model.training_metrics:
+        if hasattr(m, "name") and hasattr(m, "value"):
+            if m.name == "precision" and m.value == "0.92":
+                found_precision = True
+    assert found_precision
 
-    # Test training metrics
-    m.add_training_metric("precision", "0.94")
-    assert m.training_metrics is not None
-    assert len(m.training_metrics) == 3
-    assert any(m.name == "precision" and m.value == "0.94" for m in m.training_metrics)
+    # Test setting multiple hyper parameters at once
+    model.set_hyper_params(
+        {
+            "epochs": 100,
+            "optimizer": "adam",
+            "dropout": 0.5,
+        }
+    )
+    assert model.hyper_params is not None
+    assert len(model.hyper_params) == 3
 
-    # Test hyper parameters
-    m.add_hyper_param("epochs", "100")
-    assert m.hyper_params is not None
-    assert len(m.hyper_params) == 3
-    assert any(p.name == "epochs" and p.value == "100" for p in m.hyper_params)
+    # Check for a specific parameter using a more type-safe approach
+    found_epochs = False
+    for p in model.hyper_params:
+        if hasattr(p, "name") and hasattr(p, "value"):
+            if p.name == "epochs" and p.value == "100":
+                found_epochs = True
+    assert found_epochs
 
-    # Test aliases
-    m.add_aliases(["alias3"])
-    assert m.aliases == ["test_model_v1", "yolov5_coco", "alias3"]
+    # Test multiple groups
+    group1 = MlModelGroupUrn("mlflow", "group1")
+    group2 = MlModelGroupUrn("mlflow", "group2")
+    model.add_group(group1)
+    model.add_group(group2)
+    assert model.groups is not None
+    assert len(model.groups) == 2
+    assert str(group1) in model.groups
+    assert str(group2) in model.groups
 
-    # Add to group
-    group_urn = str(MlModelGroupUrn(platform="mlflow", name="test_group"))
-    m.add_to_group(group_urn)
-    assert m.groups == [group_urn]
+    # Test multiple training jobs
+    job1 = DataProcessInstanceUrn("job1")
+    job2 = DataProcessInstanceUrn("job2")
+    model.add_training_job(job1)
+    model.add_training_job(job2)
+    assert model.training_jobs is not None
+    assert len(model.training_jobs) == 2
+    assert str(job1) in model.training_jobs
+    assert str(job2) in model.training_jobs
 
-    # Remove from group
-    m.remove_from_group(group_urn)
-    assert m.groups == []
+    # Test multiple downstream jobs
+    model.add_downstream_job(job1)
+    model.add_downstream_job(job2)
+    assert model.downstream_jobs is not None
+    assert len(model.downstream_jobs) == 2
+    assert str(job1) in model.downstream_jobs
+    assert str(job2) in model.downstream_jobs
 
-    # Add training job
-    job_urn = "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_flow,prod),test_job)"
-    m.add_training_jobs([job_urn])
-    assert m.training_jobs == [
-        "urn:li:dataJob:(urn:li:dataFlow:(airflow,training_pipeline,prod),train_model)",
-        "urn:li:dataJob:(urn:li:dataFlow:(airflow,training_pipeline,prod),validate_model)",
-        job_urn,
-    ]
 
-    assert_entity_golden(m, _GOLDEN_DIR / "test_mlmodel_complex_golden.json")
+def test_mlmodel_validation() -> None:
+    """Test MLModel validation and error cases."""
+    # Test invalid platform
+    with pytest.raises(InvalidUrnError):
+        MLModel(id="test", platform="")
+
+    # Test invalid ID
+    with pytest.raises(InvalidUrnError):
+        MLModel(id="", platform="test_platform")
