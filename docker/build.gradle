@@ -49,7 +49,7 @@ ext {
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend',
                                                                           ':metadata-jobs:mce-consumer-job',
                                                                           ':metadata-jobs:mae-consumer-job',
-                                                                          ':datahub-actions:datahub-actions'],
+                                                                          ':datahub-actions'],
                     isDebug: true
             ],
             'quickstartPg': [
@@ -95,7 +95,7 @@ ext {
         ':datahub-upgrade': 'system-update',
         ':metadata-jobs:mce-consumer-job': 'datahub-mce-consumer',
         ':metadata-jobs:mae-consumer-job': 'datahub-mae-consumer',
-        ':datahub-actions:datahub-actions': 'datahub-actions',
+        ':datahub-actions': 'datahub-actions',
     ]
 }
 
