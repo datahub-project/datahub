@@ -34,7 +34,7 @@ env:
   DATAHUB_INGESTION_IMAGE: "acryldata/datahub-ingestion"
 
   DOCKER_CACHE: "DEPOT"
-  DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
+  DEPOT_PROJECT_ID: s0gr1cr3jd
   DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
 
 
@@ -1113,9 +1113,11 @@ jobs:
       - name: Set up Depot CLI
         if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
         uses: depot/setup-action@v1
+        with:
+          oidc: true
 
       - name: configure-docker
-        if: ${{ env.DOCKER_CACHE == 'DEPOT' && env.DOCKER_PROJECT_ID != '' }}
+        if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
         run: |
           depot configure-docker
 
