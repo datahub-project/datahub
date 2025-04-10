@@ -36,6 +36,7 @@ import useSearchViewAll from './useSearchViewAll';
 import { useAppConfig, useIsShowSeparateSiblingsEnabled } from '../useAppConfig';
 import useFocusElementByCommandK from './searchBarV2/hooks/useFocusSearchBarByCommandK';
 import { FiltersAppliedHandler } from './filtersV2/types';
+import { SearchResponse } from './useSearchBarData';
 
 const StyledAutoComplete = styled(AutoComplete)<{ $isShowNavBarRedesign?: boolean }>`
     width: 100%;
@@ -180,13 +181,7 @@ export interface SearchBarProps {
     onFilter?: FiltersAppliedHandler;
     // Used in SearchBarV2 (both components must have the same props)
     // eslint-disable-next-line react/no-unused-prop-types
-    facets?: FacetMetadata[];
-    // Used in SearchBarV2 (both components must have the same props)
-    // eslint-disable-next-line react/no-unused-prop-types
-    entities?: Entity[];
-    // Used in SearchBarV2 (both components must have the same props)
-    // eslint-disable-next-line react/no-unused-prop-types
-    isDataLoading?: boolean;
+    searchResponse?: SearchResponse;
 }
 
 const defaultProps = {

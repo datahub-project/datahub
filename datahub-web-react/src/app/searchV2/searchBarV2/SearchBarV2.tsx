@@ -196,9 +196,7 @@ export const SearchBarV2 = ({
     textColor,
     placeholderColor,
     isShowNavBarRedesign,
-    facets,
-    entities,
-    isDataLoading,
+    searchResponse,
 }: SearchBarProps) => {
     const history = useHistory();
     const appConfig = useAppConfig();
@@ -207,6 +205,11 @@ export const SearchBarV2 = ({
     const finalCombineSiblings = isShowSeparateSiblingsEnabled ? false : combineSiblings;
 
     const [searchQuery, setSearchQuery] = useState<string>(initialQuery || '');
+
+    const entities = searchResponse?.entities;
+    const facets = searchResponse?.facets;
+    const isDataLoading = searchResponse?.loading;
+
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
     // used to show Loader when we searching for suggestions in both cases for the first time and after clearing searchQuery
     const [isDataInitialized, setIsDataInitialized] = useState<boolean>(false);

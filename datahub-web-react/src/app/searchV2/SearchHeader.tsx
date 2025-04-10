@@ -15,6 +15,7 @@ import useSearchViewAll from './useSearchViewAll';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 import { FiltersAppliedHandler } from './filtersV2/types';
 import { SearchBarV2 } from './searchBarV2/SearchBarV2';
+import { SearchResponse } from './useSearchBarData';
 
 const getStyles = ($isShowNavBarRedesign?: boolean) => {
     return {
@@ -129,9 +130,7 @@ type Props = {
     onQueryChange: (query: string) => void;
     onFilter?: FiltersAppliedHandler;
     entityRegistry: EntityRegistry;
-    facets?: FacetMetadata[];
-    entities?: Entity[];
-    isDataLoading?: boolean;
+    searchResponse?: SearchResponse;
 };
 
 /**
@@ -145,9 +144,7 @@ export const SearchHeader = ({
     onQueryChange,
     entityRegistry,
     onFilter,
-    facets,
-    entities,
-    isDataLoading,
+    searchResponse,
 }: Props) => {
     const [, setIsSearchBarFocused] = useState(false);
     const appConfig = useAppConfig();
@@ -193,9 +190,7 @@ export const SearchHeader = ({
                             showQuickFilters
                             showViewAllResults
                             showCommandK
-                            facets={facets}
-                            entities={entities}
-                            isDataLoading={isDataLoading}
+                            searchResponse={searchResponse}
                         />
                         {isShowNavBarRedesign && (
                             <StyledButton type="link" onClick={searchViewAll}>
