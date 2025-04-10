@@ -32,6 +32,7 @@ env:
   DATAHUB_UPGRADE_IMAGE: "acryldata/datahub-upgrade"
   DATAHUB_INGESTION_BASE_IMAGE: "acryldata/datahub-ingestion-base"
   DATAHUB_INGESTION_IMAGE: "acryldata/datahub-ingestion"
+  DATAHUB_ACTIONS_IMAGE: "acryldata/datahub-actions"
 
   DOCKER_CACHE: "DEPOT"
   DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
@@ -60,6 +61,7 @@ jobs:
       branch_name: ${{ steps.tag.outputs.branch_name }}
       repository_name: ${{ steps.tag.outputs.repository_name }}
       frontend_change: ${{ steps.ci-optimize.outputs.frontend-change == 'true' }}
+      actions_change: ${{ steps.ci-optimize.outputs.actions-change == 'true' }}
       ingestion_change: ${{ steps.ci-optimize.outputs.ingestion-change == 'true' }}
       ingestion_base_change: ${{ steps.ci-optimize.outputs.ingestion-base-change == 'true' }}
       backend_change: ${{ steps.ci-optimize.outputs.backend-change == 'true' }}
@@ -1025,6 +1027,72 @@ jobs:
           ignore-unfixed: true
           vuln-type: "os,library"
           timeout: 15m
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: "trivy-results.sarif"
+
+  datahub_actions_build:
+    name: Build and Push DataHub Actions Docker Image
+    runs-on: depot-ubuntu-24.04
+    needs: [setup, base_build]
+    if: ${{ needs.setup.outputs.actions_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true'}}
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@v3
+
+      - name: Set up Depot CLI
+        if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
+        uses: depot/setup-action@v1
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}/build/dockerBuildContext/
+          key: ${{ runner.os }}-docker-${{ github.sha }}
+
+      - name: Build and push
+        uses: ./.github/actions/docker-custom-build-and-push
+        with:
+          images: |
+            ${{ env.DATAHUB_ACTIONS_IMAGE }}
+          image_tag: ${{ needs.setup.outputs.tag }}
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
+          context: ./build/dockerBuildContext/datahub-frontend/docker
+          file: ./docker/datahub-frontend/Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
+  datahub_actions_scan:
+    name: "[Monitoring] Scan Frontend images for vulnerabilities"
+    runs-on: depot-ubuntu-24.04
+    needs: [setup, smoke_test_lint,frontend_build]
+    if: ${{ needs.setup.outputs.frontend_change == 'true' || needs.setup.outputs.publish == 'true' }}
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
+    steps:
+      - name: Checkout # adding checkout step just to make trivy upload happy
+        uses: actions/checkout@v4
+      - name: Download image
+        uses: ishworkh/container-image-artifact-download@v2.0.0
+        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
+        with:
+          image: ${{ env.DATAHUB_FRONTEND_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.29.0
+        env:
+          TRIVY_OFFLINE_SCAN: true
+          TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
+          TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1,ghcr.io/aquasecurity/trivy-java-db:1
+        with:
+          image-ref: ${{ env.DATAHUB_ACTIONS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+          format: "template"
+          template: "@/contrib/sarif.tpl"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
+          ignore-unfixed: true
+          vuln-type: "os,library"
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
         with:
