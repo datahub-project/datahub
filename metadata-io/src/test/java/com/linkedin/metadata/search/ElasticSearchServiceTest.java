@@ -89,6 +89,7 @@ public class ElasticSearchServiceTest {
     // Verify upsert document
     Map<String, Object> capturedUpsert = upsertCaptor.getValue();
     assertEquals(capturedUpsert.get("runId"), Collections.singletonList(runId));
+    assertEquals(capturedUpsert.get("urn"), TEST_URN.toString());
   }
 
   @Test
@@ -121,6 +122,7 @@ public class ElasticSearchServiceTest {
 
     Map<String, Object> capturedUpsert = upsertCaptor.getValue();
     assertEquals(capturedUpsert.get("runId"), Collections.singletonList(null));
+    assertEquals(capturedUpsert.get("urn"), TEST_URN.toString());
   }
 
   @Test(expectedExceptions = NullPointerException.class)
