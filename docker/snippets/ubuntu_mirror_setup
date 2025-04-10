@@ -1,0 +1,3 @@
+# TODO: This may not work on Ubuntu 24.04 due to the new deb822 package format.
+ARG UBUNTU_REPO_URL=http://ports.ubuntu.com/ubuntu-ports
+RUN if [ "${UBUNTU_REPO_URL}" != "http://ports.ubuntu.com/ubuntu-ports" ] ; then sed -i "s#http.*://ports.ubuntu.com/ubuntu-ports#${UBUNTU_REPO_URL}#g" /etc/apt/sources.list ; fi

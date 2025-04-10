@@ -564,15 +564,15 @@ body {
 /* Media queries for responsive design */
 @media (max-width: 768px) {
   div[class^="announcementBar"] {
-    height: 65px !important; /* Increase height for stacked content */
+    height: 72px !important; /* Increase height for stacked content */
   }
 
   div[class^="announcementBar"] .shimmer-banner {
     flex-direction: column; /* Stack text and button */
-    padding: 0.3rem 1rem; /* Adjust padding */
+    padding: auto 1rem; /* Adjust padding */
     justify-content: center; /* Center items vertically */
     text-align: center; /* Center text */
-    gap: 0.5rem; /* Add space BETWEEN flex items */
+    gap: 0.2rem; /* Add space BETWEEN flex items */
 
     p {
       font-size: 0.9rem;
