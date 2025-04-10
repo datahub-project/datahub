@@ -64,9 +64,9 @@ class MLModelGroup(
         tags: Optional[TagsInputType] = None,
         terms: Optional[TermsInputType] = None,
         domain: Optional[DomainInputType] = None,
-        extra_aspects: ExtraAspectsType = None,
         training_jobs: Optional[List[DataProcessInstanceUrn]] = None,
         downstream_jobs: Optional[List[DataProcessInstanceUrn]] = None,
+        extra_aspects: ExtraAspectsType = None,
     ):
         urn = MlModelGroupUrn(platform=platform, name=id, env=env)
         super().__init__(urn)
