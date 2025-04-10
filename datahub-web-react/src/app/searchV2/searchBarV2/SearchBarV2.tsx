@@ -31,6 +31,7 @@ import useRecentlySearchedQueriesOptions from './hooks/useRecentlySearchedQuerie
 import useRecentlyViewedEntitiesOptions from './hooks/useRecentlyViewedEntitiesOptions';
 import useViewAllResultsOptions from './hooks/useViewAllResultsOptions';
 import { SearchBarProps } from '../SearchBar';
+import { OptionType } from '@src/alchemy-components/components/AutoComplete/types';
 
 const BOX_SHADOW = `0px -3px 12px 0px rgba(236, 240, 248, 0.5) inset,
 0px 3px 12px 0px rgba(255, 255, 255, 0.5) inset,
@@ -201,15 +202,12 @@ export const SearchBarV2 = ({
     const isShowSeparateSiblingsEnabled = useIsShowSeparateSiblingsEnabled();
     const finalCombineSiblings = isShowSeparateSiblingsEnabled ? false : combineSiblings;
 
-    const [searchQuery, setSearchQuery] = useState<string | undefined>(initialQuery);
-    const [selectedValue, setSelectedValue] = useState<string>();
+    const [searchQuery, setSearchQuery] = useState<string>(initialQuery || '');
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
     // used to show Loader when we searching for suggestions in both cases for the first time and after clearing searchQuery
     const [isSuggestionsInitialized, setIsSuggestionsInitialized] = useState<boolean>(false);
     const [isSearchBarFocused, setIsFocused] = useState(false);
     const { appliedFilters, hasAppliedFilters, flatAppliedFilters, clear, updateFieldFilters } = useAppliedFilters();
-
-    const effectiveQuery = searchQuery !== undefined ? searchQuery : initialQuery || '';
 
     const searchInputRef = useRef(null);
     useFocusElementByCommandK(searchInputRef, !showCommandK);
@@ -224,8 +222,6 @@ export const SearchBarV2 = ({
         if (!isSuggestionsLoading) setIsSuggestionsInitialized(true);
     }, [isSuggestionsLoading]);
 
-    useEffect(() => setSelectedValue(initialQuery), [initialQuery]);
-
     const recentlySearchedQueriesOptions = useRecentlySearchedQueriesOptions();
     const recentlyViewedEntitiesOptions = useRecentlyViewedEntitiesOptions();
 
@@ -233,10 +229,10 @@ export const SearchBarV2 = ({
         return [...recentlyViewedEntitiesOptions, ...recentlySearchedQueriesOptions];
     }, [recentlyViewedEntitiesOptions, recentlySearchedQueriesOptions]);
 
-    const viewAllResultsOptions = useViewAllResultsOptions(effectiveQuery, showViewAllResults);
+    const viewAllResultsOptions = useViewAllResultsOptions(searchQuery, showViewAllResults);
 
     const isSearching = useMemo(() => {
-        const hasSearchQuery = searchQuery !== undefined && searchQuery !== '';
+        const hasSearchQuery = searchQuery !== '';
         return hasSearchQuery || hasAppliedFilters;
     }, [searchQuery, hasAppliedFilters]);
 
@@ -244,7 +240,7 @@ export const SearchBarV2 = ({
 
     const autocompleteSuggestionsOptions = useAutocompleteSuggestionsOptions(
         suggestions,
-        effectiveQuery,
+        searchQuery,
         isSuggestionsLoading,
         isSuggestionsInitialized,
         finalCombineSiblings,
@@ -282,11 +278,10 @@ export const SearchBarV2 = ({
     }, [onBlur]);
 
     const onChangeHandler = (value: string) => {
-        setSelectedValue(filterSearchQuery(value));
+        setSearchQuery(filterSearchQuery(value));
     };
 
     const onClearHandler = useCallback(() => {
-        setSelectedValue('');
         setSearchQuery('');
         clear();
     }, [clear]);
@@ -395,7 +390,7 @@ export const SearchBarV2 = ({
                                             />
                                         )}
                                         {props}
-                                        <AutocompleteFooter isSomethingSelected={!!selectedValue} />
+                                        <AutocompleteFooter isSomethingSelected={!!searchQuery} />
                                     </DropdownContainer>
                                 );
                             }}
@@ -409,7 +404,7 @@ export const SearchBarV2 = ({
                             onSelect={onSelectHandler}
                             onSearch={onSearchHandler}
                             defaultValue={initialQuery || undefined}
-                            value={selectedValue}
+                            value={searchQuery}
                             onChange={onChangeHandler}
                             dropdownAlign={
                                 isShowNavBarRedesign ? AUTOCOMPLETE_DROPDOWN_ALIGN_WITH_NEW_NAV_BAR : undefined
