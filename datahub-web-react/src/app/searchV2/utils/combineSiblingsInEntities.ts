@@ -3,7 +3,7 @@ import { CombinedEntity, createSiblingEntityCombiner } from '../../entity/shared
 
 // TODO:: add tests
 export function combineSiblingsInEntities(
-    entities: Entity[] | undefined = [],
+    entities: Entity[] | undefined,
     shouldSepareteSiblings: boolean,
 ): CombinedEntity[] {
     const combine = createSiblingEntityCombiner();
@@ -11,7 +11,7 @@ export function combineSiblingsInEntities(
 
     entities?.forEach((entity) => {
         if (!shouldSepareteSiblings) {
-            combinedSearchResults.push({entity});
+            combinedSearchResults.push({ entity });
             return;
         }
 

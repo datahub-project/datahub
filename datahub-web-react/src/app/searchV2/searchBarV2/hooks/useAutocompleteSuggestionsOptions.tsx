@@ -5,7 +5,6 @@ import SectionHeader from '../components/SectionHeader';
 import AutoCompleteEntityItem from '../../autoCompleteV2/AutoCompleteEntityItem';
 import { combineSiblingsInEntities } from '../../utils/combineSiblingsInEntities';
 
-
 export default function useSearchResultsOptions(
     entities: Entity[] | undefined,
     searchQuery: string,

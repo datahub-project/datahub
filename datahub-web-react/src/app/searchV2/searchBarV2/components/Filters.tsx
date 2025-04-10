@@ -1,5 +1,6 @@
 import styled from 'styled-components';
 import React, { memo, useMemo } from 'react';
+import { FacetMetadata } from '@src/types.generated';
 import SearchFilters from '../../filtersV2/SearchFilters';
 import { AppliedFieldFilterUpdater, FieldToAppliedFieldFiltersMap, FiltersRendererProps } from '../../filtersV2/types';
 import {
@@ -10,7 +11,6 @@ import {
     TAGS_FILTER_NAME,
 } from '../../utils/constants';
 import DefaultFiltersRenderer from '../../filtersV2/defaults/DefaultFiltersRenderer';
-import { FacetMetadata } from '@src/types.generated';
 import { convertFacetsToFieldToFacetStateMap } from '../../filtersV2/utils';
 
 const FILTER_FIELDS = [

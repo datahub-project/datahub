@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { ArrowRight } from '@phosphor-icons/react';
 import { V2_SEARCH_BAR_ID } from '../onboarding/configV2/HomePageOnboardingConfig';
 import { SearchBar } from './SearchBar';
-import { AutoCompleteResultForEntity, Entity, FacetMetadata } from '../../types.generated';
+import { AutoCompleteResultForEntity } from '../../types.generated';
 import { EntityRegistry } from '../../entityRegistryContext';
 import { useAppConfig } from '../useAppConfig';
 import OnboardingContext from '../onboarding/OnboardingContext';

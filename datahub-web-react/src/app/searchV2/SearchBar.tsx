@@ -4,13 +4,7 @@ import { CloseCircleFilled, SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
 import { Button, colors } from '@src/alchemy-components';
-import {
-    AutoCompleteResultForEntity,
-    Entity,
-    FacetFilterInput,
-    FacetMetadata,
-    ScenarioType,
-} from '../../types.generated';
+import { AutoCompleteResultForEntity, FacetFilterInput, ScenarioType } from '../../types.generated';
 import { EntityRegistry } from '../../entityRegistryContext';
 import filterSearchQuery from './utils/filterSearchQuery';
 import { ANTD_GRAY_V2 } from '../entity/shared/constants';
