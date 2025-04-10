@@ -44,6 +44,9 @@ const MarkdownViewContainer = styled.div<{ scrollableY: boolean }>`
 `;
 
 const CompactEditor = styled(Editor)<{ limit: number | null; customStyle?: React.CSSProperties }>`
+    .remirror-theme {
+        max-width: 100%;
+    }
     .remirror-editor.ProseMirror {
         ${({ limit }) => limit && `max-height: ${limit * LINE_HEIGHT}em;`}
         h1 {

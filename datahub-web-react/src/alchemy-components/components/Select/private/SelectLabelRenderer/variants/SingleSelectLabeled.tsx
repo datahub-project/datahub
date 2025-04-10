@@ -1,29 +1,29 @@
 import React from 'react';
+import { Pill } from '@components';
 import {
     ActionButtonsContainer,
     DescriptionContainer,
-    HighlightedLabel,
     LabelsWrapper,
     Placeholder,
     SelectValue,
 } from '../../../components';
-import { SelectLabelVariantProps } from '../../../types';
+import { SelectLabelVariantProps, SelectOption } from '../../../types';
 
-export default function SingleSelectLabeled({
+export default function SingleSelectLabeled<OptionType extends SelectOption>({
     selectedOptions,
     selectedValues,
     placeholder,
     showDescriptions,
     label,
-}: SelectLabelVariantProps) {
+}: SelectLabelVariantProps<OptionType>) {
     return (
-        <LabelsWrapper>
+        <LabelsWrapper shouldShowGap={false}>
             {!selectedValues.length && <Placeholder>{placeholder}</Placeholder>}
 
             {!!selectedValues.length && (
                 <ActionButtonsContainer>
                     <SelectValue>{label}</SelectValue>
-                    <HighlightedLabel>{selectedOptions[0]?.label}</HighlightedLabel>
+                    <Pill label={selectedOptions[0]?.label} size="sm" variant="filled" />
                 </ActionButtonsContainer>
             )}
 

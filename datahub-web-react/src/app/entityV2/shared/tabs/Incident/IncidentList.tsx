@@ -24,7 +24,7 @@ export const IncidentList = () => {
     const [entity, setEntity] = useState<EntityStagedForIncident>();
     const [visibleIncidents, setVisibleIncidents] = useState<IncidentTable>({
         incidents: [],
-        groupBy: { type: [], priority: [], stage: [], state: [] },
+        groupBy: { category: [], priority: [], stage: [], state: [] },
     });
     const [allIncidentData, setAllIncidentData] = useState<Incident[]>([]);
 
@@ -79,12 +79,12 @@ export const IncidentList = () => {
         setSelectedFilters(filter);
     };
 
-    const privileges = (data?.entity as any)?.privileges as EntityPrivileges;
-
     const refetch = () => {
         refetchEntity();
         refetchIncidents();
     };
+
+    const privileges = (data?.entity as any)?.privileges as EntityPrivileges;
 
     const renderListTable = () => {
         if (loading) {

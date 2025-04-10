@@ -125,7 +125,7 @@ class OracleSourceMockDataBase:
         # key should present in MOCK_DATA
         assert key is not None
         key = re.sub(" +", " ", key.replace("\n", " ").replace("\r", " "))
-        res = {mock_key: mock_key in key for mock_key in self.MOCK_DATA.keys()}
+        res = {mock_key: mock_key in key for mock_key in self.MOCK_DATA}
 
         assert any(res.values())
 
