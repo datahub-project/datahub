@@ -852,4 +852,4 @@ class DocPropagationAction(Action):
                     yield maybe_mcp
 
     def close(self) -> None:
-        return super().close()
+        return

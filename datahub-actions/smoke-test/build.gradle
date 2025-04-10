@@ -19,22 +19,19 @@ task installDev(type: Exec) {
 }
 
 task pythonLint(type: Exec, dependsOn: installDev) {
-    commandLine 'bash', '-c',
-        "source ${venv_name}/bin/activate && set -x && " +
-        "black --check --diff tests/ && " +
-        "isort --check --diff tests/ && " +
-        "ruff --statistics tests/ && " +
-        "mypy tests/"
-}
-task pythonLintFix(type: Exec, dependsOn: installDev) {
-    commandLine 'bash', '-c',
-        "source ${venv_name}/bin/activate && set -x && " +
-        "black tests/ && " +
-        "isort tests/ && " +
-        "ruff --fix tests/ && " +
-        "mypy tests/"
+  commandLine 'bash', '-c',
+      "source ${venv_name}/bin/activate && set -x && " +
+          "ruff check tests/ && " +
+          "ruff format --check tests/ && " +
+          "mypy --show-traceback --show-error-codes tests/"
 }
 
+task pythonLintFix(type: Exec, dependsOn: installDev) {
+  commandLine 'bash', '-c',
+      "source ${venv_name}/bin/activate && set -x && " +
+          "ruff check --fix tests/ && " +
+          "ruff format tests/ "
+}
 
 task lint {
     dependsOn pythonLint

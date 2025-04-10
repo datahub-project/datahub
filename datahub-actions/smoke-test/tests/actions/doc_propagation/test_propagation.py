@@ -7,9 +7,12 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Tuple
 
-import datahub.metadata.schema_classes as models
 import pytest
 import tenacity
+from jinja2 import Template
+from pydantic import BaseModel
+
+import datahub.metadata.schema_classes as models
 from datahub.api.entities.dataset.dataset import Dataset
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -18,9 +21,6 @@ from datahub.ingestion.api.sink import NoopWriteCallback
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
 from datahub.utilities.urns.urn import Urn
-from jinja2 import Template
-from pydantic import BaseModel
-
 from tests.utils import (
     delete_urns_from_file,
     get_gms_url,

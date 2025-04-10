@@ -185,4 +185,4 @@ class TermPropagationAction(Action):
                 )
 
     def close(self) -> None:
-        return super().close()
+        return

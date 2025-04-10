@@ -6,12 +6,12 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Tuple
 
-from datahub.cli import cli_utils, env_utils
-from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
-from datahub.ingestion.run.pipeline import Pipeline
 from joblib import Parallel, delayed
 
 import requests_wrapper as requests
+from datahub.cli import cli_utils, env_utils
+from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
+from datahub.ingestion.run.pipeline import Pipeline
 from tests.consistency_utils import wait_for_writes_to_sync
 
 TIME: int = 1581407189000
@@ -97,7 +97,7 @@ def check_endpoint(url):
         else:
             return f"{url}: is Not reachable, status_code: {get.status_code}"
     except requests.exceptions.RequestException as e:
-        raise SystemExit(f"{url}: is Not reachable \nErr: {e}")
+        raise SystemExit(f"{url}: is Not reachable \nErr: {e}") from e
 
 
 def ingest_file_via_rest(filename: str) -> Pipeline:
