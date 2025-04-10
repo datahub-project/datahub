@@ -127,15 +127,15 @@ div[class^="announcementBar"] {
       justify-content: center;
       align-items: center;
       background: linear-gradient(
-        45deg,
-        #4C39BE 0%,    /* Primary violet-600 */
-        #5B4AC7 25%,   /* Slightly lighter */
-        #6A5BD0 50%,   /* Mid-point */
-        #5B4AC7 75%,   /* Slightly lighter */
-        #4C39BE 100%   /* Primary violet-600 */
+        75deg,
+        #444950 0%,    /* Primary blue */
+        #4f545b 25%,   /* Slightly lighter */
+        #444951 50%,   /* Mid-point */
+        #4f545b 75%,   /* Slightly lighter */
+        #444950 100%   /* Primary blue */
       );
-      background-size: 200% 200%;
-      animation: shimmer 3s ease-in-out infinite;
+      background-size: 300% 300%;
+      animation: shimmer 10s ease-in-out infinite;
       font-size: 1rem;
 
       p {
@@ -170,7 +170,7 @@ div[class^="announcementBar"] {
     background-position: 0% 50%;
   }
   50% {
-    background-position: 100% 50%;
+    background-position: 200% 50%;
   }
   100% {
     background-position: 0% 50%;
