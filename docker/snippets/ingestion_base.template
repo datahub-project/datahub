@@ -1,11 +1,11 @@
 # This is the "base" image workflow.
 # While it has a bunch of intermediate stages, it "exports" a couple
 # stages for consumption.
-# - base-empty: A basic stage, with basic deps, Python, and a venv.
-# - base-slim: Currently the same as base-empty.
-# - base-full: Adds a JRE and Oracle client.
+# - python-base: A basic stage, with basic deps, Python, and a venv.
+# - ingestion-base-slim: Currently the same as base-empty.
+# - ingestion-base-full: Adds a JRE and Oracle client.
 
-FROM ubuntu:24.04 AS base-empty
+FROM ubuntu:24.04 AS python-base
 
 ARG PYTHON_VERSION
 RUN test -n "${PYTHON_VERSION}"  # PYTHON_VERSION must be set
@@ -16,7 +16,7 @@ RUN test -n "${PYTHON_VERSION}"  # PYTHON_VERSION must be set
 # INLINE-BEGIN @/docker/snippets/ubuntu_python_base
 # INLINE-END
 
-FROM base-empty AS full-deps-prebuild
+FROM python-base AS full-deps-prebuild
 
 USER 0
 RUN apt-get update && apt-get install --no-install-recommends -y -qq \
@@ -31,10 +31,10 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000 \
     uv pip install python-ldap==3.4.4 pyspark~=3.5.0 && \
     /pyspark_jars.sh
 
-FROM base-empty AS base-slim
+FROM python-base AS ingestion-base-slim
 # Nothing to do here.
 
-FROM base-slim AS base-full
+FROM ingestion-base-slim AS ingestion-base-full
 
 USER 0
 # INLINE-BEGIN @/docker/snippets/ingestion_full_deps

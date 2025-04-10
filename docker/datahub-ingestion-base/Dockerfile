@@ -6,9 +6,9 @@ ARG PYTHON_VERSION=3.10
 # This is the "base" image workflow.
 # While it has a bunch of intermediate stages, it "exports" a couple
 # stages for consumption.
-# - base-empty: A basic stage, with basic deps, Python, and a venv.
-# - base-slim: Currently the same as base-empty.
-# - base-full: Adds a JRE and Oracle client.
+# - python-base: A basic stage, with basic deps, Python, and a venv.
+# - ingestion-base-slim: Currently the same as base-empty.
+# - ingestion-base-full: Adds a JRE and Oracle client.
 
 FROM ubuntu:24.04 AS base-empty
 
@@ -130,7 +130,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y -qq \
     default-jre-headless \
     && rm -rf /var/lib/apt/lists/*
 
-RUN --mount=type=bind,source=./docker/snippets/oracle_instantclient.sh,target=/oracle_instantclient.sh \
+RUN --mount=type=bind,source=./docker/datahub-ingestion/oracle_instantclient.sh,target=/oracle_instantclient.sh \
     /oracle_instantclient.sh
 
 USER datahub

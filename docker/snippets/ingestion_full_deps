@@ -2,5 +2,5 @@ RUN apt-get update && apt-get install --no-install-recommends -y -qq \
     default-jre-headless \
     && rm -rf /var/lib/apt/lists/*
 
-RUN --mount=type=bind,source=./docker/snippets/oracle_instantclient.sh,target=/oracle_instantclient.sh \
+RUN --mount=type=bind,source=./docker/datahub-ingestion/oracle_instantclient.sh,target=/oracle_instantclient.sh \
     /oracle_instantclient.sh
