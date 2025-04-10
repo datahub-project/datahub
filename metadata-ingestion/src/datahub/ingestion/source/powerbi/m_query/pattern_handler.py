@@ -30,8 +30,10 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     ReferencedTable,
 )
 from datahub.ingestion.source.powerbi.m_query.odbc import (
+    extract_dsn,
     extract_platform,
     extract_server,
+    normalize_platform_name,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
 from datahub.metadata.schema_classes import SchemaFieldDataTypeClass
@@ -964,23 +966,28 @@ class OdbcLineage(AbstractLineage):
                 message="Can not extract ODBC connect string from data access function. Skipping Lineage creation.",
                 context=f"table-name={self.table.full_name}",
             )
-            logger.warning(
-                f"Can not extract ODBC connect string from data access function for table {self.table.full_name}"
-            )
             return Lineage.empty()
 
         logger.debug(f"ODBC connect string: {connect_string}")
         data_platform, powerbi_platform = extract_platform(connect_string)
         server_name = extract_server(connect_string)
 
+        if not data_platform:
+            dsn = extract_dsn(connect_string)
+            if dsn:
+                logger.debug(f"Extracted DSN: {dsn}")
+            if dsn and self.config.dsn_to_platform_name:
+                logger.debug(f"Attempting to map DSN {dsn} to platform")
+                name = self.config.dsn_to_platform_name.get(dsn)
+                if name:
+                    logger.debug(f"Found DSN {dsn} mapped to platform {name}")
+                    data_platform, powerbi_platform = normalize_platform_name(name)
+
         if not data_platform or not powerbi_platform:
             self.reporter.warning(
                 title="Can not determine ODBC platform",
                 message="Can not determine platform from ODBC connect string. Skipping Lineage creation.",
                 context=f"table-name={self.table.full_name}",
-            )
-            logger.warning(
-                f"Can not determine platform from ODBC connect string for table {self.table.full_name}"
             )
             return Lineage.empty()
 

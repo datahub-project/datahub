@@ -1,7 +1,9 @@
 from datahub.ingestion.source.powerbi.m_query.odbc import (
     extract_driver,
+    extract_dsn,
     extract_platform,
     extract_server,
+    normalize_platform_name,
 )
 
 test_connection_strings = [
@@ -16,6 +18,24 @@ test_connection_strings = [
     "Driver={Simba Spark ODBC Driver};Host=dbc-xxxxxxxx-xxxx.cloud.databricks.com;Port=443;HTTPPath=/sql/protocolv1/o/xxxxxxxxxx/xxxxxxxxxx;AuthMech=3;UID=token;PWD=dapi_xxxxxxxxxxxxxxxxxxxxxx;SSL=1;ThriftTransport=2;",
     "Driver={Simba Google BigQuery ODBC Driver};OAuthMechanism=0;Catalog=project;ProjectId=project;RefreshToken=refreshtoken;",
 ]
+
+dsn_connection_strings = [
+    "DSN=SalesDatabase;UID=sales_user;PWD=password123;",
+    "DSN=FinanceWarehouse;",
+    'DSN="Enterprise Reporting";UID=reporter;PWD=rep0rt!ng;',
+    "DSN='Supply Chain';Encrypt=Yes;TrustServerCertificate=No;",
+    "UID=user;PWD=pass;DSN=BackupServer;",
+]
+
+dsn_to_platform_map = {
+    "SalesDatabase": "mssql",
+    "FinanceWarehouse": "mysql",
+    "Enterprise Reporting": "mysql",
+    "Supply Chain": "mysql",
+    "BackupServer": "mysql",
+}
+
+mapped_dsn_list = ["mssql", "mysql", "mysql", "mysql", "mysql"]
 
 server_list = [
     "server",
@@ -70,3 +90,13 @@ def test_platform_extraction():
 def test_driver_extraction():
     for connection_string, result in zip(test_connection_strings, driver_list):
         assert extract_driver(connection_string) == result
+
+
+def test_dsn_mapping():
+    for expected, connection_string in zip(mapped_dsn_list, dsn_connection_strings):
+        dsn = extract_dsn(connection_string)
+        assert dsn is not None
+        mapped_platform, mapped_powerbi_platform = normalize_platform_name(
+            dsn_to_platform_map[dsn]
+        )
+        assert mapped_platform == expected
