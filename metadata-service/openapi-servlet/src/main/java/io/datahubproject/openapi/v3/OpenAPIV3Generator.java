@@ -2,6 +2,7 @@ package io.datahubproject.openapi.v3;
 
 import static com.linkedin.metadata.Constants.VERSION_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.VERSION_SET_ENTITY_NAME;
+import static com.linkedin.metadata.aspect.patch.GenericJsonPatch.ARRAY_PRIMARY_KEYS_FIELD;
 import static io.datahubproject.openapi.util.ReflectionCache.toUpperFirst;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -27,6 +28,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -55,17 +57,19 @@ public class OpenAPIV3Generator {
   private static final String PROPERTY_VALUE = "value";
   private static final String PROPERTY_URN = "urn";
   private static final String PROPERTY_PATCH = "patch";
-  private static final String PROPERTY_PATCH_PKEY = "arrayPrimaryKeys";
   private static final String PATH_DEFINITIONS = "#/components/schemas/";
   private static final String FORMAT_PATH_DEFINITIONS = "#/components/schemas/%s%s";
   private static final String ASPECT_DESCRIPTION = "Aspect wrapper object.";
   private static final String REQUEST_SUFFIX = "Request" + MODEL_VERSION;
   private static final String RESPONSE_SUFFIX = "Response" + MODEL_VERSION;
+  private static final String REQUEST_PATCH_SUFFIX = "RequestPatch" + MODEL_VERSION;
+  private static final String ASPECT_PATCH = "AspectPatch";
 
   private static final String ASPECT_REQUEST_SUFFIX = "Aspect" + REQUEST_SUFFIX;
   private static final String ASPECT_RESPONSE_SUFFIX = "Aspect" + RESPONSE_SUFFIX;
   private static final String ENTITY_REQUEST_SUFFIX = "Entity" + REQUEST_SUFFIX;
   private static final String ENTITY_RESPONSE_SUFFIX = "Entity" + RESPONSE_SUFFIX;
+  private static final String ENTITY_REQUEST_PATCH_SUFFIX = "Entity" + REQUEST_PATCH_SUFFIX;
   private static final String NAME_SKIP_CACHE = "skipCache";
   private static final String ASPECTS = "Aspects";
   private static final String ENTITIES = "Entities";
@@ -104,7 +108,7 @@ public class OpenAPIV3Generator {
         "Scroll" + ENTITIES + ENTITY_RESPONSE_SUFFIX, buildEntitiesScrollSchema());
 
     // --> Aspect components
-    components.addSchemas("AspectPatch", buildAspectPatchSchema());
+    components.addSchemas(ASPECT_PATCH, buildAspectPatchSchema());
     components.addSchemas(
         "BatchGetRequestBody",
         new Schema<>()
@@ -153,6 +157,9 @@ public class OpenAPIV3Generator {
           components.addSchemas(
               "BatchGet" + entityName + ENTITY_REQUEST_SUFFIX,
               buildEntityBatchGetRequestSchema(e, aspectNames));
+          components.addSchemas(
+              entityName + ENTITY_REQUEST_PATCH_SUFFIX,
+              buildEntityPatchSchema(e, aspectNames, true));
         });
 
     components.addSchemas("SortOrder", new Schema()._enum(List.of("ASCENDING", "DESCENDING")));
@@ -305,6 +312,7 @@ public class OpenAPIV3Generator {
                 new ApiResponses()
                     .addApiResponse("204", successHeadResponse)
                     .addApiResponse("404", notFoundHeadResponse));
+
     // Delete Operation
     final ApiResponse successDeleteResponse =
         new ApiResponse()
@@ -336,10 +344,18 @@ public class OpenAPIV3Generator {
     return result.get(getOperation).head(headOperation).delete(deleteOperation);
   }
 
+  /**
+   * Builds Entity paths for a given entity which involves a list of entities
+   *
+   * @param entity the entity spec to build for
+   * @return path for /entity/{entityName}
+   */
   private static PathItem buildListEntityPath(final EntitySpec entity) {
     final String upperFirst = toUpperFirst(entity.getName());
     final String aspectParameterName = upperFirst + ASPECTS;
     final PathItem result = new PathItem();
+
+    // Get/Scroll/List
     final List<Parameter> parameters =
         List.of(
             new Parameter()
@@ -372,7 +388,7 @@ public class OpenAPIV3Generator {
             new Parameter().$ref("#/components/parameters/SortBy" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/SortOrder" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/ScrollQuery" + MODEL_VERSION));
-    final ApiResponse successApiResponse =
+    final ApiResponse getApiResponse =
         new ApiResponse()
             .description("Success")
             .content(
@@ -393,10 +409,10 @@ public class OpenAPIV3Generator {
             .tags(List.of(entity.getName() + " Entity"))
             .description(
                 "Scroll indexed entities. Will not include soft deleted entities by default.")
-            .responses(new ApiResponses().addApiResponse("200", successApiResponse)));
+            .responses(new ApiResponses().addApiResponse("200", getApiResponse)));
 
     // Post Operation
-    final Content requestCreateContent =
+    final Content createRequestContent =
         new Content()
             .addMediaType(
                 "application/json",
@@ -410,7 +426,7 @@ public class OpenAPIV3Generator {
                                         String.format(
                                             "#/components/schemas/%s%s",
                                             upperFirst, ENTITY_REQUEST_SUFFIX)))));
-    final ApiResponse apiCreateResponse =
+    final ApiResponse createAPIResponse =
         new ApiResponse()
             .description("Create a batch of " + entity.getName() + " entities.")
             .content(
@@ -427,7 +443,7 @@ public class OpenAPIV3Generator {
                                                 String.format(
                                                     "#/components/schemas/%s%s",
                                                     upperFirst, ENTITY_RESPONSE_SUFFIX))))));
-    final ApiResponse apiCreateAsyncResponse =
+    final ApiResponse createAPIAsyncResponse =
         new ApiResponse()
             .description("Async batch creation of " + entity.getName() + " entities submitted.")
             .content(new Content().addMediaType("application/json", new MediaType()));
@@ -452,11 +468,74 @@ public class OpenAPIV3Generator {
                 new RequestBody()
                     .description("Create " + entity.getName() + " entities.")
                     .required(true)
-                    .content(requestCreateContent))
+                    .content(createRequestContent))
             .responses(
                 new ApiResponses()
-                    .addApiResponse("200", apiCreateResponse)
-                    .addApiResponse("202", apiCreateAsyncResponse)));
+                    .addApiResponse("200", createAPIResponse)
+                    .addApiResponse("202", createAPIAsyncResponse)));
+
+    // Patch Operation
+    final Content patchRequestContent =
+        new Content()
+            .addMediaType(
+                "application/json",
+                new MediaType()
+                    .schema(
+                        new Schema()
+                            .type(TYPE_ARRAY)
+                            .items(
+                                new Schema()
+                                    .$ref(
+                                        String.format(
+                                            "#/components/schemas/%s%s",
+                                            upperFirst, ENTITY_REQUEST_PATCH_SUFFIX)))));
+    final ApiResponse patchAPIResponse =
+        new ApiResponse()
+            .description("Patch a batch of " + entity.getName() + " entities.")
+            .content(
+                new Content()
+                    .addMediaType(
+                        "application/json",
+                        new MediaType()
+                            .schema(
+                                new Schema()
+                                    .type(TYPE_ARRAY)
+                                    .items(
+                                        new Schema<>()
+                                            .$ref(
+                                                String.format(
+                                                    "#/components/schemas/%s%s",
+                                                    upperFirst, ENTITY_RESPONSE_SUFFIX))))));
+    final ApiResponse patchAPIAsyncResponse =
+        new ApiResponse()
+            .description("Async batch patch of " + entity.getName() + " entities submitted.")
+            .content(new Content().addMediaType("application/json", new MediaType()));
+
+    result.setPatch(
+        new Operation()
+            .parameters(
+                List.of(
+                    new Parameter()
+                        .in(NAME_QUERY)
+                        .name("async")
+                        .description("Use async ingestion for high throughput.")
+                        .schema(new Schema().type(TYPE_BOOLEAN)._default(true)),
+                    new Parameter()
+                        .in(NAME_QUERY)
+                        .name(NAME_SYSTEM_METADATA)
+                        .description("Include systemMetadata with response.")
+                        .schema(new Schema().type(TYPE_BOOLEAN)._default(false))))
+            .summary("Patch " + upperFirst + " entities.")
+            .tags(List.of(entity.getName() + " Entity"))
+            .requestBody(
+                new RequestBody()
+                    .description("Patch " + entity.getName() + " entities.")
+                    .required(true)
+                    .content(patchRequestContent))
+            .responses(
+                new ApiResponses()
+                    .addApiResponse("200", patchAPIResponse)
+                    .addApiResponse("202", patchAPIAsyncResponse)));
 
     return result;
   }
@@ -788,7 +867,12 @@ public class OpenAPIV3Generator {
 
   private static Schema buildEntitySchema(
       final EntitySpec entity, Set<String> aspectNames, final boolean withSystemMetadata) {
-    final Map<String, Schema> properties =
+    final Map<String, Schema> properties = new LinkedHashMap<>();
+    properties.put(
+        PROPERTY_URN,
+        new Schema<>().type(TYPE_STRING).description("Unique id for " + entity.getName()));
+
+    final Map<String, Schema> aspectProperties =
         entity.getAspectSpecMap().entrySet().stream()
             .filter(a -> aspectNames.contains(a.getValue().getName()))
             .collect(
@@ -797,15 +881,70 @@ public class OpenAPIV3Generator {
                     a ->
                         buildAspectRef(
                             a.getValue().getPegasusSchema().getName(), withSystemMetadata)));
-    properties.put(
-        PROPERTY_URN,
-        new Schema<>().type(TYPE_STRING).description("Unique id for " + entity.getName()));
+    properties.putAll(aspectProperties);
+
     properties.put(
         entity.getKeyAspectName(),
         buildAspectRef(entity.getKeyAspectSpec().getPegasusSchema().getName(), withSystemMetadata));
+
     return new Schema<>()
         .type(TYPE_OBJECT)
         .description(toUpperFirst(entity.getName()) + " object.")
+        .required(List.of(PROPERTY_URN))
+        .properties(properties);
+  }
+
+  /**
+   * Build a schema for multi-entity patching
+   *
+   * @return schema
+   */
+  private static Schema buildEntityPatchSchema(
+      final EntitySpec entity, Set<String> aspectNames, final boolean withSystemMetadata) {
+    final Map<String, Schema> patchProperties =
+        entity.getAspectSpecMap().entrySet().stream()
+            .filter(a -> aspectNames.contains(a.getValue().getName()))
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    a ->
+                        new Schema<>()
+                            .type(TYPE_OBJECT)
+                            .required(List.of(PROPERTY_VALUE))
+                            .addProperty(
+                                PROPERTY_VALUE,
+                                new Schema<>()
+                                    .type(TYPE_OBJECT)
+                                    .anyOf(
+                                        List.of(new Schema().$ref(PATH_DEFINITIONS + ASPECT_PATCH)))
+                                    .description("Patch to apply to the aspect.")
+                                    .nullable(false))
+                            .addProperty(
+                                NAME_SYSTEM_METADATA,
+                                new Schema<>()
+                                    .type(TYPE_OBJECT)
+                                    .anyOf(
+                                        List.of(
+                                            new Schema().$ref(PATH_DEFINITIONS + "SystemMetadata")))
+                                    .description("System metadata for the aspect.")
+                                    .nullable(true))
+                            .addProperty(
+                                "headers",
+                                new Schema<>()
+                                    .type(TYPE_OBJECT)
+                                    .additionalProperties(new Schema<>().type(TYPE_STRING))
+                                    .description("System headers for the operation.")
+                                    .nullable(true))
+                            .nullable(true)));
+
+    final Map<String, Schema> properties = new LinkedHashMap<>();
+    properties.put(
+        PROPERTY_URN, new Schema<>().type(TYPE_STRING).description("Unique id for " + ENTITIES));
+    properties.putAll(patchProperties);
+
+    return new Schema<>()
+        .type(TYPE_OBJECT)
+        .description(ENTITIES + " object.")
         .required(List.of(PROPERTY_URN))
         .properties(properties);
   }
@@ -995,12 +1134,46 @@ public class OpenAPIV3Generator {
                         new Schema<>()
                             .type(TYPE_OBJECT)
                             .required(List.of("op", "path"))
+                            .additionalProperties(false)
                             .properties(
                                 Map.of(
-                                    "op", new Schema<>().type(TYPE_STRING),
-                                    "path", new Schema<>().type(TYPE_STRING),
-                                    "value", new Schema<>().type(TYPE_OBJECT)))))
-            .put(PROPERTY_PATCH_PKEY, new Schema<>().type(TYPE_OBJECT))
+                                    "op",
+                                        new Schema<>()
+                                            .type(TYPE_STRING)
+                                            .description("Operation type")
+                                            ._enum(
+                                                List.of(
+                                                    "add", "remove", "replace", "move", "copy",
+                                                    "test")),
+                                    "path",
+                                        new Schema<>()
+                                            .type(TYPE_STRING)
+                                            .description("JSON pointer to the target location")
+                                            .format("json-pointer"),
+                                    "from",
+                                        new Schema<>()
+                                            .type(TYPE_STRING)
+                                            .description(
+                                                "JSON pointer for source location (required for move/copy)"),
+                                    "value",
+                                        new Schema<>() // No type restriction to allow any JSON
+                                            // value
+                                            .description(
+                                                "The value to use for this operation (if applicable)")))))
+            .put(
+                ARRAY_PRIMARY_KEYS_FIELD,
+                new Schema<>()
+                    .type(TYPE_OBJECT)
+                    .description("Maps array paths to their primary key field names")
+                    .additionalProperties(
+                        new Schema<>().type(TYPE_ARRAY).items(new Schema<>().type(TYPE_STRING))))
+            .put(
+                "forceGenericPatch",
+                new Schema<>()
+                    .type(TYPE_BOOLEAN)
+                    ._default(false)
+                    .description(
+                        "Flag to force using generic patching regardless of other conditions"))
             .build();
 
     return new Schema<>()
@@ -1184,7 +1357,10 @@ public class OpenAPIV3Generator {
                     .addMediaType(
                         "application/json",
                         new MediaType()
-                            .schema(new Schema().$ref("#/components/schemas/AspectPatch"))));
+                            .schema(
+                                new Schema()
+                                    .$ref(
+                                        String.format("#/components/schemas/%s", ASPECT_PATCH)))));
     final Operation patchOperation =
         new Operation()
             .parameters(
