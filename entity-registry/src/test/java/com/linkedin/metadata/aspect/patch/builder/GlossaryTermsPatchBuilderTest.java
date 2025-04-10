@@ -20,12 +20,10 @@ public class GlossaryTermsPatchBuilderTest {
   private TestableGlossaryTermsPatchBuilder builder;
   private static final String TEST_ENTITY_URN =
       "urn:li:dataset:(urn:li:dataPlatform:hive,SampleTable,PROD)";
-  private static final String TEST_GLOSSARY_TERM_URN =
-      "urn:li:glossaryTerm:Test/Term";
+  private static final String TEST_GLOSSARY_TERM_URN = "urn:li:glossaryTerm:Test/Term";
 
   // Test helper class to expose protected method
-  private static class TestableGlossaryTermsPatchBuilder
-      extends GlossaryTermsPatchBuilder {
+  private static class TestableGlossaryTermsPatchBuilder extends GlossaryTermsPatchBuilder {
     public List<ImmutableTriple<String, String, JsonNode>> getTestPathValues() {
       return getPathValues();
     }
@@ -118,9 +116,7 @@ public class GlossaryTermsPatchBuilderTest {
     GlossaryTermUrn termUrn1 = GlossaryTermUrn.createFromString(TEST_GLOSSARY_TERM_URN);
     GlossaryTermUrn termUrn2 = GlossaryTermUrn.createFromString("urn:li:glossaryTerm:AnotherTerm");
 
-    builder.addTerm(termUrn1, "Context 1")
-        .addTerm(termUrn2, null)
-        .removeTerm(termUrn1);
+    builder.addTerm(termUrn1, "Context 1").addTerm(termUrn2, null).removeTerm(termUrn1);
 
     builder.build();
 

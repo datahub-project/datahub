@@ -21,12 +21,10 @@ public class OwnershipPatchBuilderTest {
   private TestableOwnershipPatchBuilder builder;
   private static final String TEST_ENTITY_URN =
       "urn:li:dataset:(urn:li:dataPlatform:hive,SampleTable,PROD)";
-  private static final String TEST_OWNER_URN =
-      "urn:li:corpuser:test/User";
+  private static final String TEST_OWNER_URN = "urn:li:corpuser:test/User";
 
   // Test helper class to expose protected method
-  private static class TestableOwnershipPatchBuilder
-      extends OwnershipPatchBuilder {
+  private static class TestableOwnershipPatchBuilder extends OwnershipPatchBuilder {
     public List<ImmutableTriple<String, String, JsonNode>> getTestPathValues() {
       return getPathValues();
     }
@@ -123,7 +121,8 @@ public class OwnershipPatchBuilderTest {
     Urn ownerUrn1 = CorpuserUrn.createFromString(TEST_OWNER_URN);
     Urn ownerUrn2 = CorpuserUrn.createFromString("urn:li:corpuser:anotherUser");
 
-    builder.addOwner(ownerUrn1, OwnershipType.TECHNICAL_OWNER)
+    builder
+        .addOwner(ownerUrn1, OwnershipType.TECHNICAL_OWNER)
         .addOwner(ownerUrn1, OwnershipType.BUSINESS_OWNER)
         .addOwner(ownerUrn2, OwnershipType.DATA_STEWARD)
         .removeOwnershipType(ownerUrn1, OwnershipType.TECHNICAL_OWNER)
@@ -155,7 +154,8 @@ public class OwnershipPatchBuilderTest {
     Urn ownerUrn = CorpuserUrn.createFromString(TEST_OWNER_URN);
 
     // Test different ownership types
-    builder.addOwner(ownerUrn, OwnershipType.TECHNICAL_OWNER)
+    builder
+        .addOwner(ownerUrn, OwnershipType.TECHNICAL_OWNER)
         .addOwner(ownerUrn, OwnershipType.BUSINESS_OWNER)
         .addOwner(ownerUrn, OwnershipType.DATA_STEWARD);
 

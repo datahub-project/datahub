@@ -20,12 +20,10 @@ public class GlobalTagsPatchBuilderTest {
   private TestableGlobalTagsPatchBuilder builder;
   private static final String TEST_ENTITY_URN =
       "urn:li:dataset:(urn:li:dataPlatform:hive,SampleTable,PROD)";
-  private static final String TEST_TAG_URN =
-      "urn:li:tag:Test/Tag";
+  private static final String TEST_TAG_URN = "urn:li:tag:Test/Tag";
 
   // Test helper class to expose protected method
-  private static class TestableGlobalTagsPatchBuilder
-      extends GlobalTagsPatchBuilder {
+  private static class TestableGlobalTagsPatchBuilder extends GlobalTagsPatchBuilder {
     public List<ImmutableTriple<String, String, JsonNode>> getTestPathValues() {
       return getPathValues();
     }
@@ -118,9 +116,7 @@ public class GlobalTagsPatchBuilderTest {
     TagUrn tagUrn1 = TagUrn.createFromString(TEST_TAG_URN);
     TagUrn tagUrn2 = TagUrn.createFromString("urn:li:tag:AnotherTag");
 
-    builder.addTag(tagUrn1, "Context 1")
-        .addTag(tagUrn2, null)
-        .removeTag(tagUrn1);
+    builder.addTag(tagUrn1, "Context 1").addTag(tagUrn2, null).removeTag(tagUrn1);
 
     builder.build();
 
