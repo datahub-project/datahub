@@ -6,6 +6,7 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.FabricType;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.DataPlatformUrn;
@@ -15,7 +16,7 @@ import com.linkedin.data.ByteString;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
@@ -24,6 +25,7 @@ import com.linkedin.metadata.aspect.patch.builder.DatasetPropertiesPatchBuilder;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.entity.SearchRetriever;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
@@ -34,7 +36,6 @@ import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
-import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import com.linkedin.util.Pair;
@@ -55,7 +56,7 @@ import org.testng.annotations.Test;
 
 public class AspectsBatchImplTest {
   private EntityRegistry testRegistry;
-  private AspectRetriever mockAspectRetriever;
+  private CachingAspectRetriever mockAspectRetriever;
   private RetrieverContext retrieverContext;
 
   @BeforeTest
@@ -74,12 +75,12 @@ public class AspectsBatchImplTest {
 
   @BeforeMethod
   public void setup() {
-    this.mockAspectRetriever = mock(AspectRetriever.class);
+    this.mockAspectRetriever = mock(CachingAspectRetriever.class);
     when(this.mockAspectRetriever.getEntityRegistry()).thenReturn(testRegistry);
     this.retrieverContext =
         RetrieverContext.builder()
             .searchRetriever(mock(SearchRetriever.class))
-            .aspectRetriever(mockAspectRetriever)
+            .cachingAspectRetriever(mockAspectRetriever)
             .graphRetriever(mock(GraphRetriever.class))
             .build();
   }
@@ -121,7 +122,8 @@ public class AspectsBatchImplTest {
         AspectsBatchImpl.builder().items(testItems).retrieverContext(retrieverContext).build();
 
     assertEquals(
-        testBatch.toUpsertBatchItems(new HashMap<>(), new HashMap<>()),
+        testBatch.toUpsertBatchItems(
+            new HashMap<>(), new HashMap<>(), (changeMCP, systemAspect) -> systemAspect),
         Pair.of(Map.of(), testItems),
         "Expected noop, pass through with no additional MCPs or changes");
   }
@@ -177,7 +179,8 @@ public class AspectsBatchImplTest {
         AspectsBatchImpl.builder().items(testItems).retrieverContext(retrieverContext).build();
 
     assertEquals(
-        testBatch.toUpsertBatchItems(new HashMap<>(), new HashMap<>()),
+        testBatch.toUpsertBatchItems(
+            new HashMap<>(), new HashMap<>(), (changeMCP, systemAspect) -> systemAspect),
         Pair.of(
             Map.of(),
             List.of(
@@ -220,16 +223,16 @@ public class AspectsBatchImplTest {
 
   @Test
   public void toUpsertBatchItemsProposedItemTest() {
+    AuditStamp auditStamp = AuditStampUtils.createDefaultAuditStamp();
     List<ProposedItem> testItems =
         List.of(
             ProposedItem.builder()
-                .entitySpec(testRegistry.getEntitySpec(DATASET_ENTITY_NAME))
-                .metadataChangeProposal(
+                .build(
                     new MetadataChangeProposal()
                         .setEntityUrn(
                             UrnUtils.getUrn(
                                 "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"))
-                        .setAspectName("my-custom-aspect")
+                        .setAspectName(STATUS_ASPECT_NAME)
                         .setEntityType(DATASET_ENTITY_NAME)
                         .setChangeType(ChangeType.UPSERT)
                         .setAspect(
@@ -237,18 +240,17 @@ public class AspectsBatchImplTest {
                                 .setContentType("application/json")
                                 .setValue(
                                     ByteString.copyString(
-                                        "{\"foo\":\"bar\"}", StandardCharsets.UTF_8)))
-                        .setSystemMetadata(new SystemMetadata()))
-                .auditStamp(AuditStampUtils.createDefaultAuditStamp())
-                .build(),
+                                        "{\"foo\":\"bar\",\"removed\":false}",
+                                        StandardCharsets.UTF_8))),
+                    auditStamp,
+                    testRegistry),
             ProposedItem.builder()
-                .entitySpec(testRegistry.getEntitySpec(DATASET_ENTITY_NAME))
-                .metadataChangeProposal(
+                .build(
                     new MetadataChangeProposal()
                         .setEntityUrn(
                             UrnUtils.getUrn(
                                 "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"))
-                        .setAspectName("my-custom-aspect")
+                        .setAspectName(STATUS_ASPECT_NAME)
                         .setEntityType(DATASET_ENTITY_NAME)
                         .setChangeType(ChangeType.UPSERT)
                         .setAspect(
@@ -256,16 +258,17 @@ public class AspectsBatchImplTest {
                                 .setContentType("application/json")
                                 .setValue(
                                     ByteString.copyString(
-                                        "{\"foo\":\"bar\"}", StandardCharsets.UTF_8)))
-                        .setSystemMetadata(new SystemMetadata()))
-                .auditStamp(AuditStampUtils.createDefaultAuditStamp())
-                .build());
+                                        "{\"foo\":\"bar\",\"removed\":false}",
+                                        StandardCharsets.UTF_8))),
+                    auditStamp,
+                    testRegistry));
 
     AspectsBatchImpl testBatch =
         AspectsBatchImpl.builder().items(testItems).retrieverContext(retrieverContext).build();
 
     assertEquals(
-        testBatch.toUpsertBatchItems(new HashMap<>(), new HashMap<>()),
+        testBatch.toUpsertBatchItems(
+            new HashMap<>(), new HashMap<>(), (changeMCP, systemAspect) -> systemAspect),
         Pair.of(
             Map.of(),
             List.of(
@@ -280,7 +283,7 @@ public class AspectsBatchImplTest {
                         testRegistry
                             .getEntitySpec(DATASET_ENTITY_NAME)
                             .getAspectSpec(STATUS_ASPECT_NAME))
-                    .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+                    .auditStamp(auditStamp)
                     .systemMetadata(testItems.get(0).getSystemMetadata().setVersion("1"))
                     .recordTemplate(new Status().setRemoved(false))
                     .build(mockAspectRetriever),
@@ -295,11 +298,32 @@ public class AspectsBatchImplTest {
                         testRegistry
                             .getEntitySpec(DATASET_ENTITY_NAME)
                             .getAspectSpec(STATUS_ASPECT_NAME))
-                    .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+                    .auditStamp(auditStamp)
                     .systemMetadata(testItems.get(1).getSystemMetadata().setVersion("1"))
                     .recordTemplate(new Status().setRemoved(false))
                     .build(mockAspectRetriever))),
         "Mutation to status aspect");
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void toUpsertBatchItemsProposedItemInvalidAspectTest() {
+    AuditStamp auditStamp = AuditStampUtils.createDefaultAuditStamp();
+    ProposedItem.builder()
+        .build(
+            new MetadataChangeProposal()
+                .setEntityUrn(
+                    UrnUtils.getUrn(
+                        "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"))
+                .setAspectName("my-custom-aspect")
+                .setEntityType(DATASET_ENTITY_NAME)
+                .setChangeType(ChangeType.UPSERT)
+                .setAspect(
+                    new GenericAspect()
+                        .setContentType("application/json")
+                        .setValue(
+                            ByteString.copyString("{\"foo\":\"bar\"}", StandardCharsets.UTF_8))),
+            auditStamp,
+            testRegistry);
   }
 
   @Test
@@ -329,7 +353,11 @@ public class AspectsBatchImplTest {
             .build();
 
     assertEquals(
-        testBatch.toUpsertBatchItems(new HashMap<>(), new HashMap<>()).getSecond().size(),
+        testBatch
+            .toUpsertBatchItems(
+                new HashMap<>(), new HashMap<>(), (changeMCP, systemAspect) -> systemAspect)
+            .getSecond()
+            .size(),
         1,
         "Expected 1 valid mcp to be passed through.");
   }

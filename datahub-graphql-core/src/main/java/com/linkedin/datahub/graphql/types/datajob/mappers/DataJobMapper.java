@@ -4,20 +4,12 @@ import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canV
 import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableList;
-import com.linkedin.common.BrowsePathsV2;
-import com.linkedin.common.DataPlatformInstance;
-import com.linkedin.common.Deprecation;
-import com.linkedin.common.Forms;
-import com.linkedin.common.GlobalTags;
-import com.linkedin.common.GlossaryTerms;
-import com.linkedin.common.InstitutionalMemory;
-import com.linkedin.common.Ownership;
-import com.linkedin.common.Status;
-import com.linkedin.common.SubTypes;
+import com.linkedin.common.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.DataFlow;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataJobEditableProperties;
@@ -26,15 +18,7 @@ import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
 import com.linkedin.datahub.graphql.generated.DataJobProperties;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
-import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.FineGrainedLineagesMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.SubTypesMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.*;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
@@ -129,15 +113,27 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
               } else if (DATA_PLATFORM_INSTANCE_ASPECT_NAME.equals(name)) {
                 result.setDataPlatformInstance(
                     DataPlatformInstanceAspectMapper.map(context, new DataPlatformInstance(data)));
+              } else if (CONTAINER_ASPECT_NAME.equals(name)) {
+                final com.linkedin.container.Container gmsContainer =
+                    new com.linkedin.container.Container(data);
+                result.setContainer(
+                    Container.builder()
+                        .setType(EntityType.CONTAINER)
+                        .setUrn(gmsContainer.getContainer().toString())
+                        .build());
               } else if (BROWSE_PATHS_V2_ASPECT_NAME.equals(name)) {
                 result.setBrowsePathV2(BrowsePathsV2Mapper.map(context, new BrowsePathsV2(data)));
               } else if (SUB_TYPES_ASPECT_NAME.equals(name)) {
                 result.setSubTypes(SubTypesMapper.map(context, new SubTypes(data)));
               } else if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(name)) {
                 result.setStructuredProperties(
-                    StructuredPropertiesMapper.map(context, new StructuredProperties(data)));
+                    StructuredPropertiesMapper.map(
+                        context, new StructuredProperties(data), entityUrn));
               } else if (FORMS_ASPECT_NAME.equals(name)) {
                 result.setForms(FormsMapper.map(new Forms(data), entityUrn.toString()));
+              } else if (DATA_TRANSFORM_LOGIC_ASPECT_NAME.equals(name)) {
+                result.setDataTransformLogic(
+                    DataTransformLogicMapper.map(context, new DataTransformLogic(data)));
               }
             });
 

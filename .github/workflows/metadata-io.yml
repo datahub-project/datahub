@@ -20,6 +20,7 @@ on:
       - ".github/workflows/metadata-io.yml"
   release:
     types: [published]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -66,11 +67,11 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/actions/setup-gradle@v3
+      - uses: gradle/actions/setup-gradle@v4
       - name: Gradle build (and test)
         run: |
           ./gradlew :metadata-io:test
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: Test Results (metadata-io)
@@ -81,12 +82,27 @@ jobs:
             !**/binary/**
       - name: Ensure codegen is updated
         uses: ./.github/actions/ensure-codegen-updated
+      - name: Upload coverage to Codecov
+        if: ${{ always()}}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: ./build/coverage-reports/metadata-io/
+          fail_ci_if_error: false
+          flags: metadata-io
+          name: metadata-io-test
+          verbose: true
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   event-file:
     runs-on: ubuntu-latest
     steps:
       - name: Upload
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Event File
           path: ${{ github.event_path }}

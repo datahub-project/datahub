@@ -5,6 +5,7 @@ import static com.linkedin.metadata.models.StructuredPropertyUtils.toStructuredP
 import static com.linkedin.metadata.search.utils.ESUtils.toParentField;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
@@ -21,11 +22,14 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -48,6 +52,7 @@ import org.opensearch.search.aggregations.bucket.terms.Terms;
 @Slf4j
 public class AggregationQueryBuilder {
   private static final String URN_FILTER = "urn";
+  private static final String STRUCTURED_PROPERTIES_PREFIX = "structuredProperties.";
   private final SearchConfiguration configs;
   private final Set<String> defaultFacetFields;
   private final Set<String> allFacetFields;
@@ -71,7 +76,7 @@ public class AggregationQueryBuilder {
 
   /** Get the set of default aggregations, across all facets. */
   public List<AggregationBuilder> getAggregations(@Nonnull OperationContext opContext) {
-    return getAggregations(opContext, null);
+    return getAggregations(opContext, new ArrayList<>());
   }
 
   /**
@@ -79,14 +84,13 @@ public class AggregationQueryBuilder {
    * then get aggregations for all.
    */
   public List<AggregationBuilder> getAggregations(
-      @Nonnull OperationContext opContext, @Nullable List<String> facets) {
-    final Set<String> facetsToAggregate;
-    if (facets != null) {
-      facetsToAggregate =
-          facets.stream().filter(this::isValidAggregate).collect(Collectors.toSet());
-    } else {
-      facetsToAggregate = defaultFacetFields;
+      @Nonnull OperationContext opContext, @Nonnull List<String> facets) {
+    final Set<String> facetsToAggregate = new HashSet<>();
+    if (Boolean.TRUE.equals(
+        opContext.getSearchContext().getSearchFlags().isIncludeDefaultFacets())) {
+      facetsToAggregate.addAll(defaultFacetFields);
     }
+    facets.stream().filter(this::isValidAggregate).forEach(facetsToAggregate::add);
     return facetsToAggregate.stream()
         .map(f -> facetToAggregationBuilder(opContext, f))
         .collect(Collectors.toList());
@@ -98,6 +102,10 @@ public class AggregationQueryBuilder {
             .flatMap(annotation -> getDefaultFacetFieldsFromAnnotation(annotation).stream())
             .collect(Collectors.toSet());
     facets.add(INDEX_VIRTUAL_FIELD);
+    // Entity Type > Sub-Type aggregations.
+    // TODO: Ideally we can avoid the index-virtual-fields aggregation.
+    facets.add(
+        String.format("%s%s%s", INDEX_VIRTUAL_FIELD, AGGREGATION_SEPARATOR_CHAR, "typeNames"));
     return facets;
   }
 
@@ -247,7 +255,7 @@ public class AggregationQueryBuilder {
     return addFiltersToAggregationMetadata(aggregationMetadataList, filter, aspectRetriever);
   }
 
-  private void processTermAggregations(
+  public void processTermAggregations(
       final Map.Entry<String, Aggregation> entry,
       final List<AggregationMetadata> aggregationMetadataList) {
     final Map<String, Long> oneTermAggResult =
@@ -264,6 +272,7 @@ public class AggregationQueryBuilder {
             .setFilterValues(
                 new FilterValueArray(
                     SearchUtil.convertToFilters(oneTermAggResult, Collections.emptySet())));
+    updateAggregationEntity(aggregationMetadata);
     aggregationMetadataList.add(aggregationMetadata);
   }
 
@@ -300,7 +309,15 @@ public class AggregationQueryBuilder {
 
   private static void processTermBucket(
       Terms.Bucket bucket, Map<String, Long> aggResult, boolean includeZeroes) {
-    String key = bucket.getKeyAsString();
+    final String key = bucket.getKeyAsString();
+    String finalKey = key;
+    try {
+      // if the value is a date string, convert to milliseconds since epoch
+      OffsetDateTime time = OffsetDateTime.parse(key);
+      finalKey = String.valueOf(time.toEpochSecond() * 1000);
+    } catch (DateTimeParseException e) {
+      // do nothing, this is expected if the value is not a date
+    }
     // Gets filtered sub aggregation doc count if exist
     Map<String, Long> subAggs = recursivelyAddNestedSubAggs(bucket.getAggregations());
     subAggs.forEach(
@@ -309,7 +326,7 @@ public class AggregationQueryBuilder {
                 String.format("%s%s%s", key, AGGREGATION_SEPARATOR_CHAR, entryKey), entryValue));
     long docCount = bucket.getDocCount();
     if (includeZeroes || docCount > 0) {
-      aggResult.put(key, docCount);
+      aggResult.put(finalKey, docCount);
     }
   }
 
@@ -474,11 +491,24 @@ public class AggregationQueryBuilder {
       @Nonnull final String displayName,
       @Nonnull final LongMap aggValues,
       @Nonnull final FilterValueArray filterValues) {
-    return new AggregationMetadata()
-        .setName(facetField)
-        .setDisplayName(displayName)
-        .setAggregations(aggValues)
-        .setFilterValues(filterValues);
+    AggregationMetadata aggregationMetadata =
+        new AggregationMetadata()
+            .setName(facetField)
+            .setDisplayName(displayName)
+            .setAggregations(aggValues)
+            .setFilterValues(filterValues);
+    updateAggregationEntity(aggregationMetadata);
+    return aggregationMetadata;
+  }
+
+  public void updateAggregationEntity(@Nonnull final AggregationMetadata aggregationMetadata) {
+    if (aggregationMetadata.getName().startsWith(STRUCTURED_PROPERTIES_PREFIX)) {
+      aggregationMetadata.setEntity(
+          UrnUtils.getUrn(
+              String.format(
+                  "urn:li:structuredProperty:%s",
+                  aggregationMetadata.getName().replaceFirst(STRUCTURED_PROPERTIES_PREFIX, ""))));
+    }
   }
 
   private List<Pair<String, Pair<String, String>>> getFacetFieldDisplayNameFromAnnotation(

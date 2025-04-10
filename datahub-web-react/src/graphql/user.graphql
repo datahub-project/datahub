@@ -14,6 +14,7 @@ query getUser($urn: String!, $groupsCount: Int!) {
             fullName
             email
             departmentName
+            countryCode
         }
         editableProperties {
             slack
@@ -134,6 +135,29 @@ query getUserGroups($urn: String!, $start: Int!, $count: Int!) {
     }
 }
 
+query getUserGroupsUrns($urn: String!, $start: Int!, $count: Int!) {
+    corpUser(urn: $urn) {
+        relationships(
+            input: {
+                types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"]
+                direction: OUTGOING
+                start: $start
+                count: $count
+            }
+        ) {
+            start
+            count
+            total
+            relationships {
+                entity {
+                    urn
+                    type
+                }
+            }
+        }
+    }
+}
+
 query listUsers($input: ListUsersInput!) {
     listUsers(input: $input) {
         start
@@ -183,6 +207,43 @@ query listUsers($input: ListUsersInput!) {
     }
 }
 
+query getUsers($urns: [String!]!) {
+    entities(urns: $urns) {
+        ... on CorpUser {
+            urn
+            type
+            ...userFields
+        }
+    }
+}
+
+fragment userFields on CorpUser {
+    username
+    properties {
+        active
+        displayName
+        title
+        firstName
+        lastName
+        fullName
+        email
+    }
+    info {
+        active
+        displayName
+        title
+        firstName
+        lastName
+        fullName
+        email
+    }
+    editableProperties {
+        displayName
+        title
+        pictureLink
+    }
+}
+
 mutation removeUser($urn: String!) {
     removeUser(urn: $urn)
 }
@@ -205,4 +266,10 @@ mutation createNativeUserResetToken($input: CreateNativeUserResetTokenInput!) {
 
 mutation updateCorpUserViewsSettings($input: UpdateCorpUserViewsSettingsInput!) {
     updateCorpUserViewsSettings(input: $input)
+}
+
+query getUserOwnedAssets($urns: [String!]!) {
+    searchAcrossEntities(input: { query: "", filters: [{ field: "owners", values: $urns }] }) {
+        ...searchResults
+    }
 }

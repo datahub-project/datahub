@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from lark import Tree
 
@@ -95,14 +95,12 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         # remove whitespaces and quotes from token
         tokens: List[str] = tree_function.strip_char_from_list(
             tree_function.remove_whitespaces_from_list(
-                tree_function.token_values(
-                    cast(Tree, item_selector), parameters=self.parameters
-                )
+                tree_function.token_values(item_selector, parameters=self.parameters)
             ),
         )
         identifier: List[str] = tree_function.token_values(
-            cast(Tree, identifier_tree)
-        )  # type :ignore
+            identifier_tree, parameters={}
+        )
 
         # convert tokens to dict
         iterator = iter(tokens)
@@ -190,9 +188,9 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         # - The inner function Table.TransformColumnTypes takes #"Removed Columns1"
         #   (a table reference) as its first argument
         # - Its result is then passed as the first argument to Table.SplitColumn
-        second_invoke_expression: Optional[
-            Tree
-        ] = tree_function.first_invoke_expression_func(first_argument)
+        second_invoke_expression: Optional[Tree] = (
+            tree_function.first_invoke_expression_func(first_argument)
+        )
         if second_invoke_expression:
             # 1. The First argument is function call
             # 2. That function's first argument references next table variable
@@ -238,10 +236,10 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
     def _process_item_selector_expression(
         self, rh_tree: Tree
     ) -> Tuple[Optional[str], Optional[Dict[str, str]]]:
-        new_identifier, key_vs_value = self.get_item_selector_tokens(  # type: ignore
-            cast(Tree, tree_function.first_expression_func(rh_tree))
-        )
+        first_expression: Optional[Tree] = tree_function.first_expression_func(rh_tree)
+        assert first_expression is not None
 
+        new_identifier, key_vs_value = self.get_item_selector_tokens(first_expression)
         return new_identifier, key_vs_value
 
     @staticmethod
@@ -306,14 +304,14 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
                 logger.debug(v_statement.pretty())
                 return None
 
-            invoke_expression: Optional[
-                Tree
-            ] = tree_function.first_invoke_expression_func(rh_tree)
+            invoke_expression: Optional[Tree] = (
+                tree_function.first_invoke_expression_func(rh_tree)
+            )
 
             if invoke_expression is not None:
-                result: Union[
-                    DataAccessFunctionDetail, List[str], None
-                ] = self._process_invoke_expression(invoke_expression)
+                result: Union[DataAccessFunctionDetail, List[str], None] = (
+                    self._process_invoke_expression(invoke_expression)
+                )
                 if result is None:
                     return None  # No need to process some un-expected grammar found while processing invoke_expression
                 if isinstance(result, DataAccessFunctionDetail):
@@ -327,7 +325,7 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
                 # The first argument can be a single table argument or list of table.
                 # For example Table.Combine({t1,t2},....), here first argument is list of table.
                 # Table.AddColumn(t1,....), here first argument is single table.
-                for token in cast(List[str], result):
+                for token in result:
                     internal(token, identifier_accessor)
 
             else:
@@ -363,6 +361,9 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         )
 
         if output_variable is None:
+            logger.debug(
+                f"Table: {self.table.full_name}: output-variable not found in tree"
+            )
             self.reporter.report_warning(
                 f"{self.table.full_name}-output-variable",
                 "output-variable not found in table expression",
@@ -370,12 +371,15 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
             return lineage
 
         # Parse M-Query and use output_variable as root of tree and create instance of DataAccessFunctionDetail
-        table_links: List[
-            DataAccessFunctionDetail
-        ] = self.create_data_access_functional_detail(output_variable)
+        table_links: List[DataAccessFunctionDetail] = (
+            self.create_data_access_functional_detail(output_variable)
+        )
 
         # Each item is data-access function
         for f_detail in table_links:
+            logger.debug(
+                f"Processing data-access-function {f_detail.data_access_function_name}"
+            )
             # Get & Check if we support data-access-function available in M-Query
             supported_resolver = SupportedPattern.get_pattern_handler(
                 f_detail.data_access_function_name
@@ -392,7 +396,11 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
 
             # From supported_resolver enum get respective handler like AmazonRedshift or Snowflake or Oracle or NativeQuery and create instance of it
             # & also pass additional information that will be need to generate lineage
-            pattern_handler: (AbstractLineage) = supported_resolver.handler()(
+            logger.debug(
+                f"Creating instance of {supported_resolver.handler().__name__} "
+                f"for data-access-function {f_detail.data_access_function_name}"
+            )
+            pattern_handler: AbstractLineage = supported_resolver.handler()(
                 ctx=ctx,
                 table=self.table,
                 config=config,

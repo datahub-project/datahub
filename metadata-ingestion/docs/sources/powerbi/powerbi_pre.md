@@ -1,6 +1,6 @@
 ## Configuration Notes
 1. Refer [Microsoft AD App Creation doc](https://docs.microsoft.com/en-us/power-bi/developer/embedded/embed-service-principal) to create a Microsoft AD Application. Once Microsoft AD Application is created you can configure client-credential i.e. client_id and client_secret in recipe for ingestion.
-2. Enable admin access only if you want to ingest dataset, lineage and endorsement tags. Refer section [Admin Ingestion vs. Basic Ingestion](#admin-ingestion-vs-basic-ingestion) for more detail. 
+2. Enable admin access if you want to ingest data source and dataset information, including lineage, and endorsement tags. Refer section [Admin Ingestion vs. Basic Ingestion](#admin-ingestion-vs-basic-ingestion) for more detail. 
 
     Login to PowerBI as Admin and from `Admin API settings` allow below permissions
 
@@ -27,15 +27,17 @@
 
 ## Lineage
 
-This source extract table lineage for tables present in PowerBI Datasets. Lets consider a PowerBI Dataset `SALES_REPORT` and a PostgreSQL database is configured as data-source in `SALES_REPORT` dataset. 
+This source extracts table lineage for tables present in PowerBI Datasets. Lets consider a PowerBI Dataset `SALES_REPORT` and a PostgreSQL database is configured as data-source in `SALES_REPORT` dataset. 
 
 Consider `SALES_REPORT` PowerBI Dataset has a table `SALES_ANALYSIS` which is backed by `SALES_ANALYSIS_VIEW` of PostgreSQL Database then in this case `SALES_ANALYSIS_VIEW` will appear as upstream dataset for `SALES_ANALYSIS` table.
 
 You can control table lineage ingestion using `extract_lineage` configuration parameter, by default it is set to `true`. 
 
-PowerBI Source extracts the lineage information by parsing PowerBI M-Query expression.
+PowerBI Source extracts the lineage information by parsing PowerBI M-Query expressions and from dataset data returned by the PowerBI API.
 
-PowerBI Source supports M-Query expression for below listed PowerBI Data Sources 
+The source will attempt to extract information from ODBC connection strings in M-Query expressions to determine the database type. If the database type matches a supported platform and the source is able to extract enough information to construct a valid Dataset URN, it will extract lineage for that data source.
+
+PowerBI Source will extract lineage for the below listed PowerBI Data Sources: 
 
 1.  Snowflake 
 2.  Oracle 
@@ -43,10 +45,11 @@ PowerBI Source supports M-Query expression for below listed PowerBI Data Sources
 4.  Microsoft SQL Server
 5.  Google BigQuery
 6.  Databricks
+7.  MySQL
 
-Native SQL query parsing is supported for `Snowflake` and `Amazon Redshift` data-sources.
+Native SQL query parsing is supported for `Snowflake` and `Amazon Redshift` data sources.
 
-For example refer below native SQL query. The table `OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_UNIT_TARGET` will be ingested as upstream table.
+For example, consider the SQL query shown below. The table `OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_UNIT_TARGET` will be ingested as an upstream table.
 
 ```shell
 let

@@ -95,22 +95,22 @@ class SigmaAPI:
         return get_response
 
     def get_workspace(self, workspace_id: str) -> Optional[Workspace]:
+        if workspace_id in self.workspaces:
+            return self.workspaces[workspace_id]
+
         logger.debug(f"Fetching workspace metadata with id '{workspace_id}'")
         try:
-            if workspace_id in self.workspaces:
-                return self.workspaces[workspace_id]
-            else:
-                response = self._get_api_call(
-                    f"{self.config.api_url}/workspaces/{workspace_id}"
-                )
-                if response.status_code == 403:
-                    logger.debug(f"Workspace {workspace_id} not accessible.")
-                    self.report.non_accessible_workspaces_count += 1
-                    return None
-                response.raise_for_status()
-                workspace = Workspace.parse_obj(response.json())
-                self.workspaces[workspace.workspaceId] = workspace
-                return workspace
+            response = self._get_api_call(
+                f"{self.config.api_url}/workspaces/{workspace_id}"
+            )
+            if response.status_code == 403:
+                logger.debug(f"Workspace {workspace_id} not accessible.")
+                self.report.non_accessible_workspaces_count += 1
+                return None
+            response.raise_for_status()
+            workspace = Workspace.parse_obj(response.json())
+            self.workspaces[workspace.workspaceId] = workspace
+            return workspace
         except Exception as e:
             self._log_http_error(
                 message=f"Unable to fetch workspace '{workspace_id}'. Exception: {e}"
@@ -126,9 +126,9 @@ class SigmaAPI:
                 response.raise_for_status()
                 response_dict = response.json()
                 for workspace_dict in response_dict[Constant.ENTRIES]:
-                    self.workspaces[
-                        workspace_dict[Constant.WORKSPACEID]
-                    ] = Workspace.parse_obj(workspace_dict)
+                    self.workspaces[workspace_dict[Constant.WORKSPACEID]] = (
+                        Workspace.parse_obj(workspace_dict)
+                    )
                 if response_dict[Constant.NEXTPAGE]:
                     url = f"{workspace_url}&page={response_dict[Constant.NEXTPAGE]}"
                 else:
@@ -147,9 +147,9 @@ class SigmaAPI:
                 response.raise_for_status()
                 response_dict = response.json()
                 for user_dict in response_dict[Constant.ENTRIES]:
-                    users[
-                        user_dict[Constant.MEMBERID]
-                    ] = f"{user_dict[Constant.FIRSTNAME]}_{user_dict[Constant.LASTNAME]}"
+                    users[user_dict[Constant.MEMBERID]] = (
+                        f"{user_dict[Constant.FIRSTNAME]}_{user_dict[Constant.LASTNAME]}"
+                    )
                 if response_dict[Constant.NEXTPAGE]:
                     url = f"{members_url}&page={response_dict[Constant.NEXTPAGE]}"
                 else:
@@ -187,7 +187,9 @@ class SigmaAPI:
     @functools.lru_cache
     def _get_files_metadata(self, file_type: str) -> Dict[str, File]:
         logger.debug(f"Fetching file metadata with type {file_type}.")
-        file_url = url = f"{self.config.api_url}/files?typeFilters={file_type}"
+        file_url = url = (
+            f"{self.config.api_url}/files?permissionFilter=view&typeFilters={file_type}"
+        )
         try:
             files_metadata: Dict[str, File] = {}
             while True:
@@ -225,31 +227,50 @@ class SigmaAPI:
                 for dataset_dict in response_dict[Constant.ENTRIES]:
                     dataset = SigmaDataset.parse_obj(dataset_dict)
 
-                    if dataset.datasetId in dataset_files_metadata:
-                        dataset.path = dataset_files_metadata[dataset.datasetId].path
-                        dataset.badge = dataset_files_metadata[dataset.datasetId].badge
+                    if dataset.datasetId not in dataset_files_metadata:
+                        self.report.datasets.dropped(
+                            f"{dataset.name} ({dataset.datasetId}) (missing file metadata)"
+                        )
+                        continue
 
-                        workspace_id = dataset_files_metadata[
-                            dataset.datasetId
-                        ].workspaceId
-                        if workspace_id:
-                            dataset.workspaceId = workspace_id
-                            workspace = self.get_workspace(dataset.workspaceId)
-                            if workspace:
-                                if self.config.workspace_pattern.allowed(
-                                    workspace.name
-                                ):
-                                    datasets.append(dataset)
-                            elif self.config.ingest_shared_entities:
-                                # If no workspace for dataset we can consider it as shared entity
-                                self.report.shared_entities_count += 1
-                                datasets.append(dataset)
+                    dataset.workspaceId = dataset_files_metadata[
+                        dataset.datasetId
+                    ].workspaceId
+
+                    dataset.path = dataset_files_metadata[dataset.datasetId].path
+                    dataset.badge = dataset_files_metadata[dataset.datasetId].badge
+
+                    workspace = None
+                    if dataset.workspaceId:
+                        workspace = self.get_workspace(dataset.workspaceId)
+
+                    if workspace:
+                        if self.config.workspace_pattern.allowed(workspace.name):
+                            self.report.datasets.processed(
+                                f"{dataset.name} ({dataset.datasetId}) in {workspace.name}"
+                            )
+                            datasets.append(dataset)
+                        else:
+                            self.report.datasets.dropped(
+                                f"{dataset.name} ({dataset.datasetId}) in {workspace.name}"
+                            )
+                    elif self.config.ingest_shared_entities:
+                        # If no workspace for dataset we can consider it as shared entity
+                        self.report.datasets_without_workspace += 1
+                        self.report.datasets.processed(
+                            f"{dataset.name} ({dataset.datasetId}) in workspace id {dataset.workspaceId or 'unknown'}"
+                        )
+                        datasets.append(dataset)
+                    else:
+                        self.report.datasets.dropped(
+                            f"{dataset.name} ({dataset.datasetId}) in workspace id {dataset.workspaceId or 'unknown'}"
+                        )
 
                 if response_dict[Constant.NEXTPAGE]:
                     url = f"{dataset_url}?page={response_dict[Constant.NEXTPAGE]}"
                 else:
                     break
-            self.report.number_of_datasets = len(datasets)
+
             return datasets
         except Exception as e:
             self._log_http_error(
@@ -327,10 +348,12 @@ class SigmaAPI:
             response.raise_for_status()
             for i, element_dict in enumerate(response.json()[Constant.ENTRIES]):
                 if not element_dict.get(Constant.NAME):
-                    element_dict[Constant.NAME] = f"Element {i+1} of Page '{page.name}'"
-                element_dict[
-                    Constant.URL
-                ] = f"{workbook.url}?:nodeId={element_dict[Constant.ELEMENTID]}&:fullScreen=true"
+                    element_dict[Constant.NAME] = (
+                        f"Element {i + 1} of Page '{page.name}'"
+                    )
+                element_dict[Constant.URL] = (
+                    f"{workbook.url}?:nodeId={element_dict[Constant.ELEMENTID]}&:fullScreen=true"
+                )
                 element = Element.parse_obj(element_dict)
                 if (
                     self.config.extract_lineage
@@ -379,34 +402,54 @@ class SigmaAPI:
                 for workbook_dict in response_dict[Constant.ENTRIES]:
                     workbook = Workbook.parse_obj(workbook_dict)
 
-                    if workbook.workbookId in workbook_files_metadata:
-                        workbook.badge = workbook_files_metadata[
-                            workbook.workbookId
-                        ].badge
+                    if workbook.workbookId not in workbook_files_metadata:
+                        # Due to a bug in the Sigma API, it seems like the /files endpoint does not
+                        # return file metadata when the user has access via admin permissions. In
+                        # those cases, the user associated with the token needs to be manually added
+                        # to the workspace.
+                        self.report.workbooks.dropped(
+                            f"{workbook.name} ({workbook.workbookId}) (missing file metadata; path: {workbook.path}; likely need to manually add user to workspace)"
+                        )
+                        continue
 
-                        workspace_id = workbook_files_metadata[
-                            workbook.workbookId
-                        ].workspaceId
-                        if workspace_id:
-                            workbook.workspaceId = workspace_id
-                            workspace = self.get_workspace(workbook.workspaceId)
-                            if workspace:
-                                if self.config.workspace_pattern.allowed(
-                                    workspace.name
-                                ):
-                                    workbook.pages = self.get_workbook_pages(workbook)
-                                    workbooks.append(workbook)
-                            elif self.config.ingest_shared_entities:
-                                # If no workspace for workbook we can consider it as shared entity
-                                self.report.shared_entities_count += 1
-                                workbook.pages = self.get_workbook_pages(workbook)
-                                workbooks.append(workbook)
+                    workbook.workspaceId = workbook_files_metadata[
+                        workbook.workbookId
+                    ].workspaceId
+
+                    workbook.badge = workbook_files_metadata[workbook.workbookId].badge
+
+                    workspace = None
+                    if workbook.workspaceId:
+                        workspace = self.get_workspace(workbook.workspaceId)
+
+                    if workspace:
+                        if self.config.workspace_pattern.allowed(workspace.name):
+                            self.report.workbooks.processed(
+                                f"{workbook.name} ({workbook.workbookId}) in {workspace.name}"
+                            )
+                            workbook.pages = self.get_workbook_pages(workbook)
+                            workbooks.append(workbook)
+                        else:
+                            self.report.workbooks.dropped(
+                                f"{workbook.name} ({workbook.workbookId}) in {workspace.name}"
+                            )
+                    elif self.config.ingest_shared_entities:
+                        # If no workspace for workbook we can consider it as shared entity
+                        self.report.workbooks_without_workspace += 1
+                        self.report.workbooks.processed(
+                            f"{workbook.name} ({workbook.workbookId}) in workspace id {workbook.workspaceId or 'unknown'}"
+                        )
+                        workbook.pages = self.get_workbook_pages(workbook)
+                        workbooks.append(workbook)
+                    else:
+                        self.report.workbooks.dropped(
+                            f"{workbook.name} ({workbook.workbookId}) in workspace id {workbook.workspaceId or 'unknown'}"
+                        )
 
                 if response_dict[Constant.NEXTPAGE]:
                     url = f"{workbook_url}?page={response_dict[Constant.NEXTPAGE]}"
                 else:
                     break
-            self.report.number_of_workbooks = len(workbooks)
             return workbooks
         except Exception as e:
             self._log_http_error(

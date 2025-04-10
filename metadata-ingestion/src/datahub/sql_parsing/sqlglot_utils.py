@@ -56,10 +56,7 @@ def get_dialect(platform: DialectOrStr) -> sqlglot.Dialect:
 def is_dialect_instance(
     dialect: sqlglot.Dialect, platforms: Union[str, Iterable[str]]
 ) -> bool:
-    if isinstance(platforms, str):
-        platforms = [platforms]
-    else:
-        platforms = list(platforms)
+    platforms = [platforms] if isinstance(platforms, str) else list(platforms)
 
     dialects = [get_dialect(platform) for platform in platforms]
 
@@ -121,7 +118,7 @@ _BASIC_NORMALIZATION_RULES = {
     # Remove /* */ comments.
     re.compile(r"/\*.*?\*/", re.DOTALL): "",
     # Remove -- comments.
-    re.compile(r"--.*$"): "",
+    re.compile(r"--.*$", re.MULTILINE): "",
     # Replace all runs of whitespace with a single space.
     re.compile(r"\s+"): " ",
     # Remove leading and trailing whitespace and trailing semicolons.
@@ -131,10 +128,16 @@ _BASIC_NORMALIZATION_RULES = {
     # Replace anything that looks like a string with a placeholder.
     re.compile(r"'[^']*'"): "?",
     # Replace sequences of IN/VALUES with a single placeholder.
-    re.compile(r"\b(IN|VALUES)\s*\(\?(?:, \?)*\)", re.IGNORECASE): r"\1 (?)",
+    # The r" ?" makes it more robust to uneven spacing.
+    re.compile(r"\b(IN|VALUES)\s*\( ?\?(?:, ?\?)* ?\)", re.IGNORECASE): r"\1 (?)",
     # Normalize parenthesis spacing.
     re.compile(r"\( "): "(",
     re.compile(r" \)"): ")",
+    # Fix up spaces before commas in column lists.
+    # e.g. "col1 , col2" -> "col1, col2"
+    # e.g. "col1,col2" -> "col1, col2"
+    re.compile(r"\b ,"): ",",
+    re.compile(r"\b,\b"): ", ",
 }
 _TABLE_NAME_NORMALIZATION_RULES = {
     # Replace UUID-like strings with a placeholder (both - and _ variants).
@@ -254,7 +257,10 @@ def generate_hash(text: str) -> str:
 
 
 def get_query_fingerprint_debug(
-    expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr, fast: bool = False
+    expression: sqlglot.exp.ExpOrStr,
+    platform: DialectOrStr,
+    fast: bool = False,
+    secondary_id: Optional[str] = None,
 ) -> Tuple[str, Optional[str]]:
     try:
         if not fast:
@@ -269,16 +275,18 @@ def get_query_fingerprint_debug(
         logger.debug("Failed to generalize query for fingerprinting: %s", e)
         expression_sql = None
 
-    fingerprint = generate_hash(
-        expression_sql
-        if expression_sql is not None
-        else _expression_to_string(expression, platform=platform)
-    )
+    text = expression_sql or _expression_to_string(expression, platform=platform)
+    if secondary_id:
+        text = text + " -- " + secondary_id
+    fingerprint = generate_hash(text=text)
     return fingerprint, expression_sql
 
 
 def get_query_fingerprint(
-    expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr, fast: bool = False
+    expression: sqlglot.exp.ExpOrStr,
+    platform: DialectOrStr,
+    fast: bool = False,
+    secondary_id: Optional[str] = None,
 ) -> str:
     """Get a fingerprint for a SQL query.
 
@@ -295,12 +303,15 @@ def get_query_fingerprint(
     Args:
         expression: The SQL query to fingerprint.
         platform: The SQL dialect to use.
+        secondary_id: An optional additional id string to included in the final fingerprint.
 
     Returns:
         The fingerprint for the SQL query.
     """
 
-    return get_query_fingerprint_debug(expression, platform, fast=fast)[0]
+    return get_query_fingerprint_debug(
+        expression=expression, platform=platform, fast=fast, secondary_id=secondary_id
+    )[0]
 
 
 @functools.lru_cache(maxsize=FORMAT_QUERY_CACHE_SIZE)
@@ -398,7 +409,7 @@ def detach_ctes(
         if new_statement == statement:
             if iteration > 1:
                 logger.debug(
-                    f"Required {iteration+1} iterations to detach and eliminate all CTEs"
+                    f"Required {iteration + 1} iterations to detach and eliminate all CTEs"
                 )
             break
         statement = new_statement

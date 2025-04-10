@@ -43,20 +43,21 @@ def mock_kafka_service(docker_compose_runner, test_resources_dir):
         yield docker_compose_runner
 
 
+@pytest.mark.parametrize("approach", ["kafka_without_schemas", "kafka"])
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_kafka_ingest(
-    mock_kafka_service, test_resources_dir, pytestconfig, tmp_path, mock_time
+    mock_kafka_service, test_resources_dir, pytestconfig, tmp_path, mock_time, approach
 ):
     # Run the metadata ingestion pipeline.
-    config_file = (test_resources_dir / "kafka_to_file.yml").resolve()
+    config_file = (test_resources_dir / f"{approach}_to_file.yml").resolve()
     run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
 
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "kafka_mces.json",
-        golden_path=test_resources_dir / "kafka_mces_golden.json",
+        output_path=tmp_path / f"{approach}_mces.json",
+        golden_path=test_resources_dir / f"{approach}_mces_golden.json",
         ignore_paths=[],
     )
 
@@ -101,7 +102,7 @@ def test_kafka_test_connection(mock_kafka_service, config_dict, is_success):
         test_connection_helpers.assert_capability_report(
             capability_report=report.capability_report,
             failure_capabilities={
-                SourceCapability.SCHEMA_METADATA: "Failed to establish a new connection"
+                SourceCapability.SCHEMA_METADATA: "[Errno 111] Connection refused"
             },
         )
 

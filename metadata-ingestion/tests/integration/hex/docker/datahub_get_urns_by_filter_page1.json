@@ -1,0 +1,14 @@
+{
+  "data": {
+    "scrollAcrossEntities": {
+      "nextScrollId": "page_2_scroll_id",
+      "searchResults": [
+        {
+          "entity": {
+            "urn": "urn:li:query:307d80903ebbc165944c52ae79efaeb1736f9bb37d9f8fa48fc0af69d725413f"
+          }
+        }
+      ]
+    }
+  }
+}

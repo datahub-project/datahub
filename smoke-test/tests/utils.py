@@ -5,11 +5,12 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Tuple
 
 import requests
-from datahub.cli import cli_utils, env_utils
-from datahub.ingestion.run.pipeline import Pipeline
+import tenacity
 from joblib import Parallel, delayed
 from requests.structures import CaseInsensitiveDict
 
+from datahub.cli import cli_utils, env_utils
+from datahub.ingestion.run.pipeline import Pipeline
 from tests.consistency_utils import wait_for_writes_to_sync
 
 TIME: int = 1581407189000
@@ -98,7 +99,9 @@ def check_endpoint(auth_session, url):
         raise SystemExit(f"{url}: is Not reachable \nErr: {e}")
 
 
-def ingest_file_via_rest(auth_session, filename: str) -> Pipeline:
+def ingest_file_via_rest(
+    auth_session, filename: str, mode: str = "ASYNC_BATCH"
+) -> Pipeline:
     pipeline = Pipeline.create(
         {
             "source": {
@@ -110,6 +113,7 @@ def ingest_file_via_rest(auth_session, filename: str) -> Pipeline:
                 "config": {
                     "server": auth_session.gms_url(),
                     "token": auth_session.gms_token(),
+                    "mode": mode,
                 },
             },
         }
@@ -274,6 +278,11 @@ class TestSessionWrapper:
             print("TestSessionWrapper sync wait.")
             wait_for_writes_to_sync()
 
+    @tenacity.retry(
+        stop=tenacity.stop_after_attempt(10),
+        wait=tenacity.wait_exponential(multiplier=1, min=4, max=30),
+        retry=tenacity.retry_if_exception_type(Exception),
+    )
     def _generate_gms_token(self):
         actor_urn = self._upstream.cookies["actor"]
         json = {

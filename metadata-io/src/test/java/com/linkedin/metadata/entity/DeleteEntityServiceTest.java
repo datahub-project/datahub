@@ -19,6 +19,7 @@ import com.linkedin.container.Container;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
@@ -41,6 +42,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -113,7 +115,7 @@ public class DeleteEntityServiceTest {
     dbValue.setCreatedOn(new Timestamp(auditStamp.getTime()));
 
     final Map<EntityAspectIdentifier, EntityAspect> dbEntries = Map.of(dbKey, dbValue);
-    Mockito.when(_aspectDao.batchGet(Mockito.any())).thenReturn(dbEntries);
+    Mockito.when(_aspectDao.batchGet(Mockito.any(), Mockito.anyBoolean())).thenReturn(dbEntries);
 
     RollbackResult result =
         new RollbackResult(
@@ -129,7 +131,7 @@ public class DeleteEntityServiceTest {
             1);
 
     Mockito.when(_aspectDao.runInTransactionWithRetry(Mockito.any(), Mockito.anyInt()))
-        .thenReturn(result);
+        .thenReturn(Optional.of(result));
 
     final DeleteReferencesResponse response =
         _deleteEntityService.deleteReferencesTo(opContext, container, false);

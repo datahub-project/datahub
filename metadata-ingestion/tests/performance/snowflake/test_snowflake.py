@@ -37,7 +37,6 @@ def run_test():
             password="TST_PWD",
             include_technical_schema=False,
             include_table_lineage=True,
-            include_view_lineage=True,
             include_usage_stats=True,
             include_operational_stats=True,
             start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(tzinfo=timezone.utc),
@@ -54,7 +53,7 @@ def run_test():
             workunits = source.get_workunits()
             num_workunits, peak_memory_usage = workunit_sink(workunits)
             logging.info(f"Workunits Generated: {num_workunits}")
-            logging.info(f"Seconds Elapsed: {timer.elapsed_seconds():.2f} seconds")
+            logging.info(f"Seconds Elapsed: {timer.elapsed_seconds(digits=2)} seconds")
             logging.info(source.get_report().as_string())
 
         logging.info(

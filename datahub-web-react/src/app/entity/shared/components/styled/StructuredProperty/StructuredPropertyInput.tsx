@@ -1,12 +1,13 @@
+import { PropertyCardinality, StdDataType, StructuredPropertyEntity } from '@src/types.generated';
 import React from 'react';
-import { PropertyCardinality, StdDataType, StructuredPropertyEntity } from '../../../../../../types.generated';
-import SingleSelectInput from './SingleSelectInput';
-import MultiSelectInput from './MultiSelectInput';
-import StringInput from './StringInput';
-import RichTextInput from './RichTextInput';
-import DateInput from './DateInput';
-import NumberInput from './NumberInput';
+import StructuredPropertySearchSelectUrnInput from '../../../entityForm/prompts/StructuredPropertyPrompt/UrnInput/StructuredPropertySearchSelectUrnInput';
 import UrnInput from '../../../entityForm/prompts/StructuredPropertyPrompt/UrnInput/UrnInput';
+import DateInput from './DateInput';
+import MultiSelectInput from './MultiSelectInput';
+import NumberInput from './NumberInput';
+import RichTextInput from './RichTextInput';
+import SingleSelectInput from './SingleSelectInput';
+import StringInput from './StringInput';
 
 interface Props {
     structuredProperty: StructuredPropertyEntity;
@@ -14,6 +15,7 @@ interface Props {
     selectSingleValue: (value: string | number) => void;
     toggleSelectedValue: (value: string | number) => void;
     updateSelectedValues: (value: (string | number | null)[]) => void;
+    canUseSearchSelectUrnInput?: boolean;
 }
 
 export default function StructuredPropertyInput({
@@ -22,6 +24,7 @@ export default function StructuredPropertyInput({
     selectedValues,
     toggleSelectedValue,
     updateSelectedValues,
+    canUseSearchSelectUrnInput = false,
 }: Props) {
     const { allowedValues, cardinality, valueType } = structuredProperty.definition;
 
@@ -60,12 +63,23 @@ export default function StructuredPropertyInput({
                 <DateInput selectedValues={selectedValues} updateSelectedValues={updateSelectedValues} />
             )}
             {!allowedValues && valueType.info.type === StdDataType.Number && (
-                <NumberInput selectedValues={selectedValues} updateSelectedValues={updateSelectedValues} />
+                <NumberInput
+                    selectedValues={selectedValues}
+                    cardinality={cardinality}
+                    updateSelectedValues={updateSelectedValues}
+                />
             )}
-            {!allowedValues && valueType.info.type === StdDataType.Urn && (
+            {!allowedValues && valueType.info.type === StdDataType.Urn && canUseSearchSelectUrnInput && (
+                <StructuredPropertySearchSelectUrnInput
+                    structuredProperty={structuredProperty}
+                    selectedValues={selectedValues as string[]}
+                    updateSelectedValues={updateSelectedValues}
+                />
+            )}
+            {!allowedValues && valueType.info.type === StdDataType.Urn && !canUseSearchSelectUrnInput && (
                 <UrnInput
                     structuredProperty={structuredProperty}
-                    selectedValues={selectedValues}
+                    selectedValues={selectedValues as string[]}
                     updateSelectedValues={updateSelectedValues}
                 />
             )}

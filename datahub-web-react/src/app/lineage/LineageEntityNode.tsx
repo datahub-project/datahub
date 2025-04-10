@@ -19,6 +19,10 @@ import ManageLineageMenu from './manage/ManageLineageMenu';
 import { useGetLineageTimeParams } from './utils/useGetLineageTimeParams';
 import { EntityHealth } from '../entity/shared/containers/profile/header/EntityHealth';
 import { EntityType } from '../../types.generated';
+import StructuredPropertyBadge, {
+    MAX_PROP_BADGE_WIDTH,
+} from '../entity/shared/containers/profile/header/StructuredPropertyBadge';
+import { filterForAssetBadge } from '../entity/shared/containers/profile/header/utils';
 
 const CLICK_DELAY_THRESHOLD = 1000;
 const DRAG_DISTANCE_THRESHOLD = 20;
@@ -36,6 +40,11 @@ const MultilineTitleText = styled.p`
     font-size: 14px;
     width: 125px;
     word-break: break-all;
+`;
+
+const PropertyBadgeWrapper = styled.div`
+    display: flex;
+    justify-content: flex-end;
 `;
 
 export default function LineageEntityNode({
@@ -149,6 +158,11 @@ export default function LineageEntityNode({
     const { health } = node.data;
     const baseUrl = node.data.type && node.data.urn && entityRegistry.getEntityUrl(node.data.type, node.data.urn);
     const hasHealth = (health && baseUrl) || false;
+
+    const entityStructuredProps = node.data.structuredProperties;
+    const hasAssetBadge = entityStructuredProps?.properties?.find(filterForAssetBadge);
+    const siblingStructuredProps = node.data.siblingStructuredProperties;
+    const siblingHasAssetBadge = siblingStructuredProps?.properties?.find(filterForAssetBadge);
 
     return (
         <PointerGroup data-testid={`node-${node.data.urn}-${direction}`} top={node.x} left={node.y}>
@@ -338,6 +352,32 @@ export default function LineageEntityNode({
                             entityPlatform={node.data.platform?.name}
                             canEditLineage={node.data.canEditLineage}
                         />
+                    </foreignObject>
+                )}
+                {hasAssetBadge && (
+                    <foreignObject
+                        x={-centerX - MAX_PROP_BADGE_WIDTH - 8}
+                        y={centerY - 15}
+                        width={MAX_PROP_BADGE_WIDTH}
+                        height={30}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <PropertyBadgeWrapper>
+                            <StructuredPropertyBadge structuredProperties={entityStructuredProps ?? undefined} />
+                        </PropertyBadgeWrapper>
+                    </foreignObject>
+                )}
+                {!hasAssetBadge && siblingHasAssetBadge && (
+                    <foreignObject
+                        x={-centerX - MAX_PROP_BADGE_WIDTH - 8}
+                        y={centerY - 15}
+                        width={MAX_PROP_BADGE_WIDTH}
+                        height={30}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <PropertyBadgeWrapper>
+                            <StructuredPropertyBadge structuredProperties={siblingStructuredProps ?? undefined} />
+                        </PropertyBadgeWrapper>
                     </foreignObject>
                 )}
                 <Group>

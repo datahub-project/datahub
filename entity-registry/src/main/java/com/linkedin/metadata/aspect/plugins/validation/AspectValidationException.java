@@ -18,55 +18,47 @@ public class AspectValidationException extends Exception {
   }
 
   public static AspectValidationException forItem(BatchItem item, String msg, Exception e) {
-    return new AspectValidationException(
-        item.getChangeType(), item.getUrn(), item.getAspectName(), msg, SubType.VALIDATION, e);
+    return new AspectValidationException(item, msg, ValidationSubType.VALIDATION, e);
   }
 
   public static AspectValidationException forPrecondition(BatchItem item, String msg) {
     return forPrecondition(item, msg, null);
   }
 
-  public static AspectValidationException forPrecondition(BatchItem item, String msg, Exception e) {
-    return new AspectValidationException(
-        item.getChangeType(), item.getUrn(), item.getAspectName(), msg, SubType.PRECONDITION, e);
+  public static AspectValidationException forFilter(BatchItem item, String msg) {
+    return new AspectValidationException(item, msg, ValidationSubType.FILTER);
   }
 
+  public static AspectValidationException forPrecondition(BatchItem item, String msg, Exception e) {
+    return new AspectValidationException(item, msg, ValidationSubType.PRECONDITION, e);
+  }
+
+  @Nonnull BatchItem item;
   @Nonnull ChangeType changeType;
   @Nonnull Urn entityUrn;
   @Nonnull String aspectName;
-  @Nonnull SubType subType;
+  @Nonnull ValidationSubType subType;
   @Nullable String msg;
 
-  public AspectValidationException(
-      @Nonnull ChangeType changeType,
-      @Nonnull Urn entityUrn,
-      @Nonnull String aspectName,
-      String msg,
-      SubType subType) {
-    this(changeType, entityUrn, aspectName, msg, subType, null);
+  public AspectValidationException(@Nonnull BatchItem item, String msg, ValidationSubType subType) {
+    this(item, msg, subType, null);
   }
 
   public AspectValidationException(
-      @Nonnull ChangeType changeType,
-      @Nonnull Urn entityUrn,
-      @Nonnull String aspectName,
+      @Nonnull BatchItem item,
       @Nonnull String msg,
-      @Nullable SubType subType,
+      @Nullable ValidationSubType subType,
       Exception e) {
     super(msg, e);
-    this.changeType = changeType;
-    this.entityUrn = entityUrn;
-    this.aspectName = aspectName;
+    this.item = item;
+    this.changeType = item.getChangeType();
+    this.entityUrn = item.getUrn();
+    this.aspectName = item.getAspectName();
     this.msg = msg;
-    this.subType = subType != null ? subType : SubType.VALIDATION;
+    this.subType = subType != null ? subType : ValidationSubType.VALIDATION;
   }
 
   public Pair<Urn, String> getAspectGroup() {
     return Pair.of(entityUrn, aspectName);
-  }
-
-  public static enum SubType {
-    VALIDATION,
-    PRECONDITION
   }
 }

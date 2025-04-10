@@ -22,6 +22,7 @@ import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
+import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 
 const getDataJobPlatformName = (data?: DataJob): string => {
     return (
@@ -63,6 +64,8 @@ export class DataJobEntity implements Entity<DataJob> {
     isLineageEnabled = () => true;
 
     getAutoCompleteFieldName = () => 'name';
+
+    getGraphName = () => 'dataJob';
 
     getPathName = () => 'tasks';
 
@@ -109,7 +112,7 @@ export class DataJobEntity implements Entity<DataJob> {
                     name: 'Incidents',
                     component: IncidentTab,
                     getDynamicName: (_, dataJob) => {
-                        const activeIncidentCount = dataJob?.dataJob?.activeIncidents.total;
+                        const activeIncidentCount = dataJob?.dataJob?.activeIncidents?.total;
                         return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
                     },
                 },
@@ -140,6 +143,9 @@ export class DataJobEntity implements Entity<DataJob> {
         },
         {
             component: DataProductSection,
+        },
+        {
+            component: SidebarStructuredPropsSection,
         },
     ];
 
@@ -199,6 +205,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 health={data.health}
+                parentContainers={data.parentContainers}
             />
         );
     };

@@ -5,6 +5,7 @@ import random
 import sqlite3
 from dataclasses import dataclass
 from typing import Counter, Dict
+from unittest.mock import patch
 
 import pytest
 
@@ -15,11 +16,43 @@ from datahub.utilities.file_backed_collections import (
 )
 
 
-def test_file_dict() -> None:
+def test_set_use_sqlite_on_conflict():
+    with patch("sqlite3.sqlite_version_info", (3, 24, 0)):
+        cache = FileBackedDict[int](
+            tablename="cache",
+            cache_max_size=10,
+            cache_eviction_batch_size=10,
+        )
+        assert cache._use_sqlite_on_conflict is True
+
+    with pytest.raises(RuntimeError):
+        with patch("sqlite3.sqlite_version_info", (3, 23, 1)):
+            cache = FileBackedDict[int](
+                tablename="cache",
+                cache_max_size=10,
+                cache_eviction_batch_size=10,
+            )
+            assert cache._use_sqlite_on_conflict is False
+
+    with patch("sqlite3.sqlite_version_info", (3, 23, 1)), patch(
+        "datahub.utilities.file_backed_collections.OVERRIDE_SQLITE_VERSION_REQUIREMENT",
+        True,
+    ):
+        cache = FileBackedDict[int](
+            tablename="cache",
+            cache_max_size=10,
+            cache_eviction_batch_size=10,
+        )
+        assert cache._use_sqlite_on_conflict is False
+
+
+@pytest.mark.parametrize("use_sqlite_on_conflict", [True, False])
+def test_file_dict(use_sqlite_on_conflict: bool) -> None:
     cache = FileBackedDict[int](
         tablename="cache",
         cache_max_size=10,
         cache_eviction_batch_size=10,
+        _use_sqlite_on_conflict=use_sqlite_on_conflict,
     )
 
     for i in range(100):
@@ -92,7 +125,8 @@ def test_file_dict() -> None:
         cache["a"] = 1
 
 
-def test_custom_serde() -> None:
+@pytest.mark.parametrize("use_sqlite_on_conflict", [True, False])
+def test_custom_serde(use_sqlite_on_conflict: bool) -> None:
     @dataclass(frozen=True)
     class Label:
         a: str
@@ -139,6 +173,7 @@ def test_custom_serde() -> None:
         deserializer=deserialize,
         # Disable the in-memory cache to force all reads/writes to the DB.
         cache_max_size=0,
+        _use_sqlite_on_conflict=use_sqlite_on_conflict,
     )
     first = Main(3, {Label("one", 1): 0.1, Label("two", 2): 0.2})
     second = Main(-100, {Label("z", 26): 0.26})
@@ -186,7 +221,8 @@ def test_file_dict_stores_counter() -> None:
         assert in_memory_counters[i].most_common(2) == cache[str(i)].most_common(2)
 
 
-def test_file_dict_ordering() -> None:
+@pytest.mark.parametrize("use_sqlite_on_conflict", [True, False])
+def test_file_dict_ordering(use_sqlite_on_conflict: bool) -> None:
     """
     We require that FileBackedDict maintains insertion order, similar to Python's
     built-in dict. This test makes one of each and validates that they behave the same.
@@ -196,6 +232,7 @@ def test_file_dict_ordering() -> None:
         serializer=str,
         deserializer=int,
         cache_max_size=1,
+        _use_sqlite_on_conflict=use_sqlite_on_conflict,
     )
     data = {}
 
@@ -229,12 +266,14 @@ class Pair:
 
 
 @pytest.mark.parametrize("cache_max_size", [0, 1, 10])
-def test_custom_column(cache_max_size: int) -> None:
+@pytest.mark.parametrize("use_sqlite_on_conflict", [True, False])
+def test_custom_column(cache_max_size: int, use_sqlite_on_conflict: bool) -> None:
     cache = FileBackedDict[Pair](
         extra_columns={
             "x": lambda m: m.x,
         },
         cache_max_size=cache_max_size,
+        _use_sqlite_on_conflict=use_sqlite_on_conflict,
     )
 
     cache["first"] = Pair(3, "a")
@@ -275,7 +314,8 @@ def test_custom_column(cache_max_size: int) -> None:
     ]
 
 
-def test_shared_connection() -> None:
+@pytest.mark.parametrize("use_sqlite_on_conflict", [True, False])
+def test_shared_connection(use_sqlite_on_conflict: bool) -> None:
     with ConnectionWrapper() as connection:
         cache1 = FileBackedDict[int](
             shared_connection=connection,
@@ -283,6 +323,7 @@ def test_shared_connection() -> None:
             extra_columns={
                 "v": lambda v: v,
             },
+            _use_sqlite_on_conflict=use_sqlite_on_conflict,
         )
         cache2 = FileBackedDict[Pair](
             shared_connection=connection,
@@ -291,6 +332,7 @@ def test_shared_connection() -> None:
                 "x": lambda m: m.x,
                 "y": lambda m: m.y,
             },
+            _use_sqlite_on_conflict=use_sqlite_on_conflict,
         )
 
         cache1["a"] = 3

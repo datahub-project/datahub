@@ -2,7 +2,7 @@ import logging
 import math
 import sys
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Set, Type
+from typing import Dict, Iterable, List, Optional
 
 import dateutil.parser as dp
 from packaging import version
@@ -12,7 +12,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
@@ -22,9 +22,20 @@ from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.registry import import_path
-from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
+from datahub.ingestion.api.source import (
+    MetadataWorkUnitProcessor,
+    SourceCapability,
+    SourceReport,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
@@ -39,9 +50,9 @@ from datahub.metadata.schema_classes import (
     ChartTypeClass,
     DashboardInfoClass,
 )
-from datahub.utilities.lossy_collections import LossyDict, LossyList
+from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+from datahub.utilities.lossy_collections import LossyDict, LossyList, LossySet
 from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.sql_parser_base import SQLParser
 from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
 logger = logging.getLogger(__name__)
@@ -236,7 +247,9 @@ def get_full_qualified_name(platform: str, database_name: str, table_name: str) 
         return f"{database_name}.{table_name}"
 
 
-class RedashConfig(ConfigModel):
+class RedashConfig(
+    StatefulIngestionConfigBase,
+):
     # See the Redash API for details
     # https://redash.io/help/user-guide/integrations-and-api/api
     connect_uri: str = Field(
@@ -270,10 +283,6 @@ class RedashConfig(ConfigModel):
     parse_table_names_from_sql: bool = Field(
         default=False, description="See note below."
     )
-    sql_parser: str = Field(
-        default="datahub.utilities.sql_parser.DefaultSQLParser",
-        description="custom SQL parser. See note below for details.",
-    )
 
     env: str = Field(
         default=DEFAULT_ENV,
@@ -282,12 +291,12 @@ class RedashConfig(ConfigModel):
 
 
 @dataclass
-class RedashSourceReport(SourceReport):
+class RedashSourceReport(StaleEntityRemovalSourceReport):
     items_scanned: int = 0
     filtered: LossyList[str] = field(default_factory=LossyList)
-    queries_problem_parsing: Set[str] = field(default_factory=set)
-    queries_no_dataset: Set[str] = field(default_factory=set)
-    charts_no_input: Set[str] = field(default_factory=set)
+    queries_problem_parsing: LossySet[str] = field(default_factory=LossySet)
+    queries_no_dataset: LossySet[str] = field(default_factory=LossySet)
+    charts_no_input: LossySet[str] = field(default_factory=LossySet)
     total_queries: Optional[int] = field(
         default=None,
     )
@@ -310,7 +319,7 @@ class RedashSourceReport(SourceReport):
 @config_class(RedashConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
-class RedashSource(Source):
+class RedashSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
 
@@ -321,8 +330,9 @@ class RedashSource(Source):
     platform = "redash"
 
     def __init__(self, ctx: PipelineContext, config: RedashConfig):
-        super().__init__(ctx)
+        super().__init__(config, ctx)
         self.config: RedashConfig = config
+        self.ctx = ctx
         self.report: RedashSourceReport = RedashSourceReport()
 
         # Handle trailing slash removal
@@ -354,7 +364,6 @@ class RedashSource(Source):
         self.api_page_limit = self.config.api_page_limit or math.inf
 
         self.parse_table_names_from_sql = self.config.parse_table_names_from_sql
-        self.sql_parser_path = self.config.sql_parser
 
         logger.info(
             f"Running Redash ingestion with parse_table_names_from_sql={self.parse_table_names_from_sql}"
@@ -374,36 +383,6 @@ class RedashSource(Source):
             logger.info("Redash API connected succesfully")
         else:
             raise ValueError(f"Failed to connect to {self.config.connect_uri}/api")
-
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
-        config = RedashConfig.parse_obj(config_dict)
-        return cls(ctx, config)
-
-    @classmethod
-    def _import_sql_parser_cls(cls, sql_parser_path: str) -> Type[SQLParser]:
-        assert "." in sql_parser_path, "sql_parser-path must contain a ."
-        parser_cls = import_path(sql_parser_path)
-
-        if not issubclass(parser_cls, SQLParser):
-            raise ValueError(f"must be derived from {SQLParser}; got {parser_cls}")
-        return parser_cls
-
-    @classmethod
-    def _get_sql_table_names(cls, sql: str, sql_parser_path: str) -> List[str]:
-        parser_cls = cls._import_sql_parser_cls(sql_parser_path)
-
-        try:
-            sql_table_names: List[str] = parser_cls(sql).get_tables()
-        except Exception as e:
-            logger.warning(f"Sql parser failed on {sql} with {e}")
-            return []
-
-        # Remove quotes from table names
-        sql_table_names = [t.replace('"', "") for t in sql_table_names]
-        sql_table_names = [t.replace("`", "") for t in sql_table_names]
-
-        return sql_table_names
 
     def _get_chart_data_source(self, data_source_id: Optional[int] = None) -> Dict:
         url = f"/api/data_sources/{data_source_id}"
@@ -441,17 +420,10 @@ class RedashSource(Source):
 
         return database_name
 
-    def _construct_datalineage_urn(
-        self, platform: str, database_name: str, sql_table_name: str
-    ) -> str:
-        full_dataset_name = get_full_qualified_name(
-            platform, database_name, sql_table_name
-        )
-        return builder.make_dataset_urn(platform, full_dataset_name, self.config.env)
-
     def _get_datasource_urns(
-        self, data_source: Dict, sql_query_data: Dict = {}
+        self, data_source: Dict, sql_query_data: Optional[Dict] = None
     ) -> Optional[List[str]]:
+        sql_query_data = sql_query_data or {}
         platform = self._get_platform_based_on_datasource(data_source)
         database_name = self._get_database_name_based_on_datasource(data_source)
         data_source_syntax = data_source.get("syntax")
@@ -464,34 +436,23 @@ class RedashSource(Source):
             # Getting table lineage from SQL parsing
             if self.parse_table_names_from_sql and data_source_syntax == "sql":
                 dataset_urns = list()
-                try:
-                    sql_table_names = self._get_sql_table_names(
-                        query, self.sql_parser_path
-                    )
-                except Exception as e:
+                sql_parser_in_tables = create_lineage_sql_parsed_result(
+                    query=query,
+                    platform=platform,
+                    env=self.config.env,
+                    platform_instance=None,
+                    default_db=database_name,
+                )
+                # make sure dataset_urns is not empty list
+                dataset_urns = sql_parser_in_tables.in_tables
+                if sql_parser_in_tables.debug_info.table_error:
                     self.report.queries_problem_parsing.add(str(query_id))
                     self.error(
                         logger,
                         "sql-parsing",
-                        f"exception {e} in parsing query-{query_id}-datasource-{data_source_id}",
+                        f"exception {sql_parser_in_tables.debug_info.table_error} in parsing query-{query_id}-datasource-{data_source_id}",
                     )
-                    sql_table_names = []
-                for sql_table_name in sql_table_names:
-                    try:
-                        dataset_urns.append(
-                            self._construct_datalineage_urn(
-                                platform, database_name, sql_table_name
-                            )
-                        )
-                    except Exception:
-                        self.report.queries_problem_parsing.add(str(query_id))
-                        self.warn(
-                            logger,
-                            "data-urn-invalid",
-                            f"Problem making URN for {sql_table_name} parsed from query {query_id}",
-                        )
 
-                # make sure dataset_urns is not empty list
                 return dataset_urns if len(dataset_urns) > 0 else None
 
             else:
@@ -778,6 +739,14 @@ class RedashSource(Source):
 
     def add_config_to_report(self) -> None:
         self.report.api_page_limit = self.config.api_page_limit
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.validate_connection()

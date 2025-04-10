@@ -2,23 +2,12 @@ import pathlib
 
 import pytest
 
-import datahub.testing.check_sql_parser_result as checker
 from datahub.testing.check_sql_parser_result import assert_sql_result
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "goldens"
 
 
-@pytest.fixture(autouse=True)
-def set_update_sql_parser(
-    pytestconfig: pytest.Config, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    update_golden = pytestconfig.getoption("--update-golden-files")
-
-    if update_golden:
-        monkeypatch.setattr(checker, "UPDATE_FILES", True)
-
-
-def test_invalid_sql():
+def test_invalid_sql() -> None:
     assert_sql_result(
         """
 SELECT as '
@@ -30,7 +19,7 @@ FROM snowflake_sample_data.tpch_sf1.orders o
     )
 
 
-def test_select_max():
+def test_select_max() -> None:
     # The COL2 should get normalized to col2.
     assert_sql_result(
         """
@@ -42,7 +31,7 @@ FROM mytable
     )
 
 
-def test_select_max_with_schema():
+def test_select_max_with_schema() -> None:
     # Note that `this_will_not_resolve` will be dropped from the result because it's not in the schema.
     assert_sql_result(
         """
@@ -60,7 +49,7 @@ FROM mytable
     )
 
 
-def test_select_count():
+def test_select_count() -> None:
     assert_sql_result(
         """
 SELECT
@@ -74,7 +63,7 @@ WHERE
     )
 
 
-def test_select_with_ctes():
+def test_select_with_ctes() -> None:
     assert_sql_result(
         """
 WITH cte1 AS (
@@ -95,7 +84,7 @@ JOIN cte2 ON cte1.col2 = cte2.col4
     )
 
 
-def test_select_with_complex_ctes():
+def test_select_with_complex_ctes() -> None:
     # This one has group bys in the CTEs, which means they can't be collapsed into the main query.
     assert_sql_result(
         """
@@ -119,7 +108,7 @@ JOIN cte2 ON cte1.col2 = cte2.col4
     )
 
 
-def test_multiple_select_subqueries():
+def test_multiple_select_subqueries() -> None:
     assert_sql_result(
         """
 SELECT SUM((SELECT max(a) a from x) + (SELECT min(b) b from x) + c) AS y FROM x
@@ -129,7 +118,7 @@ SELECT SUM((SELECT max(a) a from x) + (SELECT min(b) b from x) + c) AS y FROM x
     )
 
 
-def test_create_view_as_select():
+def test_create_view_as_select() -> None:
     assert_sql_result(
         """
 CREATE VIEW vsal
@@ -149,12 +138,12 @@ AS
           WHERE  city = 'NYC') b
 ;
 """,
-        dialect="oracle",
+        dialect="mysql",
         expected_file=RESOURCE_DIR / "test_create_view_as_select.json",
     )
 
 
-def test_insert_as_select():
+def test_insert_as_select() -> None:
     # Note: this also tests lineage with case statements.
 
     assert_sql_result(
@@ -190,7 +179,7 @@ limit 100;
     )
 
 
-def test_insert_with_column_list():
+def test_insert_with_column_list() -> None:
     assert_sql_result(
         """\
 insert into downstream (a, c) select a, c from upstream2
@@ -200,7 +189,7 @@ insert into downstream (a, c) select a, c from upstream2
     )
 
 
-def test_select_with_full_col_name():
+def test_select_with_full_col_name() -> None:
     # In this case, `widget` is a struct column.
     # This also tests the `default_db` functionality.
     assert_sql_result(
@@ -221,7 +210,7 @@ WHERE post_id LIKE '%268662%'
     )
 
 
-def test_select_from_struct_subfields():
+def test_select_from_struct_subfields() -> None:
     # In this case, `widget` is a column name.
     assert_sql_result(
         """
@@ -246,7 +235,7 @@ WHERE post_id LIKE '%12345%'
     )
 
 
-def test_select_from_union():
+def test_select_from_union() -> None:
     assert_sql_result(
         """
 SELECT
@@ -274,7 +263,7 @@ FROM snowflake_sample_data.tpch_sf100.orders
     )
 
 
-def test_select_ambiguous_column_no_schema():
+def test_select_ambiguous_column_no_schema() -> None:
     assert_sql_result(
         """
         select A, B, C from t1 inner join t2 on t1.id = t2.id
@@ -284,7 +273,7 @@ def test_select_ambiguous_column_no_schema():
     )
 
 
-def test_merge_from_union():
+def test_merge_from_union() -> None:
     # TODO: We don't support merge statements yet, but the union should still get handled.
 
     assert_sql_result(
@@ -313,7 +302,7 @@ SELECT * FROM `demo-pipelines-stg`.`referrer`.`prep_from_web` WHERE partition_ti
     )
 
 
-def test_expand_select_star_basic():
+def test_expand_select_star_basic() -> None:
     assert_sql_result(
         """
 SELECT
@@ -340,7 +329,7 @@ WHERE orderdate = '1992-01-01'
     )
 
 
-def test_create_table_ddl():
+def test_create_table_ddl() -> None:
     assert_sql_result(
         """
 CREATE TABLE IF NOT EXISTS costs (
@@ -355,7 +344,7 @@ CREATE TABLE IF NOT EXISTS costs (
     )
 
 
-def test_snowflake_column_normalization():
+def test_snowflake_column_normalization() -> None:
     # Technically speaking this is incorrect since the column names are different and both quoted.
 
     assert_sql_result(
@@ -378,7 +367,7 @@ FROM snowflake_sample_data.tpch_sf1.orders o
     )
 
 
-def test_snowflake_ctas_column_normalization():
+def test_snowflake_ctas_column_normalization() -> None:
     # For CTAS statements, we also should try to match the output table's
     # column name casing. This is technically incorrect since we have the
     # exact column names from the query, but necessary to match our column
@@ -412,7 +401,7 @@ FROM snowflake_sample_data.tpch_sf1.orders o
     )
 
 
-def test_snowflake_case_statement():
+def test_snowflake_case_statement() -> None:
     assert_sql_result(
         """
 SELECT
@@ -441,7 +430,7 @@ FROM snowflake_sample_data.tpch_sf1.orders o
 
 
 @pytest.mark.skip(reason="We don't handle the unnest lineage correctly")
-def test_bigquery_unnest_columns():
+def test_bigquery_unnest_columns() -> None:
     assert_sql_result(
         """
 SELECT
@@ -479,7 +468,7 @@ ON p.product_code = pr.product_code
     )
 
 
-def test_bigquery_create_view_with_cte():
+def test_bigquery_create_view_with_cte() -> None:
     assert_sql_result(
         """
 CREATE VIEW `my-proj-2`.dataset.my_view AS
@@ -517,7 +506,7 @@ JOIN cte2 USING (join_key)
     )
 
 
-def test_bigquery_nested_subqueries():
+def test_bigquery_nested_subqueries() -> None:
     assert_sql_result(
         """
 SELECT *
@@ -540,7 +529,7 @@ FROM (
     )
 
 
-def test_bigquery_sharded_table_normalization():
+def test_bigquery_sharded_table_normalization() -> None:
     assert_sql_result(
         """
 SELECT *
@@ -557,7 +546,7 @@ FROM `bq-proj.dataset.table_20230101`
     )
 
 
-def test_bigquery_from_sharded_table_wildcard():
+def test_bigquery_from_sharded_table_wildcard() -> None:
     assert_sql_result(
         """
 SELECT *
@@ -574,7 +563,7 @@ FROM `bq-proj.dataset.table_2023*`
     )
 
 
-def test_bigquery_partitioned_table_insert():
+def test_bigquery_partitioned_table_insert() -> None:
     assert_sql_result(
         """
 SELECT *
@@ -591,7 +580,7 @@ FROM `bq-proj.dataset.my-table$__UNPARTITIONED__`
     )
 
 
-def test_bigquery_star_with_replace():
+def test_bigquery_star_with_replace() -> None:
     assert_sql_result(
         """
 CREATE VIEW `my-project.my-dataset.test_table` AS
@@ -613,7 +602,7 @@ FROM
     )
 
 
-def test_bigquery_view_from_union():
+def test_bigquery_view_from_union() -> None:
     assert_sql_result(
         """
 CREATE VIEW my_view as
@@ -636,7 +625,7 @@ select * from my_project_2.my_dataset_2.sometable2 as a
     )
 
 
-def test_snowflake_default_normalization():
+def test_snowflake_default_normalization() -> None:
     assert_sql_result(
         """
 create table active_customer_ltv as (
@@ -691,7 +680,7 @@ group by 1,2,3
     )
 
 
-def test_snowflake_column_cast():
+def test_snowflake_column_cast() -> None:
     assert_sql_result(
         """
 SELECT
@@ -712,7 +701,7 @@ LIMIT 10
     )
 
 
-def test_snowflake_unused_cte():
+def test_snowflake_unused_cte() -> None:
     # For this, we expect table level lineage to include table1, but CLL should not.
     assert_sql_result(
         """
@@ -734,7 +723,7 @@ JOIN table3 ON table3.col5 = cte1.col2
     )
 
 
-def test_snowflake_cte_name_collision():
+def test_snowflake_cte_name_collision() -> None:
     # In this example, output col1 should come from table3 and not table1, since the cte is unused.
     # We'll still generate table-level lineage that includes table1.
     assert_sql_result(
@@ -767,7 +756,7 @@ JOIN table3 AS cte_alias ON cte_alias.col2 = cte_alias.col2
     )
 
 
-def test_snowflake_full_table_name_col_reference():
+def test_snowflake_full_table_name_col_reference() -> None:
     assert_sql_result(
         """
 SELECT
@@ -793,7 +782,7 @@ FROM my_db.my_schema.my_table
 # TODO: Add a test for setting platform_instance or env
 
 
-def test_teradata_default_normalization():
+def test_teradata_default_normalization() -> None:
     assert_sql_result(
         """
 create table demo_user.test_lineage2 as
@@ -835,7 +824,7 @@ create table demo_user.test_lineage2 as
     )
 
 
-def test_teradata_strange_operators():
+def test_teradata_strange_operators() -> None:
     # This is a test for the following operators:
     # - `SEL` (select)
     # - `EQ` (equals)
@@ -854,7 +843,7 @@ select col1, col2 from dbc.table2
 
 
 @pytest.mark.skip("sqlglot doesn't support this cast syntax yet")
-def test_teradata_cast_syntax():
+def test_teradata_cast_syntax() -> None:
     assert_sql_result(
         """
 SELECT my_table.date_col MONTH(4) AS month_col
@@ -866,7 +855,7 @@ FROM my_table
     )
 
 
-def test_snowflake_update_hardcoded():
+def test_snowflake_update_hardcoded() -> None:
     assert_sql_result(
         """
 UPDATE snowflake_sample_data.tpch_sf1.orders
@@ -884,7 +873,7 @@ WHERE orderkey = 3
     )
 
 
-def test_snowflake_update_from_table():
+def test_snowflake_update_from_table() -> None:
     # Can create these tables with the following SQL:
     """
     -- Create or replace my_table
@@ -957,7 +946,7 @@ WHERE my_table.id = t1.id;
     )
 
 
-def test_snowflake_update_self():
+def test_snowflake_update_self() -> None:
     assert_sql_result(
         """
 UPDATE snowflake_sample_data.tpch_sf1.orders
@@ -974,7 +963,7 @@ SET orderkey = orderkey + 1
     )
 
 
-def test_postgres_select_subquery():
+def test_postgres_select_subquery() -> None:
     assert_sql_result(
         """
 SELECT
@@ -1001,7 +990,7 @@ FROM table1
     )
 
 
-def test_postgres_update_subselect():
+def test_postgres_update_subselect() -> None:
     assert_sql_result(
         """
 UPDATE accounts SET sales_person_name =
@@ -1027,7 +1016,7 @@ UPDATE accounts SET sales_person_name =
 
 
 @pytest.mark.skip(reason="We can't parse column-list syntax with sub-selects yet")
-def test_postgres_complex_update():
+def test_postgres_complex_update() -> None:
     # Example query from the postgres docs:
     # https://www.postgresql.org/docs/current/sql-update.html
     assert_sql_result(
@@ -1054,7 +1043,7 @@ UPDATE accounts SET (contact_first_name, contact_last_name) =
     )
 
 
-def test_redshift_materialized_view_auto_refresh():
+def test_redshift_materialized_view_auto_refresh() -> None:
     # Example query from the redshift docs: https://docs.aws.amazon.com/prescriptive-guidance/latest/materialized-views-redshift/refreshing-materialized-views.html
     assert_sql_result(
         """
@@ -1076,7 +1065,7 @@ AS
     )
 
 
-def test_redshift_temp_table_shortcut():
+def test_redshift_temp_table_shortcut() -> None:
     # On redshift, tables starting with # are temporary tables.
     assert_sql_result(
         """
@@ -1103,7 +1092,7 @@ SELECT * FROM cte
     )
 
 
-def test_redshift_union_view():
+def test_redshift_union_view() -> None:
     # TODO: This currently fails to generate CLL. Need to debug further.
     assert_sql_result(
         """
@@ -1322,4 +1311,67 @@ GROUP BY Age
             },
         },
         expected_file=RESOURCE_DIR / "test_mssql_select_into.json",
+    )
+
+
+def test_bigquery_indirect_references() -> None:
+    # We don't currently support the `IF` construct's variable reference and hence this test
+    # only detects `constant1` and `constant2` as columns. So this test is more of a
+    # placeholder that we can revisit if we add support.
+
+    assert_sql_result(
+        """\
+-- Merge users from the main_users and external_users tables.
+SELECT
+    1 as constant1,
+    IF (main.id is not null, main, extras).* REPLACE (
+        least(main.created_at, extras.created_at) as created_at
+    ),
+    2 as constant2
+FROM my_schema.main_users main
+FULL JOIN my_schema.external_users extras
+    USING (id)
+""",
+        dialect="bigquery",
+        expected_file=RESOURCE_DIR / "test_bigquery_indirect_references.json",
+        default_db="playground-1",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,playground-1.my_schema.main_users,PROD)": {
+                "id": "INTEGER",
+                "name": "STRING",
+                "created_at": "TIMESTAMP",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,playground-1.my_schema.external_users,PROD)": {
+                "id": "INTEGER",
+                "name": "STRING",
+                "created_at": "TIMESTAMP",
+            },
+        },
+    )
+
+
+def test_oracle_case_insensitive_cols() -> None:
+    assert_sql_result(
+        """\
+SELECT
+CASE WHEN (employee_TYPE = 'Manager')
+     THEN (CASE
+             WHEN job_title in ('Engineer') THEN '12'
+             ELSE '11'
+           END)
+     ELSE (CASE
+             WHEN job_title in ('Engineer') THEN '02'
+             ELSE '01'
+           END)
+END AS employee_type_number
+FROM ABC.employees ;
+""",
+        dialect="oracle",
+        expected_file=RESOURCE_DIR / "test_oracle_case_insensitive_cols.json",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:oracle,abc.employees,PROD)": {
+                "employee_type": "VARCHAR2(100)",
+                "job_title": "VARCHAR2(100)",
+            },
+        },
     )

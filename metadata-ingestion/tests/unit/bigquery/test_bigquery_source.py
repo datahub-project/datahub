@@ -848,7 +848,7 @@ def test_table_processing_logic(
     tables: Dict[str, TableListItem] = data_dictionary_mock.call_args_list[0][0][
         2
     ]  # alternatively
-    for table in tables.keys():
+    for table in tables:
         assert table in ["test-table", "test-sharded-table_20220102"]
 
 
@@ -924,7 +924,7 @@ def test_table_processing_logic_date_named_tables(
     tables: Dict[str, TableListItem] = data_dictionary_mock.call_args_list[0][0][
         2
     ]  # alternatively
-    for table in tables.keys():
+    for table in tables:
         assert tables[table].table_id in ["test-table", "20220103"]
 
 

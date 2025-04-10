@@ -38,6 +38,9 @@ public class EventUtils {
 
   private static final RecordDataSchema MCP_PEGASUS_SCHEMA = new MetadataChangeProposal().schema();
 
+  private static final RecordDataSchema FMCP_PEGASUS_SCHEMA =
+      new FailedMetadataChangeProposal().schema();
+
   private static final RecordDataSchema MCL_PEGASUS_SCHEMA = new MetadataChangeLog().schema();
 
   private static final RecordDataSchema PE_PEGASUS_SCHEMA = new PlatformEvent().schema();
@@ -60,7 +63,7 @@ public class EventUtils {
   private static final Schema ORIGINAL_MCL_AVRO_SCHEMA =
       getAvroSchemaFromResource("avro/com/linkedin/mxe/MetadataChangeLog.avsc");
 
-  private static final Schema ORIGINAL_FMCL_AVRO_SCHEMA =
+  private static final Schema ORIGINAL_FMCP_AVRO_SCHEMA =
       getAvroSchemaFromResource("avro/com/linkedin/mxe/FailedMetadataChangeProposal.avsc");
 
   private static final Schema ORIGINAL_PE_AVRO_SCHEMA =
@@ -173,6 +176,23 @@ public class EventUtils {
             renameSchemaNamespace(record, RENAMED_MCP_AVRO_SCHEMA, ORIGINAL_MCP_AVRO_SCHEMA),
             MCP_PEGASUS_SCHEMA,
             ORIGINAL_MCP_AVRO_SCHEMA));
+  }
+
+  /**
+   * Converts a {@link GenericRecord} Failed MCP into the equivalent Pegasus model.
+   *
+   * @param record the {@link GenericRecord} that contains the MCP in com.linkedin.pegasus2avro
+   *     namespace
+   * @return the Pegasus {@link FailedMetadataChangeProposal} model
+   */
+  @Nonnull
+  public static FailedMetadataChangeProposal avroToPegasusFailedMCP(@Nonnull GenericRecord record)
+      throws IOException {
+    return new FailedMetadataChangeProposal(
+        DataTranslator.genericRecordToDataMap(
+            renameSchemaNamespace(record, RENAMED_FMCP_AVRO_SCHEMA, ORIGINAL_FMCP_AVRO_SCHEMA),
+            FMCP_PEGASUS_SCHEMA,
+            ORIGINAL_FMCP_AVRO_SCHEMA));
   }
 
   /**
@@ -323,7 +343,7 @@ public class EventUtils {
         DataTranslator.dataMapToGenericRecord(
             failedMetadataChangeProposal.data(),
             failedMetadataChangeProposal.schema(),
-            ORIGINAL_FMCL_AVRO_SCHEMA);
+            ORIGINAL_FMCP_AVRO_SCHEMA);
     return renameSchemaNamespace(original, RENAMED_FMCP_AVRO_SCHEMA);
   }
 

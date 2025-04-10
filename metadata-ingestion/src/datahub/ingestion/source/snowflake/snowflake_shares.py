@@ -72,7 +72,7 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
                         assert len(sibling_dbs) == 1
                         # SnowflakeLineageExtractor is unaware of database->schema->table hierarchy
                         # hence this lineage code is not written in SnowflakeLineageExtractor
-                        # also this is not governed by configs include_table_lineage and include_view_lineage
+                        # also this is not governed by configs include_table_lineage
                         yield self.get_upstream_lineage_with_primary_sibling(
                             db.name, schema.name, table_name, sibling_dbs[0]
                         )

@@ -20,7 +20,7 @@ In order to configure ingestion from Snowflake, you'll first have to ensure you 
 2. Create a DataHub-specific user by executing the following queries. Replace `<your-password>` with a strong password. Replace `<your-warehouse>` with the same warehouse used above.
 
    ```sql
-   create user datahub_user display_name = 'DataHub' password='<your-password>' default_role = datahub_role default_warehouse = '<your-warehouse>';
+   create user datahub_user display_name = 'DataHub' password='<your-password>' default_role = datahub_role type='LEGACY_SERVICE' default_warehouse = '<your-warehouse>';
    -- Grant access to the DataHub role created above
    grant role datahub_role to user datahub_user;
    ```
@@ -43,6 +43,8 @@ In order to configure ingestion from Snowflake, you'll first have to ensure you 
    grant select on future external tables in database identifier($db_var) to role datahub_role;
    grant select on all views in database identifier($db_var) to role datahub_role;
    grant select on future views in database identifier($db_var) to role datahub_role;
+   grant select on all dynamic tables in database identifier($db_var) to role datahub_role;
+   grant select on future dynamic tables in database identifier($db_var) to role datahub_role;
 
    --  Grant access to view tables and views
    grant references on all tables in database identifier($db_var) to role datahub_role;
@@ -51,6 +53,9 @@ In order to configure ingestion from Snowflake, you'll first have to ensure you 
    grant references on future external tables in database identifier($db_var) to role datahub_role;
    grant references on all views in database identifier($db_var) to role datahub_role;
    grant references on future views in database identifier($db_var) to role datahub_role;
+   --  Grant access to dynamic tables
+   grant monitor on all dynamic tables in database identifier($db_var) to role datahub_role;
+   grant monitor on future dynamic tables in database identifier($db_var) to role datahub_role;
 
    -- Assign privileges to extract lineage and usage statistics from Snowflake by executing the below query.
    grant imported privileges on database snowflake to role datahub_role;

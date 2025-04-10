@@ -8,10 +8,19 @@ import time
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, TypeVar, cast
 
 import airflow
-import datahub.emitter.mce_builder as builder
+from airflow.models import Variable
 from airflow.models.serialized_dag import SerializedDagModel
+from openlineage.airflow.listener import TaskHolder
+from openlineage.airflow.utils import redact_with_exclusions
+from openlineage.client.serde import Serde
+
+import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
+from datahub.emitter.mce_builder import (
+    make_data_platform_urn,
+    make_dataplatform_instance_urn,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.graph.client import DataHubGraph
@@ -20,6 +29,7 @@ from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     DataFlowKeyClass,
     DataJobKeyClass,
+    DataPlatformInstanceClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
@@ -29,10 +39,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
 from datahub.telemetry import telemetry
-from openlineage.airflow.listener import TaskHolder
-from openlineage.airflow.utils import redact_with_exclusions
-from openlineage.client.serde import Serde
-
 from datahub_airflow_plugin._airflow_shims import (
     HAS_AIRFLOW_DAG_LISTENER_API,
     HAS_AIRFLOW_DATASET_LISTENER_API,
@@ -43,6 +49,7 @@ from datahub_airflow_plugin._airflow_shims import (
 from datahub_airflow_plugin._config import DatahubLineageConfig, get_lineage_config
 from datahub_airflow_plugin._datahub_ol_adapter import translate_ol_to_datahub_urn
 from datahub_airflow_plugin._extractors import SQL_PARSING_RESULT_KEY, ExtractorManager
+from datahub_airflow_plugin._version import __package_name__, __version__
 from datahub_airflow_plugin.client.airflow_generator import AirflowGenerator
 from datahub_airflow_plugin.entities import (
     _Entity,
@@ -59,7 +66,7 @@ if TYPE_CHECKING:
     # To placate mypy on Airflow versions that don't have the listener API,
     # we define a dummy hookimpl that's an identity function.
 
-    def hookimpl(f: _F) -> _F:  # type: ignore[misc] # noqa: F811
+    def hookimpl(f: _F) -> _F:  # type: ignore[misc]
         return f
 
 else:
@@ -74,9 +81,11 @@ _RUN_IN_THREAD = os.getenv("DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD", "true").lower
     "1",
 )
 _RUN_IN_THREAD_TIMEOUT = float(
-    os.getenv("DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD_TIMEOUT", 15)
+    os.getenv("DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD_TIMEOUT", 10)
 )
 _DATAHUB_CLEANUP_DAG = "Datahub_Cleanup"
+
+KILL_SWITCH_VARIABLE_NAME = "datahub_airflow_plugin_disable_listener"
 
 
 def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
@@ -91,7 +100,9 @@ def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
 
         if plugin_config.enabled:
             _airflow_listener = DataHubListener(config=plugin_config)
-
+            logger.info(
+                f"DataHub plugin v2 (package: {__package_name__} and version: {__version__}) listener initialized with config: {plugin_config}"
+            )
             telemetry.telemetry_instance.ping(
                 "airflow-plugin-init",
                 {
@@ -102,6 +113,7 @@ def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
                     "capture_tags": plugin_config.capture_tags_info,
                     "capture_ownership": plugin_config.capture_ownership_info,
                     "enable_extractors": plugin_config.enable_extractors,
+                    "render_templates": plugin_config.render_templates,
                     "disable_openlineage_plugin": plugin_config.disable_openlineage_plugin,
                 },
             )
@@ -164,7 +176,7 @@ def _render_templates(task_instance: "TaskInstance") -> "TaskInstance":
         return task_instance_copy
     except Exception as e:
         logger.info(
-            f"Error rendering templates in DataHub listener. Jinja-templated variables will not be extracted correctly: {e}"
+            f"Error rendering templates in DataHub listener. Jinja-templated variables will not be extracted correctly: {e}. Template rendering improves SQL parsing accuracy. If this causes issues, you can disable it by setting `render_templates` to `false` in the DataHub plugin configuration."
         )
         return task_instance
 
@@ -282,9 +294,9 @@ class DataHubListener:
         if sql_parsing_result:
             if error := sql_parsing_result.debug_info.error:
                 logger.info(f"SQL parsing error: {error}", exc_info=error)
-                datajob.properties[
-                    "datahub_sql_parser_error"
-                ] = f"{type(error).__name__}: {error}"
+                datajob.properties["datahub_sql_parser_error"] = (
+                    f"{type(error).__name__}: {error}"
+                )
             if not sql_parsing_result.debug_info.table_error:
                 input_urns.extend(sql_parsing_result.in_tables)
                 output_urns.extend(sql_parsing_result.out_tables)
@@ -363,6 +375,12 @@ class DataHubListener:
                     redact_with_exclusions(v)
                 )
 
+    def check_kill_switch(self):
+        if Variable.get(KILL_SWITCH_VARIABLE_NAME, "false").lower() == "true":
+            logger.debug("DataHub listener disabled by kill switch")
+            return True
+        return False
+
     @hookimpl
     @run_in_thread
     def on_task_instance_running(
@@ -371,6 +389,8 @@ class DataHubListener:
         task_instance: "TaskInstance",
         session: "Session",  # This will always be QUEUED
     ) -> None:
+        if self.check_kill_switch():
+            return
         self._set_log_level()
 
         # This if statement mirrors the logic in https://github.com/OpenLineage/OpenLineage/pull/508.
@@ -453,6 +473,9 @@ class DataHubListener:
             f"DataHub listener finished processing notification about task instance start for {task_instance.task_id}"
         )
 
+        self.materialize_iolets(datajob)
+
+    def materialize_iolets(self, datajob: DataJob) -> None:
         if self.config.materialize_iolets:
             for outlet in datajob.outlets:
                 reported_time: int = int(time.time() * 1000)
@@ -540,6 +563,9 @@ class DataHubListener:
     def on_task_instance_success(
         self, previous_state: None, task_instance: "TaskInstance", session: "Session"
     ) -> None:
+        if self.check_kill_switch():
+            return
+
         self._set_log_level()
 
         logger.debug(
@@ -555,6 +581,9 @@ class DataHubListener:
     def on_task_instance_failed(
         self, previous_state: None, task_instance: "TaskInstance", session: "Session"
     ) -> None:
+        if self.check_kill_switch():
+            return
+
         self._set_log_level()
 
         logger.debug(
@@ -596,6 +625,20 @@ class DataHubListener:
             )
             self.emitter.emit(event)
 
+        if self.config.platform_instance:
+            instance = make_dataplatform_instance_urn(
+                platform="airflow",
+                instance=self.config.platform_instance,
+            )
+            event = MetadataChangeProposalWrapper(
+                entityUrn=str(dataflow.urn),
+                aspect=DataPlatformInstanceClass(
+                    platform=make_data_platform_urn("airflow"),
+                    instance=instance,
+                ),
+            )
+            self.emitter.emit(event)
+
         # emit tags
         for tag in dataflow.tags:
             tag_urn = builder.make_tag_urn(tag)
@@ -605,11 +648,18 @@ class DataHubListener:
             )
             self.emitter.emit(event)
 
+        browsePaths: List[BrowsePathEntryClass] = []
+        if self.config.platform_instance:
+            urn = make_dataplatform_instance_urn(
+                "airflow", self.config.platform_instance
+            )
+            browsePaths.append(BrowsePathEntryClass(self.config.platform_instance, urn))
+        browsePaths.append(BrowsePathEntryClass(str(dag.dag_id)))
         browse_path_v2_event: MetadataChangeProposalWrapper = (
             MetadataChangeProposalWrapper(
                 entityUrn=str(dataflow.urn),
                 aspect=BrowsePathsV2Class(
-                    path=[BrowsePathEntryClass(str(dag.dag_id))],
+                    path=browsePaths,
                 ),
             )
         )
@@ -618,18 +668,21 @@ class DataHubListener:
         if dag.dag_id == _DATAHUB_CLEANUP_DAG:
             assert self.graph
 
-            logger.debug("Initiating the cleanup of obsselete data from datahub")
+            logger.debug("Initiating the cleanup of obsolete data from datahub")
 
             # get all ingested dataflow and datajob
             ingested_dataflow_urns = list(
                 self.graph.get_urns_by_filter(
                     platform="airflow",
                     entity_types=["dataFlow"],
+                    platform_instance=self.config.platform_instance,
                 )
             )
             ingested_datajob_urns = list(
                 self.graph.get_urns_by_filter(
-                    platform="airflow", entity_types=["dataJob"]
+                    platform="airflow",
+                    entity_types=["dataJob"],
+                    platform_instance=self.config.platform_instance,
                 )
             )
 
@@ -670,6 +723,7 @@ class DataHubListener:
                     orchestrator="airflow",
                     flow_id=dag.dag_id,
                     cluster=self.config.cluster,
+                    platform_instance=self.config.platform_instance,
                 )
                 airflow_flow_urns.append(flow_urn)
 
@@ -695,6 +749,9 @@ class DataHubListener:
         @hookimpl
         @run_in_thread
         def on_dag_run_running(self, dag_run: "DagRun", msg: str) -> None:
+            if self.check_kill_switch():
+                return
+
             self._set_log_level()
 
             logger.debug(

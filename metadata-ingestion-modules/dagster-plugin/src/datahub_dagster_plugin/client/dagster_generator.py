@@ -13,6 +13,7 @@ from dagster import (
     TableSchemaMetadataValue,
 )
 from dagster._core.execution.stats import RunStepKeyStatsSnapshot, StepEventStatus
+
 from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
 
 try:
@@ -23,6 +24,7 @@ except ImportError:
 
 from dagster._core.snap.node import OpDefSnap
 from dagster._core.storage.dagster_run import DagsterRun, DagsterRunStatsSnapshot
+
 from datahub.api.entities.datajob import DataFlow, DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
@@ -39,19 +41,6 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-from datahub.metadata._schema_classes import (
-    AuditStampClass,
-    BrowsePathEntryClass,
-    BrowsePathsV2Class,
-    GlobalTagsClass,
-    QueryLanguageClass,
-    QueryPropertiesClass,
-    QuerySourceClass,
-    QueryStatementClass,
-    QuerySubjectClass,
-    QuerySubjectsClass,
-    TagAssociationClass,
-)
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayType,
     BooleanType,
@@ -68,10 +57,21 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeType,
 )
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
     DataPlatformInstanceClass,
     DatasetKeyClass,
     DatasetLineageTypeClass,
+    GlobalTagsClass,
+    QueryLanguageClass,
+    QueryPropertiesClass,
+    QuerySourceClass,
+    QueryStatementClass,
+    QuerySubjectClass,
+    QuerySubjectsClass,
     SubTypesClass,
+    TagAssociationClass,
     UpstreamClass,
 )
 from datahub.metadata.urns import CorpUserUrn
@@ -505,7 +505,7 @@ class DagsterGenerator:
         job_property_bag: Dict[str, str] = {}
         if input_datasets:
             self.logger.info(
-                f"Input datasets for {op_def_snap.name} are { list(input_datasets.get(op_def_snap.name, []))}"
+                f"Input datasets for {op_def_snap.name} are {list(input_datasets.get(op_def_snap.name, []))}"
             )
             inlets.update(input_datasets.get(op_def_snap.name, []))
 
@@ -513,7 +513,7 @@ class DagsterGenerator:
 
         if output_datasets:
             self.logger.info(
-                f"Output datasets for {op_def_snap.name} are { list(output_datasets.get(op_def_snap.name, []))}"
+                f"Output datasets for {op_def_snap.name} are {list(output_datasets.get(op_def_snap.name, []))}"
             )
             datajob.outlets = list(output_datasets.get(op_def_snap.name, []))
 
@@ -522,7 +522,7 @@ class DagsterGenerator:
         # Also, add datahub inputs/outputs if present in input/output metatdata.
         for input_def_snap in op_def_snap.input_def_snaps:
             job_property_bag[f"input.{input_def_snap.name}"] = str(
-                input_def_snap._asdict()
+                input_def_snap.__dict__
             )
             if Constant.DATAHUB_INPUTS in input_def_snap.metadata:
                 datajob.inlets.extend(
@@ -533,7 +533,7 @@ class DagsterGenerator:
 
         for output_def_snap in op_def_snap.output_def_snaps:
             job_property_bag[f"output_{output_def_snap.name}"] = str(
-                output_def_snap._asdict()
+                output_def_snap.__dict__
             )
             if (
                 Constant.DATAHUB_OUTPUTS in output_def_snap.metadata
@@ -604,7 +604,7 @@ class DagsterGenerator:
         if run.status not in status_result_map:
             raise Exception(
                 f"Job run status should be either complete, failed or cancelled and it was "
-                f"{run.status }"
+                f"{run.status}"
             )
 
         if run_stats.start_time is not None:
@@ -671,7 +671,7 @@ class DagsterGenerator:
         if run_step_stats.status not in status_result_map:
             raise Exception(
                 f"Step run status should be either complete, failed or cancelled and it was "
-                f"{run_step_stats.status }"
+                f"{run_step_stats.status}"
             )
 
         if run_step_stats.start_time is not None:

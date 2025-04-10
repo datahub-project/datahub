@@ -8,8 +8,6 @@ import { useEntityData, useRefetch } from '../../../EntityContext';
 import { useGlossaryEntityData } from '../../../GlossaryEntityContext';
 
 export const EntityTitle = styled(Typography.Title)`
-    margin-right: 10px;
-
     &&& {
         margin-bottom: 0;
         word-break: break-all;
@@ -50,9 +48,9 @@ function EntityName(props: Props) {
             setIsEditing(false);
             return;
         }
-        setUpdatedName(name);
         updateName({ variables: { input: { name, urn } } })
             .then(() => {
+                setUpdatedName(name);
                 setIsEditing(false);
                 message.success({ content: 'Name Updated', duration: 2 });
                 refetch();

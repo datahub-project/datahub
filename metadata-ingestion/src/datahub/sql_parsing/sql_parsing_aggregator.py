@@ -2,7 +2,6 @@ import contextlib
 import dataclasses
 import enum
 import functools
-import itertools
 import json
 import logging
 import os
@@ -31,6 +30,7 @@ from datahub.metadata.urns import (
     DatasetUrn,
     QueryUrn,
     SchemaFieldUrn,
+    Urn,
 )
 from datahub.sql_parsing.schema_resolver import (
     SchemaResolver,
@@ -63,6 +63,7 @@ from datahub.utilities.file_backed_collections import (
     FileBackedDict,
     FileBackedList,
 )
+from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.ordered_set import OrderedSet
 from datahub.utilities.perf_timer import PerfTimer
@@ -139,6 +140,8 @@ class QueryMetadata:
 
     used_temp_tables: bool = True
 
+    origin: Optional[Urn] = None
+
     def make_created_audit_stamp(self) -> models.AuditStampClass:
         return models.AuditStampClass(
             time=make_ts_millis(self.latest_timestamp) or 0,
@@ -165,6 +168,7 @@ class KnownQueryLineageInfo:
     timestamp: Optional[datetime] = None
     session_id: Optional[str] = None
     query_type: QueryType = QueryType.UNKNOWN
+    query_id: Optional[str] = None
 
 
 @dataclasses.dataclass
@@ -198,7 +202,7 @@ class TableSwap:
 
 @dataclasses.dataclass
 class PreparsedQuery:
-    # If not provided, we will generate one using the fast fingerprint generator.
+    # If not provided, we will generate one using the fingerprint generator.
     query_id: Optional[QueryId]
 
     query_text: str
@@ -220,6 +224,7 @@ class PreparsedQuery:
     )
     # Use this to store addtitional key-value information about query for debugging
     extra_info: Optional[dict] = None
+    origin: Optional[Urn] = None
 
 
 @dataclasses.dataclass
@@ -283,6 +288,7 @@ class SqlAggregatorReport(Report):
 
     # Queries.
     num_queries_entities_generated: int = 0
+    num_queries_used_in_lineage: Optional[int] = None
     num_queries_skipped_due_to_filters: int = 0
 
     # Usage-related.
@@ -490,7 +496,7 @@ class SqlParsingAggregator(Closeable):
             self._exit_stack.push(self._query_usage_counts)
 
         # Tool Extractor
-        self._tool_meta_extractor = ToolMetaExtractor()
+        self._tool_meta_extractor = ToolMetaExtractor.create(graph)
         self.report.tool_meta_report = self._tool_meta_extractor.report
 
     def close(self) -> None:
@@ -618,12 +624,13 @@ class SqlParsingAggregator(Closeable):
         self.report.num_known_query_lineage += 1
 
         # Generate a fingerprint for the query.
-        with self.report.sql_fingerprinting_timer:
-            query_fingerprint = get_query_fingerprint(
-                known_query_lineage.query_text,
-                platform=self.platform.platform_name,
-                fast=True,
-            )
+        query_fingerprint = known_query_lineage.query_id
+        if not query_fingerprint:
+            with self.report.sql_fingerprinting_timer:
+                query_fingerprint = get_query_fingerprint(
+                    known_query_lineage.query_text,
+                    platform=self.platform.platform_name,
+                )
         formatted_query = self._maybe_format_query(known_query_lineage.query_text)
 
         # Register the query.
@@ -679,10 +686,10 @@ class SqlParsingAggregator(Closeable):
         query_id = self._known_lineage_query_id()
 
         # Generate CLL if schema of downstream is known
-        column_lineage: List[
-            ColumnLineageInfo
-        ] = self._generate_identity_column_lineage(
-            upstream_urn=upstream_urn, downstream_urn=downstream_urn
+        column_lineage: List[ColumnLineageInfo] = (
+            self._generate_identity_column_lineage(
+                upstream_urn=upstream_urn, downstream_urn=downstream_urn
+            )
         )
 
         # Register the query.
@@ -848,7 +855,6 @@ class SqlParsingAggregator(Closeable):
             query_fingerprint = get_query_fingerprint(
                 parsed.query_text,
                 platform=self.platform.platform_name,
-                fast=True,
             )
 
         # Format the query.
@@ -901,6 +907,7 @@ class SqlParsingAggregator(Closeable):
                 column_usage=parsed.column_usage or {},
                 confidence_score=parsed.confidence_score,
                 used_temp_tables=session_has_temp_tables,
+                origin=parsed.origin,
             )
         )
 
@@ -1042,9 +1049,9 @@ class SqlParsingAggregator(Closeable):
             temp_table_schemas: Dict[str, Optional[List[models.SchemaFieldClass]]] = {}
             for temp_table_urn, query_ids in self._temp_lineage_map[session_id].items():
                 for query_id in query_ids:
-                    temp_table_schemas[
-                        temp_table_urn
-                    ] = self._inferred_temp_schemas.get(query_id)
+                    temp_table_schemas[temp_table_urn] = (
+                        self._inferred_temp_schemas.get(query_id)
+                    )
                     if temp_table_schemas:
                         break
 
@@ -1071,9 +1078,9 @@ class SqlParsingAggregator(Closeable):
             schema_resolver=self._schema_resolver,
         )
         if parsed.debug_info.error:
-            self.report.views_parse_failures[
-                view_urn
-            ] = f"{parsed.debug_info.error} on query: {view_definition.view_definition[:100]}"
+            self.report.views_parse_failures[view_urn] = (
+                f"{parsed.debug_info.error} on query: {view_definition.view_definition[:100]}"
+            )
         if parsed.debug_info.table_error:
             self.report.num_views_failed += 1
             return  # we can't do anything with this query
@@ -1199,6 +1206,7 @@ class SqlParsingAggregator(Closeable):
         queries_generated: Set[QueryId] = set()
 
         yield from self._gen_lineage_mcps(queries_generated)
+        self.report.num_queries_used_in_lineage = len(queries_generated)
         yield from self._gen_usage_statistics_mcps()
         yield from self._gen_operation_mcps(queries_generated)
         yield from self._gen_remaining_queries(queries_generated)
@@ -1311,8 +1319,8 @@ class SqlParsingAggregator(Closeable):
         upstream_aspect.fineGrainedLineages = []
         for downstream_column, all_upstream_columns in cll.items():
             # Group by query ID.
-            for query_id, upstream_columns_for_query in itertools.groupby(
-                sorted(all_upstream_columns.items(), key=lambda x: x[1]),
+            for query_id, upstream_columns_for_query in groupby_unsorted(
+                all_upstream_columns.items(),
                 key=lambda x: x[1],
             ):
                 upstream_columns = [x[0] for x in upstream_columns_for_query]
@@ -1383,8 +1391,7 @@ class SqlParsingAggregator(Closeable):
         return QueryUrn(query_id).urn()
 
     @classmethod
-    def _composite_query_id(cls, composed_of_queries: Iterable[QueryId]) -> str:
-        composed_of_queries = list(composed_of_queries)
+    def _composite_query_id(cls, composed_of_queries: List[QueryId]) -> str:
         combined = json.dumps(composed_of_queries)
         return f"composite_{generate_hash(combined)}"
 
@@ -1462,6 +1469,7 @@ class SqlParsingAggregator(Closeable):
                     source=models.QuerySourceClass.SYSTEM,
                     created=query.make_created_audit_stamp(),
                     lastModified=query.make_last_modified_audit_stamp(),
+                    origin=query.origin.urn() if query.origin else None,
                 ),
                 models.QuerySubjectsClass(
                     subjects=[
@@ -1581,9 +1589,9 @@ class SqlParsingAggregator(Closeable):
                                     temp_query_lineage_info
                                 )
                             else:
-                                temp_upstream_queries[
-                                    upstream
-                                ] = temp_query_lineage_info
+                                temp_upstream_queries[upstream] = (
+                                    temp_query_lineage_info
+                                )
 
             # Compute merged upstreams.
             new_upstreams = OrderedSet[UrnStr]()
@@ -1663,9 +1671,9 @@ class SqlParsingAggregator(Closeable):
         composed_of_queries_truncated: LossyList[str] = LossyList()
         for query_id in composed_of_queries:
             composed_of_queries_truncated.append(query_id)
-        self.report.queries_with_temp_upstreams[
-            composite_query_id
-        ] = composed_of_queries_truncated
+        self.report.queries_with_temp_upstreams[composite_query_id] = (
+            composed_of_queries_truncated
+        )
 
         merged_query_text = ";\n\n".join(
             [q.formatted_query_string for q in ordered_queries]

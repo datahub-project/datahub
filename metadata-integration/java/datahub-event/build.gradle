@@ -1,7 +1,7 @@
 plugins {
   id("com.palantir.git-version") apply false
   id 'java'
-  id 'com.github.johnrengelman.shadow'
+  id 'com.gradleup.shadow'
   id 'signing'
   id 'io.codearte.nexus-staging'
   id 'maven-publish'

@@ -15,6 +15,8 @@ grant operate, usage on warehouse "<your-warehouse>" to role datahub_role;
 grant usage on DATABASE "<your-database>" to role datahub_role;
 grant usage on all schemas in database "<your-database>" to role datahub_role;
 grant usage on future schemas in database "<your-database>" to role datahub_role;
+grant select on all streams in database "<your-database>> to role datahub_role;
+grant select on future streams in database "<your-database>> to role datahub_role;
 
 // If you are NOT using Snowflake Profiling or Classification feature: Grant references privileges to your tables and views
 grant references on all tables in database "<your-database>" to role datahub_role;
@@ -23,12 +25,16 @@ grant references on all external tables in database "<your-database>" to role da
 grant references on future external tables in database "<your-database>" to role datahub_role;
 grant references on all views in database "<your-database>" to role datahub_role;
 grant references on future views in database "<your-database>" to role datahub_role;
+grant monitor on all dynamic tables in database "<your-database>" to role datahub_role;
+grant monitor on future dynamic tables in database "<your-database>" to role datahub_role;
 
 // If you ARE using Snowflake Profiling or Classification feature: Grant select privileges to your tables
 grant select on all tables in database "<your-database>" to role datahub_role;
 grant select on future tables in database "<your-database>" to role datahub_role;
 grant select on all external tables in database "<your-database>" to role datahub_role;
 grant select on future external tables in database "<your-database>" to role datahub_role;
+grant select on all dynamic tables in database "<your-database>" to role datahub_role;
+grant select on future dynamic tables in database "<your-database>" to role datahub_role;
 
 // Create a new DataHub user and assign the DataHub role to it
 create user datahub_user display_name = 'DataHub' password='' default_role = datahub_role default_warehouse = '<your-warehouse>';
@@ -46,9 +52,12 @@ The details of each granted privilege can be viewed in [snowflake docs](https://
   If the warehouse is already running during ingestion or has auto-resume enabled,
   this permission is not required.
 - `usage` is required for us to run queries using the warehouse
-- `usage` on `database` and `schema` are required because without it tables and views inside them are not accessible. If an admin does the required grants on `table` but misses the grants on `schema` or the `database` in which the table/view exists then we will not be able to get metadata for the table/view.
+- `usage` on `database` and `schema` are required because without it tables, views, and streams inside them are not accessible. If an admin does the required grants on `table` but misses the grants on `schema` or the `database` in which the table/view/stream exists then we will not be able to get metadata for the table/view/stream.
 - If metadata is required only on some schemas then you can grant the usage privilieges only on a particular schema like
-
+```sql
+grant usage on schema "<your-database>"."<your-schema>" to role datahub_role;
+```
+- `select` on `streams` is required in order for stream definitions to be available. This does not allow selecting of the data (not required) unless the underlying dataset has select access as well.
 ```sql
 grant usage on schema "<your-database>"."<your-schema>" to role datahub_role;
 ```
@@ -65,6 +74,21 @@ grant imported privileges on database snowflake to role datahub_role;
 Authentication is most simply done via a Snowflake user and password.
 
 Alternatively, other authentication methods are supported via the `authentication_type` config option.
+
+#### Key Pair Authentication
+To set up Key Pair authentication, follow the three steps in [this guide](https://docs.snowflake.com/en/user-guide/key-pair-auth#configuring-key-pair-authentication)
+  - Generate the private key
+  - Generate the public key
+  - Assign the public key to datahub user to be configured in recipe.
+
+Pass in the following values in recipe config instead of password, ensuring the private key maintains proper PEM format with line breaks at the beginning, end, and approximately every 64 characters within the key:
+```yml
+authentication_type: KEY_PAIR_AUTHENTICATOR
+private_key: <Private key in a form of '-----BEGIN PRIVATE KEY-----\nprivate-key\n-----END PRIVATE KEY-----'>
+
+# Optional - if using encrypted private key
+private_key_password: <Password for your private key>
+```
 
 #### Okta OAuth
 To set up Okta OAuth authentication, roughly follow the four steps in [this guide](https://docs.snowflake.com/en/user-guide/oauth-okta).

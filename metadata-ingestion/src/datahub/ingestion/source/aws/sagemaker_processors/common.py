@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Union
+from typing import Dict, Optional, Union
 
 from pydantic.fields import Field
 
@@ -9,6 +9,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulIngestionConfigBase,
     StatefulStaleMetadataRemovalConfig,
 )
+from datahub.utilities.lossy_collections import LossyList
 
 
 class SagemakerSourceConfig(
@@ -40,8 +41,11 @@ class SagemakerSourceReport(StaleEntityRemovalSourceReport):
     groups_scanned = 0
     models_scanned = 0
     jobs_scanned = 0
+    jobs_processed = 0
     datasets_scanned = 0
-    filtered: List[str] = field(default_factory=list)
+    filtered: LossyList[str] = field(default_factory=LossyList)
+    model_endpoint_lineage = 0
+    model_group_lineage = 0
 
     def report_feature_group_scanned(self) -> None:
         self.feature_groups_scanned += 1
@@ -57,6 +61,9 @@ class SagemakerSourceReport(StaleEntityRemovalSourceReport):
 
     def report_model_scanned(self) -> None:
         self.models_scanned += 1
+
+    def report_job_processed(self) -> None:
+        self.jobs_processed += 1
 
     def report_job_scanned(self) -> None:
         self.jobs_scanned += 1

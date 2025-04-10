@@ -133,7 +133,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info,PROD)",
                     "type": "TRANSFORMED",
-                    "query": "urn:li:query:composite_5f9c1232994672c5fb7621f8384f6600b6d4ed5acfccc4eb396fb446b3fb1bce"
+                    "query": "urn:li:query:composite_a10e266957d5007837642526d09f058ca461e42e2159ff45c328ebd069c112df"
                 },
                 {
                     "auditStamp": {
@@ -146,7 +146,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info_dep,PROD)",
                     "type": "TRANSFORMED",
-                    "query": "urn:li:query:composite_5f9c1232994672c5fb7621f8384f6600b6d4ed5acfccc4eb396fb446b3fb1bce"
+                    "query": "urn:li:query:composite_a10e266957d5007837642526d09f058ca461e42e2159ff45c328ebd069c112df"
                 }
             ],
             "fineGrainedLineages": [
@@ -161,7 +161,7 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info,PROD),a)"
                     ],
                     "confidenceScore": 1.0,
-                    "query": "urn:li:query:composite_5f9c1232994672c5fb7621f8384f6600b6d4ed5acfccc4eb396fb446b3fb1bce"
+                    "query": "urn:li:query:composite_a10e266957d5007837642526d09f058ca461e42e2159ff45c328ebd069c112df"
                 }
             ]
         }
@@ -169,13 +169,13 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_5f9c1232994672c5fb7621f8384f6600b6d4ed5acfccc4eb396fb446b3fb1bce",
+    "entityUrn": "urn:li:query:composite_a10e266957d5007837642526d09f058ca461e42e2159ff45c328ebd069c112df",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
             "statement": {
-                "value": "CREATE TABLE person_info_swap CLONE person_info;\n\nCREATE TABLE person_info_incremental AS\nSELECT\n  *\nFROM person_info_dep;\n\nINSERT INTO person_info_swap\nSELECT\n  *\nFROM person_info_incremental;\n\nALTER TABLE dev.public.person_info_swap SWAP WITH dev.public.person_info",
+                "value": "CREATE TABLE person_info_swap CLONE person_info;\n\nCREATE TABLE person_info_incremental AS\nSELECT\n  *\nFROM person_info_dep;\n\nINSERT INTO person_info_swap\nSELECT\n  *\nFROM person_info_incremental;\n\nALTER TABLE dev.public.person_info_swap SWAP WITH dev.public.person_info /* Datahub generated query text-- */",
                 "language": "SQL"
             },
             "source": "SYSTEM",
@@ -192,7 +192,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_5f9c1232994672c5fb7621f8384f6600b6d4ed5acfccc4eb396fb446b3fb1bce",
+    "entityUrn": "urn:li:query:composite_a10e266957d5007837642526d09f058ca461e42e2159ff45c328ebd069c112df",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -219,7 +219,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_5f9c1232994672c5fb7621f8384f6600b6d4ed5acfccc4eb396fb446b3fb1bce",
+    "entityUrn": "urn:li:query:composite_a10e266957d5007837642526d09f058ca461e42e2159ff45c328ebd069c112df",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -247,7 +247,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info,PROD)",
                     "type": "TRANSFORMED",
-                    "query": "urn:li:query:composite_49daa72ac1d22734879a6bed1224daa7f8c1293750d6d7b8a24a0aa0e9f74d80"
+                    "query": "urn:li:query:composite_5d8360cfc2f57f023d9945749848ad52227674fefc9fec568e7fbb1787cfd544"
                 },
                 {
                     "auditStamp": {
@@ -260,7 +260,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info_dep,PROD)",
                     "type": "TRANSFORMED",
-                    "query": "urn:li:query:composite_49daa72ac1d22734879a6bed1224daa7f8c1293750d6d7b8a24a0aa0e9f74d80"
+                    "query": "urn:li:query:composite_5d8360cfc2f57f023d9945749848ad52227674fefc9fec568e7fbb1787cfd544"
                 }
             ],
             "fineGrainedLineages": [
@@ -275,7 +275,7 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info_backup,PROD),a)"
                     ],
                     "confidenceScore": 1.0,
-                    "query": "urn:li:query:composite_49daa72ac1d22734879a6bed1224daa7f8c1293750d6d7b8a24a0aa0e9f74d80"
+                    "query": "urn:li:query:composite_5d8360cfc2f57f023d9945749848ad52227674fefc9fec568e7fbb1787cfd544"
                 }
             ]
         }
@@ -283,7 +283,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_49daa72ac1d22734879a6bed1224daa7f8c1293750d6d7b8a24a0aa0e9f74d80",
+    "entityUrn": "urn:li:query:composite_5d8360cfc2f57f023d9945749848ad52227674fefc9fec568e7fbb1787cfd544",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -306,7 +306,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_49daa72ac1d22734879a6bed1224daa7f8c1293750d6d7b8a24a0aa0e9f74d80",
+    "entityUrn": "urn:li:query:composite_5d8360cfc2f57f023d9945749848ad52227674fefc9fec568e7fbb1787cfd544",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -330,7 +330,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_49daa72ac1d22734879a6bed1224daa7f8c1293750d6d7b8a24a0aa0e9f74d80",
+    "entityUrn": "urn:li:query:composite_5d8360cfc2f57f023d9945749848ad52227674fefc9fec568e7fbb1787cfd544",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {

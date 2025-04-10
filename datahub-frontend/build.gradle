@@ -1,11 +1,12 @@
 plugins {
   id 'scala'
-  id 'com.palantir.docker'
   id 'org.gradle.playframework'
 }
 
-apply from: "../gradle/versioning/versioning.gradle"
+apply from: '../gradle/versioning/versioning.gradle'
 apply from: './play.gradle'
+apply from: '../gradle/coverage/java-coverage.gradle'
+apply from: '../gradle/docker/docker.gradle'
 
 ext {
   docker_repo = 'datahub-frontend-react'
@@ -18,6 +19,13 @@ java {
   }
 }
 
+test {
+  jacoco {
+    // jacoco instrumentation is failing when dealing with code of this dependency, excluding it.
+    excludes = ["com/gargoylesoftware/**"]
+  }
+}
+
 model {
   // Must specify the dependency here as "stage" is added by rule based model.
   tasks.myTar {
@@ -26,7 +34,7 @@ model {
 }
 
 task myTar(type: Tar) {
-  compression = Compression.GZIP
+  compression = Compression.NONE
 
   from("${buildDir}/stage")
 
@@ -58,10 +66,19 @@ distributions {
   }
 }
 
+task unversionZip(type: Copy, dependsOn: [':datahub-web-react:distZip', distZip]) {
+
+  from ("${buildDir}/distributions")
+  include "datahub-frontend-${version}.zip"
+  into "${buildDir}/distributions"
+  rename "datahub-frontend-${version}.zip", "datahub-frontend.zip"
+}
+
 docker {
-  name "${docker_registry}/${docker_repo}:v${version}"
-  version "v${version}"
+  dependsOn(stageMainDist)
+  name "${docker_registry}/${docker_repo}:${versionTag}"
   dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
+  files "${buildDir}/stage"
   files fileTree(rootProject.projectDir) {
     include '.dockerignore'
     include 'docker/monitoring/*'
@@ -69,12 +86,7 @@ docker {
   }.exclude {
     i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
   }
-  tag("Debug", "${docker_registry}/${docker_repo}:debug")
-
-  // platform('linux/arm64', 'linux/amd64')
-  buildx(true)
-  load(true)
-  push(false)
+  additionalTag("Debug", "${docker_registry}/${docker_repo}:debug")
 
   // Add build args if they are defined (needed for some CI or enterprise environments)
   def dockerBuildArgs = [:]
@@ -93,20 +105,6 @@ docker {
   }
 }
 
-task unversionZip(type: Copy, dependsOn: [':datahub-web-react:distZip', dist]) {
-  from ("${buildDir}/distributions")
-  include "datahub-frontend-${version}.zip"
-  into "${buildDir}/docker/"
-  rename "datahub-frontend-${version}.zip", "datahub-frontend.zip"
-}
-tasks.getByPath(":datahub-frontend:docker").dependsOn(unversionZip)
-
-task cleanLocalDockerImages {
-  doLast {
-    rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "${version}")
-  }
-}
-dockerClean.finalizedBy(cleanLocalDockerImages)
 
 // gradle 8 fixes
 tasks.getByName('createDatahub-frontendTarDist').dependsOn 'stageMainDist'

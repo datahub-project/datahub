@@ -1,3 +1,4 @@
+import contextlib
 import json
 from datetime import datetime, timezone
 
@@ -283,9 +284,9 @@ basicAuditStamp = models.AuditStampClass(
 def test_datahub_rest_emitter(requests_mock, record, path, snapshot):
     def match_request_text(request: requests.Request) -> bool:
         requested_snapshot = request.json()
-        assert (
-            requested_snapshot == snapshot
-        ), f"Expected snapshot to be {json.dumps(snapshot)}, got {json.dumps(requested_snapshot)}"
+        assert requested_snapshot == snapshot, (
+            f"Expected snapshot to be {json.dumps(snapshot)}, got {json.dumps(requested_snapshot)}"
+        )
         return True
 
     requests_mock.post(
@@ -294,5 +295,18 @@ def test_datahub_rest_emitter(requests_mock, record, path, snapshot):
         additional_matcher=match_request_text,
     )
 
-    emitter = DatahubRestEmitter(MOCK_GMS_ENDPOINT)
-    emitter.emit(record)
+    with contextlib.ExitStack() as stack:
+        if isinstance(record, models.UsageAggregationClass):
+            stack.enter_context(
+                pytest.warns(
+                    DeprecationWarning,
+                    match="Use emit with a datasetUsageStatistics aspect instead",
+                )
+            )
+
+        # This test specifically exercises the restli emitter endpoints.
+        # We have additional tests specifically for the OpenAPI emitter
+        # and its request format.
+        emitter = DatahubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
+        stack.enter_context(emitter)
+        emitter.emit(record)

@@ -19,6 +19,11 @@
             "qualifiedName": "arn:aws:glue:us-west-2:123412341234:database/flights-database",
             "env": "PROD"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -30,6 +35,11 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -41,6 +51,11 @@
         "json": {
             "platform": "urn:li:dataPlatform:glue"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -54,6 +69,11 @@
                 "Database"
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -73,6 +93,11 @@
             "qualifiedName": "arn:aws:glue:us-west-2:123412341234:database/test-database",
             "env": "PROD"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -84,6 +109,11 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -95,6 +125,11 @@
         "json": {
             "platform": "urn:li:dataPlatform:glue"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -108,6 +143,11 @@
                 "Database"
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -124,9 +164,14 @@
                 "CreateTime": "June 01, 2021 at 14:55:13"
             },
             "name": "empty-database",
-            "qualifiedName": "arn:aws:glue:us-west-2:123412341234:database/empty-database",
+            "qualifiedName": "arn:aws:glue:us-west-2:000000000000:database/empty-database",
             "env": "PROD"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -138,6 +183,11 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -149,6 +199,11 @@
         "json": {
             "platform": "urn:li:dataPlatform:glue"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -162,6 +217,11 @@
                 "Database"
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -366,6 +426,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -379,6 +444,11 @@
                 "Table"
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -390,6 +460,11 @@
         "json": {
             "container": "urn:li:container:0b9f1f731ecf6743be6207fec3dc9cba"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -551,6 +626,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -564,6 +644,11 @@
                 "Table"
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -575,6 +660,11 @@
         "json": {
             "container": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -737,6 +827,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -750,6 +845,11 @@
                 "Table"
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -761,6 +861,11 @@
         "json": {
             "container": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -783,6 +888,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -805,6 +915,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -838,6 +953,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -871,6 +991,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -904,6 +1029,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -938,6 +1068,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -969,6 +1104,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1000,6 +1140,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1025,6 +1170,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1060,6 +1210,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1093,6 +1248,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1126,6 +1286,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1161,6 +1326,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1186,6 +1356,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1197,6 +1372,11 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1208,6 +1388,11 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1219,6 +1404,11 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1230,6 +1420,11 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1241,6 +1436,11 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1252,6 +1452,11 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1263,6 +1468,11 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1274,6 +1484,11 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1285,6 +1500,11 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1296,6 +1516,11 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1307,6 +1532,11 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1318,6 +1548,11 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1329,6 +1564,11 @@
         "json": {
             "name": "baz:bob"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1340,6 +1580,11 @@
         "json": {
             "name": "foo:bar"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

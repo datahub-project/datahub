@@ -73,6 +73,7 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceTypeClass,
     SubTypesClass,
 )
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.str_enum import StrEnum
@@ -141,6 +142,10 @@ class KafkaSourceConfig(
         default=False,
         description="Disables the utilization of the TopicRecordNameStrategy for Schema Registry subjects. For more information, visit: https://docs.confluent.io/platform/current/schema-registry/serdes-develop/index.html#handling-differences-between-preregistered-and-client-derived-schemas:~:text=io.confluent.kafka.serializers.subject.TopicRecordNameStrategy",
     )
+    ingest_schemas_as_entities: bool = pydantic.Field(
+        default=False,
+        description="Enables ingesting schemas from schema registry as separate entities, in addition to the topics",
+    )
 
 
 def get_kafka_consumer(
@@ -186,7 +191,7 @@ def get_kafka_admin_client(
 @dataclass
 class KafkaSourceReport(StaleEntityRemovalSourceReport):
     topics_scanned: int = 0
-    filtered: List[str] = field(default_factory=list)
+    filtered: LossyList[str] = field(default_factory=LossyList)
 
     def report_topic_scanned(self, topic: str) -> None:
         self.topics_scanned += 1
@@ -267,7 +272,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             return schema_registry_class.create(config, report)
         except Exception as e:
             logger.debug(e, exc_info=e)
-            raise ImportError(config.schema_registry_class)
+            raise ImportError(config.schema_registry_class) from e
 
     def __init__(self, config: KafkaSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
@@ -343,17 +348,20 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             else:
                 self.report.report_dropped(topic)
 
-        # Get all subjects from schema registry and ingest them as SCHEMA DatasetSubTypes
-        for subject in self.schema_registry_client.get_subjects():
-            try:
-                yield from self._extract_record(
-                    subject, True, topic_detail=None, extra_topic_config=None
-                )
-            except Exception as e:
-                logger.warning(f"Failed to extract subject {subject}", exc_info=True)
-                self.report.report_warning(
-                    "subject", f"Exception while extracting topic {subject}: {e}"
-                )
+        if self.source_config.ingest_schemas_as_entities:
+            # Get all subjects from schema registry and ingest them as SCHEMA DatasetSubTypes
+            for subject in self.schema_registry_client.get_subjects():
+                try:
+                    yield from self._extract_record(
+                        subject, True, topic_detail=None, extra_topic_config=None
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to extract subject {subject}", exc_info=True
+                    )
+                    self.report.report_warning(
+                        "subject", f"Exception while extracting topic {subject}: {e}"
+                    )
 
     def _extract_record(
         self,
@@ -412,10 +420,10 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             custom_props = self.build_custom_properties(
                 topic, topic_detail, extra_topic_config
             )
-            schema_name: Optional[
-                str
-            ] = self.schema_registry_client._get_subject_for_topic(
-                topic, is_key_schema=False
+            schema_name: Optional[str] = (
+                self.schema_registry_client._get_subject_for_topic(
+                    topic, is_key_schema=False
+                )
             )
             if schema_name is not None:
                 custom_props["Schema Name"] = schema_name
@@ -560,10 +568,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         for config_key in KafkaTopicConfigKeys:
             try:
-                if (
-                    config_key in topic_config.keys()
-                    and topic_config[config_key] is not None
-                ):
+                if config_key in topic_config and topic_config[config_key] is not None:
                     config_value = topic_config[config_key].value
                     custom_props[config_key] = (
                         config_value
@@ -603,11 +608,13 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
     def fetch_topic_configurations(self, topics: List[str]) -> Dict[str, dict]:
         logger.info("Fetching config details for all topics")
-        configs: Dict[
-            ConfigResource, concurrent.futures.Future
-        ] = self.admin_client.describe_configs(
-            resources=[ConfigResource(ConfigResource.Type.TOPIC, t) for t in topics],
-            request_timeout=self.source_config.connection.client_timeout_seconds,
+        configs: Dict[ConfigResource, concurrent.futures.Future] = (
+            self.admin_client.describe_configs(
+                resources=[
+                    ConfigResource(ConfigResource.Type.TOPIC, t) for t in topics
+                ],
+                request_timeout=self.source_config.connection.client_timeout_seconds,
+            )
         )
         logger.debug("Waiting for config details futures to complete")
         concurrent.futures.wait(configs.values())

@@ -1,10 +1,15 @@
 import logging
+import threading
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from humanfriendly import format_timespan
 from pydantic import Field, validator
 from pyiceberg.catalog import Catalog, load_catalog
+from pyiceberg.catalog.rest import RestCatalog
+from requests.adapters import HTTPAdapter
+from sortedcontainers import SortedList
+from urllib3.util import Retry
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin
@@ -19,9 +24,27 @@ from datahub.ingestion.source_config.operation_config import (
     OperationConfig,
     is_profiling_enabled,
 )
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_REST_TIMEOUT = 120
+DEFAULT_REST_RETRY_POLICY = {"total": 3, "backoff_factor": 0.1}
+
+
+class TimeoutHTTPAdapter(HTTPAdapter):
+    def __init__(self, *args, **kwargs):
+        if "timeout" in kwargs:
+            self.timeout = kwargs["timeout"]
+            del kwargs["timeout"]
+        super().__init__(*args, **kwargs)
+
+    def send(self, request, **kwargs):
+        timeout = kwargs.get("timeout")
+        if timeout is None and hasattr(self, "timeout"):
+            kwargs["timeout"] = self.timeout
+        return super().send(request, **kwargs)
 
 
 class IcebergProfilingConfig(ConfigModel):
@@ -67,6 +90,10 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
     table_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for tables to filter in ingestion.",
+    )
+    namespace_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for namespaces to filter in ingestion.",
     )
     user_ownership_property: Optional[str] = Field(
         default="owner",
@@ -139,43 +166,96 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         logger.debug(
             "Initializing the catalog %s with config: %s", catalog_name, catalog_config
         )
-        return load_catalog(name=catalog_name, **catalog_config)
+        catalog = load_catalog(name=catalog_name, **catalog_config)
+        if isinstance(catalog, RestCatalog):
+            logger.debug(
+                "Recognized REST catalog type being configured, attempting to configure HTTP Adapter for the session"
+            )
+            retry_policy: Dict[str, Any] = DEFAULT_REST_RETRY_POLICY.copy()
+            retry_policy.update(catalog_config.get("connection", {}).get("retry", {}))
+            retries = Retry(**retry_policy)
+            logger.debug(f"Retry policy to be set: {retry_policy}")
+            timeout = catalog_config.get("connection", {}).get(
+                "timeout", DEFAULT_REST_TIMEOUT
+            )
+            logger.debug(f"Timeout to be set: {timeout}")
+            catalog._session.mount(
+                "http://", TimeoutHTTPAdapter(timeout=timeout, max_retries=retries)
+            )
+            catalog._session.mount(
+                "https://", TimeoutHTTPAdapter(timeout=timeout, max_retries=retries)
+            )
+        return catalog
+
+
+class TopTableTimings:
+    _VALUE_FIELD: str = "timing"
+    top_entites: SortedList
+    _size: int
+
+    def __init__(self, size: int = 10):
+        self._size = size
+        self.top_entites = SortedList(key=lambda x: -x.get(self._VALUE_FIELD, 0))
+        self._lock = threading.Lock()
+
+    def add(self, entity: Dict[str, Any]) -> None:
+        if self._VALUE_FIELD not in entity:
+            return
+        with self._lock:
+            self.top_entites.add(entity)
+            if len(self.top_entites) > self._size:
+                self.top_entites.pop()
+
+    def __str__(self) -> str:
+        with self._lock:
+            if len(self.top_entites) == 0:
+                return "no timings reported"
+            return str(list(self.top_entites))
 
 
 class TimingClass:
-    times: List[int]
+    times: SortedList
 
     def __init__(self):
-        self.times = []
+        self.times = SortedList()
+        self._lock = threading.Lock()
 
-    def add_timing(self, t):
-        self.times.append(t)
+    def add_timing(self, t: float) -> None:
+        with self._lock:
+            self.times.add(t)
 
-    def __str__(self):
-        if len(self.times) == 0:
-            return "no timings reported"
-        self.times.sort()
-        total = sum(self.times)
-        avg = total / len(self.times)
-        return str(
-            {
-                "average_time": format_timespan(avg, detailed=True, max_units=3),
-                "min_time": format_timespan(self.times[0], detailed=True, max_units=3),
-                "max_time": format_timespan(self.times[-1], detailed=True, max_units=3),
-                # total_time does not provide correct information in case we run in more than 1 thread
-                "total_time": format_timespan(total, detailed=True, max_units=3),
-            }
-        )
+    def __str__(self) -> str:
+        with self._lock:
+            if len(self.times) == 0:
+                return "no timings reported"
+            total = sum(self.times)
+            avg = total / len(self.times)
+            return str(
+                {
+                    "average_time": format_timespan(avg, detailed=True, max_units=3),
+                    "min_time": format_timespan(
+                        self.times[0], detailed=True, max_units=3
+                    ),
+                    "max_time": format_timespan(
+                        self.times[-1], detailed=True, max_units=3
+                    ),
+                    # total_time does not provide correct information in case we run in more than 1 thread
+                    "total_time": format_timespan(total, detailed=True, max_units=3),
+                }
+            )
 
 
 @dataclass
 class IcebergSourceReport(StaleEntityRemovalSourceReport):
     tables_scanned: int = 0
     entities_profiled: int = 0
-    filtered: List[str] = field(default_factory=list)
+    filtered: LossyList[str] = field(default_factory=LossyList)
     load_table_timings: TimingClass = field(default_factory=TimingClass)
     processing_table_timings: TimingClass = field(default_factory=TimingClass)
     profiling_table_timings: TimingClass = field(default_factory=TimingClass)
+    tables_load_timings: TopTableTimings = field(default_factory=TopTableTimings)
+    tables_profile_timings: TopTableTimings = field(default_factory=TopTableTimings)
+    tables_process_timings: TopTableTimings = field(default_factory=TopTableTimings)
     listed_namespaces: int = 0
     total_listed_tables: int = 0
     tables_listed_per_namespace: TopKDict[str, int] = field(
@@ -197,11 +277,26 @@ class IcebergSourceReport(StaleEntityRemovalSourceReport):
     def report_dropped(self, ent_name: str) -> None:
         self.filtered.append(ent_name)
 
-    def report_table_load_time(self, t: float) -> None:
+    def report_table_load_time(
+        self, t: float, table_name: str, table_metadata_location: str
+    ) -> None:
         self.load_table_timings.add_timing(t)
+        self.tables_load_timings.add(
+            {"table": table_name, "timing": t, "metadata_file": table_metadata_location}
+        )
 
-    def report_table_processing_time(self, t: float) -> None:
+    def report_table_processing_time(
+        self, t: float, table_name: str, table_metadata_location: str
+    ) -> None:
         self.processing_table_timings.add_timing(t)
+        self.tables_process_timings.add(
+            {"table": table_name, "timing": t, "metadata_file": table_metadata_location}
+        )
 
-    def report_table_profiling_time(self, t: float) -> None:
+    def report_table_profiling_time(
+        self, t: float, table_name: str, table_metadata_location: str
+    ) -> None:
         self.profiling_table_timings.add_timing(t)
+        self.tables_profile_timings.add(
+            {"table": table_name, "timing": t, "metadata_file": table_metadata_location}
+        )

@@ -34,6 +34,7 @@ from datahub.ingestion.source.gc.soft_deleted_entity_cleanup import (
     SoftDeletedEntitiesCleanupConfig,
     SoftDeletedEntitiesReport,
 )
+from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 
 logger = logging.getLogger(__name__)
 
@@ -65,18 +66,18 @@ class DataHubGcSourceConfig(ConfigModel):
         description="Sleep between truncation monitoring.",
     )
 
-    dataprocess_cleanup: Optional[DataProcessCleanupConfig] = Field(
-        default=None,
+    dataprocess_cleanup: DataProcessCleanupConfig = Field(
+        default_factory=DataProcessCleanupConfig,
         description="Configuration for data process cleanup",
     )
 
-    soft_deleted_entities_cleanup: Optional[SoftDeletedEntitiesCleanupConfig] = Field(
-        default=None,
+    soft_deleted_entities_cleanup: SoftDeletedEntitiesCleanupConfig = Field(
+        default_factory=SoftDeletedEntitiesCleanupConfig,
         description="Configuration for soft deleted entities cleanup",
     )
 
-    execution_request_cleanup: Optional[DatahubExecutionRequestCleanupConfig] = Field(
-        default=None,
+    execution_request_cleanup: DatahubExecutionRequestCleanupConfig = Field(
+        default_factory=DatahubExecutionRequestCleanupConfig,
         description="Configuration for execution request cleanup",
     )
 
@@ -86,6 +87,7 @@ class DataHubGcSourceReport(
     DataProcessCleanupReport,
     SoftDeletedEntitiesReport,
     DatahubExecutionRequestCleanupReport,
+    IngestionStageReport,
 ):
     expired_tokens_revoked: int = 0
 
@@ -108,28 +110,22 @@ class DataHubGcSource(Source):
         self.ctx = ctx
         self.config = config
         self.report = DataHubGcSourceReport()
+        self.report.event_not_produced_warn = False
         self.graph = ctx.require_graph("The DataHubGc source")
-        self.dataprocess_cleanup: Optional[DataProcessCleanup] = None
-        self.soft_deleted_entities_cleanup: Optional[SoftDeletedEntitiesCleanup] = None
-        self.execution_request_cleanup: Optional[DatahubExecutionRequestCleanup] = None
-
-        if self.config.dataprocess_cleanup:
-            self.dataprocess_cleanup = DataProcessCleanup(
-                ctx, self.config.dataprocess_cleanup, self.report, self.config.dry_run
-            )
-        if self.config.soft_deleted_entities_cleanup:
-            self.soft_deleted_entities_cleanup = SoftDeletedEntitiesCleanup(
-                ctx,
-                self.config.soft_deleted_entities_cleanup,
-                self.report,
-                self.config.dry_run,
-            )
-        if self.config.execution_request_cleanup:
-            self.execution_request_cleanup = DatahubExecutionRequestCleanup(
-                config=self.config.execution_request_cleanup,
-                graph=self.graph,
-                report=self.report,
-            )
+        self.dataprocess_cleanup = DataProcessCleanup(
+            ctx, self.config.dataprocess_cleanup, self.report, self.config.dry_run
+        )
+        self.soft_deleted_entities_cleanup = SoftDeletedEntitiesCleanup(
+            ctx,
+            self.config.soft_deleted_entities_cleanup,
+            self.report,
+            self.config.dry_run,
+        )
+        self.execution_request_cleanup = DatahubExecutionRequestCleanup(
+            config=self.config.execution_request_cleanup,
+            graph=self.graph,
+            report=self.report,
+        )
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -145,29 +141,34 @@ class DataHubGcSource(Source):
     ) -> Iterable[MetadataWorkUnit]:
         if self.config.cleanup_expired_tokens:
             try:
-                self.revoke_expired_tokens()
+                with self.report.new_stage("Expired Token Cleanup"):
+                    self.revoke_expired_tokens()
             except Exception as e:
                 self.report.failure("While trying to cleanup expired token ", exc=e)
         if self.config.truncate_indices:
             try:
-                self.truncate_indices()
+                with self.report.new_stage("Truncate Indices"):
+                    self.truncate_indices()
             except Exception as e:
                 self.report.failure("While trying to truncate indices ", exc=e)
-        if self.dataprocess_cleanup:
+        if self.config.soft_deleted_entities_cleanup.enabled:
             try:
-                yield from self.dataprocess_cleanup.get_workunits_internal()
-            except Exception as e:
-                self.report.failure("While trying to cleanup data process ", exc=e)
-        if self.soft_deleted_entities_cleanup:
-            try:
-                self.soft_deleted_entities_cleanup.cleanup_soft_deleted_entities()
+                with self.report.new_stage("Soft Deleted Entities Cleanup"):
+                    self.soft_deleted_entities_cleanup.cleanup_soft_deleted_entities()
             except Exception as e:
                 self.report.failure(
                     "While trying to cleanup soft deleted entities ", exc=e
                 )
-        if self.execution_request_cleanup:
+        if self.config.dataprocess_cleanup.enabled:
             try:
-                self.execution_request_cleanup.run()
+                with self.report.new_stage("Data Process Cleanup"):
+                    yield from self.dataprocess_cleanup.get_workunits_internal()
+            except Exception as e:
+                self.report.failure("While trying to cleanup data process ", exc=e)
+        if self.config.execution_request_cleanup.enabled:
+            try:
+                with self.report.new_stage("Execution request Cleanup"):
+                    self.execution_request_cleanup.run()
             except Exception as e:
                 self.report.failure("While trying to cleanup execution request ", exc=e)
         yield from []
@@ -182,6 +183,9 @@ class DataHubGcSource(Source):
         )
         self._truncate_timeseries_helper(
             aspect_name="dashboardUsageStatistics", entity_type="dashboard"
+        )
+        self._truncate_timeseries_helper(
+            aspect_name="queryusagestatistics", entity_type="query"
         )
 
     def _truncate_timeseries_helper(self, aspect_name: str, entity_type: str) -> None:
@@ -287,6 +291,9 @@ class DataHubGcSource(Source):
             list_access_tokens = expired_tokens_res.get("listAccessTokens", {})
             tokens = list_access_tokens.get("tokens", [])
             total = list_access_tokens.get("total", 0)
+            if tokens == []:
+                # Due to a server bug we cannot rely on just total
+                break
             for token in tokens:
                 self.report.expired_tokens_revoked += 1
                 token_id = token["id"]

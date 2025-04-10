@@ -11,6 +11,7 @@ import com.linkedin.metadata.recommendation.ranker.RecommendationModuleRanker;
 import com.linkedin.metadata.recommendation.ranker.SimpleRecommendationRanker;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
+import java.nio.file.AccessDeniedException;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.testng.annotations.Test;
@@ -74,7 +75,7 @@ public class RecommendationsServiceTest {
   }
 
   @Test
-  public void testService() throws URISyntaxException {
+  public void testService() throws URISyntaxException, AccessDeniedException {
     // Test non-eligible and empty
     RecommendationsService service =
         new RecommendationsService(ImmutableList.of(nonEligibleSource, emptySource), ranker);

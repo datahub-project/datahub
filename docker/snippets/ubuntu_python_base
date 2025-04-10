@@ -1,0 +1,84 @@
+
+ENV HOME=/home/datahub
+RUN existing_group=$(getent group 1000 | cut -d: -f1) && \
+    if [ -n "$existing_group" ] && [ "$existing_group" != "datahub" ]; then \
+        echo "Renaming existing group $existing_group to datahub"; \
+        groupmod -n datahub "$existing_group"; \
+    elif [ -z "$existing_group" ]; then \
+        echo "Creating new group datahub with GID 1000"; \
+        addgroup --gid 1000 datahub; \
+    fi && \
+    existing_user=$(id -nu 1000 2>/dev/null || echo "") && \
+    if [ -n "$existing_user" ] && [ "$existing_user" != "datahub" ]; then \
+        echo "Renaming existing user $existing_user to datahub"; \
+        usermod -l datahub -d $HOME "$existing_user"; \
+        usermod -g datahub datahub; \
+    elif [ -z "$existing_user" ]; then \
+        echo "Creating new user datahub with UID 1000"; \
+        adduser --disabled-password --uid 1000 --gid 1000 --home $HOME datahub; \
+    fi && \
+    # Create and set proper permissions for datahub directories
+    mkdir -p $HOME && \
+    chown -R datahub:datahub $HOME
+
+
+# Setup the PPA for alternative Python versions.
+# TODO: Eventually we should switch to using uv's support for python-build-standalone.
+RUN apt-get update && apt-get install -y \
+    software-properties-common \
+    lsb-release \
+    gnupg \
+    ca-certificates \
+    && add-apt-repository --no-update ppa:deadsnakes/ppa \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update && apt-get install -y \
+    python${PYTHON_VERSION} \
+    python${PYTHON_VERSION}-venv \
+    python${PYTHON_VERSION}-dev \
+    python${PYTHON_VERSION}-distutils \
+    python3-pip \
+    python3-ldap \
+    python-is-python3 \
+    libldap2-dev \
+    libsasl2-dev \
+    libsasl2-modules \
+    libaio-dev \
+    libaio1t64 \
+    libsasl2-modules-gssapi-mit \
+    krb5-user \
+    krb5-config \
+    libkrb5-dev \
+    librdkafka-dev \
+    git \
+    wget \
+    curl \
+    zip \
+    unzip \
+    ldap-utils \
+    unixodbc \
+    libodbc2 \
+    && apt-get clean \
+    && rm -rf /var/lib/{apt,dpkg,cache,log}/
+
+# Set the default python version.
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1 \
+    && update-alternatives --install /usr/bin/python python /usr/bin/python3 1
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+ARG PIP_MIRROR_URL=https://pypi.python.org/simple
+RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi
+ENV UV_INDEX_URL=${PIP_MIRROR_URL}
+
+USER datahub
+WORKDIR $HOME
+RUN uv venv --python "$PYTHON_VERSION"
+ENV VIRTUAL_ENV=$HOME/.venv
+ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
+
+# We always want to use the system CA bundle.
+# Requests comes with it's own CA bundle, which we need to override.
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+# uv uses a different mechanism. See https://github.com/astral-sh/uv/issues/1474.
+ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"

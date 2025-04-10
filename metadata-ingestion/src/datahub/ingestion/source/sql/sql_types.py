@@ -93,7 +93,7 @@ POSTGRES_TYPES_MAP: Dict[str, Any] = {
     "regtype": None,
     "regrole": None,
     "regnamespace": None,
-    "super": None,
+    "super": NullType,
     "uuid": StringType,
     "pg_lsn": None,
     "tsvector": None,  # text search vector
@@ -317,10 +317,10 @@ def resolve_snowflake_modified_type(type_string: str) -> Any:
     match = re.match(r"([a-zA-Z_]+)\(\d+,\s\d+\)", type_string)
     if match:
         modified_type_base = match.group(1)  # Extract the base type
-        return SNOWFLAKE_TYPES_MAP.get(modified_type_base, None)
+        return SNOWFLAKE_TYPES_MAP.get(modified_type_base)
 
     # Fallback for types without precision/scale
-    return SNOWFLAKE_TYPES_MAP.get(type_string, None)
+    return SNOWFLAKE_TYPES_MAP.get(type_string)
 
 
 # see https://github.com/googleapis/python-bigquery-sqlalchemy/blob/main/sqlalchemy_bigquery/_types.py#L32
@@ -384,7 +384,6 @@ TRINO_SQL_TYPES_MAP: Dict[str, Any] = {
     "varchar": StringType,
     "char": StringType,
     "varbinary": BytesType,
-    "json": RecordType,
     "date": DateType,
     "time": TimeType,
     "timestamp": TimeType,

@@ -301,7 +301,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
     # Mock the kafka consumer
     mock_kafka_instance = mock_kafka_consumer.return_value
     mock_cluster_metadata = MagicMock()
-    mock_cluster_metadata.topics = {k: None for k in topic_subject_schema_map.keys()}
+    mock_cluster_metadata.topics = {k: None for k in topic_subject_schema_map}
     mock_cluster_metadata.topics["schema_less_topic"] = None
     mock_kafka_instance.list_topics.return_value = mock_cluster_metadata
 
@@ -330,6 +330,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
             "topic2-key": "test.acryl.Topic2Key",
             "topic2-value": "test.acryl.Topic2Value",
         },
+        "ingest_schemas_as_entities": True,
     }
     ctx = PipelineContext(run_id="test")
     kafka_source = KafkaSource.create(source_config, ctx)
@@ -478,8 +479,7 @@ def test_kafka_ignore_warnings_on_schema_type(
     kafka_source = KafkaSource.create(source_config, ctx)
 
     workunits = list(kafka_source.get_workunits())
-
-    assert len(workunits) == 6
+    assert len(workunits) == 2
     if ignore_warnings_on_schema_type:
         assert not kafka_source.report.warnings
     else:
@@ -598,7 +598,7 @@ def test_kafka_source_topic_meta_mappings(
     # Mock the kafka consumer
     mock_kafka_instance = mock_kafka_consumer.return_value
     mock_cluster_metadata = MagicMock()
-    mock_cluster_metadata.topics = {k: None for k in topic_subject_schema_map.keys()}
+    mock_cluster_metadata.topics = {k: None for k in topic_subject_schema_map}
     mock_kafka_instance.list_topics.return_value = mock_cluster_metadata
 
     # Mock the schema registry client
@@ -622,6 +622,7 @@ def test_kafka_source_topic_meta_mappings(
     kafka_source = KafkaSource.create(
         {
             "connection": {"bootstrap": "localhost:9092"},
+            "ingest_schemas_as_entities": True,
             "meta_mapping": {
                 "owner": {
                     "match": "^@(.*)",

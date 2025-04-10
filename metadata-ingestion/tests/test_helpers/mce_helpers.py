@@ -85,13 +85,14 @@ def check_golden_file(
     ignore_paths_v2: Sequence[str] = (),
     ignore_order: bool = True,
 ) -> None:
-    update_golden = pytestconfig.getoption("--update-golden-files")
-    copy_output = pytestconfig.getoption("--copy-output-files")
+    # TODO: Remove the pytestconfig parameter since it's redundant.
+    # Or more straightforward - we can remove the `check_golden_file` method
+    # and use assert_metadata_files_equal directly. Maybe call it "check_golden_metadata"?
+    # In a lot of cases, the output_path is also just annoying - our pytest setup
+    # should be responsible for figuring out where to put the temp file.
     assert_metadata_files_equal(
         output_path=output_path,
         golden_path=golden_path,
-        update_golden=update_golden,
-        copy_output=copy_output,
         ignore_paths=ignore_paths,
         ignore_paths_v2=ignore_paths_v2,
         ignore_order=ignore_order,
@@ -99,7 +100,6 @@ def check_golden_file(
 
 
 def check_goldens_stream(
-    pytestconfig: pytest.Config,
     outputs: List,
     golden_path: Union[str, os.PathLike],
     ignore_paths: Sequence[str] = (),
@@ -108,8 +108,7 @@ def check_goldens_stream(
     with tempfile.NamedTemporaryFile() as f:
         write_metadata_file(pathlib.Path(f.name), outputs)
 
-        check_golden_file(
-            pytestconfig=pytestconfig,
+        assert_metadata_files_equal(
             output_path=f.name,
             golden_path=golden_path,
             ignore_paths=ignore_paths,
@@ -263,9 +262,11 @@ def assert_for_each_entity(
     aspect_name: str,
     aspect_field_matcher: Dict[str, Any],
     file: str,
-    exception_urns: List[str] = [],
+    exception_urns: Optional[List[str]] = None,
 ) -> int:
     """Assert that an aspect name with the desired fields exists for each entity urn"""
+    if exception_urns is None:
+        exception_urns = []
     test_output = load_json_file(file)
     assert isinstance(test_output, list)
     # mce urns
@@ -300,9 +301,9 @@ def assert_for_each_entity(
     for urn, aspect_val in aspect_map.items():
         if aspect_val is not None:
             for f in aspect_field_matcher:
-                assert aspect_field_matcher[f] == _get_element(
-                    aspect_val, [f]
-                ), f"urn: {urn} -> Field {f} must match value {aspect_field_matcher[f]}, found {_get_element(aspect_val, [f])}"
+                assert aspect_field_matcher[f] == _get_element(aspect_val, [f]), (
+                    f"urn: {urn} -> Field {f} must match value {aspect_field_matcher[f]}, found {_get_element(aspect_val, [f])}"
+                )
             success.append(urn)
         elif urn not in exception_urns:
             print(f"Adding {urn} to failures")
@@ -323,7 +324,7 @@ def assert_entity_mce_aspect(
 ) -> int:
     # TODO: Replace with read_metadata_file()
     test_output = load_json_file(file)
-    entity_type = Urn.from_string(entity_urn).get_type()
+    entity_type = Urn.from_string(entity_urn).entity_type
     assert isinstance(test_output, list)
     # mce urns
     mces: List[MetadataChangeEventClass] = [
@@ -346,7 +347,7 @@ def assert_entity_mcp_aspect(
 ) -> int:
     # TODO: Replace with read_metadata_file()
     test_output = load_json_file(file)
-    entity_type = Urn.from_string(entity_urn).get_type()
+    entity_type = Urn.from_string(entity_urn).entity_type
     assert isinstance(test_output, list)
     # mcps that match entity_urn
     mcps: List[MetadataChangeProposalWrapper] = [
@@ -361,9 +362,9 @@ def assert_entity_mcp_aspect(
             assert mcp.aspect
             aspect_val = mcp.aspect.to_obj()
             for f in aspect_field_matcher:
-                assert aspect_field_matcher[f] == _get_element(
-                    aspect_val, [f]
-                ), f"urn: {mcp.entityUrn} -> Field {f} must match value {aspect_field_matcher[f]}, found {_get_element(aspect_val, [f])}"
+                assert aspect_field_matcher[f] == _get_element(aspect_val, [f]), (
+                    f"urn: {mcp.entityUrn} -> Field {f} must match value {aspect_field_matcher[f]}, found {_get_element(aspect_val, [f])}"
+                )
                 matches = matches + 1
     return matches
 

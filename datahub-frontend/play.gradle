@@ -32,7 +32,7 @@ dependencies {
     play(externalDependency.jacksonDataBind)
     play("com.typesafe.akka:akka-actor_$playScalaVersion:2.6.20")
     play(externalDependency.jsonSmart)
-    play('io.netty:netty-all:4.1.114.Final')
+    play('io.netty:netty-all:4.1.118.Final')
 
     implementation(externalDependency.commonsText) {
       because("previous versions are vulnerable to CVE-2022-42889")
@@ -50,7 +50,7 @@ dependencies {
   implementation externalDependency.springBeans
   implementation externalDependency.springContext
   implementation externalDependency.springBootAutoconfigure
-  implementation externalDependency.jettyJaas
+  implementation externalDependency.jettySecurity
   implementation externalDependency.graphqlJava
   implementation externalDependency.antlr4Runtime
   implementation externalDependency.antlr4
@@ -94,6 +94,9 @@ dependencies {
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   runtimeOnly externalDependency.guicePlay
+  runtimeOnly externalDependency.opentelemetryExporter
+  runtimeOnly externalDependency.openTelemetryExporterLogging
+  runtimeOnly externalDependency.openTelemetryExporterCommon
   runtimeOnly (externalDependency.playDocs) {
     exclude group: 'com.typesafe.akka', module: "akka-http-core_$playScalaVersion"
   }

@@ -7,6 +7,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -15,12 +16,31 @@ import java.util.stream.Stream;
 public class ValidationExceptionCollection
     extends HashMap<Pair<Urn, String>, Set<AspectValidationException>> {
 
+  private final Map<ValidationSubType, Set<Integer>> subTypeHashCodes;
+
+  public ValidationExceptionCollection() {
+    super();
+    this.subTypeHashCodes = new HashMap<>();
+  }
+
+  public boolean hasFatalExceptions() {
+    return subTypeHashCodes.keySet().stream()
+        .anyMatch(subType -> !ValidationSubType.FILTER.equals(subType));
+  }
+
+  public Set<ValidationSubType> getSubTypes() {
+    return subTypeHashCodes.keySet();
+  }
+
   public static ValidationExceptionCollection newCollection() {
     return new ValidationExceptionCollection();
   }
 
   public void addException(AspectValidationException exception) {
     super.computeIfAbsent(exception.getAspectGroup(), key -> new HashSet<>()).add(exception);
+    subTypeHashCodes
+        .computeIfAbsent(exception.getSubType(), key -> new HashSet<>())
+        .add(exception.getItem().hashCode());
   }
 
   public void addException(BatchItem item, String message) {
@@ -28,8 +48,7 @@ public class ValidationExceptionCollection
   }
 
   public void addException(BatchItem item, String message, Exception ex) {
-    super.computeIfAbsent(Pair.of(item.getUrn(), item.getAspectName()), key -> new HashSet<>())
-        .add(AspectValidationException.forItem(item, message, ex));
+    addException(AspectValidationException.forItem(item, message, ex));
   }
 
   public Stream<AspectValidationException> streamAllExceptions() {
@@ -41,7 +60,7 @@ public class ValidationExceptionCollection
   }
 
   public <T extends BatchItem> Stream<T> streamSuccessful(Stream<T> items) {
-    return items.filter(i -> !this.containsKey(Pair.of(i.getUrn(), i.getAspectName())));
+    return items.filter(i -> isSuccessful(i.hashCode()));
   }
 
   public <T extends BatchItem> Collection<T> exceptions(Collection<T> items) {
@@ -49,7 +68,19 @@ public class ValidationExceptionCollection
   }
 
   public <T extends BatchItem> Stream<T> streamExceptions(Stream<T> items) {
-    return items.filter(i -> this.containsKey(Pair.of(i.getUrn(), i.getAspectName())));
+    return items.filter(i -> isException(i.hashCode()));
+  }
+
+  private boolean isException(int hashCode) {
+    return subTypeHashCodes.keySet().stream()
+        .filter(subType -> !ValidationSubType.FILTER.equals(subType))
+        .anyMatch(subType -> subTypeHashCodes.get(subType).contains(hashCode));
+  }
+
+  private boolean isSuccessful(int hashCode) {
+    return !isException(hashCode)
+        && (!subTypeHashCodes.containsKey(ValidationSubType.FILTER)
+            || !subTypeHashCodes.get(ValidationSubType.FILTER).contains(hashCode));
   }
 
   @Override

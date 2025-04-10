@@ -2,12 +2,14 @@ package io.datahubproject.test.fixtures.search;
 
 import static com.linkedin.metadata.Constants.*;
 import static io.datahubproject.test.search.config.SearchTestContainerConfiguration.REFRESH_INTERVAL_SECONDS;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.EntityClientConfig;
+import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
@@ -15,7 +17,6 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
-import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.search.SearchService;
@@ -136,7 +137,7 @@ public class SampleDataFixtureConfiguration {
 
     return testOpContext.toBuilder()
         .searchContext(SearchContext.builder().indexConvention(indexConvention).build())
-        .build(testOpContext.getSessionAuthentication());
+        .build(testOpContext.getSessionAuthentication(), true);
   }
 
   @Bean(name = "longTailOperationContext")
@@ -147,7 +148,7 @@ public class SampleDataFixtureConfiguration {
 
     return testOpContext.toBuilder()
         .searchContext(SearchContext.builder().indexConvention(indexConvention).build())
-        .build(testOpContext.getSessionAuthentication());
+        .build(testOpContext.getSessionAuthentication(), true);
   }
 
   protected EntityIndexBuilders entityIndexBuildersHelper(OperationContext opContext) {
@@ -303,7 +304,7 @@ public class SampleDataFixtureConfiguration {
             new ConcurrentMapCacheManager(), entitySearchService, 1, false);
 
     AspectDao mockAspectDao = mock(AspectDao.class);
-    when(mockAspectDao.batchGet(anySet()))
+    when(mockAspectDao.batchGet(anySet(), anyBoolean()))
         .thenAnswer(
             args -> {
               Set<EntityAspectIdentifier> ids = args.getArgument(0);

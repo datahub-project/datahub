@@ -64,7 +64,7 @@ export const OwnershipList = () => {
     });
     const totalOwnershipTypes = data?.listOwnershipTypes?.total || 0;
     const ownershipTypes =
-        data?.listOwnershipTypes?.ownershipTypes.filter((type) => type.urn !== 'urn:li:ownershipType:none') || [];
+        data?.listOwnershipTypes?.ownershipTypes?.filter((type) => type.urn !== 'urn:li:ownershipType:none') || [];
 
     const onClickCreateOwnershipType = () => {
         setShowOwnershipBuilder(true);
@@ -89,8 +89,8 @@ export const OwnershipList = () => {
                     duration: 3,
                 })}
             <TabToolbar>
-                <Button type="text" onClick={onClickCreateOwnershipType}>
-                    <PlusOutlined /> Create new Ownership Type
+                <Button type="text" onClick={onClickCreateOwnershipType} data-testid="create-owner-type-v1">
+                    <PlusOutlined /> Create Ownership Type
                 </Button>
                 <SearchBar
                     initialQuery=""

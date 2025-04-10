@@ -37,6 +37,7 @@ query appConfig {
         visualConfig {
             logoUrl
             faviconUrl
+            showFullTitleInLineage
             queriesTab {
                 queriesTabResultSize
             }
@@ -70,7 +71,25 @@ query appConfig {
             businessAttributeEntityEnabled
             dataContractsEnabled
             editableDatasetNameEnabled
+            themeV2Enabled
+            themeV2Default
+            themeV2Toggleable
+            lineageGraphV2
             showSeparateSiblings
+            showManageStructuredProperties
+            schemaFieldCLLEnabled
+            hideDbtSourceInLineage
+            schemaFieldLineageIgnoreStatus
+            showNavBarRedesign
+            showAutoCompleteResults
+            entityVersioningEnabled
+            showHasSiblingsFilter
+            showSearchBarAutocompleteRedesign
+            showManageTags
+        }
+        chromeExtensionConfig {
+            enabled
+            lineageEnabled
         }
     }
 }

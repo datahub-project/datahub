@@ -201,6 +201,10 @@ class ABSSource(StatefulIngestionSourceBase):
                 ).infer_schema(file)
             elif extension == ".json":
                 fields = json.JsonInferrer().infer_schema(file)
+            elif extension == ".jsonl":
+                fields = json.JsonInferrer(
+                    max_rows=self.source_config.max_rows, format="jsonl"
+                ).infer_schema(file)
             elif extension == ".avro":
                 fields = avro.AvroInferrer().infer_schema(file)
             else:
@@ -504,7 +508,12 @@ class ABSSource(StatefulIngestionSourceBase):
                         ):
                             abs_path = self.create_abs_path(obj.name)
                             logger.debug(f"Sampling file: {abs_path}")
-                            yield abs_path, obj.name, obj.last_modified, obj.size,
+                            yield (
+                                abs_path,
+                                obj.name,
+                                obj.last_modified,
+                                obj.size,
+                            )
                 except Exception as e:
                     # This odd check if being done because boto does not have a proper exception to catch
                     # The exception that appears in stacktrace cannot actually be caught without a lot more work
@@ -548,9 +557,12 @@ class ABSSource(StatefulIngestionSourceBase):
         if os.path.isfile(prefix):
             logger.debug(f"Scanning single local file: {prefix}")
             file_name = prefix
-            yield prefix, file_name, datetime.utcfromtimestamp(
-                os.path.getmtime(prefix)
-            ), os.path.getsize(prefix)
+            yield (
+                prefix,
+                file_name,
+                datetime.utcfromtimestamp(os.path.getmtime(prefix)),
+                os.path.getsize(prefix),
+            )
         else:
             logger.debug(f"Scanning files under local folder: {prefix}")
             for root, dirs, files in os.walk(prefix):
@@ -561,9 +573,12 @@ class ABSSource(StatefulIngestionSourceBase):
                     full_path = PurePath(
                         os.path.normpath(os.path.join(root, file))
                     ).as_posix()
-                    yield full_path, file, datetime.utcfromtimestamp(
-                        os.path.getmtime(full_path)
-                    ), os.path.getsize(full_path)
+                    yield (
+                        full_path,
+                        file,
+                        datetime.utcfromtimestamp(os.path.getmtime(full_path)),
+                        os.path.getsize(full_path),
+                    )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.container_WU_creator = ContainerWUCreator(
@@ -609,7 +624,7 @@ class ABSSource(StatefulIngestionSourceBase):
                                 table_data.table_path
                             ].timestamp = table_data.timestamp
 
-                for guid, table_data in table_dict.items():
+                for _, table_data in table_dict.items():
                     yield from self.ingest_table(table_data, path_spec)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:

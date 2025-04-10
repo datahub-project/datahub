@@ -1,5 +1,5 @@
 import { PlusOutlined, RedoOutlined } from '@ant-design/icons';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { debounce } from 'lodash';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
@@ -80,7 +80,14 @@ export const IngestionSourceList = () => {
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.query as string) || undefined;
     const [query, setQuery] = useState<undefined | string>(undefined);
-    useEffect(() => setQuery(paramsQuery), [paramsQuery]);
+    const searchInputRef = useRef<HTMLInputElement | null>(null);
+    // highlight search input if user arrives with a query preset for salience
+    useEffect(() => {
+        if (paramsQuery?.length) {
+            setQuery(paramsQuery);
+            searchInputRef.current?.focus();
+        }
+    }, [paramsQuery]);
 
     const [page, setPage] = useState(1);
 
@@ -98,6 +105,11 @@ export const IngestionSourceList = () => {
     const [sort, setSort] = useState<SortCriterion>();
     const [hideSystemSources, setHideSystemSources] = useState(true);
 
+    // When source filter changes, reset page to 1
+    useEffect(() => {
+        setPage(1);
+    }, [sourceFilter]);
+
     /**
      * Show or hide system ingestion sources using a hidden command S command.
      */
@@ -106,7 +118,7 @@ export const IngestionSourceList = () => {
     // Ingestion Source Default Filters
     const filters = hideSystemSources
         ? [{ field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE], negated: true }]
-        : [];
+        : [{ field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE] }];
     if (sourceFilter !== IngestionSourceType.ALL) {
         filters.push({
             field: 'sourceExecutorId',
@@ -153,7 +165,7 @@ export const IngestionSourceList = () => {
 
     function hasActiveExecution() {
         return !!filteredSources.find((source) =>
-            source.executions?.executionRequests.find((request) => isExecutionRequestActive(request)),
+            source.executions?.executionRequests?.find((request) => isExecutionRequestActive(request)),
         );
     }
     useRefreshIngestionData(onRefresh, hasActiveExecution);
@@ -186,7 +198,7 @@ export const IngestionSourceList = () => {
     };
 
     const onCreateOrUpdateIngestionSourceSuccess = () => {
-        setTimeout(() => refetch(), 2000);
+        setTimeout(() => refetch(), 3000);
         setIsBuildingSource(false);
         setFocusSourceUrn(undefined);
     };
@@ -364,6 +376,7 @@ export const IngestionSourceList = () => {
             },
             onCancel() {},
             okText: 'Yes',
+            okButtonProps: { ['data-testid' as any]: 'confirm-delete-ingestion-source' },
             maskClosable: true,
             closable: true,
         });
@@ -418,6 +431,7 @@ export const IngestionSourceList = () => {
                         </StyledSelect>
 
                         <SearchBar
+                            searchInputRef={searchInputRef}
                             initialQuery={query || ''}
                             placeholderText="Search sources..."
                             suggestions={[]}
@@ -452,7 +466,7 @@ export const IngestionSourceList = () => {
                 />
                 <SourcePaginationContainer>
                     <Pagination
-                        style={{ margin: 40 }}
+                        style={{ margin: 15 }}
                         current={page}
                         pageSize={pageSize}
                         total={totalSources}
@@ -468,7 +482,7 @@ export const IngestionSourceList = () => {
                 onSubmit={onSubmit}
                 onCancel={onCancel}
             />
-            {isViewingRecipe && <RecipeViewerModal recipe={focusSource?.config.recipe} onCancel={onCancel} />}
+            {isViewingRecipe && <RecipeViewerModal recipe={focusSource?.config?.recipe} onCancel={onCancel} />}
             {focusExecutionUrn && (
                 <ExecutionDetailsModal urn={focusExecutionUrn} open onClose={() => setFocusExecutionUrn(undefined)} />
             )}

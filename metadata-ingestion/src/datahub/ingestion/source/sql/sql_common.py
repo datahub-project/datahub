@@ -11,7 +11,6 @@ from typing import (
     Dict,
     Iterable,
     List,
-    MutableMapping,
     Optional,
     Set,
     Tuple,
@@ -36,7 +35,6 @@ from datahub.emitter.mce_builder import (
     make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.sql_parsing_builder import SqlParsingBuilder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import capability
 from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
@@ -79,7 +77,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -106,17 +103,11 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     SubTypesClass,
     TagAssociationClass,
-    UpstreamClass,
     ViewPropertiesClass,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
-from datahub.sql_parsing.sqlglot_lineage import (
-    SqlParsingResult,
-    sqlglot_lineage,
-    view_definition_lineage_helper,
-)
+from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.telemetry import telemetry
-from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.sqlalchemy_type_converter import (
     get_native_data_type_for_sqlalchemy_type,
@@ -213,7 +204,7 @@ def get_column_type(
     """
 
     TypeClass: Optional[Type] = None
-    for sql_type in _field_type_mapping.keys():
+    for sql_type in _field_type_mapping:
         if isinstance(column_type, sql_type):
             TypeClass = _field_type_mapping[sql_type]
             break
@@ -347,17 +338,28 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             )
 
         self.views_failed_parsing: Set[str] = set()
-        self.schema_resolver: SchemaResolver = SchemaResolver(
+
+        self.discovered_datasets: Set[str] = set()
+        self.aggregator = SqlParsingAggregator(
             platform=self.platform,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
+            graph=self.ctx.graph,
+            generate_lineage=self.include_lineage,
+            generate_usage_statistics=False,
+            generate_operations=False,
+            eager_graph_load=False,
         )
-        self.discovered_datasets: Set[str] = set()
-        self._view_definition_cache: MutableMapping[str, str]
-        if self.config.use_file_backed_cache:
-            self._view_definition_cache = FileBackedDict[str]()
-        else:
-            self._view_definition_cache = {}
+        self.report.sql_aggregator = self.aggregator.report
+
+    def _add_default_options(self, sql_config: SQLCommonConfig) -> None:
+        """Add default SQLAlchemy options. Can be overridden by subclasses to add additional defaults."""
+        # Extra default SQLAlchemy option for better connection pooling and threading.
+        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
+        if sql_config.is_profiling_enabled():
+            sql_config.options.setdefault(
+                "max_overflow", sql_config.profiling.max_workers
+            )
 
     @classmethod
     def test_connection(cls, config_dict: dict) -> TestConnectionReport:
@@ -526,12 +528,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             # Known issue with sqlalchemy https://stackoverflow.com/questions/60804288/pycharm-duplicated-log-for-sqlalchemy-echo-true
             sqlalchemy_log._add_default_handler = lambda x: None  # type: ignore
 
-        # Extra default SQLAlchemy option for better connection pooling and threading.
-        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
-        if sql_config.is_profiling_enabled():
-            sql_config.options.setdefault(
-                "max_overflow", sql_config.profiling.max_workers
-            )
+        self._add_default_options(sql_config)
 
         for inspector in self.get_inspectors():
             profiler = None
@@ -572,34 +569,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     profile_requests, profiler, platform=self.platform
                 )
 
-        if self.config.include_view_lineage:
-            yield from self.get_view_lineage()
-
-    def get_view_lineage(self) -> Iterable[MetadataWorkUnit]:
-        builder = SqlParsingBuilder(
-            generate_lineage=True,
-            generate_usage_statistics=False,
-            generate_operations=False,
-        )
-        for dataset_name in self._view_definition_cache.keys():
-            view_definition = self._view_definition_cache[dataset_name]
-            result = self._run_sql_parser(
-                dataset_name,
-                view_definition,
-                self.schema_resolver,
-            )
-            if result and result.out_tables:
-                # This does not yield any workunits but we use
-                # yield here to execute this method
-                yield from builder.process_sql_parsing_result(
-                    result=result,
-                    query=view_definition,
-                    is_view_ddl=True,
-                    include_column_lineage=self.config.include_view_column_lineage,
-                )
-            else:
-                self.views_failed_parsing.add(dataset_name)
-        yield from builder.gen_workunits()
+        # Generate workunit for aggregated SQL parsing results
+        for mcp in self.aggregator.gen_metadata():
+            yield mcp.as_workunit()
 
     def get_identifier(
         self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
@@ -663,7 +635,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
         return None
 
-    def loop_tables(  # noqa: C901
+    def loop_tables(
         self,
         inspector: Inspector,
         schema: str,
@@ -758,16 +730,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
-        if self.config.include_table_location_lineage and location_urn:
-            external_upstream_table = UpstreamClass(
-                dataset=location_urn,
-                type=DatasetLineageTypeClass.COPY,
-            )
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_snapshot.urn,
-                aspect=UpstreamLineage(upstreams=[external_upstream_table]),
-            ).as_workunit()
-
         extra_tags = self.get_extra_tags(inspector, schema, table)
         pk_constraints: dict = inspector.get_pk_constraint(table, schema)
         partitions: Optional[List[str]] = self.get_partitions(inspector, schema, table)
@@ -793,7 +755,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
         dataset_snapshot.aspects.append(schema_metadata)
         if self._save_schema_to_resolver():
-            self.schema_resolver.add_schema_metadata(dataset_urn, schema_metadata)
+            self.aggregator.register_schema(dataset_urn, schema_metadata)
             self.discovered_datasets.add(dataset_name)
         db_name = self.get_db_name(inspector)
 
@@ -812,6 +774,13 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 aspect=SubTypesClass(typeNames=[DatasetSubTypes.TABLE]),
             ),
         )
+
+        if self.config.include_table_location_lineage and location_urn:
+            self.aggregator.add_known_lineage_mapping(
+                upstream_urn=location_urn,
+                downstream_urn=dataset_snapshot.urn,
+                lineage_type=DatasetLineageTypeClass.COPY,
+            )
 
         if self.config.domain:
             assert self.domain_registry
@@ -1004,7 +973,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     inspector=inspector,
                 )
             ),
-            description=column.get("comment", None),
+            description=column.get("comment"),
             nullable=column["nullable"],
             recursive=False,
             globalTags=gtc,
@@ -1059,6 +1028,14 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 exc=e,
             )
 
+    def _get_view_definition(self, inspector: Inspector, schema: str, view: str) -> str:
+        try:
+            view_definition = inspector.get_view_definition(view, schema)
+            # Some dialects return a TextClause instead of a raw string, so we need to convert them to a string.
+            return str(view_definition) if view_definition else ""
+        except NotImplementedError:
+            return ""
+
     def _process_view(
         self,
         dataset_name: str,
@@ -1073,11 +1050,15 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             self.config.platform_instance,
             self.config.env,
         )
+
         try:
             columns = inspector.get_columns(view, schema)
         except KeyError:
             # For certain types of views, we are unable to fetch the list of columns.
-            self.warn(logger, dataset_name, "unable to get schema for this view")
+            self.report.warning(
+                message="Unable to get schema for a view",
+                context=f"{dataset_name}",
+            )
             schema_metadata = None
         else:
             schema_fields = self.get_schema_fields(dataset_name, columns, inspector)
@@ -1089,23 +1070,27 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 canonical_schema=schema_fields,
             )
             if self._save_schema_to_resolver():
-                self.schema_resolver.add_schema_metadata(dataset_urn, schema_metadata)
+                self.aggregator.register_schema(dataset_urn, schema_metadata)
                 self.discovered_datasets.add(dataset_name)
+
         description, properties, _ = self.get_table_properties(inspector, schema, view)
-        try:
-            view_definition = inspector.get_view_definition(view, schema)
-            if view_definition is None:
-                view_definition = ""
-            else:
-                # Some dialects return a TextClause instead of a raw string,
-                # so we need to convert them to a string.
-                view_definition = str(view_definition)
-        except NotImplementedError:
-            view_definition = ""
-        properties["view_definition"] = view_definition
         properties["is_view"] = "True"
+
+        view_definition = self._get_view_definition(inspector, schema, view)
+        properties["view_definition"] = view_definition
         if view_definition and self.config.include_view_lineage:
-            self._view_definition_cache[dataset_name] = view_definition
+            default_db = None
+            default_schema = None
+            try:
+                default_db, default_schema = self.get_db_schema(dataset_name)
+            except ValueError:
+                logger.warning(f"Invalid view identifier: {dataset_name}")
+            self.aggregator.add_view_definition(
+                view_urn=dataset_urn,
+                view_definition=view_definition,
+                default_db=default_db,
+                default_schema=default_schema,
+            )
 
         dataset_snapshot = DatasetSnapshot(
             urn=dataset_urn,
@@ -1135,15 +1120,14 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             entityUrn=dataset_urn,
             aspect=SubTypesClass(typeNames=[DatasetSubTypes.VIEW]),
         ).as_workunit()
-        if "view_definition" in properties:
-            view_definition_string = properties["view_definition"]
-            view_properties_aspect = ViewPropertiesClass(
-                materialized=False, viewLanguage="SQL", viewLogic=view_definition_string
-            )
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=view_properties_aspect,
-            ).as_workunit()
+
+        view_properties_aspect = ViewPropertiesClass(
+            materialized=False, viewLanguage="SQL", viewLogic=view_definition
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=view_properties_aspect,
+        ).as_workunit()
 
         if self.config.domain and self.domain_registry:
             yield from get_domain_wu(
@@ -1158,48 +1142,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             hasattr(self.config, "include_lineage") and self.config.include_lineage
         )
 
-    def _run_sql_parser(
-        self, view_identifier: str, query: str, schema_resolver: SchemaResolver
-    ) -> Optional[SqlParsingResult]:
-        try:
-            database, schema = self.get_db_schema(view_identifier)
-        except ValueError:
-            logger.warning(f"Invalid view identifier: {view_identifier}")
-            return None
-        raw_lineage = sqlglot_lineage(
-            query,
-            schema_resolver=schema_resolver,
-            default_db=database,
-            default_schema=schema,
-        )
-        view_urn = make_dataset_urn_with_platform_instance(
-            self.platform,
-            view_identifier,
-            self.config.platform_instance,
-            self.config.env,
-        )
-
-        if raw_lineage.debug_info.table_error:
-            logger.debug(
-                f"Failed to parse lineage for view {view_identifier}: "
-                f"{raw_lineage.debug_info.table_error}"
-            )
-            self.report.num_view_definitions_failed_parsing += 1
-            self.report.view_definitions_parsing_failures.append(
-                f"Table-level sql parsing error for view {view_identifier}: {raw_lineage.debug_info.table_error}"
-            )
-            return None
-
-        elif raw_lineage.debug_info.column_error:
-            self.report.num_view_definitions_failed_column_parsing += 1
-            self.report.view_definitions_parsing_failures.append(
-                f"Column-level sql parsing error for view {view_identifier}: {raw_lineage.debug_info.column_error}"
-            )
-        else:
-            self.report.num_view_definitions_parsed += 1
-            if raw_lineage.out_tables != [view_urn]:
-                self.report.num_view_definitions_view_urn_mismatch += 1
-        return view_definition_lineage_helper(raw_lineage, view_urn)
+    @property
+    def include_lineage(self):
+        return self.config.include_view_lineage
 
     def get_db_schema(self, dataset_identifier: str) -> Tuple[Optional[str], str]:
         database, schema, _view = dataset_identifier.split(".", 2)
@@ -1399,6 +1344,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         return dict(
             schema=schema, table=table, partition=partition, custom_sql=custom_sql
         )
+
+    def get_schema_resolver(self) -> SchemaResolver:
+        return self.aggregator._schema_resolver
 
     def get_report(self):
         return self.report

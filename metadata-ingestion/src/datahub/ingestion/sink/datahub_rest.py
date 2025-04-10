@@ -18,7 +18,14 @@ from datahub.configuration.common import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
-from datahub.emitter.rest_emitter import DataHubRestEmitter
+from datahub.emitter.rest_emitter import (
+    BATCH_INGEST_MAX_PAYLOAD_LENGTH,
+    DEFAULT_REST_EMITTER_ENDPOINT,
+    DEFAULT_REST_TRACE_MODE,
+    DataHubRestEmitter,
+    RestSinkEndpoint,
+    RestTraceMode,
+)
 from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
 from datahub.ingestion.api.sink import (
     NoopWriteCallback,
@@ -63,13 +70,23 @@ _DEFAULT_REST_SINK_MODE = pydantic.parse_obj_as(
 
 class DatahubRestSinkConfig(DatahubClientConfig):
     mode: RestSinkMode = _DEFAULT_REST_SINK_MODE
+    endpoint: RestSinkEndpoint = DEFAULT_REST_EMITTER_ENDPOINT
+    default_trace_mode: RestTraceMode = DEFAULT_REST_TRACE_MODE
 
     # These only apply in async modes.
-    max_threads: int = _DEFAULT_REST_SINK_MAX_THREADS
-    max_pending_requests: int = 2000
+    max_threads: pydantic.PositiveInt = _DEFAULT_REST_SINK_MAX_THREADS
+    max_pending_requests: pydantic.PositiveInt = 2000
 
     # Only applies in async batch mode.
-    max_per_batch: int = 100
+    max_per_batch: pydantic.PositiveInt = 100
+
+    @pydantic.validator("max_per_batch", always=True)
+    def validate_max_per_batch(cls, v):
+        if v > BATCH_INGEST_MAX_PAYLOAD_LENGTH:
+            raise ValueError(
+                f"max_per_batch must be less than or equal to {BATCH_INGEST_MAX_PAYLOAD_LENGTH}"
+            )
+        return v
 
 
 @dataclasses.dataclass
@@ -161,6 +178,8 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             ca_certificate_path=config.ca_certificate_path,
             client_certificate_path=config.client_certificate_path,
             disable_ssl_verification=config.disable_ssl_verification,
+            openapi_ingestion=config.endpoint == RestSinkEndpoint.OPENAPI,
+            default_trace_mode=config.default_trace_mode == RestTraceMode.ENABLED,
         )
 
     @property

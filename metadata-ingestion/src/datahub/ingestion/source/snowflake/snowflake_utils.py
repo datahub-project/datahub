@@ -1,9 +1,12 @@
 import abc
 from functools import cached_property
-from typing import ClassVar, Literal, Optional, Tuple
+from typing import ClassVar, List, Literal, Optional, Tuple
 
 from datahub.configuration.pattern_utils import is_schema_allowed
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mce_builder import (
+    make_dataset_urn_with_platform_instance,
+)
+from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.snowflake.constants import (
     SNOWFLAKE_REGION_CLOUD_REGION_MAPPING,
@@ -16,13 +19,13 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeV2Config,
 )
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
+from datahub.ingestion.source.sql.sql_utils import gen_database_key, gen_schema_key
 
 
 class SnowflakeStructuredReportMixin(abc.ABC):
     @property
     @abc.abstractmethod
-    def structured_reporter(self) -> SourceReport:
-        ...
+    def structured_reporter(self) -> SourceReport: ...
 
 
 class SnowsightUrlBuilder:
@@ -74,7 +77,7 @@ class SnowsightUrlBuilder:
         region: str,
     ) -> Tuple[str, str]:
         cloud: str
-        if region in SNOWFLAKE_REGION_CLOUD_REGION_MAPPING.keys():
+        if region in SNOWFLAKE_REGION_CLOUD_REGION_MAPPING:
             cloud, cloud_region_id = SNOWFLAKE_REGION_CLOUD_REGION_MAPPING[region]
         elif region.startswith(("aws_", "gcp_", "azure_")):
             # e.g. aws_us_west_2, gcp_us_central1, azure_northeurope
@@ -119,25 +122,26 @@ class SnowflakeFilter:
     ) -> bool:
         if not dataset_type or not dataset_name:
             return True
-        dataset_params = dataset_name.split(".")
         if dataset_type.lower() not in (
             SnowflakeObjectDomain.TABLE,
             SnowflakeObjectDomain.EXTERNAL_TABLE,
             SnowflakeObjectDomain.VIEW,
             SnowflakeObjectDomain.MATERIALIZED_VIEW,
             SnowflakeObjectDomain.ICEBERG_TABLE,
+            SnowflakeObjectDomain.STREAM,
         ):
             return False
         if _is_sys_table(dataset_name):
             return False
 
+        dataset_params = split_qualified_name(dataset_name)
         if len(dataset_params) != 3:
             self.structured_reporter.info(
                 title="Unexpected dataset pattern",
                 message=f"Found a {dataset_type} with an unexpected number of parts. Database and schema filtering will not work as expected, but table filtering will still work.",
                 context=dataset_name,
             )
-            # We fall-through here so table/view filtering still works.
+            # We fall-through here so table/view/stream filtering still works.
 
         if (
             len(dataset_params) >= 1
@@ -170,7 +174,18 @@ class SnowflakeFilter:
         ):
             return False
 
+        if (
+            dataset_type.lower() == SnowflakeObjectDomain.STREAM
+            and not self.filter_config.stream_pattern.allowed(
+                _cleanup_qualified_name(dataset_name, self.structured_reporter)
+            )
+        ):
+            return False
+
         return True
+
+    def is_procedure_allowed(self, procedure_name: str) -> bool:
+        return self.filter_config.procedure_pattern.allowed(procedure_name)
 
 
 def _combine_identifier_parts(
@@ -184,6 +199,46 @@ def _is_sys_table(table_name: str) -> bool:
     return table_name.lower().startswith("sys$")
 
 
+def split_qualified_name(qualified_name: str) -> List[str]:
+    """
+    Split a qualified name into its constituent parts.
+
+    >>> split_qualified_name("db.my_schema.my_table")
+    ['db', 'my_schema', 'my_table']
+    >>> split_qualified_name('"db"."my_schema"."my_table"')
+    ['db', 'my_schema', 'my_table']
+    >>> split_qualified_name('TEST_DB.TEST_SCHEMA."TABLE.WITH.DOTS"')
+    ['TEST_DB', 'TEST_SCHEMA', 'TABLE.WITH.DOTS']
+    >>> split_qualified_name('TEST_DB."SCHEMA.WITH.DOTS".MY_TABLE')
+    ['TEST_DB', 'SCHEMA.WITH.DOTS', 'MY_TABLE']
+    """
+
+    # Fast path - no quotes.
+    if '"' not in qualified_name:
+        return qualified_name.split(".")
+
+    # First pass - split on dots that are not inside quotes.
+    in_quote = False
+    parts: List[List[str]] = [[]]
+    for char in qualified_name:
+        if char == '"':
+            in_quote = not in_quote
+        elif char == "." and not in_quote:
+            parts.append([])
+        else:
+            parts[-1].append(char)
+
+    # Second pass - remove outer pairs of quotes.
+    result = []
+    for part in parts:
+        if len(part) > 2 and part[0] == '"' and part[-1] == '"':
+            part = part[1:-1]
+
+        result.append("".join(part))
+
+    return result
+
+
 # Qualified Object names from snowflake audit logs have quotes for for snowflake quoted identifiers,
 # For example "test-database"."test-schema".test_table
 # whereas we generate urns without quotes even for quoted identifiers for backward compatibility
@@ -192,7 +247,7 @@ def _is_sys_table(table_name: str) -> bool:
 def _cleanup_qualified_name(
     qualified_name: str, structured_reporter: SourceReport
 ) -> str:
-    name_parts = qualified_name.split(".")
+    name_parts = split_qualified_name(qualified_name)
     if len(name_parts) != 3:
         if not _is_sys_table(qualified_name):
             structured_reporter.info(
@@ -203,9 +258,9 @@ def _cleanup_qualified_name(
             )
         return qualified_name.replace('"', "")
     return _combine_identifier_parts(
-        db_name=name_parts[0].strip('"'),
-        schema_name=name_parts[1].strip('"'),
-        table_name=name_parts[2].strip('"'),
+        db_name=name_parts[0],
+        schema_name=name_parts[1],
+        table_name=name_parts[2],
     )
 
 
@@ -260,6 +315,45 @@ class SnowflakeIdentifierBuilder:
     def get_quoted_identifier_for_table(db_name, schema_name, table_name):
         return f'"{db_name}"."{schema_name}"."{table_name}"'
 
+    # Note - decide how to construct user urns.
+    # Historically urns were created using part before @ from user's email.
+    # Users without email were skipped from both user entries as well as aggregates.
+    # However email is not mandatory field in snowflake user, user_name is always present.
+    def get_user_identifier(
+        self,
+        user_name: str,
+        user_email: Optional[str],
+    ) -> str:
+        if user_email:
+            return self.snowflake_identifier(
+                user_email
+                if self.identifier_config.email_as_user_identifier is True
+                else user_email.split("@")[0]
+            )
+        return self.snowflake_identifier(
+            f"{user_name}@{self.identifier_config.email_domain}"
+            if self.identifier_config.email_as_user_identifier is True
+            and self.identifier_config.email_domain is not None
+            else user_name
+        )
+
+    def gen_schema_key(self, db_name: str, schema_name: str) -> SchemaKey:
+        return gen_schema_key(
+            db_name=self.snowflake_identifier(db_name),
+            schema=self.snowflake_identifier(schema_name),
+            platform=self.platform,
+            platform_instance=self.identifier_config.platform_instance,
+            env=self.identifier_config.env,
+        )
+
+    def gen_database_key(self, db_name: str) -> DatabaseKey:
+        return gen_database_key(
+            database=self.snowflake_identifier(db_name),
+            platform=self.platform,
+            platform_instance=self.identifier_config.platform_instance,
+            env=self.identifier_config.env,
+        )
+
 
 class SnowflakeCommonMixin(SnowflakeStructuredReportMixin):
     platform = "snowflake"
@@ -274,24 +368,6 @@ class SnowflakeCommonMixin(SnowflakeStructuredReportMixin):
     @cached_property
     def identifiers(self) -> SnowflakeIdentifierBuilder:
         return SnowflakeIdentifierBuilder(self.config, self.report)
-
-    # Note - decide how to construct user urns.
-    # Historically urns were created using part before @ from user's email.
-    # Users without email were skipped from both user entries as well as aggregates.
-    # However email is not mandatory field in snowflake user, user_name is always present.
-    def get_user_identifier(
-        self,
-        user_name: str,
-        user_email: Optional[str],
-        email_as_user_identifier: bool,
-    ) -> str:
-        if user_email:
-            return self.identifiers.snowflake_identifier(
-                user_email
-                if email_as_user_identifier is True
-                else user_email.split("@")[0]
-            )
-        return self.identifiers.snowflake_identifier(user_name)
 
     # TODO: Revisit this after stateful ingestion can commit checkpoint
     # for failures that do not affect the checkpoint
