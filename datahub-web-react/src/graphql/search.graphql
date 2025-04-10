@@ -1290,28 +1290,29 @@ query getSearchResultsForMultiple($input: SearchAcrossEntitiesInput!) {
     }
 }
 
-fragment platformSearchBarFields on DataPlatform {
+fragment platformLogoFields on DataPlatform {
     properties {
         logoUrl
     }
 }
 
+# from nonSiblingsDatasetSearchFields
 fragment nonSiblingsDatasetSearchFieldsTrimmed on Dataset {
     # exists
-    name
+    # name
     # origin
     # uri
     platform {
         # ...platformFields
-        ...platformSearchBarFields
+        ...platformFields
     }
     # dataPlatformInstance {
     #     ...dataPlatformInstanceFields
     # }
-    editableProperties {
-        name
-        # description
-    }
+    # editableProperties {
+    #     name
+    #     # description
+    # }
     # access {
     #     ...getAccess
     # }
@@ -1358,14 +1359,42 @@ fragment nonSiblingsDatasetSearchFieldsTrimmed on Dataset {
     # ...datasetStatsFields
 }
 
+
+fragment entityPlatformLogosFields on Entity {
+    ... on Dataset {
+        platform {
+            ...platformLogoFields
+        }
+    }
+    ... on DataPlatformInstance {
+        platform {
+            ...platformLogoFields
+        }
+    }
+    ... on Dashboard {
+        platform {
+            ...platformLogoFields
+        }
+    }
+}
+
 query getSearchResultsForMultipleForSearchBar($input: SearchAcrossEntitiesInput!) {
     searchAcrossEntities(input: $input) {
         searchResults {
             entity {
-                urn
-                type
+                ...entityDisplayNameFields
+                ...entityPlatformLogosFields
+
+
                 ... on Dataset {
-                    ...nonSiblingsDatasetSearchFieldsTrimmed
+
+                    platform {
+                        ...platformFields
+                    }
+                    dataPlatformInstance {
+                        ...dataPlatformInstanceFields
+                    }
+                    
                     siblings {
                         isPrimary
                         siblings {
@@ -1373,11 +1402,13 @@ query getSearchResultsForMultipleForSearchBar($input: SearchAcrossEntitiesInput!
                             type
                             ... on Dataset {
                                 ...nonSiblingsDatasetSearchFieldsTrimmed
-                                # structuredProperties {
-                                #     properties {
-                                #         ...structuredPropertiesFields
-                                #     }
-                                # }
+
+                                platform {
+                                    ...platformFields
+                                }
+                                dataPlatformInstance {
+                                    ...dataPlatformInstanceFields
+                                }
                             }
                         }
                     }
@@ -1393,11 +1424,6 @@ query getSearchResultsForMultipleForSearchBar($input: SearchAcrossEntitiesInput!
                                     siblings {
                                         isPrimary
                                     }
-                                    # structuredProperties {
-                                    #     properties {
-                                    #         ...structuredPropertiesFields
-                                    #     }
-                                    # }
                                 }
                             }
                         }
@@ -1405,603 +1431,84 @@ query getSearchResultsForMultipleForSearchBar($input: SearchAcrossEntitiesInput!
                     browsePathV2 {
                         ...browsePathV2Fields
                     }
-                    # structuredProperties {
-                    #     properties {
-                    #         ...structuredPropertiesFields
-                    #     }
-                    # }
-                }
-                ... on DataPlatformInstance {
-                    ...dataPlatformInstanceFields
-                }
-                ... on Role {
-                    # id
-                    properties {
-                        name
-                        # description
-                    }
                 }
                 ... on CorpUser {
-                    username
-                    # properties {
-                    #     # active
-                    #     # displayName
-                    #     # title
-                    #     # firstName
-                    #     # lastName
-                    #     # fullName
-                    #     # email
-                    #     # departmentName
-                    #     # title
-                    # }
-                    # info {
-                    #     active
-                    #     displayName
-                    #     title
-                    #     firstName
-                    #     lastName
-                    #     fullName
-                    #     email
-                    #     departmentName
-                    #     title
-                    # }
                     editableProperties {
-                        # displayName
-                        # title
                         pictureLink
                     }
                 }
-                ... on CorpGroup {
-                    name
-                    info {
-                        displayName
-                        # description
-                    }
-                    # memberCount: relationships(
-                    #     input: {
-                    #         types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"]
-                    #         direction: INCOMING
-                    #         start: 0
-                    #         count: 1
-                    #     }
-                    # ) {
-                    #     total
-                    # }
-                }
                 ... on Dashboard {
-                    # tool
-                    # dashboardId
-                    properties {
-                        name
-                        # description
-                        # externalUrl
-                        # access
-                        # lastModified {
-                        #     time
-                        # }
-                    }
-                    # ownership {
-                    #     ...ownershipFields
-                    # }
-                    # globalTags {
-                    #     ...globalTagsFields
-                    # }
-                    # glossaryTerms {
-                    #     ...glossaryTerms
-                    # }
-                    # editableProperties {
-                    #     description
-                    # }
                     platform {
-                        # ...platformFields
-                        ...platformSearchBarFields
+                        ...platformLogoFields
                     }
-                    # dataPlatformInstance {
-                    #     ...dataPlatformInstanceFields
-                    # }
-                    # domain {
-                    #     ...entityDomain
-                    # }
-                    # ...entityDataProduct
-                    # deprecation {
-                    #     ...deprecationFields
-                    # }
-                    # parentContainers {
-                    #     ...parentContainersFields
-                    # }
-                    # statsSummary {
-                    #     viewCount
-                    #     uniqueUserCountLast30Days
-                    #     topUsersLast30Days {
-                    #         urn
-                    #         type
-                    #         username
-                    #         properties {
-                    #             displayName
-                    #             firstName
-                    #             lastName
-                    #             fullName
-                    #         }
-                    #         editableProperties {
-                    #             displayName
-                    #             pictureLink
-                    #         }
-                    #     }
-                    # }
-                    # subTypes {
-                    #     typeNames
-                    # }
-                    # health {
-                    #     ...entityHealth
-                    # }
-                    # structuredProperties {
-                    #     properties {
-                    #         ...structuredPropertiesFields
-                    #     }
-                    # }
                     browsePathV2 {
                         ...browsePathV2Fields
                     }
                 }
                 ... on Chart {
-                    # chartId
-                    properties {
-                        name
-                        # description
-                        # externalUrl
-                        # type
-                        # access
-                        # lastModified {
-                        #     time
-                        # }
-                        # created {
-                        #     time
-                        # }
-                    }
-                    # ownership {
-                    #     ...ownershipFields
-                    # }
-                    # globalTags {
-                    #     ...globalTagsFields
-                    # }
-                    # glossaryTerms {
-                    #     ...glossaryTerms
-                    # }
-                    # editableProperties {
-                    #     description
-                    # }
                     platform {
-                        # ...platformFields
-                        ...platformSearchBarFields
+                        ...platformLogoFields
                     }
-                    # dataPlatformInstance {
-                    #     ...dataPlatformInstanceFields
-                    # }
-                    # domain {
-                    #     ...entityDomain
-                    # }
-                    # ...entityDataProduct
-                    # deprecation {
-                    #     ...deprecationFields
-                    # }
-                    # parentContainers {
-                    #     ...parentContainersFields
-                    # }
-                    # browsePathV2 {
-                    #     ...browsePathV2Fields
-                    # }
-                    # statsSummary {
-                    #     viewCount
-                    #     uniqueUserCountLast30Days
-                    #     topUsersLast30Days {
-                    #         urn
-                    #         type
-                    #         username
-                    #         properties {
-                    #             displayName
-                    #             firstName
-                    #             lastName
-                    #             fullName
-                    #         }
-                    #         editableProperties {
-                    #             displayName
-                    #             pictureLink
-                    #         }
-                    #     }
-                    # }
-                    # subTypes {
-                    #     typeNames
-                    # }
-                    # health {
-                    #     ...entityHealth
-                    # }
-                    # structuredProperties {
-                    #     properties {
-                    #         ...structuredPropertiesFields
-                    #     }
-                    # }
                 }
                 ... on DataFlow {
-                    # orchestrator
-                    # flowId
-                    # cluster
-                    properties {
-                        name
-                        # description
-                        # project
-                        # externalUrl
-                    }
-                    # ownership {
-                    #     ...ownershipFields
-                    # }
-                    # globalTags {
-                    #     ...globalTagsFields
-                    # }
-                    # glossaryTerms {
-                    #     ...glossaryTerms
-                    # }
-                    # editableProperties {
-                    #     description
-                    # }
                     platform {
-                        # ...platformFields
-                        ...platformSearchBarFields
+                        ...platformLogoFields
                     }
-                    # dataPlatformInstance {
-                    #     ...dataPlatformInstanceFields
-                    # }
-                    # parentContainers {
-                    #     ...parentContainersFields
-                    # }
-                    # domain {
-                    #     ...entityDomain
-                    # }
-                    # ...entityDataProduct
-                    # deprecation {
-                    #     ...deprecationFields
-                    # }
-                    # childJobs: relationships(
-                    #     input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 100 }
-                    # ) {
-                    #     total
-                    # }
-                    # health {
-                    #     ...entityHealth
-                    # }
-                    # structuredProperties {
-                    #     properties {
-                    #         ...structuredPropertiesFields
-                    #     }
-                    # }
-                }
-                ... on DataJob {
-                    # dataFlow {
-                    #     ...nonRecursiveDataFlowFields
-                    # }
-                    # jobId
-                    # ownership {
-                    #     ...ownershipFields
-                    # }
-                    properties {
-                        name
-                        # description
-                        # externalUrl
-                    }
-                    # globalTags {
-                    #     ...globalTagsFields
-                    # }
-                    # glossaryTerms {
-                    #     ...glossaryTerms
-                    # }
-                    # editableProperties {
-                    #     description
-                    # }
-                    # domain {
-                    #     ...entityDomain
-                    # }
-                    # ...entityDataProduct
-                    # deprecation {
-                    #     ...deprecationFields
-                    # }
-                    # dataPlatformInstance {
-                    #     ...dataPlatformInstanceFields
-                    # }
-                    # parentContainers {
-                    #     ...parentContainersFields
-                    # }
-                    # subTypes {
-                    #     typeNames
-                    # }
-                    # lastRun: runs(start: 0, count: 1) {
-                    #     count
-                    #     start
-                    #     total
-                    #     runs {
-                    #         urn
-                    #         type
-                    #         created {
-                    #             time
-                    #             actor
-                    #         }
-                    #     }
-                    # }
-                    # health {
-                    #     ...entityHealth
-                    # }
-                    # structuredProperties {
-                    #     properties {
-                    #         ...structuredPropertiesFields
-                    #     }
-                    # }
-                }
-                ... on GlossaryTerm {
-                    name
-                    # hierarchicalName
-                    properties {
-                        name
-                        # description
-                        # termSource
-                        # sourceRef
-                        # sourceUrl
-                        # rawSchema
-                        # customProperties {
-                        #     key
-                        #     value
-                        # }
-                    }
-                    # deprecation {
-                    #     ...deprecationFields
-                    # }
-                    # parentNodes {
-                    #     ...parentNodesFields
-                    # }
-                    # domain {
-                    #     ...entityDomain
-                    # }
-                    # structuredProperties {
-                    #     properties {
-                    #         ...structuredPropertiesFields
-                    #     }
-                    # }
                 }
                 ... on GlossaryNode {
+                    # TODO:: we need that?
                     ...glossaryNode
+                    # TODO:: we need that?
                     parentNodes {
                         ...parentNodesFields
                     }
-                    # structuredProperties {
-                    #     properties {
-                    #         ...structuredPropertiesFields
-                    #     }
-                    # }
-                }
-                ... on Domain {
-                    properties {
-                        name
-                        # description
-                    }
-                    # ownership {
-                    #     ...ownershipFields
-                    # }
-                    # parentDomains {
-                    #     ...parentDomainsFields
-                    # }
-                    # displayProperties {
-                    #     ...displayPropertiesFields
-                    # }
-                    # ...domainEntitiesFields
-                    # structuredProperties {
-                    #     properties {
-                    #         ...structuredPropertiesFields
-                    #     }
-                    # }
                 }
                 ... on Container {
-                    properties {
-                        name
-                        # description
-                        # externalUrl
-                    }
                     platform {
-                        # ...platformFields
-                        ...platformSearchBarFields
+                        ...platformLogoFields
                     }
-                    # dataPlatformInstance {
-                    #     ...dataPlatformInstanceFields
-                    # }
-                    # editableProperties {
-                    #     description
-                    # }
-                    # ownership {
-                    #     ...ownershipFields
-                    # }
-                    # tags {
-                    #     ...globalTagsFields
-                    # }
-                    # glossaryTerms {
-                    #     ...glossaryTerms
-                    # }
-                    # subTypes {
-                    #     typeNames
-                    # }
-                    # entities(input: {}) {
-                    #     total
-                    # }
-                    # deprecation {
-                    #     ...deprecationFields
-                    # }
-                    # parentContainers {
-                    #     ...parentContainersFields
-                    # }
-                    # structuredProperties {
-                    #     properties {
-                    #         ...structuredPropertiesFields
-                    #     }
-                    # }
                 }
                 ... on MLFeatureTable {
-                    name
-                    # description
-                    # featureTableProperties {
-                    #     description
-                    #     mlFeatures {
-                    #         urn
-                    #     }
-                    #     mlPrimaryKeys {
-                    #         urn
-                    #     }
-                    # }
-                    # ownership {
-                    #     ...ownershipFields
-                    # }
                     platform {
-                        # ...platformFields
-                        ...platformSearchBarFields
+                        ...platformLogoFields
                     }
-                    # deprecation {
-                    #     ...deprecationFields
-                    # }
-                    # dataPlatformInstance {
-                    #     ...dataPlatformInstanceFields
-                    # }
-                    # structuredProperties {
-                    #     properties {
-                    #         ...structuredPropertiesFields
-                    #     }
-                    # }
                 }
                 ... on MLFeature {
-                    ...nonRecursiveMLFeature
-                    # structuredProperties {
-                    #     properties {
-                    #         ...structuredPropertiesFields
-                    #     }
-                    # }
+                    browsePathV2 {
+                        ...browsePathV2Fields
+                    }
                 }
                 ... on MLPrimaryKey {
-                    ...nonRecursiveMLPrimaryKey
-                    # structuredProperties {
-                    #     properties {
-                    #         ...structuredPropertiesFields
-                    #     }
-                    # }
+                    dataPlatformInstance {
+                        ...dataPlatformInstanceFields
+                    }
                 }
                 ... on MLModel {
-                    name
-                    # description
-                    # origin
-                    # ownership {
-                    #     ...ownershipFields
-                    # }
                     platform {
-                        # ...platformFields
-                        ...platformSearchBarFields
+                        ...platformLogoFields
                     }
-                    # deprecation {
-                    #     ...deprecationFields
-                    # }
-                    # dataPlatformInstance {
-                    #     ...dataPlatformInstanceFields
-                    # }
-                    # structuredProperties {
-                    #     properties {
-                    #         ...structuredPropertiesFields
-                    #     }
-                    # }
                     properties {
                         propertiesName: name
                     }
                 }
                 ... on MLModelGroup {
                     name
-                    # origin
-                    # description
-                    # ownership {
-                    #     ...ownershipFields
-                    # }
                     platform {
-                        # ...platformFields
-                        ...platformSearchBarFields
-                    }
-                    # deprecation {
-                    #     ...deprecationFields
-                    # }
-                    # dataPlatformInstance {
-                    #     ...dataPlatformInstanceFields
-                    # }
-                    # structuredProperties {
-                    #     properties {
-                    #         ...structuredPropertiesFields
-                    #     }
-                    # }
-                    properties {
-                        propertiesName: name
+                        ...platformLogoFields
                     }
                 }
-                ... on Tag {
-                    name
-                    # properties {
-                    #     name
-                    #     colorHex
-                    # }
-                    # description
-                }
-                ... on DataPlatform {
-                    # ...nonConflictingPlatformFields
-
-                    # urn
-                    # type
-                    name
-                    properties {
-                        displayName
-                        # datasetNameDelimiter
-                        logoUrl
-                    }
-                    # displayName
-                    info {
-                        # type
-                        # displayName
-                        # datasetNameDelimiter
-                        logoUrl
-                    }
-                }
-                ... on DataProduct {
-                    ...dataProductSearchFields
-                }
-                ... on ERModelRelationship {
-                    urn
-                    type
-                    # id
-                    # properties {
-                    #     ...ermodelrelationPropertiesFields
-                    # }
-                    editableProperties {
-                        ...ermodelrelationEditablePropertiesFields
-                    }
-                    # ownership {
-                    #     ...ownershipFields
-                    # }
-                    # tags {
-                    #     ...globalTagsFields
-                    # }
-                    # glossaryTerms {
-                    #     ...glossaryTerms
-                    # }
-                }
+                ... on Tag {}
+                ... on DataPlatform {}
+                ... on DataProduct {}
+                ... on ERModelRelationship {}
                 ... on BusinessAttribute {
                     # ...businessAttributeFields
                     properties {
                         name
                     }
                 }
-                ... on StructuredPropertyEntity {
-                    ...structuredPropertyFields
-                }
-                ... on SupportsVersions {
-                    versionProperties {
-                        ...versionProperties
-                    }
-                }
+                ... on StructuredPropertyEntity {}
+                ... on SupportsVersions {}
                 ... on DataProcessInstance {
                     # ...dataProcessInstanceFields
 
@@ -2046,91 +1553,77 @@ query getSearchResultsForMultipleForSearchBar($input: SearchAcrossEntitiesInput!
                     #         value
                     #     }
                     # }
+                    # used as platform
                     optionalPlatform: platform {
                         # ...platformFields
-                        ...platformSearchBarFields
+                        ...platformLogoFields
                     }
-                    # dataPlatformInstance {
-                    #     ...dataPlatformInstanceFields
-                    # }
-                    # state(startTimeMillis: null, endTimeMillis: null, limit: 1) {
-                    #     status
-                    #     attempt
-                    #     result {
-                    #         resultType
-                    #         nativeResultType
-                    #     }
-                    #     timestampMillis
-                    #     durationMillis
-                    # }
-                    # parentTemplate {
-                    #     urn
-                    #     type
-                    #     # TODO: Clean up fields below; support DataFlow
-                    #     ... on Dataset {
-                    #         name
-                    #         properties {
-                    #             name
-                    #             description
-                    #             qualifiedName
-                    #         }
-                    #         editableProperties {
-                    #             description
-                    #         }
-                    #         platform {
-                    #             ...platformFields
-                    #         }
-                    #         subTypes {
-                    #             typeNames
-                    #         }
-                    #         status {
-                    #             removed
-                    #         }
-                    #     }
-                    #     ... on DataJob {
-                    #         urn
-                    #         type
-                    #         dataFlow {
-                    #             ...nonRecursiveDataFlowFields
-                    #         }
-                    #         jobId
-                    #         properties {
-                    #             name
-                    #             description
-                    #             externalUrl
-                    #             customProperties {
-                    #                 key
-                    #                 value
-                    #             }
-                    #         }
-                    #         deprecation {
-                    #             ...deprecationFields
-                    #         }
-                    #         dataPlatformInstance {
-                    #             ...dataPlatformInstanceFields
-                    #         }
-                    #         subTypes {
-                    #             typeNames
-                    #         }
-                    #         editableProperties {
-                    #             description
-                    #         }
-                    #         status {
-                    #             removed
-                    #         }
-                    #     }
-                    # }
+                    dataPlatformInstance {
+                        ...dataPlatformInstanceFields
+                    }
+                    # used as parent
+                    parentTemplate {
+                        urn
+                        type
+                        ... on Dataset {
+                            name
+                            properties {
+                                name
+                                description
+                                qualifiedName
+                            }
+                            editableProperties {
+                                description
+                            }
+                            platform {
+                                ...platformFields
+                            }
+                            subTypes {
+                                typeNames
+                            }
+                            status {
+                                removed
+                            }
+                        }
+                        ... on DataJob {
+                            urn
+                            type
+                            dataFlow {
+                                ...nonRecursiveDataFlowFields
+                            }
+                            jobId
+                            properties {
+                                name
+                                description
+                                externalUrl
+                                customProperties {
+                                    key
+                                    value
+                                }
+                            }
+                            deprecation {
+                                ...deprecationFields
+                            }
+                            dataPlatformInstance {
+                                ...dataPlatformInstanceFields
+                            }
+                            subTypes {
+                                typeNames
+                            }
+                            editableProperties {
+                                description
+                            }
+                            status {
+                                removed
+                            }
+                        }
+                    }
                 }
                 ... on DataPlatformInstance {
-                    # ...dataPlatformInstanceFields
-
-                    # urn
-                    # type
                     platform {
                         # ...platformFields
-                        ...platformSearchBarFields
+                        ...platformLogoFields
                     }
-                    instanceId
                 }
             }
         }
