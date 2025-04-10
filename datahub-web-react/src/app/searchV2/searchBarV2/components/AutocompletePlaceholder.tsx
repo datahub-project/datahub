@@ -4,11 +4,14 @@ import NoSearchingPlaceholder from './NoSearchingPlaceholder';
 
 interface Props {
     isSearching?: boolean;
+    hasAppliedFilters?: boolean;
     onClearFilters?: () => void;
 }
 
-export default function AutocompletePlaceholder({ isSearching, onClearFilters }: Props) {
-    if (isSearching) return <NoResultsFoundPlaceholder onClearFilters={onClearFilters} />;
+export default function AutocompletePlaceholder({ isSearching, hasAppliedFilters, onClearFilters }: Props) {
+    if (isSearching) {
+        return <NoResultsFoundPlaceholder hasAppliedFilters={hasAppliedFilters} onClearFilters={onClearFilters} />;
+    }
 
     return <NoSearchingPlaceholder />;
 }

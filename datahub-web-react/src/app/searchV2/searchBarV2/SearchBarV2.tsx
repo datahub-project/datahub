@@ -207,7 +207,7 @@ export const SearchBarV2 = ({
     // used to show Loader when we searching for suggestions in both cases for the first time and after clearing searchQuery
     const [isSuggestionsInitialized, setIsSuggestionsInitialized] = useState<boolean>(false);
     const [isSearchBarFocused, setIsFocused] = useState(false);
-    const { appliedFilters, flatAppliedFilters, clear, updateFieldFilters } = useAppliedFilters();
+    const { appliedFilters, hasAppliedFilters, flatAppliedFilters, clear, updateFieldFilters } = useAppliedFilters();
 
     const effectiveQuery = searchQuery !== undefined ? searchQuery : initialQuery || '';
 
@@ -237,10 +237,8 @@ export const SearchBarV2 = ({
 
     const isSearching = useMemo(() => {
         const hasSearchQuery = searchQuery !== undefined && searchQuery !== '';
-        const hasAnyAppliedFilters = flatAppliedFilters.length > 0;
-
-        return hasSearchQuery || hasAnyAppliedFilters;
-    }, [searchQuery, flatAppliedFilters]);
+        return hasSearchQuery || hasAppliedFilters;
+    }, [searchQuery, hasAppliedFilters]);
 
     const hasAutocompleteResults = useMemo(() => suggestions.length > 0, [suggestions.length]);
 
@@ -362,6 +360,8 @@ export const SearchBarV2 = ({
         [clear],
     );
 
+    const onClearFilters = useCallback(() => clear(), [clear]);
+
     return (
         <>
             {isLoading ? (
@@ -400,7 +400,11 @@ export const SearchBarV2 = ({
                                 );
                             }}
                             notFoundContent={
-                                <AutocompletePlaceholder isSearching={isSearching} onClearFilters={onClearHandler} />
+                                <AutocompletePlaceholder
+                                    hasAppliedFilters={hasAppliedFilters}
+                                    isSearching={isSearching}
+                                    onClearFilters={onClearFilters}
+                                />
                             }
                             onSelect={onSelectHandler}
                             onSearch={onSearchHandler}
