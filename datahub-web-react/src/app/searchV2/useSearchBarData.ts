@@ -31,16 +31,21 @@ const useAutocompleteAPI = (): APIResponse => {
 
     const updateData = useCallback(
         (query: string, orFilters: AndFilterInput[], types: EntityType[], viewUrn: string | undefined) => {
-            getAutoCompleteMultipleResults({
-                variables: {
-                    input: {
-                        query,
-                        orFilters,
-                        types,
-                        viewUrn,
+            if (query.length === 0) {
+                setEntities(undefined);
+                setFacets(undefined);
+            } else {
+                getAutoCompleteMultipleResults({
+                    variables: {
+                        input: {
+                            query,
+                            orFilters,
+                            types,
+                            viewUrn,
+                        },
                     },
-                },
-            });
+                });
+            }
         },
         [getAutoCompleteMultipleResults],
     );
@@ -99,6 +104,7 @@ export const useSearchBarData = (
     appliedFilters: FieldToAppliedFieldFiltersMap | undefined,
     searchAPIVariant: 'searchAcrossEntitiesAPI' | 'autocompleteAPI' | undefined,
 ) => {
+    const [debouncedQuery, setDebouncedQuery] = useState<string>('');
     const autocompleteAPI = useAutocompleteAPI();
     const searchAPI = useSearchAPI();
 
@@ -113,6 +119,8 @@ export const useSearchBarData = (
         }
     }, [searchAPIVariant, autocompleteAPI, searchAPI]);
 
+    useDebounce(() => setDebouncedQuery(query), 300, [query]);
+
     const updateData = useMemo(() => api.updateData, [api.updateData]);
     const entities = useMemo(() => api.entities, [api.entities]);
     const facets = useMemo(() => api.facets, [api.facets]);
@@ -123,10 +131,10 @@ export const useSearchBarData = (
             const convertedFilters = convertFiltersMapToFilters(appliedFilters);
             const orFilters = generateOrFilters(UnionType.AND, convertedFilters);
 
-            updateData(query, orFilters, [], undefined);
+            updateData(debouncedQuery, orFilters, [], undefined);
         },
         300,
-        [updateData, query, appliedFilters],
+        [updateData, debouncedQuery, appliedFilters],
     );
 
     return { entities, facets, loading };
