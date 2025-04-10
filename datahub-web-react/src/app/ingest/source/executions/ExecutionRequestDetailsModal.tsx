@@ -193,7 +193,9 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
                 </StatusSection>
                 {(status === SUCCESS || status === SUCCEEDED_WITH_WARNINGS) && (
                     <IngestedAssetsSection>
-                        {data?.executionRequest?.id && <IngestedAssets id={data?.executionRequest?.id} />}
+                        {data?.executionRequest?.id && (
+                            <IngestedAssets executionResult={result} id={data?.executionRequest?.id} />
+                        )}
                     </IngestedAssetsSection>
                 )}
                 <LogsSection>
