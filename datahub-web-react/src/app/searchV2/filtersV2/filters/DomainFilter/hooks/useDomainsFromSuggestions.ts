@@ -1,6 +1,6 @@
 import { EntityType } from '@src/types.generated';
 import { useMemo } from 'react';
-import { isItDomainEntity } from '@src/app/entityV2/domain/utils';
+import { isDomain } from '@src/app/entityV2/domain/utils';
 import useAutocompleteResults from '../../BaseEntityFilter/hooks/useAutocompleteResults';
 
 const ENTITY_TYPES = [EntityType.Domain];
@@ -12,7 +12,7 @@ export default function useDomainsFromSuggestions(query: string) {
         () =>
             (data?.autoCompleteForMultiple?.suggestions || [])
                 .flatMap((suggestion) => suggestion.entities)
-                .filter(isItDomainEntity),
+                .filter(isDomain),
         [data?.autoCompleteForMultiple?.suggestions],
     );
 
