@@ -9,6 +9,7 @@ import handleGraphQLError from '@src/app/shared/handleGraphQLError';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { IncidentAction } from '../../constant';
 import { PAGE_SIZE, updateActiveIncidentInCache } from '../../incidentUtils';
+import { IncidentHandlerProps } from '../../types';
 
 export const getCacheIncident = ({
     values,
@@ -67,7 +68,15 @@ export const getCacheIncident = ({
     return newIncident;
 };
 
-export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, user, assignees, linkedAssets, entity }) => {
+export const useIncidentHandler = ({
+    mode,
+    onSubmit,
+    incidentUrn,
+    user,
+    assignees,
+    linkedAssets,
+    entity,
+}: IncidentHandlerProps) => {
     // Important: Here we are trying to fetch the URN of the sibling whose "profile" we are currently viewing.
     // We then insert any new incidents into this cache as well so that it immediately updates the page for the asset.
     const { urn: maybeCacheEntityUrn } = useEntityData();
@@ -165,6 +174,7 @@ export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, user, assignee
                     user,
                 });
                 // Add new incident to core entity's cache.
+                if (!entity) return;
                 updateActiveIncidentInCache(client, entity.urn, newIncident, PAGE_SIZE);
 
                 if (maybeCacheEntityUrn) {

@@ -138,3 +138,13 @@ export type IncidentBuilderSiblingOptions = {
     title: string;
     disabled?: boolean;
 } & Partial<EntityStagedForIncident>;
+
+export type IncidentHandlerProps = {
+    mode: IncidentAction;
+    onSubmit?: () => void;
+    incidentUrn: string | undefined;
+    user: CorpUser | null | undefined;
+    entity: EntityStagedForIncident | undefined;
+    assignees: CorpUser[];
+    linkedAssets: string[];
+};
