@@ -964,7 +964,7 @@ class OdbcLineage(AbstractLineage):
             self.reporter.warning(
                 title="Can not extract ODBC connect string",
                 message="Can not extract ODBC connect string from data access function. Skipping Lineage creation.",
-                context=f"table-name={self.table.full_name}",
+                context=f"table-name={self.table.full_name}, data-access-func-detail={data_access_func_detail}",
             )
             return Lineage.empty()
 
@@ -988,7 +988,7 @@ class OdbcLineage(AbstractLineage):
             self.reporter.warning(
                 title="Can not determine ODBC platform",
                 message="Can not determine platform from ODBC connect string. Skipping Lineage creation.",
-                context=f"table-name={self.table.full_name}",
+                context=f"table-name={self.table.full_name}, connect-string={connect_string}",
             )
             return Lineage.empty()
 
