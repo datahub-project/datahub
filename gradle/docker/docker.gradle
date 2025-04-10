@@ -123,7 +123,11 @@ project.afterEvaluate {
 
     def dockerCmd = []
 
-    dockerCmd += ["docker", "buildx", "build", "--load"]
+    if (System.getenv("DOCKER_CACHE") == "DEPOT") {
+      dockerCmd += ["depot", "build", "--load"]
+    } else {
+      dockerCmd += ["docker", "buildx", "build", "--load"]
+    }
     if (extension.platforms.get()) {
       dockerCmd << "--platform=${extension.platforms.get().join(',')}"
     }
@@ -204,6 +208,21 @@ project.afterEvaluate {
     group "docker"
     description "Builds the docker image from cache and applies all tags defined but without the dependencies."
     // Reference the docker original task's configuration and run it but without its dependencies
+    doLast {
+      def originalTaskInstance = tasks.named('docker').get()
+      project.exec {
+        commandLine originalTaskInstance.commandLine
+        workingDir originalTaskInstance.workingDir
+      }
+    }
+  }
+
+  project.tasks.register("dockerFromCacheWithPush") {
+    // Variant of dockerFromCAche that also pushes to the depot registry. this may go away once we flatten our docker images.
+    group "docker"
+    description "Builds the docker image from cache and applies all tags defined but without the dependencies."
+    // Reference the docker original task's configuration and run it but without its dependencies
+    
     doLast {
       def originalTaskInstance = tasks.named('docker').get()
       project.exec {

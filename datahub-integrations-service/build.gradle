@@ -17,11 +17,11 @@
 plugins {
     id 'java' // required for versioning
     id("org.openapi.generator") version "7.4.0"
-    id 'com.palantir.docker'
 }
 
 apply from: "../gradle/versioning/versioning.gradle"
 apply from: "../gradle/coverage/python-coverage.gradle"
+apply from: "../gradle/docker/docker.gradle"
 
 ext {
     python_executable = 'python3'
@@ -143,8 +143,9 @@ tasks.codegen.dependsOn installDev
 build.dependsOn tasks.openApiGenerate
 
 docker {
-    name "${docker_registry}/${docker_repo}:v${version}"
-    version "v${version}"
+    dependsOn(':metadata-ingestion:codegen')
+
+    name "${docker_registry}/${docker_repo}:${versionTag}"
     dockerfile file("${rootProject.projectDir}/docker/${docker_repo}/Dockerfile")
     files fileTree(rootProject.projectDir) {
         include '.dockerignore'
@@ -158,7 +159,7 @@ docker {
     }.exclude {
         i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
     }
-    tag("Debug", "${docker_registry}/${docker_repo}:debug")
+    additionalTag("Debug", "${docker_registry}/${docker_repo}:debug")
 
     def dockerBuildArgs = [DOCKER_VERSION: "${version}-slim", RELEASE_VERSION: version.replace('-SNAPSHOT', '').replace('v', '').replace("-slim", ''), BASE_IMAGE: "${docker_registry}/datahub-ingestion"]
 
@@ -172,13 +173,4 @@ docker {
 
     buildArgs(dockerBuildArgs)
 }
-tasks.getByName('dockerPrepare').dependsOn(['install',
-                                            ':metadata-ingestion:codegen',
-                                            ':docker:datahub-ingestion:docker'])
 
-task cleanLocalDockerImages {
-    doLast {
-        rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "${version}")
-    }
-}
-dockerClean.finalizedBy(cleanLocalDockerImages)

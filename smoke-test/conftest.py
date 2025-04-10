@@ -116,20 +116,3 @@ def get_batch_start_end(num_tests: int) -> Tuple[int, int]:
         print(f"Running tests for batch {batch_number} of {batch_count}")
 
     return batch_start, batch_end
-
-def pytest_collection_modifyitems(
-    session: pytest.Session, config: pytest.Config, items: List[Item]
-) -> None:
-    if os.getenv("TEST_STRATEGY") == "cypress":
-        return  # We launch cypress via pytests, but needs a different batching mechanism at cypress level.
-
-    # If BATCH_COUNT and BATCH_ENV vars are set, splits the pytests to batches and runs filters only the BATCH_NUMBER
-    # batch for execution. Enables multiple parallel launches. Current implementation assumes all test are of equal
-    # weight for batching. TODO. A weighted batching method can help make batches more equal sized by cost.
-    # this effectively is a no-op if BATCH_COUNT=1
-    start_index, end_index = get_batch_start_end(num_tests=len(items))
-
-    items.sort(key=lambda x: x.nodeid)  # we want the order to be stable across batches
-    # replace items with the filtered list
-    print(f"Running tests for batch {start_index}-{end_index}")
-    items[:] = items[start_index:end_index]
