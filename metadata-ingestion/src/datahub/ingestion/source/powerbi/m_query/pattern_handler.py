@@ -976,6 +976,7 @@ class OdbcLineage(AbstractLineage):
             dsn = extract_dsn(connect_string)
             if dsn:
                 logger.debug(f"Extracted DSN: {dsn}")
+                server_name = dsn
             if dsn and self.config.dsn_to_platform_name:
                 logger.debug(f"Attempting to map DSN {dsn} to platform")
                 name = self.config.dsn_to_platform_name.get(dsn)
@@ -995,12 +996,15 @@ class OdbcLineage(AbstractLineage):
             data_platform, powerbi_platform
         )
 
-        if not server_name:
-            logger.warning(
-                f"No server specified for platform {data_platform} in ODBC connect string "
-                f"for table {self.table.full_name}"
+        if not server_name and self.config.server_to_platform_instance:
+            self.reporter.warning(
+                title="Can not determine ODBC server name",
+                message="Can not determine server name with server_to_platform_instance mapping. Skipping Lineage creation.",
+                context=f"table-name={self.table.full_name}",
             )
-            server_name = "localhost"
+            return Lineage.empty()
+        elif not server_name:
+            server_name = "unknown"
 
         database_name = None
         schema_name = None
