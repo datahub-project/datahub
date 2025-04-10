@@ -32,7 +32,15 @@ def get_long_description():
 
 acryl_datahub_min_version = os.environ.get("ACRYL_DATAHUB_MIN_VERSION") or "1.0.0"
 
+lint_requirements = {
+    # This is pinned only to avoid spurious errors in CI.
+    # We should make an effort to keep it up to date.
+    "ruff==0.9.7",
+    "mypy==1.10.1",
+}
+
 base_requirements = {
+    *lint_requirements,
     f"acryl-datahub[datahub-kafka]>={acryl_datahub_min_version}",
     # Compatibility.
     "typing_extensions>=3.7.4; python_version < '3.8'",
