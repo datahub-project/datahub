@@ -168,6 +168,9 @@ const DropdownContainer = styled.div`
     background: ${colors.white};
 `;
 
+// TODO:: for searchAPI show initial state when query is less then 3 chars
+// TODO:: FEAT: add feature flag on backend side and use it to choose API (use enum instead of )
+
 /**
  * Represents the search bar appearing in the default header view.
  */
