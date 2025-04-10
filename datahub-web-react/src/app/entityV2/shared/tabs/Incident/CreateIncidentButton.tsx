@@ -6,12 +6,12 @@ import { PlusOutlined } from '@ant-design/icons';
 import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
+import { EntityPrivileges } from '@src/types.generated';
 
 import { useSiblingOptionsForIncidentBuilder } from './utils';
 import { EntityStagedForIncident } from './types';
 import { CreateButton, SiblingSelectionDropdownLink } from './styledComponents';
 import { NO_PERMISSIONS_MESSAGE } from './constant';
-import { EntityPrivileges } from '@src/types.generated';
 
 type CreateIncidentButtonProps = {
     privileges: EntityPrivileges;

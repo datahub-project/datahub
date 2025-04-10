@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Empty } from 'antd';
 
 import { useGetEntityIncidentsQuery } from '../../../../../graphql/incident.generated';
@@ -54,10 +54,13 @@ export const IncidentList = () => {
     });
 
     // get filtered Incident as per the filter object
-    const getFilteredIncidents = (incidents: Incident[]) => {
-        const filteredIncidentData: IncidentTable = getFilteredTransformedIncidentData(incidents, selectedFilters);
-        setVisibleIncidents(filteredIncidentData);
-    };
+    const getFilteredIncidents = useCallback(
+        (incidents: Incident[]) => {
+            const filteredIncidentData: IncidentTable = getFilteredTransformedIncidentData(incidents, selectedFilters);
+            setVisibleIncidents(filteredIncidentData);
+        },
+        [selectedFilters],
+    );
 
     useEffect(() => {
         const combinedData = isSeparateSiblingsMode ? data : combineEntityDataWithSiblings(data);
@@ -67,16 +70,14 @@ export const IncidentList = () => {
             [];
         setAllIncidentData(allIncidents);
         getFilteredIncidents(allIncidents);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [data]);
+    }, [data, isSeparateSiblingsMode, getFilteredIncidents]);
 
     useEffect(() => {
         // after filter change need to get filtered incidents
         if (allIncidentData?.length > 0) {
             getFilteredIncidents(allIncidentData);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedFilters]);
+    }, [selectedFilters, getFilteredIncidents, allIncidentData]);
 
     const handleFilterChange = (filter) => {
         setSelectedFilters(filter);
