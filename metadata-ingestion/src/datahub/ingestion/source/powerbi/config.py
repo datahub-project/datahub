@@ -192,6 +192,11 @@ class SupportedDataPlatform(Enum):
         datahub_data_platform_name="mysql",
     )
 
+    ODBC = DataPlatformPair(
+        powerbi_data_platform_name="Odbc",
+        datahub_data_platform_name="odbc",
+    )
+
 
 @dataclass
 class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
@@ -340,6 +345,13 @@ class PowerBiDashboardSourceConfig(
         " :port is optional and only needed if your datasource server is running on non-standard port. "
         "For Google BigQuery the datasource's server is google bigquery project name. "
         "For Databricks Unity Catalog the datasource's server is workspace FQDN.",
+    )
+    # ODBC DSN to platform mapping
+    dsn_to_platform_name: Dict[str, str] = pydantic.Field(
+        default={},
+        description="A mapping of ODBC DSN to DataHub data platform name. "
+        "For example with an ODBC connection string 'DSN=database' where the database type "
+        "is 'PostgreSQL' you would configure the mapping as 'database: postgres'.",
     )
     # deprecated warning
     _dataset_type_mapping = pydantic_field_deprecated(
