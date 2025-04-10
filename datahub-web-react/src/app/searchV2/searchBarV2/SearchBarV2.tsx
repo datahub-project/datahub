@@ -31,7 +31,6 @@ import useRecentlySearchedQueriesOptions from './hooks/useRecentlySearchedQuerie
 import useRecentlyViewedEntitiesOptions from './hooks/useRecentlyViewedEntitiesOptions';
 import useViewAllResultsOptions from './hooks/useViewAllResultsOptions';
 import { SearchBarProps } from '../SearchBar';
-import { OptionType } from '@src/alchemy-components/components/AutoComplete/types';
 
 const BOX_SHADOW = `0px -3px 12px 0px rgba(236, 240, 248, 0.5) inset,
 0px 3px 12px 0px rgba(255, 255, 255, 0.5) inset,
