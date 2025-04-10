@@ -11,24 +11,36 @@ const Container = styled.div`
 
 const InlineButton = styled(Button)`
     display: inline;
+    padding: 0px;
+    background: none;
+
+    &:hover {
+        background: none;
+    }
 `;
 
 interface Props {
+    hasAppliedFilters?: boolean;
     onClearFilters?: () => void;
 }
 
-export default function NoResultsFoundPlaceholder({ onClearFilters }: Props) {
+export default function NoResultsFoundPlaceholder({ hasAppliedFilters, onClearFilters }: Props) {
     return (
         <Container>
             <Text color="gray" colorLevel={600} size="md">
                 No results found
             </Text>
             <Text color="gray" size="sm">
-                Try adjusting your search to display data, or&nbsp;
-                <InlineButton variant="text" onClick={onClearFilters}>
-                    clear filters
-                </InlineButton>
-                .
+                Try adjusting your search to display data
+                {hasAppliedFilters && (
+                    <>
+                        , or&nbsp;
+                        <InlineButton variant="text" onClick={onClearFilters}>
+                            clear filters
+                        </InlineButton>
+                        .
+                    </>
+                )}
             </Text>
         </Container>
     );

@@ -29,5 +29,7 @@ export default function useAppliedFilters(defaultAppliedFilters?: FieldToApplied
         [appliedFilters],
     );
 
-    return { appliedFilters, flatAppliedFilters, clear, updateFieldFilters };
+    const hasAppliedFilters = useMemo(() => flatAppliedFilters.length > 0, [flatAppliedFilters]);
+
+    return { appliedFilters, hasAppliedFilters, flatAppliedFilters, clear, updateFieldFilters };
 }
