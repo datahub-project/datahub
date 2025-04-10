@@ -5,7 +5,7 @@ import { Cron } from 'react-js-cron';
 import 'react-js-cron/dist/styles.css';
 import styled from 'styled-components';
 import cronstrue from 'cronstrue';
-import { CheckCircleOutlined, WarningOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined } from '@ant-design/icons';
 import { SourceBuilderState, StepProps } from './types';
 import { TimezoneSelect } from './TimezoneSelect';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../../entity/shared/constants';
@@ -76,10 +76,14 @@ const WarningContainer = styled.div`
     color: ${ANTD_GRAY[7]};
 `;
 
-const StyledWarningOutlined = styled(WarningOutlined)`
+const StyledWarningOutlined = styled(CheckCircleOutlined)`
     margin-right: 4px;
     margin-top: 12px;
 `;
+
+const containsHashmark = (cronExpression: string): boolean => {
+    return cronExpression.includes('#');
+};
 
 const ItemDescriptionText = styled(Typography.Paragraph)``;
 
@@ -93,6 +97,7 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
     const [advancedCronCheck, setAdvancedCronCheck] = useState(false);
     const [scheduleCronInterval, setScheduleCronInterval] = useState(interval);
     const [scheduleTimezone, setScheduleTimezone] = useState(timezone);
+    const hasHashmark = useMemo(() => containsHashmark(scheduleCronInterval), [scheduleCronInterval]);
 
     const cronAsText = useMemo(() => {
         if (scheduleCronInterval) {
@@ -176,11 +181,30 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
                             />
                         )}
                         <AdvancedSchedule>
-                            <AdvancedCheckBox type="secondary">Show Advanced</AdvancedCheckBox>
-                            <Checkbox
-                                checked={advancedCronCheck}
-                                onChange={(event) => setAdvancedCronCheck(event.target.checked)}
-                            />
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                                {advancedCronCheck && hasHashmark && (
+                                    <Typography.Text
+                                        style={{
+                                            color: '#1890ff',
+                                            marginRight: '8px',
+                                            fontSize: '12px',
+                                        }}
+                                    >
+                                        (Unsupported syntax detected)
+                                    </Typography.Text>
+                                )}
+                                <AdvancedCheckBox type="secondary">Show Advanced</AdvancedCheckBox>
+                                <Checkbox
+                                    checked={advancedCronCheck}
+                                    onChange={(event) => {
+                                        if (hasHashmark && advancedCronCheck && !event.target.checked) {
+                                            return;
+                                        }
+                                        setAdvancedCronCheck(event.target.checked);
+                                    }}
+                                    disabled={hasHashmark && advancedCronCheck}
+                                />
+                            </div>
                         </AdvancedSchedule>
                     </Schedule>
                     <CronText>
@@ -210,7 +234,7 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
                 <div>
                     <Button
                         data-testid="ingestion-schedule-next-button"
-                        disabled={!interval || interval.length === 0 || cronAsText.error}
+                        disabled={!scheduleCronInterval || scheduleCronInterval.length === 0 || cronAsText.error}
                         onClick={onClickNext}
                     >
                         Next
