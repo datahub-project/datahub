@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { useGetDatasetContractQuery } from '../../../../../../../graphql/contract.generated';
-import { DataContractState } from '../../../../../../../types.generated';
+import { DataContract, DataContractState } from '../../../../../../../types.generated';
 import { useEntityData } from '../../../../../../entity/shared/EntityContext';
+import { DataContractEmptyState } from '../../../../../../entity/shared/tabs/Dataset/Validations/contract/DataContractEmptyState';
+import { getAssertionsSummary } from '../acrylUtils';
+import { ContractStructuredPropertiesSummary } from './ContractStructuredPropertiesSummary';
 import { DataContractSummary } from './DataContractSummary';
 import { DataQualityContractSummary } from './DataQualityContractSummary';
 import { FreshnessContractSummary } from './FreshnessContractSummary';
 import { SchemaContractSummary } from './SchemaContractSummary';
 import { DataContractBuilderModal } from './builder/DataContractBuilderModal';
-import { DataContractEmptyState } from '../../../../../../entity/shared/tabs/Dataset/Validations/contract/DataContractEmptyState';
-import { getAssertionsSummary } from '../acrylUtils';
 
 const Container = styled.div`
     display: flex;
