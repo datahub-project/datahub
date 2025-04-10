@@ -2,10 +2,10 @@ const colors = {
     transparent: 'transparent',
     current: 'currentColor',
     white: '#FFFFFF',
-    black: '#000000', // do not use black, use grays 600 for primary text and 1700 for secondary text PLEASE USE SEMANTIC-TOKENS.ts FOR THESE VALUES PLEASE
+    black: '#000000', // do not use black, use grays 600 for primary text and 1700 for secondary
 
     gray: {
-        // PLEASE USE SEMANTIC-TOKENS.ts FOR THESE VALUES PLEASE
+        0: '#FFFFFF', // white
         100: '#EBECF0', // border
         200: '#CFD1DA', // should be deprecated
         300: '#A9ADBD', // should be deprecated
