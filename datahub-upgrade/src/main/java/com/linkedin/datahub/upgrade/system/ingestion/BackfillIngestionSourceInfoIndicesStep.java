@@ -15,7 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class BackfillIngestionSourceInfoIndicesStep extends AbstractMCLStep {
 
-  private static final String UPGRADE_ID = BackfillIngestionSourceInfoIndices.class.getSimpleName();
+  private static final String UPGRADE_ID = BackfillIngestionSourceInfoIndices.class.getSimpleName() + "-v2";
   private static final Urn UPGRADE_ID_URN = BootstrapStep.getUpgradeUrn(UPGRADE_ID);
 
   public BackfillIngestionSourceInfoIndicesStep(
