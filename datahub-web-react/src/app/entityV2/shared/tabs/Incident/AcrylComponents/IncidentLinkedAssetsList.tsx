@@ -51,13 +51,14 @@ export const IncidentLinkedAssetsList = ({
     };
 
     const batchAddAssets = (entityUrns: Array<string>) => {
-        const updatedUrns = [...form.getFieldValue(RESOURCE_URN_FIELD_NAME), ...entityUrns];
+        const existingUrns = form.getFieldValue(RESOURCE_URN_FIELD_NAME) || [];
+        const updatedUrns = [...existingUrns, ...entityUrns];
         const uniqueUrns = [...new Set(updatedUrns)];
         form.setFieldValue(RESOURCE_URN_FIELD_NAME, uniqueUrns);
-        setIsBatchAddAssetListModalVisible(false);
         getEntities({
             variables: { urns: form.getFieldValue(RESOURCE_URN_FIELD_NAME) },
         });
+        setIsBatchAddAssetListModalVisible(false);
     };
 
     useEffect(() => {

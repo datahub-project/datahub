@@ -41,6 +41,7 @@ export const IncidentEditor = ({
     data,
     mode = IncidentAction.CREATE,
     entity,
+    urn,
 }: IncidentEditorProps) => {
     const assigneeValues = data?.assignees && getAssigneeWithURN(data.assignees);
     const isFormValid = Boolean(
@@ -212,6 +213,7 @@ export const IncidentEditor = ({
                         mode={mode}
                         setCachedLinkedAssets={setCachedLinkedAssets}
                         setIsLinkedAssetsLoading={setIsLoadingAssigneeOrAssets}
+                        urn={urn}
                     />
                 </SelectFormItem>
                 {mode === IncidentAction.EDIT && (

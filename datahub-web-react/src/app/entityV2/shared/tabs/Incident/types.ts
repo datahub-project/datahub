@@ -101,6 +101,7 @@ export type IncidentEditorProps = {
     data?: IncidentTableRow;
     mode?: IncidentAction;
     entity?: EntityStagedForIncident;
+    urn?: string;
 };
 
 export type IncidentLinkedAssetsListProps = {
@@ -110,6 +111,7 @@ export type IncidentLinkedAssetsListProps = {
     mode: IncidentAction;
     setCachedLinkedAssets: React.Dispatch<React.SetStateAction<any[]>>;
     setIsLinkedAssetsLoading: React.Dispatch<React.SetStateAction<boolean>>;
+    urn?: string;
 };
 
 export interface TimelineContentDetails extends BaseItemType {

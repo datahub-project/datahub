@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { useRaiseIncidentMutation, useUpdateIncidentMutation } from '@src/graphql/mutations.generated';
 import { EntityType, IncidentSourceType, IncidentState } from '@src/types.generated';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
@@ -7,6 +6,7 @@ import _ from 'lodash';
 import { Form, message } from 'antd';
 import { useApolloClient } from '@apollo/client';
 import handleGraphQLError from '@src/app/shared/handleGraphQLError';
+import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { IncidentAction } from '../../constant';
 import { PAGE_SIZE, updateActiveIncidentInCache } from '../../incidentUtils';
 
@@ -59,7 +59,7 @@ export const getCacheIncident = ({
         priority: values.priority,
         created: {
             __typename: 'AuditStamp',
-            time: values.created || new Date(),
+            time: values.created || Date.now(),
             actor: user?.urn,
         },
         assignees: values.assignees,
@@ -155,8 +155,9 @@ export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, user, assignee
                     values: {
                         ...values,
                         state: baseInput.status.state,
-                        stage: baseInput.status.stage,
+                        stage: baseInput.status.stage || '',
                         message: baseInput.status.message,
+                        priority: values.priority || null,
                         assignees,
                         linkedAssets,
                     },
