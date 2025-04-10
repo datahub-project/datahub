@@ -1,4 +1,4 @@
-import { DownloadOutlined } from '@ant-design/icons';
+import { DownloadSimple } from 'phosphor-react';
 import { Button, Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
@@ -18,7 +18,7 @@ export default function DownloadButton({ setShowDownloadAsCsvModal, isDownloadin
     return (
         <Tooltip title="Download results..." showArrow={false} placement="top">
             <StyledButton onClick={() => setShowDownloadAsCsvModal(true)} disabled={isDownloadingCsv || disabled}>
-                <DownloadOutlined />
+                <DownloadSimple />
                 {isDownloadingCsv ? 'Downloading...' : null}
             </StyledButton>
         </Tooltip>

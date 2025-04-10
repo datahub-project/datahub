@@ -1,5 +1,5 @@
 import React from 'react';
-import { EditOutlined } from '@ant-design/icons';
+import { PencilSimple } from 'phosphor-react';
 import { Button, Tooltip } from '@components';
 import styled from 'styled-components';
 
@@ -21,7 +21,7 @@ export default function EditButton({ setShowSelectMode, disabled }: Props) {
                 disabled={disabled}
                 data-testid="search-results-edit-button"
             >
-                <EditOutlined />
+                <PencilSimple />
             </StyledButton>
         </Tooltip>
     );
