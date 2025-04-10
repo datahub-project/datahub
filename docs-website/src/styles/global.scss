@@ -128,14 +128,16 @@ div[class^="announcementBar"] {
       align-items: center;
       background: linear-gradient(
         75deg,
-        #444950 0%,    /* Primary blue */
-        #4f545b 25%,   /* Slightly lighter */
-        #444951 50%,   /* Mid-point */
-        #4f545b 75%,   /* Slightly lighter */
-        #444950 100%   /* Primary blue */
+        #1c1e21 0%,    /* Gray 800 */
+        #202327 16%,   /* Mid-point */
+        #2d2d23 32%,   /* Slightly lighter - yellow streak */
+        #28372e 48%,   /* Slightly lighter - green streak */
+        #28343e 64%,   /* Slightly lighter - blue streak */
+        #202327 80%,   /* Mid-point */
+        #1c1e21 100%   /* Gray 800 */
       );
-      background-size: 300% 300%;
-      animation: shimmer 10s ease-in-out infinite;
+      background-size: 400% 400%;
+      animation: shimmer 20s linear infinite;
       font-size: 1rem;
 
       p {
@@ -167,13 +169,13 @@ div[class^="announcementBar"] {
 
 @keyframes shimmer {
   0% {
-    background-position: 0% 50%;
+    background-position: -200% 50%;
   }
   50% {
-    background-position: 200% 50%;
+    background-position: 0% 50%;
   }
   100% {
-    background-position: 0% 50%;
+    background-position: 200% 50%;
   }
 }
 
