@@ -168,7 +168,6 @@ const DropdownContainer = styled.div`
     background: ${colors.white};
 `;
 
-// TODO:: for searchAPI show initial state when query is less then 3 chars
 // TODO:: FEAT: add feature flag on backend side and use it to choose API (use enum instead of )
 
 /**
@@ -209,6 +208,7 @@ export const SearchBarV2 = ({
     const entities = searchResponse?.entities;
     const facets = searchResponse?.facets;
     const isDataLoading = searchResponse?.loading;
+    const searchAPIVariant = searchResponse?.searchAPIVariant;
 
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
     // used to show Loader when we searching for suggestions in both cases for the first time and after clearing searchQuery
@@ -239,9 +239,13 @@ export const SearchBarV2 = ({
     const viewAllResultsOptions = useViewAllResultsOptions(searchQuery, showViewAllResults);
 
     const isSearching = useMemo(() => {
-        const hasSearchQuery = searchQuery !== '';
-        return hasSearchQuery || hasAppliedFilters;
-    }, [searchQuery, hasAppliedFilters]);
+        const minimalLengthOfQuery = searchAPIVariant === 'searchAcrossEntitiesAPI' ? 3 : 1;
+
+        const hasSearchQuery = searchQuery.length >= minimalLengthOfQuery;
+        const hasAnyAppliedFilters = flatAppliedFilters.length > 0;
+
+        return hasSearchQuery || hasAnyAppliedFilters;
+    }, [searchQuery, flatAppliedFilters, searchAPIVariant]);
 
     const hasResults = useMemo(() => (entities?.length ?? 0) > 0, [entities?.length]);
 
