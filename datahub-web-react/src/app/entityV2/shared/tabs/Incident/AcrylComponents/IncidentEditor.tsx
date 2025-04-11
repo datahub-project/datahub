@@ -5,6 +5,7 @@ import colors from '@src/alchemy-components/theme/foundations/colors';
 import { Editor } from '@src/alchemy-components/components/Editor/Editor';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { Form } from 'antd';
+import styled from 'styled-components';
 
 import {
     INCIDENT_CATEGORIES,
@@ -30,13 +31,17 @@ import { IncidentSelectField } from './IncidentSelectedField';
 import { IncidentAssigneeSelector } from './IncidentAssigneeSelector';
 import { useIncidentHandler } from './hooks/useIncidentHandler';
 
+const HalfWidthInput = styled(Input)`
+    width: 50%;
+`;
+
 export const IncidentEditor = ({
     incidentUrn,
     onSubmit,
     data,
-    onClose,
     mode = IncidentAction.CREATE,
     entity,
+    urn,
 }: IncidentEditorProps) => {
     const assigneeValues = data?.assignees && getAssigneeWithURN(data.assignees);
     const isFormValid = Boolean(
@@ -60,11 +65,12 @@ export const IncidentEditor = ({
         incidentUrn,
         mode,
         onSubmit,
-        onClose,
         user,
         assignees: cachedAssignees,
         linkedAssets: cachedLinkedAssets,
         entity,
+        currentIncident: data,
+        urn,
     });
     const formValues = Form.useWatch([], form);
 
@@ -171,13 +177,10 @@ export const IncidentEditor = ({
                 />
                 {showCustomCategory && (
                     <SelectFormItem label="Custom Category" name="customType">
-                        <Input
+                        <HalfWidthInput
                             label=""
                             placeholder="Enter category name..."
                             required
-                            styles={{
-                                width: '50%',
-                            }}
                             isDisabled={mode === IncidentAction.EDIT}
                             id="custom-incident-type-input"
                         />
@@ -211,6 +214,7 @@ export const IncidentEditor = ({
                         mode={mode}
                         setCachedLinkedAssets={setCachedLinkedAssets}
                         setIsLinkedAssetsLoading={setIsLoadingAssigneeOrAssets}
+                        urn={urn}
                     />
                 </SelectFormItem>
                 {mode === IncidentAction.EDIT && (
@@ -232,14 +236,7 @@ export const IncidentEditor = ({
                             color: colors.gray[600],
                         }}
                     >
-                        <Input
-                            label=""
-                            placeholder="Add a resolution note......"
-                            styles={{
-                                width: '50%',
-                            }}
-                            id="incident-message"
-                        />
+                        <HalfWidthInput label="" placeholder="Add a resolution note......" id="incident-message" />
                     </SelectFormItem>
                 )}
             </StyledFormElements>

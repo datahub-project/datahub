@@ -5,18 +5,18 @@ import static com.linkedin.metadata.Constants.MAX_JACKSON_STRING_SIZE;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.StreamReadConstraints;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.ByteString;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.batch.PatchMCP;
+import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
+import com.linkedin.metadata.aspect.patch.template.common.GenericPatchTemplate;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -24,14 +24,19 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
-import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.util.Pair;
 import jakarta.json.Json;
+import jakarta.json.JsonObject;
 import jakarta.json.JsonPatch;
+import jakarta.json.JsonReader;
+import jakarta.json.JsonStructure;
+import jakarta.json.JsonValue;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
@@ -61,7 +66,8 @@ public class PatchItemImpl implements PatchMCP {
   private SystemMetadata systemMetadata;
   private final AuditStamp auditStamp;
 
-  private final JsonPatch patch;
+  @Nonnull private final JsonPatch patch;
+  @Nullable private final GenericJsonPatch genericJsonPatch;
 
   private final MetadataChangeProposal metadataChangeProposal;
 
@@ -86,16 +92,12 @@ public class PatchItemImpl implements PatchMCP {
     if (metadataChangeProposal != null) {
       return metadataChangeProposal;
     } else {
-      GenericAspect genericAspect = new GenericAspect();
-      genericAspect.setContentType("application/json");
-      genericAspect.setValue(ByteString.copyString(getPatch().toString(), StandardCharsets.UTF_8));
-
       final MetadataChangeProposal mcp = new MetadataChangeProposal();
       mcp.setEntityUrn(getUrn());
       mcp.setChangeType(getChangeType());
       mcp.setEntityType(getEntitySpec().getName());
       mcp.setAspectName(getAspectName());
-      mcp.setAspect(genericAspect);
+      mcp.setAspect(GenericRecordUtils.serializePatch(getPatch()));
       mcp.setSystemMetadata(getSystemMetadata());
       mcp.setEntityKeyAspect(
           GenericRecordUtils.serializeAspect(
@@ -113,6 +115,34 @@ public class PatchItemImpl implements PatchMCP {
   }
 
   public ChangeItemImpl applyPatch(RecordTemplate recordTemplate, AspectRetriever aspectRetriever) {
+    if (genericJsonPatch != null) {
+      if (!genericJsonPatch.getArrayPrimaryKeys().isEmpty()
+          || genericJsonPatch.isForceGenericPatch()) {
+        return applyGenericPatch(recordTemplate, aspectRetriever);
+      }
+    }
+    return applyTemplatePatch(recordTemplate, aspectRetriever);
+  }
+
+  private ChangeItemImpl applyGenericPatch(
+      RecordTemplate recordTemplate, AspectRetriever aspectRetriever) {
+    try {
+      GenericPatchTemplate<? extends RecordTemplate> genericPatchTemplate =
+          GenericPatchTemplate.builder()
+              .genericJsonPatch(genericJsonPatch)
+              .templateType(aspectSpec.getDataTemplateClass())
+              .templateDefault(
+                  aspectSpec.getDataTemplateClass().getDeclaredConstructor().newInstance())
+              .build();
+      return ChangeItemImpl.fromPatch(
+          urn, aspectSpec, recordTemplate, genericPatchTemplate, auditStamp, aspectRetriever);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private ChangeItemImpl applyTemplatePatch(
+      RecordTemplate recordTemplate, AspectRetriever aspectRetriever) {
     ChangeItemImpl.ChangeItemImplBuilder builder =
         ChangeItemImpl.builder()
             .urn(getUrn())
@@ -198,6 +228,7 @@ public class PatchItemImpl implements PatchMCP {
           this.systemMetadata,
           this.auditStamp,
           Objects.requireNonNull(this.patch),
+          this.genericJsonPatch,
           this.metadataChangeProposal,
           this.entitySpec,
           this.aspectSpec);
@@ -212,7 +243,9 @@ public class PatchItemImpl implements PatchMCP {
       this.auditStamp = auditStamp;
       this.aspectName = mcp.getAspectName();
       systemMetadata(mcp.getSystemMetadata());
-      patch(convertToJsonPatch(mcp));
+      Pair<JsonPatch, Optional<GenericJsonPatch>> parsedJson = convertToJsonPatch(mcp);
+      patch(parsedJson.getFirst());
+      parsedJson.getSecond().ifPresent(generic -> this.genericJsonPatch = generic);
 
       entitySpec(entityRegistry.getEntitySpec(this.urn.getEntityType())); // prior validation
       aspectSpec(entitySpec.getAspectSpec(this.aspectName)); // prior validation
@@ -223,20 +256,48 @@ public class PatchItemImpl implements PatchMCP {
           this.systemMetadata,
           this.auditStamp,
           this.patch,
+          this.genericJsonPatch,
           this.metadataChangeProposal,
           this.entitySpec,
           this.aspectSpec);
     }
 
-    public static JsonPatch convertToJsonPatch(MetadataChangeProposal mcp) {
-      JsonNode json;
+    private static Pair<JsonPatch, Optional<GenericJsonPatch>> convertToJsonPatch(
+        MetadataChangeProposal mcp) {
       try {
-        return Json.createPatch(
-            Json.createReader(
-                    new StringReader(mcp.getAspect().getValue().asString(StandardCharsets.UTF_8)))
-                .readArray());
+        String jsonString = mcp.getAspect().getValue().asString(StandardCharsets.UTF_8);
+        JsonReader reader = Json.createReader(new StringReader(jsonString));
+
+        // Check if the JSON contains a "patch" key
+        JsonStructure jsonStructure = reader.read();
+        JsonPatch jsonPatch;
+        Optional<GenericJsonPatch> genericJsonPatch = Optional.empty();
+
+        if (jsonStructure.getValueType() == JsonValue.ValueType.OBJECT) {
+          JsonObject jsonObject = (JsonObject) jsonStructure;
+
+          if (jsonObject.containsKey("patch")) {
+            // If "patch" key exists, read the array from this key
+            jsonPatch = Json.createPatch(jsonObject.getJsonArray("patch"));
+
+            // Convert to GenericJsonPatch
+            genericJsonPatch =
+                Optional.of(OBJECT_MAPPER.readValue(jsonString, GenericJsonPatch.class));
+
+            return Pair.of(jsonPatch, genericJsonPatch);
+          }
+        }
+
+        // If no "patch" key or not an object, fallback to original behavior
+        jsonPatch = Json.createPatch(Json.createReader(new StringReader(jsonString)).readArray());
+
+        return Pair.of(jsonPatch, genericJsonPatch);
       } catch (RuntimeException e) {
-        throw new IllegalArgumentException("Invalid JSON Patch: " + mcp.getAspect().getValue(), e);
+        throw new IllegalArgumentException(
+            "Invalid JSON Patch: " + mcp.getAspect().getValue().asString(StandardCharsets.UTF_8),
+            e);
+      } catch (JsonProcessingException e) {
+        throw new RuntimeException(e);
       }
     }
   }
@@ -259,12 +320,13 @@ public class PatchItemImpl implements PatchMCP {
         && aspectName.equals(that.aspectName)
         && Objects.equals(systemMetadata, that.systemMetadata)
         && auditStamp.equals(that.auditStamp)
-        && patch.equals(that.patch);
+        && patch.equals(that.patch)
+        && Objects.equals(genericJsonPatch, that.genericJsonPatch);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(urn, aspectName, systemMetadata, auditStamp, patch);
+    return Objects.hash(urn, aspectName, systemMetadata, auditStamp, patch, genericJsonPatch);
   }
 
   @Override

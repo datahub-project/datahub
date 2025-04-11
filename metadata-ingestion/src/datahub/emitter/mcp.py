@@ -1,6 +1,6 @@
 import dataclasses
 import json
-from typing import TYPE_CHECKING, List, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Tuple, Union
 
 from datahub.emitter.aspect import ASPECT_MAP, JSON_CONTENT_TYPE
 from datahub.emitter.serialization_helper import post_json_transform, pre_json_transform
@@ -69,6 +69,7 @@ class MetadataChangeProposalWrapper:
     aspectName: Union[None, str] = None
     aspect: Union[None, _Aspect] = None
     systemMetadata: Union[None, SystemMetadataClass] = None
+    headers: Union[None, Dict[str, str]] = None
 
     def __post_init__(self) -> None:
         if self.entityUrn and self.entityType == _ENTITY_TYPE_UNSET:
@@ -112,6 +113,7 @@ class MetadataChangeProposalWrapper:
             auditHeader=self.auditHeader,
             aspectName=self.aspectName,
             systemMetadata=self.systemMetadata,
+            headers=self.headers,
         )
 
     def make_mcp(self) -> MetadataChangeProposalClass:
@@ -211,6 +213,7 @@ class MetadataChangeProposalWrapper:
                 aspectName=mcpc.aspectName,
                 aspect=aspect,
                 systemMetadata=mcpc.systemMetadata,
+                headers=mcpc.headers,
             )
         else:
             return None
@@ -228,6 +231,7 @@ class MetadataChangeProposalWrapper:
             changeType=mcl.changeType,
             auditHeader=mcl.auditHeader,
             systemMetadata=mcl.systemMetadata,
+            headers=mcl.headers,
         )
         return cls.try_from_mcpc(mcpc) or mcpc
 

@@ -301,6 +301,7 @@ class SnowflakeV2Config(
         default=AllowDenyPattern.allow_all(),
         description=(
             "List of regex patterns for structured properties to include in ingestion."
+            " Applied to tags with form `<database>.<schema>.<tag_name>`."
             " Only used if `extract_tags` and `extract_tags_as_structured_properties` are enabled."
         ),
     )

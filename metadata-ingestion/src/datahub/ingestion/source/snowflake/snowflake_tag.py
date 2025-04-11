@@ -23,6 +23,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.structured import (
     StructuredPropertyDefinition,
 )
+from datahub.metadata.schema_classes import ChangeTypeClass
 from datahub.metadata.urns import (
     ContainerUrn,
     DatasetUrn,
@@ -81,7 +82,7 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
     def create_structured_property_templates(self) -> Iterable[MetadataWorkUnit]:
         for tag in self.data_dictionary.get_all_tags():
             if not self.config.structured_property_pattern.allowed(
-                tag.tag_identifier()
+                tag._id_prefix_as_str()
             ):
                 continue
             if self.config.extract_tags_as_structured_properties:
@@ -111,6 +112,8 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
         yield MetadataChangeProposalWrapper(
             entityUrn=urn,
             aspect=aspect,
+            changeType=ChangeTypeClass.CREATE,
+            headers={"If-None-Match": "*"},
         ).as_workunit()
 
     def _get_tags_on_object_with_propagation(

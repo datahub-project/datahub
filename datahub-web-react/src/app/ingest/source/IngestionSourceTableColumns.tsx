@@ -29,6 +29,11 @@ const StatusContainer = styled.div`
     align-items: center;
 `;
 
+const AllStatusWrapper = styled.div`
+    display: flex;
+    flex-direction: column;
+`;
+
 const StatusButton = styled(Button)`
     padding: 0px;
     margin: 0px;
@@ -100,10 +105,10 @@ export function TypeColumn({ type, record }: TypeColumnProps) {
     );
 }
 
-export function LastExecutionColumn(time: any) {
+export function LastExecutionColumn({ time }: { time: number }) {
     const executionDate = time && new Date(time);
     const localTime = executionDate && `${executionDate.toLocaleDateString()} at ${executionDate.toLocaleTimeString()}`;
-    return <Typography.Text>{localTime || 'None'}</Typography.Text>;
+    return <Typography.Text type="secondary">{localTime ? `Last run ${localTime}` : 'Never run'}</Typography.Text>;
 }
 
 export function ScheduleColumn(schedule: any, record: any) {
@@ -131,17 +136,21 @@ export function LastStatusColumn({ status, record, setFocusExecutionUrn }: LastS
     const Icon = getExecutionRequestStatusIcon(status);
     const text = getExecutionRequestStatusDisplayText(status);
     const color = getExecutionRequestStatusDisplayColor(status);
+    const { lastExecTime, lastExecUrn } = record;
     return (
-        <StatusContainer>
-            {Icon && <Icon style={{ color, fontSize: 14 }} />}
-            <StatusButton
-                data-testid="ingestion-source-table-status"
-                type="link"
-                onClick={() => setFocusExecutionUrn(record.lastExecUrn)}
-            >
-                <StatusText color={color}>{text || 'Pending...'}</StatusText>
-            </StatusButton>
-        </StatusContainer>
+        <AllStatusWrapper>
+            <StatusContainer>
+                {Icon && <Icon style={{ color, fontSize: 14 }} />}
+                <StatusButton
+                    data-testid="ingestion-source-table-status"
+                    type="link"
+                    onClick={() => setFocusExecutionUrn(lastExecUrn)}
+                >
+                    <StatusText color={color}>{text || 'Pending...'}</StatusText>
+                </StatusButton>
+            </StatusContainer>
+            <LastExecutionColumn time={lastExecTime} />
+        </AllStatusWrapper>
     );
 }
 

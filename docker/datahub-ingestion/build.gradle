@@ -1,9 +1,9 @@
 plugins {
-    id 'com.palantir.docker'
     id 'java' // required for versioning
 }
 
 apply from: "../../gradle/versioning/versioning.gradle"
+apply from: "../../gradle/docker/docker.gradle"
 
 ext {
     docker_registry = rootProject.ext.docker_registry == 'linkedin' ? 'acryldata' : docker_registry
@@ -12,18 +12,17 @@ ext {
     docker_target = project.getProperties().getOrDefault("dockerTarget", "slim")
     docker_version = "${version}${docker_target == 'slim' ? '-slim' : ''}"
 
-    revision = 10 // increment to trigger rebuild
+    revision = 12 // increment to trigger rebuild
 }
 
 dependencies {
-    project(':docker:datahub-ingestion-base')
     project(':metadata-ingestion')
 }
 
 docker {
-    name "${docker_registry}/${docker_repo}:v${docker_version}"
-    version "v${docker_version}"
-    dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile${docker_target == "slim" ? "-slim-only" : ""}")
+    dependsOn 'build', ':metadata-ingestion:codegen'
+    name "${docker_registry}/${docker_repo}:${docker_version}"
+    dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
     files fileTree(rootProject.projectDir) {
         include '.dockerignore'
         include "docker/${docker_dir}/*"
@@ -32,8 +31,9 @@ docker {
     }.exclude {
         i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
     }
-    
-    def dockerBuildArgs = [DOCKER_VERSION: version, RELEASE_VERSION: version.replace('-SNAPSHOT', '').replace('v', '').replace("-slim", ''), BASE_IMAGE: "${docker_registry}/datahub-ingestion-base"]
+
+    version "v${docker_version}"
+    def dockerBuildArgs = [RELEASE_VERSION: version.replace('-SNAPSHOT', '').replace('v', '').replace("-slim", '')]
 
     // Add build args if they are defined (needed for some CI or enterprise environments)
     if (project.hasProperty('pipMirrorUrl')) {
@@ -45,20 +45,3 @@ docker {
 
     buildArgs(dockerBuildArgs)
 }
-tasks.getByName('dockerPrepare').dependsOn(['build',
-                                            ':docker:datahub-ingestion-base:docker',
-                                            ':metadata-ingestion:codegen'])
-
-task mkdirBuildDocker {
-    doFirst {
-        mkdir "${project.buildDir}/docker"
-    }
-}
-dockerClean.finalizedBy(mkdirBuildDocker)
-
-task cleanLocalDockerImages {
-    doLast {
-        rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "${version}")
-    }
-}
-dockerClean.finalizedBy(cleanLocalDockerImages)

@@ -50,7 +50,7 @@ const meta = {
         subTitle: 'Description of the card',
         renderControls: () => (
             <>
-                <Button icon="Add" variant="outline" size="md">
+                <Button icon={{ icon: 'Add', source: 'material' }} variant="outline" size="md">
                     Assertion
                 </Button>
                 <SimpleSelect

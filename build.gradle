@@ -91,7 +91,7 @@ plugins {
   // TODO id "org.gradlex.java-ecosystem-capabilities" version "1.0"
 }
 
-apply from: "gradle/docker/docker.gradle"
+apply from: "gradle/docker/docker-utils.gradle"
 
 project.ext.spec = [
     'product' : [
@@ -112,12 +112,12 @@ project.ext.spec = [
 
 project.ext.externalDependency = [
     'akkaHttp': "com.typesafe.akka:akka-http-core_$playScalaVersion:10.2.10", // max version due to licensing
+    'akkaParsing': "com.typesafe.akka:akka-parsing_$playScalaVersion:10.2.10", // akka-parsing is part of akka-http, so use akka http version
     'akkaActor': "com.typesafe.akka:akka-actor_$playScalaVersion:$akkaVersion",
     'akkaStream': "com.typesafe.akka:akka-stream_$playScalaVersion:$akkaVersion",
     'akkaActorTyped': "com.typesafe.akka:akka-actor-typed_$playScalaVersion:$akkaVersion",
     'akkaSlf4j': "com.typesafe.akka:akka-slf4j_$playScalaVersion:$akkaVersion",
     'akkaJackson': "com.typesafe.akka:akka-serialization-jackson_$playScalaVersion:$akkaVersion",
-    'akkaParsing': "com.typesafe.akka:akka-parsing_$playScalaVersion:$akkaVersion",
     'akkaProtobuf': "com.typesafe.akka:akka-protobuf-v3_$playScalaVersion:$akkaVersion",
     'antlr4Runtime': 'org.antlr:antlr4-runtime:4.9.3',
     'antlr4': 'org.antlr:antlr4:4.9.3',
@@ -226,11 +226,14 @@ project.ext.externalDependency = [
     'opentelemetryApi': 'io.opentelemetry:opentelemetry-api:' + openTelemetryVersion,
     'opentelemetrySdk': 'io.opentelemetry:opentelemetry-sdk:' + openTelemetryVersion,
     'opentelemetrySdkTrace': 'io.opentelemetry:opentelemetry-sdk-trace:' + openTelemetryVersion,
+    'opentelemetrySdkMetrics': 'io.opentelemetry:opentelemetry-sdk-metrics:' + openTelemetryVersion,
     'opentelemetryAutoConfig': 'io.opentelemetry:opentelemetry-sdk-extension-autoconfigure:' + openTelemetryVersion,
     'opentelemetryExporter': 'io.opentelemetry:opentelemetry-exporter-otlp:' + openTelemetryVersion,
+    'openTelemetryExporterLogging': 'io.opentelemetry:opentelemetry-exporter-logging:' + openTelemetryVersion,
+    'openTelemetryExporterCommon': 'io.opentelemetry:opentelemetry-exporter-otlp-common:' + openTelemetryVersion,
     'opentelemetryAnnotations': 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.11.0',
     'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
-    'parquet': 'org.apache.parquet:parquet-avro:1.12.3',
+    'parquet': 'org.apache.parquet:parquet-avro:1.15.1',
     'parquetHadoop': 'org.apache.parquet:parquet-hadoop:1.13.1',
     'picocli': 'info.picocli:picocli:4.5.0',
     'playCache': "com.typesafe.play:play-cache_$playScalaVersion:$playVersion",
@@ -277,6 +280,7 @@ project.ext.externalDependency = [
     'swaggerAnnotations': 'io.swagger.core.v3:swagger-annotations:2.2.15',
     'swaggerCli': 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.46',
     'swaggerCore': 'io.swagger.core.v3:swagger-core:2.2.7',
+    'swaggerParser': 'io.swagger.parser.v3:swagger-parser:2.1.15',
     'springBootAutoconfigureJdk11': 'org.springframework.boot:spring-boot-autoconfigure:2.7.18',
     'testng': 'org.testng:testng:7.8.0',
     'testContainers': 'org.testcontainers:testcontainers:' + testContainersVersion,

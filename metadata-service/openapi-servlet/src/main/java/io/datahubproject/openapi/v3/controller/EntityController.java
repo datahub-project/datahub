@@ -1,6 +1,7 @@
 package io.datahubproject.openapi.v3.controller;
 
 import static com.linkedin.metadata.Constants.VERSION_SET_ENTITY_NAME;
+import static com.linkedin.metadata.aspect.patch.GenericJsonPatch.PATCH_FIELD;
 import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
@@ -14,9 +15,11 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.ByteString;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.entity.EnvelopedAspect;
@@ -26,11 +29,13 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.RollbackResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import com.linkedin.metadata.entity.versioning.VersionPropertiesInput;
@@ -45,6 +50,7 @@ import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
@@ -86,6 +92,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -347,6 +354,48 @@ public class EntityController
             .collect(Collectors.toList()));
   }
 
+  @Tag(name = "Generic Entities")
+  @PatchMapping(
+      value = "/{entityName}",
+      consumes = {"application/json-patch+json", MediaType.APPLICATION_JSON_VALUE},
+      produces = MediaType.APPLICATION_JSON_VALUE)
+  @Operation(summary = "Patch a batch of entities.")
+  public ResponseEntity<List<GenericEntityV3>> patchEntity(
+      HttpServletRequest request,
+      @PathVariable("entityName") String entityName,
+      @RequestParam(value = "async", required = false, defaultValue = "true") Boolean async,
+      @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
+          Boolean withSystemMetadata,
+      @RequestBody @Nonnull String jsonEntityPatchList)
+      throws InvalidUrnException, JsonProcessingException {
+
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(), request, "patchEntity", entityName),
+            authorizationChain,
+            authentication,
+            true);
+
+    if (!AuthUtil.isAPIAuthorizedEntityType(opContext, UPDATE, entityName)) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + UPDATE + " entities.");
+    }
+
+    AspectsBatch batch =
+        toMCPBatch(opContext, jsonEntityPatchList, authentication.getActor(), ChangeType.PATCH);
+    List<IngestResult> results = entityService.ingestProposal(opContext, batch, async);
+
+    if (!async) {
+      return ResponseEntity.ok(buildEntityList(opContext, results, withSystemMetadata));
+    } else {
+      return ResponseEntity.accepted().build();
+    }
+  }
+
   @Override
   public GenericEntityScrollResultV3 buildScrollResult(
       @Nonnull OperationContext opContext,
@@ -474,18 +523,40 @@ public class EntityController
       Map<String, AspectItem> aspectsMap =
           urnAspects.getValue().stream()
               .map(
-                  ingest ->
-                      Map.entry(
-                          ingest.getRequest().getAspectName(),
-                          AspectItem.builder()
-                              .aspect(ingest.getRequest().getRecordTemplate())
-                              .systemMetadata(
-                                  withSystemMetadata
-                                      ? ingest.getRequest().getSystemMetadata()
-                                      : null)
-                              .auditStamp(
-                                  withSystemMetadata ? ingest.getRequest().getAuditStamp() : null)
-                              .build()))
+                  ingest -> {
+                    final AspectItem.AspectItemBuilder aspectItemBuilder =
+                        AspectItem.builder()
+                            .systemMetadata(
+                                withSystemMetadata ? ingest.getRequest().getSystemMetadata() : null)
+                            .auditStamp(
+                                withSystemMetadata ? ingest.getRequest().getAuditStamp() : null);
+
+                    RecordTemplate recordTemplate;
+                    if (ingest.getRequest().getChangeType() == ChangeType.PATCH) {
+                      try {
+                        MCPItem mcpItem = (MCPItem) ingest.getRequest();
+                        JsonNode jsonNode =
+                            objectMapper.readTree(
+                                mcpItem
+                                    .getMetadataChangeProposal()
+                                    .getAspect()
+                                    .getValue()
+                                    .asString(StandardCharsets.UTF_8));
+                        recordTemplate = GenericRecordUtils.fromJson(jsonNode, "GenericJsonPatch");
+                      } catch (JsonProcessingException e) {
+                        throw new RuntimeException(e);
+                      }
+                    } else {
+                      recordTemplate =
+                          (ingest.getResult() != null && ingest.getResult().getNewValue() != null)
+                              ? ingest.getResult().getNewValue()
+                              : ingest.getRequest().getRecordTemplate();
+                    }
+
+                    return Map.entry(
+                        ingest.getRequest().getAspectName(),
+                        aspectItemBuilder.aspect(recordTemplate).build());
+                  })
               // Map merge strategy, just take latest one
               .collect(
                   Collectors.toMap(
@@ -608,6 +679,15 @@ public class EntityController
   protected AspectsBatch toMCPBatch(
       @Nonnull OperationContext opContext, String entityArrayList, Actor actor)
       throws JsonProcessingException, InvalidUrnException {
+    return toMCPBatch(opContext, entityArrayList, actor, ChangeType.UPSERT);
+  }
+
+  AspectsBatch toMCPBatch(
+      @Nonnull OperationContext opContext,
+      String entityArrayList,
+      Actor actor,
+      ChangeType changeType)
+      throws JsonProcessingException, InvalidUrnException {
     JsonNode entities = objectMapper.readTree(entityArrayList);
 
     List<BatchItem> items = new LinkedList<>();
@@ -645,39 +725,55 @@ public class EntityController
 
           JsonNode jsonNodeAspect = aspect.getValue().get("value");
 
-          if (opContext.getValidationContext().isAlternateValidation()) {
-            items.add(
-                ProposedItem.builder()
-                    .build(
-                        new MetadataChangeProposal()
-                            .setEntityUrn(entityUrn)
-                            .setAspectName(aspect.getKey())
-                            .setEntityType(entityUrn.getEntityType())
-                            .setChangeType(ChangeType.UPSERT)
-                            .setAspect(GenericRecordUtils.serializeAspect(jsonNodeAspect))
-                            .setHeaders(
-                                headers != null ? new StringMap(headers) : null,
-                                SetMode.IGNORE_NULL)
-                            .setSystemMetadata(systemMetadata, SetMode.IGNORE_NULL),
-                        AuditStampUtils.createAuditStamp(actor.toUrnStr()),
-                        entityRegistry));
-          } else if (aspectSpec != null) {
-            ChangeItemImpl.ChangeItemImplBuilder builder =
-                ChangeItemImpl.builder()
-                    .urn(entityUrn)
-                    .aspectName(aspectSpec.getName())
-                    .auditStamp(AuditStampUtils.createAuditStamp(actor.toUrnStr()))
-                    .systemMetadata(systemMetadata)
-                    .headers(headers)
-                    .recordTemplate(
-                        GenericRecordUtils.deserializeAspect(
-                            ByteString.copyString(
-                                objectMapper.writeValueAsString(jsonNodeAspect),
-                                StandardCharsets.UTF_8),
-                            GenericRecordUtils.JSON,
-                            aspectSpec));
+          if (changeType == ChangeType.PATCH && !jsonNodeAspect.has(PATCH_FIELD)) {
+            throw new IllegalArgumentException(String.format("Missing `%s` field.", PATCH_FIELD));
+          }
 
-            items.add(builder.build(opContext.getRetrieverContext().getAspectRetriever()));
+          final GenericAspect genericAspect;
+          if (ChangeType.PATCH == changeType) {
+            genericAspect = GenericRecordUtils.serializePatch(jsonNodeAspect);
+          } else {
+            genericAspect = GenericRecordUtils.serializeAspect(jsonNodeAspect);
+          }
+
+          AuditStamp auditStamp = AuditStampUtils.createAuditStamp(actor.toUrnStr());
+          MetadataChangeProposal mcp =
+              new MetadataChangeProposal()
+                  .setEntityUrn(entityUrn)
+                  .setAspectName(aspect.getKey())
+                  .setEntityType(entityUrn.getEntityType())
+                  .setChangeType(changeType)
+                  .setHeaders(headers != null ? new StringMap(headers) : null, SetMode.IGNORE_NULL)
+                  .setSystemMetadata(systemMetadata, SetMode.IGNORE_NULL)
+                  .setAspect(genericAspect);
+
+          if (opContext.getValidationContext().isAlternateValidation()) {
+            items.add(ProposedItem.builder().build(mcp, auditStamp, entityRegistry));
+          } else if (aspectSpec != null) {
+            if (ChangeType.PATCH == changeType) {
+              items.add(
+                  PatchItemImpl.builder()
+                      .build(
+                          mcp, AuditStampUtils.createAuditStamp(actor.toUrnStr()), entityRegistry));
+            } else {
+              ChangeItemImpl.ChangeItemImplBuilder builder =
+                  ChangeItemImpl.builder()
+                      .urn(entityUrn)
+                      .aspectName(aspectSpec.getName())
+                      .changeType(changeType)
+                      .auditStamp(auditStamp)
+                      .systemMetadata(systemMetadata)
+                      .headers(headers)
+                      .recordTemplate(
+                          GenericRecordUtils.deserializeAspect(
+                              ByteString.copyString(
+                                  objectMapper.writeValueAsString(jsonNodeAspect),
+                                  StandardCharsets.UTF_8),
+                              GenericRecordUtils.JSON,
+                              aspectSpec));
+
+              items.add(builder.build(opContext.getRetrieverContext().getAspectRetriever()));
+            }
           }
         }
       }
