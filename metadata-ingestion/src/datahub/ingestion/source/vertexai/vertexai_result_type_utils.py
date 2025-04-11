@@ -1,9 +1,9 @@
-from typing import Union
+from typing import Optional, Union
 
 from google.cloud.aiplatform.base import VertexAiResourceNoun
 from google.cloud.aiplatform.jobs import _RunnableJob
 from google.cloud.aiplatform.training_jobs import _TrainingJob
-from google.cloud.aiplatform_v1.types import JobState, PipelineState
+from google.cloud.aiplatform_v1.types import JobState, PipelineState, PipelineTaskDetail
 
 from datahub.metadata.schema_classes import RunResultTypeClass
 
@@ -61,6 +61,27 @@ def get_execution_result_status(status: int) -> Union[str, RunResultTypeClass]:
         3: RunResultTypeClass.SUCCESS,
         4: RunResultTypeClass.FAILURE,
     }
+    return status_mapping.get(status, "UNKNOWN")
+
+
+def get_pipeline_task_result_status(
+    status: Optional[PipelineTaskDetail.State],
+) -> Union[str, RunResultTypeClass]:
+    # TODO: DataProcessInstanceRunResultClass fails with status string except for SUCCESS, FAILURE, SKIPPED,
+    #  which will be fixed in the future
+    status_mapping = {
+        # PipelineTaskDetail.State.STATE_UNSPECIFIED: "STATE_UNSPECIFIED",
+        # PipelineTaskDetail.State.PENDING: "PENDING",
+        # PipelineTaskDetail.State.RUNNING: "RUNNING",
+        # PipelineTaskDetail.State.CANCEL_PENDING: "CANCEL_PENDING",
+        # PipelineTaskDetail.State.CANCELLING: "CANCELLING",
+        # PipelineTaskDetail.State.NOT_TRIGGERED: "NOT_TRIGGERED",
+        PipelineTaskDetail.State.SUCCEEDED: RunResultTypeClass.SUCCESS,
+        PipelineTaskDetail.State.FAILED: RunResultTypeClass.FAILURE,
+        PipelineTaskDetail.State.SKIPPED: RunResultTypeClass.SKIPPED,
+    }
+    if status is None:
+        return "UNKNOWN"
     return status_mapping.get(status, "UNKNOWN")
 
 
