@@ -10,6 +10,17 @@ services:
     volumes:
       - test_zkdata:/var/lib/zookeeper/data
       - test_zklogs:/var/lib/zookeeper/log
+    healthcheck:
+      test: ["CMD-SHELL", "echo ruok | nc localhost 52181 || exit 1"]
+      retries: 5
+      start_period: 15s
+    restart: on-failure:3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
 
   broker:
     image: confluentinc/cp-kafka:7.2.2
@@ -17,20 +28,42 @@ services:
     hostname: test_broker
     container_name: test_broker
     depends_on:
-      - zookeeper
+      zookeeper:
+        condition: service_healthy
     ports:
       - "29092:29092"
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "kafka-topics --bootstrap-server broker:9092 --list || exit 1"
+      retries: 5
+      start_period: 30s
+    restart: on-failure:3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
 
   schema-registry:
     image: confluentinc/cp-schema-registry:7.2.2
-    restart: unless-stopped
     env_file: schema-registry.env
     container_name: test_schema_registry
     depends_on:
-      - zookeeper
-      - broker
+      zookeeper:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
     ports:
       - "28081:8081"
+    restart: on-failure:3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
 
 volumes:
   test_zkdata:
