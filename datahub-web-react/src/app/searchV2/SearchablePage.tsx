@@ -28,6 +28,7 @@ import { FieldToAppliedFieldFiltersMap } from './filtersV2/types';
 import { generateOrFilters } from './utils/generateOrFilters';
 import { UnionType } from './utils/constants';
 import { useAppConfig } from '../useAppConfig';
+import { convertFiltersMapToFilters } from './filtersV2/utils';
 
 const Body = styled.div`
     display: flex;
@@ -148,16 +149,15 @@ export const SearchablePage = ({ children }: Props) => {
             if (query.trim() === '') return null;
             if (!showSearchBarAutocompleteRedesign) return null;
 
-            const flatAppliedFilters = Array.from(appliedFiltersFprAutocomplete?.values?.() || [])
-                .flatMap((value) => value.filters)
-                .filter((filter) => filter.values?.length);
+            const filters = convertFiltersMapToFilters(appliedFiltersFprAutocomplete);
+            const orFilters = generateOrFilters(UnionType.AND, filters);
 
             getAutoCompleteResults({
                 variables: {
                     input: {
                         query,
                         viewUrn,
-                        orFilters: generateOrFilters(UnionType.AND, flatAppliedFilters),
+                        orFilters,
                     },
                 },
             });
