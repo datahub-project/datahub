@@ -147,8 +147,7 @@ class SQLAlchemyConnectionConfig(ConfigModel):
     )
     host_port: Optional[str] = Field(default=None, description="host URL")
     database: Optional[str] = Field(default=None, description="database (catalog)")
-
-    scheme: Optional[str] = Field(default=None, description="scheme")
+    scheme: str = Field(description="scheme")
     sqlalchemy_uri: Optional[str] = Field(
         default=None,
         description="URI of database to connect to. See https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls. Takes precedence over other connection parameters.",

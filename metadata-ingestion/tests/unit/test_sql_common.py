@@ -1,10 +1,17 @@
 from typing import Dict
 from unittest import mock
 
+from typing import Dict
+from unittest import mock
+
 import pytest
+from pydantic import ValidationError
 
 from datahub.ingestion.source.sql.sql_common import PipelineContext, SQLAlchemySource
-from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+from datahub.ingestion.source.sql.sql_config import (
+    BasicSQLAlchemyConfig,
+    SQLCommonConfig,
+)
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
     get_platform_from_sqlalchemy_uri,
 )
@@ -138,3 +145,164 @@ def test_test_connection_failure():
     assert not report.basic_connectivity.capable
     assert report.basic_connectivity.failure_reason
     assert "Connection refused" in report.basic_connectivity.failure_reason
+
+
+# Test cases for SQLAlchemyConnectionConfig validation
+VALID_CONFIGS = [
+    # Only URI
+    {"sqlalchemy_uri": "postgresql://user:pass@host:port/db"},
+    # Only host/port/scheme
+    {"host_port": "host:port", "scheme": "postgresql"},
+    # All provided (URI takes precedence in get_sql_alchemy_url, validation just checks presence)
+    {
+        "sqlalchemy_uri": "postgresql://user:pass@host:port/db",
+        "host_port": "otherhost:otherport",
+        "scheme": "mysql",
+    },
+    # With username/password
+    {
+        "host_port": "host:port",
+        "scheme": "postgresql",
+        "username": "user",
+        "password": "password",
+    },
+]
+
+INVALID_CONFIGS = [
+    # Missing scheme
+    {"host_port": "host:port"},
+    # Missing host_port
+    {"scheme": "postgresql"},
+    # Missing all required fields
+    {},
+    # Empty strings for host/scheme (should fail validation)
+    {"host_port": "", "scheme": ""},
+    # Empty string for URI (should fail validation)
+    {"sqlalchemy_uri": ""},
+]
+
+
+@pytest.mark.parametrize("config_dict", VALID_CONFIGS)
+def test_sql_config_validation_valid(config_dict: Dict[str, str]) -> None:
+    """Tests that BasicSQLAlchemyConfig validates successfully with valid combinations."""
+    try:
+        BasicSQLAlchemyConfig.parse_obj(config_dict)
+    except ValidationError as e:
+        pytest.fail(f"Validation failed unexpectedly for {config_dict}: {e}")
+
+
+@pytest.mark.parametrize("config_dict", INVALID_CONFIGS)
+def test_sql_config_validation_invalid(config_dict: Dict[str, str]) -> None:
+    """Tests that BasicSQLAlchemyConfig raises ValidationError for invalid combinations."""
+    with pytest.raises(ValidationError):
+        BasicSQLAlchemyConfig.parse_obj(config_dict)
+
+
+# Test cases for get_sql_alchemy_url
+GET_URL_TEST_CASES = [
+    # Only URI
+    (
+        {"sqlalchemy_uri": "postgresql+psycopg2://user:pass@host:5432/db"},
+        None,
+        None,
+        "postgresql+psycopg2://user:pass@host:5432/db",
+    ),
+    # Only components (host, port, scheme, user, pass, db)
+    (
+        {
+            "host_port": "host:5432",
+            "scheme": "mysql+pymysql",
+            "username": "user",
+            "password": "password",
+            "database": "db",
+        },
+        None,
+        None,
+        "mysql+pymysql://user:password@host:5432/db",
+    ),
+    # Components without port
+    (
+        {
+            "host_port": "host",
+            "scheme": "mysql+pymysql",
+            "username": "user",
+            "password": "password",
+            "database": "db",
+        },
+        None,
+        None,
+        "mysql+pymysql://user:password@host/db",
+    ),
+    # Both URI and components (URI takes precedence)
+    (
+        {
+            "sqlalchemy_uri": "postgresql+psycopg2://user:pass@host:5432/db",
+            "host_port": "otherhost:1234",
+            "scheme": "mysql",
+            "username": "otheruser",
+            "password": "otherpassword",
+            "database": "otherdb",
+        },
+        None,
+        None,
+        "postgresql+psycopg2://user:pass@host:5432/db",
+    ),
+    # Components with database override argument
+    (
+        {
+            "host_port": "host:5432",
+            "scheme": "postgresql",
+            "username": "user",
+            "password": "password",
+            "database": "original_db",
+        },
+        None,
+        "override_db",
+        "postgresql://user:password@host:5432/override_db",
+    ),
+    # Components with uri_opts argument
+    (
+        {
+            "host_port": "host:5432",
+            "scheme": "snowflake",
+            "username": "user",
+            "password": "password",
+            "database": "db",
+        },
+        {"account": "test_account", "warehouse": "test_wh"},
+        None,
+        "snowflake://user:password@host:5432/db?account=test_account&warehouse=test_wh",
+    ),
+    # Components with options in config (should not affect URL directly unless passed as uri_opts)
+    (
+        {
+            "host_port": "host:5432",
+            "scheme": "mysql+pymysql",
+            "username": "user",
+            "password": "password",
+            "database": "db",
+            "options": {"connect_timeout": 10},
+        },
+        None,
+        None,
+        "mysql+pymysql://user:password@host:5432/db",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "config_dict, uri_opts, database_override, expected_url",
+    GET_URL_TEST_CASES,
+)
+def test_get_sql_alchemy_url(
+    config_dict: Dict[str, str],
+    uri_opts: Dict[str, str] | None,
+    database_override: str | None,
+    expected_url: str,
+) -> None:
+    """Tests the get_sql_alchemy_url method with various configurations."""
+    config = BasicSQLAlchemyConfig.parse_obj(config_dict)
+    generated_url = config.get_sql_alchemy_url(
+        uri_opts=uri_opts, database=database_override
+    )
+    assert generated_url == expected_url
