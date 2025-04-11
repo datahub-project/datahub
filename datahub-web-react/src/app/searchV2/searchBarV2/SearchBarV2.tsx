@@ -32,6 +32,7 @@ import filterSearchQuery from '@app/searchV2/utils/filterSearchQuery';
 import { useAppConfig, useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 import { colors, radius, spacing, transition } from '@src/alchemy-components';
 import { AutoComplete } from '@src/alchemy-components/components/AutoComplete';
+import { SearchBarApi } from '@src/types.generated';
 
 const BOX_SHADOW = `0px -3px 12px 0px rgba(236, 240, 248, 0.5) inset,
 0px 3px 12px 0px rgba(255, 255, 255, 0.5) inset,
@@ -168,8 +169,6 @@ const DropdownContainer = styled.div`
     background: ${colors.white};
 `;
 
-// TODO:: FEAT: add feature flag on backend side and use it to choose API (use enum instead of )
-
 /**
  * Represents the search bar appearing in the default header view.
  */
@@ -239,7 +238,7 @@ export const SearchBarV2 = ({
     const viewAllResultsOptions = useViewAllResultsOptions(searchQuery, showViewAllResults);
 
     const isSearching = useMemo(() => {
-        const minimalLengthOfQuery = searchAPIVariant === 'searchAcrossEntitiesAPI' ? 3 : 1;
+        const minimalLengthOfQuery = searchAPIVariant === SearchBarApi.SearchAcrossEntities ? 3 : 1;
 
         const hasSearchQuery = searchQuery.length >= minimalLengthOfQuery;
         const hasAnyAppliedFilters = flatAppliedFilters.length > 0;
