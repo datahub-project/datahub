@@ -12,6 +12,7 @@ from typing import (
     Dict,
     Iterable,
     List,
+    Literal,
     Optional,
     Set,
     Tuple,
@@ -612,10 +613,14 @@ class TableauConfig(
         description="Configuration settings for ingesting Tableau groups and their capabilities as custom properties.",
     )
 
-    ingest_hidden_assets: bool = Field(
+    ingest_hidden_assets: Union[bool, List[Literal["worksheet", "dashboard"]]] = Field(
         True,
-        description="When enabled, hidden views and dashboards are ingested into Datahub. "
-        "If a dashboard or view is hidden in Tableau the luid is blank. Default of this config field is True.",
+        description=(
+            "When enabled, hidden worksheets and dashboards are ingested into Datahub."
+            " If a dashboard or worksheet is hidden in Tableau the luid is blank."
+            " A list of asset types can also be specified, to only ingest those hidden assets."
+            " Current options supported are 'worksheet' and 'dashboard'."
+        ),
     )
 
     tags_for_hidden_assets: List[str] = Field(
@@ -627,6 +632,22 @@ class TableauConfig(
     _fetch_size = pydantic_removed_field(
         "fetch_size",
     )
+
+    @validator("ingest_hidden_assets")
+    def validate_ingest_hidden_assets(
+        cls, value: Union[bool, List[str]]
+    ) -> Union[bool, List[str]]:
+        if isinstance(value, bool):
+            return value
+        for asset_type in value:
+            if not isinstance(asset_type, str) or asset_type.lower() not in [
+                "worksheet",
+                "dashboard",
+            ]:
+                raise ValueError(
+                    f"Invalid asset type '{asset_type}' in ingest_hidden_assets. Supported types are 'worksheet' and 'dashboard'."
+                )
+        return [v.lower() for v in value]
 
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
     @root_validator(pre=True)
@@ -1347,6 +1368,26 @@ class TableauSiteSource:
         # LUID is blank if the view is hidden in the workbook.
         # More info here: https://help.tableau.com/current/api/metadata_api/en-us/reference/view.doc.html
         return not dashboard_or_view.get(c.LUID)
+
+    def _should_ingest_worksheet(self, worksheet: Dict) -> bool:
+        return (
+            self.config.ingest_hidden_assets is True
+            or (
+                isinstance(self.config.ingest_hidden_assets, list)
+                and "worksheet" in self.config.ingest_hidden_assets
+            )
+            or not self._is_hidden_view(worksheet)
+        )
+
+    def _should_ingest_dashboard(self, dashboard: Dict) -> bool:
+        return (
+            self.config.ingest_hidden_assets is True
+            or (
+                isinstance(self.config.ingest_hidden_assets, list)
+                and "dashboard" in self.config.ingest_hidden_assets
+            )
+            or not self._is_hidden_view(dashboard)
+        )
 
     def get_connection_object_page(
         self,
@@ -3059,7 +3100,7 @@ class TableauSiteSource:
             query_filter=sheets_filter,
             page_size=self.config.effective_sheet_page_size,
         ):
-            if self.config.ingest_hidden_assets or not self._is_hidden_view(sheet):
+            if self._should_ingest_worksheet(sheet):
                 yield from self.emit_sheets_as_charts(sheet, sheet.get(c.WORKBOOK))
             else:
                 self.report.num_hidden_assets_skipped += 1
@@ -3380,7 +3421,7 @@ class TableauSiteSource:
             query_filter=dashboards_filter,
             page_size=self.config.effective_dashboard_page_size,
         ):
-            if self.config.ingest_hidden_assets or not self._is_hidden_view(dashboard):
+            if self._should_ingest_dashboard(dashboard):
                 yield from self.emit_dashboard(dashboard, dashboard.get(c.WORKBOOK))
             else:
                 self.report.num_hidden_assets_skipped += 1
