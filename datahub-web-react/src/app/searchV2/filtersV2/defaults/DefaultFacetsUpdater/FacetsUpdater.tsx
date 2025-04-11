@@ -1,15 +1,17 @@
 import { useAggregateAcrossEntitiesLazyQuery } from '@src/graphql/search.generated';
-import { EntityType, FacetMetadata } from '@src/types.generated';
+import { FacetMetadata } from '@src/types.generated';
 import { useEffect, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
-import { ENTITY_SUB_TYPE_FILTER_NAME } from '../../../utils/constants';
+import { UnionType } from '../../../utils/constants';
 import { useSearchFiltersContext } from '../../context';
 import { FieldName, FieldToFacetStateMap } from '../../types';
+import { convertFiltersMapToFilters } from '../../utils';
+import { generateOrFilters } from '@src/app/searchV2/utils/generateOrFilters';
 
 const DEBOUNCE_MS = 100;
 
 interface Props {
-    fieldNames: FieldName[];
+    fieldNames: FieldName[] | FieldName;
     query: string;
     onFacetsUpdated: (facets: FieldToFacetStateMap) => void;
 }
@@ -21,43 +23,32 @@ export function FacetsUpdater({ fieldNames, query, onFacetsUpdated }: Props) {
 
     const [aggregateAcrossEntities, { data, loading, called }] = useAggregateAcrossEntitiesLazyQuery();
 
-    const appliedFiltersForAnotherFields = useMemo(
-        () =>
-            Array.from(fieldToAppliedFiltersMap?.entries?.() || [])
-                .filter(([key, _]) => !fieldNames.includes(key))
-                .flatMap(([_, value]) => value.filters),
+    const wrappedFieldNames = useMemo(() => {
+        if (Array.isArray(fieldNames)) return fieldNames;
+        return [fieldNames]
+    }, [fieldNames])
 
-        [fieldToAppliedFiltersMap, fieldNames],
+    const filters = useMemo(
+        () => convertFiltersMapToFilters(fieldToAppliedFiltersMap, { excludedFields: wrappedFieldNames }),
+        [fieldToAppliedFiltersMap, wrappedFieldNames],
     );
-
-    const entityTypesFromFilters = useMemo(() => {
-        return appliedFiltersForAnotherFields
-            .filter((filter) => filter.field === ENTITY_SUB_TYPE_FILTER_NAME)
-            .flatMap((filter) => filter.values)
-            .filter((value): value is EntityType => !!value);
-    }, [appliedFiltersForAnotherFields]);
-
-    const filters = useMemo(() => {
-        return appliedFiltersForAnotherFields.filter((filter) => filter.field !== ENTITY_SUB_TYPE_FILTER_NAME);
-    }, [appliedFiltersForAnotherFields]);
 
     useDebounce(
         () => {
-            if (fieldNames.length > 0) {
+            if (wrappedFieldNames.length > 0) {
                 aggregateAcrossEntities({
                     variables: {
                         input: {
                             query,
-                            types: entityTypesFromFilters,
-                            orFilters: [{ and: filters }],
-                            facets: fieldNames,
+                            orFilters: generateOrFilters(UnionType.AND, filters),
+                            facets: wrappedFieldNames,
                         },
                     },
                 });
             }
         },
         DEBOUNCE_MS,
-        [aggregateAcrossEntities, query, entityTypesFromFilters, filters, fieldNames],
+        [aggregateAcrossEntities, query, filters, wrappedFieldNames],
     );
 
     useEffect(() => {
@@ -71,7 +62,7 @@ export function FacetsUpdater({ fieldNames, query, onFacetsUpdated }: Props) {
         if (isInitialized) {
             onFacetsUpdated(
                 new Map(
-                    fieldNames.map((fieldName) => [
+                    wrappedFieldNames.map((fieldName) => [
                         fieldName,
                         {
                             facet: facets.find((facet) => facet.field === fieldName),
@@ -81,7 +72,7 @@ export function FacetsUpdater({ fieldNames, query, onFacetsUpdated }: Props) {
                 ),
             );
         }
-    }, [onFacetsUpdated, facets, loading, isInitialized, fieldNames]);
+    }, [onFacetsUpdated, facets, loading, isInitialized, wrappedFieldNames]);
 
     return null;
 }
