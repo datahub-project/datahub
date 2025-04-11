@@ -49,8 +49,6 @@ public class SpringWebConfig implements WebMvcConfigurer {
 
   @Autowired private TracingInterceptor tracingInterceptor;
 
-  private static final Set<String> EVENTS_PACKAGES = Set.of("io.datahubproject.openapi.events");
-
   @Bean
   public GroupedOpenApi v3OpenApiGroup(
       final EntityRegistry entityRegistry, final ConfigurationProvider configurationProvider) {
@@ -130,16 +128,6 @@ public class SpringWebConfig implements WebMvcConfigurer {
         .group("60-metadatatests")
         .displayName("Metadata Tests")
         .packagesToScan(METADATA_TESTS_PACKAGES.toArray(String[]::new))
-        .build();
-  }
-
-  @Bean
-  @ConditionalOnProperty(name = "eventsApi.enabled", havingValue = "true")
-  public GroupedOpenApi eventsOpenApiGroup() {
-    return GroupedOpenApi.builder()
-        .group("70-events")
-        .displayName("Events")
-        .packagesToScan(EVENTS_PACKAGES.toArray(String[]::new))
         .build();
   }
 

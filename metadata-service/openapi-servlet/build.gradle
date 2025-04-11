@@ -12,7 +12,6 @@ dependencies {
   implementation project(':metadata-service:factories')
   implementation project(':metadata-service:schema-registry-api')
   implementation project(':metadata-service:scim-api')
-  implementation project(':metadata-service:events-api')
 
   implementation (externalDependency.scimServer) {
     exclude group: 'commons-logging', module: 'commons-logging'

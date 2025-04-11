@@ -2,9 +2,7 @@ package com.linkedin.datahub.upgrade;
 
 import com.linkedin.gms.factory.auth.AuthorizerChainFactory;
 import com.linkedin.gms.factory.auth.DataHubAuthorizerFactory;
-import com.linkedin.gms.factory.event.ExternalEventsServiceFactory;
 import com.linkedin.gms.factory.graphql.GraphQLEngineFactory;
-import com.linkedin.gms.factory.kafka.KafkaConsumerPoolFactory;
 import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
 import com.linkedin.gms.factory.kafka.SimpleKafkaConsumerFactory;
 import com.linkedin.gms.factory.kafka.trace.KafkaTraceReaderFactory;
@@ -39,8 +37,6 @@ import org.springframework.context.annotation.FilterType;
             GraphQLEngineFactory.class,
             KafkaTraceReaderFactory.class,
             TraceServiceFactory.class,
-            KafkaConsumerPoolFactory.class,
-            ExternalEventsServiceFactory.class,
             NotificationSinkManagerFactory.class,
             TestEngineFactory.class
           })
