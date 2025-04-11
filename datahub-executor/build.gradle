@@ -53,7 +53,6 @@ task installPackage(type: Exec, dependsOn: [environmentSetup, ':metadata-ingesti
 task install(dependsOn: [installPackage])
 
 task installDev(type: Exec, dependsOn: [install]) {
-    outputs.cacheIf { true }
     inputs.file file('pyproject.toml')
     outputs.file("${venv_name}/.build_install_dev_sentinel")
     commandLine 'bash', '-x', '-c',
