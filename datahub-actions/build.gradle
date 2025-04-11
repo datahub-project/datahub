@@ -27,7 +27,6 @@ ext {
   venv_name = 'venv'
   docker_registry = 'acryldata'
   docker_repo = 'datahub-actions'
-  docker_version = "${version}"
 }
 
 if (!project.hasProperty("extra_pip_requirements")) {
@@ -141,8 +140,7 @@ task cleanPythonCache(type: Exec) {
 
 docker {
   //dependsOn(build)
-  name "${docker_registry}/${docker_repo}:v${docker_version}"
-  version "v${docker_version}"
+  name "${docker_registry}/${docker_repo}:${versionTag}"
   dockerfile file("${rootProject.projectDir}/docker/datahub-actions/Dockerfile")
   files fileTree(rootProject.projectDir) {
     exclude "datahub-actions/scripts/**"
