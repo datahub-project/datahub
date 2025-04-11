@@ -108,7 +108,9 @@ class DataJob:
         return [tags]
 
     def generate_mcp(
-        self, materialize_iolets: bool = True
+        self,
+        generate_lineage: bool = True,
+        materialize_iolets: bool = True,
     ) -> Iterable[MetadataChangeProposalWrapper]:
         env: Optional[str] = None
         if self.flow_urn.cluster.upper() in builder.ALL_ENV_TYPES:
@@ -152,9 +154,10 @@ class DataJob:
         )
         yield mcp
 
-        yield from self.generate_data_input_output_mcp(
-            materialize_iolets=materialize_iolets
-        )
+        if generate_lineage:
+            yield from self.generate_data_input_output_mcp(
+                materialize_iolets=materialize_iolets
+            )
 
         for owner in self.generate_ownership_aspect():
             mcp = MetadataChangeProposalWrapper(

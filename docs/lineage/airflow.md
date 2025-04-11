@@ -79,6 +79,7 @@ enabled = True  # default
 | disable_openlineage_plugin | true                 | Disable the OpenLineage plugin to avoid duplicative processing.                          |
 | log_level                  | _no change_          | [debug] Set the log level for the plugin.                                                |
 | debug_emitter              | false                | [debug] If true, the plugin will log the emitted events.                                 |
+| enable_datajob_lineage     | true                 | If true, the plugin will emit input/output lineage for DataJobs.                         |
 
 ## DataHub Plugin v1
 
@@ -148,6 +149,7 @@ conn_id = datahub_rest_default  # or datahub_kafka_default
 |                            |
 | graceful_exceptions        | true                 | If set to true, most runtime errors in the lineage backend will be suppressed and will not cause the overall task to fail. Note that configuration issues will still throw exceptions. |
 | dag_filter_str             | { "allow": [".*"] }  | AllowDenyPattern value in form of JSON string to filter the DAGs from running.                                                                                                         |
+| enable_datajob_lineage     | true                 | If true, the plugin will emit input/output lineage for DataJobs.                                                                                                                       |
 
 #### Validate that the plugin is working
 
