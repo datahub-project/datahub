@@ -1,20 +1,14 @@
 from typing import Dict, Optional
 from unittest import mock
 
-from typing import Dict
-from unittest import mock
-
 import pytest
+from datahub.ingestion.source.sql.sql_common import (PipelineContext,
+                                                     SQLAlchemySource)
+from datahub.ingestion.source.sql.sql_config import (BasicSQLAlchemyConfig,
+                                                     SQLCommonConfig)
+from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import \
+    get_platform_from_sqlalchemy_uri
 from pydantic import ValidationError
-
-from datahub.ingestion.source.sql.sql_common import PipelineContext, SQLAlchemySource
-from datahub.ingestion.source.sql.sql_config import (
-    BasicSQLAlchemyConfig,
-    SQLCommonConfig,
-)
-from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
-    get_platform_from_sqlalchemy_uri,
-)
 
 
 class _TestSQLAlchemyConfig(SQLCommonConfig):
