@@ -1063,7 +1063,7 @@ jobs:
           file: ./docker/datahub-frontend/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
   datahub_actions_scan:
-    name: "[Monitoring] Scan Frontend images for vulnerabilities"
+    name: "[Monitoring] Scan Datahub Actions images for vulnerabilities"
     runs-on: depot-ubuntu-24.04
     needs: [setup, smoke_test_lint,datahub_actions_build]
     if: ${{ needs.setup.outputs.actions_change == 'true' || needs.setup.outputs.publish == 'true' }}
@@ -1078,7 +1078,7 @@ jobs:
         uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
         with:
-          image: ${{ env.DATAHUB_FRONTEND_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+          image: ${{ env.DATAHUB_ACTIONS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@0.29.0
         env:
