@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
+from unittest import mock
 
 import pytest
 
+from datahub.errors import ItemNotFoundError
 from datahub.metadata.schema_classes import (
     MLHyperParamClass,
     MLMetricClass,
@@ -250,3 +253,202 @@ def test_mlmodel_validation() -> None:
     # Test invalid ID
     with pytest.raises(InvalidUrnError):
         MLModel(id="", platform="test_platform")
+
+
+# Client.entities.get tests
+def test_client_get_mlmodel():
+    """Test retrieving an MLModel using client.entities.get()."""
+    # Arrange
+    mock_client = mock.MagicMock()
+    mock_entities = mock.MagicMock()
+    mock_client.entities = mock_entities
+
+    model_urn = MlModelUrn("mlflow", "test_model", "PROD")
+
+    # Create a model that would be returned by the client
+    expected_model = MLModel(
+        id="test_model",
+        platform="mlflow",
+        name="Test Model",
+        description="A test model",
+    )
+    mock_entities.get.return_value = expected_model
+
+    # Act
+    result = mock_client.entities.get(model_urn)
+
+    # Assert
+    assert result == expected_model
+    mock_entities.get.assert_called_once_with(model_urn)
+
+
+def test_client_get_mlmodel_with_properties():
+    """Test retrieving an MLModel with properties using client.entities.get()."""
+    # Arrange
+    mock_client = mock.MagicMock()
+    mock_entities = mock.MagicMock()
+    mock_client.entities = mock_entities
+
+    model_urn = MlModelUrn("mlflow", "test_model", "PROD")
+
+    # Create a model with properties
+    expected_model = MLModel(
+        id="test_model",
+        platform="mlflow",
+        name="Test Model",
+        description="A test model with properties",
+        training_metrics=[
+            MLMetricClass(name="accuracy", value="0.95"),
+            MLMetricClass(name="loss", value="0.1"),
+        ],
+        hyper_params=[
+            MLHyperParamClass(name="learning_rate", value="0.001"),
+            MLHyperParamClass(name="batch_size", value="32"),
+        ],
+        custom_properties={
+            "framework": "pytorch",
+            "task": "classification",
+        },
+    )
+
+    # Set version and timestamps
+    test_date = datetime(2023, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    expected_model.set_version("1.0.0")
+    expected_model.set_created(test_date)
+    expected_model.set_last_modified(test_date)
+
+    mock_entities.get.return_value = expected_model
+
+    # Act
+    result = mock_client.entities.get(model_urn)
+
+    # Assert
+    assert result == expected_model
+    assert result.name == "Test Model"
+    assert result.description == "A test model with properties"
+    assert result.version == "1.0.0"
+    assert result.created == test_date
+    assert result.last_modified == test_date
+    assert len(result.training_metrics) == 2
+    assert len(result.hyper_params) == 2
+    assert result.custom_properties == {
+        "framework": "pytorch",
+        "task": "classification",
+    }
+    mock_entities.get.assert_called_once_with(model_urn)
+
+
+def test_client_get_mlmodel_not_found():
+    """Test behavior when retrieving a non-existent MLModel."""
+    # Arrange
+    mock_client = mock.MagicMock()
+    mock_entities = mock.MagicMock()
+    mock_client.entities = mock_entities
+
+    model_urn = MlModelUrn("mlflow", "nonexistent_model", "PROD")
+    error_message = f"Entity {model_urn} not found"
+    mock_entities.get.side_effect = ItemNotFoundError(error_message)
+
+    # Act & Assert
+    with pytest.raises(ItemNotFoundError, match=re.escape(error_message)):
+        mock_client.entities.get(model_urn)
+
+    mock_entities.get.assert_called_once_with(model_urn)
+
+
+def test_client_get_mlmodel_with_string_urn():
+    """Test retrieving an MLModel using a string URN."""
+    # Arrange
+    mock_client = mock.MagicMock()
+    mock_entities = mock.MagicMock()
+    mock_client.entities = mock_entities
+
+    urn_str = "urn:li:mlModel:(urn:li:dataPlatform:mlflow,string_urn_model,PROD)"
+
+    # Create a model that would be returned by the client
+    expected_model = MLModel(
+        id="string_urn_model",
+        platform="mlflow",
+        name="String URN Model",
+    )
+    mock_entities.get.return_value = expected_model
+
+    # Act
+    result = mock_client.entities.get(urn_str)
+
+    # Assert
+    assert result == expected_model
+    mock_entities.get.assert_called_once_with(urn_str)
+
+
+def test_client_get_mlmodel_with_relationships():
+    """Test retrieving an MLModel with relationship data."""
+    # Arrange
+    mock_client = mock.MagicMock()
+    mock_entities = mock.MagicMock()
+    mock_client.entities = mock_entities
+
+    model_urn = MlModelUrn("mlflow", "model_with_relationships", "PROD")
+
+    # Create groups and jobs for relationships
+    group_urn = MlModelGroupUrn("mlflow", "test_group")
+    job1_urn = DataProcessInstanceUrn("job1")
+    job2_urn = DataProcessInstanceUrn("job2")
+
+    # Create a model with relationships
+    expected_model = MLModel(
+        id="model_with_relationships",
+        platform="mlflow",
+        name="Relationship Model",
+    )
+
+    # Add relationships
+    expected_model.add_group(group_urn)
+    expected_model.add_training_job(job1_urn)
+    expected_model.add_downstream_job(job2_urn)
+
+    mock_entities.get.return_value = expected_model
+
+    # Act
+    result = mock_client.entities.get(model_urn)
+
+    # Assert
+    assert result == expected_model
+    assert str(group_urn) in result.groups
+    assert str(job1_urn) in result.training_jobs
+    assert str(job2_urn) in result.downstream_jobs
+    mock_entities.get.assert_called_once_with(model_urn)
+
+
+def test_client_get_mlmodel_with_version_aliases():
+    """Test retrieving an MLModel with version aliases using client.entities.get()."""
+    # Arrange
+    mock_client = mock.MagicMock()
+    mock_entities = mock.MagicMock()
+    mock_client.entities = mock_entities
+
+    model_urn = MlModelUrn("mlflow", "versioned_model", "PROD")
+
+    # Create a model with version and aliases
+    expected_model = MLModel(
+        id="versioned_model",
+        platform="mlflow",
+        name="Versioned Model",
+    )
+
+    # Add version and aliases
+    expected_model.set_version("2.0.0")
+    expected_model.add_version_alias("stable")
+    expected_model.add_version_alias("production")
+
+    mock_entities.get.return_value = expected_model
+
+    # Act
+    result = mock_client.entities.get(model_urn)
+
+    # Assert
+    assert result == expected_model
+    assert result.version == "2.0.0"
+    assert "stable" in result.version_aliases
+    assert "production" in result.version_aliases
+    mock_entities.get.assert_called_once_with(model_urn)
