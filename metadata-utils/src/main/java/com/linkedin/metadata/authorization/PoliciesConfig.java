@@ -194,6 +194,12 @@ public class PoliciesConfig {
           "Manage System Operations",
           "Allow access to all system operations/management APIs and controls.");
 
+  public static final Privilege GET_PLATFORM_EVENTS_PRIVILEGE =
+      Privilege.of(
+          "GET_PLATFORM_EVENTS",
+          "Get Platform Events",
+          "The ability to use the Events API to read Platform Events - Entity Change Events and Notification Request Events.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES =
       ImmutableList.of(
           MANAGE_POLICIES_PRIVILEGE,
@@ -226,7 +232,8 @@ public class PoliciesConfig {
           VIEW_STRUCTURED_PROPERTIES_PAGE_PRIVILEGE,
           MANAGE_DOCUMENTATION_FORMS_PRIVILEGE,
           MANAGE_FEATURES_PRIVILEGE,
-          MANAGE_SYSTEM_OPERATIONS_PRIVILEGE);
+          MANAGE_SYSTEM_OPERATIONS_PRIVILEGE,
+          GET_PLATFORM_EVENTS_PRIVILEGE);
 
   // Resource Privileges //
 
@@ -500,12 +507,6 @@ public class PoliciesConfig {
           "GET_COUNTS_PRIVILEGE",
           "Get Aspect/Entity Count APIs",
           "The ability to use the GET Aspect/Entity Count APIs.");
-
-  public static final Privilege GET_PLATFORM_EVENTS_PRIVILEGE =
-      Privilege.of(
-          "GET_PLATFORM_EVENTS",
-          "Get Platform Events",
-          "The ability to use the Events API to read Platform Events - Entity Change Events and Notification Request Events.");
 
   public static final Privilege RESTORE_INDICES_PRIVILEGE =
       Privilege.of(
