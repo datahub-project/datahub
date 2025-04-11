@@ -12,7 +12,6 @@ import SelectedSearchFilters from './SelectedSearchFilters';
 import SearchQuerySuggester from '../suggestions/SearchQuerySugggester';
 import { RecommendedFilters } from '../recommendation/RecommendedFilters';
 import SearchMenuItems from '../../sharedV2/search/SearchMenuItems';
-import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
 import { useSearchContext } from '../../search/context/SearchContext';
 import {
     ENTITY_INDEX_FILTER_NAME,
@@ -80,9 +79,9 @@ const IconContainer = styled.div<{ isActive?: boolean }>`
     ${(props) =>
         props.isActive &&
         `
-        background: ${REDESIGN_COLORS.TITLE_PURPLE};
+        background: ${colors.gray[1900]};
         border-radius: 100%;
-        color: white;
+        color: ${colors.white};
     `}
 `;
 
@@ -193,11 +192,6 @@ export default function SearchFilters({
                     </CustomSwitch>
                 </SearchMenuContainer>
             </FilterandMenuContainer>
-            <RecommendedFilters
-                availableFilters={availableFilters || []}
-                selectedFilters={activeFilters}
-                onChangeFilters={onChangeFilters}
-            />
             {activeFilters.length > 0 && (
                 <>
                     <SelectedSearchFilters
@@ -211,6 +205,11 @@ export default function SearchFilters({
                     />
                 </>
             )}
+            <RecommendedFilters
+                availableFilters={availableFilters || []}
+                selectedFilters={activeFilters}
+                onChangeFilters={onChangeFilters}
+            />
         </Container>
     );
 }

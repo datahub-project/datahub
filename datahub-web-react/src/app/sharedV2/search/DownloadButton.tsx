@@ -17,7 +17,13 @@ type Props = {
 export default function DownloadButton({ setShowDownloadAsCsvModal, isDownloadingCsv, disabled }: Props) {
     return (
         <Tooltip title="Download results..." showArrow={false} placement="top">
-            <StyledButton onClick={() => setShowDownloadAsCsvModal(true)} disabled={isDownloadingCsv || disabled}>
+            <StyledButton
+                onClick={() => setShowDownloadAsCsvModal(true)}
+                disabled={isDownloadingCsv || disabled}
+                variant="text"
+                color="gray"
+                size="lg"
+            >
                 <DownloadSimple />
                 {isDownloadingCsv ? 'Downloading...' : null}
             </StyledButton>
