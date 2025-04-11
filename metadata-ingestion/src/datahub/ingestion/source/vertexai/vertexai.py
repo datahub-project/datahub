@@ -322,8 +322,7 @@ class VertexAISource(Source):
                 ContainerClass(container=self._get_project_container().as_urn()),
                 DataPlatformInstanceClass(platform=str(DataPlatformUrn(self.platform))),
                 DataProcessInstanceRelationships(
-                    upstreamInstances=[str(datajob.urn)],
-                    parentInstance=str(datajob.urn),
+                    upstreamInstances=[], parentTemplate=str(datajob.urn)
                 ),
                 (
                     DataProcessInstanceRunEventClass(

@@ -19,6 +19,9 @@ from datahub.ingestion.source.vertexai.vertexai import (
     VertexAISource,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
+from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
+    DataProcessInstanceRelationships,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.ml.metadata import (
     MLModelGroupProperties,
     MLModelProperties,
@@ -774,7 +777,14 @@ def test_get_pipeline_mcps(
             ),
         )
 
-        assert len(actual_mcps) == 18
+        mcp_task_run_relationship = MetadataChangeProposalWrapper(
+            entityUrn=dpi_urn,
+            aspect=DataProcessInstanceRelationships(
+                upstreamInstances=[], parentTemplate=expected_task_urn
+            ),
+        )
+
+        assert len(actual_mcps) == 19
         assert any(mcp_pipe_df_info == mcp for mcp in actual_mcps)
         assert any(mcp_pipe_df_status == mcp for mcp in actual_mcps)
         assert any(mcp_pipe_subtype == mcp for mcp in actual_mcps)
@@ -791,6 +801,8 @@ def test_get_pipeline_mcps(
         assert any(mcp_task_run_container == mcp for mcp in actual_mcps)
         assert any(mcp_task_run_subtype == mcp for mcp in actual_mcps)
         assert any(mcp_task_run_dataplatform == mcp for mcp in actual_mcps)
+        assert any(mcp_task_run_dataplatform == mcp for mcp in actual_mcps)
+        assert any(mcp_task_run_relationship == mcp for mcp in actual_mcps)
 
 
 def test_make_model_external_url(source: VertexAISource) -> None:
