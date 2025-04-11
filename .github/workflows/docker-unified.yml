@@ -753,7 +753,7 @@ jobs:
           key: ${{ runner.os }}-docker-${{ github.sha }}
 
       - name: Build and push Base Image
-        if: ${{ needs.setup.outputs.ingestion_base_change == 'true' }}
+        #if: ${{ needs.setup.outputs.ingestion_base_change == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
         with:
           images: |
