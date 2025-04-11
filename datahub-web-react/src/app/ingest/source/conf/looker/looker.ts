@@ -12,6 +12,8 @@ source:
         # Add secret in Secrets Tab with relevant names for each variable
         client_id: "\${LOOKER_CLIENT_ID}" # Your Looker client id, e.g. admin
         client_secret: "\${LOOKER_CLIENT_SECRET}" # Your Looker password, e.g. password_01
+        stateful_ingestion:
+            enabled: true
 `;
 
 export const LOOKER = 'looker';
