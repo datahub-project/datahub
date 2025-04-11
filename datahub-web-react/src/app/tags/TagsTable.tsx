@@ -1,10 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { NetworkStatus } from '@apollo/client';
-import { Table } from '@components';
+import { Table, Modal } from '@components';
+import { message } from 'antd';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { GetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { EntityType } from '@src/types.generated';
+import { useDeleteTagMutation } from '../../graphql/tag.generated';
+import { useUserContext } from '../context/useUserContext';
 import { ManageTag } from './ManageTag';
 import {
     TagActionsColumn,
@@ -25,6 +28,11 @@ interface Props {
 
 const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatus, refetch }: Props) => {
     const entityRegistry = useEntityRegistry();
+    const userContext = useUserContext();
+    const [deleteTagMutation] = useDeleteTagMutation();
+
+    // Check if user has permission to manage or delete tags
+    const canManageTags = Boolean(userContext?.platformPrivileges?.manageTags);
 
     // Optimize the tagsData with useMemo to prevent unnecessary filtering on re-renders
     const tagsData = useMemo(() => {
@@ -33,6 +41,14 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
 
     const [showEdit, setShowEdit] = useState(false);
     const [editingTag, setEditingTag] = useState('');
+
+    // State for delete confirmation modal
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [tagToDelete, setTagToDelete] = useState<{
+        urn: string;
+        displayName: string;
+        onConfirm: () => void;
+    } | null>(null);
 
     const [sortedInfo, setSortedInfo] = useState<{
         columnKey?: string;
@@ -61,6 +77,45 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
     }, [tagsData, searchQuery, entityRegistry]);
 
     const isLoading = propLoading || networkStatus === NetworkStatus.refetch;
+
+    // Function to delete a tag with confirmation
+    const deleteTag = useCallback(
+        (tagUrn: string) => {
+            // Find the tag entity from tagsData
+            const tagData = tagsData.find((result) => result.entity.urn === tagUrn);
+            if (!tagData) {
+                message.error('Failed to find tag information');
+                return;
+            }
+
+            const fullDisplayName = entityRegistry.getDisplayName(EntityType.Tag, tagData.entity);
+
+            // Show a confirmation modal using the @components Modal
+            const confirmDeleteTag = () => {
+                deleteTagMutation({
+                    variables: {
+                        urn: tagUrn,
+                    },
+                })
+                    .then(() => {
+                        message.success(`Tag "${fullDisplayName}" has been deleted`);
+                        refetch(); // Refresh the tag list
+                    })
+                    .catch((e: any) => {
+                        message.error(`Failed to delete tag: ${e.message}`);
+                    });
+            };
+
+            // Using the modal from @components
+            setShowDeleteModal(true);
+            setTagToDelete({
+                urn: tagUrn,
+                displayName: fullDisplayName,
+                onConfirm: confirmDeleteTag,
+            });
+        },
+        [deleteTagMutation, refetch, entityRegistry, setShowDeleteModal, setTagToDelete, tagsData],
+    );
 
     const columns = useMemo(
         () => [
@@ -119,12 +174,20 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
                                 setEditingTag(record.entity.urn);
                                 setShowEdit(true);
                             }}
+                            onDelete={() => {
+                                if (canManageTags) {
+                                    deleteTag(record.entity.urn);
+                                } else {
+                                    message.error('You do not have permission to delete tags');
+                                }
+                            }}
+                            canManageTags={canManageTags}
                         />
                     );
                 },
             },
         ],
-        [entityRegistry, searchQuery, sortedInfo],
+        [entityRegistry, searchQuery, sortedInfo, canManageTags, deleteTag],
     );
 
     // Generate table data once with memoization
@@ -153,6 +216,35 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
                     onSave={refetch}
                     isModalOpen={showEdit}
                 />
+            )}
+
+            {/* Delete confirmation modal */}
+            {showDeleteModal && tagToDelete && (
+                <Modal
+                    title={`Delete tag ${tagToDelete.displayName}`}
+                    onCancel={() => setShowDeleteModal(false)}
+                    open={showDeleteModal}
+                    centered
+                    buttons={[
+                        {
+                            text: 'Cancel',
+                            color: 'violet',
+                            variant: 'text',
+                            onClick: () => setShowDeleteModal(false),
+                        },
+                        {
+                            text: 'Delete',
+                            color: 'red',
+                            variant: 'filled',
+                            onClick: () => {
+                                tagToDelete.onConfirm();
+                                setShowDeleteModal(false);
+                            },
+                        },
+                    ]}
+                >
+                    <p>Are you sure you want to delete this tag? This action cannot be undone.</p>
+                </Modal>
             )}
         </>
     );
