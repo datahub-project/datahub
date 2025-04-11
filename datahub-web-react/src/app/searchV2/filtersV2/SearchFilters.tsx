@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import DynamicFacetsUpdater from './defaults/DefaultFacetsUpdater/DefaultFacetsUpdater';
 import FiltersRenderingRunner from './FiltersRenderingRunner';
 import {
@@ -40,6 +40,10 @@ export default function SearchFilters({
         return query;
     }, [query]);
 
+    const onFieldFacetsUpdated = useCallback((facets: FieldToFacetStateMap) => {
+        setFieldToFacetStateMap((currentFieldFacets) => new Map([...currentFieldFacets, ...facets]));
+    }, []);
+
     return (
         <SearchFiltersProvider
             fields={fields}
@@ -54,7 +58,7 @@ export default function SearchFilters({
             <DynamicFacetsUpdater
                 fieldNames={fields}
                 query={wrappedQuery}
-                onFieldFacetsUpdated={(map) => setFieldToFacetStateMap(map)}
+                onFieldFacetsUpdated={onFieldFacetsUpdated}
             />
             {/* Renders filters */}
             <FiltersRenderingRunner fieldNames={fields} hideEmptyFilters />
