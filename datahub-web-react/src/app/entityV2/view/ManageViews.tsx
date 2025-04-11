@@ -1,26 +1,15 @@
 import React from 'react';
+import { PageTitle } from '@components';
 import styled from 'styled-components';
-import { Typography } from 'antd';
 import { ViewsList } from './ViewsList';
 
 const PageContainer = styled.div`
-    padding-top: 20px;
+    padding: 16px 20px;
     width: 100%;
     display: flex;
     flex-direction: column;
     overflow: auto;
-`;
-
-const PageHeaderContainer = styled.div`
-    && {
-        padding-left: 24px;
-    }
-`;
-
-const PageTitle = styled(Typography.Title)`
-    && {
-        margin-bottom: 12px;
-    }
+    gap: 16px;
 `;
 
 const ListContainer = styled.div`
@@ -35,13 +24,10 @@ const ListContainer = styled.div`
 export const ManageViews = () => {
     return (
         <PageContainer>
-            <PageHeaderContainer>
-                <PageTitle level={3}>Manage Views</PageTitle>
-                <Typography.Paragraph type="secondary">
-                    Create, edit, and remove your Views. Views allow you to save and share sets of filters for reuse
-                    when browsing DataHub.
-                </Typography.Paragraph>
-            </PageHeaderContainer>
+            <PageTitle
+                title="Manage Views"
+                subTitle="Create, edit, and remove your Views. Views allow you to save and share sets of filters for reuse when browsing DataHub."
+            />
             <ListContainer>
                 <ViewsList />
             </ListContainer>

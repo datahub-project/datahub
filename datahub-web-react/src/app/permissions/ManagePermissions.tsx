@@ -1,28 +1,16 @@
 import React from 'react';
-import { Typography } from 'antd';
+import { PageTitle } from '@components';
 import styled from 'styled-components';
 import { RoutedTabs } from '../shared/RoutedTabs';
 import { ManagePolicies } from './policy/ManagePolicies';
 import { ManageRoles } from './roles/ManageRoles';
 
 const PageContainer = styled.div`
-    padding-top: 20px;
+    padding: 16px 20px;
     width: 100%;
     display: flex;
     flex-direction: column;
     overflow: auto;
-`;
-
-const PageHeaderContainer = styled.div`
-    && {
-        padding-left: 24px;
-    }
-`;
-
-const PageTitle = styled(Typography.Title)`
-    && {
-        margin-bottom: 12px;
-    }
 `;
 
 const Content = styled.div`
@@ -33,10 +21,6 @@ const Content = styled.div`
     display: flex;
     flex-direction: column;
     overflow: auto;
-
-    &&& .ant-tabs > .ant-tabs-nav .ant-tabs-nav-wrap {
-        padding-left: 28px;
-    }
 `;
 
 enum TabType {
@@ -76,12 +60,10 @@ export const ManagePermissions = () => {
 
     return (
         <PageContainer>
-            <PageHeaderContainer>
-                <PageTitle level={3}>Manage Permissions</PageTitle>
-                <Typography.Paragraph type="secondary">
-                    View your DataHub permissions. Take administrative actions.
-                </Typography.Paragraph>
-            </PageHeaderContainer>
+            <PageTitle
+                title="Manage Permissions"
+                subTitle="View your DataHub permissions. Take administrative actions."
+            />
             <Content>
                 <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
             </Content>
