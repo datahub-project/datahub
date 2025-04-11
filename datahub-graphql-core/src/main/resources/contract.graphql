@@ -41,6 +41,11 @@ type DataContract implements Entity {
     status: DataContractStatus
 
     """
+    Structured properties about this Data Contract
+    """
+    structuredProperties: StructuredProperties
+
+    """
     List of relationships between the source Entity and some destination entities with a given types
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
