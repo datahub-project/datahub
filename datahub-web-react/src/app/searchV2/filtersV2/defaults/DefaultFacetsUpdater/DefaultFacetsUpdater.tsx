@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ENTITY_SUB_TYPE_FILTER_NAME } from '../../../utils/constants';
 import { useSearchFiltersContext } from '../../context';
 import { FeildFacetState, FieldName, FieldToFacetStateMap } from '../../types';
 import { FacetsUpdater } from './FacetsUpdater';
@@ -21,67 +20,36 @@ export default ({ fieldNames, query, onFieldFacetsUpdated }: DynamicFacetsUpdate
 
     useEffect(() => onFieldFacetsUpdated?.(fieldFacets), [onFieldFacetsUpdated, fieldFacets]);
 
-    const hasFiltersByEntityType = useMemo(
+    const fieldNamesWithAppliedFilters = useMemo(
         () =>
-            Array.from(fieldToAppliedFiltersMap?.entries?.() || []).some(
-                ([key, filter]) => key === ENTITY_SUB_TYPE_FILTER_NAME && filter.filters.length > 0,
-            ),
+            Array.from(fieldToAppliedFiltersMap?.entries?.() || [])
+                .filter(([_, filter]) => filter.filters.length > 0)
+                .map(([fieldName, _]) => fieldName),
         [fieldToAppliedFiltersMap],
     );
 
-    const hasAnotherFilters = useMemo(
+    const fieldNamesWithoutAppliedFilters = useMemo(
         () =>
-            Array.from(fieldToAppliedFiltersMap?.entries?.() || []).some(
-                ([key, filter]) => key !== ENTITY_SUB_TYPE_FILTER_NAME && filter.filters.length > 0,
-            ),
-        [fieldToAppliedFiltersMap],
+            fieldNames.filter(fieldName => !fieldNamesWithAppliedFilters.includes(fieldName)),
+        [fieldNames, fieldNamesWithAppliedFilters],
     );
-
-    const fieldNamesOfEntityType = useMemo(
-        () => fieldNames.filter((fieldName) => fieldName === ENTITY_SUB_TYPE_FILTER_NAME),
-        [fieldNames],
-    );
-
-    const fieldNamesOfOtherFields = useMemo(
-        () => fieldNames.filter((fieldName) => fieldName !== ENTITY_SUB_TYPE_FILTER_NAME),
-        [fieldNames],
-    );
-
-    const separetedFieldNames = useMemo(() => fieldNames.map((fieldName) => [fieldName]), [fieldNames]);
 
     return (
         <>
-            {/* In a case when there're no any filters applied we can use a single request for all fields */}
-            {!hasFiltersByEntityType && !hasAnotherFilters && (
-                <FacetsUpdater fieldNames={fieldNames} query={query} onFacetsUpdated={onFacetsUpdated} />
-            )}
+            {fieldNamesWithAppliedFilters.map((fieldName) => (
+                <FacetsUpdater
+                    fieldNames={fieldName}
+                    key={fieldName}
+                    query={query}
+                    onFacetsUpdated={onFacetsUpdated}
+                />
+            ))}
 
-            {/* In a case when there're only filters by entity type we have to call requests for entity types and another fields separately */}
-            {hasFiltersByEntityType && !hasAnotherFilters && (
-                <>
-                    <FacetsUpdater
-                        fieldNames={fieldNamesOfEntityType}
-                        query={query}
-                        onFacetsUpdated={onFacetsUpdated}
-                    />
-                    <FacetsUpdater
-                        fieldNames={fieldNamesOfOtherFields}
-                        query={query}
-                        onFacetsUpdated={onFacetsUpdated}
-                    />
-                </>
-            )}
-
-            {/* In a case when there're both filters by entity type and by non-entity-type fields we have to call separated requests for each field */}
-            {hasAnotherFilters &&
-                separetedFieldNames.map((fieldName) => (
-                    <FacetsUpdater
-                        key={fieldName[0]}
-                        fieldNames={fieldName}
-                        query={query}
-                        onFacetsUpdated={onFacetsUpdated}
-                    />
-                ))}
+            <FacetsUpdater
+                fieldNames={fieldNamesWithoutAppliedFilters}
+                query={query}
+                onFacetsUpdated={onFacetsUpdated}
+            />
         </>
     );
 };
