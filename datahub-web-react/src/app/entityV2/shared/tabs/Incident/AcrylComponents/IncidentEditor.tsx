@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { IncidentStage, IncidentState, IncidentType } from '@src/types.generated';
+import { CorpUser, IncidentStage, IncidentState, IncidentType } from '@src/types.generated';
 import { Input } from '@src/alchemy-components';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 import { Editor } from '@src/alchemy-components/components/Editor/Editor';
@@ -53,8 +53,8 @@ export const IncidentEditor = ({
     const { user } = useUserContext();
     const userHasChangedState = useRef(false);
     const isFirstRender = useRef(true);
-    const [cachedAssignees, setCachedAssignees] = useState<any>([]);
-    const [cachedLinkedAssets, setCachedLinkedAssets] = useState<any>([]);
+    const [cachedAssignees, setCachedAssignees] = useState<CorpUser[]>([]);
+    const [cachedLinkedAssets, setCachedLinkedAssets] = useState<string[]>([]);
     const [isLoadingAssigneeOrAssets, setIsLoadingAssigneeOrAssets] = useState(true);
 
     const [isRequiredFieldsFilled, setIsRequiredFieldsFilled] = useState<boolean>(
@@ -69,8 +69,6 @@ export const IncidentEditor = ({
         assignees: cachedAssignees,
         linkedAssets: cachedLinkedAssets,
         entity,
-        currentIncident: data,
-        urn,
     });
     const formValues = Form.useWatch([], form);
 
@@ -209,6 +207,7 @@ export const IncidentEditor = ({
                     initialValue={getLinkedAssetsData(data?.linkedAssets) || []}
                 >
                     <IncidentLinkedAssetsList
+                        initialUrn={entity?.urn}
                         form={form}
                         data={data}
                         mode={mode}

@@ -13,7 +13,7 @@ import { IncidentTableRow } from './types';
 import { IncidentResolutionPopup } from './IncidentResolutionPopup';
 import { LoadingWrapper } from './AcrylComponents/styledComponents';
 import { ResolvedSection } from './ResolvedSection';
-import { noPermissionsMessage } from './constant';
+import { NO_PERMISSIONS_MESSAGE } from './constant';
 
 const ME = 'Me';
 
@@ -125,7 +125,7 @@ export const IncidentResolveButton = ({
             data-testid="incident-resolve-button-container"
         >
             {incident?.state === IncidentState.Active ? (
-                <Tooltip showArrow={false} title={!canEditIncidents ? noPermissionsMessage : null}>
+                <Tooltip showArrow={false} title={!canEditIncidents ? NO_PERMISSIONS_MESSAGE : null}>
                     <ResolveButton disabled={!canEditIncidents} variant="text" onClick={handleShowPopup}>
                         Resolve
                     </ResolveButton>
