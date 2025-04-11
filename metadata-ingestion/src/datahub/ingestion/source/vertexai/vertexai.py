@@ -125,8 +125,8 @@ class PipelineTaskMetadata:
     start_time: Optional[timestamp_pb2.Timestamp] = None
     create_time: Optional[timestamp_pb2.Timestamp] = None
     end_time: Optional[timestamp_pb2.Timestamp] = None
-    duration: Optional[timedelta] = None
     upstreams: Optional[List[DataJobUrn]] = None
+    duration: Optional[int] = None
 
 
 @dataclasses.dataclass
@@ -252,10 +252,10 @@ class VertexAISource(Source):
                     task_meta.create_time = task_detail.create_time
                     if task_detail.end_time:
                         task_meta.end_time = task_detail.end_time
-                        task_meta.duration = timedelta(
-                            milliseconds=(
-                                task_detail.end_time.timestamp()
-                                - task_detail.start_time.timestamp()
+                        task_meta.duration = int(
+                            (
+                                task_meta.end_time.timestamp()
+                                - task_meta.start_time.timestamp()
                             )
                             * 1000
                         )
@@ -301,11 +301,6 @@ class VertexAISource(Source):
         result_status: Union[str, RunResultTypeClass] = get_pipeline_task_result_status(
             task.state
         )
-        duration = (
-            int((task.end_time.timestamp() - task.start_time.timestamp()) * 1000)
-            if task.end_time is not None and task.start_time is not None
-            else None
-        )
 
         yield from MetadataChangeProposalWrapper.construct_many(
             dpi_urn,
@@ -342,9 +337,9 @@ class VertexAISource(Source):
                             type=result_status,
                             nativeResultType=self.platform,
                         ),
-                        durationMillis=duration,
+                        durationMillis=task.duration,
                     )
-                    if is_status_for_run_event_class(result_status) and duration
+                    if is_status_for_run_event_class(result_status) and task.duration
                     else None
                 ),
             ],
