@@ -132,10 +132,9 @@ COPY --chown=datahub ./metadata-ingestion-modules/airflow-plugin /airflow-plugin
 ARG RELEASE_VERSION
 RUN test -n "$RELEASE_VERSION"  # RELEASE_VERSION is a required build arg
 RUN test -d /metadata-ingestion/src/datahub/metadata  # codegen must be run prior to building the image
-RUN sed -i.bak "s/__version__ = .*$/__version__ = \"$RELEASE_VERSION\"/" /metadata-ingestion/src/datahub/_version.py && \
-    sed -i.bak "s/__version__ = .*$/__version__ = \"$RELEASE_VERSION\"/" /airflow-plugin/src/datahub_airflow_plugin/_version.py && \
-    cat /metadata-ingestion/src/datahub/_version.py | grep __version__ && \
-    cat /airflow-plugin/src/datahub_airflow_plugin/_version.py | grep __version__
+RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
+    python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1 \
+    && python /version_updater.py --directory /airflow-plugin/ --version "$RELEASE_VERSION" --expected-update-count 1
 
 FROM add-code AS install-slim
 

@@ -14,6 +14,11 @@ def update_python_versions(
     # - src/{package_name}/_version.py
     # - NOT in setup.py
 
+    if not new_version:
+        raise ValueError("Version cannot be empty")
+    if new_version.startswith("v"):
+        raise ValueError("Version should not start with 'v'")
+
     updates = 0
 
     # Update pyproject.toml
