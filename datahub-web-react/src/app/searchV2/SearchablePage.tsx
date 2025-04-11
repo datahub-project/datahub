@@ -79,7 +79,7 @@ export const SearchablePage = ({ children }: Props) => {
     const location = useLocation();
     const appConfig = useAppConfig();
     const showSearchBarAutocompleteRedesign = appConfig.config.featureFlags?.showSearchBarAutocompleteRedesign;
-
+    const searchBarApiVariant = appConfig.config.searchBarConfig.apiVariant;
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramFilters: Array<FacetFilterInput> = useFilters(params);
     const filters = isSearchResultPage(location.pathname) ? paramFilters : [];
@@ -113,16 +113,9 @@ export const SearchablePage = ({ children }: Props) => {
         searchQuery,
         appliedFilters,
         viewUrn,
-        'searchAcrossEntitiesAPI',
+        searchBarApiVariant,
         showSearchBarAutocompleteRedesign,
     );
-    // const searchResponse = useSearchBarData(
-    //     searchQuery,
-    //     appliedFilters,
-    //     viewUrn,
-    //     'autocompleteAPI',
-    //     showSearchBarAutocompleteRedesign,
-    // );
 
     const search = (query: string, newFilters?: FacetFilterInput[]) => {
         analytics.event({

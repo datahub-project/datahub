@@ -9,7 +9,7 @@ import {
     useGetAutoCompleteMultipleResultsLazyQuery,
     useGetSearchResultsForMultipleTrimmedLazyQuery,
 } from '@src/graphql/search.generated';
-import { AndFilterInput, Entity, FacetMetadata } from '@src/types.generated';
+import { AndFilterInput, Entity, FacetMetadata, SearchBarApi } from '@src/types.generated';
 
 type UpdateDataFunction = (query: string, orFilters: AndFilterInput[], viewUrn: string | undefined | null) => void;
 
@@ -24,7 +24,7 @@ export type SearchResponse = {
     facets?: FacetMetadata[];
     entities?: Entity[];
     loading?: boolean;
-    searchAPIVariant?: string;
+    searchAPIVariant?: SearchBarApi;
 };
 
 const SEARCH_API_RESPONSE_MAX_ITEMS = 20;
@@ -108,7 +108,7 @@ export const useSearchBarData = (
     query: string,
     appliedFilters: FieldToAppliedFieldFiltersMap | undefined,
     viewUrn: string | undefined | null,
-    searchAPIVariant: 'searchAcrossEntitiesAPI' | 'autocompleteAPI' | undefined,
+    searchAPIVariant: SearchBarApi | undefined,
     enabled: boolean,
 ): SearchResponse => {
     const [debouncedQuery, setDebouncedQuery] = useState<string>('');
@@ -117,9 +117,9 @@ export const useSearchBarData = (
 
     const api = useMemo(() => {
         switch (searchAPIVariant) {
-            case 'searchAcrossEntitiesAPI':
+            case SearchBarApi.SearchAcrossEntities:
                 return searchAPI;
-            case 'autocompleteAPI':
+            case SearchBarApi.AutocompleteForMultiple:
                 return autocompleteAPI;
             default:
                 return autocompleteAPI;
