@@ -313,6 +313,11 @@ kafka:
     pe:
       autoOffsetReset: ${KAFKA_CONSUMER_PE_AUTO_OFFSET_RESET:latest}
 
+  # Consumer Pool - Used for Our Events API
+  consumerPool:
+    initialSize: ${KAFKA_CONSUMER_POOL_INITIAL_SIZE:1}
+    maxSize: ${KAFKA_CONSUMER_POOL_MAX_SIZE:5}
+
   schemaRegistry:
     type: ${SCHEMA_REGISTRY_TYPE:KAFKA} # INTERNAL or KAFKA or AWS_GLUE
     url: ${KAFKA_SCHEMAREGISTRY_URL:http://localhost:8081}
@@ -662,6 +667,9 @@ metadataChangeProposal:
       initialIntervalMs: ${MCP_TIMESERIES_INITIAL_INTERVAL_MS:100}
       multiplier: ${MCP_TIMESERIES_MULTIPLIER:10}
       maxIntervalMs:  ${MCP_TIMESERIES_MAX_INTERVAL_MS:30000}
+
+eventsApi:
+  enabled: ${EVENTS_API_ENABLED:true}
 
 icebergCatalog:
       enablePublicRead: ${ENABLE_PUBLIC_READ:false}
