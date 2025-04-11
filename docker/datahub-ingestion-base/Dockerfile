@@ -63,6 +63,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     zip \
     unzip \
+    nano \
     && rm -rf /var/lib/apt/lists/*
 
 # Set the default python version.
