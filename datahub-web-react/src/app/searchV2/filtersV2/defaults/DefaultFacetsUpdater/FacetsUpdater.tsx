@@ -2,11 +2,11 @@ import { useAggregateAcrossEntitiesLazyQuery } from '@src/graphql/search.generat
 import { FacetMetadata } from '@src/types.generated';
 import { useEffect, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
+import { generateOrFilters } from '@src/app/searchV2/utils/generateOrFilters';
 import { UnionType } from '../../../utils/constants';
 import { useSearchFiltersContext } from '../../context';
 import { FieldName, FieldToFacetStateMap } from '../../types';
 import { convertFiltersMapToFilters } from '../../utils';
-import { generateOrFilters } from '@src/app/searchV2/utils/generateOrFilters';
 
 const DEBOUNCE_MS = 100;
 
