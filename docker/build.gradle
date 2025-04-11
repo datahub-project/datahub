@@ -75,7 +75,7 @@ ext {
                     ],
                     additionalEnv: [
                             'DATAHUB_ACTIONS_IMAGE': 'acryldata/datahub-ingestion',
-                            'ACTIONS_VERSION': "v${version}-slim",
+                            'ACTIONS_VERSION': "${DATAHUB_VERSION}-slim",
                             'ACTIONS_EXTRA_PACKAGES': 'acryl-datahub-actions[executor] acryl-datahub-actions',
                             'ACTIONS_CONFIG': 'https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml',
                             'DATAHUB_LOCAL_COMMON_ENV': "${rootProject.project(':metadata-integration:java:spark-lineage-legacy').projectDir}/spark-smoke-test/smoke-gms.env"
