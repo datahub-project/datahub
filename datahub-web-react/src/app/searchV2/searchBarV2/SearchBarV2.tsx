@@ -6,6 +6,7 @@ import { debounce } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
+import { SearchBarApi } from '@src/types.generated';
 import analytics, { Event, EventType } from '../../analytics';
 import { ANTD_GRAY_V2 } from '../../entity/shared/constants';
 import { getEntityPath } from '../../entity/shared/containers/profile/utils';
@@ -167,8 +168,6 @@ const DropdownContainer = styled.div`
     background: ${colors.white};
 `;
 
-// TODO:: FEAT: add feature flag on backend side and use it to choose API (use enum instead of )
-
 /**
  * Represents the search bar appearing in the default header view.
  */
@@ -238,7 +237,7 @@ export const SearchBarV2 = ({
     const viewAllResultsOptions = useViewAllResultsOptions(searchQuery, showViewAllResults);
 
     const isSearching = useMemo(() => {
-        const minimalLengthOfQuery = searchAPIVariant === 'searchAcrossEntitiesAPI' ? 3 : 1;
+        const minimalLengthOfQuery = searchAPIVariant === SearchBarApi.SearchAcrossEntities ? 3 : 1;
 
         const hasSearchQuery = searchQuery.length >= minimalLengthOfQuery;
         const hasAnyAppliedFilters = flatAppliedFilters.length > 0;

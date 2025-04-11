@@ -1,5 +1,5 @@
 import React from 'react';
-import { AppConfig } from './types.generated';
+import { AppConfig, SearchBarApi } from './types.generated';
 
 export const DEFAULT_APP_CONFIG = {
     analyticsConfig: {
@@ -42,6 +42,9 @@ export const DEFAULT_APP_CONFIG = {
     },
     viewsConfig: {
         enabled: false,
+    },
+    searchBarConfig: {
+        apiVariant: SearchBarApi.AutocompleteForMultiple,
     },
     featureFlags: {
         readOnlyModeEnabled: false,
