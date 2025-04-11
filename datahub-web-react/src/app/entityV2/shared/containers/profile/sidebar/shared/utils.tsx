@@ -12,7 +12,7 @@ export enum PopularityTier {
     TIER_4, // Least Popular
 }
 
-export const ACRYL_PLATFORM = 'Acryl';
+export const ACRYL_PLATFORM = 'DataHub Core';
 
 export enum ActionType {
     SHARE,
