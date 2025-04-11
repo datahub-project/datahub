@@ -50,7 +50,8 @@ describe("manage queries", () => {
   });
 
   it("go to queries tab on dataset page then create query and verify & view the card", () => {
-    cy.waitTextVisible("Highlighted Queries");
+    cy.wait(1000);
+    cy.url().should("include", "Queries");
     cy.ensureTextNotPresent("Recent Queries");
     addNewQuery();
     cy.waitTextVisible(`+ Test Query-${runId}`);

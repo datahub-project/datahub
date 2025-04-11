@@ -12,13 +12,13 @@ import {
 } from './components';
 
 export const checkboxDefaults: CheckboxProps = {
-    label: 'Label',
     error: '',
     isChecked: false,
     isDisabled: false,
     isIntermediate: false,
     isRequired: false,
     setIsChecked: () => {},
+    size: 'md',
 };
 
 export const Checkbox = ({
@@ -29,6 +29,8 @@ export const Checkbox = ({
     isIntermediate = checkboxDefaults.isIntermediate,
     isRequired = checkboxDefaults.isRequired,
     setIsChecked = checkboxDefaults.setIsChecked,
+    size = checkboxDefaults.size,
+    onCheckboxChange,
     ...props
 }: CheckboxProps) => {
     const [checked, setChecked] = useState(isChecked || false);
@@ -42,21 +44,24 @@ export const Checkbox = ({
 
     return (
         <CheckboxContainer>
-            <Label aria-label={label}>
-                {label} {isRequired && <Required>*</Required>}
-            </Label>
+            {label ? (
+                <Label aria-label={label}>
+                    {label} {isRequired && <Required>*</Required>}
+                </Label>
+            ) : null}
             <CheckboxBase
                 onClick={() => {
                     if (!isDisabled) {
                         setChecked(!checked);
                         setIsChecked?.(!checked);
+                        onCheckboxChange?.();
                     }
                 }}
             >
                 <StyledCheckbox
                     type="checkbox"
                     id="checked-input"
-                    checked={checked}
+                    checked={checked || isIntermediate || false}
                     disabled={isDisabled || false}
                     error={error || ''}
                     onChange={() => null}
@@ -69,6 +74,7 @@ export const Checkbox = ({
                     error={error || ''}
                     disabled={isDisabled || false}
                     checked={checked || false}
+                    size={size || 'md'}
                     onMouseOver={() => setIsHovering(true)}
                     onMouseLeave={() => setIsHovering(false)}
                 />

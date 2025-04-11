@@ -10,6 +10,7 @@ import yaml
 
 from datahub.configuration.common import ConfigurationError
 from datahub.configuration.config_loader import (
+    EnvResolver,
     list_referenced_env_variables,
     load_config_file,
 )
@@ -136,6 +137,28 @@ def test_load_success(pytestconfig, filename, golden_config, env, referenced_env
         assert loaded_config == golden_config
 
         # TODO check referenced env vars
+
+
+def test_load_strict_env_syntax() -> None:
+    config = {
+        "foo": "${BAR}",
+        "baz": "$BAZ",
+        "qux": "qux$QUX",
+    }
+    assert EnvResolver.list_referenced_variables(
+        config,
+        strict_env_syntax=True,
+    ) == {"BAR"}
+
+    assert EnvResolver(
+        environ={
+            "BAR": "bar",
+        }
+    ).resolve(config) == {
+        "foo": "bar",
+        "baz": "$BAZ",
+        "qux": "qux$QUX",
+    }
 
 
 @pytest.mark.parametrize(

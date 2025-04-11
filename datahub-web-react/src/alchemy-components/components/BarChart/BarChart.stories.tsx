@@ -2,7 +2,11 @@ import React from 'react';
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
 import { BarChart } from './BarChart';
-import { getMockedProps } from './utils';
+import { generateMockDataHorizontal, getMockedProps } from './utils';
+import { DEFAULT_MIN_VALUE } from './hooks/usePrepareAccessors';
+import { DEFAULT_MAX_DOMAIN_VALUE } from './hooks/usePrepareScales';
+import { abbreviateNumber } from '../dataviz/utils';
+import { DEFAULT_LENGTH_OF_LEFT_AXIS_LABEL } from './constants';
 
 const meta = {
     title: 'Charts / BarChart',
@@ -21,58 +25,78 @@ const meta = {
     argTypes: {
         data: {
             description: 'Array of datum to show',
+            table: {
+                type: {
+                    summary: 'DatumType[]',
+                    detail:
+                        'The DatumType includes:\n' +
+                        '- x: A numeric value representing the x-coordinate.\n' +
+                        '- y: A numeric value representing the y-coordinate.\n' +
+                        '- colorScheme (optional): A ColorScheme enum value to define the color of the data point. ' +
+                        'If not provided, a default color may be used.',
+                },
+            },
         },
-        xAccessor: {
-            description: 'A function to convert datum to value of X',
+        horizontal: {
+            description: 'Whether to show horizontal bars',
+            table: {
+                defaultValue: { summary: 'false' },
+            },
+            control: {
+                type: 'boolean',
+            },
         },
-        yAccessor: {
-            description: 'A function to convert datum to value of Y',
+        maxYDomainForZeroData: {
+            description:
+                'For the case where the data has only zero values, you can set the yScale domain to better display the chart',
+            table: {
+                defaultValue: { summary: `${DEFAULT_MAX_DOMAIN_VALUE}` },
+            },
         },
-        renderTooltipContent: {
+        minYForZeroData: {
+            description:
+                'For the case where the data has only zero values, you can set minimal Y value to better display the chart',
+            table: {
+                defaultValue: { summary: `${DEFAULT_MIN_VALUE}` },
+            },
+        },
+        popoverRenderer: {
             description: 'A function to replace default rendering of toolbar',
         },
         margin: {
             description: 'Add margins to chart',
         },
-        leftAxisTickFormat: {
-            description: 'A function to format labels of left axis',
+        leftAxisProps: {
+            description: 'The props for the left axis',
         },
-        leftAxisTickLabelProps: {
-            description: 'Props for label of left axis',
-        },
-        bottomAxisTickFormat: {
-            description: 'A function to format labels of bottom axis',
-        },
-        bottomAxisTickLabelProps: {
-            description: 'Props for label of bottom axis',
-        },
-        barColor: {
-            description: 'Color of bar',
+        maxLengthOfLeftAxisLabel: {
+            description:
+                'Enables truncating of label up to provided value. The full value will be available in popover',
+            table: {
+                defaultValue: { summary: `${DEFAULT_LENGTH_OF_LEFT_AXIS_LABEL}` },
+                type: {
+                    summary: 'number',
+                },
+            },
             control: {
-                type: 'color',
+                type: 'number',
             },
         },
-        barSelectedColor: {
-            description: 'Color of selected bar',
-            control: {
-                type: 'color',
-            },
+        showLeftAxisLine: {
+            description: 'Enable to show left vertical line',
         },
-        gridColor: {
-            description: "Color of grid's lines",
-            control: {
-                type: 'color',
-            },
+        bottomAxisProps: {
+            description: 'The props for the bottom axis',
         },
-        renderGradients: {
-            description: 'A function to render different gradients that can be used as colors',
+        gridProps: {
+            description: 'The props for the grid',
         },
     },
 
     // Define defaults
     args: {
         ...getMockedProps(),
-        renderTooltipContent: (datum) => <>DATUM: {JSON.stringify(datum)}</>,
+        popoverRenderer: (datum) => <>DATUM: {JSON.stringify(datum)}</>,
     },
 } satisfies Meta<typeof BarChart>;
 
@@ -87,4 +111,51 @@ export const sandbox: Story = {
             <BarChart {...props} />
         </div>
     ),
+};
+
+export const horizontal: Story = {
+    args: {
+        horizontal: true,
+        xScale: {
+            type: 'linear',
+            nice: true,
+            round: true,
+        },
+        yScale: {
+            type: 'band',
+            reverse: true,
+            padding: 0.1,
+        },
+        gridProps: {
+            rows: false,
+            columns: true,
+            strokeWidth: 1,
+        },
+        margin: {
+            top: 0,
+            right: 20,
+            bottom: 0,
+            left: 20,
+        },
+
+        bottomAxisProps: {
+            tickFormat: (v) => abbreviateNumber(v),
+        },
+    },
+    render: (props) => {
+        const data = generateMockDataHorizontal();
+
+        return (
+            <div style={{ width: '900px', height: '300px' }}>
+                <BarChart
+                    {...props}
+                    data={data}
+                    leftAxisProps={{
+                        tickFormat: (y) => data.find((datum) => datum.y === y)?.label,
+                        computeNumTicks: () => data.length,
+                    }}
+                />
+            </div>
+        );
+    },
 };

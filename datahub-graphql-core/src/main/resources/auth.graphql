@@ -286,6 +286,86 @@ type EntityPrivileges {
   Whether or not a user can update the properties for the entity (e.g. dataset)
   """
   canEditProperties: Boolean
+
+   """
+  Whether or not a user can update tags for the entity
+  """
+  canEditTags: Boolean
+
+  """
+  Whether or not a user can update glossary terms for the entity
+  """
+  canEditGlossaryTerms: Boolean
+
+  """
+  Whether or not a user can update the description for the entity
+  """
+  canEditDescription: Boolean
+
+  """
+  Whether or not a user can update the links for the entity
+  """
+  canEditLinks: Boolean
+
+  """
+  Whether or not a user can update the domain(s) for the entity
+  """
+  canEditDomains: Boolean
+
+  """
+  Whether or not a user can update the data product(s) that the entity belongs to
+  """
+  canEditDataProducts: Boolean
+
+  """
+  Whether or not a user can update the owners for the entity
+  """
+  canEditOwners: Boolean
+
+  """
+  Whether or not a user can update the incidents for an asset
+  """
+  canEditIncidents: Boolean
+
+  """
+  Whether or not a user can update assertions for an asset
+  """
+  canEditAssertions: Boolean
+
+  """
+  Whether or not a user can update the deprecation status for an entity
+  """
+  canEditDeprecation: Boolean
+
+  """
+  Whether or not a user can update the schema field tags for a dataset
+  """
+  canEditSchemaFieldTags: Boolean
+
+  """
+  Whether or not a user can update the schema field tags for a dataset
+  """
+  canEditSchemaFieldGlossaryTerms: Boolean
+
+  """
+  Whether or not a user can update the schema field tags for a dataset
+  """
+  canEditSchemaFieldDescription: Boolean
+
+  """
+  Whether the user can view dataset usage stats
+  """
+  canViewDatasetUsage: Boolean
+
+  """
+  Whether the user can view dataset profiling stats
+  """
+  canViewDatasetProfile: Boolean
+
+  """
+  Whether the user can view dataset operations
+  """
+  canViewDatasetOperations: Boolean
 }
 
 """

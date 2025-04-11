@@ -107,8 +107,8 @@ export default function ManageLineageModal({
                     });
                 }
             })
-            .catch(() => {
-                message.error('Error updating lineage');
+            .catch((error) => {
+                message.error(error.message || 'Error updating lineage');
             });
     }
 

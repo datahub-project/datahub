@@ -235,9 +235,9 @@ class TrinoUsageSource(Source):
     def _aggregate_access_events(
         self, events: List[TrinoJoinedAccessEvent]
     ) -> Dict[datetime, Dict[TrinoTableRef, AggregatedDataset]]:
-        datasets: Dict[
-            datetime, Dict[TrinoTableRef, AggregatedDataset]
-        ] = collections.defaultdict(dict)
+        datasets: Dict[datetime, Dict[TrinoTableRef, AggregatedDataset]] = (
+            collections.defaultdict(dict)
+        )
 
         for event in events:
             floored_ts = get_time_bucket(event.starttime, self.config.bucket_duration)

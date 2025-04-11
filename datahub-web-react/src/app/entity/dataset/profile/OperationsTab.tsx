@@ -137,7 +137,10 @@ export const OperationsTab = () => {
     const [page, setPage] = useState(1);
 
     // Fetch data across all siblings.
-    const allUrns = [urn, ...(entityData?.siblings?.siblings || []).map((sibling) => sibling?.urn).filter(notEmpty)];
+    const allUrns = [
+        urn,
+        ...(entityData?.siblingsSearch?.searchResults || []).map((sibling) => sibling.entity.urn).filter(notEmpty),
+    ];
     const loadings: boolean[] = [];
     const datas: GetDatasetRunsQuery[] = [];
     allUrns.forEach((entityUrn) => {

@@ -1,0 +1,20 @@
+namespace com.linkedin.metadata.key
+
+
+/**
+ * Key for a Version Set entity
+ */
+@Aspect = {
+	"name": "versionSetKey"
+}
+record VersionSetKey {
+  /**
+   * ID of the Version Set, generated from platform + asset id / name
+   */
+	id: string
+
+	/**
+	 * Type of entities included in version set, limits to a single entity type between linked versioned entities
+	 */
+	entityType: string
+}

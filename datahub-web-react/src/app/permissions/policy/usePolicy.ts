@@ -136,7 +136,7 @@ export function usePolicy(
                     removeFromListPoliciesCache(client, policy?.urn, DEFAULT_PAGE_SIZE);
                     setTimeout(() => {
                         policiesRefetch();
-                    }, 3000);
+                    }, 4000);
                     onCancelViewPolicy();
                 });
             },
@@ -168,7 +168,7 @@ export function usePolicy(
             message.success(`Successfully ${newState === PolicyState.Active ? 'activated' : 'deactivated'} policy.`);
             setTimeout(() => {
                 policiesRefetch();
-            }, 3000);
+            }, 4000);
         });
 
         setShowViewPolicyModal(false);

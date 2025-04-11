@@ -12,19 +12,19 @@
             "allowedValues": [
                 {
                     "value": {
-                        "string": "30"
+                        "double": 30
                     },
                     "description": "30 days, usually reserved for datasets that are ephemeral and contain pii"
                 },
                 {
                     "value": {
-                        "string": "90"
+                        "double": 90
                     },
                     "description": "Use this for datasets that drive monthly reporting but contain pii"
                 },
                 {
                     "value": {
-                        "string": "365"
+                        "double": 365
                     },
                     "description": "Use this for non-sensitive data that can be retained for longer"
                 }

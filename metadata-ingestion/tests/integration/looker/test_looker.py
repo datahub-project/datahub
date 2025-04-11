@@ -532,9 +532,10 @@ def setup_mock_explore_unaliased_with_joins(mocked_client):
 
 def setup_mock_explore(
     mocked_client: Any,
-    additional_lkml_fields: List[LookmlModelExploreField] = [],
+    additional_lkml_fields: Optional[List[LookmlModelExploreField]] = None,
     **additional_explore_fields: Any,
 ) -> None:
+    additional_lkml_fields = additional_lkml_fields or []
     mock_model = mock.MagicMock(project_name="lkml_samples")
     mocked_client.lookml_model.return_value = mock_model
 
@@ -1096,9 +1097,9 @@ def test_file_path_in_view_naming_pattern(
 ):
     mocked_client = mock.MagicMock()
     new_recipe = get_default_recipe(output_file_path=f"{tmp_path}/looker_mces.json")
-    new_recipe["source"]["config"][
-        "view_naming_pattern"
-    ] = "{project}.{file_path}.view.{name}"
+    new_recipe["source"]["config"]["view_naming_pattern"] = (
+        "{project}.{file_path}.view.{name}"
+    )
 
     with mock.patch(
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",

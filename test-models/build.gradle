@@ -18,3 +18,4 @@ idea {
 }
 
 sourceSets.mainGeneratedDataTemplate.java.srcDirs('src/main/javaPegasus/')
+spotlessJava.dependsOn generateTestDataTemplate

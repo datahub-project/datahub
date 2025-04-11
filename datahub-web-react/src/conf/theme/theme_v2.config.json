@@ -1,0 +1,57 @@
+{
+    "styles": {
+        "primary-color": "#5280E2",
+        "primary-color-dark": "#5C3FD1",
+        "primary-color-light": "#ece9f8",
+        "link-color": "#5280E2",
+        "layout-header-background": "white",
+        "layout-header-color": "#434343",
+        "layout-body-background": "white",
+        "component-background": "white",
+        "body-background": "white",
+        "border-color-base": "#ececec",
+        "text-color": "fade(black, 85%)",
+        "text-color-secondary": "fade(black, 45%)",
+        "heading-color": "fade(black, 85%)",
+        "background-color-light": "hsv(0, 0, 98%)",
+        "divider-color": "fade(black, 6%)",
+        "disabled-color": "fade(black, 25%)",
+        "steps-nav-arrow-color": "fade(black, 25%)",
+        "homepage-background-upper-fade": "#FFFFFF",
+        "homepage-background-lower-fade": "#FFFFFF",
+        "homepage-text-color": "#434343",
+        "box-shadow": "0px 0px 30px 0px rgb(239 239 239)",
+        "box-shadow-hover": "0px 1px 0px 0.5px rgb(239 239 239)",
+        "box-shadow-navbar-redesign": "0 0 6px 0px rgba(93, 102, 139, 0.20)",
+        "border-radius-navbar-redesign": "12px",
+        "highlight-color": "#ece9f8",
+        "highlight-border-color": "#07878180"
+    },
+    "assets": {
+        "logoUrl": "/assets/logo.png"
+    },
+    "content": {
+        "title": "DataHub",
+        "homepage": {
+            "homepageMessage": "Bring clarity to your data"
+        },
+        "search": {
+            "searchbarMessage": "Find tables, dashboards, people, and more"
+        },
+        "menu": {
+            "items": [
+                {
+                    "label": "DataHub Project",
+                    "path": "https://datahubproject.io",
+                    "shouldOpenInNewTab": true,
+                    "description": "Explore DataHub Project website"
+                },
+                {
+                    "label": "DataHub GitHub",
+                    "path": "https://github.com/linkedin/datahub",
+                    "shouldOpenInNewTab": true
+                }
+            ]
+        }
+    }
+}

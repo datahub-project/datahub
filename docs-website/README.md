@@ -130,7 +130,6 @@ The purpose of this section is to provide developers & technical users with conc
 
 This section aims to provide plain-language feature overviews for both technical and non-technical readers alike.
 
-
 ## Docs Generation Features
 
 **Includes all markdown files**
@@ -145,16 +144,33 @@ You can suppress this check by adding the path to the file in a comment in `side
 
 Use an "inline" directive to include code snippets from other files. The `show_path_as_comment` option will include the path to the file as a comment at the top of the snippet.
 
-  ```python
-  {{ inline /metadata-ingestion/examples/library/data_quality_mcpw_rest.py show_path_as_comment }}
-  ```
+    ```python
+    {{ inline /metadata-ingestion/examples/library/data_quality_mcpw_rest.py show_path_as_comment }}
+    ```
 
+**Command Output**
+
+Use the `{{ command-output cmd }}` directive to run subprocesses and inject the outputs into the final markdown.
+
+    {{ command-output python -c 'print("Hello world")' }}
+
+This also works for multi-line scripts.
+
+    {{ command-output
+    source metadata-ingestion/venv/bin/activate
+    python -m <something>
+    }}
+
+Regardless of the location of the markdown file, the subcommands will be executed with working directory set to the repo root.
+
+Only the stdout of the subprocess will be outputted. The stderr, if any, will be included as a comment in the markdown.
 
 ## Docs site generation process
 
 This process is orchestrated by a combination of Gradle and Yarn tasks. The main entrypoint is via the `docs-website:yarnGenerate` task, which in turn eventually runs `yarn run generate`.
 
 Steps:
+
 1. Generate the GraphQL combined schema using the gradle's `docs-website:generateGraphQLSchema` task. This generates `./graphql/combined.graphql`.
 2. Generate docs for ingestion sources using the `:metadata-ingestion:docGen` gradle task.
 3. Generate docs for our metadata model using the `:metadata-ingestion:modelDocGen` gradle task.

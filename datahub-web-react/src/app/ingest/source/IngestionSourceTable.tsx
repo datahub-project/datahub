@@ -1,19 +1,16 @@
-import { Empty, Typography } from 'antd';
+import { Empty } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 import { SorterResult } from 'antd/lib/table/interface';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { CLI_EXECUTOR_ID, getIngestionSourceStatus } from './utils';
-import {
-    LastStatusColumn,
-    TypeColumn,
-    ActionsColumn,
-    ScheduleColumn,
-    LastExecutionColumn,
-} from './IngestionSourceTableColumns';
+import { LastStatusColumn, TypeColumn, ActionsColumn, ScheduleColumn } from './IngestionSourceTableColumns';
 import { IngestionSource } from '../../../types.generated';
 import { IngestionSourceExecutionList } from './executions/IngestionSourceExecutionList';
+
+const PAGE_HEADER_HEIGHT = 395;
 
 const StyledSourceTable = styled(StyledTable)`
     .cliIngestion {
@@ -22,6 +19,15 @@ const StyledSourceTable = styled(StyledTable)`
         }
     }
 ` as typeof StyledTable;
+
+const StyledSourceTableWithNavBarRedesign = styled(StyledSourceTable)`
+    overflow: hidden;
+
+    &&& .ant-table-body {
+        overflow-y: auto;
+        height: calc(100vh - ${PAGE_HEADER_HEIGHT}px);
+    }
+` as typeof StyledSourceTable;
 
 interface Props {
     lastRefresh: number;
@@ -46,63 +52,7 @@ function IngestionSourceTable({
     onRefresh,
     onChangeSort,
 }: Props) {
-    const tableColumns = [
-        {
-            title: 'Type',
-            dataIndex: 'type',
-            key: 'type',
-            render: (type: string, record: any) => <TypeColumn type={type} record={record} />,
-            sorter: true,
-        },
-        {
-            title: 'Name',
-            dataIndex: 'name',
-            key: 'name',
-            render: (name: string) => name || '',
-            sorter: true,
-        },
-        {
-            title: 'Schedule',
-            dataIndex: 'schedule',
-            key: 'schedule',
-            render: ScheduleColumn,
-        },
-        {
-            title: 'Execution Count',
-            dataIndex: 'execCount',
-            key: 'execCount',
-            render: (execCount: any) => <Typography.Text>{execCount || '0'}</Typography.Text>,
-        },
-        {
-            title: 'Last Execution',
-            dataIndex: 'lastExecTime',
-            key: 'lastExecTime',
-            render: LastExecutionColumn,
-        },
-        {
-            title: 'Last Status',
-            dataIndex: 'lastExecStatus',
-            key: 'lastExecStatus',
-            render: (status: any, record) => (
-                <LastStatusColumn status={status} record={record} setFocusExecutionUrn={setFocusExecutionUrn} />
-            ),
-        },
-        {
-            title: '',
-            dataIndex: '',
-            key: 'x',
-            render: (_, record: any) => (
-                <ActionsColumn
-                    record={record}
-                    setFocusExecutionUrn={setFocusExecutionUrn}
-                    onExecute={onExecute}
-                    onDelete={onDelete}
-                    onView={onView}
-                    onEdit={onEdit}
-                />
-            ),
-        },
-    ];
+    const isShowNavBarRedesign = useShowNavBarRedesign();
 
     const tableData = sources.map((source) => ({
         urn: source.urn,
@@ -127,6 +77,52 @@ function IngestionSourceTable({
         cliIngestion: source.config?.executorId === CLI_EXECUTOR_ID,
     }));
 
+    const tableColumns = [
+        {
+            title: 'Type',
+            dataIndex: 'type',
+            key: 'type',
+            render: (type: string, record: any) => <TypeColumn type={type} record={record} />,
+            sorter: true,
+        },
+        {
+            title: 'Name',
+            dataIndex: 'name',
+            key: 'name',
+            render: (name: string) => name || '',
+            sorter: true,
+        },
+        {
+            title: 'Schedule',
+            dataIndex: 'schedule',
+            key: 'schedule',
+            render: ScheduleColumn,
+        },
+        {
+            title: 'Status',
+            dataIndex: 'lastExecStatus',
+            key: 'lastExecStatus',
+            render: (status: any, record) => (
+                <LastStatusColumn status={status} record={record} setFocusExecutionUrn={setFocusExecutionUrn} />
+            ),
+        },
+        {
+            title: '',
+            dataIndex: '',
+            key: 'x',
+            render: (_, record: any) => (
+                <ActionsColumn
+                    record={record}
+                    setFocusExecutionUrn={setFocusExecutionUrn}
+                    onExecute={onExecute}
+                    onDelete={onDelete}
+                    onView={onView}
+                    onEdit={onEdit}
+                />
+            ),
+        },
+    ];
+
     const handleTableChange = (_: any, __: any, sorter: any) => {
         const sorterTyped: SorterResult<any> = sorter;
         const field = sorterTyped.field as string;
@@ -134,11 +130,14 @@ function IngestionSourceTable({
         onChangeSort(field, order);
     };
 
+    const FinalStyledSourceTable = isShowNavBarRedesign ? StyledSourceTableWithNavBarRedesign : StyledSourceTable;
+
     return (
-        <StyledSourceTable
+        <FinalStyledSourceTable
             columns={tableColumns}
             onChange={handleTableChange}
             dataSource={tableData}
+            scroll={isShowNavBarRedesign ? { y: 'max-content', x: 'max-content' } : {}}
             rowKey="urn"
             rowClassName={(record, _) => (record.cliIngestion ? 'cliIngestion' : '')}
             locale={{

@@ -301,7 +301,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
     # Mock the kafka consumer
     mock_kafka_instance = mock_kafka_consumer.return_value
     mock_cluster_metadata = MagicMock()
-    mock_cluster_metadata.topics = {k: None for k in topic_subject_schema_map.keys()}
+    mock_cluster_metadata.topics = {k: None for k in topic_subject_schema_map}
     mock_cluster_metadata.topics["schema_less_topic"] = None
     mock_kafka_instance.list_topics.return_value = mock_cluster_metadata
 
@@ -598,7 +598,7 @@ def test_kafka_source_topic_meta_mappings(
     # Mock the kafka consumer
     mock_kafka_instance = mock_kafka_consumer.return_value
     mock_cluster_metadata = MagicMock()
-    mock_cluster_metadata.topics = {k: None for k in topic_subject_schema_map.keys()}
+    mock_cluster_metadata.topics = {k: None for k in topic_subject_schema_map}
     mock_kafka_instance.list_topics.return_value = mock_cluster_metadata
 
     # Mock the schema registry client

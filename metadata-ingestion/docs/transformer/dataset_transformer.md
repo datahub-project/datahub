@@ -1632,4 +1632,24 @@ After running `datahub ingest -c <path_to_recipe>`, our MCEs will now have the f
 ],
 ```
 
+### Using this in the remote executor (DataHub Cloud only)
+
+Build the image with your transformer
+```
+docker build -t acryldata:customtransform1 -f metadata-ingestion/examples/transforms/example.Dockerfile metadata-ingestion/examples/transforms
+```
+
+Test it works
+```
+docker run -it --rm acryldata:customtransform1 bash
+```
+
+Inside the docker container
+```
+source venv/bin/activate
+datahub ingest -c ./custom_transformer/recipe.dhub.yaml
+```
+
+If you use this image for remote executor then you can set `file:///datahub-executor/custom_transformer` as an extra pip dependency to install the transformer in your ingestion.
+
 All the files for this tutorial may be found [here](../../examples/transforms/).

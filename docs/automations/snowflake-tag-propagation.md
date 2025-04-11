@@ -4,7 +4,12 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
-> Note that this Automation in currently in open **Beta**. With any questions or issues, please reach out to your Acryl representative. 
+:::info
+
+This feature is currently in open beta in Acryl Cloud. Reach out to your Acryl representative to get access.
+
+:::
+
 
 ## Introduction
 

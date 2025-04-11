@@ -48,7 +48,9 @@ class TopKDict(DefaultDict[_KT, _VT]):
                 total_value: Union[_VT, str] = sum(trimmed_dict.values())  # type: ignore
             except Exception:
                 total_value = ""
-            trimmed_dict[f"... top {self.top_k} of total {len(self)} entries"] = total_value  # type: ignore
+            trimmed_dict[f"... top {self.top_k} of total {len(self)} entries"] = (  # type: ignore
+                total_value  # type: ignore
+            )
             return trimmed_dict
 
 

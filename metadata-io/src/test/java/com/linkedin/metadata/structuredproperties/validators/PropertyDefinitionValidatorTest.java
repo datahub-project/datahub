@@ -1,5 +1,6 @@
 package com.linkedin.metadata.structuredproperties.validators;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -8,6 +9,8 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.data.template.StringArray;
+import com.linkedin.data.template.StringArrayMap;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
@@ -22,6 +25,7 @@ import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
 import java.net.URISyntaxException;
+import java.util.HashMap;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -37,6 +41,8 @@ public class PropertyDefinitionValidatorTest {
     testPropertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:foo.bar");
     AspectRetriever mockAspectRetriever = mock(AspectRetriever.class);
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(entityRegistry);
+    HashMap<Urn, Boolean> map = new HashMap<>();
+    when(mockAspectRetriever.entityExists(any())).thenReturn(map);
     GraphRetriever mockGraphRetriever = mock(GraphRetriever.class);
     mockRetrieverContext = mock(RetrieverContext.class);
     when(mockRetrieverContext.getAspectRetriever()).thenReturn(mockAspectRetriever);
@@ -432,5 +438,111 @@ public class PropertyDefinitionValidatorTest {
                 mockRetrieverContext)
             .count(),
         1);
+  }
+
+  @Test
+  public void testValidAllowedTypes()
+      throws URISyntaxException, CloneNotSupportedException, AspectValidationException {
+    Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:foo.bar");
+    StructuredPropertyDefinition newProperty = createValidPropertyDefinition();
+    StringArrayMap typeQualifier = new StringArrayMap();
+    typeQualifier.put("allowedTypes", new StringArray("urn:li:entityType:datahub.dataset"));
+    newProperty.setTypeQualifier(typeQualifier);
+    assertEquals(
+        PropertyDefinitionValidator.validateDefinitionUpserts(
+                TestMCP.ofOneMCP(propertyUrn, null, newProperty, entityRegistry),
+                mockRetrieverContext)
+            .count(),
+        0);
+  }
+
+  @Test
+  public void testInvalidUrnsInAllowedTypes()
+      throws URISyntaxException, CloneNotSupportedException, AspectValidationException {
+    Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:foo.bar");
+    StructuredPropertyDefinition newProperty = createValidPropertyDefinition();
+    StringArrayMap typeQualifier = new StringArrayMap();
+    // invalid urn here
+    typeQualifier.put("allowedTypes", new StringArray("invalidUrn"));
+    newProperty.setTypeQualifier(typeQualifier);
+    assertEquals(
+        PropertyDefinitionValidator.validateDefinitionUpserts(
+                TestMCP.ofOneMCP(propertyUrn, null, newProperty, entityRegistry),
+                mockRetrieverContext)
+            .count(),
+        1);
+  }
+
+  @Test
+  public void testNotEntityTypeInAllowedTypes()
+      throws URISyntaxException, CloneNotSupportedException, AspectValidationException {
+    Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:foo.bar");
+    StructuredPropertyDefinition newProperty = createValidPropertyDefinition();
+    StringArrayMap typeQualifier = new StringArrayMap();
+    // urn that is not an entityType
+    typeQualifier.put("allowedTypes", new StringArray("urn:li:dataPlatform:snowflake"));
+    newProperty.setTypeQualifier(typeQualifier);
+    assertEquals(
+        PropertyDefinitionValidator.validateDefinitionUpserts(
+                TestMCP.ofOneMCP(propertyUrn, null, newProperty, entityRegistry),
+                mockRetrieverContext)
+            .count(),
+        1);
+  }
+
+  @Test
+  public void testEntityTypeDoesNotExistInAllowedTypes()
+      throws URISyntaxException, CloneNotSupportedException, AspectValidationException {
+    AspectRetriever mockAspectRetriever = mock(AspectRetriever.class);
+    when(mockAspectRetriever.getEntityRegistry()).thenReturn(entityRegistry);
+    HashMap<Urn, Boolean> map = new HashMap<>();
+    map.put(UrnUtils.getUrn("urn:li:entityType:datahub.fakeEntity"), false);
+    when(mockAspectRetriever.entityExists(any())).thenReturn(map);
+    GraphRetriever mockGraphRetriever = mock(GraphRetriever.class);
+    RetrieverContext retrieverContext = mock(RetrieverContext.class);
+    when(retrieverContext.getAspectRetriever()).thenReturn(mockAspectRetriever);
+    when(retrieverContext.getGraphRetriever()).thenReturn(mockGraphRetriever);
+
+    Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:foo.bar");
+    StructuredPropertyDefinition newProperty = createValidPropertyDefinition();
+    StringArrayMap typeQualifier = new StringArrayMap();
+    // urn that doesn't exist
+    typeQualifier.put("allowedTypes", new StringArray("urn:li:entityType:datahub.fakeEntity"));
+    newProperty.setTypeQualifier(typeQualifier);
+    assertEquals(
+        PropertyDefinitionValidator.validateDefinitionUpserts(
+                TestMCP.ofOneMCP(propertyUrn, null, newProperty, entityRegistry), retrieverContext)
+            .count(),
+        1);
+  }
+
+  @Test
+  public void testAllowedTypesMixOfValidAndInvalid()
+      throws URISyntaxException, CloneNotSupportedException, AspectValidationException {
+    Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:foo.bar");
+    StructuredPropertyDefinition newProperty = createValidPropertyDefinition();
+    StringArrayMap typeQualifier = new StringArrayMap();
+    // urn that is not an entityType
+    typeQualifier.put(
+        "allowedTypes",
+        new StringArray("urn:li:entityType:datahub.dataset", "urn:li:dataPlatform:snowflake"));
+    newProperty.setTypeQualifier(typeQualifier);
+    assertEquals(
+        PropertyDefinitionValidator.validateDefinitionUpserts(
+                TestMCP.ofOneMCP(propertyUrn, null, newProperty, entityRegistry),
+                mockRetrieverContext)
+            .count(),
+        1);
+  }
+
+  private StructuredPropertyDefinition createValidPropertyDefinition() throws URISyntaxException {
+    StructuredPropertyDefinition newProperty = new StructuredPropertyDefinition();
+    newProperty.setEntityTypes(
+        new UrnArray(Urn.createFromString("urn:li:entityType:datahub.dataset")));
+    newProperty.setDisplayName("oldProp");
+    newProperty.setQualifiedName("foo.bar");
+    newProperty.setCardinality(PropertyCardinality.MULTIPLE);
+    newProperty.setValueType(Urn.createFromString("urn:li:dataType:datahub.urn"));
+    return newProperty;
   }
 }

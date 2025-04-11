@@ -14,7 +14,7 @@ import com.linkedin.common.TimeStamp
 @Aspect = {
   "name": "mlModelProperties"
 }
-record MLModelProperties includes CustomProperties, ExternalReference {
+record MLModelProperties includes CustomProperties, ExternalReference, MLModelLineageInfo {
 
   /**
    * Display name of the MLModel
@@ -115,31 +115,6 @@ record MLModelProperties includes CustomProperties, ExternalReference {
     }
   }
   deployments: optional array[Urn]
-
-  /**
-   * List of jobs (if any) used to train the model. Visible in Lineage. Note that ML Models can also be specified as the output of a specific Data Process Instances (runs) via the DataProcessInstanceOutputs aspect.
-   */
-  @Relationship = {
-    "/*": {
-      "name": "TrainedBy",
-      "entityTypes": [ "dataJob", "dataProcessInstance" ],
-      "isLineage": true
-    }
-  }
-  trainingJobs: optional array[Urn]
-
-  /**
-   * List of jobs (if any) that use the model
-   */
-  @Relationship = {
-    "/*": {
-      "name": "UsedBy",
-      "entityTypes": [ "dataJob" ],
-      "isLineage": true,
-      "isUpstream": false
-    }
-  }
-  downstreamJobs: optional array[Urn]
 
   /**
    * Groups the model belongs to

@@ -128,6 +128,10 @@ class RedshiftConfig(
         default=True,
         description="Whether lineage should be collected from copy commands",
     )
+    include_share_lineage: bool = Field(
+        default=True,
+        description="Whether lineage should be collected from datashares",
+    )
 
     include_usage_statistics: bool = Field(
         default=False,
@@ -178,9 +182,9 @@ class RedshiftConfig(
     @root_validator(pre=True)
     def check_email_is_set_on_usage(cls, values):
         if values.get("include_usage_statistics"):
-            assert (
-                "email_domain" in values and values["email_domain"]
-            ), "email_domain needs to be set if usage is enabled"
+            assert "email_domain" in values and values["email_domain"], (
+                "email_domain needs to be set if usage is enabled"
+            )
         return values
 
     @root_validator(skip_on_failure=True)

@@ -3,7 +3,6 @@ package com.linkedin.metadata.graph.elastic;
 import static com.linkedin.metadata.aspect.models.graph.Edge.*;
 import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.*;
 
-import com.codahale.metrics.Timer;
 import com.datahub.util.exception.ESQueryException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -36,7 +35,7 @@ import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -135,7 +134,10 @@ public class ESGraphQueryDAO {
   }
 
   private SearchResponse executeLineageSearchQuery(
-      @Nonnull final QueryBuilder query, final int offset, final int count) {
+      @Nonnull OperationContext opContext,
+      @Nonnull final QueryBuilder query,
+      final int offset,
+      final int count) {
     SearchRequest searchRequest = new SearchRequest();
 
     SearchSourceBuilder searchSourceBuilder = sharedSourceBuilder(query, offset, count);
@@ -144,13 +146,19 @@ public class ESGraphQueryDAO {
 
     searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
 
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esQuery").time()) {
-      MetricUtils.counter(this.getClass(), SEARCH_EXECUTIONS_METRIC).inc();
-      return client.search(searchRequest, RequestOptions.DEFAULT);
-    } catch (Exception e) {
-      log.error("Search query failed", e);
-      throw new ESQueryException("Search query failed:", e);
-    }
+    return opContext.withSpan(
+        "esQuery",
+        () -> {
+          try {
+            MetricUtils.counter(this.getClass(), SEARCH_EXECUTIONS_METRIC).inc();
+            return client.search(searchRequest, RequestOptions.DEFAULT);
+          } catch (Exception e) {
+            log.error("Search query failed", e);
+            throw new ESQueryException("Search query failed:", e);
+          }
+        },
+        MetricUtils.DROPWIZARD_NAME,
+        MetricUtils.name(this.getClass(), "esQuery"));
   }
 
   private SearchSourceBuilder sharedSourceBuilder(
@@ -168,6 +176,7 @@ public class ESGraphQueryDAO {
   }
 
   private SearchResponse executeGroupByLineageSearchQuery(
+      @Nonnull final OperationContext opContext,
       @Nonnull final QueryBuilder query,
       final int offset,
       final int count,
@@ -232,14 +241,19 @@ public class ESGraphQueryDAO {
     searchRequest.source(searchSourceBuilder);
     searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
 
-    try (Timer.Context ignored =
-        MetricUtils.timer(this.getClass(), "esLineageGroupByQuery").time()) {
-      MetricUtils.counter(this.getClass(), SEARCH_EXECUTIONS_METRIC).inc();
-      return client.search(searchRequest, RequestOptions.DEFAULT);
-    } catch (Exception e) {
-      log.error("Search query failed", e);
-      throw new ESQueryException("Search query failed:", e);
-    }
+    return opContext.withSpan(
+        "esLineageGroupByQuery",
+        () -> {
+          try {
+            MetricUtils.counter(this.getClass(), SEARCH_EXECUTIONS_METRIC).inc();
+            return client.search(searchRequest, RequestOptions.DEFAULT);
+          } catch (Exception e) {
+            log.error("Search query failed", e);
+            throw new ESQueryException("Search query failed:", e);
+          }
+        },
+        MetricUtils.DROPWIZARD_NAME,
+        MetricUtils.name(this.getClass(), "esLineageGroupByQuery"));
   }
 
   private static BoolQueryBuilder getAggregationFilter(
@@ -289,7 +303,7 @@ public class ESGraphQueryDAO {
             relationshipTypes,
             relationshipFilter);
 
-    return executeLineageSearchQuery(finalQuery, offset, count);
+    return executeLineageSearchQuery(opContext, finalQuery, offset, count);
   }
 
   public static BoolQueryBuilder buildQuery(
@@ -664,7 +678,7 @@ public class ESGraphQueryDAO {
     if (lineageFlags != null && lineageFlags.getEntitiesExploredPerHopLimit() != null) {
       response =
           executeGroupByLineageSearchQuery(
-              finalQuery, 0, lineageFlags.getEntitiesExploredPerHopLimit(), validEdges);
+              opContext, finalQuery, 0, lineageFlags.getEntitiesExploredPerHopLimit(), validEdges);
       return extractRelationshipsGroupByQuery(
           entityUrnSet,
           response,
@@ -676,7 +690,9 @@ public class ESGraphQueryDAO {
           existingPaths,
           exploreMultiplePaths);
     } else {
-      response = executeLineageSearchQuery(finalQuery, 0, graphQueryConfiguration.getMaxResult());
+      response =
+          executeLineageSearchQuery(
+              opContext, finalQuery, 0, graphQueryConfiguration.getMaxResult());
       return extractRelationships(
           entityUrnSet,
           response,
@@ -1378,10 +1394,11 @@ public class ESGraphQueryDAO {
             relationshipTypes,
             relationshipFilter);
 
-    return executeScrollSearchQuery(finalQuery, sortCriteria, scrollId, count);
+    return executeScrollSearchQuery(opContext, finalQuery, sortCriteria, scrollId, count);
   }
 
   private SearchResponse executeScrollSearchQuery(
+      @Nonnull final OperationContext opContext,
       @Nonnull final QueryBuilder query,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
@@ -1405,13 +1422,19 @@ public class ESGraphQueryDAO {
 
     searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
 
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esQuery").time()) {
-      MetricUtils.counter(this.getClass(), SEARCH_EXECUTIONS_METRIC).inc();
-      return client.search(searchRequest, RequestOptions.DEFAULT);
-    } catch (Exception e) {
-      log.error("Search query failed", e);
-      throw new ESQueryException("Search query failed:", e);
-    }
+    return opContext.withSpan(
+        "esQuery",
+        () -> {
+          try {
+            MetricUtils.counter(this.getClass(), SEARCH_EXECUTIONS_METRIC).inc();
+            return client.search(searchRequest, RequestOptions.DEFAULT);
+          } catch (Exception e) {
+            log.error("Search query failed", e);
+            throw new ESQueryException("Search query failed:", e);
+          }
+        },
+        MetricUtils.DROPWIZARD_NAME,
+        MetricUtils.name(this.getClass(), "esQuery"));
   }
 
   private static void applyExcludeSoftDelete(

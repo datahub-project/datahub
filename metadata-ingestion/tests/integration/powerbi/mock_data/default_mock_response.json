@@ -149,7 +149,8 @@
                     "id": "B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0",
                     "title": "test_tile",
                     "embedUrl": "https://localhost/tiles/embed/1",
-                    "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445"
+                    "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                    "reportId": "5b218778-e7a5-4d73-8187-f10824047715"
                 },
                 {
                     "id": "23212598-23b5-4980-87cc-5fc0ecd84385",

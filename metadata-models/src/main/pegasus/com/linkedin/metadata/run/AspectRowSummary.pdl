@@ -11,4 +11,5 @@ record AspectRowSummary {
     version: long
     keyAspect: boolean
     aspect: optional Aspect
+    telemetryTraceId: optional string
 }

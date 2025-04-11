@@ -153,6 +153,6 @@ def test_openapi_v3_entity(auth_session, entity_type):
 
     expected_data = {"urn": first_urn}
 
-    assert (
-        actual_data["urn"] == expected_data["urn"]
-    ), f"Mismatch: expected {expected_data}, got {actual_data}"
+    assert actual_data["urn"] == expected_data["urn"], (
+        f"Mismatch: expected {expected_data}, got {actual_data}"
+    )

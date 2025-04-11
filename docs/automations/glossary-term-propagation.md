@@ -2,6 +2,12 @@
 
 <FeatureAvailability saasOnly />
 
+:::info
+
+This feature is currently in open beta in Acryl Cloud. Reach out to your Acryl representative to get access.
+
+:::
+
 ## Introduction
 
 Glossary Term Propagation is an automation feature that propagates classification labels (Glossary Terms) across column and assets based on downstream lineage and sibling relationships.

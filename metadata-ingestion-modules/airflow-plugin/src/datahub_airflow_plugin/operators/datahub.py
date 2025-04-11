@@ -3,9 +3,9 @@ from typing import List, Union
 from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
 from avrogen.dict_wrapper import DictWrapper
+
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-
 from datahub_airflow_plugin.hooks.datahub import (
     DatahubGenericHook,
     DatahubKafkaHook,

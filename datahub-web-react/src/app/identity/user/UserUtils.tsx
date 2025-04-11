@@ -14,3 +14,7 @@ export const mapRoleIcon = (roleName) => {
     }
     return icon;
 };
+
+export const shouldShowGlossary = (canManageGlossary: boolean, hideGlossary: boolean) => {
+    return canManageGlossary || !hideGlossary;
+};

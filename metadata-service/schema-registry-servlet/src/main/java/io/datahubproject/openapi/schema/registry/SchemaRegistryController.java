@@ -2,7 +2,6 @@ package io.datahubproject.openapi.schema.registry;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
 import com.linkedin.metadata.registry.SchemaRegistryService;
 import io.datahubproject.schema_registry.openapi.generated.CompatibilityCheckResponse;
 import io.datahubproject.schema_registry.openapi.generated.Config;
@@ -29,10 +28,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import javax.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -42,11 +43,9 @@ import org.springframework.web.bind.annotation.RestController;
 /** DataHub Rest Controller implementation for Confluent's Schema Registry OpenAPI spec. */
 @Slf4j
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/schema-registry/api")
+@Order(Ordered.HIGHEST_PRECEDENCE)
 @RequiredArgsConstructor
-@ConditionalOnProperty(
-    name = "kafka.schemaRegistry.type",
-    havingValue = InternalSchemaRegistryFactory.TYPE)
 public class SchemaRegistryController
     implements CompatibilityApi,
         ConfigApi,
@@ -65,6 +64,11 @@ public class SchemaRegistryController
 
   @Qualifier("schemaRegistryService")
   private final SchemaRegistryService _schemaRegistryService;
+
+  @PostConstruct
+  public void init() {
+    log.info("SchemaRegistryController initialized with base path: /schema-registry/api");
+  }
 
   @Override
   public Optional<ObjectMapper> getObjectMapper() {

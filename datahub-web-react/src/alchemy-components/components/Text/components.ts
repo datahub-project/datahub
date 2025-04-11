@@ -28,12 +28,12 @@ const baseStyles = {
 };
 
 // Prop Driven Styles
-const propStyles = (props, isText = false) => {
+const propStyles = (props: TextProps, isText = false) => {
     const styles = {} as any;
     if (props.size) styles.fontSize = getFontSize(props.size);
-    if (props.color) styles.color = getColor(props.color);
+    if (props.color) styles.color = getColor(props.color, props.colorLevel);
     if (props.weight) styles.fontWeight = typography.fontWeights[props.weight];
-    if (isText) styles.lineHeight = typography.lineHeights[props.size || 'md'];
+    if (isText) styles.lineHeight = typography.lineHeights[props.lineHeight || props.size || 'md'];
     return styles;
 };
 
@@ -46,5 +46,9 @@ export const Span = styled.span({ ...baseStyles, ...textStyles }, (props: TextPr
 }));
 
 export const Div = styled.div({ ...baseStyles, ...textStyles }, (props: TextProps) => ({
+    ...propStyles(props as TextProps, true),
+}));
+
+export const Pre = styled.pre({ ...baseStyles, ...textStyles }, (props: TextProps) => ({
     ...propStyles(props as TextProps, true),
 }));

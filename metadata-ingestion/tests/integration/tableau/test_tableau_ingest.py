@@ -69,7 +69,7 @@ config_source_default = {
     "projects": ["default", "Project 2", "Samples"],
     "extract_project_hierarchy": False,
     "page_size": 1000,
-    "workbook_page_size": 1000,
+    "workbook_page_size": None,
     "ingest_tags": True,
     "ingest_owner": True,
     "ingest_tables_external": True,
@@ -645,7 +645,7 @@ def test_tableau_ingest_with_platform_instance(
         "platform_instance": "acryl_site1",
         "projects": ["default", "Project 2"],
         "page_size": 1000,
-        "workbook_page_size": 1000,
+        "workbook_page_size": None,
         "ingest_tags": True,
         "ingest_owner": True,
         "ingest_tables_external": True,
@@ -1264,6 +1264,49 @@ def test_hidden_assets_without_ingest_tags(pytestconfig, tmp_path, mock_datahub_
         match=r".*tags_for_hidden_assets is only allowed with ingest_tags enabled.*",
     ):
         TableauConfig.parse_obj(new_config)
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_filter_upstream_assets(pytestconfig, tmp_path, mock_datahub_graph):
+    output_file_name: str = "tableau_filtered_upstream_asset.json"
+    golden_file_name: str = "tableau_filtered_upstream_asset_golden.json"
+
+    new_config = config_source_default.copy()
+    del new_config["projects"]
+    new_config["project_path_pattern"] = {"deny": ["^Samples$"]}
+    new_config["extract_project_hierarchy"] = True
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        [  # sequence of json file matters. They are arranged as per graphql api call
+            read_response("workbooksConnection_all.json"),
+            read_response("sheetsConnection_all.json"),
+            read_response("dashboardsConnection_all.json"),
+            read_response("embeddedDatasourcesConnection_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_a561c7beccd3_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_04ed1dcc7090_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_6f5f4cc0b6c6_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_69eb47587cc2_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_a0fced25e056_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_1570e7f932f6_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_c651da2f6ad8_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_26675da44a38_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_bda46be068e3_all.json"),
+            read_response("publishedDatasourcesConnection_all.json"),
+            read_response("publishedDatasourcesFieldUpstream_8e19660bb5dd_all.json"),
+            read_response("publishedDatasourcesFieldUpstream_17139d6e97ae_all.json"),
+            read_response("customSQLTablesConnection_all.json"),
+            read_response(
+                "databaseTablesConnection_excluding_upstream_of_sample_published_ds.json"
+            ),
+        ],
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_name="test_tableau_ingest",
+    )
 
 
 @freeze_time(FROZEN_TIME)

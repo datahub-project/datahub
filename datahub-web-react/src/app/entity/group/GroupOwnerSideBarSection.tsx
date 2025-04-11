@@ -11,6 +11,13 @@ const TITLE = 'Owners';
 
 const SectionWrapper = styled.div``;
 
+const OwnersWrapper = styled.div`
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+`;
+
 const AddOwnerButton = styled(Button)``;
 
 type Props = {
@@ -30,10 +37,12 @@ export default function GroupOwnerSideBarSection({ urn, ownership, refetch }: Pr
                 <DisplayCount>{ownership?.owners?.length || ''}</DisplayCount>
             </GroupSectionHeader>
             <SectionWrapper>
-                {ownership &&
-                    ownership?.owners?.map((owner) => (
-                        <ExpandedOwner entityUrn={urn} owner={owner} refetch={refetch} />
-                    ))}
+                <OwnersWrapper>
+                    {ownership &&
+                        ownership?.owners?.map((owner) => (
+                            <ExpandedOwner entityUrn={urn} owner={owner} refetch={refetch} />
+                        ))}
+                </OwnersWrapper>
                 {ownersEmpty && (
                     <Typography.Paragraph type="secondary">No group owners added yet.</Typography.Paragraph>
                 )}

@@ -16,7 +16,6 @@ const GITHUB_BROWSE_URL =
   "https://github.com/datahub-project/datahub/blob/master";
 
 const OUTPUT_DIRECTORY = "docs";
-const STATIC_DIRECTORY = "genStatic/artifacts";
 
 const SIDEBARS_DEF_PATH = "./sidebars.js";
 const sidebars = require(SIDEBARS_DEF_PATH);
@@ -439,6 +438,42 @@ function markdown_process_inline_directives(
   contents.content = new_content;
 }
 
+function markdown_process_command_output(
+  contents: matter.GrayMatterFile<string>,
+  filepath: string
+): void {
+  const new_content = contents.content.replace(
+    /^{{\s*command-output\s*([\s\S]*?)\s*}}$/gm,
+    (_, command: string) => {
+      try {
+        // Change to repo root directory before executing command
+        const repoRoot = path.resolve(__dirname, "..");
+
+        console.log(`Executing command: ${command}`);
+
+        // Execute the command and capture output
+        const output = execSync(command, {
+          cwd: repoRoot,
+          encoding: "utf8",
+          stdio: ["pipe", "pipe", "pipe"],
+        });
+
+        // Return the command output
+        return output.trim();
+      } catch (error: any) {
+        // If there's an error, include it as a comment
+        const errorMessage = error.stderr
+          ? error.stderr.toString()
+          : error.message;
+        return `${
+          error.stdout ? error.stdout.toString().trim() : ""
+        }\n<!-- Error: ${errorMessage.trim()} -->`;
+      }
+    }
+  );
+  contents.content = new_content;
+}
+
 function markdown_sanitize_and_linkify(content: string): string {
   // MDX escaping
   content = content.replace(/</g, "&lt;");
@@ -484,10 +519,13 @@ custom_edit_url: https://github.com/datahub-project/datahub/blob/master/docs-web
 
 ## Summary\n\n`);
 
-  const releases_list = await octokit.rest.repos.listReleases({
+  const releases_list_full = await octokit.rest.repos.listReleases({
     owner: "datahub-project",
     repo: "datahub",
   });
+  const releases_list = releases_list_full.data.filter(
+    (release) => !release.prerelease && !release.draft
+  );
 
   // We only embed release notes for releases in the last 3 months.
   const release_notes_date_cutoff = new Date(
@@ -498,10 +536,7 @@ custom_edit_url: https://github.com/datahub-project/datahub/blob/master/docs-web
   const releaseNoteVersions = new Set();
   contents.content += "| Version | Release Date | Links |\n";
   contents.content += "| ------- | ------------ | ----- |\n";
-  for (const release of releases_list.data) {
-    if (release.prerelease || release.draft) {
-      continue;
-    }
+  for (const release of releases_list) {
     const release_date = new Date(Date.parse(release.created_at));
 
     let row = `| **${release.tag_name}** | ${pretty_format_date(
@@ -518,7 +553,7 @@ custom_edit_url: https://github.com/datahub-project/datahub/blob/master/docs-web
   contents.content += "\n\n";
 
   // Full details
-  for (const release of releases_list.data) {
+  for (const release of releases_list) {
     let body: string;
     if (releaseNoteVersions.has(release.tag_name)) {
       body = release.body ?? "";
@@ -571,25 +606,6 @@ function write_markdown_file(
   }
 }
 
-function copy_python_wheels(): void {
-  // Copy the built wheel files to the static directory.
-  // Everything is copied to the python-build directory first, so
-  // we just need to copy from there.
-  const wheel_dir = "../python-build/wheels";
-
-  const wheel_output_directory = path.join(STATIC_DIRECTORY, "wheels");
-  fs.mkdirSync(wheel_output_directory, { recursive: true });
-
-  const wheel_files = fs.readdirSync(wheel_dir);
-  for (const wheel_file of wheel_files) {
-    const src = path.join(wheel_dir, wheel_file);
-    const dest = path.join(wheel_output_directory, wheel_file);
-
-    // console.log(`Copying artifact ${src} to ${dest}...`);
-    fs.copyFileSync(src, dest);
-  }
-}
-
 (async function main() {
   for (const filepath of markdown_files) {
     //console.log("Processing:", filepath);
@@ -602,6 +618,7 @@ function copy_python_wheels(): void {
     markdown_rewrite_urls(contents, filepath);
     markdown_enable_specials(contents, filepath);
     markdown_process_inline_directives(contents, filepath);
+    markdown_process_command_output(contents, filepath);
     //copy_platform_logos();
     // console.log(contents);
 
@@ -643,8 +660,5 @@ function copy_python_wheels(): void {
       );
     }
   }
-
-  // Generate static directory.
-  copy_python_wheels();
   // TODO: copy over the source json schemas + other artifacts.
 })();

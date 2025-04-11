@@ -1,6 +1,7 @@
 import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { useAppConfig } from '@src/app/useAppConfig';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import { useUserContext } from '../../context/useUserContext';
 import {
@@ -74,6 +75,7 @@ export default function BasicFilters({
     showAdvancedFilters,
 }: Props) {
     const userContext = useUserContext();
+    const { config } = useAppConfig();
     const selectedViewUrn = userContext?.localState?.selectedViewUrn;
     const showSaveViewButton = activeFilters?.length > 0 && selectedViewUrn === undefined;
     // only want Environment filter if there's 2 or more envs
@@ -99,6 +101,7 @@ export default function BasicFilters({
                                 filter,
                                 activeFilters,
                                 onChangeFilters,
+                                config,
                             })
                         ) : (
                             <SearchFilter

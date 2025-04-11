@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, TypeVar
 from mixpanel import Consumer, Mixpanel
 from typing_extensions import ParamSpec
 
-import datahub as datahub_package
+from datahub._version import __version__, nice_version_name
 from datahub.cli.config_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.configuration.common import ExceptionWithProps
@@ -106,7 +106,7 @@ SENTRY_ENVIRONMENT: str = os.environ.get("SENTRY_ENVIRONMENT", "dev")
 
 def _default_telemetry_properties() -> Dict[str, Any]:
     return {
-        "datahub_version": datahub_package.nice_version_name(),
+        "datahub_version": nice_version_name(),
         "python_version": platform.python_version(),
         "os": platform.system(),
         "arch": platform.machine(),
@@ -132,7 +132,7 @@ class Telemetry:
                 sentry_sdk.init(
                     dsn=SENTRY_DSN,
                     environment=SENTRY_ENVIRONMENT,
-                    release=datahub_package.__version__,
+                    release=__version__,
                 )
             except Exception as e:
                 # We need to print initialization errors to stderr, since logger is not initialized yet
@@ -277,7 +277,7 @@ class Telemetry:
                 "environment",
                 {
                     "environment": SENTRY_ENVIRONMENT,
-                    "datahub_version": datahub_package.nice_version_name(),
+                    "datahub_version": nice_version_name(),
                     "os": platform.system(),
                     "python_version": platform.python_version(),
                 },

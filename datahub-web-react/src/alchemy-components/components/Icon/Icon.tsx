@@ -2,12 +2,12 @@ import React from 'react';
 
 import { getFontSize, getColor, getRotationTransform } from '@components/theme/utils';
 
-import { IconProps } from './types';
+import { IconProps, IconPropsDefaults } from './types';
 import { IconWrapper } from './components';
 import { getIconNames, getIconComponent } from './utils';
 
-export const iconDefaults: IconProps = {
-    icon: 'AccountCircle',
+export const iconDefaults: IconPropsDefaults = {
+    source: 'material',
     variant: 'outline',
     size: '4xl',
     color: 'inherit',
@@ -16,6 +16,7 @@ export const iconDefaults: IconProps = {
 
 export const Icon = ({
     icon,
+    source = iconDefaults.source,
     variant = iconDefaults.variant,
     size = iconDefaults.size,
     color = iconDefaults.color,
@@ -28,23 +29,21 @@ export const Icon = ({
     if (!icon) return null;
 
     // Get outlined icon component name
-    const isOutlined = variant === 'outline';
-    const outlinedIconName = `${icon}Outlined`;
+    const iconName = source === 'material' && variant === 'outline' ? `${icon}Outlined` : icon;
 
     // Warn if the icon does not have the specified variant
-    if (variant === 'outline' && !outlined.includes(outlinedIconName)) {
+    if (source === 'material' && variant === 'outline' && !outlined.includes(iconName)) {
         console.warn(`Icon "${icon}" does not have an outlined variant.`);
         return null;
     }
 
     // Warn if the icon does not have the specified variant
-    if (variant === 'filled' && !filled.includes(icon)) {
+    if (source === 'material' && variant === 'filled' && !filled.includes(iconName)) {
         console.warn(`Icon "${icon}" does not have a filled variant.`);
         return null;
     }
 
-    // Get outlined icon component
-    const IconComponent = getIconComponent(isOutlined ? outlinedIconName : icon);
+    const IconComponent = getIconComponent(source, iconName);
 
     return (
         <IconWrapper size={getFontSize(size)} rotate={getRotationTransform(rotate)} {...props}>
@@ -53,6 +52,7 @@ export const Icon = ({
                     fontSize: getFontSize(size),
                     color: getColor(color),
                 }}
+                style={{ color: getColor(color) }}
             />
         </IconWrapper>
     );

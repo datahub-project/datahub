@@ -70,30 +70,30 @@ class CassandraProfiler:
     ) -> Iterable[MetadataWorkUnit]:
         for keyspace_name in cassandra_data.keyspaces:
             tables = cassandra_data.tables.get(keyspace_name, [])
-            self.report.set_ingestion_stage(keyspace_name, PROFILING)
-            with ThreadPoolExecutor(
-                max_workers=self.config.profiling.max_workers
-            ) as executor:
-                future_to_dataset = {
-                    executor.submit(
-                        self.generate_profile,
-                        keyspace_name,
-                        table_name,
-                        cassandra_data.columns.get(table_name, []),
-                    ): table_name
-                    for table_name in tables
-                }
-                for future in as_completed(future_to_dataset):
-                    table_name = future_to_dataset[future]
-                    try:
-                        yield from future.result()
-                    except Exception as exc:
-                        self.report.profiling_skipped_other[table_name] += 1
-                        self.report.failure(
-                            message="Failed to profile for table",
-                            context=f"{keyspace_name}.{table_name}",
-                            exc=exc,
-                        )
+            with self.report.new_stage(f"{keyspace_name}: {PROFILING}"):
+                with ThreadPoolExecutor(
+                    max_workers=self.config.profiling.max_workers
+                ) as executor:
+                    future_to_dataset = {
+                        executor.submit(
+                            self.generate_profile,
+                            keyspace_name,
+                            table_name,
+                            cassandra_data.columns.get(table_name, []),
+                        ): table_name
+                        for table_name in tables
+                    }
+                    for future in as_completed(future_to_dataset):
+                        table_name = future_to_dataset[future]
+                        try:
+                            yield from future.result()
+                        except Exception as exc:
+                            self.report.profiling_skipped_other[table_name] += 1
+                            self.report.failure(
+                                message="Failed to profile for table",
+                                context=f"{keyspace_name}.{table_name}",
+                                exc=exc,
+                            )
 
     def generate_profile(
         self,

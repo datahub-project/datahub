@@ -18,10 +18,17 @@ query getMe {
                 pictureLink
                 teams
                 skills
+                persona {
+                    urn
+                }
+                platforms {
+                    urn
+                }
             }
             settings {
                 appearance {
                     showSimplifiedHomepage
+                    showThemeV2
                 }
                 views {
                     defaultView {
@@ -44,6 +51,7 @@ query getMe {
             manageGlossaries
             manageUserCredentials
             manageTags
+            viewManageTags
             createDomains
             createTags
             manageGlobalViews

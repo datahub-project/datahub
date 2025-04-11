@@ -196,6 +196,7 @@ export const DomainsList = () => {
                                     },
                                     ownership: null,
                                     entities: null,
+                                    displayProperties: null,
                                 },
                                 pageSize,
                             );

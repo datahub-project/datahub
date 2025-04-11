@@ -16,6 +16,7 @@ dependencies {
     implementation project(':metadata-events:mxe-avro')
     implementation project(':metadata-events:mxe-registration')
     implementation project(':metadata-events:mxe-utils-avro')
+    api project(':metadata-service:openapi-servlet:models')
     api project(path: ':metadata-models', configuration: 'dataTemplate')
     api project(':metadata-models')
 

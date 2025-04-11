@@ -1,5 +1,11 @@
 # Documentation Propagation Automation
 
+:::info
+
+This feature is currently in open beta in Acryl Cloud. Reach out to your Acryl representative to get access.
+
+:::
+
 ## Introduction
 
 Documentation Propagation is an automation automatically propagates column and asset (coming soon) descriptions based on downstream column-level lineage and sibling relationships. 

@@ -26,7 +26,7 @@ import io.ebean.Transaction;
 import io.ebean.TxScope;
 import io.ebeaninternal.server.expression.Op;
 import io.ebeaninternal.server.expression.SimpleExpression;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.util.List;

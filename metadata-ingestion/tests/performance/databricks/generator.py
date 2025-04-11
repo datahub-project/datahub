@@ -167,7 +167,7 @@ def _generate_insert_lineage(table: Table, upstream: Table) -> str:
 def _generate_view_definition(view: View) -> str:
     from_statement = f"FROM {_quote_table(view.upstreams[0])} t0"
     join_statement = " ".join(
-        f"JOIN {_quote_table(upstream)} t{i+1} ON t0.id = t{i+1}.id"
+        f"JOIN {_quote_table(upstream)} t{i + 1} ON t0.id = t{i + 1}.id"
         for i, upstream in enumerate(view.upstreams[1:])
     )
     return f"CREATE VIEW {_quote_table(view)} AS SELECT * {from_statement} {join_statement} {view.definition}"

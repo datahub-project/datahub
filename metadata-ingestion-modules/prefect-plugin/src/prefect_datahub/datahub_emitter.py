@@ -5,6 +5,15 @@ import traceback
 from typing import Any, Dict, List, Optional, cast
 from uuid import UUID
 
+from prefect import get_run_logger
+from prefect.blocks.core import Block
+from prefect.client import cloud, orchestration
+from prefect.client.schemas import FlowRun, TaskRun, Workspace
+from prefect.client.schemas.objects import Flow
+from prefect.context import FlowRunContext, TaskRunContext
+from prefect.settings import PREFECT_API_URL
+from pydantic.v1 import SecretStr
+
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataFlow, DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import (
@@ -17,15 +26,6 @@ from datahub.metadata.schema_classes import BrowsePathsClass
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
-from prefect import get_run_logger
-from prefect.blocks.core import Block
-from prefect.client import cloud, orchestration
-from prefect.client.schemas import FlowRun, TaskRun, Workspace
-from prefect.client.schemas.objects import Flow
-from prefect.context import FlowRunContext, TaskRunContext
-from prefect.settings import PREFECT_API_URL
-from pydantic.v1 import SecretStr
-
 from prefect_datahub.entities import _Entity
 
 ORCHESTRATOR = "prefect"
@@ -219,6 +219,7 @@ class DatahubEmitter(Block):
                 id=task_run_ctx.task.task_key,
                 flow_urn=dataflow_urn,
                 name=task_run_ctx.task.name,
+                platform_instance=self.platform_instance,
             )
 
             datajob.description = task_run_ctx.task.description
@@ -247,7 +248,10 @@ class DatahubEmitter(Block):
             return datajob
         elif task_key is not None:
             datajob = DataJob(
-                id=task_key, flow_urn=dataflow_urn, name=task_key.split(".")[-1]
+                id=task_key,
+                flow_urn=dataflow_urn,
+                name=task_key.split(".")[-1],
+                platform_instance=self.platform_instance,
             )
             return datajob
         return None
@@ -351,9 +355,9 @@ class DatahubEmitter(Block):
 
             for prefect_future in flow_run_ctx.task_run_futures:
                 if prefect_future.task_run is not None:
-                    task_run_key_map[
-                        str(prefect_future.task_run.id)
-                    ] = prefect_future.task_run.task_key
+                    task_run_key_map[str(prefect_future.task_run.id)] = (
+                        prefect_future.task_run.task_key
+                    )
 
             for node in graph_json:
                 datajob_urn = DataJobUrn.create_from_ids(

@@ -292,6 +292,11 @@ class BigQuerySchemaApi:
                         if hasattr(d, "_properties") and isinstance(d._properties, dict)
                         else None
                     ),
+                    # TODO: Fetch dataset description individually impacts overall performance if the number of datasets is high (hundreds); instead we should fetch in batch for all datasets.
+                    # TODO: Given we are calling get_dataset for each dataset, we may consume and publish other fields too, such as created, modified, etc...
+                    # https://cloud.google.com/python/docs/reference/bigquery/latest/google.cloud.bigquery.client.Client#google_cloud_bigquery_client_Client_get_dataset
+                    # https://cloud.google.com/python/docs/reference/bigquery/latest/google.cloud.bigquery.dataset.Dataset
+                    comment=self.bq_client.get_dataset(d.reference).description,
                 )
                 for d in datasets
             ]
@@ -339,7 +344,7 @@ class BigQuerySchemaApi:
         with_partitions: bool = False,
     ) -> Iterator[BigqueryTable]:
         with PerfTimer() as current_timer:
-            filter_clause: str = ", ".join(f"'{table}'" for table in tables.keys())
+            filter_clause: str = ", ".join(f"'{table}'" for table in tables)
 
             if with_partitions:
                 query_template = BigqueryQuery.tables_for_dataset

@@ -39,7 +39,8 @@
         "VIEW_STRUCTURED_PROPERTIES_PAGE",
         "MANAGE_DOCUMENTATION_FORMS",
         "MANAGE_FEATURES",
-        "MANAGE_SYSTEM_OPERATIONS"
+        "MANAGE_SYSTEM_OPERATIONS",
+        "GET_PLATFORM_EVENTS"
       ],
       "displayName": "Root User - All Platform Privileges",
       "description": "Grants all platform privileges to root user.",
@@ -62,6 +63,9 @@
       "privileges": [
         "EDIT_ENTITY",
         "VIEW_ENTITY_PAGE",
+        "VIEW_DATASET_USAGE",
+        "VIEW_DATASET_PROFILE",
+        "VIEW_DATASET_OPERATIONS",
         "EDIT_LINEAGE",
         "EDIT_ENTITY_ASSERTIONS",
         "SEARCH_PRIVILEGE",
@@ -138,7 +142,8 @@
       },
       "privileges": [
         "VIEW_DATASET_USAGE",
-        "VIEW_DATASET_PROFILE"
+        "VIEW_DATASET_PROFILE",
+        "VIEW_DATASET_OPERATIONS"
       ],
       "displayName": "All Users - View Dataset Sensitive Information",
       "description": "Grants viewing privileges of usage and profile information of all datasets for all users",
@@ -230,6 +235,7 @@
         "EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE",
         "VIEW_DATASET_USAGE",
         "VIEW_DATASET_PROFILE",
+        "VIEW_DATASET_OPERATIONS",
         "EDIT_TAG_COLOR",
         "EDIT_GROUP_MEMBERS",
         "EDIT_USER_PROFILE",
@@ -318,6 +324,7 @@
         "EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE",
         "VIEW_DATASET_USAGE",
         "VIEW_DATASET_PROFILE",
+        "VIEW_DATASET_OPERATIONS",
         "EDIT_TAG_COLOR",
         "EDIT_LINEAGE",
         "EDIT_ENTITY_QUERIES",
@@ -425,6 +432,7 @@
         "VIEW_ENTITY_PAGE",
         "VIEW_DATASET_USAGE",
         "VIEW_DATASET_PROFILE",
+        "VIEW_DATASET_OPERATIONS",
         "SEARCH_PRIVILEGE",
         "GET_COUNTS_PRIVILEGE",
         "GET_TIMESERIES_ASPECT_PRIVILEGE",
@@ -470,6 +478,7 @@
         "EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE",
         "VIEW_DATASET_USAGE",
         "VIEW_DATASET_PROFILE",
+        "VIEW_DATASET_OPERATIONS",
         "EDIT_TAG_COLOR",
         "EDIT_GROUP_MEMBERS",
         "EDIT_USER_PROFILE",

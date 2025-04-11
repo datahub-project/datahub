@@ -10,7 +10,7 @@ import humanfriendly
 from packaging.version import Version
 from pydantic import BaseModel
 
-from datahub import __version__
+from datahub._version import __version__
 from datahub.cli.config_utils import load_client_config
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.utilities.perf_timer import PerfTimer
@@ -55,11 +55,19 @@ async def get_client_version_stats():
         async with session.get(pypi_url) as resp:
             response_json = await resp.json()
             try:
-                releases = response_json.get("releases", [])
-                sorted_releases = sorted(releases.keys(), key=lambda x: Version(x))
-                latest_cli_release_string = [
-                    x for x in sorted_releases if "rc" not in x
-                ][-1]
+                releases = response_json.get("releases", {})
+                filtered_releases = {
+                    version: release_files
+                    for version, release_files in releases.items()
+                    if not all(
+                        release_file.get("yanked") for release_file in release_files
+                    )
+                    and "rc" not in version
+                }
+                sorted_releases = sorted(
+                    filtered_releases.keys(), key=lambda x: Version(x)
+                )
+                latest_cli_release_string = sorted_releases[-1]
                 latest_cli_release = Version(latest_cli_release_string)
                 current_version_info = releases.get(current_version_string)
                 current_version_date = None
@@ -93,11 +101,11 @@ async def get_github_stats():
     async with aiohttp.ClientSession(
         headers={"Accept": "application/vnd.github.v3+json"}
     ) as session:
-        gh_url = "https://api.github.com/repos/datahub-project/datahub/releases"
+        gh_url = "https://api.github.com/repos/datahub-project/datahub/releases/latest"
         async with session.get(gh_url) as gh_response:
             gh_response_json = await gh_response.json()
-            latest_server_version = Version(gh_response_json[0].get("tag_name"))
-            latest_server_date = gh_response_json[0].get("published_at")
+            latest_server_version = Version(gh_response_json.get("tag_name"))
+            latest_server_date = gh_response_json.get("published_at")
             return (latest_server_version, latest_server_date)
 
 
@@ -285,9 +293,9 @@ def is_client_server_compatible(client: VersionStats, server: VersionStats) -> i
         return server.version.micro - client.version.micro
 
 
-def _maybe_print_upgrade_message(  # noqa: C901
+def _maybe_print_upgrade_message(
     version_stats: Optional[DataHubVersionStats],
-) -> None:  # noqa: C901
+) -> None:
     days_before_cli_stale = 7
     days_before_quickstart_stale = 7
 

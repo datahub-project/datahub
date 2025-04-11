@@ -60,7 +60,7 @@ There can be many types of Authenticator. For example, there can be Authenticato
 and more! A key goal of the abstraction is *extensibility*: a custom Authenticator can be developed to authenticate requests
 based on an organization's unique needs.
 
-DataHub ships with 2 Authenticators by default:
+DataHub ships with 3 Authenticators by default:
 
 - **DataHubSystemAuthenticator**: Verifies that inbound requests have originated from inside DataHub itself using a shared system identifier
   and secret. This authenticator is always present.
@@ -68,6 +68,9 @@ DataHub ships with 2 Authenticators by default:
 - **DataHubTokenAuthenticator**: Verifies that inbound requests contain a DataHub-issued Access Token (discussed further in the "DataHub Access Token" section below) in their
   'Authorization' header. This authenticator is required if Metadata Service Authentication is enabled.
 
+- **DataHubGuestAuthenticator**: Verifies if guest authentication is enabled with a guest user configured and allows unauthenticated users to perform operations as the designated
+  guest user. By default, this Authenticator is disabled. If this is required, it needs to be explicitly enabled and requires a restart of the datahub GMS service.
+- 
 ## What is an AuthenticatorChain?
 
 An **AuthenticatorChain** is a series of **Authenticators** that are configured to run one-after-another. This allows
@@ -125,3 +128,47 @@ Today, Access Tokens are granted by the Token Service under two scenarios:
 
 Now that we're familiar with the concepts, we will talk concretely about what new capabilities have been built on top
 of Metadata Service Authentication. 
+
+## How do I enable Guest Authentication
+
+The Guest Authentication configuration is present in two configuration files - the `application.conf` for DataHub frontend, and 
+`application.yaml` for GMS. To enable Guest Authentication, set the environment variable `GUEST_AUTHENTICATION_ENABLED` to `true` 
+for both the GMS and the frontend service and restart those services. 
+If enabled, the default user designated as guest is called `guest`. This user must be explicitly created and privileges assigned 
+to control the guest user privileges.
+
+A recommended approach to operationalize guest access is, first, create a designated guest user account with login credentials,
+but keep guest access disabled. This allows you to configure and test the exact permissions this user should have. Once you've
+confirmed the privileges are set correctly, you can then enable guest access, which removes the need for login/credentials
+while maintaining the verified permission settings.
+
+The name of the designated guest user can be changed by defining the env var `GUEST_AUTHENTICATION_USER`. 
+The entry URL to authenticate as the guest user is `/public` and can be changed via the env var `GUEST_AUTHENTICATION_PATH`
+
+Here are the relevant portions of the two configs 
+
+For the Frontend
+```yaml
+#application.conf
+...
+auth.guest.enabled = ${?GUEST_AUTHENTICATION_ENABLED}
+# The name of the guest user id
+auth.guest.user = ${?GUEST_AUTHENTICATION_USER}
+# The path to bypass login page and get logged in as guest
+auth.guest.path = ${?GUEST_AUTHENTICATION_PATH}
+...
+```
+
+and for GMS 
+```yaml
+#application.yaml
+# Required if enabled is true! A configurable chain of Authenticators
+...
+authenticators:
+  ...
+  - type: com.datahub.authentication.authenticator.DataHubGuestAuthenticator
+    configs:
+      guestUser: ${GUEST_AUTHENTICATION_USER:guest}
+      enabled: ${GUEST_AUTHENTICATION_ENABLED:false}
+...
+```

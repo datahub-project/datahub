@@ -106,7 +106,7 @@ def register_mock_api_state1(request_mock):
         },
     }
 
-    for url in api_vs_response.keys():
+    for url in api_vs_response:
         request_mock.register_uri(
             api_vs_response[url]["method"],
             url,
@@ -177,7 +177,7 @@ def register_mock_api_state2(request_mock):
         },
     }
 
-    for url in api_vs_response.keys():
+    for url in api_vs_response:
         request_mock.register_uri(
             api_vs_response[url]["method"],
             url,
@@ -231,7 +231,7 @@ def get_current_checkpoint_from_pipeline(
 ) -> Dict[JobId, Optional[Checkpoint[Any]]]:
     powerbi_source = cast(PowerBiDashboardSource, pipeline.source)
     checkpoints = {}
-    for job_id in powerbi_source.state_provider._usecase_handlers.keys():
+    for job_id in powerbi_source.state_provider._usecase_handlers:
         # for multi-workspace checkpoint, every good checkpoint will have an unique workspaceid suffix
         checkpoints[job_id] = powerbi_source.state_provider.get_current_checkpoint(
             job_id
@@ -297,7 +297,7 @@ def test_powerbi_stateful_ingestion(
 
     # Perform all assertions on the states. The deleted Dashboard should not be
     # part of the second state
-    for job_id in checkpoint1.keys():
+    for job_id in checkpoint1:
         if isinstance(checkpoint1[job_id], Checkpoint) and isinstance(
             checkpoint2[job_id], Checkpoint
         ):

@@ -5,10 +5,10 @@ from typing import Any, Dict, Iterable, List
 
 import yaml
 from click.testing import CliRunner, Result
+
 from datahub.api.entities.corpgroup.corpgroup import CorpGroup
 from datahub.entrypoints import datahub
 from datahub.ingestion.graph.client import DataHubGraph
-
 from tests.utils import wait_for_writes_to_sync
 
 runner = CliRunner(mix_stderr=False)

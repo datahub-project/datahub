@@ -68,6 +68,7 @@ from datahub.metadata.schema_classes import (
     UnionTypeClass,
 )
 from datahub.metadata.urns import DatasetUrn
+from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 
@@ -143,7 +144,7 @@ class MongoDBConfig(
 
 @dataclass
 class MongoDBSourceReport(StaleEntityRemovalSourceReport):
-    filtered: List[str] = field(default_factory=list)
+    filtered: LossyList[str] = field(default_factory=LossyList)
 
     def report_dropped(self, name: str) -> None:
         self.filtered.append(name)
@@ -218,26 +219,27 @@ def construct_schema_pymongo(
     """
 
     aggregations: List[Dict] = []
+
+    # The order of the aggregations impacts execution time. By setting the sample/limit aggregation first,
+    # the subsequent aggregations process a much smaller dataset, improving performance.
+    if sample_size:
+        if use_random_sampling:
+            aggregations.append({"$sample": {"size": sample_size}})
+        else:
+            aggregations.append({"$limit": sample_size})
+
     if should_add_document_size_filter:
         doc_size_field = "temporary_doc_size_field"
         # create a temporary field to store the size of the document. filter on it and then remove it.
-        aggregations = [
-            {"$addFields": {doc_size_field: {"$bsonSize": "$$ROOT"}}},
-            {"$match": {doc_size_field: {"$lt": max_document_size}}},
-            {"$project": {doc_size_field: 0}},
-        ]
-    if use_random_sampling:
-        # get sample documents in collection
-        if sample_size:
-            aggregations.append({"$sample": {"size": sample_size}})
-        documents = collection.aggregate(
-            aggregations,
-            allowDiskUse=True,
+        aggregations.extend(
+            [
+                {"$addFields": {doc_size_field: {"$bsonSize": "$$ROOT"}}},
+                {"$match": {doc_size_field: {"$lt": max_document_size}}},
+                {"$project": {doc_size_field: 0}},
+            ]
         )
-    else:
-        if sample_size:
-            aggregations.append({"$limit": sample_size})
-        documents = collection.aggregate(aggregations, allowDiskUse=True)
+
+    documents = collection.aggregate(aggregations, allowDiskUse=True)
 
     return construct_schema(list(documents), delimiter)
 
@@ -288,7 +290,9 @@ class MongoDBSource(StatefulIngestionSourceBase):
 
         # See https://pymongo.readthedocs.io/en/stable/examples/datetimes.html#handling-out-of-range-datetimes
         self.mongo_client = MongoClient(
-            self.config.connect_uri, datetime_conversion="DATETIME_AUTO", **options  # type: ignore
+            self.config.connect_uri,
+            datetime_conversion="DATETIME_AUTO",
+            **options,  # type: ignore
         )
 
         # This cheaply tests the connection. For details, see
@@ -470,9 +474,9 @@ class MongoDBSource(StatefulIngestionSourceBase):
             )
             # Add this information to the custom properties so user can know they are looking at downsampled schema
             dataset_properties.customProperties["schema.downsampled"] = "True"
-            dataset_properties.customProperties[
-                "schema.totalFields"
-            ] = f"{collection_schema_size}"
+            dataset_properties.customProperties["schema.totalFields"] = (
+                f"{collection_schema_size}"
+            )
 
         logger.debug(f"Size of collection fields = {len(collection_fields)}")
         # append each schema field (sort so output is consistent)

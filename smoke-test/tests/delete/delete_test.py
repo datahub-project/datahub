@@ -2,8 +2,8 @@ import json
 import os
 
 import pytest
-from datahub.cli.cli_utils import get_aspects_for_entity
 
+from datahub.cli.cli_utils import get_aspects_for_entity
 from tests.utils import (
     delete_urns_from_file,
     ingest_file_via_rest,

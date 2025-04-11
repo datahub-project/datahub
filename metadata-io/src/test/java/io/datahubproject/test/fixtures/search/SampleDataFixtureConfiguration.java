@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.EntityClientConfig;
+import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
@@ -16,7 +17,6 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
-import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.search.SearchService;

@@ -92,9 +92,9 @@ class PipelineConfig(ConfigModel):
     pipeline_name: Optional[str] = None
     failure_log: FailureLoggingConfig = FailureLoggingConfig()
 
-    _raw_dict: Optional[
-        dict
-    ] = None  # the raw dict that was parsed to construct this config
+    _raw_dict: Optional[dict] = (
+        None  # the raw dict that was parsed to construct this config
+    )
 
     @validator("run_id", pre=True, always=True)
     def run_id_should_be_semantic(

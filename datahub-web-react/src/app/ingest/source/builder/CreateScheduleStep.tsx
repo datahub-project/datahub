@@ -1,5 +1,6 @@
-import { Button, Checkbox, Form, Input, Switch, Typography } from 'antd';
+import { Checkbox, Form, Input, Switch, Typography } from 'antd';
 import React, { useMemo, useState } from 'react';
+import { Button } from '@src/alchemy-components';
 import { Cron } from 'react-js-cron';
 import 'react-js-cron/dist/styles.css';
 import styled from 'styled-components';
@@ -203,13 +204,14 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
                 </Form.Item>
             </RequiredFieldForm>
             <ControlsContainer>
-                <Button onClick={prev}>Previous</Button>
+                <Button variant="outline" color="gray" onClick={prev}>
+                    Previous
+                </Button>
                 <div>
                     <Button
                         data-testid="ingestion-schedule-next-button"
                         disabled={!interval || interval.length === 0 || cronAsText.error}
                         onClick={onClickNext}
-                        type="primary"
                     >
                         Next
                     </Button>

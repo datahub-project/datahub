@@ -3,11 +3,25 @@
  */
 
 import { typography, colors, shadows, radius, spacing } from '@components/theme';
+import { ColorOptions, SizeOptions } from '@components/theme/config';
 import { getColor, getFontSize } from '@components/theme/utils';
-import { ButtonProps } from './types';
+import { CSSObject } from 'styled-components';
+import { ButtonStyleProps, ButtonVariant } from './types';
+
+interface ColorStyles {
+    bgColor: string;
+    hoverBgColor: string;
+    activeBgColor: string;
+    disabledBgColor: string;
+    borderColor: string;
+    activeBorderColor: string;
+    disabledBorderColor: string;
+    textColor: string;
+    disabledTextColor: string;
+}
 
 // Utility function to get color styles for button - does not generate CSS
-const getButtonColorStyles = (variant, color) => {
+const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions): ColorStyles => {
     const color500 = getColor(color, 500); // value of 500 shade
     const isViolet = color === 'violet';
 
@@ -67,10 +81,24 @@ const getButtonColorStyles = (variant, color) => {
 
             bgColor: colors.transparent,
             borderColor: colors.transparent,
-            hoverBgColor: colors.transparent,
+            hoverBgColor: colors.gray[1500],
             activeBgColor: colors.transparent,
             disabledBgColor: colors.transparent,
             disabledBorderColor: colors.transparent,
+        };
+    }
+
+    // Override styles for secondary variant
+    if (variant === 'secondary') {
+        return {
+            ...base,
+            bgColor: getColor('violet', 0),
+            hoverBgColor: getColor('violet', 100),
+            activeBgColor: getColor('violet', 200),
+            textColor: color500,
+            borderColor: 'transparent',
+            disabledBgColor: 'transparent',
+            disabledBorderColor: 'transparent',
         };
     }
 
@@ -79,49 +107,63 @@ const getButtonColorStyles = (variant, color) => {
 };
 
 // Generate color styles for button
-const getButtonVariantStyles = (variant, color) => {
+const getButtonVariantStyles = (variant: ButtonVariant, colorStyles: ColorStyles): CSSObject => {
     const variantStyles = {
         filled: {
-            backgroundColor: color.bgColor,
-            border: `1px solid ${color.borderColor}`,
-            color: color.textColor,
+            background: `radial-gradient(115.48% 144.44% at 50% -44.44%, var(--buttons-bg-2-for-gradient, #705EE4) 38.97%, var(--buttons-bg, #533FD1) 100%)`,
+            border: `1px solid ${colorStyles.borderColor}`,
+            color: colorStyles.textColor,
             '&:hover': {
-                backgroundColor: color.hoverBgColor,
-                border: `1px solid ${color.hoverBgColor}`,
+                background: `radial-gradient(115.48% 144.44% at 50% -44.44%, var(--buttons-bg-2-for-gradient, #705EE4) 38.97%, var(--buttons-bg, #533FD1) 100%)`,
+                border: `1px solid ${colorStyles.hoverBgColor}`,
                 boxShadow: shadows.sm,
             },
             '&:disabled': {
-                backgroundColor: color.disabledBgColor,
-                border: `1px solid ${color.disabledBorderColor}`,
-                color: color.disabledTextColor,
+                backgroundColor: colorStyles.disabledBgColor,
+                background: 'none',
+                border: `1px solid ${colorStyles.disabledBorderColor}`,
+                color: colorStyles.disabledTextColor,
                 boxShadow: shadows.xs,
             },
         },
         outline: {
             backgroundColor: 'transparent',
-            border: `1px solid ${color.borderColor}`,
-            color: color.textColor,
+            border: `1px solid ${colorStyles.borderColor}`,
+            color: colorStyles.textColor,
             '&:hover': {
-                backgroundColor: color.hoverBgColor,
+                backgroundColor: colorStyles.hoverBgColor,
                 boxShadow: 'none',
             },
             '&:disabled': {
-                backgroundColor: color.disabledBgColor,
-                border: `1px solid ${color.disabledBorderColor}`,
-                color: color.disabledTextColor,
+                backgroundColor: colorStyles.disabledBgColor,
+                border: `1px solid ${colorStyles.disabledBorderColor}`,
+                color: colorStyles.disabledTextColor,
                 boxShadow: shadows.xs,
             },
         },
         text: {
             backgroundColor: 'transparent',
             border: 'none',
-            color: color.textColor,
+            color: colorStyles.textColor,
             '&:hover': {
-                backgroundColor: color.hoverBgColor,
+                backgroundColor: colorStyles.hoverBgColor,
             },
             '&:disabled': {
-                backgroundColor: color.disabledBgColor,
-                color: color.disabledTextColor,
+                backgroundColor: colorStyles.disabledBgColor,
+                color: colorStyles.disabledTextColor,
+            },
+        },
+        secondary: {
+            backgroundColor: colorStyles.bgColor,
+            border: 'none',
+            color: colorStyles.textColor,
+            '&:hover': {
+                backgroundColor: colorStyles.hoverBgColor,
+                boxShadow: 'none',
+            },
+            '&:disabled': {
+                backgroundColor: colorStyles.disabledBgColor,
+                color: colorStyles.disabledTextColor,
             },
         },
     };
@@ -130,73 +172,66 @@ const getButtonVariantStyles = (variant, color) => {
 };
 
 // Generate font styles for button
-const getButtonFontStyles = (size) => {
+const getButtonFontStyles = (size: SizeOptions) => {
     const baseFontStyles = {
         fontFamily: typography.fonts.body,
-        fontWeight: typography.fontWeights.normal,
+        fontWeight: typography.fontWeights.semiBold,
         lineHeight: typography.lineHeights.none,
     };
 
-    const sizeStyles = {
-        sm: {
-            ...baseFontStyles,
-            fontSize: getFontSize(size), // 12px
-        },
-        md: {
-            ...baseFontStyles,
-            fontSize: getFontSize(size), // 14px
-        },
-        lg: {
-            ...baseFontStyles,
-            fontSize: getFontSize(size), // 16px
-        },
-        xl: {
-            ...baseFontStyles,
-            fontSize: getFontSize(size), // 18px
-        },
-    };
-
-    return sizeStyles[size];
+    return { ...baseFontStyles, fontSize: getFontSize(size) };
 };
 
 // Generate radii styles for button
-const getButtonRadiiStyles = (isCircle) => {
+const getButtonRadiiStyles = (isCircle: boolean) => {
     if (isCircle) return { borderRadius: radius.full };
     return { borderRadius: radius.sm }; // radius is the same for all button sizes
 };
 
 // Generate padding styles for button
-const getButtonPadding = (size, isCircle) => {
+const getButtonPadding = (size: SizeOptions, hasChildren: boolean, isCircle: boolean) => {
     if (isCircle) return { padding: spacing.xsm };
+    if (!hasChildren) return { padding: spacing.xsm };
 
     const paddingStyles = {
+        xs: {
+            vertical: 6,
+            horizontal: 6,
+        },
         sm: {
-            padding: '8px 12px',
+            vertical: 8,
+            horizontal: 12,
         },
         md: {
-            padding: '10px 12px',
+            vertical: 10,
+            horizontal: 12,
         },
         lg: {
-            padding: '10px 16px',
+            vertical: 10,
+            horizontal: 16,
         },
         xl: {
-            padding: '12px 20px',
+            vertical: 12,
+            horizontal: 20,
         },
     };
 
-    return paddingStyles[size];
+    const selectedStyle = paddingStyles[size];
+    const verticalPadding = selectedStyle.vertical;
+    const horizontalPadding = selectedStyle.horizontal;
+    return { padding: `${verticalPadding}px ${horizontalPadding}px` };
 };
 
 // Generate active styles for button
-const getButtonActiveStyles = (styleColors) => ({
+const getButtonActiveStyles = (colorStyles: ColorStyles) => ({
     borderColor: 'transparent',
-    backgroundColor: styleColors.activeBgColor,
+    backgroundColor: colorStyles.activeBgColor,
     // TODO: Figure out how to make the #fff interior border transparent
-    boxShadow: `0 0 0 2px #fff, 0 0 0 4px ${styleColors.activeBgColor}`,
+    boxShadow: `0 0 0 2px #fff, 0 0 0 4px ${colorStyles.activeBgColor}`,
 });
 
 // Generate loading styles for button
-const getButtonLoadingStyles = () => ({
+const getButtonLoadingStyles = (): CSSObject => ({
     pointerEvents: 'none',
     opacity: 0.75,
 });
@@ -204,20 +239,20 @@ const getButtonLoadingStyles = () => ({
 /*
  * Main function to generate styles for button
  */
-export const getButtonStyle = (props: ButtonProps) => {
-    const { variant, color, size, isCircle, isActive, isLoading } = props;
+export const getButtonStyle = (props: ButtonStyleProps): CSSObject => {
+    const { variant, color, size, isCircle, isActive, isLoading, isDisabled, hasChildren } = props;
 
     // Get map of colors
-    const colorStyles = getButtonColorStyles(variant, color) || ({} as any);
+    const colorStyles = getButtonColorStyles(variant, color);
 
     // Define styles for button
     const variantStyles = getButtonVariantStyles(variant, colorStyles);
     const fontStyles = getButtonFontStyles(size);
     const radiiStyles = getButtonRadiiStyles(isCircle);
-    const paddingStyles = getButtonPadding(size, isCircle);
+    const paddingStyles = getButtonPadding(size, hasChildren, isCircle);
 
     // Base of all generated styles
-    let styles = {
+    let styles: CSSObject = {
         ...variantStyles,
         ...fontStyles,
         ...radiiStyles,
@@ -226,9 +261,11 @@ export const getButtonStyle = (props: ButtonProps) => {
 
     // Focus & Active styles are the same, but active styles are applied conditionally & override prevs styles
     const activeStyles = { ...getButtonActiveStyles(colorStyles) };
-    styles['&:focus'] = activeStyles;
-    styles['&:active'] = activeStyles;
-    if (isActive) styles = { ...styles, ...activeStyles };
+    if (!isDisabled && isActive) {
+        styles['&:focus'] = activeStyles;
+        styles['&:active'] = activeStyles;
+        styles = { ...styles, ...activeStyles };
+    }
 
     // Loading styles
     if (isLoading) styles = { ...styles, ...getButtonLoadingStyles() };

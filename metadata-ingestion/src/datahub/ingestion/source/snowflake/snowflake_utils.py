@@ -3,7 +3,10 @@ from functools import cached_property
 from typing import ClassVar, List, Literal, Optional, Tuple
 
 from datahub.configuration.pattern_utils import is_schema_allowed
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mce_builder import (
+    make_dataset_urn_with_platform_instance,
+)
+from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.snowflake.constants import (
     SNOWFLAKE_REGION_CLOUD_REGION_MAPPING,
@@ -16,13 +19,13 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeV2Config,
 )
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
+from datahub.ingestion.source.sql.sql_utils import gen_database_key, gen_schema_key
 
 
 class SnowflakeStructuredReportMixin(abc.ABC):
     @property
     @abc.abstractmethod
-    def structured_reporter(self) -> SourceReport:
-        ...
+    def structured_reporter(self) -> SourceReport: ...
 
 
 class SnowsightUrlBuilder:
@@ -74,7 +77,7 @@ class SnowsightUrlBuilder:
         region: str,
     ) -> Tuple[str, str]:
         cloud: str
-        if region in SNOWFLAKE_REGION_CLOUD_REGION_MAPPING.keys():
+        if region in SNOWFLAKE_REGION_CLOUD_REGION_MAPPING:
             cloud, cloud_region_id = SNOWFLAKE_REGION_CLOUD_REGION_MAPPING[region]
         elif region.startswith(("aws_", "gcp_", "azure_")):
             # e.g. aws_us_west_2, gcp_us_central1, azure_northeurope
@@ -125,19 +128,20 @@ class SnowflakeFilter:
             SnowflakeObjectDomain.VIEW,
             SnowflakeObjectDomain.MATERIALIZED_VIEW,
             SnowflakeObjectDomain.ICEBERG_TABLE,
+            SnowflakeObjectDomain.STREAM,
         ):
             return False
         if _is_sys_table(dataset_name):
             return False
 
-        dataset_params = _split_qualified_name(dataset_name)
+        dataset_params = split_qualified_name(dataset_name)
         if len(dataset_params) != 3:
             self.structured_reporter.info(
                 title="Unexpected dataset pattern",
                 message=f"Found a {dataset_type} with an unexpected number of parts. Database and schema filtering will not work as expected, but table filtering will still work.",
                 context=dataset_name,
             )
-            # We fall-through here so table/view filtering still works.
+            # We fall-through here so table/view/stream filtering still works.
 
         if (
             len(dataset_params) >= 1
@@ -170,7 +174,18 @@ class SnowflakeFilter:
         ):
             return False
 
+        if (
+            dataset_type.lower() == SnowflakeObjectDomain.STREAM
+            and not self.filter_config.stream_pattern.allowed(
+                _cleanup_qualified_name(dataset_name, self.structured_reporter)
+            )
+        ):
+            return False
+
         return True
+
+    def is_procedure_allowed(self, procedure_name: str) -> bool:
+        return self.filter_config.procedure_pattern.allowed(procedure_name)
 
 
 def _combine_identifier_parts(
@@ -184,17 +199,17 @@ def _is_sys_table(table_name: str) -> bool:
     return table_name.lower().startswith("sys$")
 
 
-def _split_qualified_name(qualified_name: str) -> List[str]:
+def split_qualified_name(qualified_name: str) -> List[str]:
     """
     Split a qualified name into its constituent parts.
 
-    >>> _split_qualified_name("db.my_schema.my_table")
+    >>> split_qualified_name("db.my_schema.my_table")
     ['db', 'my_schema', 'my_table']
-    >>> _split_qualified_name('"db"."my_schema"."my_table"')
+    >>> split_qualified_name('"db"."my_schema"."my_table"')
     ['db', 'my_schema', 'my_table']
-    >>> _split_qualified_name('TEST_DB.TEST_SCHEMA."TABLE.WITH.DOTS"')
+    >>> split_qualified_name('TEST_DB.TEST_SCHEMA."TABLE.WITH.DOTS"')
     ['TEST_DB', 'TEST_SCHEMA', 'TABLE.WITH.DOTS']
-    >>> _split_qualified_name('TEST_DB."SCHEMA.WITH.DOTS".MY_TABLE')
+    >>> split_qualified_name('TEST_DB."SCHEMA.WITH.DOTS".MY_TABLE')
     ['TEST_DB', 'SCHEMA.WITH.DOTS', 'MY_TABLE']
     """
 
@@ -232,7 +247,7 @@ def _split_qualified_name(qualified_name: str) -> List[str]:
 def _cleanup_qualified_name(
     qualified_name: str, structured_reporter: SourceReport
 ) -> str:
-    name_parts = _split_qualified_name(qualified_name)
+    name_parts = split_qualified_name(qualified_name)
     if len(name_parts) != 3:
         if not _is_sys_table(qualified_name):
             structured_reporter.info(
@@ -320,6 +335,23 @@ class SnowflakeIdentifierBuilder:
             if self.identifier_config.email_as_user_identifier is True
             and self.identifier_config.email_domain is not None
             else user_name
+        )
+
+    def gen_schema_key(self, db_name: str, schema_name: str) -> SchemaKey:
+        return gen_schema_key(
+            db_name=self.snowflake_identifier(db_name),
+            schema=self.snowflake_identifier(schema_name),
+            platform=self.platform,
+            platform_instance=self.identifier_config.platform_instance,
+            env=self.identifier_config.env,
+        )
+
+    def gen_database_key(self, db_name: str) -> DatabaseKey:
+        return gen_database_key(
+            database=self.snowflake_identifier(db_name),
+            platform=self.platform,
+            platform_instance=self.identifier_config.platform_instance,
+            env=self.identifier_config.env,
         )
 
 

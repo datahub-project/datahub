@@ -1,7 +1,8 @@
 import { PlusOutlined } from '@ant-design/icons';
-import { Button, Typography } from 'antd';
+import { Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
+import { Button } from '@src/alchemy-components';
 import { TermRelationshipType } from '../../../../types.generated';
 import { Message } from '../../../shared/Message';
 import { EmptyTab } from '../../shared/components/styled/EmptyTab';
@@ -63,7 +64,7 @@ export default function GlossaryRelatedTermsResult({ glossaryRelatedTermType, gl
                             {glossaryRelatedTermType}
                         </Typography.Title>
                         {canEditRelatedTerms && (
-                            <Button type="text" onClick={() => setIsShowingAddModal(true)}>
+                            <Button variant="text" onClick={() => setIsShowingAddModal(true)}>
                                 <PlusOutlined /> Add Terms
                             </Button>
                         )}

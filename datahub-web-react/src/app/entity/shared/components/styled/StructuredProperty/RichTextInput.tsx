@@ -10,6 +10,8 @@ const StyledEditor = styled(Editor)`
     width: 75%;
     min-width: 585px;
     max-width: 700px;
+    max-height: 300px;
+    overflow: auto;
 
     &&& {
         .remirror-editor {

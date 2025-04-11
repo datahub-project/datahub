@@ -64,4 +64,9 @@ record SearchFlags {
     * By default we include these, but custom aggregation requests don't need them.
     */
   includeDefaultFacets: optional boolean = true
+
+  /**
+   * Include only latest versions in version sets, default true
+   */
+   filterNonLatestVersions: optional boolean = true
 }

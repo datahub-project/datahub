@@ -143,12 +143,16 @@ def test_snowflake_no_tables_causes_pipeline_failure(
             [SnowflakeQuery.tables_for_schema("TEST_SCHEMA", "TEST_DB")],
             [],
         )
-        sf_cursor.execute.side_effect = query_permission_response_override(
+        no_views_fn = query_permission_response_override(
             no_tables_fn,
             [SnowflakeQuery.show_views_for_database("TEST_DB")],
             [],
         )
-
+        sf_cursor.execute.side_effect = query_permission_response_override(
+            no_views_fn,
+            [SnowflakeQuery.streams_for_database("TEST_DB")],
+            [],
+        )
         pipeline = Pipeline(snowflake_pipeline_config)
         pipeline.run()
         assert "permission-error" in [
@@ -259,4 +263,64 @@ def test_snowflake_missing_snowflake_operations_permission_causes_pipeline_failu
         pipeline.run()
         assert "usage-permission-error" in [
             failure.message for failure in pipeline.source.get_report().failures
+        ]
+
+
+@freeze_time(FROZEN_TIME)
+def test_snowflake_missing_snowflake_secure_view_definitions_raises_pipeline_info(
+    pytestconfig,
+    snowflake_pipeline_config,
+):
+    with mock.patch("snowflake.connector.connect") as mock_connect:
+        sf_connection = mock.MagicMock()
+        sf_cursor = mock.MagicMock()
+        mock_connect.return_value = sf_connection
+        sf_connection.cursor.return_value = sf_cursor
+
+        # Empty secure view definitions
+        sf_cursor.execute.side_effect = query_permission_response_override(
+            default_query_results,
+            [snowflake_query.SnowflakeQuery.get_secure_view_definitions()],
+            [],
+        )
+        pipeline = Pipeline(snowflake_pipeline_config)
+        pipeline.run()
+
+        pipeline.raise_from_status(raise_warnings=True)
+        assert pipeline.source.get_report().infos.as_obj() == [
+            {
+                "title": "Secure view definition not found",
+                "message": "Lineage will be missing for the view.",
+                "context": ["TEST_DB.TEST_SCHEMA.VIEW_1"],
+            }
+        ]
+
+
+@freeze_time(FROZEN_TIME)
+def test_snowflake_failed_secure_view_definitions_query_raises_pipeline_warning(
+    pytestconfig,
+    snowflake_pipeline_config,
+):
+    with mock.patch("snowflake.connector.connect") as mock_connect:
+        sf_connection = mock.MagicMock()
+        sf_cursor = mock.MagicMock()
+        mock_connect.return_value = sf_connection
+        sf_connection.cursor.return_value = sf_cursor
+
+        # Error in getting secure view definitions
+        sf_cursor.execute.side_effect = query_permission_error_override(
+            default_query_results,
+            [snowflake_query.SnowflakeQuery.get_secure_view_definitions()],
+            "Database 'SNOWFLAKE' does not exist or not authorized.",
+        )
+        pipeline = Pipeline(snowflake_pipeline_config)
+        pipeline.run()
+        assert pipeline.source.get_report().warnings.as_obj() == [
+            {
+                "title": "Failed to get secure views definitions",
+                "message": "Lineage will be missing for the view. Please check permissions.",
+                "context": [
+                    "TEST_DB.TEST_SCHEMA.VIEW_1 <class 'datahub.ingestion.source.snowflake.snowflake_connection.SnowflakePermissionError'>: Database 'SNOWFLAKE' does not exist or not authorized."
+                ],
+            }
         ]

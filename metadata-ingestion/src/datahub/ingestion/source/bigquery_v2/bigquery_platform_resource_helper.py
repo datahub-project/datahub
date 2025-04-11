@@ -87,9 +87,9 @@ class BigQueryPlatformResourceHelper:
             key=platform_resource_key, graph_client=self.graph
         )
         if platform_resource:
-            self.platform_resource_cache[
-                platform_resource_key.primary_key
-            ] = platform_resource
+            self.platform_resource_cache[platform_resource_key.primary_key] = (
+                platform_resource
+            )
             return platform_resource
         return None
 
@@ -115,7 +115,11 @@ class BigQueryPlatformResourceHelper:
                 and platform_resource.resource_info.value
             ):
                 try:
-                    existing_info: Optional[BigQueryLabelInfo] = platform_resource.resource_info.value.as_pydantic_object(BigQueryLabelInfo)  # type: ignore
+                    existing_info: Optional[BigQueryLabelInfo] = (
+                        platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
+                            BigQueryLabelInfo
+                        )
+                    )
                 except ValidationError as e:
                     logger.error(
                         f"Error converting existing value to BigQueryLabelInfo: {e}. Creating new one. Maybe this is because of a non backward compatible schema change."

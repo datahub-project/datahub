@@ -53,7 +53,7 @@ def run_test():
             workunits = source.get_workunits()
             num_workunits, peak_memory_usage = workunit_sink(workunits)
             logging.info(f"Workunits Generated: {num_workunits}")
-            logging.info(f"Seconds Elapsed: {timer.elapsed_seconds():.2f} seconds")
+            logging.info(f"Seconds Elapsed: {timer.elapsed_seconds(digits=2)} seconds")
             logging.info(source.get_report().as_string())
 
         logging.info(

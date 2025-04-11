@@ -10,7 +10,6 @@ from datahub.metadata.schema_classes import (
     EdgeClass,
 )
 from datahub.specific.datajob import DataJobPatchBuilder
-
 from tests.patch.common_patch_tests import (
     helper_test_custom_properties_patch,
     helper_test_dataset_tags_patch,

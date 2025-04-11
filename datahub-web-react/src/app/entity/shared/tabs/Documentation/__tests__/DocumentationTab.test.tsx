@@ -5,7 +5,7 @@ import React from 'react';
 import { mocks } from '../../../../../../Mocks';
 import { EntityType } from '../../../../../../types.generated';
 import TestPageContainer from '../../../../../../utils/test-utils/TestPageContainer';
-import EntityContext from '../../../EntityContext';
+import { EntityContext } from '../../../EntityContext';
 import { DocumentationTab } from '../DocumentationTab';
 
 describe('SchemaDescriptionField', () => {

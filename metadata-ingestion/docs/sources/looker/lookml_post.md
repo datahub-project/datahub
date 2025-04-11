@@ -1,11 +1,49 @@
-#### Configuration Notes
+### Configuration Notes
 
-1. If a view contains a liquid template (e.g. `sql_table_name: {{ user_attributes['db']}}.kafka_streaming.events }}`, with `db=ANALYTICS_PROD`), then you will need to specify the values of those variables in the `liquid_variable` config as shown below:
-    ```yml
-      liquid_variable:
-        user_attributes:
-          db: ANALYTICS_PROD
-    ```
+1. Handling Liquid Templates
+
+   If a view contains a liquid template, for example:
+
+   ```
+   sql_table_name: {{ user_attributes['db'] }}.kafka_streaming.events
+   ```
+
+   where `db=ANALYTICS_PROD`, you need to specify the values of those variables in the liquid_variables configuration as shown below:
+
+   ```yml
+   liquid_variables:
+     user_attributes:
+       db: ANALYTICS_PROD
+   ```
+
+2. Resolving LookML Constants
+
+   If a view contains a LookML constant, for example:
+
+   ```
+   sql_table_name: @{db}.kafka_streaming.events;
+   ```
+
+   Ingestion attempts to resolve it's value by looking at project manifest files
+
+     ```yml
+     manifest.lkml
+       constant: db {
+           value: "ANALYTICS_PROD"
+       }
+     ```
+
+   - If the constant's value is not resolved or incorrectly resolved, you can specify `lookml_constants` configuration in ingestion recipe as shown below. The constant value in recipe takes precedence over constant values resolved from manifest.
+
+     ```yml
+     lookml_constants:
+       db: ANALYTICS_PROD
+     ```
+
+
+**Additional Notes**
+
+Although liquid variables and LookML constants can be used anywhere in LookML code, their values are currently resolved only for LookML views by DataHub LookML ingestion. This behavior is sufficient since LookML ingestion processes only views and their upstream dependencies.
 
 ### Multi-Project LookML (Advanced)
 

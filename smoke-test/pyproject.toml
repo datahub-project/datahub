@@ -7,29 +7,64 @@ name = "smoke-test"
 version = "0.0.0"
 description = ""
 authors = [
-	{ name="Acryl Data", email="eng@acryl.io" },
+    { name="Acryl Data", email="eng@acryl.io" },
 ]
 requires-python = ">=3.9"
 
-
-[tool.black]
-extend-exclude = '''
-# A regex preceded with ^/ will apply only to files and directories
-# in the root of the project.
-tmp
-venv
-'''
-include = '\.pyi?$'
-target-version = ['py310']
-
-[tool.isort]
-profile = 'black'
-
 [tool.ruff]
-ignore = [
-	'E501', # Ignore line length, since black handles that.
-	'D203', # Ignore 1 blank line required before class docstring.
+# Enable ruff format
+target-version = "py310"
+line-length = 88
+extend-exclude = ["tmp", "venv"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+known-first-party = ["datahub"]
+extra-standard-library = ["__future__", "datahub.utilities._markupsafe_compat", "datahub.sql_parsing._sqlglot_patch"]
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+force-sort-within-sections = false
+force-wrap-aliases = false
+split-on-trailing-comma = false
+order-by-type = true
+relative-imports-order = "closest-to-furthest"
+force-single-line = false
+single-line-exclusions = ["typing"]
+length-sort = false
+from-first = false
+required-imports = []
+classes = ["typing"]
+
+[tool.ruff.lint]
+extend-select = [
+    "B",    # flake8-bugbear
+    "C90",  # mccabe complexity
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "G010", # logging.warn -> logging.warning
+    "I",    # isort
+    "TID",  # flake8-tidy-imports
 ]
+ignore = [
+    "E501",  # Line length violations (handled by formatter)
+    "B904",  # exception with `raise ... from err` or `raise ... from None` to distinguish
+    "TID252",# Prefer absolute imports over relative imports
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 15
+
+[tool.ruff.lint.flake8-tidy-imports]
+# Disallow all relative imports.
+ban-relative-imports = "all"
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
 
 [tool.mypy]
 exclude = "^(venv/|build/|dist/)"
@@ -41,6 +76,3 @@ warn_unused_configs = true
 # eventually we'd like to enable these
 disallow_incomplete_defs = false
 disallow_untyped_defs = false
-
-[tool.pyright]
-extraPaths = ['tests']

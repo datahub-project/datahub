@@ -152,7 +152,9 @@ class DataHubDatabaseReader:
     ) -> Iterable[Dict[str, Any]]:
         with self.engine.connect() as conn:
             if self.engine.dialect.name in ["postgresql", "mysql", "mariadb"]:
-                with conn.begin():  # Transaction required for PostgreSQL server-side cursor
+                with (
+                    conn.begin()
+                ):  # Transaction required for PostgreSQL server-side cursor
                     # Note that stream_results=True is mainly supported by PostgreSQL and MySQL-based dialects.
                     # https://docs.sqlalchemy.org/en/14/core/connections.html#sqlalchemy.engine.Connection.execution_options.params.stream_results
                     conn = conn.execution_options(
@@ -222,7 +224,7 @@ class DataHubDatabaseReader:
             )
         except Exception as e:
             logger.warning(
-                f'Failed to parse metadata for {row["urn"]}: {e}', exc_info=True
+                f"Failed to parse metadata for {row['urn']}: {e}", exc_info=True
             )
             self.report.num_database_parse_errors += 1
             self.report.database_parse_errors.setdefault(

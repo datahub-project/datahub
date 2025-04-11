@@ -1,10 +1,4 @@
-import { Column } from './types';
-
-export enum SortingState {
-    ASCENDING = 'ascending',
-    DESCENDING = 'descending',
-    ORIGINAL = 'original',
-}
+import { Column, SortingState } from './types';
 
 export const handleActiveSort = (
     key: string,
@@ -70,4 +64,10 @@ export const renderCell = <T>(column: Column<T>, row: T, index: number) => {
     }
 
     return cellData;
+};
+
+export const getRowKey = <T>(record: T, index: number, rowKey?: string | ((record: T) => string)): string => {
+    if (typeof rowKey === 'function') return rowKey(record);
+    if (typeof rowKey === 'string') return record[rowKey];
+    return index.toString();
 };

@@ -1,8 +1,8 @@
 import logging
+import random
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime
-from random import choices
 from typing import Dict, List, Optional
 
 import click
@@ -266,6 +266,11 @@ def undo_by_filter(
     help="Urn of the entity to delete, for single entity deletion",
 )
 @click.option(
+    "--urn-file",
+    required=False,
+    help="Path of file with urns (one per line) to be deleted",
+)
+@click.option(
     "-a",
     "--aspect",
     # This option is inconsistent with rest of CLI but kept for backward compatibility
@@ -353,6 +358,7 @@ def undo_by_filter(
 @telemetry.with_telemetry()
 def by_filter(
     urn: Optional[str],
+    urn_file: Optional[str],
     aspect: Optional[str],
     force: bool,
     soft: bool,
@@ -373,6 +379,7 @@ def by_filter(
     # Validate the cli arguments.
     _validate_user_urn_and_filters(
         urn=urn,
+        urn_file=urn_file,
         entity_type=entity_type,
         platform=platform,
         env=env,
@@ -429,6 +436,12 @@ def by_filter(
                         batch_size=batch_size,
                     )
                 )
+    elif urn_file:
+        with open(urn_file, "r") as r:
+            urns = []
+            for line in r.readlines():
+                urn = line.strip().strip('"')
+                urns.append(urn)
     else:
         urns = list(
             graph.get_urns_by_filter(
@@ -457,11 +470,11 @@ def by_filter(
             click.echo("Found urns of multiple entity types")
             for entity_type, entity_urns in urns_by_type.items():
                 click.echo(
-                    f"- {len(entity_urns)} {entity_type} urn(s). Sample: {choices(entity_urns, k=min(5, len(entity_urns)))}"
+                    f"- {len(entity_urns)} {entity_type} urn(s). Sample: {random.sample(entity_urns, k=min(5, len(entity_urns)))}"
                 )
         else:
             click.echo(
-                f"Found {len(urns)} {entity_type} urn(s). Sample: {choices(urns, k=min(5, len(urns)))}"
+                f"Found {len(urns)} {entity_type} urn(s). Sample: {random.sample(urns, k=min(5, len(urns)))}"
             )
 
         if not force and not dry_run:
@@ -537,6 +550,7 @@ def _delete_urns_parallel(
 
 def _validate_user_urn_and_filters(
     urn: Optional[str],
+    urn_file: Optional[str],
     entity_type: Optional[str],
     platform: Optional[str],
     env: Optional[str],
@@ -549,9 +563,9 @@ def _validate_user_urn_and_filters(
             raise click.UsageError(
                 "You cannot provide both an urn and a filter rule (entity-type / platform / env / query)."
             )
-    elif not urn and not (entity_type or platform or env or query):
+    elif not urn and not urn_file and not (entity_type or platform or env or query):
         raise click.UsageError(
-            "You must provide either an urn or at least one filter (entity-type / platform / env / query) in order to delete entities."
+            "You must provide either an urn or urn_file or at least one filter (entity-type / platform / env / query) in order to delete entities."
         )
     elif query:
         logger.warning(

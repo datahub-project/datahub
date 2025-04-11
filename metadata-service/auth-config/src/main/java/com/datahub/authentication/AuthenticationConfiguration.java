@@ -12,6 +12,9 @@ public class AuthenticationConfiguration {
   /** Whether user existence is enforced */
   private boolean enforceExistenceEnabled;
 
+  /** Paths to be excluded from filtering * */
+  private String excludedPaths;
+
   /**
    * List of configurations for {@link com.datahub.plugins.auth.authentication.Authenticator}s to be
    * registered

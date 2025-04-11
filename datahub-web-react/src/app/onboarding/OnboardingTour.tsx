@@ -5,7 +5,10 @@ import { useBatchUpdateStepStatesMutation } from '../../graphql/step.generated';
 import { EducationStepsContext } from '../../providers/EducationStepsContext';
 import { StepStateResult } from '../../types.generated';
 import { useUserContext } from '../context/useUserContext';
+import { REDESIGN_COLORS } from '../entityV2/shared/constants';
+import { useIsThemeV2 } from '../useIsThemeV2';
 import { convertStepId, getConditionalStepIdsToAdd, getStepsToRender } from './utils';
+import useShouldSkipOnboardingTour from './useShouldSkipOnboardingTour';
 
 type Props = {
     stepIds: string[];
@@ -16,7 +19,8 @@ export const OnboardingTour = ({ stepIds }: Props) => {
     const userUrn = useUserContext()?.user?.urn;
     const [isOpen, setIsOpen] = useState(true);
     const [reshow, setReshow] = useState(false);
-    const accentColor = '#5cb7b7';
+    const isThemeV2 = useIsThemeV2();
+    const accentColor = isThemeV2 ? REDESIGN_COLORS.BACKGROUND_PURPLE : '#5cb7b7';
 
     useEffect(() => {
         function handleKeyDown(e) {
@@ -53,7 +57,9 @@ export const OnboardingTour = ({ stepIds }: Props) => {
         });
     }
 
-    if (!filteredSteps.length) return null;
+    const shouldSkipOnboardingTour = useShouldSkipOnboardingTour();
+
+    if (!filteredSteps.length || shouldSkipOnboardingTour) return null;
 
     return (
         <Tour

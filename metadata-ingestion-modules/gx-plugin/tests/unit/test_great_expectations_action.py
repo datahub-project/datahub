@@ -4,22 +4,6 @@ from unittest import mock
 
 import pandas as pd
 import pytest
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.metadata.schema_classes import (
-    AssertionInfoClass,
-    AssertionResultClass,
-    AssertionResultTypeClass,
-    AssertionRunEventClass,
-    AssertionRunStatusClass,
-    AssertionStdParameterClass,
-    AssertionStdParametersClass,
-    AssertionTypeClass,
-    BatchSpecClass,
-    DataPlatformInstanceClass,
-    DatasetAssertionInfoClass,
-    DatasetAssertionScopeClass,
-    PartitionSpecClass,
-)
 from great_expectations.core.batch import Batch, BatchDefinition, BatchRequest
 from great_expectations.core.batch_spec import (
     RuntimeDataBatchSpec,
@@ -46,6 +30,22 @@ from great_expectations.execution_engine.sqlalchemy_execution_engine import (
 )
 from great_expectations.validator.validator import Validator
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.metadata.schema_classes import (
+    AssertionInfoClass,
+    AssertionResultClass,
+    AssertionResultTypeClass,
+    AssertionRunEventClass,
+    AssertionRunStatusClass,
+    AssertionStdParameterClass,
+    AssertionStdParametersClass,
+    AssertionTypeClass,
+    BatchSpecClass,
+    DataPlatformInstanceClass,
+    DatasetAssertionInfoClass,
+    DatasetAssertionScopeClass,
+    PartitionSpecClass,
+)
 from datahub_gx_plugin.action import DataHubValidationAction
 
 logger = logging.getLogger(__name__)

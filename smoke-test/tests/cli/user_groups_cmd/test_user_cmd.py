@@ -5,6 +5,7 @@ from typing import Any, Dict, Iterable, List
 
 import yaml
 from click.testing import CliRunner, Result
+
 from datahub.api.entities.corpuser.corpuser import CorpUser
 from datahub.entrypoints import datahub
 

@@ -66,6 +66,7 @@ export const EntityPage = ({ entityType }: Props) => {
         entityType === EntityType.MlfeatureTable ||
         entityType === EntityType.MlmodelGroup ||
         entityType === EntityType.GlossaryTerm ||
+        entityType === EntityType.DataProcessInstance ||
         entityType === EntityType.GlossaryNode;
 
     return (

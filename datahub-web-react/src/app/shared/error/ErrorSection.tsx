@@ -43,6 +43,7 @@ const resources = [
         label: 'DataHub Project',
         path: 'https://datahubproject.io',
         shouldOpenInNewTab: true,
+        description: 'DataHub Project website',
     },
     {
         label: 'DataHub Docs',

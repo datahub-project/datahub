@@ -48,9 +48,9 @@ function EntityName(props: Props) {
             setIsEditing(false);
             return;
         }
-        setUpdatedName(name);
         updateName({ variables: { input: { name, urn } } })
             .then(() => {
+                setUpdatedName(name);
                 setIsEditing(false);
                 message.success({ content: 'Name Updated', duration: 2 });
                 refetch();

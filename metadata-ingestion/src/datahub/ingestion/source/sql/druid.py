@@ -50,11 +50,7 @@ class DruidConfig(BasicSQLAlchemyConfig):
     """
 
     def get_identifier(self, schema: str, table: str) -> str:
-        return (
-            f"{self.platform_instance}.{table}"
-            if self.platform_instance
-            else f"{table}"
-        )
+        return f"{table}"
 
 
 @platform_name("Druid")

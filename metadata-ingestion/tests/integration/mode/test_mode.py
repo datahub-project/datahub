@@ -68,6 +68,17 @@ class MockResponse:
             self.json_data = data
         return self
 
+    @property
+    def text(self) -> str:
+        return json.dumps(self.json_data)
+
+    def raise_for_status(self) -> None:
+        if self.status_code >= 400:
+            raise HTTPError(
+                f"MockResponse for {self.url} has status code {self.status_code}",
+                response=self,
+            )
+
 
 class MockResponseJson(MockResponse):
     def __init__(

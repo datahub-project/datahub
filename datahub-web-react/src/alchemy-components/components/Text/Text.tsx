@@ -1,7 +1,7 @@
 import React from 'react';
 
 import { TextProps } from './types';
-import { P, Div, Span } from './components';
+import { P, Div, Span, Pre } from './components';
 
 export const textDefaults: TextProps = {
     type: 'p',
@@ -27,6 +27,8 @@ export const Text = ({
             return <Div {...sharedProps}>{children}</Div>;
         case 'span':
             return <Span {...sharedProps}>{children}</Span>;
+        case 'pre':
+            return <Pre {...sharedProps}>{children}</Pre>;
         default:
             return <P {...sharedProps}>{children}</P>;
     }

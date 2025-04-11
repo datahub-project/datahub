@@ -21,8 +21,7 @@ LogLevel = Literal["ERROR", "WARNING", "INFO", "DEBUG"]
 
 @runtime_checkable
 class SupportsAsObj(Protocol):
-    def as_obj(self) -> dict:
-        ...
+    def as_obj(self) -> dict: ...
 
 
 @dataclass

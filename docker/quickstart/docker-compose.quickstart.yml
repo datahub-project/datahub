@@ -103,6 +103,7 @@ services:
     - NEO4J_URI=bolt://neo4j
     - NEO4J_USERNAME=neo4j
     - PE_CONSUMER_ENABLED=true
+    - THEME_V2_DEFAULT=true
     - UI_INGESTION_ENABLED=true
     healthcheck:
       interval: 1s

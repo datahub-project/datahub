@@ -7,7 +7,7 @@ import com.linkedin.common.AuditStamp
  */
 record IncidentStatus {
   /**
-  * The state of the incident
+  * The top-level state of the incident, whether it's active or resolved.
   */
   @Searchable = {
     "addToFilters": true,
@@ -22,6 +22,38 @@ record IncidentStatus {
      * The incident is resolved.
      */
     RESOLVED
+  }
+
+  /**
+   * The lifecycle stage for the incident - Null means no stage was assigned yet.
+   * In the future, we may add CUSTOM here with a customStage string field for user-defined stages.
+   */
+  @Searchable = {
+    "addToFilters": true,
+    "filterNameOverride": "Stage"
+  }
+  stage: optional enum IncidentStage {
+    /**
+     * The impact and priority of the incident is being actively assessed.
+     */
+    TRIAGE
+    /**
+     * The incident root cause is being investigated.
+     */
+    INVESTIGATION
+    /**
+     * The incident is in the remediation stage.
+     */
+    WORK_IN_PROGRESS
+    /**
+     * The incident is in the resolved as completed stage.
+     */
+    FIXED
+    /**
+     * The incident is in the resolved with no action required state, e.g. the
+     * incident was a false positive, or was expected.
+     */
+    NO_ACTION_REQUIRED
   }
 
   /**

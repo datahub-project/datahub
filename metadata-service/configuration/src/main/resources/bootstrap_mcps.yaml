@@ -7,10 +7,17 @@ bootstrap:
   templates:
     # Bootstrap
     - name: root-user
-      version: v1
+      version: v2
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/root-user.yaml"
+
+    - name: root-user-editable-info
+      version: v1
+      blocking: true
+      optional: true
+      async: false
+      mcps_location: "bootstrap_mcps/root-user-editable-info.yaml"
 
     - name: data-platforms
       version: v2

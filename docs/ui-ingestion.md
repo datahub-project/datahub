@@ -3,7 +3,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# Ingestion
+# UI Based Ingestion / Managed Ingestion
 
 <FeatureAvailability/>
 

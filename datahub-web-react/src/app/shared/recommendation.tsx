@@ -1,18 +1,19 @@
 import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
-import { EntityType } from '../../types.generated';
+import { Entity, EntityType } from '../../types.generated';
 
 export const useGetRecommendations = (types: Array<EntityType>) => {
-    const { data } = useGetSearchResultsForMultipleQuery({
+    const { data, loading } = useGetSearchResultsForMultipleQuery({
         variables: {
             input: {
                 types,
                 query: '*',
                 start: 0,
-                count: 5,
+                count: 10,
             },
         },
     });
 
-    const recommendedData = data?.searchAcrossEntities?.searchResults?.map((searchResult) => searchResult.entity) || [];
-    return [recommendedData];
+    const recommendedData: Entity[] =
+        data?.searchAcrossEntities?.searchResults?.map((searchResult) => searchResult.entity) || [];
+    return { recommendedData, loading };
 };

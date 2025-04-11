@@ -484,11 +484,11 @@ class NativeDerivedViewUpstream(AbstractViewUpstream):
         )
 
     def __get_upstream_dataset_urn(self) -> List[str]:
-        current_view_id: Optional[
-            LookerViewId
-        ] = self.looker_view_id_cache.get_looker_view_id(
-            view_name=self.view_context.name(),
-            base_folder_path=self.view_context.base_folder_path,
+        current_view_id: Optional[LookerViewId] = (
+            self.looker_view_id_cache.get_looker_view_id(
+                view_name=self.view_context.name(),
+                base_folder_path=self.view_context.base_folder_path,
+            )
         )
 
         # Current view will always be present in cache. assert  will silence the lint

@@ -321,9 +321,9 @@ class DataProduct(ConfigModel):
 
     @classmethod
     def from_datahub(cls, graph: DataHubGraph, id: str) -> DataProduct:
-        data_product_properties: Optional[
-            DataProductPropertiesClass
-        ] = graph.get_aspect(id, DataProductPropertiesClass)
+        data_product_properties: Optional[DataProductPropertiesClass] = (
+            graph.get_aspect(id, DataProductPropertiesClass)
+        )
         domains: Optional[DomainsClass] = graph.get_aspect(id, DomainsClass)
         assert domains, "Data Product must have an associated domain. Found none."
         owners: Optional[OwnershipClass] = graph.get_aspect(id, OwnershipClass)
@@ -438,7 +438,7 @@ class DataProduct(ConfigModel):
             for replace_index, replace_value in patches_replace.items():
                 list_to_manipulate[replace_index] = replace_value
 
-            for drop_index, drop_value in patches_drop.items():
+            for drop_value in patches_drop.values():
                 list_to_manipulate.remove(drop_value)
 
             for add_value in patches_add:

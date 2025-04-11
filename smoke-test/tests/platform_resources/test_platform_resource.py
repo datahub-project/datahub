@@ -4,13 +4,13 @@ import string
 from typing import List
 
 import pytest
+
 from datahub.api.entities.platformresource.platform_resource import (
     ElasticPlatformResourceQuery,
     PlatformResource,
     PlatformResourceKey,
     PlatformResourceSearchFields,
 )
-
 from tests.utils import wait_for_writes_to_sync
 
 logger = logging.getLogger(__name__)

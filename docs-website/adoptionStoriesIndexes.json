@@ -71,6 +71,17 @@
       "imageSize": "small"
     },
     {
+      "name": "Slack",
+      "slug": "slack",
+      "imageUrl": "/img/logos/companies/slack.png",
+      "imageSize": "large",
+      "link": "https://youtu.be/G5B0W03dvuU",
+      "linkType": "video",
+      "tagline": "Why Slack chose DataHub to solve lineage and discovery.",
+      "category": "B2B & B2C",
+      "description": "Slack adopted DataHub to track their entire data landscape, build lineage, and add rich context to metadata for search & discovery."
+    },
+    {
       "name": "Airtel",
       "slug": "airtel",
       "imageUrl": "/img/logos/companies/airtel.png",
@@ -160,6 +171,18 @@
       "tagline": "Self-Serve Data Governance with DataHub Action Framework",
       "category": "Financial & Fintech",
       "description": "Discover how Checkout leverage DataHub for advanced data management and compliance, especially in managing sensitive data types."
+    },
+    {
+      "name": "Etsy",
+      "slug": "etsy",
+      "imageUrl": "/img/logos/companies/etsy.png",
+      "imageSize": "medium",
+      "link": "https://youtu.be/kLe_xfTR_rM",
+      "linkType": "video",
+      "tagline": "Why Etsy used DataHub to solve their Data Discovery needs.",
+      "category": "E-Commerce",
+      "platform": "cloud",
+      "description": "Etsy leverages DataHub to solve their data discovery needs, enabling their data teams to find, understand, and trust their data."
     },
     {
       "name": "MYOB",

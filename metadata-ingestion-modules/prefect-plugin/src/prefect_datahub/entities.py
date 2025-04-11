@@ -2,6 +2,7 @@ from abc import abstractmethod
 from typing import Optional
 
 import attr
+
 import datahub.emitter.mce_builder as builder
 from datahub.utilities.urns.urn import guess_entity_type
 

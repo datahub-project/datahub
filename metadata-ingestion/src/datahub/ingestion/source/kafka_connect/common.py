@@ -16,6 +16,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +84,7 @@ class KafkaConnectSourceConfig(
 @dataclass
 class KafkaConnectSourceReport(StaleEntityRemovalSourceReport):
     connectors_scanned: int = 0
-    filtered: List[str] = field(default_factory=list)
+    filtered: LossyList[str] = field(default_factory=LossyList)
 
     def report_connector_scanned(self, connector: str) -> None:
         self.connectors_scanned += 1
@@ -109,7 +110,7 @@ class ConnectorManifest:
 
     name: str
     type: str
-    config: Dict
+    config: Dict[str, str]
     tasks: Dict
     url: Optional[str] = None
     flow_property_bag: Optional[Dict[str, str]] = None
@@ -140,12 +141,7 @@ def get_dataset_name(
     database_name: Optional[str],
     source_table: str,
 ) -> str:
-    if database_name:
-        dataset_name = database_name + "." + source_table
-    else:
-        dataset_name = source_table
-
-    return dataset_name
+    return database_name + "." + source_table if database_name else source_table
 
 
 def get_platform_instance(

@@ -2,9 +2,15 @@ from typing import Optional
 
 import pytest
 import tenacity
-from datahub.ingestion.graph.client import DataHubGraph
-from datahub.metadata.schema_classes import KafkaSchemaClass, SchemaMetadataClass
 
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.metadata.schema_classes import (
+    DatasetPropertiesClass,
+    KafkaSchemaClass,
+    OwnershipClass,
+    SchemaMetadataClass,
+    SystemMetadataClass,
+)
 from tests.utils import delete_urns_from_file, get_sleep_info, ingest_file_via_rest
 
 sleep_sec, sleep_times = get_sleep_info()
@@ -38,6 +44,64 @@ def test_get_aspect_v2(graph_client, ingest_cleanup_data):
     assert (
         k_schema.documentSchema
         == '{"type":"record","name":"SampleKafkaSchema","namespace":"com.linkedin.dataset","doc":"Sample Kafka dataset","fields":[{"name":"field_foo","type":["string"]},{"name":"field_bar","type":["boolean"]}]}'
+    )
+
+
+def test_get_entities_v3(graph_client, ingest_cleanup_data):
+    ownership_aspect_name = "ownership"
+    dataset_properties_aspect_name = "datasetProperties"
+    urn = "urn:li:dataset:(urn:li:dataPlatform:kafka,test-rollback,PROD)"
+    entities = graph_client.get_entities(
+        entity_name="dataset",
+        urns=[urn],
+        aspects=[ownership_aspect_name, dataset_properties_aspect_name],
+    )
+
+    assert entities
+    assert len(entities) == 1 and urn in entities
+    assert (
+        len(entities[urn]) == 2
+        and ownership_aspect_name in entities[urn]
+        and dataset_properties_aspect_name in entities[urn]
+        and isinstance(entities[urn][ownership_aspect_name][0], OwnershipClass)
+        and isinstance(
+            entities[urn][dataset_properties_aspect_name][0], DatasetPropertiesClass
+        )
+        and entities[urn][ownership_aspect_name][1] is None
+        and entities[urn][dataset_properties_aspect_name][1] is None
+    )
+    assert {
+        owner.owner for owner in entities[urn][ownership_aspect_name][0].owners
+    } == {
+        "urn:li:corpuser:datahub",
+        "urn:li:corpuser:jdoe",
+    }
+    assert not entities[urn][dataset_properties_aspect_name][0].description
+    assert entities[urn][dataset_properties_aspect_name][0].customProperties == {
+        "prop1": "fakeprop",
+        "prop2": "pikachu",
+    }
+
+    # Test with system metadata
+    entities_with_metadata = graph_client.get_entities(
+        entity_name="dataset",
+        urns=[urn],
+        aspects=[ownership_aspect_name],
+        with_system_metadata=True,
+    )
+
+    assert entities_with_metadata
+    assert len(entities_with_metadata) == 1 and urn in entities_with_metadata
+    assert (
+        ownership_aspect_name in entities_with_metadata[urn]
+        and entities_with_metadata[urn][ownership_aspect_name][0]
+        and isinstance(
+            entities_with_metadata[urn][ownership_aspect_name][0], OwnershipClass
+        )
+        and entities_with_metadata[urn][ownership_aspect_name][1]
+        and isinstance(
+            entities_with_metadata[urn][ownership_aspect_name][1], SystemMetadataClass
+        )
     )
 
 

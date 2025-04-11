@@ -38,6 +38,7 @@ export type Theme = {
                 label: string;
                 path: string;
                 shouldOpenInNewTab: boolean;
+                description?: string;
             }[];
         };
     };

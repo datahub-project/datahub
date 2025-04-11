@@ -33,8 +33,7 @@ from datahub.utilities.urns.urn import guess_entity_type
 
 @runtime_checkable
 class SupportsToObj(Protocol):
-    def to_obj(self) -> Any:
-        ...
+    def to_obj(self) -> Any: ...
 
 
 def _recursive_to_obj(obj: Any) -> Any:

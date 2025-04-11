@@ -22,7 +22,7 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -76,7 +76,7 @@ public class AggregationQueryBuilder {
 
   /** Get the set of default aggregations, across all facets. */
   public List<AggregationBuilder> getAggregations(@Nonnull OperationContext opContext) {
-    return getAggregations(opContext, null);
+    return getAggregations(opContext, new ArrayList<>());
   }
 
   /**
@@ -84,15 +84,13 @@ public class AggregationQueryBuilder {
    * then get aggregations for all.
    */
   public List<AggregationBuilder> getAggregations(
-      @Nonnull OperationContext opContext, @Nullable List<String> facets) {
+      @Nonnull OperationContext opContext, @Nonnull List<String> facets) {
     final Set<String> facetsToAggregate = new HashSet<>();
     if (Boolean.TRUE.equals(
         opContext.getSearchContext().getSearchFlags().isIncludeDefaultFacets())) {
       facetsToAggregate.addAll(defaultFacetFields);
     }
-    if (facets != null) {
-      facets.stream().filter(this::isValidAggregate).forEach(facetsToAggregate::add);
-    }
+    facets.stream().filter(this::isValidAggregate).forEach(facetsToAggregate::add);
     return facetsToAggregate.stream()
         .map(f -> facetToAggregationBuilder(opContext, f))
         .collect(Collectors.toList());
@@ -104,6 +102,10 @@ public class AggregationQueryBuilder {
             .flatMap(annotation -> getDefaultFacetFieldsFromAnnotation(annotation).stream())
             .collect(Collectors.toSet());
     facets.add(INDEX_VIRTUAL_FIELD);
+    // Entity Type > Sub-Type aggregations.
+    // TODO: Ideally we can avoid the index-virtual-fields aggregation.
+    facets.add(
+        String.format("%s%s%s", INDEX_VIRTUAL_FIELD, AGGREGATION_SEPARATOR_CHAR, "typeNames"));
     return facets;
   }
 

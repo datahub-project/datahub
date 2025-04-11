@@ -13,16 +13,16 @@ outputs:
     value: ${{ steps.filter.outputs.frontend == 'false' && steps.filter.outputs.ingestion == 'false' && steps.filter.outputs.backend == 'true' }}
   backend-change:
     description: "Backend code has changed"
-    value: ${{ steps.filter.outputs.backend == 'true' }}
+    value: ${{ steps.filter.outputs.backend == 'true' ||  steps.trigger.outputs.trigger == 'manual' }}
   ingestion-change:
     description: "Ingestion code has changed"
-    value: ${{ steps.filter.outputs.ingestion == 'true' }}
+    value: ${{ steps.filter.outputs.ingestion == 'true' || steps.trigger.outputs.trigger == 'manual' }}
   ingestion-base-change:
     description: "Ingestion base image docker image has changed"
     value: ${{ steps.filter.outputs.ingestion-base == 'true' }}
   frontend-change:
     description: "Frontend code has changed"
-    value: ${{ steps.filter.outputs.frontend == 'true' }}
+    value: ${{ steps.filter.outputs.frontend == 'true' || steps.trigger.outputs.trigger == 'manual' }}
   docker-change:
     description: "Docker code has changed"
     value: ${{ steps.filter.outputs.docker == 'true' }}
@@ -44,6 +44,15 @@ outputs:
 runs:
   using: "composite"
   steps:
+    - name: Check trigger type
+      id: trigger  # Add an ID to reference this step
+      shell: bash
+      run: |
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          echo "trigger=manual" >> $GITHUB_OUTPUT
+        else
+          echo "trigger=pr" >> $GITHUB_OUTPUT
+        fi
     - uses: dorny/paths-filter@v3
       id: filter
       with:

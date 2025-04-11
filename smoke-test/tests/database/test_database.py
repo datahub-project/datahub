@@ -1,8 +1,8 @@
 import logging
 
 import pytest
-from datahub.emitter.mce_builder import make_dataset_urn
 
+from datahub.emitter.mce_builder import make_dataset_urn
 from tests.utilities.concurrent_openapi import run_tests
 from tests.utils import delete_urns, wait_for_writes_to_sync
 

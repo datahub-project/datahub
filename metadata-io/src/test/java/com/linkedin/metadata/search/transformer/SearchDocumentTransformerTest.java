@@ -30,6 +30,7 @@ import com.linkedin.metadata.models.SearchableRefFieldSpec;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.query.request.TestSearchFieldConfig;
+import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
@@ -255,7 +256,12 @@ public class SearchDocumentTransformerTest {
                 .build());
 
     searchDocumentTransformer.setSearchableRefValue(
-        opContext, searchableRefFieldSpec, urnList, searchDocument, false);
+        opContext,
+        searchableRefFieldSpec,
+        urnList,
+        searchDocument,
+        false,
+        AuditStampUtils.createDefaultAuditStamp());
     assertTrue(searchDocument.has("refEntityUrns"));
     assertEquals(searchDocument.get("refEntityUrns").size(), 3);
     assertTrue(searchDocument.get("refEntityUrns").has("urn"));
@@ -282,7 +288,12 @@ public class SearchDocumentTransformerTest {
     SearchableRefFieldSpec searchableRefFieldSpecText =
         TEST_ENTITY_REGISTRY.getEntitySpec("testRefEntity").getSearchableRefFieldSpecs().get(1);
     searchDocumentTransformer.setSearchableRefValue(
-        opContext, searchableRefFieldSpecText, urnList, searchDocument, false);
+        opContext,
+        searchableRefFieldSpecText,
+        urnList,
+        searchDocument,
+        false,
+        AuditStampUtils.createDefaultAuditStamp());
     assertTrue(searchDocument.isEmpty());
   }
 
@@ -315,7 +326,12 @@ public class SearchDocumentTransformerTest {
     SearchableRefFieldSpec searchableRefFieldSpec =
         TEST_ENTITY_REGISTRY.getEntitySpec("testRefEntity").getSearchableRefFieldSpecs().get(0);
     searchDocumentTransformer.setSearchableRefValue(
-        opContext, searchableRefFieldSpec, urnList, searchDocument, false);
+        opContext,
+        searchableRefFieldSpec,
+        urnList,
+        searchDocument,
+        false,
+        AuditStampUtils.createDefaultAuditStamp());
     assertTrue(searchDocument.isEmpty());
   }
 
@@ -354,7 +370,12 @@ public class SearchDocumentTransformerTest {
     SearchableRefFieldSpec searchableRefFieldSpec =
         TEST_ENTITY_REGISTRY.getEntitySpec("testRefEntity").getSearchableRefFieldSpecs().get(0);
     searchDocumentTransformer.setSearchableRefValue(
-        opContext, searchableRefFieldSpec, urnList, searchDocument, false);
+        opContext,
+        searchableRefFieldSpec,
+        urnList,
+        searchDocument,
+        false,
+        AuditStampUtils.createDefaultAuditStamp());
     assertTrue(searchDocument.has("refEntityUrns"));
     assertEquals(searchDocument.get("refEntityUrns").size(), 1);
     assertTrue(searchDocument.get("refEntityUrns").has("urn"));
@@ -387,7 +408,12 @@ public class SearchDocumentTransformerTest {
 
     ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
     searchDocumentTransformer.setSearchableRefValue(
-        opContext, searchableRefFieldSpec, urnList, searchDocument, false);
+        opContext,
+        searchableRefFieldSpec,
+        urnList,
+        searchDocument,
+        false,
+        AuditStampUtils.createDefaultAuditStamp());
     assertTrue(searchDocument.has("refEntityUrns"));
     assertTrue(searchDocument.get("refEntityUrns").getNodeType().equals(JsonNodeType.NULL));
   }
@@ -406,7 +432,8 @@ public class SearchDocumentTransformerTest {
             ENTITY_REGISTRY
                 .getEntitySpec(DATASET_ENTITY_NAME)
                 .getAspectSpec(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME),
-            false);
+            false,
+            AuditStampUtils.createDefaultAuditStamp());
 
     assertTrue(transformed.isPresent());
     assertEquals(transformed.get().get("urn").asText(), entityUrn);
@@ -422,12 +449,32 @@ public class SearchDocumentTransformerTest {
             ENTITY_REGISTRY
                 .getEntitySpec(DATASET_ENTITY_NAME)
                 .getAspectSpec(DATASET_PROPERTIES_ASPECT_NAME),
-            false);
+            false,
+            AuditStampUtils.createDefaultAuditStamp());
 
     assertTrue(transformed.isPresent());
     assertEquals(transformed.get().get("urn").asText(), entityUrn);
     assertTrue(transformed.get().has("description"));
     assertTrue(transformed.get().get("description").isNull());
     assertFalse(transformed.get().get("hasDescription").asBoolean());
+  }
+
+  @Test
+  public void testHandleRemoveFieldsWithStructuredProperties() throws IOException {
+    ObjectNode previousDoc = JsonNodeFactory.instance.objectNode();
+    previousDoc.put("structuredProperties.prop1", "value1");
+    previousDoc.put("structuredProperties.prop2", "value2");
+    previousDoc.put("otherField", "value3");
+
+    ObjectNode newDoc = JsonNodeFactory.instance.objectNode();
+    newDoc.put("structuredProperties.prop1", "updatedValue1");
+    newDoc.put("otherField", "updatedValue3");
+
+    ObjectNode result = SearchDocumentTransformer.handleRemoveFields(newDoc, previousDoc);
+
+    assertEquals(result.get("structuredProperties.prop1").asText(), "updatedValue1");
+    assertTrue(result.has("structuredProperties.prop2"));
+    assertTrue(result.get("structuredProperties.prop2").isNull());
+    assertEquals(result.get("otherField").asText(), "updatedValue3");
   }
 }

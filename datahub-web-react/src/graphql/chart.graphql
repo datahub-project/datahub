@@ -119,6 +119,7 @@ query getChart($urn: String!) {
         forms {
             ...formsFields
         }
+        ...notes
     }
 }
 

@@ -19,7 +19,9 @@
         "homepage-background-upper-fade": "#FFFFFF",
         "homepage-background-lower-fade": "#333E4C",
         "highlight-color": "#E6F4FF",
-        "highlight-border-color": "#BAE0FF"
+        "highlight-border-color": "#BAE0FF",
+        "box-shadow-navbar-redesign": "0 0 6px 0px rgba(93, 102, 139, 0.20)",
+        "border-radius-navbar-redesign": "12px"
     },
     "assets": {
         "logoUrl": "/assets/logo.png"

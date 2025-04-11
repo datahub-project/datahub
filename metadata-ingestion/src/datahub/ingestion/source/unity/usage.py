@@ -103,7 +103,9 @@ class UnityCatalogUsageExtractor:
                                 query, table_info
                             )
                         for source_table in table_info.source_tables:
-                            with self.report.usage_perf_report.aggregator_add_event_timer:
+                            with (
+                                self.report.usage_perf_report.aggregator_add_event_timer
+                            ):
                                 self.usage_aggregator.aggregate_event(
                                     resource=source_table,
                                     start_time=query.start_time,

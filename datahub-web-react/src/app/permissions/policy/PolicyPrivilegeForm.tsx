@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Form, Select, Tag, Tooltip, Typography, Tag as CustomTag } from 'antd';
+import { Form, Select, Tag, Typography, Tag as CustomTag } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components/macro';
 
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -92,8 +93,9 @@ export default function PolicyPrivilegeForm({
     const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
     const [inputValue, setInputValue] = useState('');
     const [tagTermSearch, { data: tagTermSearchData }] = useGetSearchResultsLazyQuery();
-    const [recommendedData] = useGetRecommendations([EntityType.Tag]);
-    const tagSearchResults = tagTermSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
+    const { recommendedData } = useGetRecommendations([EntityType.Tag]);
+    const tagSearchResults: Array<Entity> =
+        tagTermSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
 
     const inputEl = useRef(null);
 
@@ -620,6 +622,9 @@ export default function PolicyPrivilegeForm({
                             {tagProps.label}
                         </Tag>
                     )}
+                    filterOption={(input, option) => {
+                        return !!option?.children?.toString().toLowerCase().includes(input.toLowerCase());
+                    }}
                 >
                     {privilegeOptions.map((priv, index) => {
                         const key = `${priv.type}-${index}`;

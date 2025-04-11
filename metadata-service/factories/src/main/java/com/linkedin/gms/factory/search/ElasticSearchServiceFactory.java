@@ -2,9 +2,6 @@ package com.linkedin.gms.factory.search;
 
 import static com.linkedin.metadata.Constants.*;
 
-import com.fasterxml.jackson.core.StreamReadConstraints;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
@@ -17,6 +14,7 @@ import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
+import io.datahubproject.metadata.context.ObjectMapperContext;
 import java.io.IOException;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -30,17 +28,6 @@ import org.springframework.context.annotation.Import;
 @Configuration
 @Import({EntityRegistryFactory.class, SettingsBuilderFactory.class})
 public class ElasticSearchServiceFactory {
-  private static final ObjectMapper YAML_MAPPER = new YAMLMapper();
-
-  static {
-    int maxSize =
-        Integer.parseInt(
-            System.getenv()
-                .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
-    YAML_MAPPER
-        .getFactory()
-        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
-  }
 
   @Autowired
   @Qualifier("baseElasticSearchComponents")
@@ -68,7 +55,7 @@ public class ElasticSearchServiceFactory {
     CustomSearchConfiguration customSearchConfiguration =
         searchConfiguration.getCustom() == null
             ? null
-            : searchConfiguration.getCustom().resolve(YAML_MAPPER);
+            : searchConfiguration.getCustom().resolve(ObjectMapperContext.DEFAULT.getYamlMapper());
 
     ESSearchDAO esSearchDAO =
         new ESSearchDAO(

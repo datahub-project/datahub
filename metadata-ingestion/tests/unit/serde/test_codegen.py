@@ -54,7 +54,7 @@ def test_key_aspect_info():
         "entityCategory": "internal",
         "entityAspects": ["telemetryClientId"],
     }
-    assert TelemetryKeyClass.ASPECT_INFO == expected
+    assert expected == TelemetryKeyClass.ASPECT_INFO
     assert TelemetryKeyClass.get_aspect_info() == expected
 
 
@@ -156,9 +156,9 @@ def test_entity_registry_completeness():
                         f"entity {entity_type}: aspect {aspect_name} is missing from the entity registry"
                     )
 
-    assert (
-        not errors
-    ), f'To fix these errors, run "UPDATE_ENTITY_REGISTRY=true pytest {__file__}"'
+    assert not errors, (
+        f'To fix these errors, run "UPDATE_ENTITY_REGISTRY=true pytest {__file__}"'
+    )
 
 
 def test_enum_options():

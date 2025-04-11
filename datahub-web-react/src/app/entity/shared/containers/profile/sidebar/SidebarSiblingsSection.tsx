@@ -30,13 +30,13 @@ export const SidebarSiblingsSection = () => {
             <div>
                 <SidebarHeader title="Part Of" />
                 <EntityListContainer>
-                    <CompactEntityNameList entities={[entityData as Entity]} showTooltips />
+                    <CompactEntityNameList entities={[entityData as Entity]} />
                 </EntityListContainer>
             </div>
         );
     }
 
-    const siblingEntities = entityData?.siblings?.siblings || [];
+    const siblingEntities = entityData?.siblingsSearch?.searchResults?.map((r) => r.entity) || [];
     const entityDataWithoutSiblings = stripSiblingsFromEntity(dataNotCombinedWithSiblings.dataset);
 
     const allSiblingsInGroup = showSeparateSiblings
@@ -58,11 +58,10 @@ export const SidebarSiblingsSection = () => {
     return (
         <div>
             <SidebarHeader title="Composed Of" />
-            <EntityListContainer>
+            <EntityListContainer data-testid="siblings-list">
                 <CompactEntityNameList
                     entities={allSiblingsInGroupThatExist}
                     linkUrlParams={{ [SEPARATE_SIBLINGS_URL_PARAM]: true }}
-                    showTooltips
                 />
             </EntityListContainer>
         </div>

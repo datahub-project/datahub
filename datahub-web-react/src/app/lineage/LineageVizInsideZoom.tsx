@@ -10,6 +10,7 @@ import { SchemaField, SchemaFieldRef } from '../../types.generated';
 import { useIsShowColumnsMode } from './utils/useIsShowColumnsMode';
 import { LineageVizControls } from './controls/LineageVizControls';
 import LineageVizRootSvg from './LineageVizRootSvg';
+import { useAppConfig } from '../useAppConfig';
 
 const ControlsDiv = styled.div`
     display: flex;
@@ -65,12 +66,15 @@ export default function LineageVizInsideZoom({
     fineGrainedMap,
     refetchCenterNode,
 }: Props) {
+    const appConfig = useAppConfig();
+    const showFullTitle = appConfig.config.visualConfig.showFullTitleInLineage;
+
     const [collapsedColumnsNodes, setCollapsedColumnsNodes] = useState<Record<string, boolean>>({});
     const [selectedField, setSelectedField] = useState<SchemaFieldRef | null>(null);
     const [highlightedEdges, setHighlightedEdges] = useState<ColumnEdge[]>([]);
     const [visibleColumnsByUrn, setVisibleColumnsByUrn] = useState<Record<string, Set<string>>>({});
     const [columnsByUrn, setColumnsByUrn] = useState<Record<string, SchemaField[]>>({});
-    const [showExpandedTitles, setShowExpandedTitles] = useState(false);
+    const [showExpandedTitles, setShowExpandedTitles] = useState(showFullTitle ?? false);
     const showColumns = useIsShowColumnsMode();
 
     useEffect(() => {

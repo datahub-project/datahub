@@ -7,9 +7,11 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
 from datahub.ingestion.source.snowflake import snowflake_query
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
+from datahub.utilities.prefix_batch_builder import PrefixGroup
 
 NUM_TABLES = 10
 NUM_VIEWS = 2
+NUM_STREAMS = 1
 NUM_COLS = 10
 NUM_OPS = 10
 NUM_USAGE = 0
@@ -175,6 +177,7 @@ def default_query_results(  # noqa: C901
     query,
     num_tables=NUM_TABLES,
     num_views=NUM_VIEWS,
+    num_streams=NUM_STREAMS,
     num_cols=NUM_COLS,
     num_ops=NUM_OPS,
     num_usages=NUM_USAGE,
@@ -241,6 +244,9 @@ def default_query_results(  # noqa: C901
                 "ROW_COUNT": 10000,
                 "COMMENT": "Comment for Table",
                 "CLUSTERING_KEY": "LINEAR(COL_1)",
+                "IS_ICEBERG": "YES" if tbl_idx == 1 else "NO",
+                "IS_DYNAMIC": "YES" if tbl_idx == 2 else "NO",
+                "IS_HYBRID": "YES" if tbl_idx == 3 else "NO",
             }
             for tbl_idx in range(1, num_tables + 1)
         ]
@@ -272,6 +278,27 @@ def default_query_results(  # noqa: C901
             for view_idx in range(1, num_views + 1)
             if is_secure(view_idx)
         ]
+    elif query == SnowflakeQuery.columns_for_schema(
+        "TEST_SCHEMA",
+        "TEST_DB",
+        [PrefixGroup(prefix="TABLE_1", names=[], exact_match=True)],
+    ):
+        return [
+            {
+                "TABLE_CATALOG": "TEST_DB",
+                "TABLE_SCHEMA": "TEST_SCHEMA",
+                "TABLE_NAME": "TABLE_1",
+                "COLUMN_NAME": f"COL_{col_idx}",
+                "ORDINAL_POSITION": col_idx,
+                "IS_NULLABLE": "NO",
+                "DATA_TYPE": "TEXT" if col_idx > 1 else "NUMBER",
+                "COMMENT": "Comment for column",
+                "CHARACTER_MAXIMUM_LENGTH": 255 if col_idx > 1 else None,
+                "NUMERIC_PRECISION": None if col_idx > 1 else 38,
+                "NUMERIC_SCALE": None if col_idx > 1 else 0,
+            }
+            for col_idx in range(1, num_cols + 1)
+        ]
     elif query == SnowflakeQuery.columns_for_schema("TEST_SCHEMA", "TEST_DB"):
         return [
             {
@@ -292,6 +319,28 @@ def default_query_results(  # noqa: C901
                 + [f"VIEW_{view_idx}" for view_idx in range(1, num_views + 1)]
             )
             for col_idx in range(1, num_cols + 1)
+        ]
+    elif query == SnowflakeQuery.streams_for_database("TEST_DB"):
+        # TODO: Add tests for stream pagination.
+        return [
+            {
+                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
+                "name": f"STREAM_{stream_idx}",
+                "database_name": "TEST_DB",
+                "schema_name": "TEST_SCHEMA",
+                "owner": "ACCOUNTADMIN",
+                "comment": f"Comment for Stream {stream_idx}",
+                "table_name": f"TEST_DB.TEST_SCHEMA.TABLE_{stream_idx}",
+                "source_type": "Table",
+                "base_tables": f"TEST_DB.TEST_SCHEMA.TABLE_{stream_idx}",
+                "type": "DELTA",
+                "stale": "false",
+                "mode": "DEFAULT",
+                "stale_after": datetime(2021, 6, 22, 0, 0, 0, 0, tzinfo=timezone.utc),
+                "invalid_reason": None,
+                "owner_role_type": "ROLE",
+            }
+            for stream_idx in range(1, num_streams + 1)
         ]
     elif query in (
         SnowflakeQuery.use_database("TEST_DB"),
@@ -629,7 +678,27 @@ def default_query_results(  # noqa: C901
         ),
     ]:
         return []
-
+    elif query == snowflake_query.SnowflakeQuery.get_all_tags():
+        return [
+            *[
+                {
+                    "TAG_DATABASE": "TEST_DB",
+                    "TAG_SCHEMA": "TEST_SCHEMA",
+                    "TAG_NAME": f"my_tag_{ix}",
+                }
+                for ix in range(3)
+            ],
+            {
+                "TAG_DATABASE": "TEST_DB",
+                "TAG_SCHEMA": "TEST_SCHEMA",
+                "TAG_NAME": "security",
+            },
+            {
+                "TAG_DATABASE": "OTHER_DB",
+                "TAG_SCHEMA": "OTHER_SCHEMA",
+                "TAG_NAME": "my_other_tag",
+            },
+        ]
     elif (
         query
         == snowflake_query.SnowflakeQuery.get_all_tags_in_database_without_propagation(
@@ -683,6 +752,33 @@ def default_query_results(  # noqa: C901
                 "OBJECT_NAME": "TEST_DB",
                 "COLUMN_NAME": None,
                 "DOMAIN": "DATABASE",
+            },
+        ]
+    elif query == SnowflakeQuery.procedures_for_database("TEST_DB"):
+        return [
+            {
+                "PROCEDURE_CATALOG": "TEST_DB",
+                "PROCEDURE_SCHEMA": "TEST_SCHEMA",
+                "PROCEDURE_NAME": "my_procedure",
+                "PROCEDURE_LANGUAGE": "SQL",
+                "ARGUMENT_SIGNATURE": "(arg1 VARCHAR, arg2 VARCHAR)",
+                "PROCEDURE_RETURN_TYPE": "VARCHAR",
+                "PROCEDURE_DEFINITION": "BEGIN RETURN 'Hello World'; END",
+                "CREATED": "2021-01-01T00:00:00.000Z",
+                "LAST_ALTERED": "2021-01-01T00:00:00.000Z",
+                "COMMENT": "This is a test procedure",
+            },
+            {
+                "PROCEDURE_CATALOG": "TEST_DB",
+                "PROCEDURE_SCHEMA": "TEST_SCHEMA",
+                "PROCEDURE_NAME": "my_procedure",
+                "PROCEDURE_LANGUAGE": "SQL",
+                "ARGUMENT_SIGNATURE": "(arg1 VARCHAR)",
+                "PROCEDURE_RETURN_TYPE": "VARCHAR",
+                "PROCEDURE_DEFINITION": "BEGIN RETURN 'Hello World'; END",
+                "CREATED": "2021-01-01T00:00:00.000Z",
+                "LAST_ALTERED": "2021-01-01T00:00:00.000Z",
+                "COMMENT": "This is a test procedure 2",
             },
         ]
     raise ValueError(f"Unexpected query: {query}")

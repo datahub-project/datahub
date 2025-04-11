@@ -1,9 +1,11 @@
+const BIGQUERY_URN =
+  "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)";
+const DBT_URN =
+  "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)";
+
 describe("siblings", () => {
   it("will merge metadata to non-primary sibling", () => {
-    cy.login();
-    cy.visit(
-      "/dataset/urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)/?is_lineage_mode=false",
-    );
+    cy.visitWithLogin(`/dataset/${BIGQUERY_URN}/?is_lineage_mode=false`);
 
     // check merged platforms
     cy.contains("dbt & BigQuery");
@@ -17,10 +19,7 @@ describe("siblings", () => {
   });
 
   it("will merge metadata to primary sibling", () => {
-    cy.login();
-    cy.visit(
-      "/dataset/urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)/?is_lineage_mode=false",
-    );
+    cy.visitWithLogin(`/dataset/${DBT_URN}/?is_lineage_mode=false`);
 
     // check merged platforms
     cy.contains("dbt & BigQuery");
@@ -34,8 +33,6 @@ describe("siblings", () => {
   });
 
   it("can view individual nodes", () => {
-    cy.login();
-
     const resizeObserverLoopErrRe = /^[^(ResizeObserver loop limit exceeded)]/;
     cy.on("uncaught:exception", (err) => {
       /* returning false here prevents Cypress from failing the test */
@@ -44,15 +41,11 @@ describe("siblings", () => {
       }
     });
 
-    cy.visit(
-      "/dataset/urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)/?is_lineage_mode=false",
-    );
-
+    cy.visitWithLogin(`/dataset/${DBT_URN}/?is_lineage_mode=false`);
+    cy.get(".ant-table-row").should("be.visible");
     // navigate to the bq entity
-    cy.clickOptionWithTestId(
-      "compact-entity-link-urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)",
-    );
-
+    cy.get(`[data-testid="compact-entity-link-${BIGQUERY_URN}"`).click();
+    cy.get(".ant-table-row").should("be.visible");
     // check merged platforms is not shown
     cy.get('[data-testid="entity-header-test-id"]')
       .contains("dbt & BigQuery")
@@ -70,16 +63,11 @@ describe("siblings", () => {
   });
 
   it("can mutate at individual node or combined node level", () => {
-    cy.login();
-    cy.visit(
-      "/dataset/urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)/?is_lineage_mode=false",
-    );
-
+    cy.visitWithLogin(`/dataset/${DBT_URN}/?is_lineage_mode=false`);
+    cy.get(".ant-table-row").should("be.visible");
     // navigate to the bq entity
-    cy.clickOptionWithTestId(
-      "compact-entity-link-urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)",
-    );
-
+    cy.get(`[data-testid="compact-entity-link-${BIGQUERY_URN}"`).click();
+    cy.get(".ant-table-row").should("be.visible");
     cy.clickOptionWithText("Add Term");
 
     cy.selectOptionInTagTermModal("CypressTerm");
@@ -97,8 +85,7 @@ describe("siblings", () => {
   });
 
   it("will combine results in search", () => {
-    cy.login();
-    cy.visit("/search?page=1&query=%22raw_orders%22");
+    cy.visitWithLogin("/search?page=1&query=%22raw_orders%22");
 
     cy.contains("Showing 1 - 2 of ");
 

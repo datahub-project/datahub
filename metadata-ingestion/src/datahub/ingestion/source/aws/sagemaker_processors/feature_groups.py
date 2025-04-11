@@ -257,7 +257,7 @@ class FeatureGroupProcessor:
             mce = MetadataChangeEvent(proposedSnapshot=feature_snapshot)
 
         return MetadataWorkUnit(
-            id=f'{feature_group_details["FeatureGroupName"]}-{feature["FeatureName"]}',
+            id=f"{feature_group_details['FeatureGroupName']}-{feature['FeatureName']}",
             mce=mce,
         )
 

@@ -1,5 +1,7 @@
-import { Button, Form, Input, Modal, Typography } from 'antd';
+import { Form, Input, Modal, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { Button } from '@src/alchemy-components';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 import { SecretBuilderState } from './types';
 
@@ -56,13 +58,14 @@ export const SecretBuilderModal = ({ initialState, editSecret, open, onSubmit, o
             onCancel={onCloseModal}
             zIndex={1051} // one higher than other modals - needed for managed ingestion forms
             footer={
-                <>
-                    <Button onClick={onCloseModal} type="text">
+                <ModalButtonContainer>
+                    <Button color="gray" onClick={onCloseModal} variant="text">
                         Cancel
                     </Button>
                     <Button
                         data-testid="secret-modal-create-button"
                         id="createSecretButton"
+                        type="submit"
                         onClick={() => {
                             if (!editSecret) {
                                 onSubmit?.(
@@ -89,7 +92,7 @@ export const SecretBuilderModal = ({ initialState, editSecret, open, onSubmit, o
                     >
                         {!editSecret ? 'Create' : 'Update'}
                     </Button>
-                </>
+                </ModalButtonContainer>
             }
         >
             <Form

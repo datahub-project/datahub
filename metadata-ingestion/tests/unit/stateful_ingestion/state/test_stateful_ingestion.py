@@ -226,9 +226,9 @@ def test_stateful_ingestion(pytestconfig, tmp_path, mock_time):
         pipeline_run1_config: Dict[str, Dict[str, Dict[str, Any]]] = dict(  # type: ignore
             base_pipeline_config  # type: ignore
         )
-        pipeline_run1_config["sink"]["config"][
-            "filename"
-        ] = f"{tmp_path}/{output_file_name}"
+        pipeline_run1_config["sink"]["config"]["filename"] = (
+            f"{tmp_path}/{output_file_name}"
+        )
         pipeline_run1 = Pipeline.create(pipeline_run1_config)
         pipeline_run1.run()
         pipeline_run1.raise_from_status()
@@ -254,16 +254,18 @@ def test_stateful_ingestion(pytestconfig, tmp_path, mock_time):
     ) as mock_state:
         mock_state.return_value = GenericCheckpointState(serde="utf-8")
         pipeline_run2 = None
-        pipeline_run2_config: Dict[str, Dict[str, Dict[str, Any]]] = dict(base_pipeline_config)  # type: ignore
+        pipeline_run2_config: Dict[str, Dict[str, Dict[str, Any]]] = dict(
+            base_pipeline_config  # type: ignore
+        )
         pipeline_run2_config["source"]["config"]["dataset_patterns"] = {
             "allow": ["dummy_dataset1", "dummy_dataset2"],
         }
         pipeline_run2_config["source"]["config"]["dpi_id_to_ingest"] = "job2"
         pipeline_run2_config["source"]["config"]["query_id_to_ingest"] = "query2"
 
-        pipeline_run2_config["sink"]["config"][
-            "filename"
-        ] = f"{tmp_path}/{output_file_name_after_deleted}"
+        pipeline_run2_config["sink"]["config"]["filename"] = (
+            f"{tmp_path}/{output_file_name_after_deleted}"
+        )
         pipeline_run2 = Pipeline.create(pipeline_run2_config)
         pipeline_run2.run()
         pipeline_run2.raise_from_status()
@@ -370,9 +372,9 @@ def test_stateful_ingestion_failure(pytestconfig, tmp_path, mock_time):
         pipeline_run1_config: Dict[str, Dict[str, Dict[str, Any]]] = dict(  # type: ignore
             base_pipeline_config  # type: ignore
         )
-        pipeline_run1_config["sink"]["config"][
-            "filename"
-        ] = f"{tmp_path}/{output_file_name}"
+        pipeline_run1_config["sink"]["config"]["filename"] = (
+            f"{tmp_path}/{output_file_name}"
+        )
         pipeline_run1 = Pipeline.create(pipeline_run1_config)
         pipeline_run1.run()
         pipeline_run1.raise_from_status()
@@ -398,14 +400,16 @@ def test_stateful_ingestion_failure(pytestconfig, tmp_path, mock_time):
     ) as mock_state:
         mock_state.return_value = GenericCheckpointState(serde="utf-8")
         pipeline_run2 = None
-        pipeline_run2_config: Dict[str, Dict[str, Dict[str, Any]]] = dict(base_pipeline_config)  # type: ignore
+        pipeline_run2_config: Dict[str, Dict[str, Dict[str, Any]]] = dict(
+            base_pipeline_config  # type: ignore
+        )
         pipeline_run2_config["source"]["config"]["dataset_patterns"] = {
             "allow": ["dummy_dataset1", "dummy_dataset2"],
         }
         pipeline_run2_config["source"]["config"]["report_failure"] = True
-        pipeline_run2_config["sink"]["config"][
-            "filename"
-        ] = f"{tmp_path}/{output_file_name_after_deleted}"
+        pipeline_run2_config["sink"]["config"]["filename"] = (
+            f"{tmp_path}/{output_file_name_after_deleted}"
+        )
         pipeline_run2 = Pipeline.create(pipeline_run2_config)
         pipeline_run2.run()
         pipeline_run2.pretty_print_summary()
