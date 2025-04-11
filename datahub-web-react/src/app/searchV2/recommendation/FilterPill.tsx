@@ -1,28 +1,25 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Tooltip } from '@components';
+import { Tooltip, colors } from '@components';
 import { RecommendedFilter } from './types';
 import { getFilterColor } from './utils';
 
 const Pill = styled.div<{ color: string }>`
     border-radius: 20px;
-    padding: 6px 10px;
-    background-color: white;
-    margin-right: 0px;
-    border: 2px solid white;
+    padding: 4px 8px;
+    background-color: ${colors.gray[1600]};
     :hover {
         opacity: 1;
         cursor: pointer;
-        border-color: ${(props) => props.color};
+        background-color: ${colors.gray[100]};
     }
     font-size: 14px;
     display: flex;
     align-items: center;
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    gap: 4px;
 `;
 
 const Icon = styled.div`
-    margin-right: 4px;
     &&&& {
         color: #ffffff;
     }
@@ -33,6 +30,7 @@ const Text = styled.div`
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+    color: ${colors.gray[900]};
 `;
 
 type Props = {

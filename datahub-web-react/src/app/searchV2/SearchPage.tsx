@@ -238,17 +238,25 @@ export const SearchPage = () => {
                 onChangeFilters={onChangeFilters}
                 onClearFilters={onClearFilters}
                 onChangeUnionType={onChangeUnionType}
+                query={query}
+                totalResults={data?.searchAcrossEntities?.total}
+                page={page}
+                pageSize={data?.searchAcrossEntities?.count || numResultsPerPage}
+                suggestions={data?.searchAcrossEntities?.suggestions || []}
+                _viewUrn={viewUrn || undefined}
+                _downloadSearchResults={downloadSearchResults}
+                setIsSelectMode={setIsSelectMode}
             />
             <SearchResults
-                unionType={unionType}
-                downloadSearchResults={downloadSearchResults}
+                _unionType={unionType}
+                _downloadSearchResults={downloadSearchResults}
                 page={page}
                 query={query}
-                viewUrn={viewUrn || undefined}
+                _viewUrn={viewUrn || undefined}
                 error={error}
                 searchResponse={data?.searchAcrossEntities}
                 suggestions={data?.searchAcrossEntities?.suggestions || []}
-                availableFilters={data?.searchAcrossEntities?.facets || []}
+                _availableFilters={data?.searchAcrossEntities?.facets || []}
                 selectedFilters={filters}
                 loading={loading}
                 onChangeFilters={onChangeFilters}

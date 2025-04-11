@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
+import { FacetFilterInput, FacetMetadata, SearchSuggestion } from '../../../types.generated';
 import { UnionType } from '../utils/constants';
 import { SEARCH_RESULTS_FILTERS_V2_INTRO } from '../../onboarding/config/SearchOnboardingConfig';
 import SearchFilters from './SearchFilters';
+import { DownloadSearchResults, DownloadSearchResultsInput } from '../utils/types';
 
 const Section = styled.div<{ removePadding?: boolean; $isShowNavBarRedesign?: boolean }>`
     padding: ${(props) => {
@@ -24,6 +25,14 @@ interface Props {
     onChangeFilters: (newFilters: FacetFilterInput[]) => void;
     onClearFilters: () => void;
     onChangeUnionType: (unionType: UnionType) => void;
+    query?: string;
+    totalResults?: number;
+    page?: number;
+    pageSize?: number;
+    suggestions?: SearchSuggestion[];
+    _downloadSearchResults?: (input: DownloadSearchResultsInput) => Promise<DownloadSearchResults | null | undefined>;
+    _viewUrn?: string;
+    setIsSelectMode?: (showSelectMode: boolean) => any;
 }
 
 export default function SearchFiltersSection({
@@ -34,6 +43,14 @@ export default function SearchFiltersSection({
     onChangeFilters,
     onClearFilters,
     onChangeUnionType,
+    query,
+    totalResults,
+    page,
+    pageSize,
+    suggestions,
+    _downloadSearchResults,
+    _viewUrn,
+    setIsSelectMode,
 }: Props) {
     const [finalAvailableFilters, setFinalAvailableFilters] = useState(availableFilters);
     const isShowNavBarRedesign = useShowNavBarRedesign();
@@ -61,6 +78,14 @@ export default function SearchFiltersSection({
                 onChangeFilters={onChangeFilters}
                 onChangeUnionType={onChangeUnionType}
                 onClearFilters={onClearFilters}
+                query={query}
+                totalResults={totalResults}
+                _page={page}
+                _pageSize={pageSize}
+                suggestions={suggestions}
+                _downloadSearchResults={_downloadSearchResults}
+                _viewUrn={_viewUrn}
+                setIsSelectMode={setIsSelectMode}
             />
         </Section>
     );
