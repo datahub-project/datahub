@@ -4,7 +4,7 @@ import { Button, Divider } from 'antd';
 import { Icon, Tooltip } from '@components';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
-import { LineageDirection } from '../../../../../types.generated';
+import { LineageDirection, LineageSearchPath } from '../../../../../types.generated';
 import { UnionType } from '../../../../search/utils/constants';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import { useEntityData } from '../../../../entity/shared/EntityContext';
@@ -117,6 +117,7 @@ export const CompactLineageTab = ({ defaultDirection }: { defaultDirection: Line
     const [selectedDirection, setDirection] = useState<LineageDirection>(defaultDirection);
     const [selectedLevels, setSelectedLevels] = useState<Set<LevelFilterType>>(DEFAULT_SELECTED_LEVELS);
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+    const [lineageSearchPath, setLineageSearchPath] = useState<LineageSearchPath | null>(null);
     const entityName = (entityData && entityRegistry.getDisplayName(entityType, entityData)) || '-';
 
     const toggleLevelFilter = (level: LevelFilterType) => {
@@ -234,7 +235,12 @@ export const CompactLineageTab = ({ defaultDirection }: { defaultDirection: Line
             <ThinDivider />
             <Results>
                 <LineageTabContext.Provider
-                    value={{ isColumnLevelLineage: false, lineageDirection: selectedDirection }}
+                    value={{
+                        isColumnLevelLineage: false,
+                        lineageDirection: selectedDirection,
+                        lineageSearchPath,
+                        setLineageSearchPath,
+                    }}
                 >
                     <ImpactAnalysis
                         type="compact"

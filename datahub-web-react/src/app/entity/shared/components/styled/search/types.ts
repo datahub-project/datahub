@@ -2,6 +2,7 @@ import {
     Entity,
     FacetFilterInput,
     FacetMetadata,
+    LineageSearchPath,
     MatchedField,
     Maybe,
     Scalars,
@@ -36,6 +37,8 @@ export type SearchResultsInterface = {
     searchResults: Array<SearchResultInterface>;
     /** Candidate facet aggregations used for search filtering */
     facets?: Maybe<Array<FacetMetadata>>;
+    /** The path taken when doing search across lineage */
+    lineageSearchPath?: Maybe<LineageSearchPath>;
 };
 
 /**
