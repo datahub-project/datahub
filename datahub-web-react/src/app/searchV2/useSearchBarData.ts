@@ -2,7 +2,7 @@ import {
     useGetAutoCompleteMultipleResultsLazyQuery,
     useGetSearchResultsForMultipleTrimmedLazyQuery,
 } from '@src/graphql/search.generated';
-import { AndFilterInput, Entity, EntityType, FacetMetadata, SearchBarApi } from '@src/types.generated';
+import { AndFilterInput, Entity, FacetMetadata, SearchBarApi } from '@src/types.generated';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
 import { FieldToAppliedFieldFiltersMap } from './filtersV2/types';
@@ -10,11 +10,7 @@ import { generateOrFilters } from './utils/generateOrFilters';
 import { convertFiltersMapToFilters } from './filtersV2/utils';
 import { UnionType } from './utils/constants';
 
-type UpdateDataFunction = (
-    query: string,
-    orFilters: AndFilterInput[],
-    viewUrn: string | undefined | null,
-) => void;
+type UpdateDataFunction = (query: string, orFilters: AndFilterInput[], viewUrn: string | undefined | null) => void;
 
 type APIResponse = {
     updateData: UpdateDataFunction;

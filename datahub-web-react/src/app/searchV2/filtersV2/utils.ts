@@ -1,6 +1,5 @@
-import { FieldName, FieldToAppliedFieldFiltersMap } from './types';
 import { FacetMetadata } from '@src/types.generated';
-import { FieldToFacetStateMap } from './types';
+import { FieldName, FieldToAppliedFieldFiltersMap, FieldToFacetStateMap } from './types';
 
 export function itemsToMap<T, K>(items: Array<T>, keyAccessor?: (item: T) => K | T) {
     const accessor = (item: T) => (keyAccessor ? keyAccessor(item) : item);
