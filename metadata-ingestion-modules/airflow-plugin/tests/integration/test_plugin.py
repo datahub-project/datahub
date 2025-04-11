@@ -182,6 +182,7 @@ def _run_airflow(
     is_v1: bool,
     multiple_connections: bool,
     platform_instance: Optional[str],
+    enable_datajob_lineage: bool,
 ) -> Iterator[AirflowInstance]:
     airflow_home = tmp_path / "airflow_home"
     print(f"Using airflow home: {airflow_home}")
@@ -257,6 +258,9 @@ def _run_airflow(
         "AIRFLOW__DATAHUB__LOG_LEVEL": "DEBUG",
         "AIRFLOW__DATAHUB__DEBUG_EMITTER": "True",
         "SQLALCHEMY_SILENCE_UBER_WARNING": "1",
+        "AIRFLOW__DATAHUB__ENABLE_DATAJOB_LINEAGE": "true"
+        if enable_datajob_lineage
+        else "false",
     }
 
     if platform_instance:
@@ -371,11 +375,26 @@ class DagTestCase:
     v2_only: bool = False
     multiple_connections: bool = False
     platform_instance: Optional[str] = None
+    enable_datajob_lineage: bool = True
+
+    # used to identify the test case in the golden file when same DAG is used in multiple tests
+    test_variant: Optional[str] = None
+
+    @property
+    def dag_test_id(self) -> str:
+        return f"{self.dag_id}{self.test_variant or ''}"
 
 
 test_cases = [
     DagTestCase(
         "simple_dag", multiple_connections=True, platform_instance=PLATFORM_INSTANCE
+    ),
+    DagTestCase(
+        "simple_dag",
+        multiple_connections=True,
+        platform_instance=PLATFORM_INSTANCE,
+        enable_datajob_lineage=False,
+        test_variant="_no_datajob_lineage",
     ),
     DagTestCase("basic_iolets", platform_instance=PLATFORM_INSTANCE),
     DagTestCase("dag_to_skip", v2_only=True, platform_instance=PLATFORM_INSTANCE),
@@ -395,10 +414,10 @@ test_cases = [
     [
         *[
             pytest.param(
-                f"v1_{test_case.dag_id}",
+                f"v1_{test_case.dag_test_id}",
                 test_case,
                 True,
-                id=f"v1_{test_case.dag_id}",
+                id=f"v1_{test_case.dag_test_id}",
                 marks=pytest.mark.skipif(
                     AIRFLOW_VERSION >= packaging.version.parse("2.4.0"),
                     reason="We only test the v1 plugin on Airflow 2.3",
@@ -411,16 +430,16 @@ test_cases = [
             pytest.param(
                 # On Airflow 2.3-2.4, test plugin v2 without dataFlows.
                 (
-                    f"v2_{test_case.dag_id}"
+                    f"v2_{test_case.dag_test_id}"
                     if HAS_AIRFLOW_DAG_LISTENER_API
-                    else f"v2_{test_case.dag_id}_no_dag_listener"
+                    else f"v2_{test_case.dag_test_id}_no_dag_listener"
                 ),
                 test_case,
                 False,
                 id=(
-                    f"v2_{test_case.dag_id}"
+                    f"v2_{test_case.dag_test_id}"
                     if HAS_AIRFLOW_DAG_LISTENER_API
-                    else f"v2_{test_case.dag_id}_no_dag_listener"
+                    else f"v2_{test_case.dag_test_id}_no_dag_listener"
                 ),
                 marks=[
                     pytest.mark.skipif(
@@ -466,6 +485,7 @@ def test_airflow_plugin(
         is_v1=is_v1,
         multiple_connections=test_case.multiple_connections,
         platform_instance=test_case.platform_instance,
+        enable_datajob_lineage=test_case.enable_datajob_lineage,
     ) as airflow_instance:
         print(f"Running DAG {dag_id}...")
         _wait_for_dag_to_load(airflow_instance, dag_id)
@@ -573,6 +593,7 @@ if __name__ == "__main__":
         is_v1=not HAS_AIRFLOW_LISTENER_API,
         multiple_connections=False,
         platform_instance=None,
+        enable_datajob_lineage=True,
     ) as airflow_instance:
         # input("Press enter to exit...")
         print("quitting airflow")
