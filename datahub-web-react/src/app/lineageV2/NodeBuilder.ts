@@ -69,6 +69,8 @@ interface NodeInformation {
 export default class NodeBuilder {
     homeUrn: string;
 
+    homeType: EntityType;
+
     isHomeTransformational: boolean;
 
     parents: Map<string, Set<string>>;
@@ -104,6 +106,7 @@ export default class NodeBuilder {
     // Note: nodes must be provided in shortest-path order
     constructor(homeUrn: string, homeType: EntityType, nodes: LineageNode[], parents: Map<string, Set<string>>) {
         this.homeUrn = homeUrn;
+        this.homeType = homeType;
         this.parents = parents;
         this.nodeHeight = homeType === EntityType.SchemaField ? SCHEMA_FIELD_NODE_HEIGHT : LINEAGE_NODE_HEIGHT;
         this.nodeWidth = homeType === EntityType.SchemaField ? SCHEMA_FIELD_NODE_WIDTH : LINEAGE_NODE_WIDTH;
@@ -111,7 +114,7 @@ export default class NodeBuilder {
         // +15 accounts for column footer
         this.separationNodeHeight = this.nodeHeight + (homeType === EntityType.SchemaField ? 15 : 0);
 
-        this.isHomeTransformational = isTransformational({ urn: homeUrn, type: homeType });
+        this.isHomeTransformational = isTransformational({ urn: homeUrn, type: homeType }, homeType);
         nodes.forEach((node) => {
             this.nodeInformation[node.id] = {
                 urn: node.urn,
@@ -127,12 +130,12 @@ export default class NodeBuilder {
 
     #getNodeList(node: LineageNode): LineageNode[] {
         if (node.type === LINEAGE_FILTER_TYPE) return this.filterNodes;
-        if (isTransformational(node)) return this.transformations;
+        if (isTransformational(node, this.homeType)) return this.transformations;
         return this.entities;
     }
 
     #isMainNode(node: Pick<LineageNode, 'urn' | 'type'>): boolean {
-        return !isTransformational(node);
+        return !isTransformational(node, this.homeType);
     }
 
     #getMarker(information?: NodeInformation): EdgeMarker | undefined {

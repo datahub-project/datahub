@@ -1,36 +1,40 @@
 import { ReactFlowInstance } from '@reactflow/core/dist/esm/types';
+import { EntityType } from '@types';
 import { useContext, useEffect } from 'react';
 import { Node, useReactFlow } from 'reactflow';
 import { isTransformational, LineageNode, LineageNodesContext } from '../common';
 import { LINEAGE_NODE_HEIGHT, LINEAGE_NODE_WIDTH } from './useDisplayedColumns';
 
-export default function useAvoidIntersections(id: string, expandHeight: number) {
+export default function useAvoidIntersections(id: string, expandHeight: number, rootType: EntityType) {
     const { getNode, getNodes, setNodes } = useReactFlow();
 
     useEffect(() => {
-        return avoidIntersections({ id, expandHeight, getNode, getNodes, setNodes });
-    }, [id, expandHeight, getNode, getNodes, setNodes]);
+        return avoidIntersections({ id, expandHeight, rootType, getNode, getNodes, setNodes });
+    }, [id, expandHeight, rootType, getNode, getNodes, setNodes]);
 }
 
 // Required because NodeBuilder cannot properly place Lineage Filter nodes
 // TODO: Find a cleaner way to do this
-export function useAvoidIntersectionsOften(id: string, expandHeight: number) {
+export function useAvoidIntersectionsOften(id: string, expandHeight: number, rootType: EntityType) {
     const { getNode, getNodes, setNodes } = useReactFlow();
     const { nodeVersion, displayVersion } = useContext(LineageNodesContext);
 
     const displayVersionNumber = displayVersion[0];
     useEffect(() => {
-        const timeout = setTimeout(() => avoidIntersections({ id, expandHeight, getNode, getNodes, setNodes }), 0);
+        const timeout = setTimeout(
+            () => avoidIntersections({ id, expandHeight, rootType, getNode, getNodes, setNodes }),
+            0,
+        );
         return () => clearTimeout(timeout);
-    }, [id, expandHeight, getNode, getNodes, setNodes, nodeVersion, displayVersionNumber]);
+    }, [id, expandHeight, rootType, getNode, getNodes, setNodes, nodeVersion, displayVersionNumber]);
 }
 
-type Arguments = { id: string; expandHeight: number } & Pick<
+type Arguments = { id: string; expandHeight: number; rootType: EntityType } & Pick<
     ReactFlowInstance<LineageNode>,
     'getNode' | 'getNodes' | 'setNodes'
 >;
 
-function avoidIntersections({ id, expandHeight, getNode, getNodes, setNodes }: Arguments) {
+function avoidIntersections({ id, expandHeight, rootType, getNode, getNodes, setNodes }: Arguments) {
     const self = getNode(id);
     if (!self) {
         return () => {};
@@ -39,7 +43,7 @@ function avoidIntersections({ id, expandHeight, getNode, getNodes, setNodes }: A
     const nodesToMove: Map<string, number> = new Map();
     // Iterate nodes top down
     const nodes = getNodes()
-        .filter((node) => !isTransformational(node.data))
+        .filter((node) => !isTransformational(node.data, rootType))
         .filter((node) => node.id !== self.id && node.position.y >= self.position.y && overlapsX(self, node));
     nodes.sort((a, b) => a.position.y - b.position.y);
 

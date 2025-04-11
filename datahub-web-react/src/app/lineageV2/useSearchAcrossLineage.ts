@@ -2,7 +2,6 @@ import pruneAllDuplicateEdges from '@app/lineageV2/pruneAllDuplicateEdges';
 import { useEffect, useState } from 'react';
 import { useSearchAcrossLineageStructureLazyQuery } from '../../graphql/search.generated';
 import { Entity, EntityType, LineageDirection, Maybe, SearchAcrossLineageInput } from '../../types.generated';
-import { DBT_URN } from '../ingest/source/builder/constants';
 import { useGetLineageTimeParams } from '../lineage/utils/useGetLineageTimeParams';
 import { DEGREE_FILTER_NAME } from '../search/utils/constants';
 import { useEntityRegistryV2 } from '../useEntityRegistry';
@@ -10,6 +9,7 @@ import {
     addToAdjacencyList,
     FetchStatus,
     Filters,
+    generateIgnoreAsHops,
     getEdgeId,
     isQuery,
     isTransformational,
@@ -21,19 +21,6 @@ import {
 } from './common';
 
 const PER_HOP_LIMIT = 2;
-
-export const DEFAULT_IGNORE_AS_HOPS = [
-    {
-        entityType: EntityType.Dataset,
-        platforms: [DBT_URN],
-    },
-    {
-        entityType: EntityType.SchemaField,
-        platforms: [DBT_URN],
-    },
-    { entityType: EntityType.DataJob },
-    { entityType: EntityType.DataProcessInstance },
-];
 
 export const DEFAULT_SEARCH_FLAGS = {
     groupingSpec: { groupingCriteria: [] },
@@ -64,7 +51,7 @@ export default function useSearchAcrossLineage(
 } {
     const entityRegistry = useEntityRegistryV2();
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
-    const { nodes, edges, adjacencyList, rootUrn, setNodeVersion, setDisplayVersion } = context;
+    const { nodes, edges, adjacencyList, rootUrn, rootType, setNodeVersion, setDisplayVersion } = context;
 
     const input: SearchAcrossLineageInput = {
         urn,
@@ -86,7 +73,7 @@ export default function useSearchAcrossLineage(
             startTimeMillis,
             endTimeMillis,
             entitiesExploredPerHopLimit: maxDepth ? PER_HOP_LIMIT : undefined,
-            ignoreAsHops: DEFAULT_IGNORE_AS_HOPS,
+            ignoreAsHops: generateIgnoreAsHops(type),
         },
         searchFlags: {
             ...DEFAULT_SEARCH_FLAGS,
@@ -107,7 +94,7 @@ export default function useSearchAcrossLineage(
     }, [fetchLineage, lazy]);
 
     useEffect(() => {
-        const smallContext = { nodes, edges, adjacencyList, setDisplayVersion };
+        const smallContext = { nodes, edges, adjacencyList, setDisplayVersion, rootType };
         let addedNode = false;
 
         data?.searchAcrossLineage?.searchResults?.forEach((result) => {
@@ -143,7 +130,7 @@ export default function useSearchAcrossLineage(
         }
 
         if (data) {
-            pruneAllDuplicateEdges(urn, direction, smallContext, entityRegistry);
+            pruneAllDuplicateEdges(urn, direction, smallContext);
             processed.add(urn);
             if (addedNode) setNodeVersion((version) => version + 1);
 
@@ -158,6 +145,7 @@ export default function useSearchAcrossLineage(
         edges,
         adjacencyList,
         rootUrn,
+        rootType,
         setNodeVersion,
         setDisplayVersion,
         maxDepth,
@@ -198,7 +186,7 @@ export function entityNodeDefault(urn: string, type: EntityType, direction: Line
         type,
         direction, // TODO: Handle a node that is both upstream and downstream?
         isExpanded: {
-            [direction]: isTransformational({ urn, type }),
+            [direction]: isTransformational({ urn, type }, type),
             [otherDirection]: false,
         } as Record<LineageDirection, boolean>,
         fetchStatus: {

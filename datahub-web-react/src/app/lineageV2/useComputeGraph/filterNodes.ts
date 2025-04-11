@@ -1,4 +1,3 @@
-import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import {
     addToAdjacencyList,
     EdgeId,
@@ -21,7 +20,7 @@ export interface HideNodesConfig {
     ignoreSchemaFieldStatus: boolean;
 }
 
-type ContextSubset = Pick<NodeContext, 'nodes' | 'edges' | 'adjacencyList'>;
+type ContextSubset = Pick<NodeContext, 'nodes' | 'edges' | 'adjacencyList' | 'rootType'>;
 
 /**
  * Hide nodes from the graph, connecting edges through the removed nodes.
@@ -29,52 +28,45 @@ type ContextSubset = Pick<NodeContext, 'nodes' | 'edges' | 'adjacencyList'>;
 export default function hideNodes(
     rootUrn: string,
     { hideTransformations, hideDataProcessInstances, hideGhostEntities, ignoreSchemaFieldStatus }: HideNodesConfig,
-    { nodes, edges, adjacencyList }: ContextSubset,
+    { nodes, edges, adjacencyList, rootType }: ContextSubset,
 ): ContextSubset {
-    let newNodes = nodes;
-    let newEdges = edges;
-    let newAdjacencyList = adjacencyList;
+    const newContext = { nodes, edges, adjacencyList, rootType };
+
     if (hideGhostEntities) {
-        newNodes = new Map(
-            Array.from(newNodes).filter(
+        newContext.nodes = new Map(
+            Array.from(newContext.nodes).filter(
                 ([urn, node]) => urn === rootUrn || !isGhostEntity(node.entity, ignoreSchemaFieldStatus),
             ),
         );
-        ({ newEdges, newAdjacencyList } = pruneEdges({
-            nodes: newNodes,
-            edges: newEdges,
-            adjacencyList: newAdjacencyList,
-        }));
+        ({ newEdges: newContext.edges, newAdjacencyList: newContext.adjacencyList } = pruneEdges(newContext));
     }
     if (hideTransformations) {
-        newNodes = new Map(Array.from(newNodes).filter(([urn, node]) => urn === rootUrn || !isTransformational(node)));
-        ({ newEdges, newAdjacencyList } = connectEdges(rootUrn, {
-            nodes: newNodes,
-            edges: newEdges,
-            adjacencyList: newAdjacencyList,
-        }));
+        newContext.nodes = new Map(
+            Array.from(newContext.nodes).filter(
+                ([urn, node]) => urn === rootUrn || !isTransformational(node, rootType),
+            ),
+        );
+        ({ newEdges: newContext.edges, newAdjacencyList: newContext.adjacencyList } = connectEdges(
+            rootUrn,
+            newContext,
+        ));
     }
     if (hideDataProcessInstances) {
         // Note: Will only pick one query node if there is lineage t1 -> q1 -> dpi1 -> q2 -> t2
         // Currently data process instances can't have lineage to queries so this is fine
-        newNodes = new Map(
-            Array.from(newNodes).filter(
+        newContext.nodes = new Map(
+            Array.from(newContext.nodes).filter(
                 ([urn, node]) => urn === rootUrn || node?.entity?.type !== EntityType.DataProcessInstance,
             ),
         );
-        ({ newEdges, newAdjacencyList } = connectEdges(rootUrn, {
-            nodes: newNodes,
-            edges: newEdges,
-            adjacencyList: newAdjacencyList,
-        }));
+        ({ newEdges: newContext.edges, newAdjacencyList: newContext.adjacencyList } = connectEdges(
+            rootUrn,
+            newContext,
+        ));
     }
-    ({ newEdges, newAdjacencyList } = removeHiddenEdges({
-        nodes: newNodes,
-        adjacencyList: newAdjacencyList,
-        edges: newEdges,
-    }));
+    ({ newEdges: newContext.edges, newAdjacencyList: newContext.adjacencyList } = removeHiddenEdges(newContext));
 
-    return { nodes: newNodes, edges: newEdges, adjacencyList: newAdjacencyList };
+    return newContext;
 }
 
 /**
@@ -121,7 +113,7 @@ function connectEdges(rootUrn: string, { nodes, edges, adjacencyList }: ContextS
         seen.add(id);
 
         adjacencyList[direction].get(id)?.forEach((neighbor) => {
-            if (isUrnQuery(neighbor, globalEntityRegistryV2)) {
+            if (isUrnQuery(neighbor)) {
                 return;
             }
             if (nodes.has(neighbor)) {
