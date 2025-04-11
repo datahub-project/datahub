@@ -47,22 +47,6 @@ if __name__ == "__main__":
     # init client
     client = init_client()
 
-    # create experiment
-    experiment = Container(
-        container_key=ContainerKey(
-            platform="mlflow",
-            name=experiment_id,
-        ),
-        display_name=experiment_name,
-        description="Experiment to forecast airline passenger numbers",
-        extra_properties={"team": "forecasting"},
-        created=datetime(2025, 4, 9, 22, 30),
-        last_modified=datetime(2025, 4, 9, 22, 30),
-        subtype=MLAssetSubTypes.MLFLOW_EXPERIMENT,
-    )
-
-    client.entities.upsert(experiment)
-
     # Create model group
     model_group = MLModelGroup(
         id=model_group_id,
@@ -98,6 +82,21 @@ if __name__ == "__main__":
         training_metrics={"accuracy": "0.9"},
     )
 
+    # create experiment
+    experiment = Container(
+        container_key=ContainerKey(
+            platform="mlflow",
+            name=experiment_id,
+        ),
+        display_name=experiment_name,
+        description="Experiment to forecast airline passenger numbers",
+        extra_properties={"team": "forecasting"},
+        created=datetime(2025, 4, 9, 22, 30),
+        last_modified=datetime(2025, 4, 9, 22, 30),
+        subtype=MLAssetSubTypes.MLFLOW_EXPERIMENT,
+    )
+
+    client.entities.upsert(experiment)
     # Create datasets
     input_dataset = Dataset(
         platform="snowflake",

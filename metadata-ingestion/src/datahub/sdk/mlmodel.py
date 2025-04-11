@@ -228,7 +228,9 @@ class MLModel(
         props = self._ensure_model_props()
         if props.groups is None:
             props.groups = []
-        props.groups.append(str(group_urn))
+        # check if the group is already in the list
+        if str(group_urn) not in props.groups:
+            props.groups.append(str(group_urn))
 
     def remove_group(self, group_urn: Union[str, MlModelGroupUrn]) -> None:
         props = self._ensure_model_props()
