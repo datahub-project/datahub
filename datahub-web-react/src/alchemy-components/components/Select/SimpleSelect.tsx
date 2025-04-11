@@ -36,6 +36,7 @@ const SelectActionButtons = ({
                     icon={{ icon: 'Close', source: 'material', size: 'lg' }}
                     isCircle
                     onClick={handleClearSelection}
+                    variant="secondary"
                 />
             )}
             <StyledIcon icon="CaretDown" source="phosphor" rotate={isOpen ? '180' : '0'} size="md" color="gray" />
@@ -65,7 +66,7 @@ export const selectDefaults: SelectProps = {
 export const SimpleSelect = ({
     options = selectDefaults.options,
     label = selectDefaults.label,
-    values = [],
+    values,
     initialValues,
     onUpdate,
     showSearch = selectDefaults.showSearch,
@@ -97,13 +98,13 @@ export const SimpleSelect = ({
 }: SelectProps) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [isOpen, setIsOpen] = useState(false);
-    const [selectedValues, setSelectedValues] = useState<string[]>(initialValues || values);
+    const [selectedValues, setSelectedValues] = useState<string[]>(initialValues || values || []);
     const selectRef = useRef<HTMLDivElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const [areAllSelected, setAreAllSelected] = useState(false);
 
     useEffect(() => {
-        if (values?.length > 0 && !isEqual(selectedValues, values)) {
+        if (values !== undefined && !isEqual(selectedValues, values)) {
             setSelectedValues(values);
         }
     }, [values, selectedValues]);
