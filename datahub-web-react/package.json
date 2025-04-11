@@ -131,6 +131,7 @@
         ]
     },
     "devDependencies": {
+        "@codecov/vite-plugin": "^1.9.0",
         "@graphql-codegen/cli": "^5.0.0",
         "@graphql-codegen/near-operation-file-preset": "^1.17.13",
         "@graphql-codegen/typescript-operations": "1.17.13",
