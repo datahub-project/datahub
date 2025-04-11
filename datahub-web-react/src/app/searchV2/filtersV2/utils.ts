@@ -37,7 +37,6 @@ export function convertFiltersMapToFilters(
         .filter((filter) => filter.values?.length);
 }
 
-// TODO:: add tests
 export function convertFacetsToFieldToFacetStateMap(
     facets: FacetMetadata[] | undefined,
 ): FieldToFacetStateMap | undefined {
