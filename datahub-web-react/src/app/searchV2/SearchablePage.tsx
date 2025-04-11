@@ -149,8 +149,8 @@ export const SearchablePage = ({ children }: Props) => {
             if (query.trim() === '') return null;
             if (!showSearchBarAutocompleteRedesign) return null;
 
-            const filters = convertFiltersMapToFilters(appliedFiltersFprAutocomplete);
-            const orFilters = generateOrFilters(UnionType.AND, filters);
+            const convertedFilters = convertFiltersMapToFilters(appliedFiltersFprAutocomplete);
+            const orFilters = generateOrFilters(UnionType.AND, convertedFilters);
 
             getAutoCompleteResults({
                 variables: {

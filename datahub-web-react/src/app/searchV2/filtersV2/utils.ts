@@ -1,7 +1,4 @@
-import { convertNestedSubTypeFilter } from '@src/app/entityV2/view/builder/utils';
 import { FieldName, FieldToAppliedFieldFiltersMap } from './types';
-import { UnionType } from '../utils/constants';
-import { generateOrFilters } from '../utils/generateOrFilters';
 
 export function itemsToMap<T, K>(items: Array<T>, keyAccessor?: (item: T) => K | T) {
     const accessor = (item: T) => (keyAccessor ? keyAccessor(item) : item);
@@ -23,7 +20,6 @@ export function getUniqueItemsByKeyFromArrrays<T, K>(arrays: Array<Array<T>>, ke
     );
 }
 
-// TODO: add tests
 export function convertFiltersMapToFilters(
     filtersMap: FieldToAppliedFieldFiltersMap | undefined,
     options?: {
