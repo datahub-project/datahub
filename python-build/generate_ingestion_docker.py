@@ -55,16 +55,16 @@ def update_template(
         flags=re.DOTALL | re.MULTILINE,
     )
 
-    # if subs == 0:
-    #     raise ValueError(f"No templates found in {template_file}")
+    if subs == 0:
+        raise ValueError(f"No templates found in {template_file}")
 
-    output = outfile or template_file
-    if check_only:
-        if output.read_text() != content:
+    if check_only and not outfile:
+        if template_file.read_text() != content:
             print(f"ERROR: {template_file} is out of date")
             sys.exit(1)
     else:
         print(f"Applied {subs} substitutions while processing {template_file}")
+        output = outfile or template_file
         output.write_text(content)
 
 

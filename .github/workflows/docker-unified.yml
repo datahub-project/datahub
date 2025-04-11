@@ -1144,7 +1144,7 @@ jobs:
           docker pull confluentinc/cp-kafka:7.4.0 &
           docker pull mysql:8.2 &
           docker pull opensearchproject/opensearch:2.9.0 &
-          docker pull ${{ env.DATAHUB_INGESTION_IMAGE }}:head  &
+          docker pull ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:head-slim  &
 
           wait
           docker images
@@ -1153,7 +1153,7 @@ jobs:
         env:
           DATAHUB_TELEMETRY_ENABLED: false
           DATAHUB_VERSION: ${{ needs.setup.outputs.unique_tag }}
-          DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_INGESTION_IMAGE }}
+          DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
           ACTIONS_VERSION: ${{ needs.datahub_ingestion_slim_build.outputs.tag || 'head-slim' }}
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"

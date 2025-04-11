@@ -97,8 +97,12 @@ WORKDIR $HOME
 RUN uv venv --python "$PYTHON_VERSION"
 ENV VIRTUAL_ENV=$HOME/.venv
 ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
-# Requests comes with it's own CA bundle, but we want to use always use the system CA bundle.
+
+# We always want to use the system CA bundle.
+# Requests comes with it's own CA bundle, which we need to override.
 ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+# uv uses a different mechanism. See https://github.com/astral-sh/uv/issues/1474.
+ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
 
 
 FROM base-empty AS full-deps-prebuild
@@ -153,6 +157,7 @@ RUN --mount=from=full-deps-prebuild,source=$HOME/.venv,target=/venv-full \
 
 FROM base-${APP_ENV} AS final
 
+COPY --from=powerman/dockerize:0.19 /usr/local/bin/dockerize /usr/local/bin
 COPY ./docker/datahub-ingestion-base/entrypoint.sh /entrypoint.sh
 ENTRYPOINT [ "/entrypoint.sh" ]
 ENV PATH="/datahub-ingestion/.local/bin:$PATH"

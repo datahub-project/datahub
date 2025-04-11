@@ -121,6 +121,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
     // Create an upsert document that will be used if the document doesn't exist
     Map<String, Object> upsert = new HashMap<>();
+    upsert.put("urn", urn.toString());
     upsert.put("runId", Collections.singletonList(runId));
 
     esWriteDAO.applyScriptUpdate(

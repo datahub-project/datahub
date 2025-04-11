@@ -811,3 +811,156 @@ The previous version `1` of the `globalTags` aspect is returned as expected with
   }
 ]
 ```
+
+### Generic Patching
+
+The OpenAPI v3 PATCH endpoints offer advantages over previous patch support by removing the need for specific backend
+code to handle patching, see [Template Classes](/docs/advanced/patch.md#implementation-details). This technique leverages 
+the natural JSON structure of aspects and extends a generic patching mechanism based on the JSON Patch standard (RFC 6902)
+with significant enhancements for array operations.
+
+Note that the traditional patching templates are used by default in order to maintain backwards compatibility. The generic
+patching is activated if `arrayPrimaryKeys` is non-empty or `forceGenericPatch` is set to `true`.
+
+#### Advanced JSON Patch for Arrays
+
+**Standard JSON Patch Limitations**
+
+The JSON Patch standard allows for array modifications primarily through index-based operations:
+
+* `add/[index]`: Insert at specific position
+* `remove/[index]`: Remove element at position
+* `replace/[index]`: Replace element at position
+
+This approach becomes problematic when:
+
+* Array ordering is unpredictable or may change
+* Multiple clients are modifying the same resource concurrently
+* The client doesn't have knowledge of current array indexes
+
+**Key Concept: Array Primary Keys**
+
+DataHub extends the JSON Patch standard with the `arrayPrimaryKeys` field that transforms array operations into map-like 
+operations:
+
+* Arrays are conceptually treated as maps where each element can be addressed by its primary key
+* Primary keys can be composite (multiple fields combined)
+* Path expressions use these keys instead of numeric indexes
+* Backend handles the conversion between the map-like operations and actual array modifications
+
+This approach allows for:
+
+* Idempotent operations regardless of array order
+* Targeted modifications without needing to know current array state
+* Concurrent updates without conflicts (when modifying different array elements)
+* More intuitive and maintainable API usage
+
+#### Primary Key Definition and Path Construction
+
+In this section lets take a look at a common patch use-case, adding/removing global tags while considering
+attribution.
+
+**Defining Primary Keys**
+
+The `arrayPrimaryKeys` property specifies which fields uniquely identify each array element:
+
+```json
+{
+  "arrayPrimaryKeys": {
+    "tags": [
+      "attribution␟source",
+      "tag"
+    ]
+  },
+  "patch": [
+    {
+      "op": "add",
+      "path": "/tags/urn:li:platformResource:source1/urn:li:tag:tag1",
+      "value": {
+        "tag": "urn:li:tag:tag1",
+        "attribution": {
+          "source": "urn:li:platformResource:source1",
+          "actor": "urn:li:corpuser:user",
+          "time": 0
+        }
+      }
+    }
+  ]
+}
+```
+
+In this example:
+
+* tags is the array field being patched
+* The primary key is a composite of attribution.source and tag
+* The `␟`, "Unit Separator" (U+241F), delimiter indicates a nested path in the first key component
+
+**Path Construction**
+
+When the backend processes a patch operation, it:
+
+* Converts the array to a map using the specified primary key fields
+* Processes the operation against this map representation
+* Converts the map back to an array for storage
+
+For example, with the path:
+
+```text
+/tags/urn:li:platformResource:source1/urn:li:tag:tag1
+```
+
+**The system:**
+
+* Identifies tags as the target array
+* Uses `urn:li:platformResource:source1` as the value for `attribution.source`
+* Uses `urn:li:tag:tag1` as the value for the tag
+* Finds the matching array element(s) with these key values
+
+**Supported Operations**
+
+The implementation supports standard JSON Patch operations:
+
+| Operation | Description                            |
+|-----------|----------------------------------------|
+| add       | Add a new element or replace if exists |
+| remove    | Remove an element matching keys        |
+
+#### Patch Operation Examples
+
+**Adding Tagged Elements with Attribution**
+
+```json
+{
+  "op": "add",
+  "path": "/tags/urn:li:platformResource:source1/urn:li:tag:tag1",
+  "value": {
+    "tag": "urn:li:tag:tag1",
+    "attribution": {
+      "source": "urn:li:platformResource:source1",
+      "actor": "urn:li:corpuser:user",
+      "time": 0
+    }
+  }
+}
+```
+
+This operation:
+
+* Checks if an element with matching keys exists in the array
+* If not found, adds the new element
+* If found, replaces the existing element
+
+**Selective Removal**
+
+```json
+{
+  "op": "remove",
+  "path": "/tags/urn:li:platformResource:source1/urn:li:tag:tag1"
+}
+```
+
+This operation:
+
+* Finds elements matching the composite key
+* Removes only those elements
+* Preserves other elements, even with partially matching keys
