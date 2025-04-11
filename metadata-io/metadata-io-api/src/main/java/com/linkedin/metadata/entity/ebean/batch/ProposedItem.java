@@ -65,9 +65,12 @@ public class ProposedItem implements MCPItem {
     return null;
   }
 
-  @Nullable
+  @Nonnull
   @Override
   public SystemMetadata getSystemMetadata() {
+    if (metadataChangeProposal.getSystemMetadata() == null) {
+      metadataChangeProposal.setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata());
+    }
     return metadataChangeProposal.getSystemMetadata();
   }
 
