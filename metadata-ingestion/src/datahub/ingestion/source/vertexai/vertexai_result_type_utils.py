@@ -75,7 +75,7 @@ def get_pipeline_task_result_status(
         # PipelineTaskDetail.State.RUNNING: "RUNNING",
         # PipelineTaskDetail.State.CANCEL_PENDING: "CANCEL_PENDING",
         # PipelineTaskDetail.State.CANCELLING: "CANCELLING",
-        #  PipelineTaskDetail.State.NOT_TRIGGERED: "NOT_TRIGGERED",
+        # PipelineTaskDetail.State.NOT_TRIGGERED: "NOT_TRIGGERED",
         PipelineTaskDetail.State.SUCCEEDED: RunResultTypeClass.SUCCESS,
         PipelineTaskDetail.State.FAILED: RunResultTypeClass.FAILURE,
         PipelineTaskDetail.State.SKIPPED: RunResultTypeClass.SKIPPED,
