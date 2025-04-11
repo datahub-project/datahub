@@ -99,7 +99,11 @@ export const TagDescriptionColumn = React.memo(({ tagUrn }: { tagUrn: string }) 
 });
 
 export const TagOwnersColumn = React.memo(({ tagUrn }: { tagUrn: string }) => {
-    const { data, loading: ownerLoading } = useGetTagQuery({
+    const {
+        data,
+        loading: ownerLoading,
+        refetch: refetchOwners,
+    } = useGetTagQuery({
         variables: { urn: tagUrn },
         fetchPolicy: 'cache-first',
     });
@@ -115,7 +119,13 @@ export const TagOwnersColumn = React.memo(({ tagUrn }: { tagUrn: string }) => {
         <ColumnContainer>
             <OwnersContainer>
                 {ownershipData.map((ownerItem) => (
-                    <ExpandedOwner key={ownerItem.owner?.urn} entityUrn={tagUrn} owner={ownerItem as any} hidePopOver />
+                    <ExpandedOwner
+                        key={ownerItem.owner?.urn}
+                        entityUrn={tagUrn}
+                        owner={ownerItem as any}
+                        hidePopOver
+                        refetch={refetchOwners}
+                    />
                 ))}
             </OwnersContainer>
         </ColumnContainer>

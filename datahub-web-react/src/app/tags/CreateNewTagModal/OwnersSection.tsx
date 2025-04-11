@@ -172,7 +172,7 @@ const OwnersSection: React.FC<OwnersSectionProps> = ({
     return (
         <SectionContainer>
             <SectionHeader>
-                <Text>Owners</Text>
+                <Text>Add Owners</Text>
             </SectionHeader>
             <FormSection>
                 <SelectInput

@@ -45,8 +45,8 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
             const createTagResult = await createTagMutation({
                 variables: {
                     input: {
-                        id: tagName,
-                        name: tagName,
+                        id: tagName.trim(),
+                        name: tagName.trim(),
                         description: tagDescription,
                     },
                 },
@@ -84,6 +84,11 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
 
             message.success(`Tag "${tagName}" successfully created`);
             onClose();
+            setTagName('');
+            setTagDescription('');
+            setTagColor('#1890ff');
+            setSelectedOwnerUrns([]);
+            setPendingOwners([]);
         } catch (e: any) {
             message.destroy();
             message.error('Failed to create tag. An unexpected error occurred');
