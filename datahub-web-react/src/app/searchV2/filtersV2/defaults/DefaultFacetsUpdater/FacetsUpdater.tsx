@@ -25,8 +25,8 @@ export function FacetsUpdater({ fieldNames, query, onFacetsUpdated }: Props) {
 
     const wrappedFieldNames = useMemo(() => {
         if (Array.isArray(fieldNames)) return fieldNames;
-        return [fieldNames]
-    }, [fieldNames])
+        return [fieldNames];
+    }, [fieldNames]);
 
     const filters = useMemo(
         () => convertFiltersMapToFilters(fieldToAppliedFiltersMap, { excludedFields: wrappedFieldNames }),
@@ -71,6 +71,7 @@ export function FacetsUpdater({ fieldNames, query, onFacetsUpdated }: Props) {
                     ]),
                 ),
             );
+            setIsInitialized(false);
         }
     }, [onFacetsUpdated, facets, loading, isInitialized, wrappedFieldNames]);
 
