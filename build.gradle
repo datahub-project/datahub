@@ -393,6 +393,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
 
     resolutionStrategy.force externalDependency.antlr4Runtime
     resolutionStrategy.force externalDependency.antlr4
+     resolutionStrategy.force 'ch.qos.logback:logback-classic:1.5.13'
     resolutionStrategy.force 'org.apache.mina:mina-core:2.2.4'
     resolutionStrategy {
       force "org.eclipse.jetty:jetty-security:${jettyVersion}"
