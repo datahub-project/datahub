@@ -35,16 +35,16 @@ def test_mlmodel_basic() -> None:
     model.set_version("1.0.0")
     assert model.version == "1.0.0"
 
-    model.add_alias("alias1")
-    model.add_alias("alias2")
-    assert model.aliases is not None
-    assert "alias1" in model.aliases
-    assert "alias2" in model.aliases
+    model.add_version_alias("alias1")
+    model.add_version_alias("alias2")
+    assert model.version_aliases is not None
+    assert "alias1" in model.version_aliases
+    assert "alias2" in model.version_aliases
 
-    model.remove_alias("alias1")
-    assert model.aliases is not None
-    assert "alias1" not in model.aliases
-    assert "alias2" in model.aliases
+    model.remove_version_alias("alias1")
+    assert model.version_aliases is not None
+    assert "alias1" not in model.version_aliases
+    assert "alias2" in model.version_aliases
 
     # Test description
     model.set_description("A test model")

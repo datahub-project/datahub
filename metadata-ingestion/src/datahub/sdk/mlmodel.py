@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional, Sequence, Type, Union
 
 from typing_extensions import Self
 
@@ -78,9 +78,9 @@ class MLModel(
         tags: Optional[TagsInputType] = None,
         terms: Optional[TermsInputType] = None,
         domain: Optional[DomainInputType] = None,
-        group: Optional[str] = None,
-        training_jobs: Optional[List[DataProcessInstanceUrn]] = None,
-        downstream_jobs: Optional[List[DataProcessInstanceUrn]] = None,
+        group: Optional[Union[str, MlModelGroupUrn]] = None,
+        training_jobs: Optional[Sequence[Union[str, DataProcessInstanceUrn]]] = None,
+        downstream_jobs: Optional[Sequence[Union[str, DataProcessInstanceUrn]]] = None,
         extra_aspects: ExtraAspectsType = None,
     ):
         urn = MlModelUrn(platform=platform, name=id, env=env)
@@ -96,7 +96,7 @@ class MLModel(
         if name is not None:
             self.set_name(name)
         if aliases is not None:
-            self.set_aliases(aliases)
+            self.set_version_aliases(aliases)
         if description is not None:
             self.set_description(description)
         if training_metrics is not None:
@@ -221,60 +221,71 @@ class MLModel(
     def groups(self) -> Optional[List[str]]:
         return self._ensure_model_props().groups
 
-    def set_group(self, group: str) -> None:
-        self._ensure_model_props().groups = [group]
+    def set_group(self, group: Union[str, MlModelGroupUrn]) -> None:
+        self._ensure_model_props().groups = [str(group)]
 
-    def add_group(self, group_urn: MlModelGroupUrn) -> None:
+    def add_group(self, group_urn: Union[str, MlModelGroupUrn]) -> None:
         props = self._ensure_model_props()
         if props.groups is None:
             props.groups = []
         props.groups.append(str(group_urn))
 
-    def remove_group(self, group_urn: MlModelGroupUrn) -> None:
+    def remove_group(self, group_urn: Union[str, MlModelGroupUrn]) -> None:
         props = self._ensure_model_props()
         if props.groups is not None:
-            props.groups = [group for group in props.groups if group != str(group_urn)]
+            group_str = str(group_urn)
+            props.groups = [group for group in props.groups if group != group_str]
 
     @property
     def training_jobs(self) -> Optional[List[str]]:
         return self._ensure_model_props().trainingJobs
 
-    def set_training_jobs(self, training_jobs: List[DataProcessInstanceUrn]) -> None:
+    def set_training_jobs(
+        self, training_jobs: Sequence[Union[str, DataProcessInstanceUrn]]
+    ) -> None:
         self._ensure_model_props().trainingJobs = [str(job) for job in training_jobs]
 
-    def add_training_job(self, training_job: DataProcessInstanceUrn) -> None:
+    def add_training_job(
+        self, training_job: Union[str, DataProcessInstanceUrn]
+    ) -> None:
         props = self._ensure_model_props()
         if props.trainingJobs is None:
             props.trainingJobs = []
         props.trainingJobs.append(str(training_job))
 
-    def remove_training_job(self, training_job: DataProcessInstanceUrn) -> None:
+    def remove_training_job(
+        self, training_job: Union[str, DataProcessInstanceUrn]
+    ) -> None:
         props = self._ensure_model_props()
         if props.trainingJobs is not None:
-            props.trainingJobs = [
-                job for job in props.trainingJobs if job != str(training_job)
-            ]
+            job_str = str(training_job)
+            props.trainingJobs = [job for job in props.trainingJobs if job != job_str]
 
     @property
     def downstream_jobs(self) -> Optional[List[str]]:
         return self._ensure_model_props().downstreamJobs
 
     def set_downstream_jobs(
-        self, downstream_jobs: List[DataProcessInstanceUrn]
+        self, downstream_jobs: Sequence[Union[str, DataProcessInstanceUrn]]
     ) -> None:
         self._ensure_model_props().downstreamJobs = [
             str(job) for job in downstream_jobs
         ]
 
-    def add_downstream_job(self, downstream_job: DataProcessInstanceUrn) -> None:
+    def add_downstream_job(
+        self, downstream_job: Union[str, DataProcessInstanceUrn]
+    ) -> None:
         props = self._ensure_model_props()
         if props.downstreamJobs is None:
             props.downstreamJobs = []
         props.downstreamJobs.append(str(downstream_job))
 
-    def remove_downstream_job(self, downstream_job: DataProcessInstanceUrn) -> None:
+    def remove_downstream_job(
+        self, downstream_job: Union[str, DataProcessInstanceUrn]
+    ) -> None:
         props = self._ensure_model_props()
         if props.downstreamJobs is not None:
+            job_str = str(downstream_job)
             props.downstreamJobs = [
-                job for job in props.downstreamJobs if job != str(downstream_job)
+                job for job in props.downstreamJobs if job != job_str
             ]

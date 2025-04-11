@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Dict, List, Optional, Type
+from typing import Dict, List, Optional, Sequence, Type, Union
 
 from typing_extensions import Self
 
@@ -64,8 +64,8 @@ class MLModelGroup(
         tags: Optional[TagsInputType] = None,
         terms: Optional[TermsInputType] = None,
         domain: Optional[DomainInputType] = None,
-        training_jobs: Optional[List[DataProcessInstanceUrn]] = None,
-        downstream_jobs: Optional[List[DataProcessInstanceUrn]] = None,
+        training_jobs: Optional[Sequence[Union[str, DataProcessInstanceUrn]]] = None,
+        downstream_jobs: Optional[Sequence[Union[str, DataProcessInstanceUrn]]] = None,
         extra_aspects: ExtraAspectsType = None,
     ):
         urn = MlModelGroupUrn(platform=platform, name=id, env=env)
@@ -180,18 +180,24 @@ class MLModelGroup(
     def training_jobs(self) -> Optional[List[str]]:
         return self._ensure_model_group_props().trainingJobs
 
-    def set_training_jobs(self, training_jobs: List[DataProcessInstanceUrn]) -> None:
+    def set_training_jobs(
+        self, training_jobs: Sequence[Union[str, DataProcessInstanceUrn]]
+    ) -> None:
         self._ensure_model_group_props().trainingJobs = [
             str(job) for job in training_jobs
         ]
 
-    def add_training_job(self, training_job: DataProcessInstanceUrn) -> None:
+    def add_training_job(
+        self, training_job: Union[str, DataProcessInstanceUrn]
+    ) -> None:
         props = self._ensure_model_group_props()
         if props.trainingJobs is None:
             props.trainingJobs = []
         props.trainingJobs.append(str(training_job))
 
-    def remove_training_job(self, training_job: DataProcessInstanceUrn) -> None:
+    def remove_training_job(
+        self, training_job: Union[str, DataProcessInstanceUrn]
+    ) -> None:
         props = self._ensure_model_group_props()
         if props.trainingJobs is not None:
             props.trainingJobs = [
@@ -203,19 +209,23 @@ class MLModelGroup(
         return self._ensure_model_group_props().downstreamJobs
 
     def set_downstream_jobs(
-        self, downstream_jobs: List[DataProcessInstanceUrn]
+        self, downstream_jobs: Sequence[Union[str, DataProcessInstanceUrn]]
     ) -> None:
         self._ensure_model_group_props().downstreamJobs = [
             str(job) for job in downstream_jobs
         ]
 
-    def add_downstream_job(self, downstream_job: DataProcessInstanceUrn) -> None:
+    def add_downstream_job(
+        self, downstream_job: Union[str, DataProcessInstanceUrn]
+    ) -> None:
         props = self._ensure_model_group_props()
         if props.downstreamJobs is None:
             props.downstreamJobs = []
         props.downstreamJobs.append(str(downstream_job))
 
-    def remove_downstream_job(self, downstream_job: DataProcessInstanceUrn) -> None:
+    def remove_downstream_job(
+        self, downstream_job: Union[str, DataProcessInstanceUrn]
+    ) -> None:
         props = self._ensure_model_group_props()
         if props.downstreamJobs is not None:
             props.downstreamJobs = [

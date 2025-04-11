@@ -16,6 +16,7 @@ from typing import (
 
 from typing_extensions import TypeAlias, assert_never
 
+import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import (
     make_ts_millis,
@@ -611,22 +612,15 @@ class HasInstitutionalMemory(Entity):
 class HasVersion(Entity):
     """Mixin for entities that have version properties."""
 
-    def _get_urn_name(self) -> str:
-        if hasattr(self.urn, "name"):
-            return self.urn.name
-        return "unknown"  # Fallback if name isn't available
-
     def _get_version_props(self) -> Optional[models.VersionPropertiesClass]:
         return self._get_aspect(models.VersionPropertiesClass)
 
     def _ensure_version_props(self) -> models.VersionPropertiesClass:
         version_props = self._get_version_props()
         if version_props is None:
-            entity_name = self._get_urn_name()
-            entity_type = self.get_urn_type()
-            # Create a proper version set URN
+            guid_dict = {"urn": str(self.urn)}
             version_set_urn = VersionSetUrn(
-                id=f"{entity_name}_versionset", entity_type=str(entity_type)
+                id=builder.datahub_guid(guid_dict), entity_type=self.urn.ENTITY_TYPE
             )
 
             version_props = models.VersionPropertiesClass(
@@ -646,10 +640,9 @@ class HasVersion(Entity):
 
     def set_version(self, version: str) -> None:
         """Set the version of the entity."""
-        entity_name = self._get_urn_name()
-        entity_type = self.get_urn_type().ENTITY_TYPE
+        guid_dict = {"urn": str(self.urn)}
         version_set_urn = VersionSetUrn(
-            id=f"{entity_type}_{entity_name}_versions", entity_type=entity_type
+            id=builder.datahub_guid(guid_dict), entity_type=self.urn.ENTITY_TYPE
         )
 
         version_props = self._get_version_props()
@@ -669,7 +662,7 @@ class HasVersion(Entity):
         self._set_aspect(version_props)
 
     @property
-    def aliases(self) -> List[str]:
+    def version_aliases(self) -> List[str]:
         version_props = self._get_version_props()
         if version_props and version_props.aliases:
             return [
@@ -679,7 +672,7 @@ class HasVersion(Entity):
             ]
         return []  # Return empty list instead of None
 
-    def set_aliases(self, aliases: List[str]) -> None:
+    def set_version_aliases(self, aliases: List[str]) -> None:
         version_props = self._get_aspect(models.VersionPropertiesClass)
         if version_props:
             version_props.aliases = [
@@ -687,9 +680,9 @@ class HasVersion(Entity):
             ]
         else:
             # If no version properties exist, we need to create one with a default version
-            entity_name = self._get_urn_name()  # Use the helper method
+            guid_dict = {"urn": str(self.urn)}
             version_set_urn = VersionSetUrn(
-                id=f"mlmodel_{entity_name}_versions", entity_type="mlModel"
+                id=builder.datahub_guid(guid_dict), entity_type=self.urn.ENTITY_TYPE
             )
             self._set_aspect(
                 models.VersionPropertiesClass(
@@ -704,7 +697,7 @@ class HasVersion(Entity):
                 )
             )
 
-    def add_alias(self, alias: str) -> None:
+    def add_version_alias(self, alias: str) -> None:
         if not alias:
             raise ValueError("Alias cannot be empty")
         version_props = self._ensure_version_props()
@@ -713,7 +706,7 @@ class HasVersion(Entity):
         version_props.aliases.append(models.VersionTagClass(versionTag=alias))
         self._set_aspect(version_props)
 
-    def remove_alias(self, alias: str) -> None:
+    def remove_version_alias(self, alias: str) -> None:
         version_props = self._get_version_props()
         if version_props and version_props.aliases:
             version_props.aliases = [

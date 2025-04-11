@@ -1,32 +1,22 @@
 import argparse
 from datetime import datetime
 
-from dh_ai_client import DatahubAIClient
-
 from datahub.emitter.mcp_builder import (
     ContainerKey,
 )
 from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
-from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import RunResultType
-from datahub.metadata.schema_classes import (
-    AuditStampClass,
-    DataProcessInstancePropertiesClass,
-    MLHyperParamClass,
-    MLMetricClass,
-    MLTrainingRunPropertiesClass,
-)
 from datahub.metadata.urns import (
     CorpUserUrn,
-    DataProcessInstanceUrn,
     GlossaryTermUrn,
     TagUrn,
 )
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
+from datahub.sdk.main_client import DataHubClient
 from datahub.sdk.mlmodel import MLModel
 from datahub.sdk.mlmodelgroup import MLModelGroup
 
-prefix = "hahaha"
+prefix = "client_sample"
 
 run_id = f"{prefix}_simple_training_run"
 run_name = f"{prefix}_Simple Training Run"
@@ -38,8 +28,7 @@ model_group_id = f"{prefix}_airline_forecast_models_group"
 model_group_name = f"{prefix}_Airline Forecast Models Group"
 
 
-if __name__ == "__main__":
-    # Example usage
+def init_client():
     parser = argparse.ArgumentParser()
     parser.add_argument("--token", required=False, help="DataHub access token")
     parser.add_argument(
@@ -50,9 +39,15 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    client = DatahubAIClient(token=args.token, server_url=args.server_url)
+    client = DataHubClient(token=args.token, server=args.server_url)
+    return client
 
-    # Creating an experiment with property class
+
+if __name__ == "__main__":
+    # init client
+    client = init_client()
+
+    # create experiment
     experiment = Container(
         container_key=ContainerKey(
             platform="mlflow",
@@ -66,28 +61,7 @@ if __name__ == "__main__":
         subtype=MLAssetSubTypes.MLFLOW_EXPERIMENT,
     )
 
-    client._emit_mcps(experiment.as_mcps())
-
-    run_urn = client.create_training_run(
-        run_id=run_id,
-        properties=DataProcessInstancePropertiesClass(
-            name=run_name,
-            created=AuditStampClass(
-                time=1628580000000, actor="urn:li:corpuser:datahub"
-            ),
-            customProperties={"team": "forecasting"},
-        ),
-        training_run_properties=MLTrainingRunPropertiesClass(
-            id=run_id,
-            outputUrls=["s3://my-bucket/output"],
-            trainingMetrics=[MLMetricClass(name="accuracy", value="0.9")],
-            hyperParams=[MLHyperParamClass(name="learning_rate", value="0.01")],
-            externalUrl="https:localhost:5000",
-        ),
-        run_result=RunResultType.FAILURE,
-        start_timestamp=1628580000000,
-        end_timestamp=1628580001000,
-    )
+    client.entities.upsert(experiment)
 
     # Create model group
     model_group = MLModelGroup(
@@ -101,7 +75,6 @@ if __name__ == "__main__":
         external_url="https://www.linkedin.com/in/datahub",
         tags=["urn:li:tag:forecasting", "urn:li:tag:arima"],
         terms=["urn:li:glossaryTerm:forecasting"],
-        # training_jobs=[DataProcessInstanceUrn(run_id)],
         custom_properties={"team": "forecasting"},
     )
 
@@ -117,7 +90,6 @@ if __name__ == "__main__":
         external_url="https://www.linkedin.com/in/datahub",
         tags=["urn:li:tag:forecasting", "urn:li:tag:arima"],
         terms=["urn:li:glossaryTerm:forecasting"],
-        # training_jobs=[DataProcessInstanceUrn(run_id)],
         custom_properties={"team": "forecasting"},
         version="1",
         aliases=["champion"],
@@ -131,29 +103,13 @@ if __name__ == "__main__":
         platform="snowflake",
         name="iris_input",
     )
-    client._emit_mcps(input_dataset.as_mcps())
+    client.entities.upsert(input_dataset)
 
     output_dataset = Dataset(
         platform="snowflake",
         name="iris_output",
     )
-    client._emit_mcps(input_dataset.as_mcps())
-
-    # Add run to experiment
-    client.add_run_to_experiment(run_urn=run_urn, experiment_urn=str(experiment.urn))
-
-    # Add input and output datasets to run
-    client.add_input_datasets_to_run(
-        run_urn=run_urn, dataset_urns=[str(input_dataset.urn)]
-    )
-
-    client.add_output_datasets_to_run(
-        run_urn=run_urn, dataset_urns=[str(output_dataset.urn)]
-    )
-
-    model.add_training_job(DataProcessInstanceUrn(run_id))
-
-    model_group.add_training_job(DataProcessInstanceUrn(run_id))
+    client.entities.upsert(output_dataset)
 
     model.add_group(model_group.urn)
 
@@ -165,6 +121,6 @@ if __name__ == "__main__":
 
     model.set_version("2")
 
-    client._emit_mcps(model.as_mcps())
+    client.entities.upsert(model)
 
-    client._emit_mcps(model_group.as_mcps())
+    client.entities.upsert(model_group)
