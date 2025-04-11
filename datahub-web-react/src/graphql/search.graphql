@@ -107,6 +107,7 @@ fragment autoCompleteFields on Entity {
         }
         editableProperties {
             displayName
+            pictureLink
         }
     }
     ... on CorpGroup {
@@ -1286,6 +1287,19 @@ query getSearchResults($input: SearchInput!) {
 query getSearchResultsForMultiple($input: SearchAcrossEntitiesInput!) {
     searchAcrossEntities(input: $input) {
         ...searchResults
+    }
+}
+
+query getSearchResultsForMultipleTrimmed($input: SearchAcrossEntitiesInput!) {
+    searchAcrossEntities(input: $input) {
+        searchResults {
+            entity {
+                ...autoCompleteFields
+            }
+        }
+        facets {
+            ...facetFields
+        }
     }
 }
 
