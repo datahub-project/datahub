@@ -249,10 +249,11 @@ export default function SchemaTable({
         });
     }, [expandedRowsFromFilter]);
 
+    const rowLimit = 35;
     const [VT, setVT] = useVT(() => ({ scroll: { y: tableHeight } }), [tableHeight]);
     useMemo(() => setVT({ body: { row: SchemaRow } }), [setVT]);
-    const scrollConfig = rows.length > 40 ? undefined : { y: tableHeight };
-    const componentsConfig = rows.length > 40 ? undefined : VT;
+    const scrollConfig = rows.length > rowLimit ? undefined : { y: tableHeight };
+    const componentsConfig = rows.length > rowLimit ? undefined : VT;
 
     return (
         <FkContext.Provider value={selectedFkFieldPath}>
