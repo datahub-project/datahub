@@ -16,6 +16,7 @@ dependencies {
   implementation project(':metadata-dao-impl:kafka-producer')
   implementation project(':ingestion-scheduler')
   implementation project(':metadata-service:schema-registry-api')
+  implementation project(':metadata-service:events-service')
 
   implementation (externalDependency.awsGlueSchemaRegistrySerde) {
     exclude group: 'org.json', module: 'json'

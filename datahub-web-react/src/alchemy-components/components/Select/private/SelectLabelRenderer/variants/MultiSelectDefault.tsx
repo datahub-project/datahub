@@ -1,16 +1,16 @@
 import React from 'react';
 import { Pill } from '@src/alchemy-components/components/Pills';
 import { LabelsWrapper, Placeholder } from '../../../components';
-import { SelectLabelVariantProps } from '../../../types';
+import { SelectLabelVariantProps, SelectOption } from '../../../types';
 
-export default function MultiSelectDefault({
+export default function MultiSelectDefault<OptionType extends SelectOption>({
     selectedOptions,
     selectedValues,
     disabledValues,
     removeOption,
     placeholder,
     isMultiSelect,
-}: SelectLabelVariantProps) {
+}: SelectLabelVariantProps<OptionType>) {
     return (
         <LabelsWrapper shouldShowGap={selectedOptions.length > 1}>
             {!selectedValues.length && <Placeholder>{placeholder}</Placeholder>}

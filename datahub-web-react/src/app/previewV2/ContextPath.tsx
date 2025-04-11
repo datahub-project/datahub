@@ -96,6 +96,7 @@ interface Props {
     contentRef: React.RefObject<HTMLDivElement>;
     isContentTruncated?: boolean;
     linksDisabled?: boolean;
+    showPlatformText?: boolean;
 }
 
 function ContextPath(props: Props) {
@@ -110,6 +111,7 @@ function ContextPath(props: Props) {
         contentRef,
         isContentTruncated = false,
         linksDisabled,
+        showPlatformText = true,
     } = props;
 
     const entityRegistry = useEntityRegistryV2();
@@ -125,15 +127,17 @@ function ContextPath(props: Props) {
 
     return (
         <PlatformContentWrapper>
-            <PlatformText
-                $maxWidth={entityTitleWidth}
-                $isCompactView={isCompactView}
-                title={capitalizeFirstLetterOnly(type)}
-            >
-                {entityTypeIcon && <TypeIconWrapper>{entityTypeIcon}</TypeIconWrapper>}
-                <PlatFormTitle>{capitalizeFirstLetterOnly(type)}</PlatFormTitle>
-                {showEntityTypeDivider && divider}
-            </PlatformText>
+            {showPlatformText && (
+                <PlatformText
+                    $maxWidth={entityTitleWidth}
+                    $isCompactView={isCompactView}
+                    title={capitalizeFirstLetterOnly(type)}
+                >
+                    {entityTypeIcon && <TypeIconWrapper>{entityTypeIcon}</TypeIconWrapper>}
+                    <PlatFormTitle>{capitalizeFirstLetterOnly(type)}</PlatFormTitle>
+                    {showEntityTypeDivider && divider}
+                </PlatformText>
+            )}
             {hasBrowsePath ? (
                 <BrowsePaths
                     browsePaths={browsePaths}

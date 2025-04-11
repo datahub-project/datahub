@@ -607,6 +607,7 @@ entities:
       - dataContractProperties
       - dataContractStatus
       - status
+      - structuredProperties
   - name: dataHubPersona
     category: internal
     keyAspect: dataHubPersonaKey

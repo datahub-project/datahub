@@ -17,6 +17,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -40,6 +41,8 @@ public class SpringWebConfig implements WebMvcConfigurer {
 
   private static final Set<String> OPENLINEAGE_PACKAGES =
       Set.of("io.datahubproject.openapi.openlineage");
+
+  private static final Set<String> EVENTS_PACKAGES = Set.of("io.datahubproject.openapi.v1.event");
 
   @Autowired private TracingInterceptor tracingInterceptor;
 
@@ -112,6 +115,16 @@ public class SpringWebConfig implements WebMvcConfigurer {
         .group("50-openlineage")
         .displayName("OpenLineage")
         .packagesToScan(OPENLINEAGE_PACKAGES.toArray(String[]::new))
+        .build();
+  }
+
+  @Bean
+  @ConditionalOnProperty(name = "eventsApi.enabled", havingValue = "true")
+  public GroupedOpenApi eventsOpenApiGroup() {
+    return GroupedOpenApi.builder()
+        .group("70-events")
+        .displayName("Events")
+        .packagesToScan(EVENTS_PACKAGES.toArray(String[]::new))
         .build();
   }
 

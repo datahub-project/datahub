@@ -8,6 +8,13 @@
   },
   {
     "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CF%2CPROD%29",
+      "description": "Remove PATCH aspect test",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
       "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2Cdataset1AspectV3%2CPROD%29/globaltags",
       "params": {
         "createIfNotExists": "false",
@@ -115,6 +122,82 @@
             }
           ]
         }
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetPatchAspectV3%2CPROD%29/datasetProperties",
+      "method": "patch",
+      "description": "Patch aspect datasetProperties with description",
+      "json": {
+        "patch": [
+          {
+            "op": "add",
+            "path": "/description",
+            "value": "Test description"
+          }
+        ]
+      }
+    },
+    "response": {
+      "json": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetPatchAspectV3,PROD)",
+        "datasetProperties": {
+          "value": {
+            "description": "Test description",
+            "tags": [],
+            "customProperties": {}
+          }
+        }
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetPatchAspectV3%2CPROD%29/datasetProperties",
+      "method": "get",
+      "description": "Get the patched aspect with description"
+    },
+    "response": {
+      "value": {
+        "description": "Test description",
+        "customProperties": {},
+        "tags": []
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetPatchAspectV3%2CPROD%29/datasetProperties",
+      "method": "patch",
+      "description": "Patch REMOVE aspect description",
+      "json": {
+        "patch": [
+          {
+            "op": "remove",
+            "path": "/description"
+          }
+        ]
+      }
+    },
+    "response": {
+      "value": {
+        "customProperties": {},
+        "tags": []
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetPatchAspectV3%2CPROD%29/datasetProperties",
+      "method": "get",
+      "description": "Get the patched aspect with REMOVED description"
+    },
+    "response": {
+      "value": {
+        "customProperties": {},
+        "tags": []
       }
     }
   }
