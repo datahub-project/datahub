@@ -1,7 +1,6 @@
 import json
 import logging
 import re
-import traceback
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Tuple
 
@@ -1200,11 +1199,11 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             try:
                 connector_manifest = ConnectorManifest(**manifest)
             except TypeError as e:
-                logger.error(
-                    f"Error {e} during parsing connector {c} manifest: {manifest}. Skipping..."
+                self.report.warning(
+                    title="Error during parsing connector",
+                    message=f"Error during parsing connector {c} manifest: {manifest}. Skipping...",
+                    exc=e,
                 )
-                exc_msg = traceback.format_exc()
-                logger.debug(exc_msg)
                 continue
 
             if not self.config.connector_patterns.allowed(connector_manifest.name):
