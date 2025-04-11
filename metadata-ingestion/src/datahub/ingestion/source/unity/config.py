@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Union
 from urllib.parse import urlparse
 
 import pydantic
+from azure.identity import DefaultAzureCredential
 from pydantic import Field
 from typing_extensions import Literal
 
@@ -31,8 +32,17 @@ from datahub.ingestion.source_config.operation_config import (
     is_profiling_enabled,
 )
 from datahub.utilities.global_warning_util import add_global_warning
+from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
+
+# Databricks resource ID for Azure
+DATABRICKS_RESOURCE_ID = "2ff814a6-3304-4ab8-85cb-cd0e6f879c1d"
+
+
+class AuthType(StrEnum):
+    TOKEN = "token"
+    AZURE_DEFAULT = "azure_default"
 
 
 class UnityCatalogProfilerConfig(ConfigModel):
@@ -124,7 +134,14 @@ class UnityCatalogSourceConfig(
     StatefulProfilingConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 ):
-    token: str = pydantic.Field(description="Databricks personal access token")
+    auth_type: AuthType = pydantic.Field(
+        default=AuthType.TOKEN,
+        description="Authentication type to use. Options are 'token' or 'azure_default'",
+    )
+    token: Optional[str] = pydantic.Field(
+        default=None,
+        description="Databricks personal access token. Required if auth_type is 'token'",
+    )
     workspace_url: str = pydantic.Field(
         description="Databricks workspace url. e.g. https://my-workspace.cloud.databricks.com"
     )
@@ -274,14 +291,25 @@ class UnityCatalogSourceConfig(
 
     scheme: str = DATABRICKS
 
+    def get_token(self) -> str:
+        """Get the appropriate token based on auth type."""
+        if self.auth_type == AuthType.AZURE_DEFAULT:
+            credential = DefaultAzureCredential()
+            return credential.get_token(f"{DATABRICKS_RESOURCE_ID}/.default").token
+        else:
+            if not self.token:
+                raise ValueError("token is required when auth_type is 'token'")
+            return self.token
+
     def get_sql_alchemy_url(self, database: Optional[str] = None) -> str:
         uri_opts = {"http_path": f"/sql/1.0/warehouses/{self.warehouse_id}"}
         if database:
             uri_opts["catalog"] = database
+
         return make_sqlalchemy_uri(
             scheme=self.scheme,
             username="token",
-            password=self.token,
+            password=self.get_token(),
             at=urlparse(self.workspace_url).netloc,
             db=database,
             uri_opts=uri_opts,
@@ -361,4 +389,10 @@ class UnityCatalogSourceConfig(
         cls, v: AllowDenyPattern
     ) -> AllowDenyPattern:
         v.deny.append(".*\\.information_schema")
+        return v
+
+    @pydantic.validator("token")
+    def validate_token(cls, v: Optional[str], values: Dict[str, Any]) -> Optional[str]:
+        if values.get("auth_type") == "token" and not v:
+            raise ValueError("token is required when auth_type is 'token'")
         return v
