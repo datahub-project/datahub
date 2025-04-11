@@ -10,6 +10,8 @@ parallel followed by everything else.
 <suite-files>
     <suite-file path="testng-search.xml"/>
     <suite-file path="testng-cassandra.xml"/>
+    <suite-file path="testng-dgraph.xml"/>
+    <suite-file path="testng-neo4j.xml"/>
     <suite-file path="testng-other.xml"/>
 </suite-files>
 </suite>
