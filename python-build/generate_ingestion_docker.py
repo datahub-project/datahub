@@ -10,7 +10,15 @@ assert (_repo_root / ".git").exists(), "Unable to find git repo root"
 def _load_file(path: str, context_dir: Path) -> str:
     if path.startswith("@/"):
         resolved_path = Path(_repo_root / path[2:])
-        return resolved_path.read_text()
+        raw_content = resolved_path.read_text()
+
+        # Remove all lines that start with "# INLINE-BEGIN" or "# INLINE-END"
+        content = "\n".join(
+            line
+            for line in raw_content.splitlines()
+            if not line.strip().startswith("# INLINE-")
+        )
+        return content
     else:
         raise ValueError(
             f"Only repo-rooted paths, which have the '@/' prefix, are supported: got {path}"

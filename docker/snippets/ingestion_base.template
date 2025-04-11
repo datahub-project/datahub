@@ -5,34 +5,29 @@
 # - ingestion-base-slim: Currently the same as base-empty.
 # - ingestion-base-full: Adds a JRE and Oracle client.
 
-FROM ubuntu:24.04 AS python-base
-
-ARG PYTHON_VERSION
-RUN test -n "${PYTHON_VERSION}"  # PYTHON_VERSION must be set
-
-# INLINE-BEGIN @/docker/snippets/ubuntu_mirror_setup
-# INLINE-END
-
 # INLINE-BEGIN @/docker/snippets/ubuntu_python_base
 # INLINE-END
 
-FROM python-base AS full-deps-prebuild
+FROM python-base AS ingestion-base-slim
 
 USER 0
-RUN apt-get update && apt-get install --no-install-recommends -y -qq \
-    build-essential \
-    maven \
+RUN apt-get update && apt-get install -y \
+    python3-ldap \
+    libldap2-dev \
+    libsasl2-dev \
+    libsasl2-modules \
+    libaio-dev \
+    libaio1t64 \
+    libsasl2-modules-gssapi-mit \
+    krb5-user \
+    krb5-config \
+    libkrb5-dev \
+    librdkafka-dev \
+    ldap-utils \
+    unixodbc \
+    libodbc2 \
     && rm -rf /var/lib/apt/lists/*
 USER datahub
-
-RUN uv pip install python-ldap==3.4.4
-RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000 \
-    --mount=type=bind,source=./docker/datahub-ingestion/pyspark_jars.sh,target=/pyspark_jars.sh \
-    uv pip install python-ldap==3.4.4 pyspark~=3.5.0 && \
-    /pyspark_jars.sh
-
-FROM python-base AS ingestion-base-slim
-# Nothing to do here.
 
 FROM ingestion-base-slim AS ingestion-base-full
 
@@ -40,7 +35,3 @@ USER 0
 # INLINE-BEGIN @/docker/snippets/ingestion_full_deps
 # INLINE-END
 USER datahub
-
-RUN --mount=from=full-deps-prebuild,source=$HOME/.venv,target=/venv-full \
-    rm -r .venv && \
-    cp -r /venv-full .venv

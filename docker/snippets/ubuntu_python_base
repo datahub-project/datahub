@@ -1,4 +1,12 @@
 
+FROM ubuntu:24.04 AS python-base
+
+# INLINE-BEGIN @/docker/snippets/ubuntu_mirror_setup
+# TODO: This may not work on Ubuntu 24.04 due to the new deb822 package format.
+ARG UBUNTU_REPO_URL=http://ports.ubuntu.com/ubuntu-ports
+RUN if [ "${UBUNTU_REPO_URL}" != "http://ports.ubuntu.com/ubuntu-ports" ] ; then sed -i "s#http.*://ports.ubuntu.com/ubuntu-ports#${UBUNTU_REPO_URL}#g" /etc/apt/sources.list ; fi
+# INLINE-END
+
 ENV HOME=/home/datahub
 RUN existing_group=$(getent group 1000 | cut -d: -f1) && \
     if [ -n "$existing_group" ] && [ "$existing_group" != "datahub" ]; then \
@@ -32,34 +40,21 @@ RUN apt-get update && apt-get install -y \
     && add-apt-repository --no-update ppa:deadsnakes/ppa \
     && rm -rf /var/lib/apt/lists/*
 
+ARG PYTHON_VERSION
+RUN test -n "${PYTHON_VERSION}"  # PYTHON_VERSION must be set
+
 RUN apt-get update && apt-get install -y \
     python${PYTHON_VERSION} \
     python${PYTHON_VERSION}-venv \
     python${PYTHON_VERSION}-dev \
     python${PYTHON_VERSION}-distutils \
-    python3-pip \
-    python3-ldap \
     python-is-python3 \
-    libldap2-dev \
-    libsasl2-dev \
-    libsasl2-modules \
-    libaio-dev \
-    libaio1t64 \
-    libsasl2-modules-gssapi-mit \
-    krb5-user \
-    krb5-config \
-    libkrb5-dev \
-    librdkafka-dev \
     git \
     wget \
     curl \
     zip \
     unzip \
-    ldap-utils \
-    unixodbc \
-    libodbc2 \
-    && apt-get clean \
-    && rm -rf /var/lib/{apt,dpkg,cache,log}/
+    && rm -rf /var/lib/apt/lists/*
 
 # Set the default python version.
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1 \
