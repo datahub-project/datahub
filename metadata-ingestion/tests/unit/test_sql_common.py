@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Optional
 from unittest import mock
 
 from typing import Dict
@@ -296,8 +296,8 @@ GET_URL_TEST_CASES = [
 )
 def test_get_sql_alchemy_url(
     config_dict: Dict[str, str],
-    uri_opts: Dict[str, str] | None,
-    database_override: str | None,
+    uri_opts: Optional[Dict[str, str]],
+    database_override: Optional[str],
     expected_url: str,
 ) -> None:
     """Tests the get_sql_alchemy_url method with various configurations."""
