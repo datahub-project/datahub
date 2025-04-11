@@ -231,16 +231,16 @@ datahub-actions actions -c ../examples/executor.yaml -c ../examples/hello_world.
 
 ### Developing a Transformer
 
-To develop a new Transformer, check out the [Developing a Transformer](../docs/guides/developing-a-transformer.md) guide. 
+To develop a new Transformer, check out the [Developing a Transformer](../docs/actions/guides/developing-a-transformer.md) guide. 
 
 ### Developing an Action
 
-To develop a new Action, check out the [Developing an Action](../docs/guides/developing-an-action.md) guide. 
+To develop a new Action, check out the [Developing an Action](../docs/actions/guides/developing-an-action.md) guide. 
 
 
 ## Contributing
 
-Contributing guidelines follow those of the [main DataHub project](https://github.com/datahub-project/datahub/blob/master/docs/CONTRIBUTING.md). We are accepting contributions for Actions, Transformers, and general framework improvements (tests, error handling, etc).
+Contributing guidelines follow those of the [main DataHub project](../docs/CONTRIBUTING.md). We are accepting contributions for Actions, Transformers, and general framework improvements (tests, error handling, etc).
 
 
 ## Resources
