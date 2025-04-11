@@ -113,8 +113,10 @@ USER datahub
 FROM ingestion-base-slim AS ingestion-base-full
 
 USER 0
+# We need to install build-essential in order to build some Python packages (e.g. python-ldap)
 RUN apt-get update && apt-get install --no-install-recommends -y -qq \
     default-jre-headless \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 RUN --mount=type=bind,source=./docker/datahub-ingestion/oracle_instantclient.sh,target=/oracle_instantclient.sh \
