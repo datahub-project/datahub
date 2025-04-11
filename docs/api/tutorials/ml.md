@@ -29,7 +29,7 @@ Here's what you need to know about the key components in DataHub:
 - **Models** are successful training runs registered for production use
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/concept-diagram-dh-term.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/ml-guide-img/imgs/apis/tutorials/ml/concept-diagram-dh-term.png"/>
 </p>
 
 The hierarchy works like this:
@@ -126,7 +126,7 @@ Let's verify that our model group was created:
 See your new model group in the DataHub UI:
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/model-group-empty.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/ml-guide-img/imgs/apis/tutorials/ml/model-group-empty.png"/>
 </p>
 </TabItem>
 
@@ -224,7 +224,7 @@ Let's verify our model:
 Check your model's details in the DataHub UI:
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/model-empty.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/ml-guide-img/imgs/apis/tutorials/ml/model-empty.png"/>
 </p>
 </TabItem>
 
@@ -324,7 +324,7 @@ Verify your experiment:
 See your experiment's details in the UI:
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/experiment-empty.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/ml-guide-img/imgs/apis/tutorials/ml/experiment-empty.png"/>
 </p>
 </TabItem>
 
@@ -414,7 +414,7 @@ Verify your training run:
 View the run details in the UI:
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/run-empty.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/ml-guide-img/imgs/apis/tutorials/ml/run-empty.png"/>
 </p>
 </TabItem>
 
@@ -525,7 +525,7 @@ Verify your datasets:
 <TabItem value="UI" label="UI"> View dataset details in the DataHub UI: 
 
 <p align="center"> 
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/dataset-details.png"/> 
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/ml-guide-img/imgs/apis/tutorials/ml/dataset.png"/> 
 </p> 
 
 </TabItem> 
@@ -588,12 +588,12 @@ client._emit_mcps(model.as_mcps())
 View model versions in the **Model Group** under the **Models** section:
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/model-group-with-model.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/ml-guide-img/imgs/apis/tutorials/ml/model-group-with-model.png"/>
 </p>
 
 Find group information in the **Model** page under the **Group** tab:
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/model-with-model-group.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/ml-guide-img/imgs/apis/tutorials/ml/model-with-model-group.png"/>
 </p>
 </TabItem>
 
@@ -657,12 +657,12 @@ client.add_run_to_experiment(run_urn=run_urn, experiment_urn=experiment_urn)
 Find your runs in the **Experiment** page under the **Entities** tab:
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/experiment-with-run.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/ml-guide-img/imgs/apis/tutorials/ml/experiment-with-run.png"/>
 </p>
 
 See the experiment details in the **Run** page:
 <p align="center">
-  <img width="40%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/run-with-experiment.png"/>
+  <img width="40%" src="https://raw.githubusercontent.com/datahub-project/static-assets/ml-guide-img/imgs/apis/tutorials/ml/run-with-experiment.png"/>
 </p>
 </TabItem>
 
@@ -734,16 +734,16 @@ This relationship enables you to:
 Find the source run in the **Model** page under the **Summary** tab:
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/model-with-source-run.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/ml-guide-img/imgs/apis/tutorials/ml/model-with-source-run.png"/>
 </p>
 
 See related models in the **Run** page under the **Lineage** tab:
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/run-lineage-model.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/ml-guide-img/imgs/apis/tutorials/ml/run-lineage-model.png"/>
 </p>
 <p align="center">
-  <img width="50%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/run-lineage-model-graph.png"/>
+  <img width="50%" src="https://raw.githubusercontent.com/datahub-project/static-assets/ml-guide-img/imgs/apis/tutorials/ml/run-lineage-model-graph.png"/>
 </p>
 
 </TabItem>
@@ -809,10 +809,10 @@ This connection lets you:
 See model groups in the **Run** page under the **Lineage** tab:
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/run-lineage-model-group.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/ml-guide-img/imgs/apis/tutorials/ml/run-lineage-model-group.png"/>
 </p>
 <p align="center">
-  <img width="50%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/run-lineage-model-group-graph.png"/>
+  <img width="50%" src="https://raw.githubusercontent.com/datahub-project/static-assets/ml-guide-img/imgs/apis/tutorials/ml/run-lineage-model-group-graph.png"/>
 </p>
 </TabItem>
 
@@ -880,7 +880,7 @@ These connections help you:
 
 Find dataset relationships in the **Lineage** tab of either the **Dataset** or **Run** page:
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/run-lineage-dataset-graph.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/ml-guide-img/imgs/apis/tutorials/ml/run-lineage-dataset-graph.png"/>
 </p>
 
 
@@ -920,7 +920,7 @@ These updates allow you to:
 View updated properties in the **Model Group** page:
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/model-group-updated-properties.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/ml-guide-img/imgs/apis/tutorials/ml/model-group-updated-properties.png"/>
 </p>
 </TabItem>
 
@@ -1041,7 +1041,7 @@ These updates allow you to:
 View updated properties in the **Model** page:
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/model-updated-properties.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/ml-guide-img/imgs/apis/tutorials/ml/model-updated-properties.png"/>
 </p>
 </TabItem>
 
@@ -1181,7 +1181,7 @@ These updates help you:
 View updated properties in the **Experiment** page:
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/experiment-updated-properties.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/ml-guide-img/imgs/apis/tutorials/ml/experiment-updated-properties.png"/>
 </p>
 </TabItem>
 
@@ -1262,7 +1262,7 @@ View the updated details:
 Here's your complete ML system with all components connected:
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/lineage-full.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/ml-guide-img/imgs/apis/tutorials/ml/lineage-full.png"/>
 </p>
 
 You now have a complete lineage view of your ML assets, from training data through runs to production models!

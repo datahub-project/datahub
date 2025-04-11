@@ -26,15 +26,13 @@ from datahub.sdk.dataset import Dataset
 from datahub.sdk.mlmodel import MLModel
 from datahub.sdk.mlmodelgroup import MLModelGroup
 
-prefix = "docs_demo_test2"
-
-run_id = f"{prefix}_simple_training_run"
+run_id = "simple_training_run"
 run_name = "Simple Training Run"
-experiment_id = f"{prefix}_airline_forecast_experiment"
+experiment_id = "airline_forecast_experiment"
 experiment_name = "Airline Forecast Experiment"
-model_id = f"{prefix}_arima_model"
+model_id = "arima_model"
 model_name = "ARIMA Model"
-model_group_id = f"{prefix}_airline_forecast_models_group"
+model_group_id = "airline_forecast_models_group"
 model_group_name = "Airline Forecast Models Group"
 
 
@@ -67,7 +65,7 @@ if __name__ == "__main__":
         custom_properties={"team": "forecasting"},
     )
 
-    # client._emit_mcps(model_group.as_mcps())
+    client._emit_mcps(model_group.as_mcps())
 
     # Create model
     model = MLModel(
@@ -90,7 +88,7 @@ if __name__ == "__main__":
         training_metrics={"accuracy": "0.9"},
     )
 
-    # client._emit_mcps(model.as_mcps())
+    client._emit_mcps(model.as_mcps())
 
     # Creating an experiment
     experiment = Container(
@@ -107,16 +105,6 @@ if __name__ == "__main__":
     )
 
     client._emit_mcps(experiment.as_mcps())
-
-    simple_experiment = Container(
-        container_key=ContainerKey(
-            platform="mlflow",
-            name=experiment_id,
-        ),
-        display_name="Simple Experiment",
-    )
-
-    client._emit_mcps(simple_experiment.as_mcps())
 
     run_urn = client.create_training_run(
         run_id=run_id,
@@ -175,6 +163,7 @@ if __name__ == "__main__":
     client._emit_mcps(output_dataset.as_mcps())
 
     # Add run to experiment
+    print(experiment.urn)
     client.add_run_to_experiment(run_urn=run_urn, experiment_urn=str(experiment.urn))
 
     # Add input and output datasets to run
