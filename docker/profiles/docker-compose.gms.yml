@@ -460,6 +460,13 @@ services:
     depends_on:
       datahub-gms-quickstart-consumers:
         condition: service_healthy
+  datahub-mae-consumer-debug-consumers:
+    <<: *datahub-mae-consumer-service-dev
+    profiles:
+      - debug-consumers
+    depends_on:
+      datahub-gms-debug-consumers:
+        condition: service_healthy
   datahub-mae-consumer-quickstart-otel:
     <<: *datahub-mae-consumer-service
     profiles:
@@ -488,6 +495,13 @@ services:
       - quickstart-consumers
     depends_on:
       datahub-gms-quickstart-consumers:
+        condition: service_healthy
+  datahub-mce-consumer-debug-consumers:
+    <<: *datahub-mce-consumer-service-dev
+    profiles:
+      - debug-consumers
+    depends_on:
+      datahub-gms-debug-consumers:
         condition: service_healthy
   datahub-mce-consumer-quickstart-otel:
     <<: *datahub-mce-consumer-service
