@@ -46,7 +46,7 @@ env:
   ACRYLIO_DOCKER_INTEGRATIONS_IMAGE: 'acrylio/acryl-integrations-service'
   ACRYLIO_DOCKER_EXECUTOR_IMAGE: 'acrylio/acryl-executor'
 
-  DOCKER_CACHE: "DEPOT"
+  #DOCKER_CACHE: "DEPOT"
   DEPOT_PROJECT_ID: ${{ vars.DEPOT_PROJECT_ID }}
   DEPOT_TOKEN: ${{ secrets.DEPOT_TOKEN }}
 
