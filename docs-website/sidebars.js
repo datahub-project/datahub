@@ -1030,6 +1030,8 @@ module.exports = {
     //"docs/how/graph-onboarding",
     //"docs/demo/graph-onboarding",
     //"datahub-actions/README",
+    //"datahub-actions/src/datahub_actions/plugin/action/tag/README",
+    //"datahub-actions/src/datahub_actions/plugin/action/term/README",
     //"metadata-integration/java/spark-lineage/README",
     // "metadata-integration/java/acryl-spark-lineage/README.md
     // "metadata-integration/java/openlineage-converter/README"
