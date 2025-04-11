@@ -1065,8 +1065,8 @@ jobs:
   datahub_actions_scan:
     name: "[Monitoring] Scan Frontend images for vulnerabilities"
     runs-on: depot-ubuntu-24.04
-    needs: [setup, smoke_test_lint,frontend_build]
-    if: ${{ needs.setup.outputs.frontend_change == 'true' || needs.setup.outputs.publish == 'true' }}
+    needs: [setup, smoke_test_lint,datahub_actions_build]
+    if: ${{ needs.setup.outputs.actions_change == 'true' || needs.setup.outputs.publish == 'true' }}
     permissions:
       contents: read # for actions/checkout to fetch code
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
