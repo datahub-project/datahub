@@ -941,13 +941,13 @@ def test_no_hidden_assets(pytestconfig, tmp_path, mock_datahub_graph):
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-def test_ingest_hidden_dashboards(pytestconfig, tmp_path, mock_datahub_graph):
-    output_file_name: str = "tableau_ingest_hidden_dashboards_mces.json"
-    golden_file_name: str = "tableau_ingest_hidden_dashboards_golden.json"
+def test_ingest_hidden_worksheets(pytestconfig, tmp_path, mock_datahub_graph):
+    output_file_name: str = "tableau_ingest_hidden_worksheets_mces.json"
+    golden_file_name: str = "tableau_ingest_hidden_worksheets_golden.json"
 
     new_config = config_source_default.copy()
     del new_config["projects"]
-    new_config["ingest_hidden_assets"] = ["dashboard"]
+    new_config["ingest_hidden_assets"] = ["worksheet"]
 
     tableau_ingest_common(
         pytestconfig,
