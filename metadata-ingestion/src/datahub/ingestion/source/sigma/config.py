@@ -18,7 +18,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
-from datahub.utilities.lossy_collections import LossyDict
 
 logger = logging.getLogger(__name__)
 
@@ -81,8 +80,8 @@ class WorkspaceCounts(BaseModel):
 class SigmaWorkspaceEntityFilterReport(EntityFilterReport):
     type: str = "workspace"
 
-    workspace_counts: LossyDict[str, WorkspaceCounts] = Field(
-        default_factory=LossyDict,
+    workspace_counts: Dict[str, WorkspaceCounts] = Field(
+        default_factory=dict,
         description="Counts of workbooks, datasets, elements and pages in each workspace.",
     )
 
