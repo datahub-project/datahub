@@ -1151,7 +1151,7 @@ jobs:
       - name: run quickstart
         env:
           DATAHUB_TELEMETRY_ENABLED: false
-          DATAHUB_VERSION: ${{ needs.setup.outputs.unique_tag }}
+          DATAHUB_VERSION: pr-build
           DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
           ACTIONS_VERSION: ${{ needs.datahub_ingestion_slim_build.outputs.tag || 'head-slim' }}
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
