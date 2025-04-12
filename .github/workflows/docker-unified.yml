@@ -46,9 +46,9 @@ env:
   ACRYLIO_DOCKER_INTEGRATIONS_IMAGE: 'acrylio/acryl-integrations-service'
   ACRYLIO_DOCKER_EXECUTOR_IMAGE: 'acrylio/acryl-executor'
 
-  #DOCKER_CACHE: "DEPOT"
-  DEPOT_PROJECT_ID: ${{ vars.DEPOT_PROJECT_ID }}
-  DEPOT_TOKEN: ${{ secrets.DEPOT_TOKEN }}
+  DOCKER_CACHE: "DEPOT"
+  DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
+  DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
 
   CI_BUILD_ID: ${{ github.run_id }}
 
@@ -185,6 +185,8 @@ jobs:
     name: Prepare all images
     runs-on: depot-ubuntu-24.04-4
     needs: setup
+    outputs:
+      build_id: ${{ steps.capture-build-id.outputs.build_id }}
     steps:
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -225,7 +227,16 @@ jobs:
 
       - name: Build all Docker Contexts
         run: |
-          ./gradlew :docker:PrepareAllQuickStartConsumers :docker:datahub-ingestion:dockerPrepare 
+          ./gradlew :docker:buildImagesQuickstartDebugConsumers -PreleaseVersion=pr-build
+
+      - name: Capture build Id
+        id: capture-build-id
+        if: ${{ env.DOCKER_CACHE == 'DEPOT' && env.DEPOT_PROJECT_ID != '' }}
+        run: |
+          pip install jq
+          DEPOT_BUILD_ID=$(jq -r '.["depot.build"]?.buildID' ${{ github.workspace }}/build/build-metadata.json)
+          
+          echo "build_id=${DEPOT_BUILD_ID}" >> "$GITHUB_OUTPUT"
 
       - uses: actions/cache/save@v4
         with:
@@ -238,14 +249,14 @@ jobs:
           path: |
             ~/.cache/uv
           key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
-  
+
       - uses: actions/cache/save@v4
         if: ${{ github.ref == 'refs/heads/acryl-main' }}
         with:
           path: |
             ~/.cache/yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
-  
+
 
   gms_build:
     name: Build and Push DataHub GMS Docker Image
@@ -934,12 +945,6 @@ jobs:
     needs: setup
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
-      - name: Free up disk space
-        if: false
-        run: |
-          sudo apt-get remove 'dotnet-*' azure-cli || true
-          sudo rm -rf /usr/local/lib/android/ || true
-          sudo docker image prune -a -f || true
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - name: Build and push Base Image
@@ -1048,11 +1053,6 @@ jobs:
     needs: [setup, datahub_ingestion_base_slim_build]
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
-      - name: Free up disk space
-        run: |
-          sudo apt-get remove 'dotnet-*' azure-cli || true
-          sudo rm -rf /usr/local/lib/android/ || true
-          sudo docker image prune -a -f || true
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - uses: actions/setup-python@v5
@@ -1068,11 +1068,6 @@ jobs:
       - name: Build codegen
         if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish =='true' || needs.setup.outputs.pr-publish =='true' }}
         run: ./gradlew :metadata-ingestion:codegen
-      - name: Download Base Image
-        uses: ishworkh/container-image-artifact-download@v2.0.0
-        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && needs.setup.outputs.ingestion_base_change == 'true' }}
-        with:
-          image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ needs.setup.outputs.ingestion_base_change == 'true' && needs.setup.outputs.unique_slim_tag || 'head-slim' }}
       - name: Login to AWS ECR
         uses: docker/login-action@v3
         if: ${{ needs.setup.outputs.docker-login == 'true' }}
@@ -1296,12 +1291,6 @@ jobs:
       matrix: ${{ fromJson(needs.smoke_test_matrix.outputs.matrix) }}
     if: ${{ always() && !failure() && !cancelled() && needs.smoke_test_matrix.outputs.matrix != '[]' }}
     steps:
-      - name: Free up disk space
-        if: false  # dont need this on depot
-        run: |
-          sudo apt-get remove 'dotnet-*' azure-cli || true
-          sudo rm -rf /usr/local/lib/android/ || true
-          sudo docker image prune -a -f || true
 
       - uses: actions/cache/restore@v3
         with:
@@ -1327,8 +1316,9 @@ jobs:
 
 
       - name: Set up Depot CLI
-        if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
+        if: ${{ env.DOCKER_CACHE == 'DEPOT' && env.DEPOT_PROJECT_ID != '' }}
         uses: depot/setup-action@v1
+
 
       - uses: actions/cache/restore@v4
         with:
@@ -1340,28 +1330,21 @@ jobs:
           python-version: "3.10"
           cache: "pip"
 
-      - name: build images
-        run: |
-          
-          docker pull confluentinc/cp-kafka:7.4.0 &
-          docker pull mysql:8.2 &
-          docker pull opensearchproject/opensearch:2.9.0 &
-          
-          ./gradlew :docker:datahub-ingestion:dockerFromCache -PdockerTarget=slim -PreleaseVersion=${{ needs.setup.outputs.unique_slim_tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }}
-          ./gradlew :docker:buildImagesFromCacheQuickstartDebugConsumers -PreleaseVersion=${{ needs.setup.outputs.unique_tag }}  &
-          wait
+      - name: pull images from depot
+        if: ${{ env.DOCKER_CACHE == 'DEPOT' && env.DEPOT_PROJECT_ID != '' }}
+        run: | 
+          depot pull --project ${{ env.DEPOT_PROJECT_ID }} ${{ needs.base_build.outputs.build_id }}
           docker images
-
       - name: run quickstart
         env:
           DATAHUB_TELEMETRY_ENABLED: false
-          DATAHUB_VERSION: ${{ needs.setup.outputs.unique_tag }}
+          DATAHUB_VERSION: pr-build
           DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_INGESTION_IMAGE }}
           ACTIONS_VERSION: ${{ needs.datahub_ingestion_slim_build.outputs.tag || 'head-slim' }}
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
-          DATAHUB_EXECUTOR_VERSION: ${{ needs.setup.outputs.unique_tag }}
-          DATAHUB_INTEGRATIONS_VERSION: ${{ needs.setup.outputs.unique_tag }}
+          DATAHUB_EXECUTOR_VERSION: pr-build
+          DATAHUB_INTEGRATIONS_VERSION: pr-build
         run: |
           ./smoke-test/run-quickstart.sh
 
@@ -1465,14 +1448,14 @@ jobs:
           path: |
             ~/.cache/uv
           key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
-    
+
       - uses: actions/cache/save@v4
         if: ${{ github.ref == 'refs/heads/acryl-main' }}
         with:
           path: |
             ~/.cache/yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
-  
+
   sync_deployments:
     name: Sync ArgoCD deployments
     runs-on: depot-ubuntu-22.04-small
