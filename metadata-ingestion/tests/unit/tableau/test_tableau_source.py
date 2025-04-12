@@ -39,42 +39,11 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from tests.test_helpers import test_connection_helpers
+from tests.unit.tableau.test_tableau_config import default_config
 
 FROZEN_TIME = "2021-12-07 07:00:00"
 
-GMS_PORT = 8080
-GMS_SERVER = f"http://localhost:{GMS_PORT}"
-
 test_resources_dir = pathlib.Path(__file__).parent
-
-config_source_default = {
-    "username": "username",
-    "password": "pass`",
-    "connect_uri": "https://do-not-connect",
-    "site": "acryl",
-    "projects": ["default", "Project 2", "Samples"],
-    "extract_project_hierarchy": False,
-    "page_size": 1000,
-    "workbook_page_size": None,
-    "ingest_tags": True,
-    "ingest_owner": True,
-    "ingest_tables_external": True,
-    "default_schema_map": {
-        "dvdrental": "public",
-        "someotherdb": "schema",
-    },
-    "platform_instance_map": {"postgres": "demo_postgres_instance"},
-    "extract_usage_stats": True,
-    "stateful_ingestion": {
-        "enabled": True,
-        "remove_stale_metadata": True,
-        "fail_safe_threshold": 100.0,
-        "state_provider": {
-            "type": "datahub",
-            "config": {"datahub_api": {"server": GMS_SERVER}},
-        },
-    },
-}
 
 
 def read_response(file_name):
@@ -88,16 +57,14 @@ def read_response(file_name):
 def test_tableau_test_connection_success():
     with mock.patch("datahub.ingestion.source.tableau.tableau.Server"):
         report = test_connection_helpers.run_test_connection(
-            TableauSource, config_source_default
+            TableauSource, default_config
         )
         test_connection_helpers.assert_basic_connectivity_success(report)
 
 
 @freeze_time(FROZEN_TIME)
 def test_tableau_test_connection_failure():
-    report = test_connection_helpers.run_test_connection(
-        TableauSource, config_source_default
-    )
+    report = test_connection_helpers.run_test_connection(TableauSource, default_config)
     test_connection_helpers.assert_basic_connectivity_failure(report, "Unable to login")
 
 
@@ -151,7 +118,7 @@ def test_connection_report_test(requests_mock):
         headers={"Content-Type": "application/xml"},
     )
 
-    report: TestConnectionReport = TableauSource.test_connection(config_source_default)
+    report: TestConnectionReport = TableauSource.test_connection(default_config)
 
     assert report
     assert report.capability_report
@@ -173,7 +140,7 @@ def test_connection_report_test(requests_mock):
         headers={"Content-Type": "application/xml"},
     )
 
-    report = TableauSource.test_connection(config_source_default)
+    report = TableauSource.test_connection(default_config)
 
     assert report
     assert report.capability_report
@@ -209,7 +176,7 @@ def test_tableau_no_verify():
 
 def test_tableau_unsupported_csql():
     context = PipelineContext(run_id="0", pipeline_name="test_tableau")
-    config_dict = config_source_default.copy()
+    config_dict = default_config.copy()
     del config_dict["stateful_ingestion"]
     config = TableauConfig.parse_obj(config_dict)
     config.extract_lineage_from_unsupported_custom_sql_queries = True

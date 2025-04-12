@@ -613,7 +613,7 @@ class TableauConfig(
         description="Configuration settings for ingesting Tableau groups and their capabilities as custom properties.",
     )
 
-    ingest_hidden_assets: Union[bool, List[Literal["worksheet", "dashboard"]]] = Field(
+    ingest_hidden_assets: Union[List[Literal["worksheet", "dashboard"]], bool] = Field(
         True,
         description=(
             "When enabled, hidden worksheets and dashboards are ingested into Datahub."
@@ -632,22 +632,6 @@ class TableauConfig(
     _fetch_size = pydantic_removed_field(
         "fetch_size",
     )
-
-    @validator("ingest_hidden_assets")
-    def validate_ingest_hidden_assets(
-        cls, value: Union[bool, List[str]]
-    ) -> Union[bool, List[str]]:
-        if isinstance(value, bool):
-            return value
-        for asset_type in value:
-            if not isinstance(asset_type, str) or asset_type.lower() not in [
-                "worksheet",
-                "dashboard",
-            ]:
-                raise ValueError(
-                    f"Invalid asset type '{asset_type}' in ingest_hidden_assets. Supported types are 'worksheet' and 'dashboard'."
-                )
-        return [v.lower() for v in value]
 
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
     @root_validator(pre=True)

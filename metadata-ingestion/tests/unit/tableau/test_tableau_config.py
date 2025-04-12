@@ -14,15 +14,46 @@ from datahub.ingestion.source.tableau.tableau import (
     TableauSiteSource,
     TableauSourceReport,
 )
-from tests.unit.tableau.test_tableau_source import config_source_default
 
 FROZEN_TIME = "2021-12-07 07:00:00"
+
+GMS_PORT = 8080
+GMS_SERVER = f"http://localhost:{GMS_PORT}"
+
+default_config = {
+    "username": "username",
+    "password": "pass`",
+    "connect_uri": "https://do-not-connect",
+    "site": "acryl",
+    "projects": ["default", "Project 2", "Samples"],
+    "extract_project_hierarchy": False,
+    "page_size": 1000,
+    "workbook_page_size": None,
+    "ingest_tags": True,
+    "ingest_owner": True,
+    "ingest_tables_external": True,
+    "default_schema_map": {
+        "dvdrental": "public",
+        "someotherdb": "schema",
+    },
+    "platform_instance_map": {"postgres": "demo_postgres_instance"},
+    "extract_usage_stats": True,
+    "stateful_ingestion": {
+        "enabled": True,
+        "remove_stale_metadata": True,
+        "fail_safe_threshold": 100.0,
+        "state_provider": {
+            "type": "datahub",
+            "config": {"datahub_api": {"server": GMS_SERVER}},
+        },
+    },
+}
 
 
 def test_value_error_projects_and_project_pattern(
     pytestconfig, tmp_path, mock_datahub_graph
 ):
-    new_config = config_source_default.copy()
+    new_config = default_config.copy()
     new_config["projects"] = ["default"]
     new_config["project_pattern"] = {"allow": ["^Samples$"]}
 
@@ -34,7 +65,7 @@ def test_value_error_projects_and_project_pattern(
 
 
 def test_project_pattern_deprecation(pytestconfig, tmp_path, mock_datahub_graph):
-    new_config = config_source_default.copy()
+    new_config = default_config.copy()
     del new_config["projects"]
     new_config["project_pattern"] = {"allow": ["^Samples$"]}
     new_config["project_path_pattern"] = {"allow": ["^Samples$"]}
@@ -44,6 +75,37 @@ def test_project_pattern_deprecation(pytestconfig, tmp_path, mock_datahub_graph)
         match=r".*project_pattern is deprecated. Please use project_path_pattern only*",
     ):
         TableauConfig.parse_obj(new_config)
+
+
+def test_ingest_hidden_assets_bool():
+    config_dict = default_config.copy()
+    config_dict["ingest_hidden_assets"] = False
+    config = TableauConfig.parse_obj(config_dict)
+    assert config.ingest_hidden_assets is False
+
+
+def test_ingest_hidden_assets_list():
+    config_dict = default_config.copy()
+    config_dict["ingest_hidden_assets"] = ["dashboard"]
+    config = TableauConfig.parse_obj(config_dict)
+    assert config.ingest_hidden_assets == ["dashboard"]
+
+
+def test_ingest_hidden_assets_multiple():
+    config_dict = default_config.copy()
+    config_dict["ingest_hidden_assets"] = ["dashboard", "worksheet"]
+    config = TableauConfig.parse_obj(config_dict)
+    assert config.ingest_hidden_assets == ["dashboard", "worksheet"]
+
+
+def test_ingest_hidden_assets_invalid():
+    config = default_config.copy()
+    config["ingest_hidden_assets"] = ["worksheet", "invalid"]
+    with pytest.raises(
+        ValidationError,
+        match=r".*unexpected value.*given=invalid.*",
+    ):
+        TableauConfig.parse_obj(config)
 
 
 @freeze_time(FROZEN_TIME)
@@ -57,7 +119,7 @@ def test_project_pattern_deprecation(pytestconfig, tmp_path, mock_datahub_graph)
 def test_extract_project_hierarchy(extract_project_hierarchy, allowed_projects):
     context = PipelineContext(run_id="0", pipeline_name="test_tableau")
 
-    config_dict = config_source_default.copy()
+    config_dict = default_config.copy()
 
     del config_dict["stateful_ingestion"]
     del config_dict["projects"]
