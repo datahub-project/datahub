@@ -60,7 +60,7 @@ public class SpringWebConfigTest extends AbstractTestNGSpringContextTests {
       var groupedApi = config.v3OpenApiGroup(entityRegistry, configurationProvider);
 
       // Execute the customizer
-      groupedApi.getOpenApiCustomizers().get(0).customise(openApi1);
+      groupedApi.getOpenApiCustomizers().forEach(c -> c.customise(openApi1));
 
       // Verify the merged components
       Map<String, Schema> mergedSchemas = openApi1.getComponents().getSchemas();
