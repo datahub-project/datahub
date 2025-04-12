@@ -158,6 +158,8 @@ jobs:
     name: Prepare all images
     runs-on: depot-ubuntu-24.04-4
     needs: setup
+    outputs:
+      build_id: ${{ steps.capture-build-id.outputs.build_id }}
     steps:
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -195,12 +197,19 @@ jobs:
       - name: Build all Docker Contexts
         run: |
           ./gradlew :docker:buildImagesQuickstartDebugConsumers -PreleaseVersion=pr-build
+      
+      - name: Capture build Id
+        id: capture-build-id
+        run: |
+          pip install jq
+          DEPOT_BUILD_ID=$(jq -r '.["depot.build"]?.buildID' ${{ github.workspace }}/build/build-metadata.json)
+          echo DEPOT_BUILD_ID
+          echo "build_id=${DEPOT_BUILD_ID}" >> "$GITHUB_OUTPUT"
 
-
-      - uses: actions/cache/save@v4
-        with:
-          path: ${{ github.workspace }}/build/dockerBuildContext/
-          key: ${{ runner.os }}-docker-${{ github.sha }}
+      #- uses: actions/cache/save@v4
+      #  with:
+      #    path: ${{ github.workspace }}/build/dockerBuildContext/
+      #    key: ${{ runner.os }}-docker-${{ github.sha }}
 
 
   gms_build:
@@ -1113,15 +1122,15 @@ jobs:
         if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
         uses: depot/setup-action@v1
 
-      - name: configure-docker
-        if: ${{ env.DOCKER_CACHE == 'DEPOT' && env.DOCKER_PROJECT_ID != '' }}
-        run: |
-          depot configure-docker
+      #- name: configure-docker
+      #  if: ${{ env.DOCKER_CACHE == 'DEPOT' && env.DEPOT_PROJECT_ID != '' }}
+      #  run: |
+      #    depot configure-docker
 
-      - uses: actions/cache/restore@v4
-        with:
-          path: ${{ github.workspace }}/build/dockerBuildContext/
-          key: ${{ runner.os }}-docker-${{ github.sha }}
+      #- uses: actions/cache/restore@v4
+      #  with:
+      #    path: ${{ github.workspace }}/build/dockerBuildContext/
+      #    key: ${{ runner.os }}-docker-${{ github.sha }}
   
       - uses: actions/setup-python@v5
         with:
@@ -1138,6 +1147,7 @@ jobs:
 #            password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
 
       - name: build images
+        if: false
         run: |
           docker pull confluentinc/cp-kafka:7.4.0 &
           docker pull mysql:8.2 &
@@ -1148,6 +1158,10 @@ jobs:
           wait
           docker images
 
+      - name: pull images from depot
+        run: | 
+          depot pull --project ${{ env.DEPOT_PROJECT_ID }} ${{ needs.base_build.outputs.build_id }}
+          docker images
       - name: run quickstart
         env:
           DATAHUB_TELEMETRY_ENABLED: false
