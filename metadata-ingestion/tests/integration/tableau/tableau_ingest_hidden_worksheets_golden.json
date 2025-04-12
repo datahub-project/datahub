@@ -17,7 +17,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -34,7 +34,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -51,7 +51,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -70,7 +70,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -87,7 +87,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -108,7 +108,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -125,7 +125,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -142,7 +142,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -161,7 +161,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -178,7 +178,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -199,7 +199,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -216,7 +216,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -233,7 +233,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -252,7 +252,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -269,7 +269,137 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:beaddce9d1e89ab503ae6408fb77d4ce",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:beaddce9d1e89ab503ae6408fb77d4ce",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "tableau",
+                "project_id": "79d02655-88e5-45a6-9f9b-eeaf5fe54903"
+            },
+            "name": "DenyProject"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:beaddce9d1e89ab503ae6408fb77d4ce",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:beaddce9d1e89ab503ae6408fb77d4ce",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:tableau"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:beaddce9d1e89ab503ae6408fb77d4ce",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:beaddce9d1e89ab503ae6408fb77d4ce",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b",
+                    "urn": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:008e111aa1d250dd52e0fd5d4b307b1a",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -292,7 +422,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -309,7 +439,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -326,7 +456,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -345,7 +475,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -372,24 +502,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:008e111aa1d250dd52e0fd5d4b307b1a",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -411,7 +524,24 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -434,7 +564,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -451,7 +581,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -468,7 +598,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -487,7 +617,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -514,7 +644,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -535,24 +665,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -574,7 +687,24 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:047691e9c16bec8fb08e1df0f5d71c4d",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -597,7 +727,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -614,7 +744,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -631,7 +761,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -650,7 +780,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -677,24 +807,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:047691e9c16bec8fb08e1df0f5d71c4d",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -716,7 +829,24 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:94e6e84b66f9ee8c70c22f06cfbad6a9",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -739,7 +869,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -756,7 +886,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -773,7 +903,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -792,7 +922,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -819,24 +949,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:94e6e84b66f9ee8c70c22f06cfbad6a9",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -858,7 +971,153 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:595877512935338b94eac9e06cf20607",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:beaddce9d1e89ab503ae6408fb77d4ce"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:595877512935338b94eac9e06cf20607",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "tableau",
+                "workbook_id": "ee012e36-d916-4c21-94ab-f0d66736af4e"
+            },
+            "externalUrl": "https://do-not-connect/#/site/acryl/workbooks/17904",
+            "name": "Deny Pattern WorkBook",
+            "description": ""
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:595877512935338b94eac9e06cf20607",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:595877512935338b94eac9e06cf20607",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:tableau"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:595877512935338b94eac9e06cf20607",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Workbook"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:595877512935338b94eac9e06cf20607",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:jawadqu@gmail.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:595877512935338b94eac9e06cf20607",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b",
+                    "urn": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
+                },
+                {
+                    "id": "urn:li:container:beaddce9d1e89ab503ae6408fb77d4ce",
+                    "urn": "urn:li:container:beaddce9d1e89ab503ae6408fb77d4ce"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -880,7 +1139,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -952,7 +1211,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -969,7 +1228,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -1143,7 +1402,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -1169,7 +1428,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -1239,7 +1498,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -1256,7 +1515,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -1716,7 +1975,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -1742,7 +2001,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -1812,7 +2071,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -1829,7 +2088,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -2341,7 +2600,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -2367,7 +2626,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -2437,7 +2696,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -2454,7 +2713,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -2862,7 +3121,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -2888,7 +3147,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -2958,7 +3217,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -2975,7 +3234,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -3019,7 +3278,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -3045,7 +3304,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -3115,7 +3374,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -3132,7 +3391,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -3344,7 +3603,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -3370,7 +3629,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -3444,7 +3703,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -3461,7 +3720,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -3548,7 +3807,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -3574,7 +3833,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -3647,7 +3906,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -3664,7 +3923,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -4061,7 +4320,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -4087,7 +4346,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -4160,7 +4419,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -4177,7 +4436,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -4542,7 +4801,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -4568,7 +4827,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -4641,7 +4900,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -4658,7 +4917,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -5055,7 +5314,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -5081,7 +5340,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -5151,7 +5410,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -5168,7 +5427,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -5449,7 +5708,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -5475,7 +5734,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -5548,7 +5807,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -5565,7 +5824,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -5823,7 +6082,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -5849,7 +6108,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -5919,7 +6178,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -5936,7 +6195,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -6220,7 +6479,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -6246,7 +6505,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -6319,7 +6578,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -6336,7 +6595,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -6672,7 +6931,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -6698,7 +6957,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -6771,7 +7030,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -6788,7 +7047,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -7098,7 +7357,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -7124,7 +7383,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -7194,7 +7453,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -7211,7 +7470,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -7440,7 +7699,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -7466,7 +7725,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -7539,7 +7798,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -7556,7 +7815,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -7814,7 +8073,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -7840,7 +8099,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -7910,7 +8169,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -7927,7 +8186,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -8078,7 +8337,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -8104,7 +8363,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -8177,7 +8436,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -8194,7 +8453,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -8530,7 +8789,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -8556,7 +8815,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -8629,7 +8888,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -8646,7 +8905,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -8878,7 +9137,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -8904,7 +9163,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -8977,7 +9236,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -8994,7 +9253,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -9252,7 +9511,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -9278,7 +9537,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -9351,7 +9610,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -9368,7 +9627,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -9652,7 +9911,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -9678,7 +9937,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -9748,7 +10007,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -9765,7 +10024,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -10104,7 +10363,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -10130,7 +10389,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -10200,7 +10459,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -10217,7 +10476,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -10304,7 +10563,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -10330,7 +10589,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -10352,7 +10611,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -10379,6 +10638,7 @@
                             "urn:li:chart:(tableau,f4317efd-c3e6-6ace-8fe6-e71b590bbbcc)"
                         ],
                         "datasets": [],
+                        "dashboards": [],
                         "lastModified": {
                             "created": {
                                 "time": 1640200234000,
@@ -10426,7 +10686,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -10443,7 +10703,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -10469,353 +10729,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
-    }
-},
-{
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
-            "urn": "urn:li:dashboard:(tableau,20e44c22-1ccd-301a-220c-7b6837d09a52)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
-                        "platform": "urn:li:dataPlatform:tableau"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
-                        "customProperties": {},
-                        "title": "dvd Rental Dashboard",
-                        "description": "",
-                        "charts": [
-                            "urn:li:chart:(tableau,8a6a269a-d6de-fae4-5050-513255b40ffc)"
-                        ],
-                        "datasets": [],
-                        "lastModified": {
-                            "created": {
-                                "time": 1639773866000,
-                                "actor": "urn:li:corpuser:jawadqu@gmail.com"
-                            },
-                            "lastModified": {
-                                "time": 1642199995000,
-                                "actor": "urn:li:corpuser:jawadqu@gmail.com"
-                            }
-                        },
-                        "dashboardUrl": "https://do-not-connect/#/site/acryl/views/dvdrental/dvdRentalDashboard"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": []
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                        "paths": [
-                            "/tableau/default/Dvdrental Workbook"
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:jawadqu@gmail.com",
-                                "type": "DATAOWNER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(tableau,20e44c22-1ccd-301a-220c-7b6837d09a52)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(tableau,20e44c22-1ccd-301a-220c-7b6837d09a52)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b",
-                    "urn": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
-                },
-                {
-                    "id": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1",
-                    "urn": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
-    }
-},
-{
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
-            "urn": "urn:li:dashboard:(tableau,39b7a1de-6276-cfc7-9b59-1d22f3bbb06b)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
-                        "platform": "urn:li:dataPlatform:tableau"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
-                        "customProperties": {},
-                        "title": "Story 1",
-                        "description": "",
-                        "charts": [],
-                        "datasets": [],
-                        "lastModified": {
-                            "created": {
-                                "time": 1639773866000,
-                                "actor": "urn:li:corpuser:jawadqu@gmail.com"
-                            },
-                            "lastModified": {
-                                "time": 1642199995000,
-                                "actor": "urn:li:corpuser:jawadqu@gmail.com"
-                            }
-                        },
-                        "dashboardUrl": "https://do-not-connect/#/site/acryl/views/dvdrental/Story1"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": []
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                        "paths": [
-                            "/tableau/default/Dvdrental Workbook"
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:jawadqu@gmail.com",
-                                "type": "DATAOWNER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(tableau,39b7a1de-6276-cfc7-9b59-1d22f3bbb06b)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(tableau,39b7a1de-6276-cfc7-9b59-1d22f3bbb06b)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b",
-                    "urn": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
-                },
-                {
-                    "id": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1",
-                    "urn": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
-    }
-},
-{
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
-            "urn": "urn:li:dashboard:(tableau,5dcaaf46-e6fb-2548-e763-272a7ab2c9b1)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
-                        "platform": "urn:li:dataPlatform:tableau"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
-                        "customProperties": {},
-                        "title": "Executive Dashboard",
-                        "description": "",
-                        "charts": [
-                            "urn:li:chart:(tableau,20fc5eb7-81eb-aa18-8c39-af501c62d085)",
-                            "urn:li:chart:(tableau,2b5351c1-535d-4a4a-1339-c51ddd6abf8a)",
-                            "urn:li:chart:(tableau,2b73b9dd-4ec7-75ca-f2e9-fa1984ca8b72)",
-                            "urn:li:chart:(tableau,373c6466-bb0c-b319-8752-632456349261)",
-                            "urn:li:chart:(tableau,53b8dc2f-8ada-51f7-7422-fe82e9b803cc)",
-                            "urn:li:chart:(tableau,58af9ecf-b839-da50-65e1-2e1fa20e3362)",
-                            "urn:li:chart:(tableau,618b3e76-75c1-cb31-0c61-3f4890b72c31)",
-                            "urn:li:chart:(tableau,721c3c41-7a2b-16a8-3281-6f948a44be96)",
-                            "urn:li:chart:(tableau,7ef184c1-5a41-5ec8-723e-ae44c20aa335)",
-                            "urn:li:chart:(tableau,7fbc77ba-0ab6-3727-0db3-d8402a804da5)",
-                            "urn:li:chart:(tableau,b207c2f2-b675-32e3-2663-17bb836a018b)",
-                            "urn:li:chart:(tableau,e70a540d-55ed-b9cc-5a3c-01ebe81a1274)",
-                            "urn:li:chart:(tableau,f76d3570-23b8-f74b-d85c-cc5484c2079c)"
-                        ],
-                        "datasets": [],
-                        "lastModified": {
-                            "created": {
-                                "time": 1639768450000,
-                                "actor": "urn:li:corpuser:jawadqu@gmail.com"
-                            },
-                            "lastModified": {
-                                "time": 1639768502000,
-                                "actor": "urn:li:corpuser:jawadqu@gmail.com"
-                            }
-                        },
-                        "dashboardUrl": "https://do-not-connect/#/site/acryl/views/ExecutiveDashboard/ExecutiveDashboard"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": []
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                        "paths": [
-                            "/tableau/default/Executive Dashboard"
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:jawadqu@gmail.com",
-                                "type": "DATAOWNER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(tableau,5dcaaf46-e6fb-2548-e763-272a7ab2c9b1)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:047691e9c16bec8fb08e1df0f5d71c4d"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(tableau,5dcaaf46-e6fb-2548-e763-272a7ab2c9b1)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b",
-                    "urn": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
-                },
-                {
-                    "id": "urn:li:container:047691e9c16bec8fb08e1df0f5d71c4d",
-                    "urn": "urn:li:container:047691e9c16bec8fb08e1df0f5d71c4d"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -11160,7 +11074,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -12958,7 +12872,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -12977,7 +12891,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -12994,7 +12908,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -13020,7 +12934,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -13036,7 +12950,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:tableau,10c6297d-0dbd-44f1-b1ba-458bea446513,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:tableau,22b0b4c3-6b85-713d-a161-5a87fdd78f40,PROD)",
                     "type": "TRANSFORMED"
                 },
                 {
@@ -13044,7 +12958,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:tableau,22b0b4c3-6b85-713d-a161-5a87fdd78f40,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:tableau,10c6297d-0dbd-44f1-b1ba-458bea446513,PROD)",
                     "type": "TRANSFORMED"
                 }
             ],
@@ -13122,7 +13036,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -13372,7 +13286,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -13391,7 +13305,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -13408,7 +13322,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -13434,7 +13348,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -13468,7 +13382,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -13890,7 +13804,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -13909,7 +13823,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -13926,7 +13840,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -13952,7 +13866,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -14388,7 +14302,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -15145,7 +15059,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -15164,7 +15078,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -15181,7 +15095,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -15207,7 +15121,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -15354,7 +15268,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -21979,7 +21893,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -21998,7 +21912,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -22015,7 +21929,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -22041,7 +21955,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -22231,7 +22145,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -26142,7 +26056,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -26161,7 +26075,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -26178,7 +26092,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -26204,7 +26118,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -26356,7 +26270,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -31529,7 +31443,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -31548,7 +31462,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -31565,7 +31479,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -31591,7 +31505,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -31715,7 +31629,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -31952,7 +31866,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -31971,7 +31885,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -31988,7 +31902,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -32014,7 +31928,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -32064,7 +31978,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -32191,7 +32105,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -32210,7 +32124,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -32227,7 +32141,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -32253,7 +32167,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -32358,7 +32272,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -32645,7 +32559,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -32664,7 +32578,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -32681,7 +32595,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -32703,7 +32617,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -32838,7 +32752,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -33725,7 +33639,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -33744,7 +33658,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -33761,7 +33675,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -33783,7 +33697,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -33800,7 +33714,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -33834,7 +33748,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -33970,7 +33884,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -33990,7 +33904,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -34016,7 +33930,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -34033,7 +33947,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -34075,7 +33989,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -34223,7 +34137,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -34243,7 +34157,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -34265,7 +34179,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -34353,7 +34267,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -34373,7 +34287,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -34397,7 +34311,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -34562,7 +34476,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -34589,7 +34503,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -34826,7 +34740,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -34853,7 +34767,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -35066,7 +34980,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -35093,7 +35007,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -35258,7 +35172,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -35285,7 +35199,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -35438,7 +35352,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -35465,7 +35379,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -35606,7 +35520,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -35633,7 +35547,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -35726,7 +35640,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -35753,7 +35667,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -35822,7 +35736,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -35846,7 +35760,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -35915,7 +35829,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -35939,7 +35853,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -36236,7 +36150,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -36260,7 +36174,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -37051,7 +36965,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -37078,7 +36992,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -37963,7 +37877,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -37990,7 +37904,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -38947,7 +38861,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -38974,7 +38888,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -39799,7 +39713,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -39826,7 +39740,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -40135,7 +40049,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -40162,7 +40076,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -41011,7 +40925,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -41038,7 +40952,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -42031,7 +41945,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -42058,7 +41972,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -42919,7 +42833,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -42946,7 +42860,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -42969,7 +42883,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -42993,7 +42907,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43016,7 +42930,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43040,7 +42954,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43062,7 +42976,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43086,7 +43000,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43103,7 +43017,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43120,7 +43034,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43137,7 +43051,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43154,7 +43068,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43171,7 +43085,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43188,7 +43102,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43205,7 +43119,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43222,7 +43136,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43239,7 +43153,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43256,7 +43170,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43273,7 +43187,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43290,7 +43204,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43307,7 +43221,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43324,7 +43238,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43341,7 +43255,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43358,7 +43272,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43375,7 +43289,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43392,7 +43306,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43409,7 +43323,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43426,7 +43340,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43443,7 +43357,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43460,7 +43374,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43477,7 +43391,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43494,58 +43408,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(tableau,20e44c22-1ccd-301a-220c-7b6837d09a52)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(tableau,39b7a1de-6276-cfc7-9b59-1d22f3bbb06b)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(tableau,5dcaaf46-e6fb-2548-e763-272a7ab2c9b1)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43562,7 +43425,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43579,7 +43442,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43596,7 +43459,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43613,7 +43476,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43630,7 +43493,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43647,7 +43510,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43664,7 +43527,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43681,7 +43544,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43698,7 +43561,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43715,7 +43578,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43732,7 +43595,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43749,7 +43612,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43766,7 +43629,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43783,7 +43646,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43800,7 +43663,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43817,7 +43680,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43834,7 +43697,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43851,7 +43714,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43868,7 +43731,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43885,7 +43748,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43902,7 +43765,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43919,7 +43782,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43936,7 +43799,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43953,7 +43816,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43970,7 +43833,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -43987,7 +43850,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -44004,7 +43867,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -44021,7 +43884,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -44038,7 +43901,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -44055,7 +43918,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -44072,7 +43935,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -44089,7 +43952,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -44106,7 +43969,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -44123,7 +43986,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -44140,7 +44003,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -44157,7 +44020,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -44174,7 +44037,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -44191,7 +44054,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -44208,7 +44071,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -44225,7 +44088,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -44242,7 +44105,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -44259,7 +44122,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -44276,7 +44139,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -44293,7 +44156,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -44310,7 +44173,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -44327,7 +44190,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -44344,7 +44207,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -44361,7 +44224,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -44378,7 +44241,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -44395,7 +44258,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 },
 {
@@ -44412,7 +44275,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
+        "pipelineName": "test_tableau_no_hidden_assets_ingest"
     }
 }
 ]
