@@ -18,8 +18,9 @@ dependencies {
     exclude group: 'org.slf4j', module: 'slf4j-api'
     exclude group: 'org.jboss.logging', module: 'jboss-logging'
   }
-  
+
   implementation project (':metadata-service:openapi-servlet:models')
+  implementation project(':metadata-service:events-service')
 
   implementation externalDependency.reflections
   implementation externalDependency.springBoot
