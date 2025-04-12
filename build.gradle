@@ -85,7 +85,7 @@ plugins {
   id 'com.gorylenko.gradle-git-properties' version '2.4.1'
   id 'com.gradleup.shadow' version '8.3.5' apply false
   id 'com.palantir.docker' version '0.35.0' apply false
-  id 'com.avast.gradle.docker-compose' version '0.17.6'
+  id 'com.avast.gradle.docker-compose' version '0.17.12'
   id "com.diffplug.spotless" version "6.23.3"
   // https://blog.ltgt.net/javax-jakarta-mess-and-gradle-solution/
   // TODO id "org.gradlex.java-ecosystem-capabilities" version "1.0"

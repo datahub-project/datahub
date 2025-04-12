@@ -155,14 +155,6 @@ dockerCompose {
     }
 }
 
-// Configure dependencies for ComposeUp tasks
-quickstart_configs.each { taskName, config ->
-    if (config.modules) {
-        tasks.getByName("${taskName}ComposeUp").dependsOn(
-                config.modules.collect { it + ":${config.isDebug ? 'dockerTagDebug' : 'dockerTag'}" }
-        )
-    }
-}
 
 // Register all quickstart tasks
 quickstart_configs.each { taskName, config ->
@@ -179,34 +171,119 @@ quickstart_configs.each { taskName, config ->
     }
 }
 
+
 quickstart_configs.each { taskName, config ->
-    tasks.register("buildImagesFromCache${taskName}") {
+    tasks.register("buildImages${taskName}", Exec) {
+        ext{
+            bakeSpec = [:]
+        }
         group = 'quickstart-ci'
+        dependsOn(config.modules.collect { it + ':generateBakeSnippet' })
+        dependsOn(tasks.getByName("prepareAll${taskName}"))
+
+        def jsonFile = new File(rootProject.buildDir, "bake-spec-${taskName}.json")
+
+        def buildCmd = []
+        if (System.getenv("DOCKER_CACHE") == "GITHUB") {
+            buildCmd += ["docker",  "buildx"]
+            def githubToken = System.getenv("GITHUB_TOKEN")
+            if (githubToken) {
+                dockerCmd += ["--cache-from", "type=gha,token=${githubToken}"]
+                dockerCmd += ["--cache-to", "type=gha,mode=max,token=${githubToken}"]
+            } else {
+                dockerCmd += ["--cache-from", "type=gha"]
+                dockerCmd += ["--cache-to", "type=gha,mode=max"]
+            }
+        } else if (System.getenv("DOCKER_CACHE") == "DEPOT") {
+            buildCmd += ["depot" ]
+        } else {
+            buildCmd += ["docker",  "buildx" ]
+        }
+        buildCmd += ["bake", "-f",  "${jsonFile.absolutePath}"]
+        commandLine buildCmd
+        workingDir rootProject.projectDir
+
+        doFirst {
+            def bakeSnippets = [:]
+            def targets = []
+
+            config.modules.each { module ->
+                def moduleProject = project.project(module)
+                def generateBakeSnippetsTask = moduleProject.tasks.getByName("generateBakeSnippet")
+                bakeSnippets.putAll(generateBakeSnippetsTask.bakeSpec.target)
+                targets.addAll(generateBakeSnippetsTask.bakeSpec.target.keySet())
+            }
+
+            ext.bakeSpec.group = [ "default": ["targets": targets] ]
+            ext.bakeSpec.target = bakeSnippets
+
+            jsonFile.parentFile.mkdirs()
+            jsonFile.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(ext.bakeSpec))
+        }
     }
 }
 
+//TODO This is a copy of buildImages* tasks but without the prepareAll dependency. Need to refactor to avoid code duplication.
+quickstart_configs.each { taskName, config ->
+    tasks.register("buildImagesFromCache${taskName}", Exec) {
+        ext{
+            bakeSpec = [:]
+        }
+        group = 'quickstart-ci'
+        dependsOn(config.modules.collect { it + ':generateBakeSnippet' })
+
+        def jsonFile = new File(rootProject.buildDir, "bake-spec-${taskName}.json")
+
+        def buildCmd = []
+        if (System.getenv("DOCKER_CACHE") == "GITHUB") {
+            buildCmd += ["docker",  "buildx"]
+            def githubToken = System.getenv("GITHUB_TOKEN")
+            if (githubToken) {
+                dockerCmd += ["--cache-from", "type=gha,token=${githubToken}"]
+                dockerCmd += ["--cache-to", "type=gha,mode=max,token=${githubToken}"]
+            } else {
+                dockerCmd += ["--cache-from", "type=gha"]
+                dockerCmd += ["--cache-to", "type=gha,mode=max"]
+            }
+        } else if (System.getenv("DOCKER_CACHE") == "DEPOT") {
+            buildCmd += ["depot" ]
+        } else {
+            buildCmd += ["docker",  "buildx" ]
+        }
+        buildCmd += ["bake", "-f",  "${jsonFile.absolutePath}"]
+        commandLine buildCmd
+        workingDir rootProject.projectDir
+
+        doFirst {
+            def bakeSnippets = [:]
+            def targets = []
+
+            config.modules.each { module ->
+                def moduleProject = project.project(module)
+                def generateBakeSnippetsTask = moduleProject.tasks.getByName("generateBakeSnippet")
+                bakeSnippets.putAll(generateBakeSnippetsTask.bakeSpec.target)
+                targets.addAll(generateBakeSnippetsTask.bakeSpec.target.keySet())
+            }
+
+            ext.bakeSpec.group = [ "default": ["targets": targets] ]
+            ext.bakeSpec.target = bakeSnippets
+
+            jsonFile.parentFile.mkdirs()
+            jsonFile.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(ext.bakeSpec))
+        }
+    }
+}
+
+
+// Configure dependencies for ComposeUp tasks
 quickstart_configs.each { taskName, config ->
     if (config.modules) {
-        tasks.getByName("buildImagesFromCache${taskName}").dependsOn(
-            config.modules.collect { it + ':dockerFromCache' }
+        tasks.getByName("${taskName}ComposeUp").dependsOn(
+                tasks.getByName("buildImages${taskName}")
         )
     }
 }
 
-
-quickstart_configs.each { taskName, config ->
-    tasks.register("buildImages${taskName}") {
-        group = 'quickstart-ci'
-    }
-}
-
-quickstart_configs.each { taskName, config ->
-    if (config.modules) {
-        tasks.getByName("buildImages${taskName}").dependsOn(
-            config.modules.collect { it + ':dockerTag' }
-        )
-    }
-}
 
 tasks.register('minDockerCompose2.20', Exec) {
     executable 'bash'
