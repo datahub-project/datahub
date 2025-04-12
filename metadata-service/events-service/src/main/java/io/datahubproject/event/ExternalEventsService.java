@@ -1,7 +1,10 @@
-package io.acryl.event;
+package io.datahubproject.event;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.acryl.event.kafka.KafkaConsumerPool;
+import io.datahubproject.event.exception.UnsupportedTopicException;
+import io.datahubproject.event.kafka.KafkaConsumerPool;
+import io.datahubproject.event.models.v1.ExternalEvent;
+import io.datahubproject.event.models.v1.ExternalEvents;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.Duration;
@@ -213,40 +216,24 @@ public class ExternalEventsService {
    * @throws Exception if decoding fails
    */
   private Map<TopicPartition, Long> decodeOffsetId(final String offsetId) throws Exception {
-    try {
-      String json = new String(Base64.getDecoder().decode(offsetId));
-      Map<String, Long> serializedOffsets =
-          objectMapper.readValue(
-              json,
-              objectMapper.getTypeFactory().constructMapType(Map.class, String.class, Long.class));
+    // Decode the Base64-encoded string to a JSON string
+    String json = new String(Base64.getDecoder().decode(offsetId));
 
-      return serializedOffsets.entrySet().stream()
-          .collect(
-              Collectors.toMap(
-                  entry -> {
-                    String key = entry.getKey();
-                    int lastHyphenIndex = key.lastIndexOf("-");
+    // Deserialize the JSON string to a map with String keys (topic-partition)
+    Map<String, Long> serializedOffsets =
+        objectMapper.readValue(
+            json,
+            objectMapper.getTypeFactory().constructMapType(Map.class, String.class, Long.class));
 
-                    // Validate the format to avoid issues
-                    if (lastHyphenIndex == -1 || lastHyphenIndex == key.length() - 1) {
-                      throw new IllegalArgumentException("Invalid offset format: " + key);
-                    }
-
-                    String topic = key.substring(0, lastHyphenIndex);
-                    String partitionStr = key.substring(lastHyphenIndex + 1);
-
-                    // Ensure the partition string is numeric
-                    if (!partitionStr.matches("\\d+")) {
-                      throw new IllegalArgumentException(
-                          "Invalid partition number in offset: " + key);
-                    }
-
-                    return new TopicPartition(topic, Integer.parseInt(partitionStr));
-                  },
-                  Map.Entry::getValue));
-    } catch (IllegalArgumentException | IOException e) {
-      throw new Exception("Failed to decode and parse offsetId: " + offsetId, e);
-    }
+    // Convert the map with String keys back into a map with TopicPartition keys
+    return serializedOffsets.entrySet().stream()
+        .collect(
+            Collectors.toMap(
+                entry -> {
+                  String[] parts = entry.getKey().split("-");
+                  return new TopicPartition(parts[0], Integer.parseInt(parts[1]));
+                },
+                Map.Entry::getValue));
   }
 
   /**

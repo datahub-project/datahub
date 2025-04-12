@@ -1,4 +1,4 @@
-package io.acryl.event;
+package io.datahubproject.event.exception;
 
 public class UnsupportedTopicException extends RuntimeException {
   public UnsupportedTopicException(String topic) {

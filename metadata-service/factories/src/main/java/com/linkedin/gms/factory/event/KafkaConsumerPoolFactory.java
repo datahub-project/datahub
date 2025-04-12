@@ -1,13 +1,15 @@
-package com.linkedin.gms.factory.kafka;
+package com.linkedin.gms.factory.event;
 
-import io.acryl.event.kafka.KafkaConsumerPool;
+import io.datahubproject.event.kafka.KafkaConsumerPool;
 import org.apache.avro.generic.GenericRecord;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 
+@ConditionalOnProperty(name = "eventsApi.enabled", havingValue = "true")
 @Configuration
 public class KafkaConsumerPoolFactory {
   @Value("${kafka.consumerPool.initialSize:5}")

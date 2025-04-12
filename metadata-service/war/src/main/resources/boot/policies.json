@@ -43,10 +43,10 @@
         "VIEW_DOCUMENTATION_FORMS_PAGE",
         "MANAGE_FEATURES",
         "MANAGE_SYSTEM_OPERATIONS",
+        "GET_PLATFORM_EVENTS",
         "CREATE_CONSTRAINTS",
         "MANAGE_CONNECTIONS",
         "MANAGE_MONITORS",
-        "GET_PLATFORM_EVENTS",
         "MANAGE_ORGANIZATION_DISPLAY_PREFERENCES"
       ],
       "displayName": "Root User - All Platform Privileges",

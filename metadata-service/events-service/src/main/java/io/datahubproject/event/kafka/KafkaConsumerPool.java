@@ -1,4 +1,4 @@
-package io.acryl.event.kafka;
+package io.datahubproject.event.kafka;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -10,6 +10,7 @@ public class KafkaConsumerPool {
 
   private final BlockingQueue<KafkaConsumer<String, GenericRecord>> consumerPool;
   private final ConsumerFactory<String, GenericRecord> consumerFactory;
+  private final int initialPoolSize;
   private final int maxPoolSize;
 
   public KafkaConsumerPool(
@@ -17,6 +18,7 @@ public class KafkaConsumerPool {
       final int initialPoolSize,
       final int maxPoolSize) {
     this.consumerFactory = consumerFactory;
+    this.initialPoolSize = initialPoolSize;
     this.maxPoolSize = maxPoolSize;
     this.consumerPool = new LinkedBlockingQueue<>();
 

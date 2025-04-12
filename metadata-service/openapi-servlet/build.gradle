@@ -12,15 +12,15 @@ dependencies {
   implementation project(':metadata-service:factories')
   implementation project(':metadata-service:schema-registry-api')
   implementation project(':metadata-service:scim-api')
-  implementation project(':metadata-service:events-api')
 
   implementation (externalDependency.scimServer) {
     exclude group: 'commons-logging', module: 'commons-logging'
     exclude group: 'org.slf4j', module: 'slf4j-api'
     exclude group: 'org.jboss.logging', module: 'jboss-logging'
   }
-  
+
   implementation project (':metadata-service:openapi-servlet:models')
+  implementation project(':metadata-service:events-service')
 
   implementation externalDependency.reflections
   implementation externalDependency.springBoot

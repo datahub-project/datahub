@@ -1,4 +1,4 @@
-package io.datahubproject.openapi.events;
+package io.datahubproject.event.models.v1;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
@@ -19,7 +19,4 @@ public class ExternalEventsResponse {
 
   @Schema(description = "The raw events")
   private List<ExternalEvent> events;
-
-  @Schema(description = "The error message if the request failed")
-  private String errorMessage;
 }

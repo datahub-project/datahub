@@ -88,13 +88,13 @@ include 'metadata-service:services'
 include 'metadata-service:configuration'
 include ':metadata-jobs:common'
 include 'metadata-service:scim-api'
-include 'metadata-service:events-api'
 include 'metadata-test-util:java'
 include ':metadata-operation-context'
 include ':metadata-service:openapi-servlet:models'
 include ':metadata-integration:java:datahub-schematron:lib'
 include ':metadata-integration:java:datahub-schematron:cli'
 include ':metadata-service:iceberg-catalog'
+include ':metadata-service:events-service'
 
 buildCache {
     def depotSecret = System.getenv('DEPOT_TOKEN');
