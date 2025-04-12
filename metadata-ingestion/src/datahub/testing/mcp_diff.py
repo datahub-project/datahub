@@ -2,7 +2,7 @@ import dataclasses
 import json
 import re
 from collections import defaultdict
-from typing import Any, Dict, List, Sequence, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 import deepdiff.serialization
 import yaml
@@ -34,6 +34,7 @@ class AspectForDiff:
     aspect_name: str
     aspect: Dict[str, Any] = dataclasses.field(hash=False)
     delta_info: "DeltaInfo" = dataclasses.field(hash=False, repr=False)
+    headers: Optional[Dict[str, str]] = dataclasses.field(default=None, hash=False)
 
     @classmethod
     def create_from_mcp(cls, idx: int, obj: Dict[str, Any]) -> "AspectForDiff":
@@ -44,6 +45,7 @@ class AspectForDiff:
             aspect_name=obj["aspectName"],
             aspect=aspect.get("json", aspect),
             delta_info=DeltaInfo(idx=idx, original=obj),
+            headers=obj.get("headers"),
         )
 
     def __repr__(self):
@@ -189,7 +191,7 @@ class MCPDiff:
         """
         aspect_diffs = [v for d in self.aspect_changes.values() for v in d.values()]
         for aspect_diff in aspect_diffs:
-            for _, old, new in aspect_diff.aspects_changed.keys():
+            for _, old, new in aspect_diff.aspects_changed:
                 golden[old.delta_info.idx] = new.delta_info.original
 
         indices_to_remove = set()
@@ -240,9 +242,12 @@ class MCPDiff:
                         s.append(serialize_aspect(ga.aspect))
                 for (i, old, new), diffs in aspect_diffs.aspects_changed.items():
                     s.append(self.report_aspect(old, i, "changed") + ":")
+
+                    print_aspects = False
                     for diff_level in diffs:
                         s.append(self.report_diff_level(diff_level, i))
-                    if verbose:
+                        print_aspects |= self.is_diff_level_on_aspect(diff_level)
+                    if verbose and print_aspects:
                         s.append(f"Old aspect:\n{serialize_aspect(old.aspect)}")
                         s.append(f"New aspect:\n{serialize_aspect(new.aspect)}")
 
@@ -270,6 +275,14 @@ class MCPDiff:
         return "\t" + deepdiff.serialization.pretty_print_diff(diff).replace(
             f"root[{idx}].", ""
         )
+
+    @staticmethod
+    def is_diff_level_on_aspect(diff: DiffLevel) -> bool:
+        skip_print_fields = ["changeType", "headers"]
+        try:
+            return diff.path(output_format="list")[1] not in skip_print_fields
+        except IndexError:
+            return True
 
 
 def serialize_aspect(aspect: Union[AspectForDiff, Dict[str, Any]]) -> str:

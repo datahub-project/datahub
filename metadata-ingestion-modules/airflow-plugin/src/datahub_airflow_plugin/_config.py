@@ -36,6 +36,9 @@ class DatahubLineageConfig(ConfigModel):
     # Cluster to associate with the pipelines and tasks. Defaults to "prod".
     cluster: str = builder.DEFAULT_FLOW_CLUSTER
 
+    # Platform instance to associate with the pipelines and tasks.
+    platform_instance: Optional[str] = None
+
     # If true, the owners field of the DAG will be captured as a DataHub corpuser.
     capture_ownership_info: bool = True
 
@@ -101,6 +104,7 @@ def get_lineage_config() -> DatahubLineageConfig:
     enabled = conf.get("datahub", "enabled", fallback=True)
     datahub_conn_id = conf.get("datahub", "conn_id", fallback="datahub_rest_default")
     cluster = conf.get("datahub", "cluster", fallback=builder.DEFAULT_FLOW_CLUSTER)
+    platform_instance = conf.get("datahub", "platform_instance", fallback=None)
     capture_tags_info = conf.get("datahub", "capture_tags_info", fallback=True)
     capture_ownership_info = conf.get(
         "datahub", "capture_ownership_info", fallback=True
@@ -128,6 +132,7 @@ def get_lineage_config() -> DatahubLineageConfig:
         enabled=enabled,
         datahub_conn_id=datahub_conn_id,
         cluster=cluster,
+        platform_instance=platform_instance,
         capture_ownership_info=capture_ownership_info,
         capture_ownership_as_group=capture_ownership_as_group,
         capture_tags_info=capture_tags_info,

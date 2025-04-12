@@ -33,6 +33,7 @@ export type StepProps = {
     submit: (shouldRun?: boolean) => void;
     cancel: () => void;
     ingestionSources: SourceConfig[];
+    isEditing: boolean;
 };
 
 export type StringMapEntryInput = {

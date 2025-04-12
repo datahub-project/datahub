@@ -483,7 +483,7 @@ class Dataset(StrictModel):
                                 f"{urn_prefix}:{prop_key}"
                                 if not prop_key.startswith(urn_prefix)
                                 else prop_key
-                                for prop_key in field.structured_properties.keys()
+                                for prop_key in field.structured_properties
                             ]
                         )
                     if field.glossaryTerms:
@@ -497,7 +497,7 @@ class Dataset(StrictModel):
                     f"{urn_prefix}:{prop_key}"
                     if not prop_key.startswith(urn_prefix)
                     else prop_key
-                    for prop_key in self.structured_properties.keys()
+                    for prop_key in self.structured_properties
                 ]
             )
         if self.glossary_terms:

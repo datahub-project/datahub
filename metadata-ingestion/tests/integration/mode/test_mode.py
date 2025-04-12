@@ -184,9 +184,9 @@ def test_mode_ingest_failure(pytestconfig, tmp_path):
         with pytest.raises(PipelineExecutionError) as exec_error:
             pipeline.raise_from_status()
         assert exec_error.value.args[0] == "Source reported errors"
-        assert len(exec_error.value.args[1].failures) == 1
+        assert len(exec_error.value.args[1]) == 1
         error_dict: StructuredLogEntry
-        _level, error_dict = exec_error.value.args[1].failures[0]
+        _level, error_dict = exec_error.value.args[1][0]
         error = next(iter(error_dict.context))
         assert "Simulate error" in error
         assert ERROR_URL in error
@@ -262,8 +262,8 @@ def test_mode_ingest_json_failure(pytestconfig, tmp_path):
         pipeline.raise_from_status(raise_warnings=False)
         with pytest.raises(PipelineExecutionError) as exec_error:
             pipeline.raise_from_status(raise_warnings=True)
-        assert len(exec_error.value.args[1].warnings) > 0
+        assert len(exec_error.value.args[1]) > 0
         error_dict: StructuredLogEntry
-        _level, error_dict = exec_error.value.args[1].warnings[0]
+        _level, error_dict = exec_error.value.args[1][0]
         error = next(iter(error_dict.context))
         assert "Expecting property name enclosed in double quotes" in error

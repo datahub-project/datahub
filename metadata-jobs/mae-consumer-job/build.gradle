@@ -30,6 +30,8 @@ dependencies {
     compileOnly externalDependency.lombok
     implementation externalDependency.logbackClassic
     runtimeOnly externalDependency.opentelemetryExporter
+    runtimeOnly externalDependency.openTelemetryExporterLogging
+    runtimeOnly externalDependency.openTelemetryExporterCommon
 
     testImplementation project(':metadata-dao-impl:kafka-producer')
     testImplementation project(':metadata-jobs:pe-consumer')
@@ -45,7 +47,7 @@ bootJar {
 
 docker {
     dependsOn(bootJar)
-    name "${docker_registry}/${docker_repo}:v${version}"
+    name "${docker_registry}/${docker_repo}:${versionTag}"
     //version "v${version}"
     dockerfile file("${rootProject.projectDir}/docker/${docker_repo}/Dockerfile")
     files bootJar.outputs.files

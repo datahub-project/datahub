@@ -10,7 +10,7 @@ import signal
 import subprocess
 import textwrap
 import time
-from typing import Any, Iterator, Sequence
+from typing import Any, Iterator, Optional, Sequence
 
 import packaging.version
 import pytest
@@ -36,6 +36,8 @@ DAGS_FOLDER = pathlib.Path(__file__).parent / "dags"
 GOLDENS_FOLDER = pathlib.Path(__file__).parent / "goldens"
 
 DAG_TO_SKIP_INGESTION = "dag_to_skip"
+
+PLATFORM_INSTANCE = "myairflow"
 
 
 @dataclasses.dataclass
@@ -179,6 +181,7 @@ def _run_airflow(
     dags_folder: pathlib.Path,
     is_v1: bool,
     multiple_connections: bool,
+    platform_instance: Optional[str],
 ) -> Iterator[AirflowInstance]:
     airflow_home = tmp_path / "airflow_home"
     print(f"Using airflow home: {airflow_home}")
@@ -255,6 +258,9 @@ def _run_airflow(
         "AIRFLOW__DATAHUB__DEBUG_EMITTER": "True",
         "SQLALCHEMY_SILENCE_UBER_WARNING": "1",
     }
+
+    if platform_instance:
+        environment["AIRFLOW__DATAHUB__PLATFORM_INSTANCE"] = platform_instance
 
     if multiple_connections:
         environment[f"AIRFLOW_CONN_{datahub_connection_name_2.upper()}"] = Connection(
@@ -364,15 +370,20 @@ class DagTestCase:
 
     v2_only: bool = False
     multiple_connections: bool = False
+    platform_instance: Optional[str] = None
 
 
 test_cases = [
-    DagTestCase("simple_dag", multiple_connections=True),
-    DagTestCase("basic_iolets"),
-    DagTestCase("dag_to_skip", v2_only=True),
+    DagTestCase(
+        "simple_dag", multiple_connections=True, platform_instance=PLATFORM_INSTANCE
+    ),
+    DagTestCase("basic_iolets", platform_instance=PLATFORM_INSTANCE),
+    DagTestCase("dag_to_skip", v2_only=True, platform_instance=PLATFORM_INSTANCE),
     DagTestCase("snowflake_operator", success=False, v2_only=True),
-    DagTestCase("sqlite_operator", v2_only=True),
-    DagTestCase("custom_operator_dag", v2_only=True),
+    DagTestCase("sqlite_operator", v2_only=True, platform_instance=PLATFORM_INSTANCE),
+    DagTestCase(
+        "custom_operator_dag", v2_only=True, platform_instance=PLATFORM_INSTANCE
+    ),
     DagTestCase("custom_operator_sql_parsing", v2_only=True),
     DagTestCase("datahub_emitter_operator_jinja_template_dag", v2_only=True),
     DagTestCase("athena_operator", v2_only=True),
@@ -454,6 +465,7 @@ def test_airflow_plugin(
         dags_folder=DAGS_FOLDER,
         is_v1=is_v1,
         multiple_connections=test_case.multiple_connections,
+        platform_instance=test_case.platform_instance,
     ) as airflow_instance:
         print(f"Running DAG {dag_id}...")
         _wait_for_dag_to_load(airflow_instance, dag_id)
@@ -560,6 +572,7 @@ if __name__ == "__main__":
         dags_folder=DAGS_FOLDER,
         is_v1=not HAS_AIRFLOW_LISTENER_API,
         multiple_connections=False,
+        platform_instance=None,
     ) as airflow_instance:
         # input("Press enter to exit...")
         print("quitting airflow")

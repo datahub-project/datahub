@@ -20,10 +20,12 @@ const ValuesContainerFlex = styled.div<{ renderType: TabRenderType }>`
     justify-content: flex-start;
     align-items: flex-start; /* Ensure items are aligned at the start */
     flex-wrap: wrap;
+    width: 100%;
 `;
 
 const ValueContainer = styled.div`
-    flex: 0 1 auto;
+    width: 100%;
+    max-width: 100%;
 `;
 
 export default function ValuesColumn({ propertyRow, filterText, hydratedEntityMap, renderType }: Props) {

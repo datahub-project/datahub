@@ -300,6 +300,25 @@ module.exports = {
           ],
         },
         {
+          "Remote Executor": [
+            {
+              type: "doc",
+              id: "docs/managed-datahub/remote-executor/about",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/remote-executor/monitoring",
+              className: "saasOnly",
+            },
+          ],
+        },
+        {
           "DataHub API": [
             {
               type: "doc",
@@ -336,11 +355,6 @@ module.exports = {
           "Operator Guides": [
             {
               type: "doc",
-              id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
-              className: "saasOnly",
-            },
-            {
-              type: "doc",
               id: "docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge",
               className: "saasOnly",
             },
@@ -367,6 +381,7 @@ module.exports = {
         },
         {
           "DataHub Cloud Release History": [
+            "docs/managed-datahub/release-notes/v_0_3_10",
             "docs/managed-datahub/release-notes/v_0_3_9",
             "docs/managed-datahub/release-notes/v_0_3_8",
             "docs/managed-datahub/release-notes/v_0_3_7",

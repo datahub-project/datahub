@@ -88,6 +88,20 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions): Colo
         };
     }
 
+    // Override styles for secondary variant
+    if (variant === 'secondary') {
+        return {
+            ...base,
+            bgColor: getColor('violet', 0),
+            hoverBgColor: getColor('violet', 100),
+            activeBgColor: getColor('violet', 200),
+            textColor: color500,
+            borderColor: 'transparent',
+            disabledBgColor: 'transparent',
+            disabledBorderColor: 'transparent',
+        };
+    }
+
     // Filled variable is the base style
     return base;
 };
@@ -96,16 +110,17 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions): Colo
 const getButtonVariantStyles = (variant: ButtonVariant, colorStyles: ColorStyles): CSSObject => {
     const variantStyles = {
         filled: {
-            backgroundColor: colorStyles.bgColor,
+            background: `radial-gradient(115.48% 144.44% at 50% -44.44%, var(--buttons-bg-2-for-gradient, #705EE4) 38.97%, var(--buttons-bg, #533FD1) 100%)`,
             border: `1px solid ${colorStyles.borderColor}`,
             color: colorStyles.textColor,
             '&:hover': {
-                backgroundColor: colorStyles.hoverBgColor,
+                background: `radial-gradient(115.48% 144.44% at 50% -44.44%, var(--buttons-bg-2-for-gradient, #705EE4) 38.97%, var(--buttons-bg, #533FD1) 100%)`,
                 border: `1px solid ${colorStyles.hoverBgColor}`,
                 boxShadow: shadows.sm,
             },
             '&:disabled': {
                 backgroundColor: colorStyles.disabledBgColor,
+                background: 'none',
                 border: `1px solid ${colorStyles.disabledBorderColor}`,
                 color: colorStyles.disabledTextColor,
                 boxShadow: shadows.xs,
@@ -138,6 +153,19 @@ const getButtonVariantStyles = (variant: ButtonVariant, colorStyles: ColorStyles
                 color: colorStyles.disabledTextColor,
             },
         },
+        secondary: {
+            backgroundColor: colorStyles.bgColor,
+            border: 'none',
+            color: colorStyles.textColor,
+            '&:hover': {
+                backgroundColor: colorStyles.hoverBgColor,
+                boxShadow: 'none',
+            },
+            '&:disabled': {
+                backgroundColor: colorStyles.disabledBgColor,
+                color: colorStyles.disabledTextColor,
+            },
+        },
     };
 
     return variantStyles[variant];
@@ -147,7 +175,7 @@ const getButtonVariantStyles = (variant: ButtonVariant, colorStyles: ColorStyles
 const getButtonFontStyles = (size: SizeOptions) => {
     const baseFontStyles = {
         fontFamily: typography.fonts.body,
-        fontWeight: typography.fontWeights.normal,
+        fontWeight: typography.fontWeights.semiBold,
         lineHeight: typography.lineHeights.none,
     };
 

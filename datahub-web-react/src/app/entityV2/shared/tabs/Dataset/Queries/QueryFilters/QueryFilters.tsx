@@ -79,6 +79,7 @@ export default function QueryFilters({
                     onChangeFilters={onChangeFilters}
                     activeFilters={[selectedColumnsFilter, selectedUsersFilter]}
                     labelStyle={selectedColumnsFilter.values?.length ? undefined : labelStyle}
+                    shouldUseAggregationsFromFilter
                 />
                 <SearchFilter
                     filter={usersFilter}
@@ -86,6 +87,7 @@ export default function QueryFilters({
                     onChangeFilters={onChangeFilters}
                     activeFilters={[selectedUsersFilter, selectedColumnsFilter]}
                     labelStyle={selectedUsersFilter.values?.length ? undefined : labelStyle}
+                    shouldUseAggregationsFromFilter
                 />
             </FiltersWrapper>
             <SelectedSearchFilters

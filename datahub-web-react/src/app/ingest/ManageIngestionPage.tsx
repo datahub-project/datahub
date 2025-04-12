@@ -1,6 +1,7 @@
 import { Tabs, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+import { useHistory } from 'react-router';
 import { IngestionSourceList } from './source/IngestionSourceList';
 import { useAppConfig } from '../useAppConfig';
 import { useUserContext } from '../context/useUserContext';
@@ -11,6 +12,7 @@ import {
     INGESTION_REFRESH_SOURCES_ID,
 } from '../onboarding/config/IngestionOnboardingConfig';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
+import { TabType } from './types';
 
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
@@ -53,17 +55,6 @@ const Tab = styled(Tabs.TabPane)`
 
 const ListContainer = styled.div``;
 
-enum TabType {
-    Sources = 'Sources',
-    Secrets = 'Secrets',
-    RemoteExecutors = 'Executors',
-}
-
-const TabTypeToListComponent = {
-    [TabType.Sources]: <IngestionSourceList />,
-    [TabType.Secrets]: <SecretsList />,
-};
-
 export const ManageIngestionPage = () => {
     /**
      * Determines which view should be visible: ingestion sources or secrets.
@@ -83,9 +74,18 @@ export const ManageIngestionPage = () => {
         }
     }, [loaded, me.loaded, showIngestionTab, selectedTab]);
 
-    const onClickTab = (newTab: string) => {
+    const history = useHistory();
+    const onSwitchTab = (newTab: string, options?: { clearQueryParams: boolean }) => {
         const matchingTab = Object.values(TabType).find((tab) => tab === newTab);
         setSelectedTab(matchingTab || selectedTab);
+        if (options?.clearQueryParams) {
+            history.push({ search: '' });
+        }
+    };
+
+    const TabTypeToListComponent = {
+        [TabType.Sources]: <IngestionSourceList />,
+        [TabType.Secrets]: <SecretsList />,
     };
 
     return (
@@ -97,7 +97,11 @@ export const ManageIngestionPage = () => {
                     Configure and schedule syncs to import data from your data sources
                 </Typography.Paragraph>
             </PageHeaderContainer>
-            <StyledTabs activeKey={selectedTab} size="large" onTabClick={(tab: string) => onClickTab(tab)}>
+            <StyledTabs
+                activeKey={selectedTab}
+                size="large"
+                onTabClick={(tab) => onSwitchTab(tab, { clearQueryParams: true })}
+            >
                 {showIngestionTab && <Tab key={TabType.Sources} tab={TabType.Sources} />}
                 {showSecretsTab && <Tab key={TabType.Secrets} tab={TabType.Secrets} />}
             </StyledTabs>
