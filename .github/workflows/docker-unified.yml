@@ -1080,7 +1080,7 @@ jobs:
 
   smoke_test:
     name: Run Smoke Tests
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: depot-ubuntu-24.04
     needs:
       [
         setup,
@@ -1119,18 +1119,8 @@ jobs:
 
 
       - name: Set up Depot CLI
-        if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
+        if: ${{ env.DOCKER_CACHE == 'DEPOT' && env.DEPOT_PROJECT_ID != '' }}
         uses: depot/setup-action@v1
-
-      #- name: configure-docker
-      #  if: ${{ env.DOCKER_CACHE == 'DEPOT' && env.DEPOT_PROJECT_ID != '' }}
-      #  run: |
-      #    depot configure-docker
-
-      #- uses: actions/cache/restore@v4
-      #  with:
-      #    path: ${{ github.workspace }}/build/dockerBuildContext/
-      #    key: ${{ runner.os }}-docker-${{ github.sha }}
   
       - uses: actions/setup-python@v5
         with:
@@ -1139,26 +1129,21 @@ jobs:
 
       #- uses: gradle/actions/setup-gradle@v4
 
-#      - name: Login to DockerHub
-#        uses: docker/login-action@v3
-#        if: ${{ needs.setup.outputs.docker-login == 'true' }}
-#        with:
-#            username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
-#            password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
 
       - name: build images
-        if: false
+        if: ${{ env.DOCKER_CACHE != 'DEPOT' || env.DEPOT_PROJECT_ID == '' }}
         run: |
           docker pull confluentinc/cp-kafka:7.4.0 &
           docker pull mysql:8.2 &
           docker pull opensearchproject/opensearch:2.9.0 &
           docker pull ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:head-slim  &
-          ./gradlew :docker:buildImagesFromCacheQuickstartDebugConsumers -PreleaseVersion=pr-build &
+          ./gradlew :docker:buildImagesQuickstartDebugConsumers -PreleaseVersion=pr-build &
 
           wait
           docker images
 
       - name: pull images from depot
+        if: ${{ env.DOCKER_CACHE == 'DEPOT' && env.DEPOT_PROJECT_ID != '' }}
         run: | 
           depot pull --project ${{ env.DEPOT_PROJECT_ID }} ${{ needs.base_build.outputs.build_id }}
           docker images
