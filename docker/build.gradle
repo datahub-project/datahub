@@ -183,9 +183,11 @@ quickstart_configs.each { taskName, config ->
 
         def jsonFile = new File(rootProject.buildDir, "bake-spec-${taskName}.json")
 
+        def bakeCmdArgs = ["bake", "-f",  "${jsonFile.absolutePath}"]
         def buildCmd = []
         if (System.getenv("DOCKER_CACHE") == "GITHUB") {
-            buildCmd += ["docker",  "buildx"]
+            buildCmd += ["docker",  "buildx" ]
+            buildCmd += bakeCmdArgs
             def githubToken = System.getenv("GITHUB_TOKEN")
             if (githubToken) {
                 dockerCmd += ["--cache-from", "type=gha,token=${githubToken}"]
@@ -195,11 +197,14 @@ quickstart_configs.each { taskName, config ->
                 dockerCmd += ["--cache-to", "type=gha,mode=max"]
             }
         } else if (System.getenv("DOCKER_CACHE") == "DEPOT") {
-            buildCmd += ["depot" ]
+            buildCmd << "depot"
+            buildCmd += bakeCmdArgs
+            buildCmd += ['--save', '--metadata-file', "${rootProject.buildDir}/build-metadata.json"]
         } else {
             buildCmd += ["docker",  "buildx" ]
+            buildCmd +=bakeCmdArgs
         }
-        buildCmd += ["bake", "-f",  "${jsonFile.absolutePath}"]
+        println(buildCmd.join(" "))
         commandLine buildCmd
         workingDir rootProject.projectDir
 
@@ -224,6 +229,7 @@ quickstart_configs.each { taskName, config ->
 }
 
 //TODO This is a copy of buildImages* tasks but without the prepareAll dependency. Need to refactor to avoid code duplication.
+/*
 quickstart_configs.each { taskName, config ->
     tasks.register("buildImagesFromCache${taskName}", Exec) {
         ext{
@@ -234,9 +240,11 @@ quickstart_configs.each { taskName, config ->
 
         def jsonFile = new File(rootProject.buildDir, "bake-spec-${taskName}.json")
 
+        bakeCmdArgs = ["bake", "-f",  "${jsonFile.absolutePath}"]
         def buildCmd = []
         if (System.getenv("DOCKER_CACHE") == "GITHUB") {
-            buildCmd += ["docker",  "buildx"]
+            buildCmd += ["docker",  "buildx" ]
+            buildCmd += bakeCmdArgs
             def githubToken = System.getenv("GITHUB_TOKEN")
             if (githubToken) {
                 dockerCmd += ["--cache-from", "type=gha,token=${githubToken}"]
@@ -246,11 +254,14 @@ quickstart_configs.each { taskName, config ->
                 dockerCmd += ["--cache-to", "type=gha,mode=max"]
             }
         } else if (System.getenv("DOCKER_CACHE") == "DEPOT") {
-            buildCmd += ["depot" ]
+            buildCmd << "depot"
+            buildCmd += bakeCmdArgs
+            buildCmd += ['--save', '--metadata-file', "${rootProject.buildDir}/build-metadata.json"]
         } else {
             buildCmd += ["docker",  "buildx" ]
+            buildCmd +=bakeCmdArgs
         }
-        buildCmd += ["bake", "-f",  "${jsonFile.absolutePath}"]
+        println(buildCmd.join(" "))
         commandLine buildCmd
         workingDir rootProject.projectDir
 
@@ -273,7 +284,7 @@ quickstart_configs.each { taskName, config ->
         }
     }
 }
-
+*/
 
 // Configure dependencies for ComposeUp tasks
 quickstart_configs.each { taskName, config ->
