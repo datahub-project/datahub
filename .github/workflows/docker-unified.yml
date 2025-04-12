@@ -194,7 +194,7 @@ jobs:
 
       - name: Build all Docker Contexts
         run: |
-          ./gradlew :docker:PrepareAllQuickStartConsumers
+          ./gradlew :docker:buildImagesQuickstartDebugConsumers -PreleaseVersion=pr-build
 
 
       - uses: actions/cache/save@v4
@@ -1139,11 +1139,11 @@ jobs:
 
       - name: build images
         run: |
-          ./gradlew :docker:buildImagesFromCacheQuickstartDebugConsumers -PreleaseVersion=${{ needs.setup.outputs.unique_tag }} &
           docker pull confluentinc/cp-kafka:7.4.0 &
           docker pull mysql:8.2 &
           docker pull opensearchproject/opensearch:2.9.0 &
           docker pull ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:head-slim  &
+          ./gradlew :docker:buildImagesFromCacheQuickstartDebugConsumers -PreleaseVersion=pr-build &
 
           wait
           docker images
