@@ -614,7 +614,7 @@ class TableauConfig(
     )
 
     ingest_hidden_assets: Union[List[Literal["worksheet", "dashboard"]], bool] = Field(
-        True,
+        default=["worksheet", "dashboard"],
         description=(
             "When enabled, hidden worksheets and dashboards are ingested into Datahub."
             " If a dashboard or worksheet is hidden in Tableau the luid is blank."
