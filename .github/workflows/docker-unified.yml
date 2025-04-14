@@ -1148,7 +1148,7 @@ jobs:
         uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ needs.datahub_actions_slim_build.outputs.needs_artifact_download == 'true' }}
         with:
-          image: ${{ env.DATAHUB_ACTIONS_IMAGE }}:${{ needs.datahub_actions_slim_build.outputs.slim_tag }}
+          image: ${{ env.DATAHUB_ACTIONS_IMAGE }}:${{ needs.setup.outputs.slim_tag }}
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@0.29.0
         env:
@@ -1156,7 +1156,7 @@ jobs:
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
           TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1,ghcr.io/aquasecurity/trivy-java-db:1
         with:
-          image-ref: ${{ env.DATAHUB_ACTIONS_IMAGE }}:${{ needs.datahub_actions_slim_build.outputs.slim_tag }}
+          image-ref: ${{ env.DATAHUB_ACTIONS_IMAGE }}:${{ needs.setup.outputs.slim_tag }}
           format: "template"
           template: "@/contrib/sarif.tpl"
           output: "trivy-results.sarif"
