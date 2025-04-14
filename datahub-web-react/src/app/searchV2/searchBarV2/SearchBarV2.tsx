@@ -181,8 +181,6 @@ export const SearchBarV2 = ({
         isDataLoading,
     ]);
 
-    const searchBarWrapperRef = useRef<HTMLDivElement>(null);
-
     const onChangeHandler = useCallback(
         (value: string) => {
             const filteredQuery = filterSearchQuery(value);
@@ -249,7 +247,6 @@ export const SearchBarV2 = ({
                 $isShowNavBarRedesign={isShowNavBarRedesign}
                 id={id}
                 style={viewsEnabled ? viewsEnabledStyle : style}
-                ref={searchBarWrapperRef}
             >
                 <StyledAutoComplete
                     dataTestId="search-bar"
