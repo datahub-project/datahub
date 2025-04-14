@@ -1127,7 +1127,6 @@ jobs:
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           build-args: |
             APP_ENV=slim
-            BASE_IMAGE=${{ env.DATAHUB_ACTIONS_IMAGE }}:${{ needs.setup.outputs.actions_change == 'true' && needs.setup.outputs.unique_tag || 'head' }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/datahub-actions/Dockerfile
