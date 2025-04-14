@@ -27,6 +27,7 @@ export default function ClickOutside({
 
             // Trigger `onClickOutside` if the click is on an element matching `outsideSelector`
             if (outsideSelector && target.closest(outsideSelector)) {
+                onClickOutside(event);
                 return;
             }
 
