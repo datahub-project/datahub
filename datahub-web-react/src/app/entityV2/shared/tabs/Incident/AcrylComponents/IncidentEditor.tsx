@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { CorpUser, IncidentStage, IncidentState, IncidentType } from '@src/types.generated';
 import { Input } from '@src/alchemy-components';
 import colors from '@src/alchemy-components/theme/foundations/colors';
@@ -43,7 +43,6 @@ export const IncidentEditor = ({
     entity,
     urn,
 }: IncidentEditorProps) => {
-    const assigneeValues = data?.assignees && getAssigneeWithURN(data.assignees);
     const isFormValid = Boolean(
         data?.title?.length &&
             data?.description &&
@@ -52,7 +51,6 @@ export const IncidentEditor = ({
     );
     const { user } = useUserContext();
     const userHasChangedState = useRef(false);
-    const isFirstRender = useRef(true);
     const [cachedAssignees, setCachedAssignees] = useState<CorpUser[]>([]);
     const [cachedLinkedAssets, setCachedLinkedAssets] = useState<string[]>([]);
     const [isLoadingAssigneeOrAssets, setIsLoadingAssigneeOrAssets] = useState(true);
@@ -72,19 +70,15 @@ export const IncidentEditor = ({
     });
     const formValues = Form.useWatch([], form);
 
+    const assigneeValues = useMemo(() => {
+        return data?.assignees && getAssigneeWithURN(data.assignees);
+    }, [data?.assignees]);
+
     useEffect(() => {
+        if (!form) return;
         // Set the initial value for the custom category field when it becomes visible
         if (formValues?.type === IncidentType.Custom) {
             if (form.getFieldValue('customType') === '') form.setFieldValue('customType', data?.customType || '');
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [formValues]);
-
-    useEffect(() => {
-        // Skip effect on first render
-        if (isFirstRender.current) {
-            isFirstRender.current = false;
-            return;
         }
 
         // Ensure we don't override user's choice if they manually change the state
@@ -95,8 +89,7 @@ export const IncidentEditor = ({
         ) {
             form.setFieldValue('state', IncidentState.Resolved);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [formValues?.status]);
+    }, [formValues, form, data?.customType, mode]);
 
     const handleValuesChange = (changedValues: any) => {
         Object.keys(changedValues).forEach((fieldName) => form.setFields([{ name: fieldName, errors: [] }]));
@@ -116,15 +109,37 @@ export const IncidentEditor = ({
         }
     };
 
-    const actionButtonLabel = mode === IncidentAction.CREATE ? 'Create' : 'Update';
     const showCustomCategory = form.getFieldValue('type') === IncidentType.Custom;
-    const isLinkedAssetPresent = !formValues?.resourceUrns?.length;
+    const isLinkedAssetMissing = !formValues?.resourceUrns?.length;
     const isSubmitButtonDisabled =
         !validateForm(form) ||
         !isRequiredFieldsFilled ||
         isLoadingAssigneeOrAssets ||
-        isLinkedAssetPresent ||
+        isLinkedAssetMissing ||
         isLoading;
+
+    const actionButtonLabel = mode === IncidentAction.CREATE ? 'Create' : 'Update';
+    const actionButton = isLoading ? (
+        <>
+            <StyledSpinner />
+            {actionButtonLabel === 'Create' ? 'Creating...' : 'Updating...'}
+        </>
+    ) : (
+        actionButtonLabel
+    );
+
+    const resolutionInput = form.getFieldValue('state') === IncidentState.Resolved && (
+        <SelectFormItem
+            label="Resolution Note"
+            name="message"
+            rules={[{ required: false }]}
+            customStyle={{
+                color: colors.gray[600],
+            }}
+        >
+            <HalfWidthInput label="" placeholder="Add a resolution note......" id="incident-message" />
+        </SelectFormItem>
+    );
 
     return (
         <StyledForm
@@ -226,30 +241,11 @@ export const IncidentEditor = ({
                         value={formValues?.[INCIDENT_OPTION_LABEL_MAPPING.state.fieldName]}
                     />
                 )}
-                {form.getFieldValue('state') === IncidentState.Resolved && (
-                    <SelectFormItem
-                        label="Resolution Note"
-                        name="message"
-                        rules={[{ required: false }]}
-                        customStyle={{
-                            color: colors.gray[600],
-                        }}
-                    >
-                        <HalfWidthInput label="" placeholder="Add a resolution note......" id="incident-message" />
-                    </SelectFormItem>
-                )}
+                {resolutionInput}
             </StyledFormElements>
             <IncidentFooter>
                 <SaveButton data-testid="incident-create-button" type="submit" disabled={isSubmitButtonDisabled}>
-                    {/* {actionButtonLabel} */}
-                    {isLoading ? (
-                        <>
-                            <StyledSpinner />
-                            {actionButtonLabel === 'Create' ? 'Creating...' : 'Updating...'}
-                        </>
-                    ) : (
-                        actionButtonLabel
-                    )}
+                    {actionButton}
                 </SaveButton>
             </IncidentFooter>
         </StyledForm>
