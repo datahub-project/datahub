@@ -1152,7 +1152,7 @@ jobs:
         if: ${{ env.DEPOT_PROJECT_ID == '' }}
 
       - name: build images
-        if: ${{ env.DOCKER_CACHE != 'DEPOT' || env.DEPOT_PROJECT_ID == '' }}
+        if: ${{ env.DEPOT_PROJECT_ID == '' }}
         run: |
           docker pull confluentinc/cp-kafka:7.4.0 &
           docker pull mysql:8.2 &
