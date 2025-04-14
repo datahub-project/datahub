@@ -2,8 +2,17 @@ import { InputRef } from 'antd';
 import React, { forwardRef, useCallback, useState } from 'react';
 
 import { CommandK } from '@app/searchV2/CommandK';
-import { SearchBar } from '@src/alchemy-components';
+import { colors, SearchBar } from '@src/alchemy-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import styled from 'styled-components';
+
+const StyledSearchBar = styled(SearchBar)<{$isShowNavBarRedesign?: boolean}>`
+    ${props => !props.$isShowNavBarRedesign && `
+        .ant-input, .ant-input-clear-icon {
+            color: ${colors.white};
+        }
+    `}
+`
 
 interface Props {
     value: string;
@@ -44,8 +53,7 @@ const SearchBarInput = forwardRef<InputRef, Props>(
         }, [onBlur]);
 
         return (
-
-            <SearchBar
+            <StyledSearchBar
                 bordered={false}
                 placeholder={placeholder}
                 onPressEnter={onSearch}
@@ -57,7 +65,8 @@ const SearchBarInput = forwardRef<InputRef, Props>(
                 allowClear={isDropdownOpened || isFocused}
                 ref={ref}
                 suffix={<>{(showCommandK && !isDropdownOpened && !isFocused && <CommandK />) || null}</>}
-                width={isShowNavBarRedesign ? '592px' : '100%'}
+                width={isShowNavBarRedesign ? '592px' : '560px'}
+                $isShowNavBarRedesign={isShowNavBarRedesign}
             />
         );
     },
