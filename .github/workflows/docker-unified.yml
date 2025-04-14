@@ -1215,6 +1215,8 @@ jobs:
         setup,
         smoke_test_matrix,
         base_build,
+        datahub_actions_build,
+        datahub_actions_slim_build
         #datahub_ingestion_slim_build,
       ]
     strategy:
