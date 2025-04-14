@@ -4,7 +4,6 @@ import { Button, Input, Modal, Spin, notification } from 'antd';
 import { ExclamationCircleFilled, LoadingOutlined } from '@ant-design/icons';
 import { colors, Text } from '@src/alchemy-components';
 import styled from 'styled-components';
-import InfoPopover from '@src/app/sharedV2/icons/InfoPopover';
 import { AndFilterInput, LineageSearchPath } from '../../../../../../types.generated';
 import { getSearchCsvDownloadHeader, transformResultsToCsvRow } from './downloadAsCsvUtil';
 import { downloadRowsAsCsv } from '../../../../../search/utils/csvUtils';
@@ -213,8 +212,8 @@ export default function DownloadAsCsvModal({
                             Results may vary
                         </Text>
                         <SubText>
-                            Search results include referenced assets even if they don't exist. We'll only download the
-                            assets that exist in DataHub.
+                            Search results include referenced assets even if they don&apos;t exist. We&apos;ll only
+                            download the assets that exist in DataHub.
                         </SubText>
                     </div>
                 </ImpactAnalysisWarning>

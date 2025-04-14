@@ -1,7 +1,6 @@
 import React, { useContext, useState } from 'react';
 import { Button as AntButton, Typography } from 'antd';
 import { ExclamationCircleFilled, FilterOutlined } from '@ant-design/icons';
-import InfoPopover from '@src/app/sharedV2/icons/InfoPopover';
 import { Button, colors } from '@src/alchemy-components';
 import styled from 'styled-components/macro';
 import SearchSortSelect from '@src/app/searchV2/sorting/SearchSortSelect';
