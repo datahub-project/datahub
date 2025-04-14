@@ -1,0 +1,2646 @@
+{
+  ".github/actions/ci-optimization/action.yml": {
+    "additions": null,
+    "deletions": 1
+  },
+  ".github/actions/docker-custom-build-and-push/action.yml": {
+    "additions": null,
+    "deletions": 4
+  },
+  ".github/pull_request_template.md": {
+    "additions": 1,
+    "deletions": 0
+  },
+  ".github/scripts/docker_helpers.sh": {
+    "additions": null,
+    "deletions": 1
+  },
+  ".github/scripts/pre-commit-override.yaml": {
+    "additions": null,
+    "deletions": 1
+  },
+  ".github/workflows/build-and-test.yml": {
+    "additions": 49,
+    "deletions": 5
+  },
+  ".github/workflows/docker-ingestion-smoke.yml": {
+    "additions": 49,
+    "deletions": 20
+  },
+  ".github/workflows/docker-unified.yml": {
+    "additions": 645,
+    "deletions": 128
+  },
+  ".github/workflows/documentation.yml": {
+    "additions": 3,
+    "deletions": 7
+  },
+  ".github/workflows/metadata-ingestion.yml": {
+    "additions": 9,
+    "deletions": 3
+  },
+  ".github/workflows/metadata-model.yml": {
+    "additions": 18,
+    "deletions": 5
+  },
+  ".github/workflows/publish-datahub-jars.yml": {
+    "additions": 12,
+    "deletions": 7
+  },
+  "build.gradle": {
+    "additions": 39,
+    "deletions": 5
+  },
+  "datahub-frontend/app/auth/sso/SsoManager.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-frontend/app/auth/sso/oidc/OidcCallbackLogic.java": {
+    "additions": null,
+    "deletions": 13
+  },
+  "datahub-frontend/app/auth/sso/oidc/OidcConfigs.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "datahub-frontend/app/auth/sso/oidc/OidcProvider.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "datahub-frontend/app/auth/sso/oidc/custom/CustomOidcAuthenticator.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-frontend/app/auth/sso/oidc/custom/CustomOidcRedirectionActionBuilder.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-frontend/app/client/KafkaTrackingProducer.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-frontend/app/controllers/RedirectController.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-frontend/app/controllers/TrackingController.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-frontend/conf/application.conf": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-frontend/conf/logback.xml": {
+    "additions": null,
+    "deletions": 4
+  },
+  "datahub-frontend/conf/user.props": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-frontend/run/logback.xml": {
+    "additions": null,
+    "deletions": 3
+  },
+  "datahub-frontend/test/app/ApplicationTest.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/build.gradle": {
+    "additions": 10,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/Constants.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/GmsGraphQLEngine.java": {
+    "additions": null,
+    "deletions": 93
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/analytics/resolver/GetChartsResolver.java": {
+    "additions": null,
+    "deletions": 5
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/analytics/resolver/GetHighlightsResolver.java": {
+    "additions": null,
+    "deletions": 4
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/analytics/resolver/GetMetadataAnalyticsResolver.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/MeResolver.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/ResolverUtils.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/assertion/DeleteAssertionResolver.java": {
+    "additions": null,
+    "deletions": 21
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/chart/BrowseV2Resolver.java": {
+    "additions": null,
+    "deletions": 4
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/chart/ChartStatsSummaryResolver.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/config/AppConfigResolver.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/connection/ConnectionMapper.java": {
+    "additions": null,
+    "deletions": 5
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/connection/UpsertConnectionResolver.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/container/ContainerEntitiesResolver.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/dashboard/DashboardStatsSummaryResolver.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/dataproduct/ListDataProductAssetsResolver.java": {
+    "additions": null,
+    "deletions": 4
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/dataset/DatasetStatsSummaryResolver.java": {
+    "additions": null,
+    "deletions": 19
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/dataset/DatasetUsageStatsResolver.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/domain/DomainEntitiesResolver.java": {
+    "additions": null,
+    "deletions": 7
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/form/CreateFormResolver.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/form/SubmitFormPromptResolver.java": {
+    "additions": null,
+    "deletions": 6
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/form/UpdateFormResolver.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/form/VerifyFormResolver.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/group/ListGroupsResolver.java": {
+    "additions": null,
+    "deletions": 19
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/incident/UpdateIncidentStatusResolver.java": {
+    "additions": null,
+    "deletions": 7
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/ingest/IngestionResolverUtils.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/ingest/execution/CancelIngestionExecutionRequestResolver.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/ingest/execution/CreateIngestionExecutionRequestResolver.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/ingest/execution/CreateTestConnectionRequestResolver.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/ingest/execution/GetIngestionExecutionRequestResolver.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/ingest/execution/RollbackIngestionResolver.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/ingest/secret/CreateSecretResolver.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/ingest/secret/DeleteSecretResolver.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/ingest/secret/GetSecretValuesResolver.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/ingest/secret/ListSecretsResolver.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/ingest/secret/UpdateSecretResolver.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/ingest/source/DeleteIngestionSourceResolver.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/ingest/source/GetIngestionSourceResolver.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/ingest/source/ListIngestionSourcesResolver.java": {
+    "additions": null,
+    "deletions": 5
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/ingest/source/UpsertIngestionSourceResolver.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/load/EntityLineageResultResolver.java": {
+    "additions": null,
+    "deletions": 4
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/mutate/RemoveLinkResolver.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/mutate/util/FormUtils.java": {
+    "additions": null,
+    "deletions": 4
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/mutate/util/LinkUtils.java": {
+    "additions": null,
+    "deletions": 10
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/mutate/util/OwnerUtils.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/query/ListQueriesResolver.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/search/AggregateAcrossEntitiesResolver.java": {
+    "additions": null,
+    "deletions": 8
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/search/AutoCompleteForMultipleResolver.java": {
+    "additions": null,
+    "deletions": 6
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/search/AutocompleteUtils.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/search/GetQuickFiltersResolver.java": {
+    "additions": null,
+    "deletions": 5
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/search/ScrollAcrossEntitiesResolver.java": {
+    "additions": null,
+    "deletions": 10
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/search/SearchAcrossEntitiesResolver.java": {
+    "additions": null,
+    "deletions": 7
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/search/SearchResolver.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/search/SearchUtils.java": {
+    "additions": null,
+    "deletions": 136
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/siblings/SiblingsSearchResolver.java": {
+    "additions": null,
+    "deletions": 4
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/test/CreateTestResolver.java": {
+    "additions": null,
+    "deletions": 8
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/test/DeleteTestResolver.java": {
+    "additions": null,
+    "deletions": 6
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/test/ListTestsResolver.java": {
+    "additions": null,
+    "deletions": 6
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/test/UpdateTestResolver.java": {
+    "additions": null,
+    "deletions": 7
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/user/ListUsersResolver.java": {
+    "additions": null,
+    "deletions": 23
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/versioning/VersionsSearchResolver.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/assertion/AssertionType.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/chart/ChartType.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/chart/mappers/ChartMapper.java": {
+    "additions": null,
+    "deletions": 12
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/common/mappers/LineageFlagsInputMapper.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/common/mappers/UrnToEntityMapper.java": {
+    "additions": null,
+    "deletions": 40
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/common/mappers/util/SystemMetadataUtils.java": {
+    "additions": null,
+    "deletions": "inf"
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/connection/DataHubConnectionType.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/container/ContainerType.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/container/mappers/ContainerMapper.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/corpgroup/mappers/CorpGroupMapper.java": {
+    "additions": null,
+    "deletions": 18
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/corpuser/CorpUserType.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/dashboard/DashboardType.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/dashboard/mappers/DashboardMapper.java": {
+    "additions": null,
+    "deletions": 12
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/dataflow/DataFlowType.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/dataflow/mappers/DataFlowMapper.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/datajob/DataJobType.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/datajob/mappers/DataJobMapper.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/dataplatform/mappers/DataPlatformMapper.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/dataplatforminstance/mappers/DataPlatformInstanceMapper.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/dataprocessinst/DataProcessInstanceType.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/dataproduct/DataProductType.java": {
+    "additions": null,
+    "deletions": 12
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/dataproduct/mappers/DataProductMapper.java": {
+    "additions": null,
+    "deletions": 12
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/dataset/DatasetType.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/dataset/VersionedDatasetType.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/dataset/mappers/AssertionRunEventMapper.java": {
+    "additions": null,
+    "deletions": 7
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/dataset/mappers/DatasetMapper.java": {
+    "additions": null,
+    "deletions": 27
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/dataset/mappers/SchemaFieldMapper.java": {
+    "additions": null,
+    "deletions": 32
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/dataset/mappers/SchemaMetadataMapper.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/domain/DomainMapper.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/domain/DomainType.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/ermodelrelationship/ERModelRelationshipType.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/form/FormMapper.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/form/FormType.java": {
+    "additions": null,
+    "deletions": 4
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/glossary/GlossaryNodeType.java": {
+    "additions": null,
+    "deletions": 9
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/glossary/GlossaryTermType.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/glossary/mappers/GlossaryTermsMapper.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/mlmodel/MLFeatureTableType.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/mlmodel/MLFeatureType.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/mlmodel/MLModelGroupType.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/mlmodel/MLModelType.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/mlmodel/MLPrimaryKeyType.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/mlmodel/mappers/MLFeatureMapper.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/mlmodel/mappers/MLFeatureTableMapper.java": {
+    "additions": null,
+    "deletions": 8
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/mlmodel/mappers/MLModelGroupMapper.java": {
+    "additions": null,
+    "deletions": 7
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/mlmodel/mappers/MLModelMapper.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/mlmodel/mappers/MLPrimaryKeyMapper.java": {
+    "additions": null,
+    "deletions": 7
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/notebook/NotebookType.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/query/QueryType.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/schemafield/SchemaFieldType.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/structuredproperty/StructuredPropertiesMapper.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/structuredproperty/StructuredPropertyType.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/tag/TagType.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/tag/mappers/GlobalTagsMapper.java": {
+    "additions": null,
+    "deletions": 12
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/timeline/utils/TimelineUtils.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/util/SearchInsightsUtil.java": {
+    "additions": null,
+    "deletions": 6
+  },
+  "datahub-graphql-core/src/main/resources/app.graphql": {
+    "additions": null,
+    "deletions": 28
+  },
+  "datahub-graphql-core/src/main/resources/assertions.graphql": {
+    "additions": null,
+    "deletions": 466
+  },
+  "datahub-graphql-core/src/main/resources/auth.graphql": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/main/resources/connection.graphql": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/main/resources/contract.graphql": {
+    "additions": null,
+    "deletions": 60
+  },
+  "datahub-graphql-core/src/main/resources/entity.graphql": {
+    "additions": null,
+    "deletions": 40
+  },
+  "datahub-graphql-core/src/main/resources/forms.graphql": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/main/resources/incident.graphql": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/main/resources/ingestion.graphql": {
+    "additions": null,
+    "deletions": 4
+  },
+  "datahub-graphql-core/src/main/resources/tests.graphql": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/TestUtils.java": {
+    "additions": null,
+    "deletions": 4
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/auth/ListAccessTokensResolverTest.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/connection/UpsertConnectionResolverTest.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/container/ContainerEntitiesResolverTest.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/dashboard/DashboardStatsSummaryTest.java": {
+    "additions": null,
+    "deletions": 42
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/dataset/DatasetStatsSummaryResolverTest.java": {
+    "additions": null,
+    "deletions": 6
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/domain/DomainEntitiesResolverTest.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/domain/ListDomainsResolverTest.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/entity/EntityPrivilegesResolverTest.java": {
+    "additions": null,
+    "deletions": 14
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/form/BatchRemoveFormResolverTest.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/form/CreateFormResolverTest.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/form/UpdateFormResolverTest.java": {
+    "additions": null,
+    "deletions": 6
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/form/VerifyFormResolverTest.java": {
+    "additions": null,
+    "deletions": 5
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/glossary/CreateGlossaryNodeResolverTest.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/glossary/CreateGlossaryTermResolverTest.java": {
+    "additions": null,
+    "deletions": 4
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/ingest/IngestTestUtils.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/ingest/IngestionAuthUtilsTest.java": {
+    "additions": null,
+    "deletions": 4
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/ingest/execution/IngestionSourceExecutionRequestsResolverTest.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/ingest/secret/ListSecretsResolverTest.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/ingest/source/UpsertIngestionSourceResolverTest.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/search/AggregateAcrossEntitiesResolverTest.java": {
+    "additions": null,
+    "deletions": 9
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/search/GetQuickFiltersResolverTest.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/search/SearchAcrossEntitiesResolverTest.java": {
+    "additions": null,
+    "deletions": 11
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/search/SearchUtilsTest.java": {
+    "additions": null,
+    "deletions": 204
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/structuredproperties/CreateStructuredPropertyResolverTest.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/structuredproperties/UpdateStructuredPropertyResolverTest.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/test/CreateTestResolverTest.java": {
+    "additions": null,
+    "deletions": 19
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/test/DeleteTestResolverTest.java": {
+    "additions": null,
+    "deletions": 4
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/test/ListTestsResolverTest.java": {
+    "additions": null,
+    "deletions": 23
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/test/UpdateTestResolverTest.java": {
+    "additions": null,
+    "deletions": 19
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/versioning/VersionsSearchResolverTest.java": {
+    "additions": null,
+    "deletions": 50
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/types/assertion/AssertionMapperTest.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/types/incident/IncidentTypeTest.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-kubernetes/README.md": {
+    "additions": null,
+    "deletions": "inf"
+  },
+  "datahub-upgrade/build.gradle": {
+    "additions": 40,
+    "deletions": 1
+  },
+  "datahub-upgrade/src/main/java/com/linkedin/datahub/upgrade/UpgradeCliApplication.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-upgrade/src/main/java/com/linkedin/datahub/upgrade/config/RestoreIndicesConfig.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "datahub-upgrade/src/main/java/com/linkedin/datahub/upgrade/restorebackup/RestoreStorageStep.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-upgrade/src/main/java/com/linkedin/datahub/upgrade/restoreindices/RestoreIndices.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-upgrade/src/main/java/com/linkedin/datahub/upgrade/system/AbstractMCLStep.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "datahub-upgrade/src/main/java/com/linkedin/datahub/upgrade/system/browsepaths/BackfillBrowsePathsV2Step.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-upgrade/src/main/java/com/linkedin/datahub/upgrade/system/policyfields/BackfillPolicyFieldsStep.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-upgrade/src/main/java/com/linkedin/datahub/upgrade/system/schemafield/GenerateSchemaFieldsFromSchemaMetadataStep.java": {
+    "additions": null,
+    "deletions": 7
+  },
+  "datahub-upgrade/src/main/resources/logback.xml": {
+    "additions": null,
+    "deletions": 3
+  },
+  "datahub-web-react/.env": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-web-react/index.html": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-web-react/package.json": {
+    "additions": null,
+    "deletions": 2
+  },
+  "datahub-web-react/public/manifest.json": {
+    "additions": null,
+    "deletions": 7
+  },
+  "datahub-web-react/src/Mocks.tsx": {
+    "additions": 280,
+    "deletions": null
+  },
+  "datahub-web-react/src/alchemy-components/components/BarChart/BarChart.tsx": {
+    "additions": 63,
+    "deletions": 59
+  },
+  "datahub-web-react/src/alchemy-components/components/BarChart/components/LeftAxisMarginSetter.tsx": {
+    "additions": null,
+    "deletions": "inf"
+  },
+  "datahub-web-react/src/alchemy-components/components/LineChart/LineChart.tsx": {
+    "additions": 69,
+    "deletions": 63
+  },
+  "datahub-web-react/src/alchemy-components/components/WhiskerChart/WhiskerChart.tsx": {
+    "additions": 91,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/analytics/analytics.ts": {
+    "additions": 81,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/analytics/event.ts": {
+    "additions": 489,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entity/dataset/profile/schema/components/SchemaDescriptionField.tsx": {
+    "additions": 105,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entity/group/GroupProfile.tsx": {
+    "additions": 72,
+    "deletions": 10
+  },
+  "datahub-web-react/src/app/entity/shared/EntityDropdown/EntityDropdown.tsx": {
+    "additions": 78,
+    "deletions": 35
+  },
+  "datahub-web-react/src/app/entity/shared/EntitySearchInput/EntitySearchInput.tsx": {
+    "additions": 86,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entity/shared/__tests__/siblingsUtils.test.ts": {
+    "additions": 139,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entity/shared/containers/profile/header/StructuredPropertyBadge.tsx": {
+    "additions": null,
+    "deletions": "inf"
+  },
+  "datahub-web-react/src/app/entity/shared/embed/UpstreamHealth/UpstreamHealth.tsx": {
+    "additions": 122,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entity/shared/embed/UpstreamHealth/utils.ts": {
+    "additions": 49,
+    "deletions": 50
+  },
+  "datahub-web-react/src/app/entity/shared/entityForm/EntityFormContext.tsx": {
+    "additions": 195,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entity/shared/entityForm/EntityFormContextProvider.tsx": {
+    "additions": 290,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entity/shared/entityForm/Form.tsx": {
+    "additions": 61,
+    "deletions": 36
+  },
+  "datahub-web-react/src/app/entity/shared/entityForm/prompts/Prompt.tsx": {
+    "additions": 107,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/UrnInput/UrnInput.tsx": {
+    "additions": 107,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entity/shared/tabs/Dataset/Stats/historical/HistoricalStats.tsx": {
+    "additions": 21,
+    "deletions": 76
+  },
+  "datahub-web-react/src/app/entity/shared/tabs/Dataset/Validations/DatasetAssertionDetails.tsx": {
+    "additions": 67,
+    "deletions": 17
+  },
+  "datahub-web-react/src/app/entity/shared/tabs/Dataset/Validations/assertionUtils.tsx": {
+    "additions": 88,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entity/shared/tabs/Documentation/components/DescriptionEditor.tsx": {
+    "additions": 102,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal.tsx": {
+    "additions": 152,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entity/shared/utils.ts": {
+    "additions": 89,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/dataset/profile/schema/components/SchemaDescriptionField.tsx": {
+    "additions": 94,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/shared/EntityDropdown/CreateGlossaryEntityModal.tsx": {
+    "additions": 193,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/shared/__tests__/utils.test.ts": {
+    "additions": 148,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/shared/containers/profile/EntityProfile.tsx": {
+    "additions": 45,
+    "deletions": 38
+  },
+  "datahub-web-react/src/app/entityV2/shared/containers/profile/sidebar/Domain/SetDomainModal.tsx": {
+    "additions": 137,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/shared/containers/profile/sidebar/Ownership/EditOwnersModal.tsx": {
+    "additions": 179,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/shared/containers/profile/sidebar/__tests__/SidebarLogicSection.test.tsx": {
+    "additions": 140,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/shared/containers/profile/sidebar/shared/utils.tsx": {
+    "additions": 85,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/shared/externalUrl/ViewInPlatform.tsx": {
+    "additions": 44,
+    "deletions": 82
+  },
+  "datahub-web-react/src/app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionList.tsx": {
+    "additions": 79,
+    "deletions": 23
+  },
+  "datahub-web-react/src/app/entityV2/shared/tabs/Dataset/Validations/acrylUtils.tsx": {
+    "additions": 82,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/TimeSelect.tsx": {
+    "additions": 72,
+    "deletions": 13
+  },
+  "datahub-web-react/src/app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/utils.ts": {
+    "additions": 133,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultExtractionUtils.ts": {
+    "additions": 149,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultMessageUtils.ts": {
+    "additions": 542,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/shared/tabs/Dataset/Validations/contract/builder/DataContractBuilderModal.tsx": {
+    "additions": 101,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/shared/tabs/Documentation/components/DescriptionEditor.tsx": {
+    "additions": 89,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/shared/tabs/Documentation/components/LinkList.tsx": {
+    "additions": 111,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/shared/tabs/Properties/PropertiesTab.tsx": {
+    "additions": 95,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/entityV2/shared/utils.ts": {
+    "additions": 102,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/homeV2/layout/NavLinksMenu.tsx": {
+    "additions": 83,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/homeV2/layout/navBarRedesign/NavSidebar.tsx": {
+    "additions": 102,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/ingest/ManageIngestionPage.tsx": {
+    "additions": 115,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/ingest/secret/SecretsList.tsx": {
+    "additions": 143,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/ingest/source/IngestionSourceList.tsx": {
+    "additions": 140,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/ingest/source/IngestionSourceTable.tsx": {
+    "additions": 68,
+    "deletions": 46
+  },
+  "datahub-web-react/src/app/lineageV2/manualLineage/AddEntityEdge.tsx": {
+    "additions": null,
+    "deletions": "inf"
+  },
+  "datahub-web-react/src/app/lineageV2/manualLineage/LineageEntityView.tsx": {
+    "additions": null,
+    "deletions": "inf"
+  },
+  "datahub-web-react/src/app/lineageV2/manualLineage/ManageLineageModal.tsx": {
+    "additions": 136,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/search/SearchPage.tsx": {
+    "additions": 17,
+    "deletions": 102
+  },
+  "datahub-web-react/src/app/searchV2/filters/__tests__/utils.test.tsx": {
+    "additions": 92,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/settings/SettingsPage.tsx": {
+    "additions": 115,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/shared/admin/HeaderLinks.tsx": {
+    "additions": 149,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/shared/tags/AddTagsTermsModal.tsx": {
+    "additions": 215,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/shared/tags/TagTermGroup.tsx": {
+    "additions": 160,
+    "deletions": null
+  },
+  "datahub-web-react/src/app/sharedV2/tags/TagTermGroup.tsx": {
+    "additions": 192,
+    "deletions": null
+  },
+  "datahub-web-react/src/conf/theme/theme_dark.config.json": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-web-react/src/conf/theme/theme_light.config.json": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-web-react/src/graphql/app.graphql": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-web-react/src/graphql/assertion.graphql": {
+    "additions": null,
+    "deletions": 234
+  },
+  "datahub-web-react/src/graphql/container.graphql": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-web-react/src/graphql/dataset.graphql": {
+    "additions": null,
+    "deletions": 53
+  },
+  "datahub-web-react/src/graphql/domain.graphql": {
+    "additions": null,
+    "deletions": 11
+  },
+  "datahub-web-react/src/graphql/fragments.graphql": {
+    "additions": null,
+    "deletions": 109
+  },
+  "datahub-web-react/src/graphql/incident.graphql": {
+    "additions": null,
+    "deletions": 10
+  },
+  "datahub-web-react/src/graphql/lineage.graphql": {
+    "additions": null,
+    "deletions": 16
+  },
+  "datahub-web-react/src/graphql/mlModel.graphql": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-web-react/src/graphql/query.graphql": {
+    "additions": null,
+    "deletions": 1
+  },
+  "datahub-web-react/src/graphql/relationships.graphql": {
+    "additions": null,
+    "deletions": 5
+  },
+  "datahub-web-react/src/graphql/search.graphql": {
+    "additions": null,
+    "deletions": 40
+  },
+  "datahub-web-react/src/graphql/user.graphql": {
+    "additions": null,
+    "deletions": 3
+  },
+  "datahub-web-react/src/images/domain.svg": {
+    "additions": null,
+    "deletions": "inf"
+  },
+  "docker/build.gradle": {
+    "additions": 8,
+    "deletions": 4
+  },
+  "docker/datahub-actions/README.md": {
+    "additions": null,
+    "deletions": 1
+  },
+  "docker/datahub-actions/env/docker.env": {
+    "additions": null,
+    "deletions": 3
+  },
+  "docker/datahub-frontend/Dockerfile": {
+    "additions": null,
+    "deletions": 3
+  },
+  "docker/datahub-frontend/env/docker.env": {
+    "additions": null,
+    "deletions": 1
+  },
+  "docker/datahub-frontend/start.sh": {
+    "additions": null,
+    "deletions": 2
+  },
+  "docker/datahub-gms/Dockerfile": {
+    "additions": null,
+    "deletions": 2
+  },
+  "docker/datahub-ingestion-base/Dockerfile": {
+    "additions": null,
+    "deletions": 2
+  },
+  "docker/datahub-ingestion/Dockerfile": {
+    "additions": null,
+    "deletions": 2
+  },
+  "docker/datahub-mae-consumer/Dockerfile": {
+    "additions": null,
+    "deletions": 2
+  },
+  "docker/datahub-mce-consumer/Dockerfile": {
+    "additions": null,
+    "deletions": 2
+  },
+  "docker/datahub-upgrade/Dockerfile": {
+    "additions": null,
+    "deletions": 2
+  },
+  "docker/dev-without-neo4j.sh": {
+    "additions": null,
+    "deletions": 3
+  },
+  "docker/docker-compose-with-cassandra.yml": {
+    "additions": null,
+    "deletions": 9
+  },
+  "docker/docker-compose-without-neo4j.override.yml": {
+    "additions": null,
+    "deletions": 4
+  },
+  "docker/docker-compose-without-neo4j.postgres.override.yml": {
+    "additions": null,
+    "deletions": 1
+  },
+  "docker/docker-compose-without-neo4j.yml": {
+    "additions": null,
+    "deletions": 19
+  },
+  "docker/docker-compose.consumers-without-neo4j.yml": {
+    "additions": null,
+    "deletions": 6
+  },
+  "docker/docker-compose.consumers.dev.yml": {
+    "additions": null,
+    "deletions": 2
+  },
+  "docker/docker-compose.consumers.yml": {
+    "additions": null,
+    "deletions": 6
+  },
+  "docker/docker-compose.dev.yml": {
+    "additions": null,
+    "deletions": 4
+  },
+  "docker/docker-compose.override.yml": {
+    "additions": null,
+    "deletions": 1
+  },
+  "docker/docker-compose.tools.yml": {
+    "additions": null,
+    "deletions": 1
+  },
+  "docker/docker-compose.yml": {
+    "additions": null,
+    "deletions": 22
+  },
+  "docker/elasticsearch-setup/create-indices.sh": {
+    "additions": null,
+    "deletions": 26
+  },
+  "docker/ingestion/docker-compose.yml": {
+    "additions": null,
+    "deletions": 1
+  },
+  "docker/kafka-setup/Dockerfile": {
+    "additions": null,
+    "deletions": 2
+  },
+  "docker/monitoring/client-prometheus-config.yaml": {
+    "additions": null,
+    "deletions": 1
+  },
+  "docker/mysql-setup/Dockerfile": {
+    "additions": null,
+    "deletions": 2
+  },
+  "docker/mysql-setup/init.sh": {
+    "additions": null,
+    "deletions": 1
+  },
+  "docker/profiles/docker-compose.gms.yml": {
+    "additions": null,
+    "deletions": 2
+  },
+  "docker/profiles/docker-compose.prerequisites.yml": {
+    "additions": null,
+    "deletions": 1
+  },
+  "docker/quickstart/docker-compose-m1.quickstart.yml": {
+    "additions": null,
+    "deletions": 7
+  },
+  "docker/quickstart/docker-compose-without-neo4j-m1.quickstart.yml": {
+    "additions": null,
+    "deletions": 6
+  },
+  "docker/quickstart/docker-compose-without-neo4j.quickstart.yml": {
+    "additions": null,
+    "deletions": 6
+  },
+  "docker/quickstart/docker-compose.consumers-without-neo4j.quickstart.yml": {
+    "additions": null,
+    "deletions": 2
+  },
+  "docker/quickstart/docker-compose.consumers.quickstart.yml": {
+    "additions": null,
+    "deletions": 2
+  },
+  "docker/quickstart/docker-compose.quickstart.yml": {
+    "additions": null,
+    "deletions": 7
+  },
+  "docs-website/sidebars.js": {
+    "additions": 14,
+    "deletions": 2
+  },
+  "docs-website/static/img/logos/platforms/looker.svg": {
+    "additions": 1,
+    "deletions": 1
+  },
+  "docs-website/vercel-setup.sh": {
+    "additions": 0,
+    "deletions": 1
+  },
+  "docs/authorization/roles.md": {
+    "additions": 1,
+    "deletions": 1
+  },
+  "docs/how/updating-datahub.md": {
+    "additions": 2,
+    "deletions": 2
+  },
+  "docs/incidents/incidents.md": {
+    "additions": 1,
+    "deletions": 2
+  },
+  "docs/managed-datahub/datahub-api/entity-events-api.md": {
+    "additions": 19,
+    "deletions": 13
+  },
+  "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor.md": {
+    "additions": 22,
+    "deletions": 0
+  },
+  "docs/managed-datahub/release-notes/v_0_3_8.md": {
+    "additions": 1,
+    "deletions": 1
+  },
+  "docs/quickstart.md": {
+    "additions": 0,
+    "deletions": 9
+  },
+  "entity-registry/src/main/java/com/linkedin/metadata/aspect/patch/builder/AbstractMultiFieldPatchBuilder.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "entity-registry/src/main/java/com/linkedin/metadata/aspect/patch/builder/GlobalTagsPatchBuilder.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "entity-registry/src/main/java/com/linkedin/metadata/aspect/patch/builder/GlossaryTermsPatchBuilder.java": {
+    "additions": null,
+    "deletions": 4
+  },
+  "entity-registry/src/main/java/com/linkedin/metadata/aspect/patch/template/AspectTemplateEngine.java": {
+    "additions": null,
+    "deletions": 8
+  },
+  "entity-registry/src/main/java/com/linkedin/metadata/aspect/plugins/config/PluginConfiguration.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "entity-registry/src/main/java/com/linkedin/metadata/models/EntitySpec.java": {
+    "additions": null,
+    "deletions": 28
+  },
+  "entity-registry/src/main/java/com/linkedin/metadata/models/RelationshipFieldSpecExtractor.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "entity-registry/src/main/java/com/linkedin/metadata/models/SearchableFieldSpecExtractor.java": {
+    "additions": null,
+    "deletions": 21
+  },
+  "entity-registry/src/main/java/com/linkedin/metadata/models/TimeseriesFieldSpecExtractor.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "entity-registry/src/main/java/com/linkedin/metadata/models/annotation/SearchableAnnotation.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "entity-registry/src/main/java/com/linkedin/metadata/models/annotation/TimeseriesFieldAnnotation.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "entity-registry/src/main/java/com/linkedin/metadata/models/registry/LineageRegistry.java": {
+    "additions": null,
+    "deletions": 10
+  },
+  "entity-registry/src/main/java/com/linkedin/metadata/utils/SystemMetadataUtils.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "entity-registry/src/test/java/com/linkedin/metadata/models/EntitySpecBuilderTest.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "entity-registry/src/testFixtures/java/com/linkedin/test/metadata/aspect/batch/TestMCL.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "gradle.properties": {
+    "additions": 0,
+    "deletions": 1
+  },
+  "li-utils/src/main/java/com/linkedin/metadata/Constants.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "metadata-auth/auth-api/src/main/java/com/datahub/authorization/AuthUtil.java": {
+    "additions": null,
+    "deletions": 19
+  },
+  "metadata-auth/auth-api/src/test/java/com/datahub/authorization/AuthUtilTest.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-dao-impl/kafka-producer/src/main/java/com/datahub/metadata/dao/throttle/KafkaThrottleSensor.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-dao-impl/kafka-producer/src/main/java/com/linkedin/metadata/dao/producer/KafkaEventProducer.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-ingestion/build.gradle": {
+    "additions": 9,
+    "deletions": 1
+  },
+  "metadata-ingestion/examples/data_product/dataproduct.yaml": {
+    "additions": 3,
+    "deletions": 0
+  },
+  "metadata-ingestion/examples/library/dataset_inferred_metadata.py": {
+    "additions": "inf",
+    "deletions": null
+  },
+  "metadata-ingestion/examples/mce_files/bootstrap_mce.json": {
+    "additions": 1127,
+    "deletions": 410
+  },
+  "metadata-ingestion/examples/mce_files/test_structured_properties.json": {
+    "additions": 1,
+    "deletions": 1
+  },
+  "metadata-ingestion/examples/reporting/graph/recipe.dhub.yaml": {
+    "additions": "inf",
+    "deletions": null
+  },
+  "metadata-ingestion/examples/structured_properties/README.md": {
+    "additions": 2,
+    "deletions": 2
+  },
+  "metadata-ingestion/examples/structured_properties/dataset_shared_properties.yaml": {
+    "additions": "inf",
+    "deletions": null
+  },
+  "metadata-ingestion/scripts/analyticseventsdocgen.sh": {
+    "additions": "inf",
+    "deletions": null
+  },
+  "metadata-ingestion/scripts/analyticseventsdocupload.sh": {
+    "additions": "inf",
+    "deletions": null
+  },
+  "metadata-ingestion/scripts/avro_codegen.py": {
+    "additions": 1,
+    "deletions": 0
+  },
+  "metadata-ingestion/scripts/generate_analytics_events.py": {
+    "additions": "inf",
+    "deletions": null
+  },
+  "metadata-ingestion/scripts/modeldocgen.py": {
+    "additions": 13,
+    "deletions": 1
+  },
+  "metadata-ingestion/setup.py": {
+    "additions": 1,
+    "deletions": 1
+  },
+  "metadata-ingestion/src/datahub/api/entities/dataproduct/dataproduct.py": {
+    "additions": 26,
+    "deletions": 0
+  },
+  "metadata-ingestion/src/datahub/api/entities/forms/forms.py": {
+    "additions": 111,
+    "deletions": 1
+  },
+  "metadata-ingestion/src/datahub/cli/docker_cli.py": {
+    "additions": 1,
+    "deletions": 1
+  },
+  "metadata-ingestion/src/datahub/cli/open_cli.py": {
+    "additions": "inf",
+    "deletions": null
+  },
+  "metadata-ingestion/src/datahub/cli/relationships_cli.py": {
+    "additions": "inf",
+    "deletions": null
+  },
+  "metadata-ingestion/src/datahub/configuration/_config_enum.py": {
+    "additions": 5,
+    "deletions": 4
+  },
+  "metadata-ingestion/src/datahub/configuration/common.py": {
+    "additions": 8,
+    "deletions": 0
+  },
+  "metadata-ingestion/src/datahub/entrypoints.py": {
+    "additions": 2,
+    "deletions": 0
+  },
+  "metadata-ingestion/src/datahub/ingestion/api/report.py": {
+    "additions": 1,
+    "deletions": 2
+  },
+  "metadata-ingestion/src/datahub/ingestion/graph/client.py": {
+    "additions": 10,
+    "deletions": 6
+  },
+  "metadata-ingestion/src/datahub/ingestion/graph/filters.py": {
+    "additions": 31,
+    "deletions": 12
+  },
+  "metadata-ingestion/src/datahub/ingestion/source/tableau/tableau_common.py": {
+    "additions": 4,
+    "deletions": 4
+  },
+  "metadata-ingestion/src/datahub/secret/datahub_secret_store.py": {
+    "additions": 4,
+    "deletions": 1
+  },
+  "metadata-ingestion/src/datahub/secret/environment_secret_store.py": {
+    "additions": "inf",
+    "deletions": null
+  },
+  "metadata-ingestion/src/datahub/secret/file_secret_store.py": {
+    "additions": "inf",
+    "deletions": null
+  },
+  "metadata-ingestion/src/datahub/telemetry/telemetry.py": {
+    "additions": 3,
+    "deletions": 1
+  },
+  "metadata-ingestion/src/datahub/testing/compare_metadata_json.py": {
+    "additions": 1,
+    "deletions": 1
+  },
+  "metadata-ingestion/tests/integration/fivetran/fivetran_bigquery_golden.json": {
+    "additions": "inf",
+    "deletions": null
+  },
+  "metadata-ingestion/tests/integration/s3/golden-files/local/golden_mces_single_file.json": {
+    "additions": 10,
+    "deletions": 10
+  },
+  "metadata-integration/java/datahub-client/build.gradle": {
+    "additions": 86,
+    "deletions": 79
+  },
+  "metadata-integration/java/datahub-client/scripts/check_jar.sh": {
+    "additions": 4,
+    "deletions": 0
+  },
+  "metadata-integration/java/datahub-protobuf/build.gradle": {
+    "additions": 6,
+    "deletions": 28
+  },
+  "metadata-integration/java/spark-lineage-legacy/build.gradle": {
+    "additions": 18,
+    "deletions": 17
+  },
+  "metadata-io/build.gradle": {
+    "additions": 13,
+    "deletions": 2
+  },
+  "metadata-io/src/main/java/com/linkedin/metadata/client/JavaEntityClient.java": {
+    "additions": null,
+    "deletions": 4
+  },
+  "metadata-io/src/main/java/com/linkedin/metadata/client/UsageStatsJavaClient.java": {
+    "additions": null,
+    "deletions": 5
+  },
+  "metadata-io/src/main/java/com/linkedin/metadata/connection/ConnectionService.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-io/src/main/java/com/linkedin/metadata/entity/EntityServiceImpl.java": {
+    "additions": null,
+    "deletions": 20
+  },
+  "metadata-io/src/main/java/com/linkedin/metadata/entity/EntityUtils.java": {
+    "additions": null,
+    "deletions": 20
+  },
+  "metadata-io/src/main/java/com/linkedin/metadata/entity/versioning/EntityVersioningServiceImpl.java": {
+    "additions": null,
+    "deletions": 5
+  },
+  "metadata-io/src/main/java/com/linkedin/metadata/event/EventProducer.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-io/src/main/java/com/linkedin/metadata/graph/elastic/ESGraphQueryDAO.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-io/src/main/java/com/linkedin/metadata/recommendation/candidatesource/MostPopularSource.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-io/src/main/java/com/linkedin/metadata/search/LineageSearchService.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-io/src/main/java/com/linkedin/metadata/search/SearchService.java": {
+    "additions": null,
+    "deletions": 22
+  },
+  "metadata-io/src/main/java/com/linkedin/metadata/search/SearchServiceSearchRetriever.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-io/src/main/java/com/linkedin/metadata/search/elasticsearch/ElasticSearchService.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "metadata-io/src/main/java/com/linkedin/metadata/search/elasticsearch/query/ESSearchDAO.java": {
+    "additions": null,
+    "deletions": 7
+  },
+  "metadata-io/src/main/java/com/linkedin/metadata/search/elasticsearch/query/request/AggregationQueryBuilder.java": {
+    "additions": null,
+    "deletions": 29
+  },
+  "metadata-io/src/main/java/com/linkedin/metadata/search/elasticsearch/query/request/SearchFieldConfig.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-io/src/main/java/com/linkedin/metadata/search/elasticsearch/query/request/SearchRequestHandler.java": {
+    "additions": null,
+    "deletions": 25
+  },
+  "metadata-io/src/main/java/com/linkedin/metadata/search/elasticsearch/update/BulkListener.java": {
+    "additions": null,
+    "deletions": 7
+  },
+  "metadata-io/src/main/java/com/linkedin/metadata/search/features/FeatureExtractor.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-io/src/main/java/com/linkedin/metadata/search/features/Features.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-io/src/main/java/com/linkedin/metadata/search/ranker/SearchRanker.java": {
+    "additions": null,
+    "deletions": 4
+  },
+  "metadata-io/src/main/java/com/linkedin/metadata/search/utils/ESUtils.java": {
+    "additions": null,
+    "deletions": 32
+  },
+  "metadata-io/src/main/java/com/linkedin/metadata/timeline/data/entity/TagChangeEvent.java": {
+    "additions": null,
+    "deletions": 5
+  },
+  "metadata-io/src/main/java/com/linkedin/metadata/timeline/eventgenerator/ChangeEventGeneratorUtils.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-io/src/main/java/com/linkedin/metadata/timeline/eventgenerator/DeprecationChangeEventGenerator.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-io/src/main/java/com/linkedin/metadata/timeline/eventgenerator/GlobalTagsChangeEventGenerator.java": {
+    "additions": null,
+    "deletions": 4
+  },
+  "metadata-io/src/main/java/com/linkedin/metadata/timeseries/elastic/UsageServiceUtil.java": {
+    "additions": null,
+    "deletions": 84
+  },
+  "metadata-io/src/main/java/com/linkedin/metadata/timeseries/elastic/indexbuilder/MappingsBuilder.java": {
+    "additions": null,
+    "deletions": 6
+  },
+  "metadata-io/src/main/java/com/linkedin/metadata/timeseries/elastic/query/ESAggregatedStatsDAO.java": {
+    "additions": null,
+    "deletions": 5
+  },
+  "metadata-io/src/test/java/com/linkedin/metadata/connection/ConnectionServiceTest.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-io/src/test/java/com/linkedin/metadata/entity/DeleteEntityServiceTest.java": {
+    "additions": null,
+    "deletions": 4
+  },
+  "metadata-io/src/test/java/com/linkedin/metadata/entity/DeleteEntityUtilsTest.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-io/src/test/java/com/linkedin/metadata/entity/EbeanEntityServiceOptimizationTest.java": {
+    "additions": null,
+    "deletions": 12
+  },
+  "metadata-io/src/test/java/com/linkedin/metadata/entity/EntityServiceImplTest.java": {
+    "additions": null,
+    "deletions": 8
+  },
+  "metadata-io/src/test/java/com/linkedin/metadata/entity/EntityServiceTest.java": {
+    "additions": null,
+    "deletions": 5
+  },
+  "metadata-io/src/test/java/com/linkedin/metadata/entity/EntityUtilsTest.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-io/src/test/java/com/linkedin/metadata/entity/versioning/EntityVersioningServiceTest.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-io/src/test/java/com/linkedin/metadata/graph/GraphServiceTestBase.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "metadata-io/src/test/java/com/linkedin/metadata/graph/dgraph/DgraphGraphServiceTest.java": {
+    "additions": null,
+    "deletions": 6
+  },
+  "metadata-io/src/test/java/com/linkedin/metadata/graph/elastic/ElasticSearchGraphServiceTest.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-io/src/test/java/com/linkedin/metadata/graph/neo4j/Neo4jGraphServiceTest.java": {
+    "additions": null,
+    "deletions": 14
+  },
+  "metadata-io/src/test/java/com/linkedin/metadata/search/SearchServiceTestBase.java": {
+    "additions": null,
+    "deletions": 11
+  },
+  "metadata-io/src/test/java/com/linkedin/metadata/search/fixtures/SampleDataFixtureTestBase.java": {
+    "additions": null,
+    "deletions": 10
+  },
+  "metadata-io/src/test/java/com/linkedin/metadata/search/indexbuilder/MappingsBuilderTest.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-io/src/test/java/com/linkedin/metadata/search/query/request/AggregationQueryBuilderTest.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-io/src/test/java/com/linkedin/metadata/search/query/request/SearchQueryBuilderTest.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-io/src/test/java/com/linkedin/metadata/search/query/request/SearchRequestHandlerTest.java": {
+    "additions": null,
+    "deletions": 9
+  },
+  "metadata-io/src/test/java/com/linkedin/metadata/search/utils/BrowsePathUtilsTest.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-io/src/test/java/com/linkedin/metadata/search/utils/BrowsePathV2UtilsTest.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-io/src/test/java/com/linkedin/metadata/search/utils/ESAccessControlUtilTest.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-io/src/test/java/com/linkedin/metadata/search/utils/ESUtilsTest.java": {
+    "additions": null,
+    "deletions": 9
+  },
+  "metadata-io/src/test/java/com/linkedin/metadata/service/AssertionServiceTest.java": {
+    "additions": null,
+    "deletions": 11
+  },
+  "metadata-io/src/test/java/com/linkedin/metadata/service/IncidentServiceTest.java": {
+    "additions": null,
+    "deletions": 18
+  },
+  "metadata-io/src/test/java/com/linkedin/metadata/service/UpdateGraphIndicesServiceTest.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-io/src/test/java/com/linkedin/metadata/timeline/TimelineServiceTest.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-io/src/test/java/com/linkedin/metadata/timeseries/search/TimeseriesAspectServiceTestBase.java": {
+    "additions": null,
+    "deletions": 4
+  },
+  "metadata-io/src/test/java/io/datahubproject/test/search/ElasticsearchTestContainer.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-io/src/test/java/io/datahubproject/test/search/OpenSearchTestContainer.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-io/src/test/java/io/datahubproject/test/search/SearchTestUtils.java": {
+    "additions": null,
+    "deletions": 15
+  },
+  "metadata-io/src/test/resources/forms/form_assignment_test_definition_complex.json": {
+    "additions": 5,
+    "deletions": 5
+  },
+  "metadata-io/src/test/resources/forms/form_assignment_test_definition_simple.json": {
+    "additions": 1,
+    "deletions": 1
+  },
+  "metadata-io/src/test/resources/forms/form_prompt_test_definition.json": {
+    "additions": 1,
+    "deletions": 1
+  },
+  "metadata-io/src/test/resources/search_config_builder_test.yml": {
+    "additions": 69,
+    "deletions": 16
+  },
+  "metadata-io/src/test/resources/testng-other.xml": {
+    "additions": 1,
+    "deletions": 0
+  },
+  "metadata-io/src/test/resources/testng-search.xml": {
+    "additions": 1,
+    "deletions": 0
+  },
+  "metadata-jobs/mae-consumer-job/src/main/java/com/linkedin/metadata/kafka/MaeConsumerApplication.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-jobs/mae-consumer-job/src/main/resources/logback.xml": {
+    "additions": null,
+    "deletions": 3
+  },
+  "metadata-jobs/mae-consumer-job/src/test/java/com/linkedin/metadata/kafka/MaeConsumerApplicationTest.java": {
+    "additions": null,
+    "deletions": 5
+  },
+  "metadata-jobs/mae-consumer-job/src/test/java/com/linkedin/metadata/kafka/MaeConsumerApplicationTestConfiguration.java": {
+    "additions": null,
+    "deletions": 6
+  },
+  "metadata-jobs/mae-consumer/build.gradle": {
+    "additions": 20,
+    "deletions": 0
+  },
+  "metadata-jobs/mae-consumer/src/main/java/com/linkedin/metadata/kafka/MCLKafkaListener.java": {
+    "additions": null,
+    "deletions": 5
+  },
+  "metadata-jobs/mae-consumer/src/main/java/com/linkedin/metadata/kafka/MCLKafkaListenerRegistrar.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-jobs/mae-consumer/src/main/java/com/linkedin/metadata/kafka/hook/form/FormAssignmentHook.java": {
+    "additions": null,
+    "deletions": 5
+  },
+  "metadata-jobs/mae-consumer/src/main/java/com/linkedin/metadata/kafka/hook/incident/IncidentsSummaryHook.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-jobs/mae-consumer/src/test/java/com/linkedin/metadata/kafka/hook/EntityRegistryTestUtil.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-jobs/mae-consumer/src/test/java/com/linkedin/metadata/kafka/hook/event/EntityChangeEventGeneratorHookTest.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "metadata-jobs/mae-consumer/src/test/java/com/linkedin/metadata/kafka/hook/incident/IncidentsSummaryHookTest.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-jobs/mae-consumer/src/test/java/com/linkedin/metadata/kafka/hook/ingestion/IngestionSchedulerHookTest.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-jobs/mae-consumer/src/test/java/com/linkedin/metadata/kafka/hook/spring/MCLGMSSpringTest.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-jobs/mae-consumer/src/test/java/com/linkedin/metadata/kafka/hook/spring/MCLSpringCommonTestConfiguration.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-jobs/mae-consumer/src/test/resources/test-entity-registry.yml": {
+    "additions": 13,
+    "deletions": 0
+  },
+  "metadata-jobs/mce-consumer-job/src/main/resources/logback.xml": {
+    "additions": null,
+    "deletions": 3
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/assertion/AssertionInfo.pdl": {
+    "additions": null,
+    "deletions": 45
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/assertion/AssertionResult.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/assertion/AssertionRunEvent.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/assertion/FreshnessAssertionInfo.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/assertion/SchemaAssertionInfo.pdl": {
+    "additions": null,
+    "deletions": 13
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/common/Deprecation.pdl": {
+    "additions": null,
+    "deletions": 3
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/common/GlobalTags.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/common/GlossaryTermAssociation.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/common/Operation.pdl": {
+    "additions": null,
+    "deletions": 3
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/common/OperationSourceType.pdl": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/common/OperationType.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/common/Ownership.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/common/RoleAssociation.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/dataplatforminstance/IcebergWarehouseInfo.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetFieldProfile.pdl": {
+    "additions": null,
+    "deletions": 38
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetProfile.pdl": {
+    "additions": null,
+    "deletions": 6
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/domain/Domains.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/event/notification/settings/NotificationSettings.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/execution/ExecutionRequestInput.pdl": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/execution/ExecutionRequestSignal.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/execution/ExecutionRequestSource.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/form/FormPrompt.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/identity/CorpUserSettings.pdl": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/incident/IncidentInfo.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/incident/IncidentSource.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/ingestion/DataHubIngestionSourceInfo.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/metadata/search/SearchEntity.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/platformresource/PlatformResourceType.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/post/PostType.pdl": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/schema/EditableSchemaFieldInfo.pdl": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/structured/StructuredPropertyDefinition.pdl": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-models/src/main/pegasus/com/linkedin/test/TestInfo.pdl": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-models/src/main/resources/entity-registry.yml": {
+    "additions": 272,
+    "deletions": 24
+  },
+  "metadata-operation-context/src/main/java/io/datahubproject/test/metadata/context/TestOperationContexts.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-service/README.md": {
+    "additions": 1,
+    "deletions": 1
+  },
+  "metadata-service/auth-impl/src/main/java/com/datahub/authentication/authenticator/DataHubSystemAuthenticator.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-service/auth-impl/src/main/java/com/datahub/authentication/authenticator/NoOpAuthenticator.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-service/auth-impl/src/main/java/com/datahub/authentication/group/GroupService.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-service/auth-impl/src/main/java/com/datahub/authorization/DataHubAuthorizer.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "metadata-service/auth-impl/src/main/java/com/datahub/authorization/PolicyFetcher.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-service/auth-impl/src/main/java/com/datahub/authorization/fieldresolverprovider/DataPlatformInstanceFieldResolverProvider.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-service/auth-impl/src/main/java/com/datahub/authorization/fieldresolverprovider/DomainFieldResolverProvider.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-service/auth-impl/src/test/java/com/datahub/authorization/DataHubAuthorizerTest.java": {
+    "additions": null,
+    "deletions": 6
+  },
+  "metadata-service/auth-impl/src/test/java/com/datahub/authorization/PolicyEngineTest.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-service/configuration/src/main/java/com/linkedin/metadata/config/MetadataChangeProposalConfig.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-service/configuration/src/main/java/com/linkedin/metadata/config/TestsConfiguration.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-service/configuration/src/main/resources/application.yaml": {
+    "additions": null,
+    "deletions": 13
+  },
+  "metadata-service/configuration/src/main/resources/bootstrap_mcps.yaml": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-service/configuration/src/main/resources/bootstrap_mcps/root-user.yaml": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-service/factories/build.gradle": {
+    "additions": 18,
+    "deletions": 0
+  },
+  "metadata-service/factories/src/main/java/com/linkedin/gms/factory/assertions/AssertionServiceFactory.java": {
+    "additions": null,
+    "deletions": 10
+  },
+  "metadata-service/factories/src/main/java/com/linkedin/gms/factory/businessattribute/BusinessAttributeServiceFactory.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-service/factories/src/main/java/com/linkedin/gms/factory/entity/EntityServiceFactory.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-service/factories/src/main/java/com/linkedin/gms/factory/entityclient/JavaEntityClientFactory.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "metadata-service/factories/src/main/java/com/linkedin/gms/factory/entityclient/RestliEntityClientFactory.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "metadata-service/factories/src/main/java/com/linkedin/gms/factory/ermodelrelation/ERModelRelationshipServiceFactory.java": {
+    "additions": null,
+    "deletions": 4
+  },
+  "metadata-service/factories/src/main/java/com/linkedin/gms/factory/form/FormServiceFactory.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-service/factories/src/main/java/com/linkedin/gms/factory/incident/IncidentServiceFactory.java": {
+    "additions": null,
+    "deletions": 7
+  },
+  "metadata-service/factories/src/main/java/com/linkedin/gms/factory/kafka/KafkaEventConsumerFactory.java": {
+    "additions": null,
+    "deletions": 10
+  },
+  "metadata-service/factories/src/main/java/com/linkedin/gms/factory/ownership/OwnershipTypeServiceFactory.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-service/factories/src/main/java/com/linkedin/gms/factory/plugins/SpringStandardPluginConfiguration.java": {
+    "additions": null,
+    "deletions": 4
+  },
+  "metadata-service/factories/src/main/java/com/linkedin/gms/factory/query/QueryServiceFactory.java": {
+    "additions": null,
+    "deletions": 4
+  },
+  "metadata-service/factories/src/main/java/com/linkedin/gms/factory/recommendation/candidatesource/MostPopularCandidateSourceFactory.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-service/factories/src/main/java/com/linkedin/gms/factory/recommendation/candidatesource/TopTagsCandidateSourceFactory.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "metadata-service/factories/src/main/java/com/linkedin/gms/factory/recommendation/candidatesource/TopTermsCandidateSourceFactory.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "metadata-service/factories/src/main/java/com/linkedin/gms/factory/search/ElasticSearchBulkProcessorFactory.java": {
+    "additions": null,
+    "deletions": 10
+  },
+  "metadata-service/factories/src/main/java/com/linkedin/gms/factory/search/ElasticSearchServiceFactory.java": {
+    "additions": null,
+    "deletions": 15
+  },
+  "metadata-service/factories/src/main/java/com/linkedin/gms/factory/search/ranker/SearchRankerFactory.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-service/factories/src/main/java/com/linkedin/gms/factory/search/views/ViewServiceFactory.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-service/factories/src/main/java/com/linkedin/gms/factory/settings/SettingsServiceFactory.java": {
+    "additions": null,
+    "deletions": 4
+  },
+  "metadata-service/factories/src/main/java/com/linkedin/gms/factory/timeline/TimelineServiceFactory.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "metadata-service/factories/src/main/java/com/linkedin/gms/factory/timeline/eventgenerator/EntityChangeEventGeneratorRegistryFactory.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "metadata-service/factories/src/main/java/com/linkedin/metadata/boot/factories/BootstrapManagerFactory.java": {
+    "additions": null,
+    "deletions": 7
+  },
+  "metadata-service/factories/src/main/java/com/linkedin/metadata/boot/steps/RestoreFormInfoIndicesStep.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-service/factories/src/main/java/com/linkedin/metadata/boot/steps/RestoreGlossaryIndices.java": {
+    "additions": null,
+    "deletions": 4
+  },
+  "metadata-service/factories/src/test/java/com/linkedin/metadata/boot/steps/RestoreFormInfoIndicesStepTest.java": {
+    "additions": null,
+    "deletions": 5
+  },
+  "metadata-service/factories/src/test/java/com/linkedin/metadata/boot/steps/RestoreGlossaryIndicesTest.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "metadata-service/openapi-analytics-servlet/src/test/java/io/datahubproject/openapi/delegates/DatahubUsageEventsImplTest.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-service/openapi-entity-servlet/src/main/java/io/datahubproject/openapi/v2/delegates/EntityApiDelegateImpl.java": {
+    "additions": null,
+    "deletions": 7
+  },
+  "metadata-service/openapi-entity-servlet/src/main/resources/JavaSpring/api.mustache": {
+    "additions": 1,
+    "deletions": 1
+  },
+  "metadata-service/openapi-entity-servlet/src/test/java/io/datahubproject/openapi/config/OpenAPIEntityTestConfiguration.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-service/openapi-entity-servlet/src/test/java/io/datahubproject/openapi/v2/delegates/EntityApiDelegateImplTest.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-service/openapi-servlet/build.gradle": {
+    "additions": 12,
+    "deletions": 0
+  },
+  "metadata-service/openapi-servlet/models/src/main/java/io/datahubproject/openapi/client/OpenApiClient.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-service/openapi-servlet/src/main/java/io/datahubproject/openapi/config/SpringWebConfig.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-service/openapi-servlet/src/main/java/io/datahubproject/openapi/controller/GenericEntitiesController.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-service/openapi-servlet/src/main/java/io/datahubproject/openapi/util/MappingUtil.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-service/openapi-servlet/src/main/java/io/datahubproject/openapi/v3/controller/EntityController.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-service/openapi-servlet/src/test/java/io/datahubproject/openapi/v3/controller/EntityControllerTest.java": {
+    "additions": null,
+    "deletions": 4
+  },
+  "metadata-service/restli-client-api/src/main/java/com/linkedin/entity/client/EntityClient.java": {
+    "additions": null,
+    "deletions": 5
+  },
+  "metadata-service/restli-client-api/src/main/java/com/linkedin/usage/UsageClient.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-service/restli-client-api/src/main/java/com/linkedin/usage/UsageClientCache.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-service/restli-client/src/main/java/com/linkedin/entity/client/RestliEntityClient.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-service/restli-client/src/main/java/com/linkedin/usage/RestliUsageClient.java": {
+    "additions": null,
+    "deletions": 4
+  },
+  "metadata-service/restli-servlet-impl/src/main/java/com/linkedin/metadata/resources/entity/AspectResource.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-service/restli-servlet-impl/src/main/java/com/linkedin/metadata/resources/entity/BatchIngestionRunResource.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-service/restli-servlet-impl/src/main/java/com/linkedin/metadata/resources/entity/EntityResource.java": {
+    "additions": null,
+    "deletions": 36
+  },
+  "metadata-service/restli-servlet-impl/src/main/java/com/linkedin/metadata/resources/entity/EntityV2Resource.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "metadata-service/restli-servlet-impl/src/main/java/com/linkedin/metadata/resources/entity/EntityVersionedV2Resource.java": {
+    "additions": null,
+    "deletions": 4
+  },
+  "metadata-service/restli-servlet-impl/src/main/java/com/linkedin/metadata/resources/usage/UsageStats.java": {
+    "additions": null,
+    "deletions": 5
+  },
+  "metadata-service/restli-servlet-impl/src/main/resources/index/usage-event/aws_es_ism_policy.json": {
+    "additions": 1,
+    "deletions": 1
+  },
+  "metadata-service/services/src/main/java/com/linkedin/metadata/datahubusage/DataHubUsageEventType.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-service/services/src/main/java/com/linkedin/metadata/entity/AspectUtils.java": {
+    "additions": null,
+    "deletions": 18
+  },
+  "metadata-service/services/src/main/java/com/linkedin/metadata/entity/DeleteEntityService.java": {
+    "additions": null,
+    "deletions": 4
+  },
+  "metadata-service/services/src/main/java/com/linkedin/metadata/entity/DeleteEntityUtils.java": {
+    "additions": null,
+    "deletions": 34
+  },
+  "metadata-service/services/src/main/java/com/linkedin/metadata/entity/EntityService.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-service/services/src/main/java/com/linkedin/metadata/recommendation/candidatesource/TopTagsSource.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "metadata-service/services/src/main/java/com/linkedin/metadata/recommendation/candidatesource/TopTermsSource.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "metadata-service/services/src/main/java/com/linkedin/metadata/search/utils/QueryUtils.java": {
+    "additions": null,
+    "deletions": 3
+  },
+  "metadata-service/services/src/main/java/com/linkedin/metadata/service/AssertionService.java": {
+    "additions": null,
+    "deletions": 46
+  },
+  "metadata-service/services/src/main/java/com/linkedin/metadata/service/BaseService.java": {
+    "additions": null,
+    "deletions": 88
+  },
+  "metadata-service/services/src/main/java/com/linkedin/metadata/service/DomainService.java": {
+    "additions": null,
+    "deletions": 22
+  },
+  "metadata-service/services/src/main/java/com/linkedin/metadata/service/ERModelRelationshipService.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-service/services/src/main/java/com/linkedin/metadata/service/FormService.java": {
+    "additions": null,
+    "deletions": 157
+  },
+  "metadata-service/services/src/main/java/com/linkedin/metadata/service/GlossaryTermService.java": {
+    "additions": null,
+    "deletions": 18
+  },
+  "metadata-service/services/src/main/java/com/linkedin/metadata/service/IncidentService.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-service/services/src/main/java/com/linkedin/metadata/service/OwnerService.java": {
+    "additions": null,
+    "deletions": 21
+  },
+  "metadata-service/services/src/main/java/com/linkedin/metadata/service/OwnershipTypeService.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-service/services/src/main/java/com/linkedin/metadata/service/QueryService.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-service/services/src/main/java/com/linkedin/metadata/service/SettingsService.java": {
+    "additions": null,
+    "deletions": 13
+  },
+  "metadata-service/services/src/main/java/com/linkedin/metadata/service/TagService.java": {
+    "additions": null,
+    "deletions": 236
+  },
+  "metadata-service/services/src/main/java/com/linkedin/metadata/service/ViewService.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-service/services/src/main/java/com/linkedin/metadata/service/util/SearchBasedFormAssignmentManager.java": {
+    "additions": null,
+    "deletions": 17
+  },
+  "metadata-service/services/src/main/java/com/linkedin/metadata/service/util/SearchBasedFormAssignmentRunner.java": {
+    "additions": null,
+    "deletions": 24
+  },
+  "metadata-service/services/src/main/java/com/linkedin/metadata/timeline/data/ChangeCategory.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-service/services/src/main/java/com/linkedin/metadata/timeline/data/ChangeOperation.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-service/services/src/test/java/com/linkedin/metadata/search/utils/QueryUtilsTest.java": {
+    "additions": null,
+    "deletions": 2
+  },
+  "metadata-service/services/src/test/java/com/linkedin/metadata/service/DomainServiceTest.java": {
+    "additions": null,
+    "deletions": 80
+  },
+  "metadata-service/services/src/test/java/com/linkedin/metadata/service/GlossaryTermServiceTest.java": {
+    "additions": null,
+    "deletions": 94
+  },
+  "metadata-service/services/src/test/java/com/linkedin/metadata/service/OwnerServiceTest.java": {
+    "additions": null,
+    "deletions": 69
+  },
+  "metadata-service/services/src/test/java/com/linkedin/metadata/service/OwnershipTypeServiceTest.java": {
+    "additions": null,
+    "deletions": 11
+  },
+  "metadata-service/services/src/test/java/com/linkedin/metadata/service/QueryServiceTest.java": {
+    "additions": null,
+    "deletions": 14
+  },
+  "metadata-service/services/src/test/java/com/linkedin/metadata/service/SettingsServiceTest.java": {
+    "additions": null,
+    "deletions": 39
+  },
+  "metadata-service/services/src/test/java/com/linkedin/metadata/service/TagServiceTest.java": {
+    "additions": null,
+    "deletions": 310
+  },
+  "metadata-service/services/src/test/java/com/linkedin/metadata/service/ViewServiceTest.java": {
+    "additions": null,
+    "deletions": 11
+  },
+  "metadata-service/war/build.gradle": {
+    "additions": 15,
+    "deletions": 1
+  },
+  "metadata-service/war/src/main/java/com/linkedin/gms/ServletConfig.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-service/war/src/main/java/com/linkedin/gms/servlet/OpenAPIServletConfig.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-service/war/src/main/resources/boot/global_settings.json": {
+    "additions": 9,
+    "deletions": 2
+  },
+  "metadata-service/war/src/main/resources/boot/policies.json": {
+    "additions": 144,
+    "deletions": 12
+  },
+  "metadata-service/war/src/main/resources/logback.xml": {
+    "additions": null,
+    "deletions": 16
+  },
+  "metadata-service/war/src/test/java/com/linkedin/gms/SpringTest.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "metadata-utils/src/main/java/com/linkedin/metadata/authorization/PoliciesConfig.java": {
+    "additions": null,
+    "deletions": 22
+  },
+  "metadata-utils/src/main/java/com/linkedin/metadata/utils/SearchUtil.java": {
+    "additions": null,
+    "deletions": 1
+  },
+  "perf-test/README.md": {
+    "additions": 24,
+    "deletions": 3
+  },
+  "perf-test/requirements.txt": {
+    "additions": 2,
+    "deletions": 1
+  },
+  "python-build/copy_wheels.py": {
+    "additions": 2,
+    "deletions": 1
+  },
+  "settings.gradle": {
+    "additions": 21,
+    "deletions": 0
+  },
+  "smoke-test/build.gradle": {
+    "additions": 31,
+    "deletions": 1
+  },
+  "smoke-test/conftest.py": {
+    "additions": null,
+    "deletions": 2
+  },
+  "smoke-test/requirements.txt": {
+    "additions": 1,
+    "deletions": 1
+  },
+  "smoke-test/run-quickstart.sh": {
+    "additions": 6,
+    "deletions": 1
+  },
+  "smoke-test/set-cypress-creds.sh": {
+    "additions": 3,
+    "deletions": 3
+  },
+  "smoke-test/smoke.sh": {
+    "additions": 1,
+    "deletions": 1
+  },
+  "smoke-test/test_e2e.py": {
+    "additions": null,
+    "deletions": 1
+  },
+  "smoke-test/tests/assertions/assertions_test.py": {
+    "additions": null,
+    "deletions": 19
+  },
+  "smoke-test/tests/cli/user_groups_cmd/test_group_cmd.py": {
+    "additions": null,
+    "deletions": 3
+  },
+  "smoke-test/tests/cli/user_groups_cmd/test_user_cmd.py": {
+    "additions": null,
+    "deletions": 1
+  },
+  "smoke-test/tests/cypress/cypress.config.js": {
+    "additions": null,
+    "deletions": 1
+  },
+  "smoke-test/tests/cypress/cypress/e2e/analytics/analytics.js": {
+    "additions": null,
+    "deletions": 1
+  },
+  "smoke-test/tests/cypress/cypress/e2e/domains/nested_domains.js": {
+    "additions": null,
+    "deletions": 9
+  },
+  "smoke-test/tests/cypress/cypress/e2e/domainsV2/v2_nested_domains.js": {
+    "additions": null,
+    "deletions": 6
+  },
+  "smoke-test/tests/cypress/cypress/e2e/home/home.js": {
+    "additions": null,
+    "deletions": 1
+  },
+  "smoke-test/tests/cypress/cypress/e2e/lineage/download_lineage_results.js": {
+    "additions": null,
+    "deletions": 2
+  },
+  "smoke-test/tests/cypress/cypress/e2e/lineageV2/v2_download_lineage_results.js": {
+    "additions": null,
+    "deletions": 1
+  },
+  "smoke-test/tests/cypress/cypress/e2e/login/login.js": {
+    "additions": null,
+    "deletions": 3
+  },
+  "smoke-test/tests/cypress/cypress/e2e/mutations/dataset_health.js": {
+    "additions": null,
+    "deletions": 4
+  },
+  "smoke-test/tests/cypress/cypress/e2e/mutations/dataset_ownership.js": {
+    "additions": null,
+    "deletions": 3
+  },
+  "smoke-test/tests/cypress/cypress/e2e/mutations/domains.js": {
+    "additions": null,
+    "deletions": 1
+  },
+  "smoke-test/tests/cypress/cypress/e2e/mutations/edit_documentation.js": {
+    "additions": null,
+    "deletions": 8
+  },
+  "smoke-test/tests/cypress/cypress/e2e/mutations/managing_secrets.js": {
+    "additions": null,
+    "deletions": 3
+  },
+  "smoke-test/tests/cypress/cypress/e2e/mutationsV2/v2_ingestion_source.js": {
+    "additions": null,
+    "deletions": 1
+  },
+  "smoke-test/tests/cypress/cypress/e2e/mutationsV2/v2_managed_ingestion.js": {
+    "additions": null,
+    "deletions": 1
+  },
+  "smoke-test/tests/cypress/cypress/e2e/mutationsV2/v2_managing_secrets.js": {
+    "additions": null,
+    "deletions": 4
+  },
+  "smoke-test/tests/cypress/cypress/e2e/operrationsV2/v2_operations.js": {
+    "additions": null,
+    "deletions": 1
+  },
+  "smoke-test/tests/cypress/cypress/e2e/search/query_and_filter_search.js": {
+    "additions": null,
+    "deletions": 2
+  },
+  "smoke-test/tests/cypress/cypress/e2e/search/searchFilters.js": {
+    "additions": null,
+    "deletions": 1
+  },
+  "smoke-test/tests/cypress/cypress/e2e/settings/homePagePost.js": {
+    "additions": null,
+    "deletions": 5
+  },
+  "smoke-test/tests/cypress/cypress/e2e/settings/managing_groups.js": {
+    "additions": null,
+    "deletions": 1
+  },
+  "smoke-test/tests/cypress/cypress/e2e/settingsV2/v2_homePagePost.js": {
+    "additions": null,
+    "deletions": 1
+  },
+  "smoke-test/tests/cypress/cypress/e2e/utils.js": {
+    "additions": null,
+    "deletions": 1
+  },
+  "smoke-test/tests/cypress/cypress/support/commands.js": {
+    "additions": null,
+    "deletions": 4
+  },
+  "smoke-test/tests/cypress/data.json": {
+    "additions": 36,
+    "deletions": 0
+  },
+  "smoke-test/tests/cypress/example_to_datahub_rest.yml": {
+    "additions": 1,
+    "deletions": 1
+  },
+  "smoke-test/tests/incidents/data.json": {
+    "additions": 1,
+    "deletions": 1
+  },
+  "smoke-test/tests/incidents/incidents_test.py": {
+    "additions": null,
+    "deletions": 11
+  },
+  "smoke-test/tests/managed_ingestion/managed_ingestion_test.py": {
+    "additions": null,
+    "deletions": 4
+  },
+  "smoke-test/tests/openapi/test_openapi.py": {
+    "additions": null,
+    "deletions": 2
+  },
+  "smoke-test/tests/setup/lineage/utils.py": {
+    "additions": null,
+    "deletions": 6
+  },
+  "smoke-test/tests/tests/data.json": {
+    "additions": 141,
+    "deletions": 0
+  },
+  "smoke-test/tests/tests/tests_test.py": {
+    "additions": null,
+    "deletions": 8
+  },
+  "smoke-test/tests/utils.py": {
+    "additions": null,
+    "deletions": 3
+  }
+}

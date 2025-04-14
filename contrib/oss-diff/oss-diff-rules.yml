@@ -1,0 +1,107 @@
+# These rules are evaluated against all diffs between OSS and SaaS.
+# They are checked in order for each file, with the first matching
+# rule being applied to the file. Exceptions listed in the .json
+# file take precedence over rules.
+rules:
+  # Areas of the codebase that are SaaS only.
+  - pattern: "metadata-ingestion-modules/acryl-cloud/**"
+    max_removals: 0
+  - pattern: "datahub-integrations-service/**"
+    max_removals: 0
+  - pattern: "datahub-executor/**"
+    max_removals: 0
+
+  # Python files, except the acryl-cloud module, should be exactly the same as OSS.
+  - pattern: "metadata-ingestion/**"
+    max_total: 0
+  - pattern: "metadata-ingestion-modules/**"
+    max_total: 0
+
+  # Everywhere else, new files are allowed and file deletions are not.
+  - pattern: "**"
+    change_type: "ADDED"
+    max_removals: 0
+  - pattern: "**"
+    change_type: "DELETED"
+    max_total: 0
+
+  # Ignored files.
+  - pattern:
+      - "**/.gitignore"
+      - ".dockerignore"
+      - ".pre-commit-config.yaml"
+      - "CODEOWNERS"
+      - "metadata-service/restli-api/src/main/snapshot/*.json"
+      - "metadata-service/restli-api/src/main/idl/*.json"
+
+  # datahub-web-react rules.
+  - pattern: "**/yarn.lock" # ignore yarn.lock changes
+  - pattern: "datahub-web-react/**/*.graphql"
+    max_removals: 0
+  - pattern:
+      - "datahub-web-react/**/*.ts"
+      - "datahub-web-react/**/*.tsx"
+      - "datahub-web-react/**/*.js"
+      - "datahub-web-react/**/*.jsx"
+    # If you're making a lot of changes to a given React component, you probably should
+    # be creating a new file instead.
+    # TODO: This limit should be tightened in the future.
+    max_total: 80
+  - pattern: "datahub-web-react/**"
+    max_removals: 0
+
+  # Models should be append-only.
+  - pattern:
+      - "**/entity-registry.yml"
+      - "test-models/src/main/resources/test-entity-registry.yml"
+      - "**/*.pdl"
+    max_removals: 0
+
+  # Most code should be append-only.
+  - pattern:
+      - "buildSrc/**/*.java"
+      - "datahub-frontend/**/*.java"
+      - "datahub-frontend/conf/*"
+      - "datahub-graphql-core/**/*.java"
+      - "datahub-graphql-core/**/*.graphql"
+      - "datahub-upgrade/**/*.java"
+      - "entity-registry/**/*.java"
+      - "metadata-auth/**/*.java"
+      - "metadata-dao-impl/**/*.java"
+      - "metadata-jobs/**/*.java"
+      - "metadata-io/**/*.java"
+      - "metadata-integration/**/*.java"
+      - "metadata-operation-context/**/*.java"
+      - "metadata-service/**/*.java"
+      - "metadata-service/**/*.yaml"
+      - "metadata-utils/**/*.java"
+      - "li-utils/**/*.java"
+      - "smoke-test/**/*.py"
+      - "smoke-test/**/*.js"
+    max_removals: 0
+
+  # GitHub Actions.
+  - pattern:
+      - ".github/actions/**"
+      - ".github/scripts/**"
+    max_removals: 0 # purely additive
+  - pattern: ".github/workflows/**"
+    max_removals: 5
+    max_total: 10
+
+  # Various other files.
+  - pattern: "docker/**"
+    max_removals: 0
+  - pattern: "**/logback.xml"
+    max_removals: 0
+  - pattern: "**/*.gradle"
+    max_total: 10
+  - pattern: "docs/**"
+    max_total: 0 # docs should be public, so no changes are valid in SaaS.
+  - pattern: "docs-website/**"
+    max_removals: 0
+    max_total: 10
+
+  # Catch-all: For all other files, we expect them to be identical to OSS.
+  - pattern: "**"
+    max_total: 0
