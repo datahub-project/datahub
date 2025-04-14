@@ -1148,8 +1148,8 @@ jobs:
           python-version: "3.10"
           cache: "pip"
 
-      #- uses: gradle/actions/setup-gradle@v4
-
+      - uses: gradle/actions/setup-gradle@v4
+        if: ${{ env.DEPOT_PROJECT_ID == '' }}
 
       - name: build images
         if: ${{ env.DOCKER_CACHE != 'DEPOT' || env.DEPOT_PROJECT_ID == '' }}
@@ -1162,7 +1162,8 @@ jobs:
 
           wait
           docker images
-
+        env:
+          DOCKER_CACHE: GITHUB
       - name: pull images from depot
         if: ${{ env.DOCKER_CACHE == 'DEPOT' && env.DEPOT_PROJECT_ID != '' }}
         run: | 

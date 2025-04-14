@@ -185,18 +185,7 @@ quickstart_configs.each { taskName, config ->
 
         def bakeCmdArgs = ["bake", "-f",  "${jsonFile.absolutePath}"]
         def buildCmd = []
-        if (System.getenv("DOCKER_CACHE") == "GITHUB") {
-            buildCmd += ["docker",  "buildx" ]
-            buildCmd += bakeCmdArgs
-            def githubToken = System.getenv("GITHUB_TOKEN")
-            if (githubToken) {
-                dockerCmd += ["--cache-from", "type=gha,token=${githubToken}"]
-                dockerCmd += ["--cache-to", "type=gha,mode=max,token=${githubToken}"]
-            } else {
-                dockerCmd += ["--cache-from", "type=gha"]
-                dockerCmd += ["--cache-to", "type=gha,mode=max"]
-            }
-        } else if (System.getenv("DOCKER_CACHE") == "DEPOT") {
+        if (System.getenv("DOCKER_CACHE") == "DEPOT") {
             buildCmd << "depot"
             buildCmd += bakeCmdArgs
             buildCmd += ['--save', '--metadata-file', "${rootProject.buildDir}/build-metadata.json"]
@@ -204,7 +193,6 @@ quickstart_configs.each { taskName, config ->
             buildCmd += ["docker",  "buildx" ]
             buildCmd +=bakeCmdArgs
         }
-        println(buildCmd.join(" "))
         commandLine buildCmd
         workingDir rootProject.projectDir
 
