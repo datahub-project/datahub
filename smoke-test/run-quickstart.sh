@@ -32,7 +32,7 @@ docker compose --project-directory ../docker/profiles --profile quickstart-consu
 
 # After quickstart succeeds, we modify the docker-compose file to inject the env
 # file variable
-python inject_actions_env_file.py ~/.datahub/quickstart/docker-compose.yml
+python inject_actions_env_file.py ../docker/quickstart/docker-compose.yml
 
 # Then we run quickstart again with the modified docker-compose file
 
