@@ -19,10 +19,14 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
 from datahub.utilities.urns.urn import Urn
-from tests.utils import delete_urns_from_file, get_gms_url, wait_for_writes_to_sync
+from tests.utils import (
+    delete_urns_from_file,
+    get_gms_url,
+    ingest_file_via_rest,
+    wait_for_writes_to_sync,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -63,25 +67,6 @@ def sanitize(event: Any) -> Any:
             ]
 
     return event
-
-
-def ingest_file_via_rest(filename: str) -> Pipeline:
-    pipeline = Pipeline.create(
-        {
-            "source": {
-                "type": "file",
-                "config": {"filename": filename},
-            },
-            "sink": {
-                "type": "datahub-rest",
-                "config": {"server": get_gms_url()},
-            },
-        }
-    )
-    pipeline.run()
-    pipeline.raise_from_status()
-    wait_for_writes_to_sync()
-    return pipeline
 
 
 def generate_temp_yaml(template_path: Path, output_path: Path, test_id: str):
@@ -220,7 +205,9 @@ def dataset_depth_map(test_id):
 
 
 @pytest.fixture(scope="function")
-def ingest_cleanup_data_function(request, test_resources_dir, graph, test_id):
+def ingest_cleanup_data_function(
+    graph_client, auth_session, request, test_resources_dir, graph, test_id
+):
     @contextmanager
     def _ingest_cleanup_data(template_file="datasets_template.yaml"):
         new_file, filename = tempfile.mkstemp(suffix=f"_{test_id}.json")
@@ -230,12 +217,12 @@ def ingest_cleanup_data_function(request, test_resources_dir, graph, test_id):
             print(
                 f"Ingesting datasets test data for test_id: {test_id} using template: {template_file}"
             )
-            ingest_file_via_rest(filename=filename)
+            ingest_file_via_rest(auth_session=auth_session, filename=filename)
             yield all_urns
         finally:
             if DELETE_AFTER_TEST:
                 print(f"Removing test data for test_id: {test_id}")
-                delete_urns_from_file(filename=filename)
+                delete_urns_from_file(graph_client=graph_client, filename=filename)
                 for urn in all_urns:
                     graph.delete_entity(urn, hard=True)
                 wait_for_writes_to_sync()
