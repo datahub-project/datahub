@@ -19,14 +19,10 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
 from datahub.utilities.urns.urn import Urn
-from tests.utils import (
-    delete_urns_from_file,
-    get_gms_url,
-    ingest_file_via_rest,
-    wait_for_writes_to_sync,
-)
+from tests.utils import delete_urns_from_file, get_gms_url, wait_for_writes_to_sync
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +63,25 @@ def sanitize(event: Any) -> Any:
             ]
 
     return event
+
+
+def ingest_file_via_rest(filename: str) -> Pipeline:
+    pipeline = Pipeline.create(
+        {
+            "source": {
+                "type": "file",
+                "config": {"filename": filename},
+            },
+            "sink": {
+                "type": "datahub-rest",
+                "config": {"server": get_gms_url()},
+            },
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+    wait_for_writes_to_sync()
+    return pipeline
 
 
 def generate_temp_yaml(template_path: Path, output_path: Path, test_id: str):
