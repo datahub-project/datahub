@@ -2,13 +2,13 @@ import { useCallback } from 'react';
 import { useHistory } from 'react-router';
 
 import { EXACT_AUTOCOMPLETE_OPTION_TYPE, RELEVANCE_QUERY_OPTION_TYPE } from '@app/searchV2/searchBarV2/constants';
+import { Option } from '@app/searchV2/searchBarV2/types';
 import filterSearchQuery from '@app/searchV2/utils/filterSearchQuery';
 import analytics, { Event, EventType } from '@src/app/analytics';
 import { getEntityPath } from '@src/app/entityV2/shared/containers/profile/utils';
 import { isEntityType } from '@src/app/entityV2/shared/utils';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { FacetFilterInput } from '@src/types.generated';
-import { Option } from '@app/searchV2/searchBarV2/types';
 
 export default function useSelectOption(
     onSearch: (query: string, filters?: FacetFilterInput[]) => void,

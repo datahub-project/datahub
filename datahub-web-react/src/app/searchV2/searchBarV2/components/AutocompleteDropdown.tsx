@@ -1,11 +1,11 @@
 import React from 'react';
-import { AppliedFieldFilterUpdater, FieldToAppliedFieldFiltersMap } from '../../filtersV2/types';
 import { FacetMetadata } from '@src/types.generated';
-import AutocompleteFooter from './AutocompleteFooter';
-import Filters from './Filters';
 import styled from 'styled-components';
 import { colors, radius } from '@src/alchemy-components';
-import { BOX_SHADOW } from '../constants';
+import { AppliedFieldFilterUpdater, FieldToAppliedFieldFiltersMap } from '@app/searchV2/filtersV2/types';
+import AutocompleteFooter from '@app/searchV2/searchBarV2/components/AutocompleteFooter';
+import Filters from '@app/searchV2/searchBarV2/components/Filters';
+import { BOX_SHADOW } from '@app/searchV2/searchBarV2/constants';
 
 const DropdownContainer = styled.div`
     overflow: auto;
