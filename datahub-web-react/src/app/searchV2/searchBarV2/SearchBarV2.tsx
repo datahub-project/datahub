@@ -1,12 +1,9 @@
 import { Skeleton } from 'antd';
 import { debounce } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
 
-import analytics, { Event, EventType } from '@app/analytics';
 import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
-import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
 import { ViewSelect } from '@app/entityV2/view/select/ViewSelect';
 import { V2_SEARCH_BAR_VIEWS } from '@app/onboarding/configV2/HomePageOnboardingConfig';
 import { SearchBarProps } from '@app/searchV2/SearchBar';
@@ -18,13 +15,12 @@ import SearchBarInput from '@app/searchV2/searchBarV2/components/SearchBarInput'
 import {
     AUTOCOMPLETE_DROPDOWN_ALIGN_WITH_NEW_NAV_BAR,
     DEBOUNCE_ON_SEARCH_TIMEOUT_MS,
-    EXACT_AUTOCOMPLETE_OPTION_TYPE,
-    RELEVANCE_QUERY_OPTION_TYPE,
 } from '@app/searchV2/searchBarV2/constants';
 import useSearchResultsOptions from '@app/searchV2/searchBarV2/hooks/useAutocompleteSuggestionsOptions';
 import useFocusElementByCommandK from '@app/searchV2/searchBarV2/hooks/useFocusSearchBarByCommandK';
 import useRecentlySearchedQueriesOptions from '@app/searchV2/searchBarV2/hooks/useRecentlySearchedQueriesOptions';
 import useRecentlyViewedEntitiesOptions from '@app/searchV2/searchBarV2/hooks/useRecentlyViewedEntitiesOptions';
+import useSelectOption from '@app/searchV2/searchBarV2/hooks/useSelectOption';
 import useViewAllResultsOptions from '@app/searchV2/searchBarV2/hooks/useViewAllResultsOptions';
 import { MIN_CHARACTER_COUNT_FOR_SEARCH } from '@app/searchV2/utils/constants';
 import filterSearchQuery from '@app/searchV2/utils/filterSearchQuery';
@@ -108,7 +104,6 @@ export const SearchBarV2 = ({
     onSearch,
     onQueryChange,
     onFilter,
-    entityRegistry,
     style,
     inputStyle,
     autoCompleteStyle,
@@ -124,7 +119,6 @@ export const SearchBarV2 = ({
     isShowNavBarRedesign,
     searchResponse,
 }: SearchBarProps) => {
-    const history = useHistory();
     const appConfig = useAppConfig();
     const showAutoCompleteResults = appConfig?.config?.featureFlags?.showAutoCompleteResults;
     const isShowSeparateSiblingsEnabled = useIsShowSeparateSiblingsEnabled();
@@ -238,30 +232,7 @@ export const SearchBarV2 = ({
         setIsDropdownVisible(false);
     }, [searchQuery, flatAppliedFilters, onSearch]);
 
-    const onSelectHandler = useCallback(
-        (value, option) => {
-            // If the autocomplete option type is NOT an entity, then render as a normal search query.
-            if (option.type === EXACT_AUTOCOMPLETE_OPTION_TYPE || option.type === RELEVANCE_QUERY_OPTION_TYPE) {
-                onSearch(`${filterSearchQuery(value as string)}`, flatAppliedFilters);
-                analytics.event({
-                    type: EventType.SelectAutoCompleteOption,
-                    optionType: option.type,
-                } as Event);
-            } else {
-                // Navigate directly to the entity profile.
-                history.push(getEntityPath(option.type, value, entityRegistry, false, false));
-                onClearHandler();
-                analytics.event({
-                    type: EventType.SelectAutoCompleteOption,
-                    optionType: option.type,
-                    entityType: option.type,
-                    entityUrn: value,
-                } as Event);
-            }
-            setIsDropdownVisible(false);
-        },
-        [onSearch, onClearHandler, entityRegistry, flatAppliedFilters, history],
-    );
+    const selectOption = useSelectOption(onSearch, onClearHandler, flatAppliedFilters);
 
     const viewsEnabledStyle = {
         ...style,
@@ -322,7 +293,7 @@ export const SearchBarV2 = ({
                             onClearFilters={onClearFilters}
                         />
                     }
-                    onSelect={onSelectHandler}
+                    onSelect={selectOption}
                     onSearch={onSearchHandler}
                     defaultValue={initialQuery || undefined}
                     value={searchQuery}
