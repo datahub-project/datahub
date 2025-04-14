@@ -260,6 +260,9 @@ class DataHubListener:
         routine is also responsible for converting the lineage to DataHub URNs.
         """
 
+        if not self.config.enable_datajob_lineage:
+            return
+
         input_urns: List[str] = []
         output_urns: List[str] = []
         fine_grained_lineages: List[FineGrainedLineageClass] = []
@@ -450,7 +453,8 @@ class DataHubListener:
         # TODO: Add handling for Airflow mapped tasks using task_instance.map_index
 
         for mcp in datajob.generate_mcp(
-            materialize_iolets=self.config.materialize_iolets
+            generate_lineage=self.config.enable_datajob_lineage,
+            materialize_iolets=self.config.materialize_iolets,
         ):
             self.emitter.emit(mcp, self._make_emit_callback())
         logger.debug(f"Emitted DataHub Datajob start: {datajob}")
@@ -536,7 +540,8 @@ class DataHubListener:
         self._extract_lineage(datajob, dagrun, task, task_instance, complete=True)
 
         for mcp in datajob.generate_mcp(
-            materialize_iolets=self.config.materialize_iolets
+            generate_lineage=self.config.enable_datajob_lineage,
+            materialize_iolets=self.config.materialize_iolets,
         ):
             self.emitter.emit(mcp, self._make_emit_callback())
         logger.debug(f"Emitted DataHub Datajob finish w/ status {status}: {datajob}")
