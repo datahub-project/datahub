@@ -4,6 +4,7 @@ import { List, Dropdown, DatePicker, Form } from 'antd';
 import { Pill } from '@src/alchemy-components';
 import dayjs from 'dayjs';
 import { AssertionMonitorBuilderExclusionWindow } from '../../../types';
+import { AssertionFormTitleAndTooltip } from './AssertionFormTitleAndTooltip';
 
 type Props = {
     exclusionWindows: AssertionMonitorBuilderExclusionWindow;
@@ -65,7 +66,13 @@ export const ExclusionWindowAdjuster = (props: Props) => {
         });
     return (
         <Form.Item
-            label="Exclusion Windows"
+            label={
+                <AssertionFormTitleAndTooltip
+                    formTitle="Exclusion Windows"
+                    tooltipTitle="Exclusion Windows"
+                    tooltipDescription="Set time windows to exclude from training data. This can be useful to exclude known maintenance windows or other periods of downtime, seasonal spikes e.g. holidays or any other windows that are not representative of normal data trends."
+                />
+            }
             style={{ marginBottom: 16 }}
             labelCol={{ span: 24 }}
             wrapperCol={{ span: 24 }}

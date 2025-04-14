@@ -91,7 +91,7 @@ export const AcrylAssertionResultsChartTimeline = ({ results, platform, timeRang
                                 {isInitializing && (
                                     <AssertionResultInitializingMessage>
                                         {isSmartAssertion
-                                            ? 'Collecting data to train the model. Evaluation will begin once training is complete.'
+                                            ? 'Collecting data to train the model. Evaluation will begin once training is complete. This can take up to 7 days.'
                                             : 'Collecting the information required to evaluate this assertion. Evaluation will begin once the information is collected.'}
                                     </AssertionResultInitializingMessage>
                                 )}

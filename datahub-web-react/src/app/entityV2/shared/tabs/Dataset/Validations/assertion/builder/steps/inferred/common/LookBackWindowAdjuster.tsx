@@ -1,5 +1,6 @@
 import { InputNumber, Form } from 'antd';
 import React from 'react';
+import { AssertionFormTitleAndTooltip } from './AssertionFormTitleAndTooltip';
 
 type Props = {
     trainingDataLookbackWindowDays?: number;
@@ -11,7 +12,13 @@ export const LookBackWindowAdjuster = (props: Props) => {
     const { trainingDataLookbackWindowDays, disabled, onChange } = props;
     return (
         <Form.Item
-            label="Training data lookback window days"
+            label={
+                <AssertionFormTitleAndTooltip
+                    formTitle="Training data lookback window days"
+                    tooltipTitle="Training data lookback window days"
+                    tooltipDescription="Set the number of days to look back for training data when inferring assertion bounds."
+                />
+            }
             name="trainingDataLookbackWindowDays"
             initialValue={trainingDataLookbackWindowDays || 60}
             labelCol={{ span: 24 }}

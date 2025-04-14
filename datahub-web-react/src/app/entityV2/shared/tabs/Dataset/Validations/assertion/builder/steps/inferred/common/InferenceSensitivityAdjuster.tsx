@@ -1,5 +1,6 @@
 import { Form, Select } from 'antd';
 import React, { useEffect, useRef } from 'react';
+import { AssertionFormTitleAndTooltip } from './AssertionFormTitleAndTooltip';
 
 type Props = {
     sensitivity?: number;
@@ -21,7 +22,13 @@ export const InferenceSensitivityAdjuster = (props: Props) => {
     /* High medium low dropdown, defaults to medium */
     return (
         <Form.Item
-            label="Sensitivity"
+            label={
+                <AssertionFormTitleAndTooltip
+                    formTitle="Sensitivity"
+                    tooltipTitle="Sensitivity"
+                    tooltipDescription="Set how tight the predicted assertion bounds will be. High sensitivity will result in a tighter fit and potentially more false positive alerts, while low sensitivity will be lower and can result in fewer alerts."
+                />
+            }
             name="sensitivity"
             initialValue={initialValueRef.current}
             labelCol={{ span: 24 }}
