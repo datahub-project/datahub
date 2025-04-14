@@ -94,7 +94,9 @@ class ActionTestEnv(BaseModel):
 
 @pytest.fixture(scope="module")
 def action_env_vars(pytestconfig) -> ActionTestEnv:
-    common_test_resources_dir = Path(pytestconfig.rootdir) / "test_resources" / "actions"
+    common_test_resources_dir = (
+        Path(pytestconfig.rootdir) / "test_resources" / "actions"
+    )
     env_file = common_test_resources_dir / "actions.env"
     # validate the env file exists
     assert env_file.exists()
@@ -213,12 +215,12 @@ def ingest_cleanup_data_function(request, test_resources_dir, graph, test_id):
             print(
                 f"Ingesting datasets test data for test_id: {test_id} using template: {template_file}"
             )
-            ingest_file_via_rest(filename)
+            ingest_file_via_rest(filename=filename)
             yield all_urns
         finally:
             if DELETE_AFTER_TEST:
                 print(f"Removing test data for test_id: {test_id}")
-                delete_urns_from_file(filename)
+                delete_urns_from_file(filename=filename)
                 for urn in all_urns:
                     graph.delete_entity(urn, hard=True)
                 wait_for_writes_to_sync()
