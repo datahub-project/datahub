@@ -16,6 +16,8 @@
 ARG BASE_IMAGE=acryldata/datahub-ingestion-base
 ARG DOCKER_VERSION=head-full
 ARG APP_ENV=prod
+ARG ACTION_ENV
+ARG APP_ENV=${ACTION_ENV:-$APP_ENV}
 
 FROM $BASE_IMAGE:$DOCKER_VERSION AS base
 
