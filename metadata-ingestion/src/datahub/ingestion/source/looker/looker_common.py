@@ -2,6 +2,7 @@ import datetime
 import itertools
 import logging
 import os
+import pprint
 import re
 from contextlib import contextmanager
 from dataclasses import dataclass, field as dataclasses_field
@@ -934,7 +935,9 @@ class LookerExplore:
     ) -> Optional["LookerExplore"]:
         try:
             explore = client.lookml_model_explore(model, explore_name)
-            logger.debug(f"Fetched LookML Model Explore: {explore}")
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"LookML Model Explore: {explore_name}")
+                pprint.pp(explore)
             views: Set[str] = set()
             lkml_fields: List[LookmlModelExploreField] = (
                 explore_field_set_to_lkml_fields(explore)
@@ -1072,6 +1075,12 @@ class LookerExplore:
             view_project_map: Dict[str, str] = create_view_project_map(view_fields)
             if view_project_map:
                 logger.debug(f"views and their projects: {view_project_map}")
+
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug("lkml_fields")
+                pprint.pp(lkml_fields)
+                logger.debug("views")
+                pprint.pp(views)
 
             upstream_views_file_path: Dict[str, Optional[str]] = (
                 create_upstream_views_file_path_map(
