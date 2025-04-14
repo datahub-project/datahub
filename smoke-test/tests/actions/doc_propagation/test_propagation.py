@@ -94,7 +94,7 @@ class ActionTestEnv(BaseModel):
 
 @pytest.fixture(scope="module")
 def action_env_vars(pytestconfig) -> ActionTestEnv:
-    common_test_resources_dir = Path(pytestconfig.rootdir) / "tests" / "resources"
+    common_test_resources_dir = Path(pytestconfig.rootdir) / "test_resources" / "actions"
     env_file = common_test_resources_dir / "actions.env"
     # validate the env file exists
     assert env_file.exists()
