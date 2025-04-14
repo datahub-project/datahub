@@ -1,0 +1,159 @@
+name: Custom Docker build and push
+description: "Build and push a Docker image to Docker Hub"
+
+inputs:
+  username:
+    description: "Docker Hub username"
+  password:
+    description: "Docker Hub password"
+  publish:
+    description: "Set to true to actually publish the image to Docker Hub"
+
+  context:
+    description: "Same as docker/build-push-action"
+    required: false
+  file:
+    description: "Same as docker/build-push-action"
+    required: false
+  platforms:
+    description: "Same as docker/build-push-action"
+    required: false
+
+  images:
+    # e.g. acryldata/datahub-gms
+    description: "List of Docker images to use as base name for tags"
+    required: true
+  build-args:
+    description: "List of build-time variables. Same as docker/build-push-action"
+    required: false
+  image_tag:
+    # e.g. pr12345 OR head OR v0.1.2.3
+    description: "Main tag to use for the Docker image"
+    required: true
+  flavor:
+    description: "Image flavor (e.g., slim, full)"
+    required: false
+  target:
+    description: "Sets the target stage to build"
+    required: false
+  depot-project:
+    # Setting this will use native arm64 docker builds instead of QEMU emulation.
+    # This speeds up builds by 2-3x.
+    description: "Depot project id"
+    required: false
+
+outputs:
+  image_tag:
+    description: "Docker image tags"
+    value: ${{ steps.docker_meta.outputs.tags }}
+
+runs:
+  using: "composite"
+
+  steps:
+    - name: Docker meta
+      id: docker_meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ inputs.images }}
+        flavor: |
+          latest=false
+        tags: |
+          type=raw,value=${{ inputs.image_tag }}
+          type=raw,value=head,suffix=${{ inputs.flavor && format('-{0}', inputs.flavor) || '' }},enable={{is_default_branch}}
+          type=sha,prefix=,format=short,suffix=${{ inputs.flavor && format('-{0}', inputs.flavor) || '' }}
+
+    - name: Single Tag
+      id: single_tag
+      shell: bash
+      run: |
+        IMAGES="""
+        ${{ inputs.images }}
+        """
+        TAGS="""
+        ${{ inputs.image_tag }}
+        """
+        echo "SINGLE_IMAGE=$(echo $IMAGES | tr '\n' ' ' | awk -F' |,' '{ print $1 }')" >> "$GITHUB_OUTPUT"
+        echo "SINGLE_TAG=$(echo $IMAGES | tr '\n' ' ' | awk -F' |,' '{ print $1 }'):$(echo $TAGS | tr '\n' ' ' | awk -F' |,' '{ print $1 }')" >> "$GITHUB_OUTPUT"
+
+    # Code for testing the build when not pushing to Docker Hub.
+    - name: Build and Load image for testing (if not publishing)
+      uses: docker/build-push-action@v6
+      if: ${{ inputs.publish != 'true' }}
+      with:
+        context: ${{ inputs.context }}
+        file: ${{ inputs.file }}
+        # TODO this only does single-platform builds in testing?
+        # leaving it for now since it matches the previous behavior
+        platforms: linux/amd64
+        build-args: ${{ inputs.build-args }}
+        tags: ${{ steps.docker_meta.outputs.tags }}
+        target: ${{ inputs.target }}
+        load: true
+        push: false
+        cache-from: |
+          type=registry,ref=${{ steps.single_tag.outputs.SINGLE_IMAGE }}:head${{ inputs.flavor && format('-{0}', inputs.flavor) || '' }}
+          type=registry,ref=${{ steps.docker_meta.outputs.tags }}
+        cache-to: |
+          type=inline
+    - name: Upload image locally for testing (if not publishing)
+      uses: ishworkh/container-image-artifact-upload@v2.0.0
+      if: ${{ inputs.publish != 'true' }}
+      with:
+        image: ${{ steps.single_tag.outputs.SINGLE_TAG }}
+        retention_days: "2"
+
+    # Code for building multi-platform images and pushing to Docker Hub.
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+      if: ${{ inputs.publish == 'true' && inputs.depot-project == '' }}
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      if: ${{ inputs.publish == 'true' && inputs.depot-project == '' }}
+    - name: Setup Depot CLI
+      uses: depot/setup-action@v1
+      if: ${{ inputs.publish == 'true' && inputs.depot-project != '' }}
+    - name: Login to DockerHub
+      uses: docker/login-action@v3
+      if: ${{ inputs.publish == 'true' }}
+      with:
+        username: ${{ inputs.username }}
+        password: ${{ inputs.password }}
+
+    # Depot variant.
+    - name: Build and Push Multi-Platform image
+      uses: depot/build-push-action@v1
+      if: ${{ inputs.publish == 'true' && inputs.depot-project != '' }}
+      with:
+        project: ${{ inputs.depot-project }}
+        context: ${{ inputs.context }}
+        file: ${{ inputs.file }}
+        platforms: ${{ inputs.platforms }}
+        build-args: ${{ inputs.build-args }}
+        tags: ${{ steps.docker_meta.outputs.tags }}
+        target: ${{ inputs.target }}
+        push: true
+        cache-from: |
+          type=registry,ref=${{ steps.single_tag.outputs.SINGLE_IMAGE }}:head${{ inputs.flavor && format('-{0}', inputs.flavor) || '' }}
+          type=registry,ref=${{ steps.docker_meta.outputs.tags }}
+        cache-to: |
+          type=inline
+
+    - name: Build and Push Multi-Platform image
+      uses: docker/build-push-action@v6
+      if: ${{ inputs.publish == 'true' && inputs.depot-project == '' }}
+      with:
+        context: ${{ inputs.context }}
+        file: ${{ inputs.file }}
+        platforms: ${{ inputs.platforms }}
+        build-args: ${{ inputs.build-args }}
+        tags: ${{ steps.docker_meta.outputs.tags }}
+        target: ${{ inputs.target }}
+        push: true
+        cache-from: |
+          type=registry,ref=${{ steps.single_tag.outputs.SINGLE_IMAGE }}:head${{ inputs.flavor && format('-{0}', inputs.flavor) || '' }}
+          type=registry,ref=${{ steps.docker_meta.outputs.tags }}
+        cache-to: |
+          type=inline
+
+    # TODO add code for vuln scanning?

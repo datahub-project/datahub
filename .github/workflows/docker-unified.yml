@@ -1098,7 +1098,7 @@ jobs:
         with:
           sarif_file: "trivy-results.sarif"
   datahub_actions_slim_build:
-    name: Build and Push DataHub Actions Docker Image
+    name: Build and Push DataHub Actions Slim Docker Image
     runs-on: depot-ubuntu-24.04
     needs: [setup, base_build]
     if: ${{ needs.setup.outputs.actions_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true'}}
@@ -1130,7 +1130,7 @@ jobs:
           build-args: |
             "APP_ENV=prod-slim"
   datahub_actions_slim_scan:
-    name: "[Monitoring] Scan Datahub Actions images for vulnerabilities"
+    name: "[Monitoring] Scan Datahub Actions Slim images for vulnerabilities"
     runs-on: depot-ubuntu-24.04
     needs: [setup, smoke_test_lint,datahub_actions_slim_build]
     if: ${{ needs.setup.outputs.actions_change == 'true' || needs.setup.outputs.publish == 'true' }}
