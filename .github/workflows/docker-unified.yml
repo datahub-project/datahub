@@ -1127,8 +1127,6 @@ jobs:
           context: ./build/dockerBuildContext/datahub-frontend/docker
           file: ./docker/datahub-frontend/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
-          build-args: |
-            "APP_ENV=prod-slim"
   datahub_actions_slim_scan:
     name: "[Monitoring] Scan Datahub Actions Slim images for vulnerabilities"
     runs-on: depot-ubuntu-24.04
