@@ -70,7 +70,7 @@ public class BootstrapManagerFactory {
   private SearchDocumentTransformer _searchDocumentTransformer;
 
   @Autowired
-  @Qualifier("entityAspectMigrationsDao")
+  @Qualifier("entityAspectDao")
   private AspectMigrationsDao _migrationsDao;
 
   @Autowired

@@ -21,6 +21,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Breaking Changes
 
 - #13004: The `acryl-datahub-airflow-plugin` dropped support for Airflow 2.3 and 2.4.
+- #13186: NoCode Migration Removed - This code hasn't been required in many years. If needed, a user should upgrade to DataHub 1.0.x prior to upgrading to a later version.
 
 ### Potential Downtime
 

@@ -38,9 +38,9 @@ buildscript {
   ext.pegasusVersion = '29.57.0'
   ext.mavenVersion = '3.6.3'
   ext.versionGradle = '8.11.1'
-  ext.springVersion = '6.1.14'
-  ext.springBootVersion = '3.2.9'
-  ext.springKafkaVersion = '3.1.6'
+  ext.springVersion = '6.2.5'
+  ext.springBootVersion = '3.4.4'
+  ext.springKafkaVersion = '3.3.4'
   ext.openTelemetryVersion = '1.45.0'
   ext.neo4jVersion = '5.20.0'
   ext.neo4jTestVersion = '5.20.0'
@@ -55,7 +55,7 @@ buildscript {
   ext.akkaVersion = '2.6.21' // 2.7.0+ has incompatible license
   ext.log4jVersion = '2.23.1'
   ext.slf4jVersion = '1.7.36'
-  ext.logbackClassic = '1.4.14'
+  ext.logbackClassic = '1.5.18'
   ext.hadoop3Version = '3.3.6'
   ext.kafkaVersion = '5.5.15'
   ext.hazelcastVersion = '5.3.6'
@@ -167,7 +167,7 @@ project.ext.externalDependency = [
     'hazelcastSpring':"com.hazelcast:hazelcast-spring:$hazelcastVersion",
     'hazelcastTest':"com.hazelcast:hazelcast:$hazelcastVersion:tests",
     'hibernateCore': 'org.hibernate:hibernate-core:5.2.16.Final',
-    'httpClient': 'org.apache.httpcomponents.client5:httpclient5:5.3',
+    'httpClient': 'org.apache.httpcomponents.client5:httpclient5:5.4.3',
     'iStackCommons': 'com.sun.istack:istack-commons-runtime:4.0.1',
     'jacksonJDK8': "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:$jacksonVersion",
     'jacksonDataPropertyFormat': "com.fasterxml.jackson.dataformat:jackson-dataformat-properties:$jacksonVersion",
@@ -263,7 +263,7 @@ project.ext.externalDependency = [
     'springBeans': "org.springframework:spring-beans:$springVersion",
     'springContext': "org.springframework:spring-context:$springVersion",
     'springCore': "org.springframework:spring-core:$springVersion",
-    'springDocUI': 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0',
+    'springDocUI': 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.6',
     'springJdbc': "org.springframework:spring-jdbc:$springVersion",
     'springWeb': "org.springframework:spring-web:$springVersion",
     'springWebMVC': "org.springframework:spring-webmvc:$springVersion",
@@ -276,11 +276,11 @@ project.ext.externalDependency = [
     'springBootStarterValidation': "org.springframework.boot:spring-boot-starter-validation:$springBootVersion",
     'springKafka': "org.springframework.kafka:spring-kafka:$springKafkaVersion",
     'springActuator': "org.springframework.boot:spring-boot-starter-actuator:$springBootVersion",
-    'springRetry': "org.springframework.retry:spring-retry:2.0.6",
-    'swaggerAnnotations': 'io.swagger.core.v3:swagger-annotations:2.2.15',
+    'springRetry': "org.springframework.retry:spring-retry:2.0.11",
+    'swaggerAnnotations': 'io.swagger.core.v3:swagger-annotations:2.2.30',
     'swaggerCli': 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.46',
-    'swaggerCore': 'io.swagger.core.v3:swagger-core:2.2.7',
-    'swaggerParser': 'io.swagger.parser.v3:swagger-parser:2.1.15',
+    'swaggerCore': 'io.swagger.core.v3:swagger-core:2.2.30',
+    'swaggerParser': 'io.swagger.parser.v3:swagger-parser:2.1.26',
     'springBootAutoconfigureJdk11': 'org.springframework.boot:spring-boot-autoconfigure:2.7.18',
     'testng': 'org.testng:testng:7.8.0',
     'testContainers': 'org.testcontainers:testcontainers:' + testContainersVersion,

@@ -39,6 +39,7 @@ dependencies {
   api externalDependency.springCore
   api externalDependency.springKafka
   api externalDependency.springWeb
+  api externalDependency.httpClient
   implementation externalDependency.awsPostgresIamAuth
   implementation externalDependency.awsRds
   implementation(externalDependency.mixpanel) {
