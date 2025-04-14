@@ -1,5 +1,6 @@
+import { colors, radius, spacing, transition } from '@src/alchemy-components';
+import { AutoComplete } from '@src/alchemy-components/components/AutoComplete';
 import { Skeleton } from 'antd';
-import { debounce } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
 
@@ -14,7 +15,6 @@ import Filters from '@app/searchV2/searchBarV2/components/Filters';
 import SearchBarInput from '@app/searchV2/searchBarV2/components/SearchBarInput';
 import {
     AUTOCOMPLETE_DROPDOWN_ALIGN_WITH_NEW_NAV_BAR,
-    DEBOUNCE_ON_SEARCH_TIMEOUT_MS,
 } from '@app/searchV2/searchBarV2/constants';
 import useSearchResultsOptions from '@app/searchV2/searchBarV2/hooks/useAutocompleteSuggestionsOptions';
 import useFocusElementByCommandK from '@app/searchV2/searchBarV2/hooks/useFocusSearchBarByCommandK';
@@ -25,9 +25,8 @@ import useViewAllResultsOptions from '@app/searchV2/searchBarV2/hooks/useViewAll
 import { MIN_CHARACTER_COUNT_FOR_SEARCH } from '@app/searchV2/utils/constants';
 import filterSearchQuery from '@app/searchV2/utils/filterSearchQuery';
 import { useAppConfig, useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
-import { colors, radius, spacing, transition } from '@src/alchemy-components';
-import { AutoComplete } from '@src/alchemy-components/components/AutoComplete';
 import { SearchBarApi } from '@src/types.generated';
+import { useSearchBarData } from '@app/searchV2/useSearchBarData';
 
 const BOX_SHADOW = `0px -3px 12px 0px rgba(236, 240, 248, 0.5) inset,
 0px 3px 12px 0px rgba(255, 255, 255, 0.5) inset,
@@ -102,8 +101,6 @@ export const SearchBarV2 = ({
     initialQuery,
     placeholderText,
     onSearch,
-    onQueryChange,
-    onFilter,
     style,
     inputStyle,
     autoCompleteStyle,
@@ -117,7 +114,6 @@ export const SearchBarV2 = ({
     textColor,
     placeholderColor,
     isShowNavBarRedesign,
-    searchResponse,
 }: SearchBarProps) => {
     const appConfig = useAppConfig();
     const showAutoCompleteResults = appConfig?.config?.featureFlags?.showAutoCompleteResults;
@@ -126,20 +122,20 @@ export const SearchBarV2 = ({
 
     const [searchQuery, setSearchQuery] = useState<string>(initialQuery || '');
 
-    const entities = searchResponse?.entities;
-    const facets = searchResponse?.facets;
-    const isDataLoading = searchResponse?.loading;
-    const searchAPIVariant = searchResponse?.searchAPIVariant;
-
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
     // used to show Loader when we searching for suggestions in both cases for the first time and after clearing searchQuery
     const [isDataInitialized, setIsDataInitialized] = useState<boolean>(false);
     const { appliedFilters, hasAppliedFilters, flatAppliedFilters, clear, updateFieldFilters } = useAppliedFilters();
 
+    const {
+        entities,
+        facets,
+        loading: isDataLoading,
+        searchAPIVariant,
+    } = useSearchBarData(searchQuery, appliedFilters);
+
     const searchInputRef = useRef(null);
     useFocusElementByCommandK(searchInputRef, !showCommandK);
-
-    useEffect(() => onFilter?.(appliedFilters), [appliedFilters, onFilter]);
 
     useEffect(() => {
         if (searchQuery === '') setIsDataInitialized(false);
@@ -215,10 +211,6 @@ export const SearchBarV2 = ({
     // clear filters when this search bar is unmounted (ie. going from search results to home page)
     useEffect(() => () => onClearHandler(), [onClearHandler]);
 
-    const onSearchHandler = showAutoCompleteResults
-        ? debounce((query: string) => onQueryChange?.(query), DEBOUNCE_ON_SEARCH_TIMEOUT_MS)
-        : undefined;
-
     const runSearching = useCallback(() => {
         const filteredSearchQuery = filterSearchQuery(searchQuery || '');
         let cleanedQuery = filteredSearchQuery.trim();
@@ -233,6 +225,10 @@ export const SearchBarV2 = ({
     }, [searchQuery, flatAppliedFilters, onSearch]);
 
     const selectOption = useSelectOption(onSearch, onClearHandler, flatAppliedFilters);
+    const onSelectHandler = useCallback((value, option) => {
+        selectOption(value, option);
+        setIsDropdownVisible(false);
+    }, [selectOption])
 
     const viewsEnabledStyle = {
         ...style,
@@ -293,8 +289,7 @@ export const SearchBarV2 = ({
                             onClearFilters={onClearFilters}
                         />
                     }
-                    onSelect={selectOption}
-                    onSearch={onSearchHandler}
+                    onSelect={onSelectHandler}
                     defaultValue={initialQuery || undefined}
                     value={searchQuery}
                     onChange={onChangeHandler}

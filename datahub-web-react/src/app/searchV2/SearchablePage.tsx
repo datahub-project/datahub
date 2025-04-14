@@ -11,8 +11,6 @@ import { NavSidebar } from '@app/homeV2/layout/NavSidebar';
 import { NavSidebar as NavSidebarRedesign } from '@app/homeV2/layout/navBarRedesign/NavSidebar';
 import { useSelectedSortOption } from '@app/search/context/SearchContext';
 import { SearchHeader } from '@app/searchV2/SearchHeader';
-import { FieldToAppliedFieldFiltersMap } from '@app/searchV2/filtersV2/types';
-import { useSearchBarData } from '@app/searchV2/useSearchBarData';
 import { getAutoCompleteInputFromQuickFilter } from '@app/searchV2/utils/filterUtils';
 import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
 import useFilters from '@app/searchV2/utils/useFilters';
@@ -79,7 +77,6 @@ export const SearchablePage = ({ children }: Props) => {
     const location = useLocation();
     const appConfig = useAppConfig();
     const showSearchBarAutocompleteRedesign = appConfig.config.featureFlags?.showSearchBarAutocompleteRedesign;
-    const searchBarApiVariant = appConfig.config.searchBarConfig.apiVariant;
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramFilters: Array<FacetFilterInput> = useFilters(params);
     const filters = isSearchResultPage(location.pathname) ? paramFilters : [];
@@ -99,23 +96,11 @@ export const SearchablePage = ({ children }: Props) => {
     const [newSuggestionData, setNewSuggestionData] = useState<GetAutoCompleteMultipleResultsQuery | undefined>();
     const viewUrn = userContext.localState?.selectedViewUrn;
 
-    const [appliedFilters, setAppliedFilters] = useState<FieldToAppliedFieldFiltersMap | undefined>(new Map());
-    const [searchQuery, setSearchQuery] = useState<string>(currentQuery);
-
     useEffect(() => {
         if (suggestionsData !== undefined) {
             setNewSuggestionData(suggestionsData);
         }
     }, [suggestionsData]);
-
-    // Search response for the SearchBarV2 (when showSearchBarAutocompleteRedesign is enabled)
-    const searchResponse = useSearchBarData(
-        searchQuery,
-        appliedFilters,
-        viewUrn,
-        searchBarApiVariant,
-        showSearchBarAutocompleteRedesign,
-    );
 
     const search = (query: string, newFilters?: FacetFilterInput[]) => {
         analytics.event({
@@ -179,10 +164,8 @@ export const SearchablePage = ({ children }: Props) => {
                     []
                 }
                 onSearch={search}
-                onQueryChange={showSearchBarAutocompleteRedesign ? setSearchQuery : autoComplete}
+                onQueryChange={autoComplete}
                 entityRegistry={entityRegistry}
-                onFilter={(newFilters) => setAppliedFilters(newFilters)}
-                searchResponse={searchResponse}
             />
             <BodyBackground $isShowNavBarRedesign={isShowNavBarRedesign} />
             <Body>

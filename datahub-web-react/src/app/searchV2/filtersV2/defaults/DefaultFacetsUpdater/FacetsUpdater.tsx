@@ -9,7 +9,7 @@ import { generateOrFilters } from '@src/app/searchV2/utils/generateOrFilters';
 import { useAggregateAcrossEntitiesLazyQuery } from '@src/graphql/search.generated';
 import { FacetMetadata } from '@src/types.generated';
 
-const DEBOUNCE_MS = 100;
+const DEBOUNCE_MS = 300;
 
 interface Props {
     fieldNames: FieldName[] | FieldName;

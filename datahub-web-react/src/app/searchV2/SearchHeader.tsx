@@ -9,9 +9,7 @@ import NavBarToggler from '@app/homeV2/layout/navBarRedesign/NavBarToggler';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { V2_SEARCH_BAR_ID } from '@app/onboarding/configV2/HomePageOnboardingConfig';
 import { SearchBar } from '@app/searchV2/SearchBar';
-import { FiltersAppliedHandler } from '@app/searchV2/filtersV2/types';
 import { SearchBarV2 } from '@app/searchV2/searchBarV2/SearchBarV2';
-import { SearchResponse } from '@app/searchV2/useSearchBarData';
 import useSearchViewAll from '@app/searchV2/useSearchViewAll';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
@@ -130,9 +128,7 @@ type Props = {
     suggestions: Array<AutoCompleteResultForEntity>;
     onSearch: (query: string) => void;
     onQueryChange: (query: string) => void;
-    onFilter?: FiltersAppliedHandler;
     entityRegistry: EntityRegistry;
-    searchResponse?: SearchResponse;
 };
 
 /**
@@ -145,8 +141,6 @@ export const SearchHeader = ({
     onSearch,
     onQueryChange,
     entityRegistry,
-    onFilter,
-    searchResponse,
 }: Props) => {
     const [, setIsSearchBarFocused] = useState(false);
     const appConfig = useAppConfig();
@@ -186,13 +180,11 @@ export const SearchHeader = ({
                             setIsSearchBarFocused={setIsSearchBarFocused}
                             viewsEnabled={viewsEnabled}
                             isShowNavBarRedesign={isShowNavBarRedesign}
-                            onFilter={onFilter}
                             combineSiblings
                             fixAutoComplete
                             showQuickFilters
                             showViewAllResults
                             showCommandK
-                            searchResponse={searchResponse}
                         />
                         {isShowNavBarRedesign && (
                             <StyledButton type="link" onClick={searchViewAll}>
