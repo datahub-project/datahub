@@ -1,7 +1,7 @@
 import React from 'react';
 import { Select } from 'antd';
 import styled from 'styled-components';
-import { EntityType, GlossaryNode, SearchResult } from '../../../../types.generated';
+import { EntityType, GlossaryNode } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useEntityData } from '../EntityContext';
 import ClickOutside from '../../../shared/ClickOutside';
@@ -55,9 +55,9 @@ function NodeParentSelect(props: Props) {
         setSelectedParentUrn,
     });
 
-    const nodeSearchResults: SearchResult[] = searchResults.filter((r) =>
-        filterResultsForMove(r.entity as GlossaryNode, entityDataUrn),
-    );
+    const nodeSearchResults = isMoving
+        ? searchResults.filter((r) => filterResultsForMove(r as GlossaryNode, entityDataUrn))
+        : searchResults;
 
     const isShowingGlossaryBrowser = !searchQuery && isFocusedOnInput;
     const shouldHideSelf = isMoving && entityType === EntityType.GlossaryNode;
@@ -77,12 +77,9 @@ function NodeParentSelect(props: Props) {
                 autoFocus={props.autofocus}
             >
                 {nodeSearchResults?.map((result) => (
-                    <Select.Option key={result?.entity?.urn} value={result.entity.urn}>
-                        <SearchResultContainer>
-                            <ParentEntities parentEntities={getParentGlossary(result.entity, entityRegistry)} />
-                            {entityRegistry.getDisplayName(result.entity.type, result.entity)}
-                        </SearchResultContainer>
-                    </Select.Option>
+                    <Select.Option key={result?.urn} value={result.urn}>
+                    {entityRegistry.getDisplayName(result.type, result)}
+                </Select.Option>
                 ))}
             </Select>
             <BrowserWrapper isHidden={!isShowingGlossaryBrowser}>
