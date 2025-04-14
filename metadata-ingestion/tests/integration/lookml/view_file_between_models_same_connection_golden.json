@@ -1,0 +1,588 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9d7ff38f69988c4087923eb8ef39642d",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "looker",
+                "env": "PROD",
+                "project_name": "lkml_view_file_between_models_same_connection"
+            },
+            "name": "lkml_view_file_between_models_same_connection",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9d7ff38f69988c4087923eb8ef39642d",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9d7ff38f69988c4087923eb8ef39642d",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:looker"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9d7ff38f69988c4087923eb8ef39642d",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "LookML Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9d7ff38f69988c4087923eb8ef39642d",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Folders"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_view_file_between_models_same_connection.model1.view.my_derived_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_view_file_between_models_same_connection.model1.view.my_derived_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "SELECT\n          country,\n          city,\n          timestamp,\n          measurement\n        FROM\n          ${my_view.SQL_TABLE_NAME} AS my_view",
+            "viewLanguage": "sql"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_view_file_between_models_same_connection.model1.view.my_derived_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:9d7ff38f69988c4087923eb8ef39642d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_view_file_between_models_same_connection.model1.view.my_derived_view,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/Develop/lkml_view_file_between_models_same_connection/"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "my_derived_view",
+                        "platform": "urn:li:dataPlatform:looker",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                "rawSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "country",
+                                "nullable": false,
+                                "description": "The country",
+                                "label": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:Dimension"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "city",
+                                "nullable": false,
+                                "description": "City",
+                                "label": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:Dimension"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "timestamp",
+                                "nullable": false,
+                                "description": "Timestamp of measurement",
+                                "label": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                    }
+                                },
+                                "nativeDataType": "time",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:Dimension"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:Temporal"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "average_measurement",
+                                "nullable": false,
+                                "description": "My measurement",
+                                "label": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "average",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:Measure"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            }
+                        ],
+                        "primaryKeys": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "looker.file.path": "bar.view.lkml",
+                            "looker.model": "model1"
+                        },
+                        "name": "my_derived_view",
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_view_file_between_models_same_connection.model1.view.my_derived_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Develop"
+                },
+                {
+                    "id": "urn:li:container:9d7ff38f69988c4087923eb8ef39642d",
+                    "urn": "urn:li:container:9d7ff38f69988c4087923eb8ef39642d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_view_file_between_models_same_connection.model2.view.my_derived_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_view_file_between_models_same_connection.model2.view.my_derived_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "SELECT\n          country,\n          city,\n          timestamp,\n          measurement\n        FROM\n          ${my_view.SQL_TABLE_NAME} AS my_view",
+            "viewLanguage": "sql"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_view_file_between_models_same_connection.model2.view.my_derived_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:9d7ff38f69988c4087923eb8ef39642d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_view_file_between_models_same_connection.model2.view.my_derived_view,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/Develop/lkml_view_file_between_models_same_connection/"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "my_derived_view",
+                        "platform": "urn:li:dataPlatform:looker",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                "rawSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "country",
+                                "nullable": false,
+                                "description": "The country",
+                                "label": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:Dimension"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "city",
+                                "nullable": false,
+                                "description": "City",
+                                "label": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:Dimension"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "timestamp",
+                                "nullable": false,
+                                "description": "Timestamp of measurement",
+                                "label": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                    }
+                                },
+                                "nativeDataType": "time",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:Dimension"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:Temporal"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "average_measurement",
+                                "nullable": false,
+                                "description": "My measurement",
+                                "label": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "average",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:Measure"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            }
+                        ],
+                        "primaryKeys": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "looker.file.path": "bar.view.lkml",
+                            "looker.model": "model2"
+                        },
+                        "name": "my_derived_view",
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_view_file_between_models_same_connection.model2.view.my_derived_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Develop"
+                },
+                {
+                    "id": "urn:li:container:9d7ff38f69988c4087923eb8ef39642d",
+                    "urn": "urn:li:container:9d7ff38f69988c4087923eb8ef39642d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Dimension",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "Dimension"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Measure",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "Measure"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Temporal",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "Temporal"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
