@@ -52,6 +52,7 @@ class DockerPluginExtension {
   MapProperty<String, String> tags
   ListProperty<String> platforms
   ListProperty<Object> dependencies // May contain tasks or task  names
+  Property<String> target
 
   DockerPluginExtension(Project project) {
     this.project = project
@@ -61,6 +62,7 @@ class DockerPluginExtension {
     tags = project.objects.mapProperty(String, String)
     platforms = project.objects.listProperty(String)
     dependencies = project.objects.listProperty(Object)
+    target = project.objects.property(String)
   }
 
   def files(Object... files) {
@@ -89,6 +91,10 @@ class DockerPluginExtension {
 
   def dependsOn(Object... tasks) {
     dependencies.addAll(tasks)
+  }
+
+  def target(String value) {
+    target.set(value)
   }
 }
 
@@ -126,6 +132,10 @@ project.afterEvaluate {
     dockerCmd += ["docker", "buildx", "build", "--load"]
     if (extension.platforms.get()) {
       dockerCmd << "--platform=${extension.platforms.get().join(',')}"
+    }
+
+    if (extension.target.isPresent()) {
+      dockerCmd += ["--target", extension.target.get()]
     }
 
     // Add GitHub Actions specific arguments if running in GitHub workflow and using gha cache.

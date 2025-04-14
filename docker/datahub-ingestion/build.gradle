@@ -10,7 +10,7 @@ ext {
     docker_repo = 'datahub-ingestion'
     docker_dir = 'datahub-ingestion'
     docker_target = project.getProperties().getOrDefault("dockerTarget", "slim")
-    docker_version = "${version}${docker_target == 'slim' ? '-slim' : ''}"
+    docker_version = "v${version}${docker_target == 'slim' ? '-slim' : ''}"
 
     revision = 12 // increment to trigger rebuild
 }
@@ -28,11 +28,14 @@ docker {
         include "docker/${docker_dir}/*"
         include "metadata-ingestion/**"
         include "metadata-ingestion-modules/**"
+        include "python-build/**"
     }.exclude {
         i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
     }
 
-    version "v${docker_version}"
+    version "${docker_version}"
+    // This task is intended to build the slim image
+    target 'ingestion-base-slim'
     def dockerBuildArgs = [RELEASE_VERSION: version.replace('-SNAPSHOT', '').replace('v', '').replace("-slim", '')]
 
     // Add build args if they are defined (needed for some CI or enterprise environments)
