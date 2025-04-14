@@ -42,19 +42,6 @@ const StyledAutoComplete = styled(AutoComplete)<{ $isShowNavBarRedesign?: boolea
     max-width: ${(props) => (props.$isShowNavBarRedesign ? '632px' : '540px')};
 `;
 
-const SkeletonContainer = styled.div`
-    height: 40px;
-    width: 100%;
-    max-width: 620px;
-`;
-
-const SkeletonButton = styled(Skeleton.Button)`
-    &&& {
-        height: inherit;
-        width: inherit;
-    }
-`;
-
 const AutoCompleteContainer = styled.div<{ viewsEnabled?: boolean; $isShowNavBarRedesign?: boolean }>`
     padding: 0 30px;
     align-items: center;
@@ -294,99 +281,91 @@ export const SearchBarV2 = ({
 
     const onClearFilters = useCallback(() => clear(), [clear]);
 
+    if (isLoading) return <Skeleton />;
+
     return (
-        <>
-            {isLoading ? (
-                <SkeletonContainer>
-                    <SkeletonButton shape="square" active block />
-                </SkeletonContainer>
-            ) : (
-                <Wrapper $open={isDropdownVisible} $isShowNavBarRedesign={isShowNavBarRedesign}>
-                    <AutoCompleteContainer
+        <Wrapper $open={isDropdownVisible} $isShowNavBarRedesign={isShowNavBarRedesign}>
+            <AutoCompleteContainer
+                viewsEnabled={viewsEnabled}
+                $isShowNavBarRedesign={isShowNavBarRedesign}
+                id={id}
+                style={viewsEnabled ? viewsEnabledStyle : style}
+                ref={searchBarWrapperRef}
+            >
+                <StyledAutoComplete
+                    dataTestId="search-bar"
+                    $isShowNavBarRedesign={isShowNavBarRedesign}
+                    defaultActiveFirstOption={false}
+                    style={autoCompleteStyle}
+                    options={options}
+                    filterOption={false}
+                    dropdownRender={(props) => {
+                        return (
+                            <DropdownContainer>
+                                {isSearching && (
+                                    <Filters
+                                        query={searchQuery ?? ''}
+                                        appliedFilters={appliedFilters}
+                                        updateFieldAppliedFilters={updateFieldFilters}
+                                        facets={facets}
+                                    />
+                                )}
+                                {props}
+                                <AutocompleteFooter isSomethingSelected={!!searchQuery} />
+                            </DropdownContainer>
+                        );
+                    }}
+                    notFoundContent={
+                        <AutocompletePlaceholder
+                            hasAppliedFilters={hasAppliedFilters}
+                            isSearching={isSearching}
+                            onClearFilters={onClearFilters}
+                        />
+                    }
+                    onSelect={onSelectHandler}
+                    onSearch={onSearchHandler}
+                    defaultValue={initialQuery || undefined}
+                    value={searchQuery}
+                    onChange={onChangeHandler}
+                    dropdownAlign={isShowNavBarRedesign ? AUTOCOMPLETE_DROPDOWN_ALIGN_WITH_NEW_NAV_BAR : undefined}
+                    onClear={onClearHandler}
+                    dropdownStyle={{
+                        maxHeight: 1000,
+                        overflowY: 'visible',
+                        position: (fixAutoComplete && 'fixed') || 'relative',
+                        backgroundColor: colors.gray[1500],
+                        boxShadow: BOX_SHADOW,
+                        ...(isShowNavBarRedesign
+                            ? {
+                                  padding: spacing.xsm,
+                                  borderRadius: `${radius.none} ${radius.none} ${radius.lg} ${radius.lg}`,
+                              }
+                            : {}),
+                    }}
+                    onDropdownVisibleChange={onDropdownVisibilityChange}
+                    open={isDropdownVisible}
+                    dropdownContentHeight={480}
+                    dropdownMatchSelectWidth={isShowNavBarRedesign ? 664 : true}
+                >
+                    <SearchBarInput
+                        placeholder={placeholderText}
+                        onSearch={runSearching}
+                        style={inputStyle}
+                        value={searchQuery}
+                        onFocus={onFocus}
+                        onBlur={onBlur}
                         viewsEnabled={viewsEnabled}
-                        $isShowNavBarRedesign={isShowNavBarRedesign}
-                        id={id}
-                        style={viewsEnabled ? viewsEnabledStyle : style}
-                        ref={searchBarWrapperRef}
-                    >
-                        <StyledAutoComplete
-                            dataTestId="search-bar"
-                            $isShowNavBarRedesign={isShowNavBarRedesign}
-                            defaultActiveFirstOption={false}
-                            style={autoCompleteStyle}
-                            options={options}
-                            filterOption={false}
-                            dropdownRender={(props) => {
-                                return (
-                                    <DropdownContainer>
-                                        {isSearching && (
-                                            <Filters
-                                                query={searchQuery ?? ''}
-                                                appliedFilters={appliedFilters}
-                                                updateFieldAppliedFilters={updateFieldFilters}
-                                                facets={facets}
-                                            />
-                                        )}
-                                        {props}
-                                        <AutocompleteFooter isSomethingSelected={!!searchQuery} />
-                                    </DropdownContainer>
-                                );
-                            }}
-                            notFoundContent={
-                                <AutocompletePlaceholder
-                                    hasAppliedFilters={hasAppliedFilters}
-                                    isSearching={isSearching}
-                                    onClearFilters={onClearFilters}
-                                />
-                            }
-                            onSelect={onSelectHandler}
-                            onSearch={onSearchHandler}
-                            defaultValue={initialQuery || undefined}
-                            value={searchQuery}
-                            onChange={onChangeHandler}
-                            dropdownAlign={
-                                isShowNavBarRedesign ? AUTOCOMPLETE_DROPDOWN_ALIGN_WITH_NEW_NAV_BAR : undefined
-                            }
-                            onClear={onClearHandler}
-                            dropdownStyle={{
-                                maxHeight: 1000,
-                                overflowY: 'visible',
-                                position: (fixAutoComplete && 'fixed') || 'relative',
-                                backgroundColor: colors.gray[1500],
-                                boxShadow: BOX_SHADOW,
-                                ...(isShowNavBarRedesign
-                                    ? {
-                                          padding: spacing.xsm,
-                                          borderRadius: `${radius.none} ${radius.none} ${radius.lg} ${radius.lg}`,
-                                      }
-                                    : {}),
-                            }}
-                            onDropdownVisibleChange={onDropdownVisibilityChange}
-                            open={isDropdownVisible}
-                            dropdownContentHeight={480}
-                            dropdownMatchSelectWidth={isShowNavBarRedesign ? 664 : true}
-                        >
-                            <SearchBarInput
-                                placeholder={placeholderText}
-                                onSearch={runSearching}
-                                style={inputStyle}
-                                value={searchQuery}
-                                onFocus={onFocus}
-                                onBlur={onBlur}
-                                viewsEnabled={viewsEnabled}
-                                ref={searchInputRef}
-                                textColor={textColor}
-                                placeholderColor={placeholderColor}
-                            />
-                        </StyledAutoComplete>
-                        {viewsEnabled && (
-                            <ViewSelectContainer id={V2_SEARCH_BAR_VIEWS}>
-                                <ViewSelect />
-                            </ViewSelectContainer>
-                        )}
-                    </AutoCompleteContainer>
-                </Wrapper>
-            )}
-        </>
+                        ref={searchInputRef}
+                        textColor={textColor}
+                        placeholderColor={placeholderColor}
+                    />
+                </StyledAutoComplete>
+                {viewsEnabled && (
+                    <ViewSelectContainer id={V2_SEARCH_BAR_VIEWS}>
+                        <ViewSelect />
+                    </ViewSelectContainer>
+                )}
+            </AutoCompleteContainer>
+        </Wrapper>
     );
 };
