@@ -14,12 +14,8 @@ import SearchBarInput from '@app/searchV2/searchBarV2/components/SearchBarInput'
 import {
     AUTOCOMPLETE_DROPDOWN_ALIGN_WITH_NEW_NAV_BAR,
 } from '@app/searchV2/searchBarV2/constants';
-import useSearchResultsOptions from '@app/searchV2/searchBarV2/hooks/useAutocompleteSuggestionsOptions';
 import useFocusElementByCommandK from '@app/searchV2/searchBarV2/hooks/useFocusSearchBarByCommandK';
-import useRecentlySearchedQueriesOptions from '@app/searchV2/searchBarV2/hooks/useRecentlySearchedQueriesOptions';
-import useRecentlyViewedEntitiesOptions from '@app/searchV2/searchBarV2/hooks/useRecentlyViewedEntitiesOptions';
 import useSelectOption from '@app/searchV2/searchBarV2/hooks/useSelectOption';
-import useViewAllResultsOptions from '@app/searchV2/searchBarV2/hooks/useViewAllResultsOptions';
 import { useSearchBarData } from '@app/searchV2/useSearchBarData';
 import { MIN_CHARACTER_COUNT_FOR_SEARCH } from '@app/searchV2/utils/constants';
 import filterSearchQuery from '@app/searchV2/utils/filterSearchQuery';
@@ -27,6 +23,7 @@ import { useAppConfig, useIsShowSeparateSiblingsEnabled } from '@app/useAppConfi
 import { SearchBarApi } from '@src/types.generated';
 import AutocompleteDropdown from './components/AutocompleteDropdown';
 import { BOX_SHADOW } from './constants';
+import useOptions from './hooks/useOptions';
 
 const StyledAutoComplete = styled(AutoComplete)<{ $isShowNavBarRedesign?: boolean }>`
     width: 100%;
@@ -134,15 +131,6 @@ export const SearchBarV2 = ({
         if (!isDataLoading) setIsDataInitialized(true);
     }, [isDataLoading]);
 
-    const recentlySearchedQueriesOptions = useRecentlySearchedQueriesOptions();
-    const recentlyViewedEntitiesOptions = useRecentlyViewedEntitiesOptions();
-
-    const initialOptions = useMemo(() => {
-        return [...recentlyViewedEntitiesOptions, ...recentlySearchedQueriesOptions];
-    }, [recentlyViewedEntitiesOptions, recentlySearchedQueriesOptions]);
-
-    const viewAllResultsOptions = useViewAllResultsOptions(searchQuery, showViewAllResults);
-
     const isSearching = useMemo(() => {
         const minimalLengthOfQuery = searchAPIVariant === SearchBarApi.SearchAcrossEntities ? 3 : 1;
 
@@ -152,34 +140,16 @@ export const SearchBarV2 = ({
         return hasSearchQuery || hasAnyAppliedFilters;
     }, [searchQuery, flatAppliedFilters, searchAPIVariant]);
 
-    const hasResults = useMemo(() => (entities?.length ?? 0) > 0, [entities?.length]);
-
-    const searchResultsOptions = useSearchResultsOptions(
-        entities,
+    const options = useOptions(
         searchQuery,
-        isDataLoading,
+        showViewAllResults,
+        entities,
+        !!isDataLoading,
         isDataInitialized,
         finalCombineSiblings,
-    );
-
-    const options = useMemo(() => {
-        if (!isSearching) return initialOptions;
-
-        if (showAutoCompleteResults) {
-            if (!isDataLoading && !hasResults) return [];
-            return [...viewAllResultsOptions, ...searchResultsOptions];
-        }
-
-        return [];
-    }, [
         isSearching,
-        hasResults,
-        initialOptions,
-        searchResultsOptions,
-        viewAllResultsOptions,
         showAutoCompleteResults,
-        isDataLoading,
-    ]);
+    );
 
     const onChangeHandler = useCallback(
         (value: string) => {
