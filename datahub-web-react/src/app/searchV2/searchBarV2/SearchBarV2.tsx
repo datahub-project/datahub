@@ -103,15 +103,11 @@ export const SearchBarV2 = ({
     const appConfig = useAppConfig();
     const showAutoCompleteResults = appConfig?.config?.featureFlags?.showAutoCompleteResults;
     const isShowSeparateSiblingsEnabled = useIsShowSeparateSiblingsEnabled();
-    const finalCombineSiblings = isShowSeparateSiblingsEnabled ? false : combineSiblings;
+    const shouldCombineSiblings = isShowSeparateSiblingsEnabled ? false : combineSiblings;
 
     const [searchQuery, setSearchQuery] = useState<string>(initialQuery || '');
-
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
-    // used to show Loader when we searching for suggestions in both cases for the first time and after clearing searchQuery
-    const [isDataInitialized, setIsDataInitialized] = useState<boolean>(false);
     const { appliedFilters, hasAppliedFilters, flatAppliedFilters, clear, updateFieldFilters } = useAppliedFilters();
-
     const {
         entities,
         facets,
@@ -121,14 +117,6 @@ export const SearchBarV2 = ({
 
     const searchInputRef = useRef(null);
     useFocusElementByCommandK(searchInputRef, !showCommandK);
-
-    useEffect(() => {
-        if (searchQuery === '') setIsDataInitialized(false);
-    }, [searchQuery]);
-
-    useEffect(() => {
-        if (!isDataLoading) setIsDataInitialized(true);
-    }, [isDataLoading]);
 
     const isSearching = useMemo(() => {
         const minimalLengthOfQuery = searchAPIVariant === SearchBarApi.SearchAcrossEntities ? 3 : 1;
@@ -144,30 +132,22 @@ export const SearchBarV2 = ({
         showViewAllResults,
         entities,
         !!isDataLoading,
-        isDataInitialized,
-        finalCombineSiblings,
+        shouldCombineSiblings,
         isSearching,
         showAutoCompleteResults,
     );
 
-    const onChangeHandler = useCallback(
-        (value: string) => {
-            const filteredQuery = filterSearchQuery(value);
-            setSearchQuery(filteredQuery);
-            if (value === '') clear();
-        },
-        [clear],
-    );
-
-    const onClearHandler = useCallback(() => {
+    const clearQueryAndFilters = useCallback(() => {
         setSearchQuery('');
         clear();
     }, [clear]);
 
-    // clear filters when this search bar is unmounted (ie. going from search results to home page)
-    useEffect(() => () => onClearHandler(), [onClearHandler]);
+    const selectOption = useSelectOption(onSearch, clearQueryAndFilters, flatAppliedFilters);
 
-    const runSearching = useCallback(() => {
+    // clear filters when this search bar is unmounted (ie. going from search results to home page)
+    useEffect(() => () => clearQueryAndFilters(), [clearQueryAndFilters]);
+
+    const onSearchHandler = useCallback(() => {
         const filteredSearchQuery = filterSearchQuery(searchQuery || '');
         let cleanedQuery = filteredSearchQuery.trim();
         if (cleanedQuery.length === 0) {
@@ -180,7 +160,6 @@ export const SearchBarV2 = ({
         setIsDropdownVisible(false);
     }, [searchQuery, flatAppliedFilters, onSearch]);
 
-    const selectOption = useSelectOption(onSearch, onClearHandler, flatAppliedFilters);
     const onSelectHandler = useCallback(
         (value, option) => {
             selectOption(value, option);
@@ -189,23 +168,25 @@ export const SearchBarV2 = ({
         [selectOption],
     );
 
+    const onChangeHandler = useCallback(
+        (value: string) => {
+            const filteredQuery = filterSearchQuery(value);
+            setSearchQuery(filteredQuery);
+            if (value === '') clear();
+        },
+        [clear],
+    );
+
+    const onDropdownVisibilityChangeHandler = useCallback((isOpen) => setIsDropdownVisible(isOpen), []);
+
+    const onClearFiltersHandler = useCallback(() => clear(), [clear]);
+
+    const onClearHandler = useCallback(() => clearQueryAndFilters(), [clearQueryAndFilters]);
+
     const viewsEnabledStyle = {
         ...style,
         backgroundColor: inputStyle?.backgroundColor,
     };
-
-    const onDropdownVisibilityChange = useCallback((isOpen) => {
-        if (!isOpen) {
-            setIsDropdownVisible(isOpen);
-        } else {
-            // set timeout so that we allow search bar to grow in width and therefore allow autocomplete to grow
-            setTimeout(() => {
-                setIsDropdownVisible(isOpen);
-            }, 0);
-        }
-    }, []);
-
-    const onClearFilters = useCallback(() => clear(), [clear]);
 
     if (isLoading) return <Skeleton />;
 
@@ -238,7 +219,7 @@ export const SearchBarV2 = ({
                         <AutocompletePlaceholder
                             hasAppliedFilters={hasAppliedFilters}
                             isSearching={isSearching}
-                            onClearFilters={onClearFilters}
+                            onClearFilters={onClearFiltersHandler}
                         />
                     }
                     onSelect={onSelectHandler}
@@ -260,14 +241,14 @@ export const SearchBarV2 = ({
                               }
                             : {}),
                     }}
-                    onDropdownVisibleChange={onDropdownVisibilityChange}
+                    onDropdownVisibleChange={onDropdownVisibilityChangeHandler}
                     open={isDropdownVisible}
                     dropdownContentHeight={480}
                     dropdownMatchSelectWidth={isShowNavBarRedesign ? 664 : true}
                 >
                     <SearchBarInput
                         placeholder={placeholderText}
-                        onSearch={runSearching}
+                        onSearch={onSearchHandler}
                         style={inputStyle}
                         value={searchQuery}
                         onFocus={onFocus}
