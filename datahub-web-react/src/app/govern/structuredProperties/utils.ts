@@ -131,6 +131,7 @@ export const APPLIES_TO_ENTITIES = [
     EntityType.MlprimaryKey,
     EntityType.DataProduct,
     EntityType.SchemaField,
+    EntityType.DataContract,
 ];
 
 export const getEntityTypeUrn = (entityRegistry: EntityRegistry, entityType: EntityType) => {
