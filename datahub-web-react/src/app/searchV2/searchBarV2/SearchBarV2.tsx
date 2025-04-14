@@ -1,5 +1,4 @@
-import { CloseCircleFilled, SearchOutlined } from '@ant-design/icons';
-import { Input, Skeleton } from 'antd';
+import { Skeleton } from 'antd';
 import { debounce } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHistory } from 'react-router';
@@ -8,15 +7,14 @@ import styled from 'styled-components/macro';
 import analytics, { Event, EventType } from '@app/analytics';
 import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { ViewSelect } from '@app/entityV2/view/select/ViewSelect';
 import { V2_SEARCH_BAR_VIEWS } from '@app/onboarding/configV2/HomePageOnboardingConfig';
-import { CommandK } from '@app/searchV2/CommandK';
 import { SearchBarProps } from '@app/searchV2/SearchBar';
 import useAppliedFilters from '@app/searchV2/filtersV2/context/useAppliedFilters';
 import AutocompleteFooter from '@app/searchV2/searchBarV2/components/AutocompleteFooter';
 import AutocompletePlaceholder from '@app/searchV2/searchBarV2/components/AutocompletePlaceholder';
 import Filters from '@app/searchV2/searchBarV2/components/Filters';
+import SearchBarInput from '@app/searchV2/searchBarV2/components/SearchBarInput';
 import {
     AUTOCOMPLETE_DROPDOWN_ALIGN_WITH_NEW_NAV_BAR,
     DEBOUNCE_ON_SEARCH_TIMEOUT_MS,
@@ -95,52 +93,6 @@ export const Wrapper = styled.div<{ $open?: boolean; $isShowNavBarRedesign?: boo
     `}
 `;
 
-const StyledSearchBar = styled(Input)<{
-    $textColor?: string;
-    $placeholderColor?: string;
-    viewsEnabled?: boolean;
-    $isShowNavBarRedesign?: boolean;
-}>`
-    &&& {
-        border-radius: 8px;
-        height: 40px;
-        font-size: 14px;
-        color: #dcdcdc;
-        background-color: ${ANTD_GRAY_V2[2]};
-        border: 2px solid transparent;
-        padding-right: 2.5px;
-        ${(props) =>
-            !props.viewsEnabled &&
-            `
-        &:focus-within {
-            border-color: ${props.theme.styles['primary-color']};
-        }`}
-
-        ${(props) => props.$isShowNavBarRedesign && 'width: 592px;'}
-    }
-
-    > .ant-input::placeholder {
-        color: ${(props) =>
-            props.$placeholderColor || (props.$isShowNavBarRedesign ? REDESIGN_COLORS.GREY_300 : '#dcdcdc')};
-    }
-
-    > .ant-input {
-        color: ${(props) => props.$textColor || (props.$isShowNavBarRedesign ? '#000' : '#fff')};
-    }
-
-    .ant-input-clear-icon {
-        height: 15px;
-        width: 15px;
-    }
-`;
-
-const ClearIcon = styled(CloseCircleFilled)`
-    svg {
-        height: 15px;
-        width: 15px;
-    }
-`;
-
 const ViewSelectContainer = styled.div`
     color: #fff;
     line-height: 20px;
@@ -149,18 +101,6 @@ const ViewSelectContainer = styled.div`
     &&& {
         border-left: 0px solid ${ANTD_GRAY_V2[5]};
     }
-`;
-
-const SearchIcon = styled(SearchOutlined)<{ $isShowNavBarRedesign?: boolean }>`
-    color: ${(props) => (props.$isShowNavBarRedesign ? colors.gray[1800] : '#dcdcdc')};
-    ${(props) =>
-        props.$isShowNavBarRedesign &&
-        `
-        && svg {
-            width: 16px;
-            height: 16px;
-        }
-    `}
 `;
 
 const DropdownContainer = styled.div`
@@ -213,7 +153,6 @@ export const SearchBarV2 = ({
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
     // used to show Loader when we searching for suggestions in both cases for the first time and after clearing searchQuery
     const [isDataInitialized, setIsDataInitialized] = useState<boolean>(false);
-    const [isSearchBarFocused, setIsFocused] = useState(false);
     const { appliedFilters, hasAppliedFilters, flatAppliedFilters, clear, updateFieldFilters } = useAppliedFilters();
 
     const searchInputRef = useRef(null);
@@ -278,19 +217,14 @@ export const SearchBarV2 = ({
 
     const searchBarWrapperRef = useRef<HTMLDivElement>(null);
 
-    const onFocusHandler = useCallback(() => {
-        setIsFocused(true);
-        onFocus?.();
-    }, [onFocus]);
-
-    const onBlurHandler = useCallback(() => {
-        setIsFocused(false);
-        onBlur?.();
-    }, [onBlur]);
-
-    const onChangeHandler = (value: string) => {
-        setSearchQuery(filterSearchQuery(value));
-    };
+    const onChangeHandler = useCallback(
+        (value: string) => {
+            const filteredQuery = filterSearchQuery(value);
+            setSearchQuery(filteredQuery);
+            if (value === '') clear();
+        },
+        [clear],
+    );
 
     const onClearHandler = useCallback(() => {
         setSearchQuery('');
@@ -357,14 +291,6 @@ export const SearchBarV2 = ({
             }, 0);
         }
     }, []);
-
-    const onSearchBarValueChanged = useCallback(
-        (value: string) => {
-            setSearchQuery(value);
-            if (value === '') clear();
-        },
-        [clear],
-    );
 
     const onClearFilters = useCallback(() => clear(), [clear]);
 
@@ -440,39 +366,17 @@ export const SearchBarV2 = ({
                             dropdownContentHeight={480}
                             dropdownMatchSelectWidth={isShowNavBarRedesign ? 664 : true}
                         >
-                            <StyledSearchBar
-                                bordered={false}
+                            <SearchBarInput
                                 placeholder={placeholderText}
-                                onPressEnter={() => runSearching()}
-                                style={{ ...inputStyle, color: '#fff' }}
+                                onSearch={runSearching}
+                                style={inputStyle}
                                 value={searchQuery}
-                                onChange={(e) => onSearchBarValueChanged(e.target.value)}
-                                data-testid="search-input"
-                                onFocus={onFocusHandler}
-                                onBlur={onBlurHandler}
+                                onFocus={onFocus}
+                                onBlur={onBlur}
                                 viewsEnabled={viewsEnabled}
-                                $isShowNavBarRedesign={isShowNavBarRedesign}
-                                allowClear={
-                                    ((isDropdownVisible || isSearchBarFocused) && { clearIcon: <ClearIcon /> }) || false
-                                }
-                                prefix={
-                                    <>
-                                        <SearchIcon
-                                            $isShowNavBarRedesign={isShowNavBarRedesign}
-                                            onClick={() => runSearching()}
-                                        />
-                                    </>
-                                }
                                 ref={searchInputRef}
-                                suffix={
-                                    <>
-                                        {(showCommandK && !isDropdownVisible && !isSearchBarFocused && <CommandK />) ||
-                                            null}
-                                    </>
-                                }
-                                $textColor={textColor}
-                                $placeholderColor={placeholderColor}
-                                width={isShowNavBarRedesign ? '592px' : '100%'}
+                                textColor={textColor}
+                                placeholderColor={placeholderColor}
                             />
                         </StyledAutoComplete>
                         {viewsEnabled && (
