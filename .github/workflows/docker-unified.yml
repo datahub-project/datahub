@@ -754,7 +754,6 @@ jobs:
         if: ${{ needs.setup.outputs.ingestion_base_change == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
         with:
-          target: base-empty
           images: |
             ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
           image_tag: ${{ needs.setup.outputs.tag }}
