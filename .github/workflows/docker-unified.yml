@@ -1059,8 +1059,8 @@ jobs:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
-          context: ./build/dockerBuildContext/datahub-frontend/docker
-          file: ./docker/datahub-frontend/Dockerfile
+          context: .
+          file: ./docker/datahub-actions/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
   datahub_actions_scan:
     name: "[Monitoring] Scan Datahub Actions images for vulnerabilities"
@@ -1115,20 +1115,24 @@ jobs:
           path: ${{ github.workspace }}/build/dockerBuildContext/
           key: ${{ runner.os }}-docker-${{ github.sha }}
 
-      - name: Build and push
+      - name: Build and push Slim image
+        if: ${{ needs.setup.outputs.actions_change == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
         with:
           images: |
-            ${{ env.DATAHUB_ACTIONS_IMAGE }}-slim
-          image_tag: ${{ needs.setup.outputs.tag }}
+            ${{ env.DATAHUB_ACTIONS_IMAGE }}
+          image_tag: ${{ needs.setup.outputs.slim_tag }}
+          flavor: slim
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
-          context: ./build/dockerBuildContext/datahub-frontend/docker
-          file: ./docker/datahub-frontend/Dockerfile
-          platforms: linux/amd64,linux/arm64/v8
           build-args: |
-            "ACTION_ENV=prod-slim"
+            APP_ENV=slim
+            BASE_IMAGE=${{ env.DATAHUB_ACTIONS_IMAGE }}:${{ needs.setup.outputs.actions_change == 'true' && needs.setup.outputs.unique_tag || 'head' }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
+          context: .
+          file: ./docker/datahub-actions/Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
+          depot-project: ${{ vars.DEPOT_PROJECT_ID }}
   datahub_actions_slim_scan:
     name: "[Monitoring] Scan Datahub Actions Slim images for vulnerabilities"
     runs-on: depot-ubuntu-24.04
@@ -1143,9 +1147,9 @@ jobs:
         uses: actions/checkout@v4
       - name: Download image
         uses: ishworkh/container-image-artifact-download@v2.0.0
-        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
+        if: ${{ needs.datahub_actions_slim_build.outputs.needs_artifact_download == 'true' }}
         with:
-          image: ${{ env.DATAHUB_ACTIONS_IMAGE }}-slim:${{ needs.setup.outputs.unique_tag }}
+          image: ${{ env.DATAHUB_ACTIONS_IMAGE }}-slim:${{ needs.datahub_actions_slim_build.outputs.tag }}
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@0.29.0
         env:
@@ -1153,7 +1157,7 @@ jobs:
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
           TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1,ghcr.io/aquasecurity/trivy-java-db:1
         with:
-          image-ref: ${{ env.DATAHUB_ACTIONS_IMAGE }}-slim:${{ needs.setup.outputs.unique_tag }}
+          image-ref: ${{ env.DATAHUB_ACTIONS_IMAGE }}:${{ needs.datahub_actions_slim_build.outputs.tag }}
           format: "template"
           template: "@/contrib/sarif.tpl"
           output: "trivy-results.sarif"
