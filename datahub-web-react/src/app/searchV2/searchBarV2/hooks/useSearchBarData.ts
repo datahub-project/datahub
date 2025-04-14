@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
 
+import { useUserContext } from '@app/context/useUserContext';
 import { FieldToAppliedFieldFiltersMap } from '@app/searchV2/filtersV2/types';
 import { convertFiltersMapToFilters } from '@app/searchV2/filtersV2/utils';
 import { MIN_CHARACTER_COUNT_FOR_SEARCH, UnionType } from '@app/searchV2/utils/constants';
 import { generateOrFilters } from '@app/searchV2/utils/generateOrFilters';
+import { useAppConfig } from '@app/useAppConfig';
 import {
     useGetAutoCompleteMultipleResultsLazyQuery,
     useGetSearchResultsForMultipleTrimmedLazyQuery,
 } from '@src/graphql/search.generated';
 import { AndFilterInput, Entity, FacetMetadata, SearchBarApi } from '@src/types.generated';
-import { useUserContext } from '@app/context/useUserContext';
-import { useAppConfig } from '@app/useAppConfig';
 
 type UpdateDataFunction = (query: string, orFilters: AndFilterInput[], viewUrn: string | undefined | null) => void;
 
