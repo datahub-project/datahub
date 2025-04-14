@@ -6,13 +6,15 @@ import { colors, SearchBar } from '@src/alchemy-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import styled from 'styled-components';
 
-const StyledSearchBar = styled(SearchBar)<{$isShowNavBarRedesign?: boolean}>`
-    ${props => !props.$isShowNavBarRedesign && `
+const StyledSearchBar = styled(SearchBar)<{ $isShowNavBarRedesign?: boolean }>`
+    ${(props) =>
+        !props.$isShowNavBarRedesign &&
+        `
         .ant-input, .ant-input-clear-icon {
             color: ${colors.white};
         }
     `}
-`
+`;
 
 interface Props {
     value: string;
