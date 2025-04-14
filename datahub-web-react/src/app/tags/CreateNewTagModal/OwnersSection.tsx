@@ -7,7 +7,21 @@ import { useGetSearchResultsForMultipleLazyQuery } from '../../../graphql/search
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { useListOwnershipTypesQuery } from '../../../graphql/ownership.generated';
 import { OwnerLabel } from '../../shared/OwnerLabel';
-import { OwnersSectionProps } from './types';
+
+// Interface for pending owner
+export interface PendingOwner {
+    ownerUrn: string;
+    ownerEntityType: OwnerEntityType;
+    ownershipTypeUrn: string;
+}
+
+// Owners section props
+export interface OwnersSectionProps {
+    selectedOwnerUrns: string[];
+    setSelectedOwnerUrns: React.Dispatch<React.SetStateAction<string[]>>;
+    pendingOwners: PendingOwner[];
+    setPendingOwners: React.Dispatch<React.SetStateAction<PendingOwner[]>>;
+}
 
 const SectionContainer = styled.div`
     margin-bottom: 24px;
