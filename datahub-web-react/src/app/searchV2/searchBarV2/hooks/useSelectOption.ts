@@ -27,9 +27,7 @@ export default function useSelectOption(
                     type: EventType.SelectAutoCompleteOption,
                     optionType: option.type,
                 } as Event);
-            } else {
-                if (!isEntityType(option.type)) return console.warn('Unknown entity type', option.type);
-
+            } else if (isEntityType(option.type)) {
                 // Navigate directly to the entity profile.
                 history.push(getEntityPath(option.type, value, entityRegistry, false, false));
                 onClear();
@@ -39,6 +37,8 @@ export default function useSelectOption(
                     entityType: option.type,
                     entityUrn: value,
                 } as Event);
+            } else {
+                console.warn('Unknown entity type', option.type);
             }
         },
         [onSearch, onClear, entityRegistry, filters, history],
