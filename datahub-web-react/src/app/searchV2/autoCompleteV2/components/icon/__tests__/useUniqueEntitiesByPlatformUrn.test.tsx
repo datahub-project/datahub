@@ -1,12 +1,13 @@
+import React from 'react';
 import { MockedProvider } from '@apollo/client/testing';
 import { CorpGroup, Dataset, EntityType, FabricType } from '@src/types.generated';
 import TestPageContainer from '@src/utils/test-utils/TestPageContainer';
 import { renderHook } from '@testing-library/react-hooks';
-import useUniqueEntitiesByPlatformUrn from '../useUniqueEntitiesByPlatformUrn';
+import useUniqueEntitiesByPlatformUrn from '@app/searchV2/autoCompleteV2/components/icon/useUniqueEntitiesByPlatformUrn';
 
 function generateSampleEntity(urn: string, platformUrn: string): Dataset {
     return {
-        urn: urn,
+        urn,
         type: EntityType.Dataset,
         name: 'Test',
         platform: {
@@ -20,7 +21,7 @@ function generateSampleEntity(urn: string, platformUrn: string): Dataset {
 
 function generateSampleEntityWithoutPlatform(urn: string): CorpGroup {
     return {
-        urn: urn,
+        urn,
         type: EntityType.Dataset,
         name: 'Test',
     };

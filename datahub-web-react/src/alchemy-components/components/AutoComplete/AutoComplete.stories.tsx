@@ -3,7 +3,7 @@ import { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 
 import AutoComplete from '@components/components/AutoComplete/AutoComplete';
-import { Input } from '../Input';
+import { Input } from '@components/components/Input';
 
 // Auto Docs
 const meta = {

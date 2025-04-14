@@ -242,7 +242,7 @@ export const SearchBarV2 = ({
                     onDropdownVisibleChange={onDropdownVisibilityChangeHandler}
                     open={isDropdownVisible}
                     dropdownContentHeight={480}
-                    dropdownMatchSelectWidth={isShowNavBarRedesign ? 664 : true}
+                    dropdownMatchSelectWidth={isShowNavBarRedesign ? 664 : 618}
                 >
                     <SearchBarInput
                         placeholder={placeholderText}
