@@ -259,9 +259,6 @@ export default function DefaultPreviewCard({
         />
     );
 
-    const markdownContent =
-        '# Project Title - Here is a super super long title my guy\n Here is a suoserknserkjnse skjenrksjenrksjenr sejrnsekjrnse rsjkenrksjenrse rkjsenrksjenrskjernskjernskjenrskjenrskjernskejnrekjsrnk\nasujhasduahsdiuhas\n\n\n\n\n\n\nasdkjahsduihasdiuhasdiuahsdiuahsd\n\n\n\n\n\najnasdiasdiahsdiuashdiuashdiaushdiaushd\n\n\n\nasdahsduyahsdiusahd\n\n\n\n\nashdaiushdaiushdaiushdaisuhdaiusdhaiushda\n\n\n\n\nasdasdiuahsdiuahsdiuahsdiuashd**hi**asdasdasdiuhasdiuhasdiuahs\n\n\n\nasuidhasiudhasiudhasiudhaisud\n\\nn\nasduahsdiuahsdiuahsdiuashdiaushd\n\n\n\n\nasdiuahsdiuahsdiuahdaiushd\n\n\n\nasdiahsdiuashdiaushdaiushd\n\n\n\nasdiuashdiaushdaiushdaiusdh\n\n\n\n\nasdaiushdaiushdaiushdaiusd';
-
     return (
         <PreviewContainer data-testid={dataTestID ?? `preview-${urn}`}>
             {(entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm) && (
@@ -319,7 +316,7 @@ export default function DefaultPreviewCard({
                         ENTITY_TYPES_WITH_DESCRIPTION_PREVIEW.has(entityType)) &&
                     description ? (
                         <Documentation>
-                            <CompactMarkdownViewer content={markdownContent} />
+                            <CompactMarkdownViewer content={description} />
                         </Documentation>
                     ) : null}
                 </>
