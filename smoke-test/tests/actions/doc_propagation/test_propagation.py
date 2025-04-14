@@ -159,7 +159,7 @@ def root_dir(pytestconfig):
 
 @pytest.fixture(scope="module", autouse=False)
 def test_resources_dir(root_dir):
-    return Path(root_dir) / "tests" / "actions" / "doc_propagation" / "resources"
+    return Path(root_dir) / "test_resources" / "actions"
 
 
 @pytest.fixture(scope="function")
