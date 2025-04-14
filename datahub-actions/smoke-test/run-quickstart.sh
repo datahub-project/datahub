@@ -11,7 +11,7 @@ mkdir -p ~/.datahub/plugins/frontend/auth/
 echo "test_user:test_pass" >> ~/.datahub/plugins/frontend/auth/user.props
 
 DATAHUB_TELEMETRY_ENABLED=false  \
-DATAHUB_ACTIONS_IMAGE=acryldata/datahub-actions-slim \
+DATAHUB_ACTIONS_IMAGE=acryldata/datahub-actions \
 datahub docker quickstart
 
 # After quickstart succeeds, we modify the docker-compose file to inject the env
@@ -22,5 +22,5 @@ python inject_actions_env_file.py ~/.datahub/quickstart/docker-compose.yml
 
 DATAHUB_TELEMETRY_ENABLED=false \
 ACTIONS_ENV_FILE=`pwd`/tests/resources/actions.env  \
-DATAHUB_ACTIONS_IMAGE=acryldata/datahub-actions-slim \
+DATAHUB_ACTIONS_IMAGE=acryldata/datahub-actions \
 datahub docker quickstart -f ~/.datahub/quickstart/docker-compose.yml
