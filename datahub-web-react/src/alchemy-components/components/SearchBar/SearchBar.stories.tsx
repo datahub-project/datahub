@@ -58,6 +58,9 @@ const meta = {
         onChange: {
             description: 'On change function for the search bar.',
         },
+        suffix: {
+            description: 'Optional element to render inside of search bar on the left side',
+        },
     },
 
     // Define defaults

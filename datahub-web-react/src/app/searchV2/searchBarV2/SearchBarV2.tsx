@@ -96,8 +96,6 @@ export const SearchBarV2 = ({
     onFocus,
     onBlur,
     showViewAllResults = false,
-    textColor,
-    placeholderColor,
     isShowNavBarRedesign,
 }: SearchBarProps) => {
     const appConfig = useAppConfig();
@@ -249,14 +247,11 @@ export const SearchBarV2 = ({
                     <SearchBarInput
                         placeholder={placeholderText}
                         onSearch={onSearchHandler}
-                        style={inputStyle}
                         value={searchQuery}
                         onFocus={onFocus}
                         onBlur={onBlur}
-                        viewsEnabled={viewsEnabled}
                         ref={searchInputRef}
-                        textColor={textColor}
-                        placeholderColor={placeholderColor}
+                        showCommandK={showCommandK}
                     />
                 </StyledAutoComplete>
                 {viewsEnabled && (
