@@ -28,8 +28,8 @@ const championSections = [
       },
       {
         name: "Mike Burke",
-        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-champions/initials/mb.jpg",
-        position: "",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/datahub-champions/mike_burke.jpeg",
+        position: "Senior Developer, Farm Credit Canada",
         bio: (
           <>
             <p>
@@ -38,24 +38,8 @@ const championSections = [
           </>
         ),
         social: {
-          },
+          linkedin: "http://www.linkedin.com/in/mike-burke-61319243",
       },
-      {
-        name: "Siladitya Chakraborty",
-        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-champions/siladitya_chakraborty.jpeg",
-        position: "Data Engineer, Adevinta",
-        bio: (
-          <>
-            <p>
-              Submitted 16 pull requests including improvements on graphQL and search API.
-            </p>
-          </>
-        ),
-        social: {
-          linkedin: "https://www.linkedin.com/in/aditya-0bab9a84/",
-          github: "https://github.com/siladitya2",
-        },
-        location: "Barcelona, Spain"
       },
       {
         name: "Tim Drahn",

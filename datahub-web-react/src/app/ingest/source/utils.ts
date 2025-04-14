@@ -228,22 +228,136 @@ const transformToStructuredReport = (structuredReportObj: any): StructuredReport
     }
 };
 
-export const getStructuredReport = (result: Partial<ExecutionRequestResult>): StructuredReport | null => {
-    // 1. Extract Serialized Structured Report
+const extractStructuredReportPOJO = (result: Partial<ExecutionRequestResult>): any | null => {
     const structuredReportStr = result?.structuredReport?.serializedValue;
-
     if (!structuredReportStr) {
         return null;
     }
+    try {
+        return JSON.parse(structuredReportStr);
+    } catch (e) {
+        console.error(`Caught exception while parsing structured report!`, e);
+        return null;
+    }
+};
 
-    // 2. Convert into JSON
-    const structuredReportObject = JSON.parse(structuredReportStr);
+export const getStructuredReport = (result: Partial<ExecutionRequestResult>): StructuredReport | null => {
+    // 1. Extract Serialized Structured Report
+    const structuredReportObject = extractStructuredReportPOJO(result);
+    if (!structuredReportObject) {
+        return null;
+    }
 
     // 3. Transform into the typed model that we have.
     const structuredReport = transformToStructuredReport(structuredReportObject);
 
     // 4. Return JSON report
     return structuredReport;
+};
+
+/**
+ * This function is used to get the total number of entities ingested from the structured report.
+ *
+ * @param result - The result of the execution request.
+ * @returns {number | null}
+ */
+export const getTotalEntitiesIngested = (result: Partial<ExecutionRequestResult>) => {
+    const structuredReportObject = extractStructuredReportPOJO(result);
+    if (!structuredReportObject) {
+        return null;
+    }
+
+    try {
+        return structuredReportObject.sink.report.total_records_written;
+    } catch (e) {
+        console.error(`Caught exception while parsing structured report!`, e);
+        return null;
+    }
+};
+
+/** *
+ * This function is used to get the entities ingested by type from the structured report.
+ * It returns an array of objects with the entity type and the count of entities ingested.
+ *
+ * Example input:
+ *
+ * {
+ *     "source": {
+ *         "report": {
+ *             "aspects": {
+ *                 "container": {
+ *                     "containerProperties": 156,
+ *                     ...
+ *                     "container": 117
+ *                 },
+ *                 "dataset": {
+ *                     "datasetProperties": 1505,
+ *                     ...
+ *                     "operation": 1521
+ *                 },
+ *                 ...
+ *             }
+ *             ...
+ *         }
+ *     }
+ *     ...
+ * }
+ *
+ * Example output:
+ *
+ * [
+ *     {
+ *         "count": 156,
+ *         "displayName": "container"
+ *     },
+ *     ...
+ * ]
+ *
+ * @param result - The result of the execution request.
+ * @returns {EntityTypeCount[] | null}
+ */
+export const getEntitiesIngestedByType = (result: Partial<ExecutionRequestResult>): EntityTypeCount[] | null => {
+    const structuredReportObject = extractStructuredReportPOJO(result);
+    if (!structuredReportObject) {
+        return null;
+    }
+
+    try {
+        /**
+         * This is what the aspects object looks like in the structured report:
+         *
+         * "aspects": {
+         *     "container": {
+         *         "containerProperties": 156,
+         *         ...
+         *         "container": 117
+         *     },
+         *     "dataset": {
+         *         "status": 1505,
+         *         "schemaMetadata": 1505,
+         *         "datasetProperties": 1505,
+         *         "container": 1505,
+         *         ...
+         *         "operation": 1521
+         *     },
+         *     ...
+         * }
+         */
+        const entities = structuredReportObject.source.report.aspects;
+        const entitiesIngestedByType: { [key: string]: number } = {};
+        Object.entries(entities).forEach(([entityName, aspects]) => {
+            // Get the max count of all the sub-aspects for this entity type.
+            entitiesIngestedByType[entityName] = Math.max(...(Object.values(aspects as object) as number[]));
+        });
+
+        return Object.entries(entitiesIngestedByType).map(([entityName, count]) => ({
+            count,
+            displayName: entityName,
+        }));
+    } catch (e) {
+        console.error(`Caught exception while parsing structured report!`, e);
+        return null;
+    }
 };
 
 export const getIngestionSourceStatus = (result?: Partial<ExecutionRequestResult> | null) => {
@@ -273,7 +387,7 @@ const ENTITIES_WITH_SUBTYPES = new Set([
     EntityType.Dashboard.toLowerCase(),
 ]);
 
-type EntityTypeCount = {
+export type EntityTypeCount = {
     count: number;
     displayName: string;
 };

@@ -21,8 +21,10 @@ import {
     canCreateViewFromFilters,
     isAnyOptionSelected,
     getStructuredPropFilterDisplayName,
+    getFilterDisplayName,
 } from '../utils';
 import { ENTITY_SUB_TYPE_FILTER_NAME } from '../../utils/constants';
+import { FieldType, FilterField } from '../types';
 
 describe('filter utils - getNewFilters', () => {
     it('should get the correct list of filters when adding filters where the filter field did not already exist', () => {
@@ -465,5 +467,25 @@ describe('filter utils - getStructuredPropFilterDisplayName', () => {
                 '`test` _value_ for a [rich](www.google.com) text **situation** right here!',
             ),
         ).toBe('test value for a rich text situation right here!');
+    });
+});
+
+describe('filter utils - getFilterDisplayName', () => {
+    it('should return the displayName for an option if it exists', () => {
+        const option = { value: 'testValue', displayName: 'test name' };
+        const field: FilterField = { type: FieldType.ENUM, field: 'test', displayName: 'test' };
+        expect(getFilterDisplayName(option, field)).toBe('test name');
+    });
+
+    it('should return undefined if no display name and field is not a structured property filter', () => {
+        const option = { value: 'testValue' };
+        const field: FilterField = { type: FieldType.ENUM, field: 'structuredProperties.test', displayName: 'test' };
+        expect(getFilterDisplayName(option, field)).toBe('testValue');
+    });
+
+    it('should return the structured property value properly if this is a structured property filter (structured prop value is tested above)', () => {
+        const option = { value: 'testValue' };
+        const field: FilterField = { type: FieldType.ENUM, field: 'test', displayName: 'test' };
+        expect(getFilterDisplayName(option, field)).toBe(undefined);
     });
 });
