@@ -472,7 +472,10 @@ def get_view_file_path(
     logger.debug("Entered")
 
     for field in lkml_fields:
-        if field.view == view_name:
+        if (
+            LookerUtil.extract_view_name_from_lookml_model_explore_field(field)
+            == view_name
+        ):
             # This path is relative to git clone directory
             logger.debug(f"Found view({view_name}) file-path {field.source_file}")
             return field.source_file
@@ -992,9 +995,7 @@ class LookerExplore:
                         view_name = explore.view_name
                     views.add(view_name)
 
-            logger.debug(
-                f"Views so far (step 2): {views} [potential_views={potential_views}]"
-            )
+            logger.debug(f"Views so far (step 2): {views}")
 
             view_fields: List[ViewField] = []
             field_name_vs_raw_explore_field: Dict = {}
