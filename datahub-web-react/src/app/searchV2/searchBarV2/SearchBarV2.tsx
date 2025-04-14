@@ -9,9 +9,7 @@ import { ViewSelect } from '@app/entityV2/view/select/ViewSelect';
 import { V2_SEARCH_BAR_VIEWS } from '@app/onboarding/configV2/HomePageOnboardingConfig';
 import { SearchBarProps } from '@app/searchV2/SearchBar';
 import useAppliedFilters from '@app/searchV2/filtersV2/context/useAppliedFilters';
-import AutocompleteFooter from '@app/searchV2/searchBarV2/components/AutocompleteFooter';
 import AutocompletePlaceholder from '@app/searchV2/searchBarV2/components/AutocompletePlaceholder';
-import Filters from '@app/searchV2/searchBarV2/components/Filters';
 import SearchBarInput from '@app/searchV2/searchBarV2/components/SearchBarInput';
 import {
     AUTOCOMPLETE_DROPDOWN_ALIGN_WITH_NEW_NAV_BAR,
@@ -22,15 +20,13 @@ import useRecentlySearchedQueriesOptions from '@app/searchV2/searchBarV2/hooks/u
 import useRecentlyViewedEntitiesOptions from '@app/searchV2/searchBarV2/hooks/useRecentlyViewedEntitiesOptions';
 import useSelectOption from '@app/searchV2/searchBarV2/hooks/useSelectOption';
 import useViewAllResultsOptions from '@app/searchV2/searchBarV2/hooks/useViewAllResultsOptions';
+import { useSearchBarData } from '@app/searchV2/useSearchBarData';
 import { MIN_CHARACTER_COUNT_FOR_SEARCH } from '@app/searchV2/utils/constants';
 import filterSearchQuery from '@app/searchV2/utils/filterSearchQuery';
 import { useAppConfig, useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 import { SearchBarApi } from '@src/types.generated';
-import { useSearchBarData } from '@app/searchV2/useSearchBarData';
-
-const BOX_SHADOW = `0px -3px 12px 0px rgba(236, 240, 248, 0.5) inset,
-0px 3px 12px 0px rgba(255, 255, 255, 0.5) inset,
-0px 20px 60px 0px rgba(0, 0, 0, 0.12)`;
+import AutocompleteDropdown from './components/AutocompleteDropdown';
+import { BOX_SHADOW } from './constants';
 
 const StyledAutoComplete = styled(AutoComplete)<{ $isShowNavBarRedesign?: boolean }>`
     width: 100%;
@@ -83,13 +79,6 @@ const ViewSelectContainer = styled.div`
     &&& {
         border-left: 0px solid ${ANTD_GRAY_V2[5]};
     }
-`;
-
-const DropdownContainer = styled.div`
-    overflow: auto;
-    box-shadow: ${BOX_SHADOW};
-    border-radius: ${radius.lg};
-    background: ${colors.white};
 `;
 
 /**
@@ -225,10 +214,13 @@ export const SearchBarV2 = ({
     }, [searchQuery, flatAppliedFilters, onSearch]);
 
     const selectOption = useSelectOption(onSearch, onClearHandler, flatAppliedFilters);
-    const onSelectHandler = useCallback((value, option) => {
-        selectOption(value, option);
-        setIsDropdownVisible(false);
-    }, [selectOption])
+    const onSelectHandler = useCallback(
+        (value, option) => {
+            selectOption(value, option);
+            setIsDropdownVisible(false);
+        },
+        [selectOption],
+    );
 
     const viewsEnabledStyle = {
         ...style,
@@ -266,22 +258,16 @@ export const SearchBarV2 = ({
                     style={autoCompleteStyle}
                     options={options}
                     filterOption={false}
-                    dropdownRender={(props) => {
-                        return (
-                            <DropdownContainer>
-                                {isSearching && (
-                                    <Filters
-                                        query={searchQuery ?? ''}
-                                        appliedFilters={appliedFilters}
-                                        updateFieldAppliedFilters={updateFieldFilters}
-                                        facets={facets}
-                                    />
-                                )}
-                                {props}
-                                <AutocompleteFooter isSomethingSelected={!!searchQuery} />
-                            </DropdownContainer>
-                        );
-                    }}
+                    dropdownRender={(menu) => (
+                        <AutocompleteDropdown
+                            menu={menu}
+                            query={searchQuery}
+                            filters={appliedFilters}
+                            updateFilters={updateFieldFilters}
+                            facets={facets}
+                            isSearching={isSearching}
+                        />
+                    )}
                     notFoundContent={
                         <AutocompletePlaceholder
                             hasAppliedFilters={hasAppliedFilters}
