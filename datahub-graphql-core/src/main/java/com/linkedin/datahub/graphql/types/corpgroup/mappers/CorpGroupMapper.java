@@ -7,9 +7,11 @@ import com.linkedin.common.Origin;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.types.common.mappers.OriginMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
@@ -66,7 +68,10 @@ public class CorpGroupMapper implements ModelMapper<EntityResponse, CorpGroup> {
         ((entity, dataMap) ->
             entity.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
     if (aspectMap.containsKey(ORIGIN_ASPECT_NAME)) {
-      mappingHelper.mapToResult(ORIGIN_ASPECT_NAME, this::mapEntityOriginType);
+      mappingHelper.mapToResult(
+          ORIGIN_ASPECT_NAME,
+          (corpUser, dataMap) ->
+              corpUser.setOrigin(OriginMapper.map(context, new Origin(dataMap))));
     } else {
       com.linkedin.datahub.graphql.generated.Origin mappedGroupOrigin =
           new com.linkedin.datahub.graphql.generated.Origin();
@@ -100,22 +105,5 @@ public class CorpGroupMapper implements ModelMapper<EntityResponse, CorpGroup> {
       @Nonnull DataMap dataMap,
       @Nonnull Urn entityUrn) {
     corpGroup.setOwnership(OwnershipMapper.map(context, new Ownership(dataMap), entityUrn));
-  }
-
-  private void mapEntityOriginType(@Nonnull CorpGroup corpGroup, @Nonnull DataMap dataMap) {
-    Origin groupOrigin = new Origin(dataMap);
-    com.linkedin.datahub.graphql.generated.Origin mappedGroupOrigin =
-        new com.linkedin.datahub.graphql.generated.Origin();
-    if (groupOrigin.hasType()) {
-      mappedGroupOrigin.setType(
-          com.linkedin.datahub.graphql.generated.OriginType.valueOf(
-              groupOrigin.getType().toString()));
-    } else {
-      mappedGroupOrigin.setType(com.linkedin.datahub.graphql.generated.OriginType.UNKNOWN);
-    }
-    if (groupOrigin.hasExternalType()) {
-      mappedGroupOrigin.setExternalType(groupOrigin.getExternalType());
-    }
-    corpGroup.setOrigin(mappedGroupOrigin);
   }
 }

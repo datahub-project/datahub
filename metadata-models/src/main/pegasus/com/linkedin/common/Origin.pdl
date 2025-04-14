@@ -10,10 +10,20 @@ record Origin {
   /**
    * Where an entity originated from. Either NATIVE or EXTERNAL.
    */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "fieldName": "originType"
+    "queryByDefault": false
+  }
   type: OriginType
 
   /**
    * Only populated if type is EXTERNAL. The externalType of the entity, such as the name of the identity provider.
    */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "fieldName": "originExternalType"
+    "queryByDefault": false
+  }
   externalType: optional string
 }

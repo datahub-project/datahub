@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.Forms;
 import com.linkedin.common.GlobalTags;
+import com.linkedin.common.Origin;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
@@ -16,6 +17,7 @@ import com.linkedin.datahub.graphql.generated.CorpUserViewsSettings;
 import com.linkedin.datahub.graphql.generated.DataHubView;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.OriginMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
@@ -94,7 +96,17 @@ public class CorpUserMapper {
         FORMS_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
-
+    if (aspectMap.containsKey(ORIGIN_ASPECT_NAME)) {
+      mappingHelper.mapToResult(
+          ORIGIN_ASPECT_NAME,
+          (corpUser, dataMap) ->
+              corpUser.setOrigin(OriginMapper.map(context, new Origin(dataMap))));
+    } else {
+      com.linkedin.datahub.graphql.generated.Origin mappedUserOrigin =
+          new com.linkedin.datahub.graphql.generated.Origin();
+      mappedUserOrigin.setType(com.linkedin.datahub.graphql.generated.OriginType.UNKNOWN);
+      result.setOrigin(mappedUserOrigin);
+    }
     mapCorpUserSettings(
         result, aspectMap.getOrDefault(CORP_USER_SETTINGS_ASPECT_NAME, null), featureFlags);
 
