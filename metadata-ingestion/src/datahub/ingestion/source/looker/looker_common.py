@@ -935,15 +935,13 @@ class LookerExplore:
     ) -> Optional["LookerExplore"]:
         try:
             explore = client.lookml_model_explore(model, explore_name)
-            if (
-                logger.isEnabledFor(logging.DEBUG)
-                and explore_name == "headline_and_cohort_arr"
-            ):
-                logger.debug(f"LookML Model Explore: {explore_name}")
-                pprint.pp(explore)
             views: Set[str] = set()
             lkml_fields: List[LookmlModelExploreField] = (
                 explore_field_set_to_lkml_fields(explore)
+            )
+
+            logger.debug(
+                f"Explore {explore_name} view_name={explore.view_name} name={explore.name}"
             )
 
             if explore.view_name is not None and explore.view_name != explore.name:
@@ -955,6 +953,8 @@ class LookerExplore:
                 aliased_explore = False
                 if explore.name is not None:
                     views.add(explore.name)
+
+            logger.debug(f"Views so far (step 1): {views}")
 
             if explore.joins is not None and explore.joins != []:
                 join_to_orig_name_map = {}
@@ -991,6 +991,10 @@ class LookerExplore:
                         assert explore.view_name is not None
                         view_name = explore.view_name
                     views.add(view_name)
+
+            logger.debug(
+                f"Views so far (step 2): {views} [potential_views={potential_views}]"
+            )
 
             view_fields: List[ViewField] = []
             field_name_vs_raw_explore_field: Dict = {}
@@ -1085,8 +1089,7 @@ class LookerExplore:
             ):
                 logger.debug("lkml_fields")
                 pprint.pp(lkml_fields)
-                logger.debug("views")
-                pprint.pp(views)
+            logger.debug(f"Views so far (last step): {views}")
 
             upstream_views_file_path: Dict[str, Optional[str]] = (
                 create_upstream_views_file_path_map(
