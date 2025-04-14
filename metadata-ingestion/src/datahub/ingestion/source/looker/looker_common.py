@@ -935,7 +935,10 @@ class LookerExplore:
     ) -> Optional["LookerExplore"]:
         try:
             explore = client.lookml_model_explore(model, explore_name)
-            if logger.isEnabledFor(logging.DEBUG):
+            if (
+                logger.isEnabledFor(logging.DEBUG)
+                and explore_name == "headline_and_cohort_arr"
+            ):
                 logger.debug(f"LookML Model Explore: {explore_name}")
                 pprint.pp(explore)
             views: Set[str] = set()
@@ -1076,7 +1079,10 @@ class LookerExplore:
             if view_project_map:
                 logger.debug(f"views and their projects: {view_project_map}")
 
-            if logger.isEnabledFor(logging.DEBUG):
+            if (
+                logger.isEnabledFor(logging.DEBUG)
+                and explore_name == "headline_and_cohort_arr"
+            ):
                 logger.debug("lkml_fields")
                 pprint.pp(lkml_fields)
                 logger.debug("views")
