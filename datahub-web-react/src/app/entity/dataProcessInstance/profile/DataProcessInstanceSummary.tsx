@@ -3,12 +3,12 @@ import styled from 'styled-components';
 import { Space, Table, Typography } from 'antd';
 import { formatDetailedDuration } from '@src/app/shared/time/timeUtils';
 import { capitalize } from 'lodash';
-import moment from 'moment';
+import { Pill } from '@components';
 import { MlHyperParam, MlMetric, DataProcessInstanceRunResultType } from '../../../../types.generated';
 import { useBaseEntity } from '../../shared/EntityContext';
 import { InfoItem } from '../../shared/components/styled/InfoItem';
 import { GetDataProcessInstanceQuery } from '../../../../graphql/dataProcessInstance.generated';
-import { Pill } from '../../../../alchemy-components/components/Pills';
+import { TimestampPopover } from '../../../sharedV2/TimestampPopover';
 
 const TabContent = styled.div`
     padding: 16px;
@@ -39,7 +39,7 @@ const propertyTableColumns = [
     },
 ];
 
-export default function MLModelSummary() {
+export default function DataProcessInstanceSummary() {
     const baseEntity = useBaseEntity<GetDataProcessInstanceQuery>();
     const dpi = baseEntity?.dataProcessInstance;
 
@@ -61,11 +61,7 @@ export default function MLModelSummary() {
                 <Typography.Title level={3}>Details</Typography.Title>
                 <InfoItemContainer justifyContent="left">
                     <InfoItem title="Created At">
-                        <InfoItemContent>
-                            {dpi?.properties?.created?.time
-                                ? moment(dpi.properties.created.time).format('YYYY-MM-DD HH:mm:ss')
-                                : '-'}
-                        </InfoItemContent>
+                        <TimestampPopover timestamp={dpi?.properties?.created?.time} title="Created At" />
                     </InfoItem>
                     <InfoItem title="Status">
                         <InfoItemContent>{formatStatus(dpi?.state)}</InfoItemContent>

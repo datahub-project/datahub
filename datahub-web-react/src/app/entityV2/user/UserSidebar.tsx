@@ -18,7 +18,7 @@ type Props = {
  * UserSidebar- Sidebar section for users profiles.
  */
 export default function UserSidebar({ sidebarData, refetch }: Props) {
-    const { aboutText, groupsDetails, dataHubRoles, urn, ownerships } = sidebarData;
+    const { aboutText, groupsDetails, dataHubRoles, urn, ownershipResults } = sidebarData;
 
     const [updateCorpUserPropertiesMutation] = useUpdateCorpUserPropertiesMutation();
 
@@ -66,7 +66,7 @@ export default function UserSidebar({ sidebarData, refetch }: Props) {
                     isProfileOwner={isProfileOwner}
                     onSaveAboutMe={onSaveAboutMe}
                 />
-                <UserOwnershipSidebarSection ownedEntities={ownerships} />
+                <UserOwnershipSidebarSection ownershipResults={ownershipResults} />
                 <UserGroupSideBarSection groupsDetails={groupsDetails} />
             </Content>
         </SideBar>

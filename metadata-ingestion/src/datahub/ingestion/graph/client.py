@@ -27,6 +27,7 @@ from pydantic import BaseModel
 from requests.models import HTTPError
 from typing_extensions import deprecated
 
+from datahub._codegen.aspect import _Aspect
 from datahub.cli import config_utils
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
@@ -1697,6 +1698,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
 
         return res["runAssertionsForAsset"]
 
+    @deprecated("Use get_entities instead which returns typed aspects")
     def get_entities_v2(
         self,
         entity_name: str,
@@ -1735,6 +1737,108 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                     retval.setdefault(entity_urn, {})
                     retval[entity_urn][aspect_key] = aspect_value
         return retval
+
+    def get_entities(
+        self,
+        entity_name: str,
+        urns: List[str],
+        aspects: Optional[List[str]] = None,
+        with_system_metadata: bool = False,
+    ) -> Dict[str, Dict[str, Tuple[_Aspect, Optional[SystemMetadataClass]]]]:
+        """
+        Get entities using the OpenAPI v3 endpoint, deserializing aspects into typed objects.
+
+        Args:
+            entity_name: The entity type name
+            urns: List of entity URNs to fetch
+            aspects: Optional list of aspect names to fetch. If None, all aspects will be fetched.
+            with_system_metadata: If True, return system metadata along with each aspect.
+
+        Returns:
+            A dictionary mapping URNs to a dictionary of aspect name to tuples of
+            (typed aspect object, system metadata). If with_system_metadata is False,
+            the system metadata in the tuple will be None.
+        """
+        aspects = aspects or []
+
+        request_payload = []
+        for urn in urns:
+            entity_request: Dict[str, Any] = {"urn": urn}
+            for aspect_name in aspects:
+                entity_request[aspect_name] = {}
+            request_payload.append(entity_request)
+
+        headers: Dict[str, Any] = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+
+        url = f"{self.config.server}/openapi/v3/entity/{entity_name}/batchGet"
+        if with_system_metadata:
+            url += "?systemMetadata=true"
+
+        response = self._session.post(
+            url, data=json.dumps(request_payload), headers=headers
+        )
+        response.raise_for_status()
+        entities = response.json()
+
+        result: Dict[str, Dict[str, Tuple[_Aspect, Optional[SystemMetadataClass]]]] = {}
+
+        for entity in entities:
+            entity_urn = entity.get("urn")
+            if entity_urn is None:
+                logger.warning(
+                    f"Missing URN in entity response: {entity}, skipping deserialization"
+                )
+                continue
+
+            entity_aspects: Dict[
+                str, Tuple[_Aspect, Optional[SystemMetadataClass]]
+            ] = {}
+
+            for aspect_name, aspect_obj in entity.items():
+                if aspect_name == "urn":
+                    continue
+
+                aspect_class = ASPECT_NAME_MAP.get(aspect_name)
+                if aspect_class is None:
+                    logger.warning(
+                        f"Unknown aspect type {aspect_name}, skipping deserialization"
+                    )
+                    continue
+
+                aspect_value = aspect_obj.get("value")
+                if aspect_value is None:
+                    logger.warning(
+                        f"Unknown aspect value for aspect {aspect_name}, skipping deserialization"
+                    )
+                    continue
+
+                try:
+                    post_json_obj = post_json_transform(aspect_value)
+                    typed_aspect = aspect_class.from_obj(post_json_obj)
+                    assert isinstance(typed_aspect, aspect_class) and isinstance(
+                        typed_aspect, _Aspect
+                    )
+
+                    system_metadata = None
+                    if with_system_metadata:
+                        system_metadata_obj = aspect_obj.get("systemMetadata")
+                        if system_metadata_obj:
+                            system_metadata = SystemMetadataClass.from_obj(
+                                system_metadata_obj
+                            )
+
+                    entity_aspects[aspect_name] = (typed_aspect, system_metadata)
+                except Exception as e:
+                    logger.error(f"Error deserializing aspect {aspect_name}: {e}")
+                    raise
+
+            if entity_aspects:
+                result[entity_urn] = entity_aspects
+
+        return result
 
     def upsert_custom_assertion(
         self,

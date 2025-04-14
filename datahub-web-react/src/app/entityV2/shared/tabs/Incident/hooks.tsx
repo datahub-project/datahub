@@ -8,14 +8,14 @@ import { IncidentPriorityLabel } from '@src/alchemy-components/components/Incide
 import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { CorpUser, EntityPrivileges } from '@src/types.generated';
+import { CorpUser, EntityPrivileges, IncidentType } from '@src/types.generated';
 import { getQueryParams } from '../Dataset/Validations/assertionUtils';
 import { getAssigneeNamesWithAvatarUrl, getLinkedAssetsCount } from './utils';
 import { IncidentResolveButton } from './IncidentResolveButton';
 import { IncidentAssigneeAvatarStack } from './IncidentAssigneeAvatarStack';
 import { CategoryType } from './styledComponents';
 
-export const useIncidentsTableColumns = (privileges?: EntityPrivileges) => {
+export const useIncidentsTableColumns = (refetch: () => void, privileges?: EntityPrivileges) => {
     return useMemo(() => {
         const columns = [
             {
@@ -49,19 +49,25 @@ export const useIncidentsTableColumns = (privileges?: EntityPrivileges) => {
                 title: 'Category',
                 dataIndex: 'type',
                 key: 'type',
-                render: (record) =>
-                    !record.groupName && (
-                        <CategoryType data-testid="incident-category" title={getCapitalizeWord(String(record?.type))}>
-                            {getCapitalizeWord(String(record?.type))}
-                        </CategoryType>
-                    ),
+                render: (record) => {
+                    const categoryName = getCapitalizeWord(
+                        record?.type === IncidentType.Custom ? record?.customType : record?.type,
+                    );
+                    return (
+                        !record.groupName && (
+                            <CategoryType data-testid="incident-category" title={categoryName}>
+                                {categoryName}
+                            </CategoryType>
+                        )
+                    );
+                },
                 sorter: (a, b) => {
                     return (b.type || '').localeCompare(a.type || '', undefined, { sensitivity: 'base' });
                 },
                 width: '12%',
             },
             {
-                title: 'Opened ',
+                title: 'Opened',
                 dataIndex: 'created',
                 key: 'created',
                 render: (record) => {
@@ -107,13 +113,17 @@ export const useIncidentsTableColumns = (privileges?: EntityPrivileges) => {
                 key: 'actions',
                 width: '15%',
                 render: (record) => {
-                    return !record.groupName && <IncidentResolveButton incident={record} privileges={privileges} />;
+                    return (
+                        !record.groupName && (
+                            <IncidentResolveButton incident={record} privileges={privileges} refetch={refetch} />
+                        )
+                    );
                 },
                 alignment: 'right' as AlignmentOptions,
             },
         ];
         return columns;
-    }, [privileges]);
+    }, [privileges, refetch]);
 };
 
 export const useIncidentURNCopyLink = (Urn: string) => {
@@ -172,7 +182,7 @@ export const getOnOpenAssertionLink = (Urn: string) => {
  * @param {Function} setFocusAssertionUrn - Function to set details of the viewing assertion and open detail Modal.
  * @returns {Object} Object containing the 'assertionUrnParam' from the URL.
  */
-export const useOpenIncidentDetailModal = (setFocusIncidentUrn, updateIncidentData) => {
+export const useOpenIncidentDetailModal = (setFocusIncidentUrn) => {
     const location = useLocation();
     const history = useHistory();
     const incidentUrnParam = getQueryParams('incident_urn', location);
@@ -182,7 +192,6 @@ export const useOpenIncidentDetailModal = (setFocusIncidentUrn, updateIncidentDa
             const decodedIncidentUrn = decodeURIComponent(incidentUrnParam);
 
             setFocusIncidentUrn(decodedIncidentUrn);
-            updateIncidentData(decodedIncidentUrn);
 
             // Remove the query parameter from the URL
             const newUrlParams = new URLSearchParams(location.search);

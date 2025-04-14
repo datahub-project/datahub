@@ -124,6 +124,7 @@ const ManageTags = () => {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e)}
                     data-testid="tag-search-input"
+                    width="280px"
                 />
             </SearchContainer>
 

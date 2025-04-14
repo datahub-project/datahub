@@ -69,6 +69,7 @@ export default function QueryFilters({
                     onChangeFilters={onChangeFilters}
                     activeFilters={[selectedColumnsFilter]}
                     labelStyle={selectedColumnsFilter.values?.length ? undefined : labelStyle}
+                    shouldUseAggregationsFromFilter
                 />
             </FiltersWrapper>
             <SelectedSearchFilters

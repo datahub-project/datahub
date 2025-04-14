@@ -1,14 +1,12 @@
 import React, { useCallback, useState } from 'react';
-import { Button, Divider } from 'antd';
-import { Tooltip } from '@components';
 import styled from 'styled-components';
+import { Divider } from 'antd';
+import { Button } from '@components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import useSidebarWidth from '../../sharedV2/sidebar/useSidebarWidth';
 import DomainsSidebarHeader from './DomainsSidebarHeader';
 import DomainNavigator from './domainNavigator/DomainNavigator';
 import DomainSearch from '../DomainSearch';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import SidebarBackArrow from '../../../images/sidebarBackArrow.svg?react';
 
 const PLATFORM_BROWSE_TRANSITION_MS = 300;
 
@@ -44,30 +42,14 @@ const Controls = styled.div<{ isCollapsed: boolean }>`
     display: flex;
     align-items: center;
     justify-content: ${(props) => (props.isCollapsed ? 'center' : 'space-between')};
-    padding: 15px 16px 10px 12px;
+    padding: 12px;
     overflow: hidden;
     height: 50px;
-`;
-
-const CloseButton = styled(Button)<{ $isActive }>`
-    margin: 0px;
-    padding: 2px 0px;
-    display: flex;
-    align-items: center;
-    transition: transform ${PLATFORM_BROWSE_TRANSITION_MS}ms ease;
-    && {
-        color: ${(props) => (props.$isActive ? ANTD_GRAY[9] : '#8088a3')};
-    }
 `;
 
 const ThinDivider = styled(Divider)`
     margin: 0px;
     padding: 0px;
-`;
-
-const StyledSidebarBackArrow = styled(SidebarBackArrow)<{ direction: 'left' | 'right' }>`
-    cursor: pointer;
-    ${(props) => (props.direction === 'right' && 'transform: scaleX(-1);') || undefined}
 `;
 
 const StyledSidebar = styled.div`
@@ -100,17 +82,15 @@ export default function ManageDomainsSidebarV2({ isEntityProfile }: Props) {
         >
             <Controls isCollapsed={isClosed}>
                 {!isClosed && <DomainsSidebarHeader />}
-                <Tooltip
-                    placement="left"
-                    showArrow={false}
-                    title={!isClosed ? 'Close navigator' : 'Open navigator'}
-                    mouseEnterDelay={0.7}
-                    mouseLeaveDelay={0}
-                >
-                    <CloseButton $isActive={!isClosed} type="link" onClick={() => setIsClosed(!isClosed)}>
-                        <StyledSidebarBackArrow direction={isClosed ? 'left' : 'right'} />
-                    </CloseButton>
-                </Tooltip>
+                <Button
+                    variant="text"
+                    color="gray"
+                    size="lg"
+                    isCircle
+                    icon={{ icon: isClosed ? 'ArrowLineRight' : 'ArrowLineLeft', source: 'phosphor' }}
+                    isActive={!isClosed}
+                    onClick={() => setIsClosed(!isClosed)}
+                />
             </Controls>
             <ThinDivider />
             <StyledSidebar>

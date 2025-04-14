@@ -63,17 +63,18 @@ from datahub.metadata.schema_classes import (
     TimeTypeClass,
 )
 
-MCPS_PER_TABLE = 6  # assuming no profiling
-MCPS_PER_NAMESPACE = 4
+MCPS_PER_TABLE = 7  # assuming no profiling
+MCPS_PER_NAMESPACE = 5
 
 
 def with_iceberg_source(processing_threads: int = 1, **kwargs: Any) -> IcebergSource:
     catalog = {"test": {"type": "rest"}}
+    config = IcebergSourceConfig(
+        catalog=catalog, processing_threads=processing_threads, **kwargs
+    )
     return IcebergSource(
         ctx=PipelineContext(run_id="iceberg-source-test"),
-        config=IcebergSourceConfig(
-            catalog=catalog, processing_threads=processing_threads, **kwargs
-        ),
+        config=config,
     )
 
 
@@ -548,10 +549,10 @@ class MockCatalog:
         self.tables = tables
 
     def list_namespaces(self) -> Iterable[Tuple[str]]:
-        return [*[(key,) for key in self.tables.keys()]]
+        return [*[(key,) for key in self.tables]]
 
     def list_tables(self, namespace: str) -> Iterable[Tuple[str, str]]:
-        return [(namespace[0], table) for table in self.tables[namespace[0]].keys()]
+        return [(namespace[0], table) for table in self.tables[namespace[0]]]
 
     def load_table(self, dataset_path: Tuple[str, str]) -> Table:
         return self.tables[dataset_path[0]][dataset_path[1]]()

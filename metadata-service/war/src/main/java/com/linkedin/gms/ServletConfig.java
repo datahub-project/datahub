@@ -20,7 +20,6 @@ import io.datahubproject.iceberg.catalog.rest.common.IcebergJsonConverter;
 import io.datahubproject.openapi.converter.StringToChangeCategoryConverter;
 import java.util.List;
 import javax.annotation.Nonnull;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.iceberg.rest.RESTSerializers;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -44,7 +43,6 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * Common configuration for all servlets. Generally this list also includes dependencies of the
  * embedded MAE/MCE consumers.
  */
-@Slf4j
 @Configuration
 @Order(1)
 @EnableWebMvc

@@ -24,6 +24,7 @@ import { EntitySidebarTabs } from '../shared/containers/profile/sidebar/EntitySi
 import EntitySidebarSectionsTab from '../shared/containers/profile/sidebar/EntitySidebarSectionsTab';
 import EntitySidebarContext from '../../sharedV2/EntitySidebarContext';
 import SidebarCollapsibleHeader from '../shared/containers/profile/sidebar/SidebarCollapsibleHeader';
+import useGetUserGroupUrns from './useGetUserGroupUrns';
 
 export interface Props {
     urn: string;
@@ -106,7 +107,9 @@ export default function UserProfile({ urn }: Props) {
     const userRoles: Array<EntityRelationship> =
         castedCorpUser?.roles?.relationships?.map((relationship) => relationship as EntityRelationship) || [];
 
-    const { data: userOwnedAsset } = useGetUserOwnedAssetsQuery({ variables: { urn } });
+    const { groupUrns } = useGetUserGroupUrns(urn);
+
+    const { data: userOwnedAsset } = useGetUserOwnedAssetsQuery({ variables: { urns: [urn, ...groupUrns] } });
     // Routed Tabs Constants
     const getTabs = () => {
         return [
@@ -153,7 +156,7 @@ export default function UserProfile({ urn }: Props) {
         aboutText: data?.corpUser?.editableProperties?.aboutMe || undefined,
         groupsDetails: userGroups,
         dataHubRoles: userRoles,
-        ownerships: userOwnedAsset?.searchAcrossEntities?.searchResults || undefined,
+        ownershipResults: userOwnedAsset?.searchAcrossEntities || undefined,
         urn,
     };
 

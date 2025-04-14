@@ -899,7 +899,7 @@ class ModeSource(StatefulIngestionSourceBase):
                 for match in matches:
                     definition = Template(source=match).render()
                     parameters = yaml.safe_load(definition)
-                    for key in parameters.keys():
+                    for key in parameters:
                         jinja_params[key] = parameters[key].get("default", "")
 
                 normalized_query = re.sub(
@@ -1601,7 +1601,7 @@ class ModeSource(StatefulIngestionSourceBase):
 
     def emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
         # Space/collection -> report -> query -> Chart
-        for space_token in self.space_tokens.keys():
+        for space_token in self.space_tokens:
             reports = self._get_reports(space_token)
             for report in reports:
                 report_token = report.get("token", "")

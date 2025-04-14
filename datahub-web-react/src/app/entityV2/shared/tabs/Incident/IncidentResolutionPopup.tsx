@@ -19,6 +19,7 @@ import { PAGE_SIZE, updateActiveIncidentInCache } from './incidentUtils';
 
 type IncidentResolutionPopupProps = {
     incident: IncidentTableRow;
+    refetch: () => void;
     handleClose: () => void;
 };
 
@@ -32,12 +33,13 @@ const ModalTitle = () => (
     </ModalTitleContainer>
 );
 
-export const IncidentResolutionPopup = ({ incident, handleClose }: IncidentResolutionPopupProps) => {
+export const IncidentResolutionPopup = ({ incident, refetch, handleClose }: IncidentResolutionPopupProps) => {
     const client = useApolloClient();
     const { user } = useUserContext();
     const { urn, entityType } = useEntityData();
     const [updateIncidentStatusMutation] = useUpdateIncidentStatusMutation();
     const [form] = Form.useForm();
+    const formValues = Form.useWatch([], form);
 
     const handleValuesChange = (changedValues: any) => {
         Object.keys(changedValues).forEach((fieldName) => form.setFields([{ name: fieldName, errors: [] }]));
@@ -72,6 +74,7 @@ export const IncidentResolutionPopup = ({ incident, handleClose }: IncidentResol
                     message: formData?.note,
                     linkedAssets: incident.linkedAssets,
                     assignees: incident.assignees,
+                    created: incident.created,
                 };
 
                 const updatedIncident = getCacheIncident({
@@ -79,10 +82,10 @@ export const IncidentResolutionPopup = ({ incident, handleClose }: IncidentResol
                     incidentUrn: incident.urn,
                     user,
                 });
-
                 updateActiveIncidentInCache(client, urn, updatedIncident, PAGE_SIZE);
                 message.success({ content: 'Incident updated!', duration: 2 });
                 handleClose?.();
+                setTimeout(() => refetch(), 3000);
             })
             .catch((error) => {
                 handleGraphQLError({
@@ -130,7 +133,7 @@ export const IncidentResolutionPopup = ({ incident, handleClose }: IncidentResol
                     showClear={false}
                     width="100%"
                     customStyle={{ flexDirection: 'column', alignItems: 'normal' }}
-                    value={form.getFieldValue(INCIDENT_OPTION_LABEL_MAPPING.stage.fieldName)}
+                    value={formValues?.[INCIDENT_OPTION_LABEL_MAPPING.stage.fieldName]}
                 />
                 <FormItem
                     name="note"

@@ -22,7 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class RestoreFormInfoIndicesStep extends UpgradeStep {
-  private static final String VERSION = "1";
+  private static final String VERSION = "2";
   private static final String UPGRADE_ID = "restore-form-info-indices";
   private static final Integer BATCH_SIZE = 1000;
 

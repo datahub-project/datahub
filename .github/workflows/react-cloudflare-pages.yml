@@ -37,6 +37,7 @@ jobs:
       deployments: write
     timeout-minutes: 30
     needs: setup
+    if: !github.event.pull_request.head.repo.fork
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
