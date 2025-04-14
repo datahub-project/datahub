@@ -4,9 +4,14 @@ import { Modal } from '@components';
 import { useCreateTagMutation } from '../../../graphql/tag.generated';
 import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 import { useBatchAddOwnersMutation, useSetTagColorMutation } from '../../../graphql/mutations.generated';
-import { CreateNewTagModalProps, ModalButton } from './types';
+import { ModalButton } from './types';
 import TagDetailsSection from './TagDetailsSection';
 import OwnersSection, { PendingOwner } from './OwnersSection';
+
+type CreateNewTagModalProps = {
+    open: boolean;
+    onClose: () => void;
+};
 
 /**
  * Modal for creating a new tag with owners and applying it to entities

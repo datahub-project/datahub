@@ -9,7 +9,7 @@ import styled from 'styled-components';
 import { PageContainer } from '../govern/structuredProperties/styledComponents';
 import EmptyTags from './EmptyTags';
 import TagsTable from './TagsTable';
-import CreateNewTagModal from './CreateNewTagModal';
+import CreateNewTagModal from './CreateNewTagModal/CreateNewTagModal';
 import { useUserContext } from '../context/useUserContext';
 
 const HeaderContainer = styled.div`

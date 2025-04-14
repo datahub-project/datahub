@@ -1,8 +1,3 @@
-export type CreateNewTagModalProps = {
-    open: boolean;
-    onClose: () => void;
-};
-
 // Interface for modal buttons matching the expected ButtonProps
 export interface ModalButton {
     text: string;
