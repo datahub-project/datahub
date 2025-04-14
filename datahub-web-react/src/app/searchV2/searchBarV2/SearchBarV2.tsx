@@ -13,7 +13,7 @@ import AutocompletePlaceholder from '@app/searchV2/searchBarV2/components/Autoco
 import SearchBarInput from '@app/searchV2/searchBarV2/components/SearchBarInput';
 import {
     AUTOCOMPLETE_DROPDOWN_ALIGN_WITH_NEW_NAV_BAR,
-} from '@app/searchV2/searchBarV2/constants';
+ BOX_SHADOW } from '@app/searchV2/searchBarV2/constants';
 import useFocusElementByCommandK from '@app/searchV2/searchBarV2/hooks/useFocusSearchBarByCommandK';
 import useSelectOption from '@app/searchV2/searchBarV2/hooks/useSelectOption';
 import { useSearchBarData } from '@app/searchV2/useSearchBarData';
@@ -21,9 +21,8 @@ import { MIN_CHARACTER_COUNT_FOR_SEARCH } from '@app/searchV2/utils/constants';
 import filterSearchQuery from '@app/searchV2/utils/filterSearchQuery';
 import { useAppConfig, useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 import { SearchBarApi } from '@src/types.generated';
-import AutocompleteDropdown from './components/AutocompleteDropdown';
-import { BOX_SHADOW } from './constants';
-import useOptions from './hooks/useOptions';
+import AutocompleteDropdown from '@app/searchV2/searchBarV2/components/AutocompleteDropdown';
+import useOptions from '@app/searchV2/searchBarV2/hooks/useOptions';
 
 const StyledAutoComplete = styled(AutoComplete)<{ $isShowNavBarRedesign?: boolean }>`
     width: 100%;
