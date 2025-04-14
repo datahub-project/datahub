@@ -1153,7 +1153,7 @@ jobs:
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
           TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1,ghcr.io/aquasecurity/trivy-java-db:1
         with:
-          image-ref: ${{ env.DATAHUB_ACTIONS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+          image-ref: ${{ env.DATAHUB_ACTIONS_IMAGE }}-slim:${{ needs.setup.outputs.unique_tag }}
           format: "template"
           template: "@/contrib/sarif.tpl"
           output: "trivy-results.sarif"
