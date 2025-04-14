@@ -1,7 +1,16 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Input, ColorPicker } from '@components';
-import { TagDetailsProps } from './types';
+
+// Tag details section props
+export interface TagDetailsProps {
+    tagName: string;
+    setTagName: React.Dispatch<React.SetStateAction<string>>;
+    tagDescription: string;
+    setTagDescription: React.Dispatch<React.SetStateAction<string>>;
+    tagColor: string;
+    setTagColor: (color: string) => void;
+}
 
 const SectionContainer = styled.div`
     margin-bottom: 24px;

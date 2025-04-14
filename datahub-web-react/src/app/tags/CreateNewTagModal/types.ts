@@ -28,16 +28,6 @@ export const FormSection = {
     marginBottom: '16px',
 };
 
-// Tag details section props
-export interface TagDetailsProps {
-    tagName: string;
-    setTagName: React.Dispatch<React.SetStateAction<string>>;
-    tagDescription: string;
-    setTagDescription: React.Dispatch<React.SetStateAction<string>>;
-    tagColor: string;
-    setTagColor: (color: string) => void;
-}
-
 // Owners section props
 export interface OwnersSectionProps {
     selectedOwnerUrns: string[];

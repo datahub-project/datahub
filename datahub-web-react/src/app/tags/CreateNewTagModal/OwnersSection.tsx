@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { Select } from 'antd';
 import { Text } from '@components';
 import { EntityType, OwnerEntityType } from '../../../types.generated';
-import { useGetSearchResultsLazyQuery } from '../../../graphql/search.generated';
+import { useGetSearchResultsForMultipleLazyQuery } from '../../../graphql/search.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { useListOwnershipTypesQuery } from '../../../graphql/ownership.generated';
 import { OwnerLabel } from '../../shared/OwnerLabel';
@@ -57,13 +57,11 @@ const OwnersSection: React.FC<OwnersSectionProps> = ({
     const [inputValue, setInputValue] = useState('');
     const [isSearching, setIsSearching] = useState(false);
 
-    // Search queries for owners - fetchPolicy set to 'no-cache' to avoid stale data issues
-    const [userSearch, { data: userSearchData, loading: userSearchLoading }] = useGetSearchResultsLazyQuery({
-        fetchPolicy: 'no-cache',
-    });
-    const [groupSearch, { data: groupSearchData, loading: groupSearchLoading }] = useGetSearchResultsLazyQuery({
-        fetchPolicy: 'no-cache',
-    });
+    // Search query for owners across both CorpUser and CorpGroup types
+    const [searchAcrossEntities, { data: searchData, loading: searchLoading }] =
+        useGetSearchResultsForMultipleLazyQuery({
+            fetchPolicy: 'no-cache',
+        });
 
     // Lazy load ownership types
     const { data: ownershipTypesData } = useListOwnershipTypesQuery({
@@ -75,26 +73,8 @@ const OwnersSection: React.FC<OwnersSectionProps> = ({
     const ownershipTypes = ownershipTypesData?.listOwnershipTypes?.ownershipTypes || [];
     const defaultOwnerType = ownershipTypes.length > 0 ? ownershipTypes[0].urn : undefined;
 
-    // Combine search results
-    const userSearchResults = userSearchData?.search?.searchResults?.map((result) => result.entity) || [];
-    const groupSearchResults = groupSearchData?.search?.searchResults?.map((result) => result.entity) || [];
-    const combinedSearchResults = [...userSearchResults, ...groupSearchResults];
-
-    // Search handlers with debounce to reduce API calls
-    const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
-        if (!text || text.trim().length < 2) return;
-
-        searchQuery({
-            variables: {
-                input: {
-                    type,
-                    query: text,
-                    start: 0,
-                    count: 5,
-                },
-            },
-        });
-    };
+    // Get search results from the combined query
+    const searchResults = searchData?.searchAcrossEntities?.searchResults?.map((result) => result.entity) || [];
 
     // Debounced search handler
     const handleOwnerSearch = (text: string) => {
@@ -102,8 +82,16 @@ const OwnersSection: React.FC<OwnersSectionProps> = ({
         setIsSearching(true);
 
         if (text && text.trim().length > 1) {
-            handleSearch(EntityType.CorpUser, text.trim(), userSearch);
-            handleSearch(EntityType.CorpGroup, text.trim(), groupSearch);
+            searchAcrossEntities({
+                variables: {
+                    input: {
+                        types: [EntityType.CorpUser, EntityType.CorpGroup],
+                        query: text.trim(),
+                        start: 0,
+                        count: 10,
+                    },
+                },
+            });
         }
     };
 
@@ -134,7 +122,7 @@ const OwnersSection: React.FC<OwnersSectionProps> = ({
 
         if (newOwnerUrns.length > 0 && defaultOwnerType) {
             const newPendingOwners = newOwnerUrns.map((urn) => {
-                const foundEntity = combinedSearchResults.find((e) => e.urn === urn);
+                const foundEntity = searchResults.find((e) => e.urn === urn);
                 const ownerEntityType =
                     foundEntity && foundEntity.type === EntityType.CorpGroup
                         ? OwnerEntityType.CorpGroup
@@ -159,13 +147,13 @@ const OwnersSection: React.FC<OwnersSectionProps> = ({
     };
 
     // Loading state for the select
-    const isSelectLoading = isSearching && (userSearchLoading || groupSearchLoading);
+    const isSelectLoading = isSearching && searchLoading;
 
     // Simplified conditional content for notFoundContent
     let notFoundContent: React.ReactNode = null;
     if (isSelectLoading) {
         notFoundContent = 'Loading...';
-    } else if (inputValue && combinedSearchResults.length === 0) {
+    } else if (inputValue && searchResults.length === 0) {
         notFoundContent = 'No results found';
     }
 
@@ -187,7 +175,7 @@ const OwnersSection: React.FC<OwnersSectionProps> = ({
                     notFoundContent={notFoundContent}
                     optionLabelProp="label"
                 >
-                    {combinedSearchResults.map((entity) => renderSearchResult(entity))}
+                    {searchResults.map((entity) => renderSearchResult(entity))}
                 </SelectInput>
             </FormSection>
         </SectionContainer>

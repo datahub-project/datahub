@@ -42,13 +42,10 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
     const [showEdit, setShowEdit] = useState(false);
     const [editingTag, setEditingTag] = useState('');
 
-    // State for delete confirmation modal
+    // Simplified state for delete confirmation modal
     const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [tagToDelete, setTagToDelete] = useState<{
-        urn: string;
-        displayName: string;
-        onConfirm: () => void;
-    } | null>(null);
+    const [tagUrnToDelete, setTagUrnToDelete] = useState('');
+    const [tagDisplayName, setTagDisplayName] = useState('');
 
     const [sortedInfo, setSortedInfo] = useState<{
         columnKey?: string;
@@ -78,8 +75,8 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
 
     const isLoading = propLoading || networkStatus === NetworkStatus.refetch;
 
-    // Function to delete a tag with confirmation
-    const deleteTag = useCallback(
+    // Simplified function to initiate tag deletion
+    const showDeleteConfirmation = useCallback(
         (tagUrn: string) => {
             // Find the tag entity from tagsData
             const tagData = tagsData.find((result) => result.entity.urn === tagUrn);
@@ -90,32 +87,30 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
 
             const fullDisplayName = entityRegistry.getDisplayName(EntityType.Tag, tagData.entity);
 
-            // Show a confirmation modal using the @components Modal
-            const confirmDeleteTag = () => {
-                deleteTagMutation({
-                    variables: {
-                        urn: tagUrn,
-                    },
-                })
-                    .then(() => {
-                        message.success(`Tag "${fullDisplayName}" has been deleted`);
-                        refetch(); // Refresh the tag list
-                    })
-                    .catch((e: any) => {
-                        message.error(`Failed to delete tag: ${e.message}`);
-                    });
-            };
-
-            // Using the modal from @components
+            setTagUrnToDelete(tagUrn);
+            setTagDisplayName(fullDisplayName);
             setShowDeleteModal(true);
-            setTagToDelete({
-                urn: tagUrn,
-                displayName: fullDisplayName,
-                onConfirm: confirmDeleteTag,
-            });
         },
-        [deleteTagMutation, refetch, entityRegistry, setShowDeleteModal, setTagToDelete, tagsData],
+        [entityRegistry, tagsData],
     );
+
+    // Function to handle the actual tag deletion
+    const handleDeleteTag = useCallback(() => {
+        deleteTagMutation({
+            variables: {
+                urn: tagUrnToDelete,
+            },
+        })
+            .then(() => {
+                message.success(`Tag "${tagDisplayName}" has been deleted`);
+                refetch(); // Refresh the tag list
+            })
+            .catch((e: any) => {
+                message.error(`Failed to delete tag: ${e.message}`);
+            });
+
+        setShowDeleteModal(false);
+    }, [deleteTagMutation, refetch, tagUrnToDelete, tagDisplayName]);
 
     const columns = useMemo(
         () => [
@@ -176,7 +171,7 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
                             }}
                             onDelete={() => {
                                 if (canManageTags) {
-                                    deleteTag(record.entity.urn);
+                                    showDeleteConfirmation(record.entity.urn);
                                 } else {
                                     message.error('You do not have permission to delete tags');
                                 }
@@ -187,7 +182,7 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
                 },
             },
         ],
-        [entityRegistry, searchQuery, sortedInfo, canManageTags, deleteTag],
+        [entityRegistry, searchQuery, sortedInfo, canManageTags, showDeleteConfirmation],
     );
 
     // Generate table data once with memoization
@@ -218,34 +213,29 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
                 />
             )}
 
-            {/* Delete confirmation modal */}
-            {showDeleteModal && tagToDelete && (
-                <Modal
-                    title={`Delete tag ${tagToDelete.displayName}`}
-                    onCancel={() => setShowDeleteModal(false)}
-                    open={showDeleteModal}
-                    centered
-                    buttons={[
-                        {
-                            text: 'Cancel',
-                            color: 'violet',
-                            variant: 'text',
-                            onClick: () => setShowDeleteModal(false),
-                        },
-                        {
-                            text: 'Delete',
-                            color: 'red',
-                            variant: 'filled',
-                            onClick: () => {
-                                tagToDelete.onConfirm();
-                                setShowDeleteModal(false);
-                            },
-                        },
-                    ]}
-                >
-                    <p>Are you sure you want to delete this tag? This action cannot be undone.</p>
-                </Modal>
-            )}
+            {/* Delete confirmation modal - simplified */}
+            <Modal
+                title={`Delete tag ${tagDisplayName}`}
+                onCancel={() => setShowDeleteModal(false)}
+                open={showDeleteModal}
+                centered
+                buttons={[
+                    {
+                        text: 'Cancel',
+                        color: 'violet',
+                        variant: 'text',
+                        onClick: () => setShowDeleteModal(false),
+                    },
+                    {
+                        text: 'Delete',
+                        color: 'red',
+                        variant: 'filled',
+                        onClick: handleDeleteTag,
+                    },
+                ]}
+            >
+                <p>Are you sure you want to delete this tag? This action cannot be undone.</p>
+            </Modal>
         </>
     );
 };
