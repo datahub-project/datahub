@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useListQueriesQuery } from '../../../../../../graphql/query.generated';
-import { FacetFilterInput, QueryEntity, QuerySource, SortOrder } from '../../../../../../types.generated';
+import { FacetFilterInput, QueryEntity, QuerySource } from '../../../../../../types.generated';
 import { filterQueries, getAndFilters, getQueryEntitiesFilter } from './utils/filterQueries';
 import usePagination from '../../../../../sharedV2/pagination/usePagination';
 import { DEFAULT_PAGE_SIZE } from './utils/constants';
@@ -13,16 +13,9 @@ interface Props {
     siblingUrn?: string;
     filterText: string;
     defaultSelectedColumns?: string[];
-    defaultSelectedUsers?: string[];
 }
 
-export const usePopularQueries = ({
-    entityUrn,
-    siblingUrn,
-    filterText,
-    defaultSelectedColumns,
-    defaultSelectedUsers,
-}: Props) => {
+export const usePopularQueries = ({ entityUrn, siblingUrn, filterText, defaultSelectedColumns }: Props) => {
     const columnFromQueryParam = useQueryParamValue('column') as string | null;
     const siblingColumnFromQueryParam = useQueryParamValue('siblingColumn') as string | null;
     let columnsFromQueryParams = columnFromQueryParam ? [decodeURI(columnFromQueryParam)] : [];
@@ -34,7 +27,7 @@ export const usePopularQueries = ({
         values: [...(columnsFromQueryParams.length ? columnsFromQueryParams : defaultSelectedColumns || [])],
     };
     const [selectedColumnsFilter, setSelectedColumnsFilter] = useState<FacetFilterInput>(defaultColumnsFilter);
-    const defaultUsersFilter = { field: 'topUsersLast30DaysFeature', values: [...(defaultSelectedUsers || [])] };
+    const defaultUsersFilter = { field: '', values: [] }; // Not supported
     const [selectedUsersFilter, setSelectedUsersFilter] = useState<FacetFilterInput>(defaultUsersFilter);
 
     const pagination = usePagination(DEFAULT_PAGE_SIZE);
@@ -50,11 +43,7 @@ export const usePopularQueries = ({
                 start,
                 count,
                 source: QuerySource.System,
-                sortInput:
-                    sortField && sortOrder
-                        ? { sortCriterion: { field: sortField, sortOrder } }
-                        : { sortCriterion: { field: 'runsPercentileLast30days', sortOrder: SortOrder.Descending } },
-
+                sortInput: sortField && sortOrder ? { sortCriterion: { field: sortField, sortOrder } } : null,
                 orFilters: [{ and: andFilters }],
             },
         },
