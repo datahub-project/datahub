@@ -593,6 +593,7 @@ test_api_requirements = {
     "pytest-timeout",
     # Missing numpy requirement in 8.0.0
     "deepdiff!=8.0.0",
+    "orderly-set!=5.4.0",  # 5.4.0 uses invalid types on Python 3.8
     "PyYAML",
     "pytest-docker>=1.1.0",
 }
@@ -604,7 +605,7 @@ debug_requirements = {
 lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
-    "ruff==0.9.7",
+    "ruff==0.11.4",
     "mypy==1.10.1",
 }
 

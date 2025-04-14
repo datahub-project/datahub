@@ -35,6 +35,11 @@ consistency and ensure complete data availability.
 
 ## Trace API
 
+Known Limitations:
+  - Tracing can fail in some cases where a batch of aspects introduces a conflict between a system generated aspect and one 
+    included within a batch. An example, `upstreamLineage` and `siblings` aspects together may conflict with a system generated
+    `siblings` aspect normally generated from `upstreamLineage` in an MCL hook.
+
 The trace API's status retrieval functionality requires three key identifiers to locate specific write operations: 
 the trace ID (unique to the request), the URN, and the aspect name. This combination of identifiers ensures precise 
 operation tracking within the system.
@@ -208,6 +213,20 @@ The following shows a few examples of requests/response pairs.
         }
     ```
 
+### Ingestion Tracing (Experimental)
+
+Known Limitations:
+  - Patches are not yet supported. The following doesn't work when patches are generated.
+
+Ingestion can be used with tracing enabled however it does require using an `ASYNC` mode as well as the `OPENAPI`. This
+can be enabled by setting a couple environment variables shown below.
+
+```shell
+  DATAHUB_REST_SINK_DEFAULT_ENDPOINT=OPENAPI \
+  DATAHUB_REST_TRACE_MODE=ENABLED \
+  datahub ingest ...
+```
+
 ## Trace Performance
 
 The Trace API's performance profile varies based on operation status:
@@ -229,6 +248,39 @@ The performance differential between success and error states stems primarily fr
 topic inspection required for error tracking and diagnosis.
 
 For more detail, please see the [Design Notes](#design-notes) section.
+
+### Real World Test
+
+A test was executed with 627,712 aspects in `ASYNC_BATCH` and averaged over 2 runs. The overhead from tracing introduced
+a 3.84% increase in runtime. Example test runs shown below.
+
+Without Tracing:
+```json
+{'total_records_written': 627712,
+  'records_written_per_second': 376,
+  'total_duration_in_seconds': 1665.25,
+  'mode': 'ASYNC_BATCH',
+  'max_threads': 15,
+  'gms_version': 'v0.3.9.3',
+  'pending_requests': 0,
+  'async_batches_prepared': 6290,
+  'async_batches_split': 0,
+  'main_thread_blocking_timer': '1186.301 seconds'}
+```
+
+With Tracing:
+```json
+{'total_records_written': 627612,
+  'records_written_per_second': 368,
+  'total_duration_in_seconds': 1701.51,
+  'mode': 'ASYNC_BATCH',
+  'max_threads': 15,
+  'gms_version': 'v0.3.9.3',
+  'pending_requests': 0,
+  'async_batches_prepared': 6291,
+  'async_batches_split': 0,
+  'main_thread_blocking_timer': '1224.738 seconds'}
+```
 
 ## Trace Exporters
 

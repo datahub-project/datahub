@@ -257,7 +257,10 @@ def generate_hash(text: str) -> str:
 
 
 def get_query_fingerprint_debug(
-    expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr, fast: bool = False
+    expression: sqlglot.exp.ExpOrStr,
+    platform: DialectOrStr,
+    fast: bool = False,
+    secondary_id: Optional[str] = None,
 ) -> Tuple[str, Optional[str]]:
     try:
         if not fast:
@@ -272,16 +275,18 @@ def get_query_fingerprint_debug(
         logger.debug("Failed to generalize query for fingerprinting: %s", e)
         expression_sql = None
 
-    fingerprint = generate_hash(
-        expression_sql
-        if expression_sql is not None
-        else _expression_to_string(expression, platform=platform)
-    )
+    text = expression_sql or _expression_to_string(expression, platform=platform)
+    if secondary_id:
+        text = text + " -- " + secondary_id
+    fingerprint = generate_hash(text=text)
     return fingerprint, expression_sql
 
 
 def get_query_fingerprint(
-    expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr, fast: bool = False
+    expression: sqlglot.exp.ExpOrStr,
+    platform: DialectOrStr,
+    fast: bool = False,
+    secondary_id: Optional[str] = None,
 ) -> str:
     """Get a fingerprint for a SQL query.
 
@@ -298,12 +303,15 @@ def get_query_fingerprint(
     Args:
         expression: The SQL query to fingerprint.
         platform: The SQL dialect to use.
+        secondary_id: An optional additional id string to included in the final fingerprint.
 
     Returns:
         The fingerprint for the SQL query.
     """
 
-    return get_query_fingerprint_debug(expression, platform, fast=fast)[0]
+    return get_query_fingerprint_debug(
+        expression=expression, platform=platform, fast=fast, secondary_id=secondary_id
+    )[0]
 
 
 @functools.lru_cache(maxsize=FORMAT_QUERY_CACHE_SIZE)

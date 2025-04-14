@@ -147,10 +147,10 @@ public class ESSearchDAO {
     return opContext.withSpan(
         "executeAndExtract_search",
         () -> {
+          SearchResponse searchResponse = null;
           try {
             log.debug("Executing request {}: {}", id, searchRequest);
-            final SearchResponse searchResponse =
-                client.search(searchRequest, RequestOptions.DEFAULT);
+            searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
             // extract results, validated against document model as well
             return transformIndexIntoEntityName(
                 opContext.getSearchContext().getIndexConvention(),
@@ -163,6 +163,7 @@ public class ESSearchDAO {
                     .extractResult(opContext, searchResponse, filter, from, size));
           } catch (Exception e) {
             log.error("Search query failed", e);
+            log.error("Response to the failed search query: {}", searchResponse);
             throw new ESQueryException("Search query failed:", e);
           } finally {
             log.debug("Returning from request {}.", id);
