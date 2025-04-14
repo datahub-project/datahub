@@ -92,7 +92,8 @@ const getColumnAggregationText = (
                 </Typography.Text>
             );
         }
-        case AssertionStdAggregation.UniquePropotion: {
+        case AssertionStdAggregation.UniquePropotion:
+        case AssertionStdAggregation.UniqueProportion: {
             return (
                 <Typography.Text>
                     Unique value proportion for column <Typography.Text strong>{columnText}</Typography.Text> is
