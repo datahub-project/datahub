@@ -176,6 +176,10 @@ class MLflowSource(StatefulIngestionSourceBase):
         self.report = StaleEntityRemovalSourceReport()
         self.client = self._configure_client()
 
+        # print out mlflow client version
+        import mlflow
+        logger.info(f"!!! MLflow client version: {mlflow.__version__}")
+
     def _configure_client(self) -> MlflowClient:
         if bool(self.config.username) != bool(self.config.password):
             raise ValueError("Both username and password must be set together")
