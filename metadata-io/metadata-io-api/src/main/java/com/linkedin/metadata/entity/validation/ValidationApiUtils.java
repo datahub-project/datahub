@@ -146,13 +146,13 @@ public class ValidationApiUtils {
       mcp.setEntityUrn(urn);
     }
 
-    if (!Objects.equals(mcp.getEntityType(), urn.getEntityType())) {
-      if (!mcp.getEntityType().equalsIgnoreCase(urn.getEntityType())) {
+    if (mcp.getEntityType().equalsIgnoreCase(urn.getEntityType())) {
+        mcp.setEntityType(urn.getEntityType());
+    } else {
         throw new ValidationException(
             String.format(
                 "URN entity type does not match MCP entity type. %s != %s",
                 urn.getEntityType(), mcp.getEntityType()));
-      }
     }
 
     validateUrn(entityRegistry, urn);
