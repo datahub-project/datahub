@@ -610,6 +610,7 @@
           {
             "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
               "description": "table where each row represents a single log event",
+              "qualifiedName": "a.b.c",
               "uri": null,
               "tags": [],
               "customProperties": {
