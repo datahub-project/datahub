@@ -105,6 +105,7 @@ def update_celery_credentials(app: Celery, is_startup: bool, queue_name: str) ->
             # in Celery every time new config is received.
             app.amqp.__dict__.pop("queues", None)
             app.amqp.__dict__.pop("router", None)
+            app.amqp._producer_pool = None
 
             if "predefined_queues" in app.conf.broker_transport_options:
                 for q in app.conf.broker_transport_options["predefined_queues"].keys():
