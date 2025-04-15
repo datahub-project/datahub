@@ -206,7 +206,7 @@ class MLflowSource(StatefulIngestionSourceBase):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # yield from self._get_tags_workunits()
-        # yield from self._get_experiment_workunits()
+        yield from self._get_experiment_workunits()
         yield from self._get_ml_model_workunits()
 
     def _get_tags_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -611,40 +611,10 @@ class MLflowSource(StatefulIngestionSourceBase):
         """
         Utility to traverse an MLflow search_* functions which return PagedList.
         """
-        logger.info(f"!!! Starting search with function: {search_func.__name__} and kwargs: {kwargs}")
         next_page_token = None
         page_count = 0
         total_items = 0
 
-        # logger.info(f"!!! Sending manaul request to search API")
-        # model_names = []
-        # try:
-        #     response = requests.get(f"{self.client.tracking_uri}/api/2.0/mlflow/registered-models/search")
-        #     logger.info(f"!!! Response: {response.json()}")
-        #     if response.status_code == 200:
-        #         data = response.json()
-        #         registered_models = data.get("registered_models", [])
-        #         logger.info(f"\n✅ Found {len(registered_models)} registered models:")
-        #         for m in registered_models:
-        #             # logger.info(f"- {m.get('name', 'Unnamed')}")
-        #             model_names.append(m.get("name"))
-        #     else:
-        #         logger.info(f"\n❌ Failed to fetch models. Status code: {response.status_code}")
-        #         logger.info(f"Response: {response.text}")
-
-        # except Exception as e:
-        #     logger.info(f"\n⚠️ Error occurred: {e}")
-
-        
-        # try: 
-        #     for model_name in model_names:
-        #         logger.info(f"!!! Searching for model: {model_name}")
-        #         model = self.client.get_registered_model(model_name)
-        #         logger.info(f"!!! Found model: {model}")
-        # except: 
-        #     logger.info(f"!!! Error occurred while fetching model: {model_name}")
-
-                # Add request debugging to see exact SDK requests
         import requests as req
         original_send = req.Session.send
         
@@ -652,22 +622,8 @@ class MLflowSource(StatefulIngestionSourceBase):
             # Only log when it's a call to the registered-models/search endpoint
             if "registered-models/search" in request.url:
                 logger.info(f"!!! SDK REQUEST: {request.method} {request.url}")
-                logger.info(f"!!! SDK HEADERS: {request.headers}")
-                if request.body:
-                    try:
-                        body = request.body.decode('utf-8') if isinstance(request.body, bytes) else request.body
-                        logger.info(f"!!! SDK REQUEST BODY: {body}")
-                    except:
-                        logger.info(f"!!! SDK REQUEST BODY: {request.body} (couldn't decode)")
                 
                 response = original_send(session_self, request, **kwargs)
-                
-                logger.info(f"!!! SDK RESPONSE STATUS: {response.status_code}")
-                try:
-                    logger.info(f"!!! SDK RESPONSE BODY: {response.text}")
-                except:
-                    logger.info("!!! Couldn't log SDK response body")
-                
                 return response
             else:
                 return original_send(session_self, request, **kwargs)
@@ -678,23 +634,18 @@ class MLflowSource(StatefulIngestionSourceBase):
         try:
             while True:
                 page_count += 1
-                logger.info(f"!!! Fetching page {page_count} with token: {next_page_token}")
-                
                 paged_list = search_func(page_token=next_page_token, **kwargs)
-                logger.info(f"!!! RAW paged list repr: {len(paged_list)}")
 
                 items = paged_list.to_list()
                 page_items_count = len(items)
                 total_items += page_items_count
                 
-                logger.info(f"!!! Page {page_count} returned {page_items_count} items")
+                # logger.info(f"!!! Page {page_count} returned {page_items_count} items")
                 yield from items
 
-                next_page_token = paged_list.token
-                logger.info(f"!!! Next page token: {next_page_token}")
-                
+                next_page_token = paged_list.token              
                 if not next_page_token:
-                    logger.info(f"!!! Search complete, found {total_items} total items across {page_count} pages")
+                    # logger.info(f"!!! Search complete, found {total_items} total items across {page_count} pages")
                     return
         except Exception as e:
             logger.error(f"!!! Error in search function: {e}")
@@ -790,7 +741,6 @@ class MLflowSource(StatefulIngestionSourceBase):
         logger.info(f"Found {len(registered_models_list)} registered models")
         
         for i, registered_model in enumerate(registered_models_list):
-            logger.info(f"!!! {i+1} registered model name: {registered_model.name}")
             version_set_urn = self._get_version_set_urn(registered_model)
             
             model_versions_list = list(self._get_mlflow_model_versions(registered_model))
