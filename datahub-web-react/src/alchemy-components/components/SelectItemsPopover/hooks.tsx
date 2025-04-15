@@ -149,6 +149,7 @@ export const useEntityOperations = ({
         const addedItems = isRemoveAll
             ? []
             : selectedOptions.filter((entity) => !olderSelectedEntities?.includes(entity));
+
         handleSelectionChange({ selectedItems: addedItems, removedItems });
         setSearchText('');
     };
