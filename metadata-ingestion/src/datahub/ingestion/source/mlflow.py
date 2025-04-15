@@ -676,9 +676,19 @@ class MLflowSource(StatefulIngestionSourceBase):
                 page_count += 1
                 logger.info(f"!!! Fetching page {page_count} with token: {next_page_token}")
                 
-                paged_list = search_func(page_token=next_page_token, filter_string="tag.`mlflow.prompt.is_prompt` = 'true'", order_by=None, max_results=100)
+                paged_list = search_func(page_token=next_page_token, filter_string="tag.`mlflow.prompt.is_prompt` = 'true' OR tag.`mlflow.prompt.is_prompt` != 'true'", order_by=None, max_results=100)
 
                 logger.info(f"!!! RAW paged list repr: {len(paged_list)}")
+
+                paged_list2 = search_func(page_token=next_page_token, filter_string="tag.`mlflow.prompt.is_prompt` != 'true'", order_by=None, max_results=100)
+                logger.info(f"!!! RAW paged list repr 2: {len(paged_list2)}")
+
+                paged_list3 = search_func(page_token=next_page_token, filter_string="tag.`mlflow.prompt.is_prompt` = 'true'", order_by=None, max_results=100)
+                logger.info(f"!!! RAW paged list repr 3: {len(paged_list3)}")
+
+                paged_list4 = search_func(page_token=next_page_token, filter_string=" ", order_by=None, max_results=100)
+                logger.info(f"!!! RAW paged list repr 4: {len(paged_list4)}")
+
                 # logger.info("!!! List conversion result")
                 # logger.info(paged_list.to_list())
 
