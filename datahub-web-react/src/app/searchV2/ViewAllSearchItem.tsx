@@ -1,7 +1,7 @@
+import { Icon } from '@components';
 import React from 'react';
 import styled from 'styled-components/macro';
 import { Typography } from 'antd';
-import { SearchOutlined } from '@ant-design/icons';
 
 const ExploreForEntity = styled.span`
     font-weight: light;
@@ -31,7 +31,7 @@ function ViewAllSearchItem({ searchTarget: searchText }: { searchTarget?: string
     return (
         <ViewAllContainer>
             <ExploreForEntity>
-                <SearchOutlined />
+                <Icon icon="MagnifyingGlass" source="phosphor" />
                 <ExploreForEntityText>
                     View all results for <Typography.Text strong>{searchText}</Typography.Text>
                 </ExploreForEntityText>

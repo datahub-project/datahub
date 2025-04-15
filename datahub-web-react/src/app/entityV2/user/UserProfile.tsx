@@ -1,6 +1,6 @@
 import { Col } from 'antd';
 import React, { useContext, useState } from 'react';
-import { ReadOutlined } from '@ant-design/icons';
+import { BookOpen } from '@phosphor-icons/react';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 import { matchPath } from 'react-router';
 import { useLocation } from 'react-router-dom';
@@ -24,6 +24,7 @@ import { EntitySidebarTabs } from '../shared/containers/profile/sidebar/EntitySi
 import EntitySidebarSectionsTab from '../shared/containers/profile/sidebar/EntitySidebarSectionsTab';
 import EntitySidebarContext from '../../sharedV2/EntitySidebarContext';
 import SidebarCollapsibleHeader from '../shared/containers/profile/sidebar/SidebarCollapsibleHeader';
+import useGetUserGroupUrns from './useGetUserGroupUrns';
 
 export interface Props {
     urn: string;
@@ -106,7 +107,9 @@ export default function UserProfile({ urn }: Props) {
     const userRoles: Array<EntityRelationship> =
         castedCorpUser?.roles?.relationships?.map((relationship) => relationship as EntityRelationship) || [];
 
-    const { data: userOwnedAsset } = useGetUserOwnedAssetsQuery({ variables: { urn } });
+    const { groupUrns } = useGetUserGroupUrns(urn);
+
+    const { data: userOwnedAsset } = useGetUserOwnedAssetsQuery({ variables: { urns: [urn, ...groupUrns] } });
     // Routed Tabs Constants
     const getTabs = () => {
         return [
@@ -153,14 +156,14 @@ export default function UserProfile({ urn }: Props) {
         aboutText: data?.corpUser?.editableProperties?.aboutMe || undefined,
         groupsDetails: userGroups,
         dataHubRoles: userRoles,
-        ownerships: userOwnedAsset?.searchAcrossEntities?.searchResults || undefined,
+        ownershipResults: userOwnedAsset?.searchAcrossEntities || undefined,
         urn,
     };
 
     const finalTabs = [
         {
             name: 'About',
-            icon: ReadOutlined,
+            icon: BookOpen,
             component: EntitySidebarSectionsTab,
             display: {
                 ...defaultTabDisplayConfig,

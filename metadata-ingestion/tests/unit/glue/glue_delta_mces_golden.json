@@ -17,6 +17,11 @@
             "qualifiedName": "arn:aws:glue:us-west-2:123412341234:database/delta-database",
             "env": "PROD"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1743454402207,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -28,6 +33,11 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1743454402207,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -40,6 +50,11 @@
             "platform": "urn:li:dataPlatform:glue",
             "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,delta_platform_instance)"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1743454402207,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -53,6 +68,11 @@
                 "Database"
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1743454402207,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1521,6 +1541,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1743454402228,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1534,6 +1559,11 @@
                 "Table"
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1743454402228,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1545,6 +1575,11 @@
         "json": {
             "container": "urn:li:container:275c7ea5ecf956fd8d45e14228757a8a"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1743454402228,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

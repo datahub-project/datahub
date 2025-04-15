@@ -3,7 +3,7 @@ import { Col } from 'antd';
 import { matchPath } from 'react-router';
 import { useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
-import { ReadOutlined } from '@ant-design/icons';
+import { BookOpen } from '@phosphor-icons/react';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 import { PageRoutes } from '../../../conf/Global';
 import { useGetGroupQuery } from '../../../graphql/group.generated';
@@ -66,11 +66,6 @@ type Props = {
     urn: string;
 };
 
-const defaultTabDisplayConfig = {
-    visible: (_, _1) => true,
-    enabled: (_, _1) => true,
-};
-
 /**
  * Responsible for reading & writing groups.
  *
@@ -91,10 +86,11 @@ export default function GroupProfile({ urn }: Props) {
     const finalTabs = [
         {
             name: 'About',
-            icon: ReadOutlined,
+            icon: BookOpen,
             component: EntitySidebarSectionsTab,
             display: {
-                ...defaultTabDisplayConfig,
+                visible: () => true,
+                enabled: () => true,
             },
         },
     ];

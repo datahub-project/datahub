@@ -83,7 +83,9 @@ query appConfig {
             showNavBarRedesign
             showAutoCompleteResults
             entityVersioningEnabled
+            showHasSiblingsFilter
             showSearchBarAutocompleteRedesign
+            showManageTags
         }
         chromeExtensionConfig {
             enabled

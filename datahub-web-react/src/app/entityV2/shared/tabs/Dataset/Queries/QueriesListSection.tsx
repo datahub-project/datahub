@@ -20,7 +20,7 @@ const SectionWrapper = styled.div<{ $borderRadiusBottom?: boolean }>`
     padding: 24px;
     box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.08);
     ${(props) => (props.$borderRadiusBottom ? `border-radius: 0 0 10px 10px;` : `border-radius: 10px;`)}
-    height: 100%;
+    height: fit-content;
 `;
 
 const QueriesTitleSection = styled.div`
@@ -141,9 +141,7 @@ export default function QueriesListSection({
         createdDateColumn,
         powersColumn,
         usedByColumn,
-        popularityColumn,
         columnsColumn,
-        lastRunColumn,
         editColumn,
     } = useQueryTableColumns({
         queries,
@@ -166,11 +164,11 @@ export default function QueriesListSection({
         editColumn,
     ];
 
-    const popularQueriesColumns = [queryTextColumn(), usedByColumn, lastRunColumn, columnsColumn, popularityColumn];
+    const popularQueriesColumns = [queryTextColumn(), usedByColumn, columnsColumn];
 
-    const downstreamQueriesColumns = [queryTextColumn(550), powersColumn, lastRunColumn];
+    const downstreamQueriesColumns = [queryTextColumn(550), powersColumn];
 
-    const recentQueriesColumns = [queryTextColumn(550), lastRunColumn];
+    const recentQueriesColumns = [queryTextColumn(550)];
 
     const pagionationOptions: false | TablePaginationConfig = showPagination
         ? ({

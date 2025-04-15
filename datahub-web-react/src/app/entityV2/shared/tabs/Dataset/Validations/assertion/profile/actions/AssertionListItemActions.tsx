@@ -16,6 +16,7 @@ const ActionList = styled.div<{ $shouldRightAlign?: boolean }>`
     justify-content: end;
     padding: ${(props) => (props.$shouldRightAlign ? '0px' : '0px 10px')};
     margin-left: ${(props) => (props.$shouldRightAlign ? 'auto' : undefined)};
+    gap: 8px;
 `;
 
 type Props = {

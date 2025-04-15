@@ -73,6 +73,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "create view `bigquery-dataset-1`.`view-1` as select * from `bigquery-dataset-1`.`table-1`",
                 "language": "SQL"
@@ -224,6 +225,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "select * from `bigquery-dataset-1`.`table-1`",
                 "language": "SQL"
@@ -320,6 +322,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "select * from `bigquery-dataset-1`.`view-1`\nLIMIT 100\n-- {\"user\":\"@bar\",\"email\":\"bar@xyz.com\",\"url\":\"https://modeanalytics.com/acryltest/reports/6234ff78bc7d/runs/662b21949629/queries/f0aad24d5b37\",\"scheduled\":false}\n",
                 "language": "SQL"
@@ -332,12 +335,13 @@
             "lastModified": {
                 "time": 1643871600000,
                 "actor": "urn:li:corpuser:bar"
-            }
+            },
+            "origin": "urn:li:dataPlatform:mode"
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
+        "runId": "bigquery-2022_02_03-07_00_00-e6s1u2",
         "lastRunId": "no-run-id-provided"
     }
 },

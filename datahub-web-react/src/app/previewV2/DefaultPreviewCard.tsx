@@ -42,9 +42,9 @@ import DefaultPreviewCardFooter from './DefaultPreviewCardFooter';
 import EntityHeader from './EntityHeader';
 
 import { useEntityContext, useEntityData } from '../entity/shared/EntityContext';
-import { removeMarkdown } from '../entityV2/shared/components/styled/StripMarkdownText';
 import { DashboardLastUpdatedMs, DatasetLastUpdatedMs } from '../entityV2/shared/utils';
 import { useRemoveDataProductAssets, useRemoveDomainAssets, useRemoveGlossaryTermAssets } from './utils';
+import CompactMarkdownViewer from '../entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 
 const TransparentButton = styled(Button)`
     color: ${REDESIGN_COLORS.TITLE_PURPLE};
@@ -69,10 +69,10 @@ const TransparentButton = styled(Button)`
 const PreviewContainer = styled.div`
     display: flex;
     flex-direction: column;
+    height: auto;
     width: 100%;
     justify-content: space-between;
     align-items: start;
-
     .entityCount {
         margin-bottom: 2px;
     }
@@ -107,14 +107,9 @@ const InsightIconContainer = styled.span`
 `;
 
 const Documentation = styled.div`
-    width: 90%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 12px;
-    font-weight: 500;
-    color: ${REDESIGN_COLORS.SUB_TEXT};
     margin-top: 8px;
+    max-height: 300px;
+    overflow-y: auto;
 `;
 
 const ENTITY_TYPES_WITH_DESCRIPTION_PREVIEW = new Set([
@@ -269,6 +264,7 @@ export default function DefaultPreviewCard({
             previewData={previewData}
         />
     );
+
     return (
         <PreviewContainer data-testid={dataTestID ?? `preview-${urn}`}>
             {(entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm) && (
@@ -325,9 +321,9 @@ export default function DefaultPreviewCard({
                     {(previewType === PreviewType.HOVER_CARD ||
                         ENTITY_TYPES_WITH_DESCRIPTION_PREVIEW.has(entityType)) &&
                     description ? (
-                        <RowContainer>
-                            <Documentation>{removeMarkdown(description)}</Documentation>
-                        </RowContainer>
+                        <Documentation>
+                            <CompactMarkdownViewer content={description} />
+                        </Documentation>
                     ) : null}
                     {shouldShowDPIinfo && (
                         <RowContainer style={{ marginTop: 8, justifyContent: 'flex-end' }}>

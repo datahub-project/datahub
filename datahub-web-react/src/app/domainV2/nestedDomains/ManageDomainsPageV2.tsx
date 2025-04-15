@@ -49,7 +49,7 @@ export default function ManageDomainsPageV2() {
                     id={DOMAINS_CREATE_DOMAIN_ID}
                     onClick={() => setIsCreatingDomain(true)}
                     data-testid="domains-new-domain-button"
-                    icon="Add"
+                    icon={{ icon: 'Add', source: 'material' }}
                 >
                     Create
                 </Button>
