@@ -9,6 +9,7 @@ from mlflow.entities import Dataset as MlflowDataset, Experiment, Run
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.store.entities import PagedList
 from pydantic.fields import Field
+import requests
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.dataprocess.dataprocess_instance import (
@@ -597,8 +598,8 @@ class MLflowSource(StatefulIngestionSourceBase):
         )
         return runs
 
-    @staticmethod
     def _traverse_mlflow_search_func(
+        self,
         search_func: Callable[..., PagedList[T]],
         **kwargs: Any,
     ) -> Iterable[T]:
@@ -609,6 +610,24 @@ class MLflowSource(StatefulIngestionSourceBase):
         next_page_token = None
         page_count = 0
         total_items = 0
+
+        logger.info(f"!!! Sending manaul request to search API")
+        try:
+            response = requests.get(f"{self.client.tracking_uri}/api/2.0/mlflow/registered-models/search")
+            logger.info(f"!!! Response: {response.json()}")
+            if response.status_code == 200:
+                data = response.json()
+                registered_models = data.get("registered_models", [])
+                logger.info(f"\n✅ Found {len(registered_models)} registered models:")
+                for m in registered_models:
+                    logger.info(f"- {m.get('name', 'Unnamed')}")
+            else:
+                logger.info(f"\n❌ Failed to fetch models. Status code: {response.status_code}")
+                logger.info(f"Response: {response.text}")
+
+        except Exception as e:
+            logger.info(f"\n⚠️ Error occurred: {e}")
+
         
         try:
             while True:
