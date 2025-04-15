@@ -839,13 +839,11 @@ class LookerExplore:
             )
             if self.model_name in ["support", "core"]:
                 stack = []
-                for frame in inspect.stack()[:10]:  # Get 10 frames
+                for frame in inspect.stack()[1:11]:  # Get 10 frames, but __post_init__
                     try:
                         args, _, _, local_vars = inspect.getargvalues(frame.frame)
                         arg_values = {
-                            arg: str(local_vars[arg])[:20]
-                            for arg in args
-                            if arg != "self"
+                            arg: str(local_vars[arg]) for arg in args if arg != "self"
                         }
                         stack.append(
                             f"Function: {frame.function} in {frame.filename}:{frame.lineno}"
