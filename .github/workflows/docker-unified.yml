@@ -1101,6 +1101,9 @@ jobs:
     name: Build and Push DataHub Actions Slim Docker Image
     runs-on: depot-ubuntu-24.04
     needs: [setup, base_build]
+    outputs:
+      tag: ${{ steps.tag.outputs.slim_tag }}
+      needs_artifact_download: ${{ needs.setup.outputs.actions_change == 'true' && ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true') }}
     if: ${{ needs.setup.outputs.actions_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true'}}
     steps:
       - name: Check out the repo
@@ -1215,7 +1218,6 @@ jobs:
         setup,
         smoke_test_matrix,
         base_build,
-        datahub_actions_build,
         datahub_actions_slim_build
         #datahub_ingestion_slim_build,
       ]
