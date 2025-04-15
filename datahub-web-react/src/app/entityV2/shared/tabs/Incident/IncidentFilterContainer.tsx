@@ -46,7 +46,7 @@ export const IncidentFilterContainer: React.FC<IncidentAssigneeAvatarStack> = ({
                 acc[selectedfilter.category].push(selectedfilter.name);
                 return acc;
             },
-            { type: [], stage: [], priority: [], state: [] },
+            { category: [], stage: [], priority: [], state: [] },
         );
 
         handleFilterChange({
@@ -57,14 +57,14 @@ export const IncidentFilterContainer: React.FC<IncidentAssigneeAvatarStack> = ({
 
     const initialSelectedOptions = useMemo(() => {
         const recommendedFilters = originalFilterOptions?.recommendedFilters || [];
-        const { stage, type, priority, state } =
+        const { stage, category, priority, state } =
             selectedFilters.filterCriteria || INCIDENT_DEFAULT_FILTERS.filterCriteria;
 
         const appliedRecommendedFilters = recommendedFilters.filter(
             (item) =>
                 (state.includes(item.name) && item.category === 'state') ||
                 (stage.includes(item.name) && item.category === 'stage') ||
-                (type.includes(item.name) && item.category === 'type') ||
+                (category.includes(item.name) && item.category === 'category') ||
                 (priority.includes(item.name) && item.category === 'priority'),
         );
         return appliedRecommendedFilters?.map((filter) => ({

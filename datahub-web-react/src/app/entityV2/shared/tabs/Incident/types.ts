@@ -1,6 +1,10 @@
+import { Dispatch, SetStateAction } from 'react';
 import {
     AuditStamp,
     CorpUser,
+    DataPlatform,
+    EntityPrivileges,
+    EntityType,
     Incident,
     IncidentPriority,
     IncidentSource,
@@ -19,7 +23,7 @@ export type IncidentListFilter = {
         searchText: string;
         priority: string[];
         stage: string[];
-        type: string[];
+        category: string[];
         state: string[];
     };
 };
@@ -27,7 +31,7 @@ export type IncidentListFilter = {
 export type IncidentGroupBy = {
     priority: IncidentGroup[];
     stage: IncidentGroup[];
-    type: IncidentGroup[];
+    category: IncidentGroup[];
     state: IncidentGroup[];
 };
 
@@ -56,7 +60,7 @@ export type IncidentGroup = {
 
 export type IncidentFilterOptions = {
     filterGroupOptions: {
-        type: IncidentType[];
+        category: IncidentType[];
         stage: IncidentStage[];
         priority: IncidentPriority[];
         state: IncidentState[];
@@ -96,6 +100,8 @@ export type IncidentEditorProps = {
     onClose?: () => void;
     data?: IncidentTableRow;
     mode?: IncidentAction;
+    entity?: EntityStagedForIncident;
+    urn?: string;
 };
 
 export type IncidentLinkedAssetsListProps = {
@@ -104,12 +110,14 @@ export type IncidentLinkedAssetsListProps = {
     mode: IncidentAction;
     setCachedLinkedAssets: React.Dispatch<React.SetStateAction<any[]>>;
     setIsLinkedAssetsLoading: React.Dispatch<React.SetStateAction<boolean>>;
+    urn?: string;
 };
 
 export interface TimelineContentDetails extends BaseItemType {
     action: string;
     actor: CorpUser;
     time: number;
+    message?: string;
 }
 
 export enum IncidentConstant {
@@ -118,3 +126,20 @@ export enum IncidentConstant {
     CATEGORY = 'category',
     STATE = 'state',
 }
+
+export type EntityStagedForIncident = {
+    urn: string;
+    platform?: DataPlatform;
+    entityType: EntityType;
+};
+
+export type IncidentBuilderSiblingOptions = {
+    title: string;
+    disabled?: boolean;
+} & Partial<EntityStagedForIncident>;
+
+export type CreateIncidentButtonProps = {
+    privileges: EntityPrivileges;
+    setShowIncidentBuilder: Dispatch<SetStateAction<boolean>>;
+    setEntity: Dispatch<SetStateAction<EntityStagedForIncident | undefined>>;
+};

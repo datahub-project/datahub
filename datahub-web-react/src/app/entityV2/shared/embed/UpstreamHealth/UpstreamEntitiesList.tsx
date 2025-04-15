@@ -1,17 +1,19 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Dataset } from '@src/types.generated';
 import { Divider } from 'antd';
 import { EntityLinkList } from '@src/app/homeV2/reference/sections/EntityLinkList';
+import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import { ANTD_GRAY } from '../../constants';
 
 type Props = {
-    directEntities: Dataset[];
-    indirectEntities: Dataset[];
+    directEntities: GenericEntityProperties[];
+    indirectEntities: GenericEntityProperties[];
     loadMoreDirectEntities: () => void;
     loadMoreIndirectEntities: () => void;
     remainingDirectEntities: number;
     remainingIndirectEntities: number;
+    showHealthIcon?: boolean;
+    showDeprecatedIcon?: boolean;
 };
 
 const Container = styled.div`
@@ -47,6 +49,8 @@ const UpstreamEntitiesList = ({
     loadMoreIndirectEntities,
     remainingDirectEntities,
     remainingIndirectEntities,
+    showHealthIcon,
+    showDeprecatedIcon,
 }: Props) => {
     return (
         <Container>
@@ -63,7 +67,8 @@ const UpstreamEntitiesList = ({
                             showMoreComponent={
                                 <ShowMoreWrapper>{`Show ${remainingDirectEntities} more`}</ShowMoreWrapper>
                             }
-                            showHealthIcon
+                            showHealthIcon={showHealthIcon}
+                            showDeprecatedIcon={showDeprecatedIcon}
                         />
                     </>
                 )}

@@ -62,7 +62,8 @@ class DataHubClient:
 
         self._graph = graph
 
-    # TODO: test connection
+    def test_connection(self) -> None:
+        self._graph.test_connection()
 
     @classmethod
     def from_env(cls) -> "DataHubClient":

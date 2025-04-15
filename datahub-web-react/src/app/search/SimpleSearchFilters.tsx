@@ -12,6 +12,7 @@ import {
     LEGACY_ENTITY_FILTER_NAME,
     SCHEMA_FIELD_ALIASES_FILTER_NAME,
 } from './utils/constants';
+import { useAppConfig } from '../useAppConfig';
 
 const TOP_FILTERS = ['degree', ENTITY_FILTER_NAME, 'platform', 'tags', 'glossaryTerms', 'domains', 'owners'];
 
@@ -30,6 +31,7 @@ interface Props {
 }
 
 export const SimpleSearchFilters = ({ facets, selectedFilters, onFilterSelect, loading }: Props) => {
+    const { config } = useAppConfig();
     const [cachedProps, setCachedProps] = useState<{
         facets: Array<FacetMetadata>;
         selectedFilters: Array<FacetFilterInput>;
@@ -87,6 +89,7 @@ export const SimpleSearchFilters = ({ facets, selectedFilters, onFilterSelect, l
                         filter: facet,
                         activeFilters: selectedFilters,
                         onChangeFilters: onFilterSelect,
+                        config,
                     })
                 ) : (
                     <SimpleSearchFilter

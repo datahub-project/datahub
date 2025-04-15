@@ -3,8 +3,8 @@ import { Select } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { StructuredPropertyEntity } from '../../../../../../../types.generated';
-import useUrnInput from './useUrnInput';
 import SelectedEntity from './SelectedEntity';
+import useUrnInput from './useUrnInput';
 
 const EntitySelect = styled(Select)`
     width: 75%;

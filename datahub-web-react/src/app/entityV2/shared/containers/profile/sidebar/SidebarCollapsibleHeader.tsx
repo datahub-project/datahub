@@ -2,8 +2,8 @@ import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
+import { colors } from '@components';
 import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
-import { REDESIGN_COLORS } from '../../../constants';
 import { EntitySidebarTab } from '../../../types';
 import { TitleAction } from './TitleAction';
 import MoreOptionsMenuAction from '../../../EntityDropdown/MoreOptionsMenuAction';
@@ -16,7 +16,7 @@ const Controls = styled.div<{ isCollapsed: boolean }>`
     justify-content: ${(props) => (props.isCollapsed ? 'center' : 'space-between')};
     height: 56px;
     padding: 8px 20px 5px 20px;
-    border-bottom: 1px solid #d5d5d5;
+    border-bottom: 1px solid ${colors.gray[100]};
 `;
 
 const Title = styled.div`
@@ -24,7 +24,6 @@ const Title = styled.div`
     flex-direction: column;
     align-items: start;
     justify-content: center;
-    gap: 2px;
     width: 100%;
 `;
 
@@ -32,14 +31,14 @@ const TabTitle = styled(Typography.Text)`
     font-size: 14px;
     font-weight: 800;
     line-height: 20px;
-    color: ${REDESIGN_COLORS.HEADING_COLOR};
+    color: ${colors.gray[600]};
 `;
 
-const TitleDescription = styled(Typography.Text)`
-    font-size: 10px;
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const _TitleDescription = styled(Typography.Text)`
+    font-size: 12px;
     font-weight: 400;
-    color: ${REDESIGN_COLORS.HEADING_COLOR};
-    opacity: 0.5;
+    color: ${colors.gray[1700]};
 `;
 
 const Top = styled.div`
@@ -62,8 +61,7 @@ interface Props {
 export default function SidebarCollapsibleHeader({ currentTab, headerDropdownItems }: Props) {
     const { isClosed, forLineage, separateSiblings } = useContext(EntitySidebarContext);
 
-    const currentTabName = currentTab?.name === 'About' ? 'Summary' : currentTab?.name;
-    const currentTabDescription = currentTab?.description;
+    const currentTabName = currentTab?.name;
     const actionType = currentTab?.properties?.actionType;
     const icon = currentTab?.icon;
 
@@ -93,8 +91,6 @@ export default function SidebarCollapsibleHeader({ currentTab, headerDropdownIte
                             )}
                         </RightActions>
                     </Top>
-
-                    {currentTabDescription && <TitleDescription> {currentTabDescription}</TitleDescription>}
                 </Title>
             )}
         </Controls>

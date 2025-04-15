@@ -15,7 +15,12 @@ DataHub works.
 | `DATAHUB_ANALYTICS_ENABLED`                      | `true`   | boolean   | [`Frontend`, `GMS`]                      | Collect DataHub usage to populate the analytics dashboard.                                                                  |
 | `BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE` | `true`   | boolean   | [`GMS`, `MCE Consumer`, `MAE Consumer`]  | Do not wait for the `system-update` to complete before starting. This should typically only be disabled during development. |
 | `ER_MODEL_RELATIONSHIP_FEATURE_ENABLED`          | `false`  | boolean   | [`Frontend`, `GMS`]                      | Enable ER Model Relation Feature that shows Relationships Tab within a Dataset UI.                                          |
-| `STRICT_URN_VALIDATION_ENABLED`                  | `false`  | boolean   | [`GMS`, `MCE Consumer`, `MAE Consumer`]  | Enable stricter URN validation logic                                                                                        |
+| `STRICT_URN_VALIDATION_ENABLED`                  | `false`  | boolean   | [`GMS`, `MCE Consumer`, `MAE Consumer`]  | Enable stricter URN validation logic
+| `SHOW_MANAGE_STRUCTURED_PROPERTIES`              | `true`   | boolean   | [`GMS`]                                  | Controls whether the Structured Properties page is visible and accessible via the UI.
+| `SCHEMA_FIELD_CLL_ENABLED`             | `true`  | boolean   | [`GMS`]    | Controls whether the Column-level lineage focus view is accessible via the lineage Graph.                            |
+| `SCHEMA_FIELD_LINEAGE_IGNORE_STATUS`   | `true`  | boolean   | [`GMS`]    | Controls whether lineage ignores the schema field status aspect, reading the parent's status aspect instead.         |
+| `HIDE_DBT_SOURCE_IN_LINEAGE`           | `false` | boolean   | [`GMS`]    | Hides dbt source entities from lineage graphs when used with specific dbt ingestion settings.                        |
+| `SHOW_NAV_BAR_REDESIGN`                | `false` | boolean   | [`GMS`]    | Enables the new navigation bar redesign.                                                                             |
 
 
 ## Ingestion
@@ -66,6 +71,14 @@ DataHub works.
 | `ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX`      | `false`             | boolean   | [`System Update`]                                               | Enable reindexing on Elasticsearch schema changes.                       |
 | `ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE`        | `false`             | boolean   | [`System Update`]                                               | Enable reindexing to remove hard deleted structured properties.          |
 
+## Entities and Versions
+
+| Variable                                   | Default | Unit/Type | Components                              | Description                                                                                                        |
+| ------------------------------------------ | ------- | --------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `ENTITY_VERSIONING_ENABLED`                | `false` | boolean   | [`GMS`, `MCE Consumer`, `MAE Consumer`] | Enables entity versioning related resolvers, validators, side effects, etc. to support versioned entities.         |
+| `ALTERNATE_MCP_VALIDATION`                 | `false` | boolean   | [`GMS`]                                 | Enables an alternate MCP validation pathway for MCPs that should be validated only after applying a mutation hook. |
+
+
 ## Kafka
 
 In general, there are **lots** of Kafka configuration environment variables for both the producer and consumers defined in the official Spring Kafka documentation [here](https://docs.spring.io/spring-boot/docs/2.7.10/reference/html/application-properties.html#appendix.application-properties.integration).
@@ -85,6 +98,13 @@ Simply replace the dot, `.`, with an underscore, `_`, and convert to uppercase.
 | `KAFKA_CONSUMER_MAX_PARTITION_FETCH_BYTES`          | `5242880`                                    | integer   | [`GMS`, `MCE Consumer`, `MAE Consumer`]                | The maximum amount of data per-partition the server will return. Records are fetched in batches by the consumer. If the first record batch in the first non-empty partition of the fetch is larger than this limit, the batch will still be returned to ensure that the consumer can make progress. |
 | `MAX_MESSAGE_BYTES`                                 | `5242880`                                    | integer   | [`kafka-setup`]                                        | Sets the max message size on the kakfa topics.                                                                                                                                                                                                                                                      |
 | `KAFKA_PRODUCER_COMPRESSION_TYPE`                   | `snappy`                                     | string    | [`Frontend`, `GMS`, `MCE Consumer`, `MAE Consumer`]    | The compression used by the producer.                                                                                                                                                                                                                                                               |
+
+## Backend
+
+| Variable                                        | Default | Unit/Type | Components | Description                                                                                                           |
+| ----------------------------------------------- | ------- | --------- | ---------- | --------------------------------------------------------------------------------------------------------------------- |
+| `ENTITY_CLIENT_RESTLI_GET_BATCH_CONCURRENCY`    | `2`     | integer   | [`GMS`]    | Number of concurrent rest.li calls when the number of urns in a getBatchV2 call exceeds the batch size of 50.         |
+
 
 ## Frontend
 

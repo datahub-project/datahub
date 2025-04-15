@@ -767,4 +767,8 @@
     displayName: Airbyte
     type: OTHERS
     logoUrl: "/assets/platforms/airbytelogo.png"
-
+- entityUrn: urn:li:dataPlatform:hex
+    name: hex
+    displayName: Hex
+    type: OTHERS
+    logoUrl: "/assets/platforms/hex.png"

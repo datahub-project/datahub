@@ -67,7 +67,7 @@ const GlossaryContentProvider = (props: Props) => {
                         data-testid="add-term-group-button-v2"
                         id={BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID}
                         size="md"
-                        icon="Add"
+                        icon={{ icon: 'Add', source: 'material' }}
                         // can not be disabled on acryl-main due to ability to propose
                         onClick={() => setIsCreateNodeModalVisible(true)}
                     >

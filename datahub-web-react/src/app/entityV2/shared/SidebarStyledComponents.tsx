@@ -377,16 +377,24 @@ export const WhiteEditOutlinedIconStyle = styled(EditOutlinedIcon)`
     }
 `;
 
-export const ShowMoreButton = styled.div`
+const showMoreStyles = `
     margin-top: 8px;
     padding: 0px;
     color: ${ANTD_GRAY[7]};
     text-align: left;
+`;
+
+export const ShowMoreButton = styled.div`
+    ${showMoreStyles}
     :hover {
         cursor: pointer;
         color: ${ANTD_GRAY[8]};
         text-decoration: underline;
     }
+`;
+
+export const ShowMoreText = styled.div`
+    ${showMoreStyles}
 `;
 
 export const CountStyle = styled.div`

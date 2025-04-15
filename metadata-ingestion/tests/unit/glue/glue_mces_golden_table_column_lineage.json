@@ -19,6 +19,11 @@
             "qualifiedName": "arn:aws:glue:us-west-2:123412341234:database/flights-database-lineage",
             "env": "PROD"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -30,6 +35,11 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -41,6 +51,11 @@
         "json": {
             "platform": "urn:li:dataPlatform:glue"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -54,6 +69,11 @@
                 "Database"
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -246,6 +266,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -259,6 +284,11 @@
                 "Table"
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -270,6 +300,11 @@
         "json": {
             "container": "urn:li:container:89f32a7a37e2f61693aa4b720ace2a3c"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -369,6 +404,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

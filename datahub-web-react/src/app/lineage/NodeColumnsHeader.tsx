@@ -1,8 +1,9 @@
+import { Icon } from '@components';
 import React, { useContext, useState } from 'react';
 import { Button, Input } from 'antd';
 import { Group } from '@visx/group';
 import styled from 'styled-components';
-import { DownOutlined, SearchOutlined, UpOutlined } from '@ant-design/icons';
+import { DownOutlined, UpOutlined } from '@ant-design/icons';
 import { blue } from '@ant-design/colors';
 import { NodeData } from './types';
 import { getTitleHeight } from './utils/titleUtils';
@@ -106,7 +107,7 @@ export default function NodeColumnsHeader({ node, filterText, setFilterText }: P
                             )}
                             {!isSearchBarVisible && (
                                 <Button type="text" size="small" onClick={() => setIsSearchBarVisible(true)}>
-                                    <SearchOutlined />
+                                    <Icon icon="MagnifyingGlass" source="phosphor" />
                                 </Button>
                             )}
                         </foreignObject>

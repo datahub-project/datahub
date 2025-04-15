@@ -20,7 +20,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.emitter.rest_emitter import (
     BATCH_INGEST_MAX_PAYLOAD_LENGTH,
-    DEFAULT_REST_SINK_ENDPOINT,
+    DEFAULT_REST_EMITTER_ENDPOINT,
     DEFAULT_REST_TRACE_MODE,
     DataHubRestEmitter,
     RestSinkEndpoint,
@@ -70,7 +70,7 @@ _DEFAULT_REST_SINK_MODE = pydantic.parse_obj_as(
 
 class DatahubRestSinkConfig(DatahubClientConfig):
     mode: RestSinkMode = _DEFAULT_REST_SINK_MODE
-    endpoint: RestSinkEndpoint = DEFAULT_REST_SINK_ENDPOINT
+    endpoint: RestSinkEndpoint = DEFAULT_REST_EMITTER_ENDPOINT
     default_trace_mode: RestTraceMode = DEFAULT_REST_TRACE_MODE
 
     # These only apply in async modes.

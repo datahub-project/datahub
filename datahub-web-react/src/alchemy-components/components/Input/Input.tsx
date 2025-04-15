@@ -47,7 +47,6 @@ export const Input = ({
     errorOnHover = inputDefaults.errorOnHover,
     type = inputDefaults.type,
     id,
-    styles,
     inputStyles,
     inputTestId,
     ...props
@@ -72,14 +71,14 @@ export const Input = ({
     };
 
     return (
-        <InputWrapper {...props} style={styles}>
+        <InputWrapper {...props}>
             {label && (
                 <Label aria-label={label}>
                     {label} {isRequired && <Required>*</Required>}
                 </Label>
             )}
             <InputContainer {...inputBaseProps}>
-                {icon && <SearchIcon icon={icon.name} source={icon.source} variant={icon.variant} size="xl" />}
+                {icon && <SearchIcon size="xl" {...icon} />}
                 <InputField
                     value={value}
                     onChange={(e) => setValue?.(e.target.value)}

@@ -85,7 +85,7 @@ export default function useSearchAcrossLineage(
         lineageFlags: {
             startTimeMillis,
             endTimeMillis,
-            entitiesExploredPerHopLimit: PER_HOP_LIMIT,
+            entitiesExploredPerHopLimit: maxDepth ? PER_HOP_LIMIT : undefined,
             ignoreAsHops: DEFAULT_IGNORE_AS_HOPS,
         },
         searchFlags: {

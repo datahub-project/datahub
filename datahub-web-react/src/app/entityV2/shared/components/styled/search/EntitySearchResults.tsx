@@ -1,8 +1,7 @@
 import { Checkbox, Empty, List } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { EntityPath, EntityType, SearchResult } from '../../../../../../types.generated';
-import { EntityAndType } from '../../../../../entity/shared/types';
+import { Entity, EntityPath, EntityType, SearchResult } from '../../../../../../types.generated';
 import { useSearchContext } from '../../../../../search/context/SearchContext';
 import { MATCHES_CONTAINER_HEIGHT } from '../../../../../searchV2/SearchResultList';
 import { MatchContextContainer } from '../../../../../searchV2/matches/MatchContextContainer';
@@ -76,8 +75,8 @@ type Props = {
     additionalPropertiesList?: Array<AdditionalProperties>;
     searchResults: Array<SearchResult>;
     isSelectMode?: boolean;
-    selectedEntities?: EntityAndType[];
-    setSelectedEntities?: (entities: EntityAndType[]) => any;
+    selectedEntities?: Entity[];
+    setSelectedEntities?: (entities: Entity[]) => any;
     bordered?: boolean;
     entityAction?: React.FC<EntityActionProps>;
     compactUserSearchCardStyle?: boolean;
@@ -120,7 +119,7 @@ export const EntitySearchResults = ({
     /**
      * Invoked when a new entity is selected. Simply updates the state of the list of selected entities.
      */
-    const onSelectEntity = (selectedEntity: EntityAndType, selected: boolean) => {
+    const onSelectEntity = (selectedEntity: Entity, selected: boolean) => {
         if (selected) {
             setSelectedEntities?.([...selectedEntities, selectedEntity]);
         } else {
@@ -177,9 +176,7 @@ export const EntitySearchResults = ({
                                             selectedEntities.length >= selectLimit &&
                                             !selectedEntityUrns.includes(entity.urn)
                                         }
-                                        onChange={(e) =>
-                                            onSelectEntity({ urn: entity.urn, type: entity.type }, e.target.checked)
-                                        }
+                                        onChange={(e) => onSelectEntity(entity, e.target.checked)}
                                     />
                                 )}
                                 {entityRegistry.renderSearchResult(entity.type, searchResult)}
