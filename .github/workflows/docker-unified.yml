@@ -1102,7 +1102,7 @@ jobs:
     runs-on: depot-ubuntu-24.04
     needs: [setup, base_build]
     outputs:
-      tag: ${{ steps.tag.outputs.slim_tag }}
+      tag: ${{ steps.tag.outputs.tag }}
       needs_artifact_download: ${{ needs.setup.outputs.actions_change == 'true' && ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true') }}
     if: ${{ needs.setup.outputs.actions_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true'}}
     steps:
@@ -1135,6 +1135,10 @@ jobs:
           file: ./docker/datahub-actions/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
           depot-project: ${{ vars.DEPOT_PROJECT_ID }}
+      - name: Compute Tag
+        id: tag
+        run: echo "tag=${{ needs.setup.outputs.actions_change == 'true' && needs.setup.outputs.unique_slim_tag || 'head-slim' }}" >> "$GITHUB_OUTPUT"
+
   datahub_actions_slim_scan:
     name: "[Monitoring] Scan Datahub Actions Slim images for vulnerabilities"
     runs-on: depot-ubuntu-24.04
