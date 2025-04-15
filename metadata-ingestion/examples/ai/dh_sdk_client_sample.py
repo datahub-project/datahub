@@ -108,7 +108,7 @@ if __name__ == "__main__":
     )
     client.entities.upsert(output_dataset)
 
-    model.add_group(model_group.urn)
+    model.set_model_group(model_group.urn)
 
     model.add_version_alias("challenger")
 

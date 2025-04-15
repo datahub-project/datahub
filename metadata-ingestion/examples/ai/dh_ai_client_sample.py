@@ -83,7 +83,7 @@ if __name__ == "__main__":
         custom_properties={"team": "forecasting"},
         version="1",
         aliases=["champion"],
-        group=str(model_group.urn),
+        model_group=str(model_group.urn),
         hyper_params={"learning_rate": "0.01"},
         training_metrics={"accuracy": "0.9"},
     )
@@ -179,7 +179,7 @@ if __name__ == "__main__":
 
     model_group.add_training_job(DataProcessInstanceUrn(run_id))
 
-    model.add_group(model_group.urn)
+    model.set_model_group(model_group.urn)
 
     model.add_version_alias("challenger")
 

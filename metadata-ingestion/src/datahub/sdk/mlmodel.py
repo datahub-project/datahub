@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Sequence, Type, Union
+from typing import Dict, List, Optional, Sequence, Type, Union
 
 from typing_extensions import Self
 
@@ -29,6 +29,7 @@ from datahub.sdk._shared import (
     HasVersion,
     HyperParamsInputType,
     LinksInputType,
+    MLTrainingJobInputType,
     OwnersInputType,
     TagsInputType,
     TermsInputType,
@@ -78,9 +79,9 @@ class MLModel(
         tags: Optional[TagsInputType] = None,
         terms: Optional[TermsInputType] = None,
         domain: Optional[DomainInputType] = None,
-        group: Optional[Union[str, MlModelGroupUrn]] = None,
-        training_jobs: Optional[Sequence[Union[str, DataProcessInstanceUrn]]] = None,
-        downstream_jobs: Optional[Sequence[Union[str, DataProcessInstanceUrn]]] = None,
+        model_group: Optional[Union[str, MlModelGroupUrn]] = None,
+        training_jobs: Optional[MLTrainingJobInputType] = None,
+        downstream_jobs: Optional[MLTrainingJobInputType] = None,
         extra_aspects: ExtraAspectsType = None,
     ):
         urn = MlModelUrn(platform=platform, name=id, env=env)
@@ -122,9 +123,8 @@ class MLModel(
             self.set_terms(terms)
         if domain is not None:
             self.set_domain(domain)
-
-        if group is not None:
-            self.set_group(group)
+        if model_group is not None:
+            self.set_model_group(model_group)
         if training_jobs is not None:
             self.set_training_jobs(training_jobs)
         if downstream_jobs is not None:
@@ -192,59 +192,67 @@ class MLModel(
         self._ensure_model_props().lastModified = make_time_stamp(last_modified)
 
     @property
-    def training_metrics(self) -> Optional[TrainingMetricsInputType]:
+    def training_metrics(self) -> Optional[List[MLMetricClass]]:
         return self._ensure_model_props().trainingMetrics
 
     def set_training_metrics(self, metrics: TrainingMetricsInputType) -> None:
         self._ensure_model_props().trainingMetrics = convert_training_metrics(metrics)
 
-    def add_training_metric(self, name: str, value: Any) -> None:
+    def add_training_metrics(self, metrics: TrainingMetricsInputType) -> None:
         props = self._ensure_model_props()
         if props.trainingMetrics is None:
             props.trainingMetrics = []
-        props.trainingMetrics.append(MLMetricClass(name=name, value=str(value)))
+        if isinstance(metrics, list):
+            props.trainingMetrics.extend(
+                [
+                    MLMetricClass(name=metric.name, value=metric.value)
+                    for metric in metrics
+                ]
+            )
+        else:
+            # For dictionary case, use the key as name and value as value
+            for name, value in metrics.items():
+                props.trainingMetrics.append(MLMetricClass(name=name, value=value))
 
     @property
-    def hyper_params(self) -> Optional[HyperParamsInputType]:
+    def hyper_params(self) -> Optional[List[MLHyperParamClass]]:
         return self._ensure_model_props().hyperParams
 
     def set_hyper_params(self, params: HyperParamsInputType) -> None:
         self._ensure_model_props().hyperParams = convert_hyper_params(params)
 
-    def add_hyper_param(self, name: str, value: Any) -> None:
+    def add_hyper_params(self, params: HyperParamsInputType) -> None:
         props = self._ensure_model_props()
         if props.hyperParams is None:
             props.hyperParams = []
-        props.hyperParams.append(MLHyperParamClass(name=name, value=str(value)))
+        if isinstance(params, list):
+            props.hyperParams.extend(
+                [
+                    MLHyperParamClass(name=param.name, value=param.value)
+                    for param in params
+                ]
+            )
+        else:
+            # For dictionary case, iterate through key-value pairs
+            for name, value in params.items():
+                props.hyperParams.append(MLHyperParamClass(name=name, value=value))
 
     @property
-    def groups(self) -> Optional[List[str]]:
-        return self._ensure_model_props().groups
+    def model_group(self) -> Optional[str]:
+        props = self._ensure_model_props()
+        groups = props.groups
+        if groups is None or len(groups) == 0:
+            return None
+        return groups[0]
 
-    def set_group(self, group: Union[str, MlModelGroupUrn]) -> None:
+    def set_model_group(self, group: Union[str, MlModelGroupUrn]) -> None:
         self._ensure_model_props().groups = [str(group)]
-
-    def add_group(self, group_urn: Union[str, MlModelGroupUrn]) -> None:
-        props = self._ensure_model_props()
-        if props.groups is None:
-            props.groups = []
-        # check if the group is already in the list
-        if str(group_urn) not in props.groups:
-            props.groups.append(str(group_urn))
-
-    def remove_group(self, group_urn: Union[str, MlModelGroupUrn]) -> None:
-        props = self._ensure_model_props()
-        if props.groups is not None:
-            group_str = str(group_urn)
-            props.groups = [group for group in props.groups if group != group_str]
 
     @property
     def training_jobs(self) -> Optional[List[str]]:
         return self._ensure_model_props().trainingJobs
 
-    def set_training_jobs(
-        self, training_jobs: Sequence[Union[str, DataProcessInstanceUrn]]
-    ) -> None:
+    def set_training_jobs(self, training_jobs: MLTrainingJobInputType) -> None:
         self._ensure_model_props().trainingJobs = [str(job) for job in training_jobs]
 
     def add_training_job(

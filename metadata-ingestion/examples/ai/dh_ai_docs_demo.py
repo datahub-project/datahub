@@ -40,7 +40,7 @@ args = parser.parse_args()
 client = DatahubAIClient(token=args.token, server_url=args.server_url)
 
 # Use a unique prefix for all IDs to avoid conflicts
-prefix = "test"
+prefix = "0414"
 
 # Define all entity IDs upfront
 # Basic entity IDs

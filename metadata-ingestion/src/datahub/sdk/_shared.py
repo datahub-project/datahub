@@ -4,7 +4,6 @@ import warnings
 from datetime import datetime
 from typing import (
     TYPE_CHECKING,
-    Any,
     Callable,
     Dict,
     List,
@@ -33,6 +32,7 @@ from datahub.metadata.urns import (
     DataJobUrn,
     DataPlatformInstanceUrn,
     DataPlatformUrn,
+    DataProcessInstanceUrn,
     DatasetUrn,
     DomainUrn,
     GlossaryTermUrn,
@@ -56,8 +56,13 @@ ActorUrn: TypeAlias = Union[CorpUserUrn, CorpGroupUrn]
 
 _DEFAULT_ACTOR_URN = CorpUserUrn("__ingestion").urn()
 
-TrainingMetricsInputType: TypeAlias = Union[List[models.MLMetricClass], Dict[str, Any]]
-HyperParamsInputType: TypeAlias = Union[List[models.MLHyperParamClass], Dict[str, Any]]
+TrainingMetricsInputType: TypeAlias = Union[
+    List[models.MLMetricClass], Dict[str, Optional[str]]
+]
+HyperParamsInputType: TypeAlias = Union[
+    List[models.MLHyperParamClass], Dict[str, Optional[str]]
+]
+MLTrainingJobInputType: TypeAlias = Union[Sequence[Union[str, DataProcessInstanceUrn]]]
 
 
 def convert_training_metrics(
