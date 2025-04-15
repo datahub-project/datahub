@@ -223,6 +223,30 @@ project.afterEvaluate {
     }
   }
 
+  project.tasks.register("generateBakeSnippet") {
+    ext.bakeSpec = []
+    group "docker"
+    description "Generates bake snippets for the project"
+
+    doLast {
+      def bake_spec_target = [
+        context: "${buildContext}",
+        dockerfile: "${extension.dockerfile.get().toPath()}",
+        tags: extension.tags.get().values()
+      ]
+      if (extension.buildArgs.get()) {
+        bake_spec_target.args = extension.buildArgs.get()
+      }
+      if (extension.platforms.get()) {
+        bake_spec_target.platforms = extension.platforms.get()
+      }
+
+      ext.bakeSpec = [
+        target: [ "${project.name}": bake_spec_target]
+      ]
+    }
+  }
+
   extension.tags.get().each { taskName, tag ->
     // For backward compatibility, can be removed if we dont really have a need post migration
     // TODO: Choice of task names is to retain current names so that downstream dependencies in quickstart still work
