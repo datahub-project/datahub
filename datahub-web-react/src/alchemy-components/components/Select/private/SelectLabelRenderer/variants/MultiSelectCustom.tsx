@@ -11,9 +11,10 @@ export default function MultiSelectCustom({
     placeholder,
     isMultiSelect,
     renderCustomSelectedValue,
+    selectedOptionListStyle,
 }: SelectLabelVariantProps) {
     return (
-        <LabelsWrapper>
+        <LabelsWrapper style={selectedOptionListStyle}>
             {!selectedValues.length && <Placeholder>{placeholder}</Placeholder>}
             {!!selectedOptions.length &&
                 isMultiSelect &&

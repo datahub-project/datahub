@@ -21,6 +21,7 @@ interface Props {
     onChangeFilters: (newFilters: FacetFilterInput[]) => void;
     aggregationsEntityTypes?: Array<EntityType>;
     customFilterLabels?: FilterLabels;
+    noOfLoadingSkeletons?: number;
 }
 
 export default function FilterSection({
@@ -31,6 +32,7 @@ export default function FilterSection({
     onChangeFilters,
     aggregationsEntityTypes,
     customFilterLabels,
+    noOfLoadingSkeletons,
 }: Props) {
     const [finalAvailableFilters, setFinalAvailableFilters] = useState(availableFilters);
 
@@ -47,7 +49,9 @@ export default function FilterSection({
 
     return (
         <Section id={`${name}-filters-section`} data-testid={`${name}-filters-section`}>
-            {loading && !finalAvailableFilters?.length && <FiltersLoadingSection />}
+            {loading && !finalAvailableFilters?.length && (
+                <FiltersLoadingSection noOfLoadingSkeletons={noOfLoadingSkeletons} />
+            )}
             {finalAvailableFilters?.map((filter) => (
                 <Filter
                     key={filter.field}

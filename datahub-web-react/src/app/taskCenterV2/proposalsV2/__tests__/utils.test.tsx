@@ -1,5 +1,5 @@
 import { ActionRequestStatus, ActionRequestType, FilterOperator } from '@src/types.generated';
-import { mergeFilters, entityHasProposals } from '../utils';
+import { mergeFilters, entityHasProposals, replaceFilterValues } from '../utils';
 
 const MOCK_ENTITY_DATA = {
     proposals: [
@@ -78,6 +78,42 @@ describe('Proposal utils', () => {
             ];
 
             const mergedFilters2 = mergeFilters(MOCK_BASE_FILTERS, newFiltersWithDifferentFields);
+            expect(mergedFilters2.length).toEqual(3);
+            expect(mergedFilters2[0]?.values?.length).toEqual(1);
+        });
+    });
+
+    describe('replaceFilterValues', () => {
+        it('replaces the values if same field is found', () => {
+            const newFiltersWithSameField = [
+                {
+                    field: 'createdBy',
+                    values: ['urn:corpUser:test1', 'urn:corpUser:test2'],
+                    negated: false,
+                    condition: FilterOperator.Equal,
+                },
+            ];
+            const mergedFilters = replaceFilterValues(MOCK_BASE_FILTERS, newFiltersWithSameField);
+            expect(mergedFilters.length).toEqual(1);
+            expect(mergedFilters[0]?.values?.length).toEqual(2);
+        });
+        it('appends the filters if fields are different', () => {
+            const newFiltersWithDifferentFields = [
+                {
+                    field: 'status',
+                    values: [ActionRequestStatus.Pending],
+                    negated: false,
+                    condition: FilterOperator.Equal,
+                },
+                {
+                    field: 'type',
+                    values: [ActionRequestType.TagAssociation],
+                    negated: false,
+                    condition: FilterOperator.Equal,
+                },
+            ];
+
+            const mergedFilters2 = replaceFilterValues(MOCK_BASE_FILTERS, newFiltersWithDifferentFields);
             expect(mergedFilters2.length).toEqual(3);
             expect(mergedFilters2[0]?.values?.length).toEqual(1);
         });

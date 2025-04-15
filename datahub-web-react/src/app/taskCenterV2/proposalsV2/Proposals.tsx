@@ -7,7 +7,7 @@ import { ActionRequest, AssigneeType, CorpGroup } from '../../../types.generated
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 import { ProposalList } from './ProposalList';
 import { ActionRequestGroup, MY_PROPOSALS_GROUP_NAME, PERSONAL_ACTION_REQUESTS_GROUP_NAME } from './utils';
-import { ACTION_REQUEST_DEFAULT_FACETS } from '../utils/constants';
+import { ACTION_REQUEST_DISPLAY_FACETS } from '../utils/constants';
 
 const StyledButtonGroup = styled(Button.Group)`
     margin: 8px 16px;
@@ -114,7 +114,7 @@ export const Proposals = ({ onProposalClick }: Props) => {
                 filterFacets={
                     activeActionRequestGroup.name === MY_PROPOSALS_GROUP_NAME
                         ? ['type', 'status']
-                        : ACTION_REQUEST_DEFAULT_FACETS
+                        : ACTION_REQUEST_DISPLAY_FACETS
                 }
                 showPendingView={activeActionRequestGroup.name === MY_PROPOSALS_GROUP_NAME}
                 key={activeActionRequestGroup.name}

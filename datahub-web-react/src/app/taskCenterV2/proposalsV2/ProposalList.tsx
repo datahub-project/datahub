@@ -15,8 +15,14 @@ import {
 } from '../../../types.generated';
 import { useListActionRequestsQuery } from '../../../graphql/actionRequest.generated';
 import ActionsBar from './ActionsBar';
-import { ACTION_REQUEST_DEFAULT_FACETS, PROPOSALS_FILTER_LABELS } from '../utils/constants';
+import {
+    ACTION_REQUEST_DEFAULT_FACETS,
+    ACTION_REQUEST_DISPLAY_FACETS,
+    PROPOSALS_FILTER_LABELS,
+} from '../utils/constants';
 import useGetActionRequestsQueryInputs from './useGetActionRequestsQueryInputs';
+import { ProposalsEntitySelect } from './ProposalsEntitySelect';
+import useGetEntitySuggestions from './useGetEntitySuggestions';
 
 const DEFAULT_PAGE_SIZE = 25;
 
@@ -49,6 +55,7 @@ const ActionRequestsTitle = styled(Typography.Title)`
 const ProposalsTableHeader = styled.div`
     display: flex;
     justify-content: space-between;
+    padding: 2px;
 `;
 
 type Props = {
@@ -97,6 +104,7 @@ export const ProposalList = ({
     );
     const { filters, orFilters, onChangeFilters } = useGetActionRequestsQueryInputs({ useUrlParams, defaultFilters });
 
+    const entitiesSelected = filters?.find((f) => f.field === 'resource')?.values || [];
     const { loading, error, data, refetch } = useListActionRequestsQuery({
         variables: {
             input: {
@@ -105,18 +113,23 @@ export const ProposalList = ({
                 orFilters,
                 assignee,
                 resourceUrn,
-                facets: filterFacets || ACTION_REQUEST_DEFAULT_FACETS,
+                facets: ACTION_REQUEST_DEFAULT_FACETS,
                 allActionRequests: getAllActionRequests,
             },
         },
         fetchPolicy: 'cache-and-network',
     });
 
-    // Filtering Action Request related facets
+    // Filtering the facets to be shown in the UI
     const facets =
         data?.listActionRequests?.facets?.filter((facet) =>
-            (filterFacets || ACTION_REQUEST_DEFAULT_FACETS).includes(facet?.field || ''),
+            (filterFacets || ACTION_REQUEST_DISPLAY_FACETS).includes(facet?.field || ''),
         ) || [];
+
+    const { suggestions: entitySuggestions, loading: tempLoading } = useGetEntitySuggestions({
+        activeFilters: filters,
+        facets: data?.listActionRequests?.facets || [],
+    });
 
     const actionRequests = useMemo(() => data?.listActionRequests?.actionRequests || [], [data]);
     const totalActionRequests = data?.listActionRequests?.total || 0;
@@ -128,14 +141,32 @@ export const ProposalList = ({
 
     const FinalContainer = isShowNavBarRedesign ? Container : React.Fragment;
 
+    const onSelectEntities = (selectedValues: string[]) => {
+        const entityFilter: FacetFilterInput = {
+            condition: FilterOperator.Equal,
+            field: 'resource',
+            negated: false,
+            values: selectedValues,
+        };
+        onChangeFilters([entityFilter], true);
+    };
+
+    // If there are no action requests when no filters are applied, the filter header shouldn't be shown
+    const showFiltersHeader = showFilters && (filters?.length || !!totalActionRequests);
+
     return (
         <FinalContainer>
             {error && message.error('Failed to load proposals. An unknown error occurred!')}
             <ActionRequestsContainer $isShowNavBarRedesign={isShowNavBarRedesign} $height={height}>
                 {title && <ActionRequestsTitle level={2}>{title}</ActionRequestsTitle>}
-                {showFilters && (
+                {showFiltersHeader && (
                     <ProposalsTableHeader>
-                        {/* TODO: Add entity search bar */}
+                        <ProposalsEntitySelect
+                            defaultSuggestionsLoading={tempLoading}
+                            defaultSuggestions={entitySuggestions}
+                            selected={entitiesSelected}
+                            onUpdate={onSelectEntities}
+                        />
                         <FilterSection
                             name="proposals"
                             loading={loading}
@@ -144,6 +175,7 @@ export const ProposalList = ({
                             onChangeFilters={onChangeFilters}
                             customFilterLabels={PROPOSALS_FILTER_LABELS}
                             aggregationsEntityTypes={[EntityType.ActionRequest]}
+                            noOfLoadingSkeletons={1}
                         />
                     </ProposalsTableHeader>
                 )}

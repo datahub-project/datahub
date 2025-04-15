@@ -50,3 +50,28 @@ export const mergeFilters = (baseFilters: FacetFilterInput[], newFilters: FacetF
 
     return filters;
 };
+
+// Helpfer function to replace values in specific filters
+export const replaceFilterValues = (
+    baseFilters: FacetFilterInput[],
+    newFilters: FacetFilterInput[],
+): FacetFilterInput[] => {
+    if (!newFilters || !newFilters.length) {
+        return baseFilters;
+    }
+
+    const filters: FacetFilterInput[] = cloneDeep(baseFilters);
+
+    newFilters.forEach((filter) => {
+        const existingFilter = filters.find((f) => f.field === filter.field);
+
+        if (existingFilter) {
+            existingFilter.values = filter.values;
+        } else {
+            // Add as a new filter if it doesn't exist
+            filters.push(filter);
+        }
+    });
+
+    return filters;
+};

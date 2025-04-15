@@ -6,7 +6,7 @@ import { FacetFilterInput } from '@src/types.generated';
 import * as QueryString from 'query-string';
 import { useMemo, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
-import { mergeFilters } from './utils';
+import { mergeFilters, replaceFilterValues } from './utils';
 
 type Props = {
     useUrlParams: boolean;
@@ -31,15 +31,19 @@ export default function useGetActionRequestsQueryInputs({ useUrlParams, defaultF
     const [filters, setFilters] = useState<FacetFilterInput[]>([]);
     const orFilters = useMemo(() => generateOrFilters(UnionType.AND, filters), [filters]);
 
-    const onChangeFilters = (newFilters: FacetFilterInput[]) => {
+    const onChangeFilters = (newFilters: FacetFilterInput[], replace?: boolean) => {
+        const currentFilters = useUrlParams ? filtersFromUrl : filters;
+        // Either replace specific filter values or merge them
+        const updatedFilters = replace ? replaceFilterValues(currentFilters, newFilters) : newFilters;
+
         if (useUrlParams) {
             navigateWithFilters({
-                filters: newFilters,
+                filters: mergeFilters(defaultFilters, updatedFilters),
                 history,
                 location,
             });
         } else {
-            setFilters(mergeFilters(defaultFilters, newFilters));
+            setFilters(mergeFilters(defaultFilters, updatedFilters));
         }
     };
 

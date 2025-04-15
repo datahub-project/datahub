@@ -20,12 +20,12 @@ export const SelectBase = styled.div<SelectStyleProps>(
         transition: sharedTransition,
         justifyContent: 'space-between',
         alignSelf: position || 'end',
-        minHeight: '42px',
+        minHeight: '36px',
         alignItems: 'center',
         overflow: 'auto',
         textWrapMode: 'nowrap',
         backgroundColor: isDisabled ? colors.gray[1500] : colors.white,
-        width: width === 'full' ? '100%' : `max-content`,
+        width: width === 'full' ? '100%' : 'max-content',
     }),
 );
 
@@ -162,6 +162,7 @@ export const LabelContainer = styled.div({
     display: 'flex',
     justifyContent: 'space-between',
     width: '100%',
+    alignItems: 'center',
 });
 
 export const OptionContainer = styled.div({

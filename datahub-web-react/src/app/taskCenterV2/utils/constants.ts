@@ -13,7 +13,10 @@ export const PROPOSALS_FILTER_LABELS = {
     },
 };
 
-export const ACTION_REQUEST_DEFAULT_FACETS = ['createdBy', 'status', 'type'];
+export const ACTION_REQUEST_DEFAULT_FACETS = ['createdBy', 'status', 'type', 'resource'];
+
+// Facets to be displayed in the UI
+export const ACTION_REQUEST_DISPLAY_FACETS = ['createdBy', 'status', 'type'];
 
 export const ACTION_REQUEST_TYPE_TO_LABEL = {
     TAG_ASSOCIATION: 'Tag Association',

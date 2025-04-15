@@ -1,0 +1,150 @@
+import React, { useMemo, useState } from 'react';
+import { Entity } from '@src/types.generated';
+import _ from 'lodash';
+import { Pill, SimpleSelect } from '@src/alchemy-components';
+import { SelectOption } from '@src/alchemy-components/components/Select/Nested/types';
+import { useGetAutoCompleteMultipleResultsLazyQuery } from '@src/graphql/search.generated';
+import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import EntitySearchInputResultV2 from '@src/app/entityV2/shared/EntitySearchInput/EntitySearchInputResultV2';
+import styled from 'styled-components';
+
+const Container = styled.div`
+    width: 500px;
+`;
+interface EntitySelectorProps {
+    defaultSuggestions: Entity[] | undefined;
+    defaultSuggestionsLoading: boolean;
+    onUpdate?: (selectedValues: string[]) => void;
+    selected?: string[];
+}
+
+export const ProposalsEntitySelect = ({
+    onUpdate,
+    selected,
+    defaultSuggestions,
+    defaultSuggestionsLoading,
+}: EntitySelectorProps) => {
+    const entityRegistry = useEntityRegistryV2();
+
+    const [selectedEntityList, setSelectedEntityList] = useState<any>(
+        selected || defaultSuggestions?.map((e) => e?.urn) || [],
+    );
+    const [selectedEntityOptions, setSelectedEntityOptions] = useState<SelectOption[]>([]);
+
+    // Autocomplete results
+    const [autoComplete, { data: autoCompleteData }] = useGetAutoCompleteMultipleResultsLazyQuery();
+    const autoCompleteSuggestions: Array<Entity> =
+        autoCompleteData?.autoCompleteForMultiple?.suggestions.flatMap((suggestion) => suggestion.entities) || [];
+
+    const [useSearch, setUseSearch] = useState(false);
+    const suggestions = useSearch ? autoCompleteSuggestions : defaultSuggestions;
+
+    // Prepare Options
+    const availableEntityOptions = useMemo(() => {
+        const options =
+            suggestions?.map((entity) => ({
+                value: entity.urn,
+                label: entityRegistry.getDisplayName(entity.type, entity),
+                entity,
+            })) || [];
+        const uniqueOptions = _.uniqBy(options, 'value');
+        return uniqueOptions;
+    }, [entityRegistry, suggestions]);
+
+    const handleUpdate = (values: string[]) => {
+        const newSelectedOptions: SelectOption[] = [];
+        values.forEach((value) => {
+            const alreadySelected = newSelectedOptions.find((item) => item?.value === value);
+
+            if (!alreadySelected) {
+                const option =
+                    availableEntityOptions.find((o) => o?.value === value) ||
+                    selectedEntityOptions.find((o) => o?.value === value);
+
+                if (option) {
+                    newSelectedOptions.push(option as SelectOption);
+                }
+            }
+        });
+
+        setSelectedEntityOptions(newSelectedOptions);
+        setSelectedEntityList(newSelectedOptions.map((a) => a.value));
+        onUpdate?.(newSelectedOptions.map((a) => a.value));
+    };
+
+    const removeLinkedAsset = (entityUrn) => {
+        const selectedAssets = selectedEntityList?.filter((urn) => urn !== entityUrn);
+        handleUpdate(selectedAssets);
+    };
+
+    const renderSelectedEntity = (selectedOption: SelectOption) => {
+        return selectedOption ? (
+            <Pill
+                key={selectedOption.value}
+                label={selectedOption.label}
+                rightIcon="Close"
+                color="gray"
+                variant="outline"
+                onClickRightIcon={() => {
+                    removeLinkedAsset(selectedOption.value);
+                }}
+                clickable
+                size="sm"
+            />
+        ) : null;
+    };
+
+    const renderCustomEntityOption = (option: SelectOption) => {
+        return <>{option.entity && <EntitySearchInputResultV2 entity={option.entity} />}</>;
+    };
+
+    const handleSearch = (text: string) => {
+        if (text) {
+            autoComplete({
+                variables: {
+                    input: { query: text, limit: 10 },
+                },
+            });
+            setUseSearch(true);
+        } else {
+            setUseSearch(false);
+        }
+    };
+
+    return (
+        <Container>
+            <SimpleSelect
+                options={defaultSuggestionsLoading ? [] : availableEntityOptions}
+                size="sm"
+                isMultiSelect
+                placeholder="Select entity"
+                width="full"
+                optionListStyle={{
+                    maxHeight: '30vh',
+                    overflow: 'auto',
+                }}
+                selectedOptionListStyle={{
+                    flexWrap: 'nowrap',
+                    overflow: 'auto',
+                    scrollbarWidth: 'none',
+                }}
+                onUpdate={handleUpdate}
+                values={selectedEntityList}
+                onSearchChange={(value: string) => handleSearch(value)}
+                showSearch
+                showClear
+                onClear={() => setUseSearch(false)}
+                combinedSelectedAndSearchOptions={_.uniqBy(
+                    [...availableEntityOptions, ...selectedEntityOptions],
+                    'value',
+                )}
+                renderCustomSelectedValue={renderSelectedEntity}
+                renderCustomOptionText={renderCustomEntityOption}
+                selectLabelProps={{ variant: 'custom' }}
+                optionListTestId="entities-options-list"
+                data-testid="entities-select-input-type"
+                ignoreMaxHeight
+            />
+        </Container>
+    );
+};
