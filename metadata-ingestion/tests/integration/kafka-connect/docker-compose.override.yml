@@ -2,6 +2,7 @@
 services:
   connect:
     image: confluentinc/cp-kafka-connect:7.4.0
+    platform: linux/amd64
     env_file: ./../kafka-connect/setup/connect.env
     container_name: test_connect
     hostname: test_connect
@@ -12,50 +13,43 @@ services:
       - mongo
     ports:
       - "28083:28083"
-#    volumes:        
-#      - ./../kafka-connect/setup/confluentinc-kafka-connect-jdbc-10.2.5:/usr/local/share/kafka/plugins/confluentinc-kafka-connect-jdbc-10.2.5
-#      - ./../kafka-connect/setup/confluentinc-connect-transforms-1.4.1:/usr/local/share/kafka/plugins/confluentinc-connect-transforms-1.4.1
-#      - ./../kafka-connect/setup/debezium-debezium-connector-mysql-1.7.0:/usr/local/share/kafka/plugins/debezium-debezium-connector-mysql-1.7.0
-#      - ./../kafka-connect/setup/gcp-bigquery-project-keyfile.json:/usr/local/share/gcp-bigquery-project-keyfile.json
     command:
       - bash
       - -c
       - |
-        echo "Install confluent CLI"
-        # https://docs.confluent.io/confluent-cli/current/install.html#tarball-or-zip-installation
-        wget https://packages.confluent.io/confluent-cli/archives/4.16.0/confluent_linux_amd64.tar.gz
-        mkdir -p /tmp/confluent-cli
-        tar -xvf confluent_linux_amd64.tar.gz -C /tmp/confluent-cli
-        export PATH=/tmp/confluent-cli/confluent:$PATH
-        echo "Done!"
-        echo "Installing Connectors"
-        #
-        confluent connect plugin install --force confluentinc/kafka-connect-jdbc:10.2.5      
-        #
-        confluent connect plugin install --force confluentinc/connect-transforms:1.4.1
-        #
-        confluent connect plugin install --force confluentinc/kafka-connect-datagen:0.6.0
-        #
-        confluent connect plugin install --force debezium/debezium-connector-mysql:1.7.0
-        #
-        confluent connect plugin install --force wepay/kafka-connect-bigquery:1.6.8
-        #
-        confluent connect plugin install --force mongodb/kafka-connect-mongodb:1.10.1
-        #
-        confluent connect plugin install --force confluentinc/kafka-connect-s3:10.5.1
-        #
+        echo "Installing connectors using confluent-hub"
+        
+        # First verify that confluent-hub exists
+        if ! [ -x "$(command -v confluent-hub)" ]; then
+          echo "Error: confluent-hub is not installed." >&2
+          exit 1
+        fi
+        
+        echo "confluent-hub is available at $(which confluent-hub)"
+        echo "Installing connectors..."
+        
+        # Install with confluent-hub
+        confluent-hub install --no-prompt confluentinc/kafka-connect-jdbc:10.2.5      
+        confluent-hub install --no-prompt confluentinc/connect-transforms:1.4.1
+        confluent-hub install --no-prompt confluentinc/kafka-connect-datagen:0.6.0
+        confluent-hub install --no-prompt debezium/debezium-connector-mysql:1.7.0
+        confluent-hub install --no-prompt wepay/kafka-connect-bigquery:1.6.8
+        confluent-hub install --no-prompt mongodb/kafka-connect-mongodb:1.10.1
+        confluent-hub install --no-prompt confluentinc/kafka-connect-s3:10.5.1
+        
+        # Install MySQL JDBC Driver
         mkdir -p /usr/share/confluent-hub-components/confluentinc-kafka-connect-jdbc/lib
-        #
         curl -k -SL "https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-8.0.27.tar.gz" \
              | tar -xzf - -C /usr/share/confluent-hub-components/confluentinc-kafka-connect-jdbc/lib \
              --strip-components=1 mysql-connector-java-8.0.27/mysql-connector-java-8.0.27.jar
+        
+        # Install EnvVar Config Provider
         curl -k -SL "https://repo1.maven.org/maven2/io/strimzi/kafka-env-var-config-provider/0.1.1/kafka-env-var-config-provider-0.1.1.tar.gz" \
              | tar -xzf - -C /usr/share/confluent-hub-components/
-        #             
+             
         echo "Launching Kafka Connect worker"
-        #
         /etc/confluent/docker/run &
-        #
+        
         sleep infinity
   mysqldb:
     image: mysql:8.0
