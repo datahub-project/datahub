@@ -147,7 +147,7 @@ def externalPrettierConfigs = [
         pattern: 'datahub-graphql-core/src/main/resources/**/*.graphql'
     ],
     [
-        name: 'yaml',
+        name: 'githubActions',
         pattern: '.github/**/*.{yml,yaml}'
     ],
     [

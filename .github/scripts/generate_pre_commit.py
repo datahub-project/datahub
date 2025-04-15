@@ -29,7 +29,7 @@ class Project:
     path: str
     type: ProjectType
     taskName: str | None = None  # Used for prettier projects
-    extensions: list[str] | None = None  # Used for prettier projects
+    filePattern: str | None = None  # Used for prettier projects
 
     @property
     def gradle_path(self) -> str:
@@ -217,7 +217,7 @@ class HookGenerator:
             "name": f"{project.taskName}",
             "entry": f"./gradlew {project.gradle_path}:{project.taskName}",
             "language": "system",
-            "files": f"^.*\\.({'|'.join(project.extensions or [])})$",
+            "files": project.filePattern,
             "pass_filenames": False,
         }
 
@@ -276,13 +276,13 @@ def main():
             path="datahub-web-react",
             type=ProjectType.PRETTIER,
             taskName="mdPrettierWriteChanged",
-            extensions=["md"],
+            filePattern="^.*\\.md$",
         ),
         Project(
             path="datahub-web-react",
             type=ProjectType.PRETTIER,
-            taskName="yamlPrettierWriteChanged",
-            extensions=["yml", "yaml"],
+            taskName="githubActionsPrettierWriteChanged",
+            filePattern="^\\.github/.*\\.(yml|yaml)$"
         ),
     ]
     projects = [*prettier_projects, *finder.find_all_projects()]
