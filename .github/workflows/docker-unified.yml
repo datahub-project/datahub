@@ -581,7 +581,7 @@ jobs:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
-          context: ./build/dockerBuildContext/docker/kafka-setup/docker
+          context: .
           file: ./docker/kafka-setup/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
   kafka_setup_scan:
@@ -643,7 +643,7 @@ jobs:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
-          context: ./build/dockerBuildContext/docker/mysql-setup/docker
+          context: .
           file: ./docker/mysql-setup/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
   mysql_setup_scan:
@@ -705,7 +705,7 @@ jobs:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
-          context: ./build/dockerBuildContext/docker/elasticsearch-setup/docker
+          context: .
           file: ./docker/elasticsearch-setup/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
   elasticsearch_setup_scan:
