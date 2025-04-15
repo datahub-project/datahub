@@ -88,7 +88,8 @@ class MetadataChangeProposalWrapper:
                 self.entityType = guessed_entity_type
                 warnings.warn(
                     f"The passed entityType {self.entityType} differs in case from the expected entity type {guessed_entity_type}. "
-                    "This will be automatically corrected for now, but will become an error in a future release.",
+                    "This will be automatically corrected for now, but will become an error in a future release. "
+                    "Note that the entityType field is optional and will be automatically inferred from the entityUrn.",
                     DataHubDeprecationWarning,
                     stacklevel=3,
                 )
