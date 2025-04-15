@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 
 import { ClickOutsideProps } from '@components/components/Utils/ClickOutside/types';
+import { Wrapper } from './components';
 
 export default function ClickOutside({
     children,
@@ -43,5 +44,5 @@ export default function ClickOutside({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [onClickOutside, ignoreSelector, outsideSelector, ignoreWrapper]);
 
-    return <div ref={wrapperRef}>{children}</div>;
+    return <Wrapper ref={wrapperRef}>{children}</Wrapper>;
 }

@@ -3,15 +3,15 @@ import { AutocompleteDropdownAlign } from '@src/alchemy-components/components/Au
 // Adjusted aligning to show dropdown in the correct place
 export const AUTOCOMPLETE_DROPDOWN_ALIGN_WITH_NEW_NAV_BAR: AutocompleteDropdownAlign = {
     // bottom-center of input (search) and top-center of dropdown
-    points: ['bc', 'tc'],
+    points: ['bl', 'tl'],
     // additional offset
-    offset: [22, -4],
+    offset: [0, 6],
 };
 export const AUTOCOMPLETE_DROPDOWN_ALIGN: AutocompleteDropdownAlign = {
     // bottom-center of input (search) and top-center of dropdown
-    points: ['bc', 'tc'],
+    points: ['bl', 'tl'],
     // additional offset
-    // offset: [22, -4],
+    offset: [0, -2],
 };
 
 export const EXACT_AUTOCOMPLETE_OPTION_TYPE = 'exact_query';
