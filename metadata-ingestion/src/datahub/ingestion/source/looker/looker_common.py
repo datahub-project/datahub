@@ -1,4 +1,5 @@
 import datetime
+import inspect
 import itertools
 import logging
 import os
@@ -829,6 +830,34 @@ class LookerExplore:
     fields: Optional[List[ViewField]] = None  # the fields exposed in this explore
     source_file: Optional[str] = None
     tags: List[str] = dataclasses_field(default_factory=list)
+
+    def __post_init__(self):
+        # Add stack trace debug logging when headline_and_cohort_arr is created with model_name=support
+        if self.name == "headline_and_cohort_arr":
+            logger.debug(
+                f"LookerExplore created with name={self.name}, model_name={self.model_name}"
+            )
+            if self.model_name in ["support", "core"]:
+                stack = []
+                for frame in inspect.stack()[:10]:  # Get 10 frames
+                    try:
+                        args, _, _, local_vars = inspect.getargvalues(frame.frame)
+                        arg_values = {
+                            arg: str(local_vars[arg])[:20]
+                            for arg in args
+                            if arg != "self"
+                        }
+                        stack.append(
+                            f"Function: {frame.function} in {frame.filename}:{frame.lineno}"
+                        )
+                        stack.append(f"  Arguments: {arg_values}")
+                    except Exception as e:
+                        stack.append(f"Error collecting frame info: {e}")
+
+                logger.debug(
+                    f"STACK TRACE with args for {self.model_name}.headline_and_cohort_arr creation:\n"
+                    + "\n".join(stack)
+                )
 
     @validator("name")
     def remove_quotes(cls, v):
