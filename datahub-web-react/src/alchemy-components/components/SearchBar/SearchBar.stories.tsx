@@ -46,6 +46,15 @@ const meta = {
                 type: 'text',
             },
         },
+        height: {
+            description: 'Height of the search bar.',
+            table: {
+                defaultValue: { summary: searchBarDefaults.height },
+            },
+            control: {
+                type: 'text',
+            },
+        },
         allowClear: {
             description: 'Whether clear button should be present.',
             table: {
