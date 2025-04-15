@@ -5,15 +5,33 @@ import { useEntityFormContext } from '@src/app/entity/shared/entityForm/EntityFo
 import { EntityAndType } from '../../../../../entity/shared/types';
 import { SearchSelectActions } from './SearchSelectActions';
 
+const Container = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    width: 100%;
+    justify-content: space-between;
+    box-sizing: border-box;
+
+    @media (max-width: 768px) {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+`;
+
 const CheckboxContainer = styled.div`
     display: flex;
     justify-content: left;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
 `;
 
 const ActionsContainer = styled.div`
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
 `;
 
 const CancelButton = styled(Button)`
@@ -88,7 +106,7 @@ export const SearchSelectBar = ({
     };
 
     return (
-        <>
+        <Container>
             <CheckboxContainer>
                 <StyledCheckbox
                     checked={isSelectAll || areAllEntitiesSelected}
@@ -129,6 +147,6 @@ export const SearchSelectBar = ({
                     )}
                 </ActionsContainer>
             )}
-        </>
+        </Container>
     );
 };

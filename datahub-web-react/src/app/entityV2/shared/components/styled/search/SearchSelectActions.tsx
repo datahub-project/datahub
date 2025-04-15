@@ -1,4 +1,5 @@
 import React from 'react';
+import styled from 'styled-components';
 import OwnersDropdown from './action/OwnersDropdown';
 import GlossaryTermDropdown from './action/GlossaryTermsDropdown';
 import TagsDropdown from './action/TagsDropdown';
@@ -11,6 +12,12 @@ import { EntityCapabilityType } from '../../../../Entity';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { EntityAndType } from '../../../../../entity/shared/types';
 import { SelectActionGroups } from './types';
+
+const ActionsWrapper = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+`;
 
 /**
  * The set of action groups that are visible by default.
@@ -61,7 +68,7 @@ export const SearchSelectActions = ({
     };
 
     return (
-        <>
+        <ActionsWrapper>
             {visibleActionGroups.has(SelectActionGroups.CHANGE_OWNERS) && (
                 <OwnersDropdown
                     urns={selectedEntityUrns}
@@ -132,6 +139,6 @@ export const SearchSelectActions = ({
                     refetch={refetch}
                 />
             )}
-        </>
+        </ActionsWrapper>
     );
 };

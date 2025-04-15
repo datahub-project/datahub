@@ -91,6 +91,10 @@ const StyledTabToolbar = styled.div`
     align-items: center;
     justify-content: space-between;
     border: 1.5px solid ${ANTD_GRAY[4]};
+    width: calc(100% - 8px);
+    flex-wrap: wrap;
+    gap: 12px;
+    box-sizing: border-box;
 `;
 
 const SearchResultListContainer = styled.div<{ v2Styles: boolean; $isShowNavBarRedesign?: boolean }>`
