@@ -635,7 +635,7 @@ class MLflowSource(StatefulIngestionSourceBase):
                 page_count += 1
                 logger.info(f"!!! Fetching page {page_count} with token: {next_page_token}")
                 
-                paged_list = search_func(page_token=next_page_token, **kwargs)
+                paged_list = search_func(page_token=next_page_token, filter_string=None, order_by=None, max_results=100)
                 
                 items = paged_list.to_list()
                 page_items_count = len(items)
