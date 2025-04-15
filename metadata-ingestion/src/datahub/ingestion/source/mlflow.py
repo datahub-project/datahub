@@ -676,42 +676,16 @@ class MLflowSource(StatefulIngestionSourceBase):
                 page_count += 1
                 logger.info(f"!!! Fetching page {page_count} with token: {next_page_token}")
                 
-                paged_list = search_func(page_token=next_page_token, filter_string="", order_by=None, max_results=100)
+                paged_list = search_func(page_token=next_page_token, **kwargs)
                 logger.info(f"!!! RAW paged list repr: {len(paged_list)}")
-
-                paged_list2 = search_func(page_token=next_page_token, filter_string="tag.`mlflow.prompt.is_prompt` != 'true'", order_by=None, max_results=100)
-                logger.info(f"!!! RAW paged list repr 2: {len(paged_list2)}")
-
-                paged_list3 = search_func(page_token=next_page_token, filter_string="tag.`mlflow.prompt.is_prompt` = 'true'", order_by=None, max_results=100)
-                logger.info(f"!!! RAW paged list repr 3: {len(paged_list3)}")
-
-                paged_list4 = search_func(page_token=next_page_token, filter_string=None, order_by=None, max_results=100)
-                logger.info(f"!!! RAW paged list repr 3: {len(paged_list4)}")
-
-
-                paged_list7 = search_func(page_token=next_page_token, filter_string="name != ''", order_by=None, max_results=100)
-                logger.info(f"!!! RAW paged list repr (name not empty): {len(paged_list7)}")
-
-                # logger.info("!!! List conversion result")
-                # logger.info(paged_list.to_list())
 
                 items = paged_list.to_list()
                 page_items_count = len(items)
                 total_items += page_items_count
                 
                 logger.info(f"!!! Page {page_count} returned {page_items_count} items")
-                # logger.info(f"!!! First few items: {items[:3] if items else 'None'}")
-                
-                if items:
-                    first_item = items[0]
-                    logger.info(f"!!! First item type: {type(first_item)}")
-                    if hasattr(first_item, 'name'):
-                        logger.info(f"!!! First item name: {first_item.name}")
-                    if hasattr(first_item, 'version'):
-                        logger.info(f"!!! First item version: {first_item.version}")
-                
                 yield from items
-                
+
                 next_page_token = paged_list.token
                 logger.info(f"!!! Next page token: {next_page_token}")
                 
