@@ -21,6 +21,9 @@ from datahub.metadata.schema_classes import (
     MetadataChangeLogClass,
     SystemMetadataClass,
     TagAssociationClass,
+    TestDefinitionClass,
+    TestDefinitionTypeClass,
+    TestInfoClass,
     TestResultClass,
     TestResultsClass,
     TestResultTypeClass,
@@ -131,32 +134,32 @@ class TestCreateMcpFunctions(unittest.TestCase):
             aspect = mcp.aspect
             serialized = aspect.value.decode() if aspect.value else ""
             objs = post_json_transform(json.loads(serialized))
-            self.assertEquals(objs[0].get("op"), "add", msg=objs[0])
-            self.assertEquals(
+            self.assertEqual(objs[0].get("op"), "add", msg=objs[0])
+            self.assertEqual(
                 objs[0].get("path"),
                 "/editableSchemaFieldInfo/field1/globalTags/tags/urn:li:tag:tag2",
                 msg=objs[0],
             )
-            self.assertEquals(objs[1].get("op"), "add", msg=objs[1])
-            self.assertEquals(
+            self.assertEqual(objs[1].get("op"), "add", msg=objs[1])
+            self.assertEqual(
                 objs[1].get("path"),
                 "/editableSchemaFieldInfo/field2/glossaryTerms/terms/urn:li:glossaryTerm:term3",
                 msg=objs[1],
             )
-            self.assertEquals(objs[2].get("op"), "add", msg=objs[2])
-            self.assertEquals(
+            self.assertEqual(objs[2].get("op"), "add", msg=objs[2])
+            self.assertEqual(
                 objs[2].get("path"),
                 "/editableSchemaFieldInfo/field2/globalTags/tags/urn:li:tag:tag3",
                 msg=objs[2],
             )
-            self.assertEquals(objs[3].get("op"), "remove", msg=objs[3])
-            self.assertEquals(
+            self.assertEqual(objs[3].get("op"), "remove", msg=objs[3])
+            self.assertEqual(
                 objs[3].get("path"),
                 "/editableSchemaFieldInfo/field1/glossaryTerms/terms/urn:li:glossaryTerm:term2",
                 msg=objs[3],
             )
-            self.assertEquals(objs[4].get("op"), "remove", msg=objs[4])
-            self.assertEquals(
+            self.assertEqual(objs[4].get("op"), "remove", msg=objs[4])
+            self.assertEqual(
                 objs[4].get("path"),
                 "/editableSchemaFieldInfo/field1/globalTags/tags/urn:li:tag:tag1",
                 msg=objs[4],
@@ -172,12 +175,12 @@ class TestCreateMcpFunctions(unittest.TestCase):
             aspect = mcp.aspect
             serialized = aspect.value.decode() if aspect.value else ""
             objs = post_json_transform(json.loads(serialized))
-            self.assertEquals(objs[0].get("op"), "add", msg=objs[0])
-            self.assertEquals(
+            self.assertEqual(objs[0].get("op"), "add", msg=objs[0])
+            self.assertEqual(
                 objs[0].get("path"), "/terms/urn:li:glossaryTerm:term2", msg=objs[0]
             )
-            self.assertEquals(objs[1].get("op"), "remove", msg=objs[1])
-            self.assertEquals(
+            self.assertEqual(objs[1].get("op"), "remove", msg=objs[1])
+            self.assertEqual(
                 objs[1].get("path"), "/terms/urn:li:glossaryTerm:term1", msg=objs[1]
             )
 
@@ -191,10 +194,10 @@ class TestCreateMcpFunctions(unittest.TestCase):
             aspect = mcp.aspect
             serialized = aspect.value.decode() if aspect.value else ""
             objs = post_json_transform(json.loads(serialized))
-            self.assertEquals(objs[0].get("op"), "add", msg=objs[0])
-            self.assertEquals(objs[0].get("path"), "/tags/urn:li:tag:tag2", msg=objs[0])
-            self.assertEquals(objs[1].get("op"), "remove", msg=objs[1])
-            self.assertEquals(objs[1].get("path"), "/tags/urn:li:tag:tag1", msg=objs[1])
+            self.assertEqual(objs[0].get("op"), "add", msg=objs[0])
+            self.assertEqual(objs[0].get("path"), "/tags/urn:li:tag:tag2", msg=objs[0])
+            self.assertEqual(objs[1].get("op"), "remove", msg=objs[1])
+            self.assertEqual(objs[1].get("path"), "/tags/urn:li:tag:tag1", msg=objs[1])
 
 
 class TestForwardingAction(unittest.TestCase):
@@ -249,7 +252,7 @@ class TestForwardingAction(unittest.TestCase):
                 failing=[
                     TestResultClass(
                         test="test3",
-                        type=TestResultTypeClass.SUCCESS,
+                        type=TestResultTypeClass.FAILURE,
                         testDefinitionMd5="12345",
                         lastComputed=AuditStampClass(
                             actor="urn:li:corpuser:actor", time=123
@@ -257,7 +260,7 @@ class TestForwardingAction(unittest.TestCase):
                     ),
                     TestResultClass(
                         test="test4",
-                        type=TestResultTypeClass.SUCCESS,
+                        type=TestResultTypeClass.FAILURE,
                         testDefinitionMd5="12345",
                         lastComputed=AuditStampClass(
                             actor="urn:li:corpuser:actor", time=123
@@ -290,7 +293,7 @@ class TestForwardingAction(unittest.TestCase):
                 failing=[
                     TestResultClass(
                         test="test7",
-                        type=TestResultTypeClass.SUCCESS,
+                        type=TestResultTypeClass.FAILURE,
                         testDefinitionMd5="12345",
                         lastComputed=AuditStampClass(
                             actor="urn:li:corpuser:actor", time=123
@@ -298,7 +301,7 @@ class TestForwardingAction(unittest.TestCase):
                     ),
                     TestResultClass(
                         test="test8",
-                        type=TestResultTypeClass.SUCCESS,
+                        type=TestResultTypeClass.FAILURE,
                         testDefinitionMd5="12345",
                         lastComputed=AuditStampClass(
                             actor="urn:li:corpuser:actor", time=123
@@ -307,6 +310,29 @@ class TestForwardingAction(unittest.TestCase):
                 ],
             )
         )
+
+        self.old_test_info = _make_generic_aspect(
+            TestInfoClass(
+                name="testOldName",
+                category="testOldCategory",
+                lastUpdatedTimestamp=1234,
+                definition=TestDefinitionClass(
+                    type=TestDefinitionTypeClass.JSON,
+                ),
+            )
+        )
+
+        self.new_test_info = _make_generic_aspect(
+            TestInfoClass(
+                name="testName",
+                category="testCategory",
+                lastUpdatedTimestamp=12345,
+                definition=TestDefinitionClass(
+                    type=TestDefinitionTypeClass.JSON,
+                ),
+            )
+        )
+
 
     @patch.object(
         ForwardingAction,
@@ -332,15 +358,17 @@ class TestForwardingAction(unittest.TestCase):
             serialized = aspect.value.decode() if aspect.value else ""
             aspect_converted = post_json_transform(json.loads(serialized))
             for failingTest in aspect_converted.get("failing"):
-                self.assertEquals(failingTest.get("lastComputed"), None, failingTest)
-                self.assertEquals(
+                self.assertEqual(failingTest.get("lastComputed"), None, failingTest)
+                self.assertEqual(
                     failingTest.get("testDefinitionMd5"), None, failingTest
                 )
+                self.assertEqual(failingTest.get("type"), TestResultTypeClass.FAILURE, failingTest)
             for passingTest in aspect_converted.get("passing"):
-                self.assertEquals(passingTest.get("lastComputed"), None, passingTest)
-                self.assertEquals(
+                self.assertEqual(passingTest.get("lastComputed"), None, passingTest)
+                self.assertEqual(
                     passingTest.get("testDefinitionMd5"), None, passingTest
                 )
+                self.assertEqual(passingTest.get("type"), TestResultTypeClass.SUCCESS, passingTest)
 
     @patch.object(
         ForwardingAction,
@@ -384,8 +412,8 @@ class TestForwardingAction(unittest.TestCase):
             serialized = aspect.value.decode() if aspect.value else ""
             aspect_converted = post_json_transform(json.loads(serialized))
             for aspect_patch in aspect_converted:
-                self.assertEquals(aspect_patch.get("op"), "add")
-                self.assertEquals(aspect_patch.get("path"), "/tags/urn:li:tag:tag1")
+                self.assertEqual(aspect_patch.get("op"), "add")
+                self.assertEqual(aspect_patch.get("path"), "/tags/urn:li:tag:tag1")
 
     @patch.object(
         ForwardingAction,
@@ -438,6 +466,93 @@ class TestForwardingAction(unittest.TestCase):
         self.action.emit(mock_mcp)
 
         self.action.kafka_emitter.emit.assert_called_once_with(mock_mcp)
+
+    @patch.object(
+        ForwardingAction,
+        "__init__",
+        lambda self, config, ctx: setattr(self, "config", MagicMock())
+        or setattr(self, "kafka_emitter", MagicMock()),
+    )
+    def test_buildMcpTestInfo(self) -> None:
+        mock_event = MetadataChangeLogClass(
+            aspect=self.new_test_info,
+            previousAspectValue=self.old_test_info,
+            aspectName="testInfo",
+            entityUrn="urn:li:test:test123",
+            entityType="test",
+            changeType=ChangeTypeClass.UPSERT,
+        )
+
+        mcps = self.action.buildMcp(mock_event)
+
+        self.assertIsNotNone(mcps)
+        for mcp in mcps:
+            aspect = mcp.aspect
+            serialized = aspect.value.decode() if aspect.value else ""
+            aspect_converted = post_json_transform(json.loads(serialized))
+            self.assertEqual(aspect_converted.get("lastUpdatedTimestamp"), None, aspect_converted)
+            self.assertEqual(aspect_converted.get("name"), "testName", aspect_converted)
+
+    @patch.object(
+        ForwardingAction,
+        "__init__",
+        lambda self, config, ctx: setattr(self, "config", MagicMock())
+                                  or setattr(self, "kafka_emitter", MagicMock())
+                                  or setattr(self, "forms_enabled", False),
+    )
+    def test_act_forms_disabled(self) -> None:
+        """Test that when forms_enabled is False, no MCPs are produced for form aspects."""
+        # Create a mock event with form-related aspect
+        mock_event = EventEnvelope(
+            event_type="MetadataChangeLogEvent_v1",
+            event=MagicMock(spec=MetadataChangeLogClass),
+            meta=MagicMock(spec=dict[str, Any]),
+        )
+        mock_event.event.aspectName = "formInfo"
+
+        # Mock the buildMcp method to track if it's called
+        self.action.buildMcp = MagicMock()
+        self.action.emit = MagicMock()
+        self.action.forms_enabled = False
+
+        # Call act
+        self.action.act(mock_event)
+
+        # Verify buildMcp was not called because forms_enabled is False
+        self.action.buildMcp.assert_not_called()
+        self.action.emit.assert_not_called()
+
+    @patch.object(
+        ForwardingAction,
+        "__init__",
+        lambda self, config, ctx: setattr(self, "config", MagicMock())
+                                  or setattr(self, "kafka_emitter", MagicMock())
+                                  or setattr(self, "forms_enabled", True),
+    )
+    def test_act_forms_enabled(self) -> None:
+        """Test that when forms_enabled is True, MCPs are produced for form aspects."""
+        # Create a mock event with form-related aspect
+        mock_event = EventEnvelope(
+            event_type="MetadataChangeLogEvent_v1",
+            event=MagicMock(spec=MetadataChangeLogClass),
+            meta=MagicMock(spec=dict[str, Any]),
+        )
+        mock_event.event.aspectName = "formInfo"
+
+        # Create a mock MCP to return
+        mock_mcp = MagicMock(spec=MetadataChangeProposalClass)
+
+        # Mock the buildMcp method to return our mock MCP
+        self.action.buildMcp = MagicMock(return_value=[mock_mcp])
+        self.action.emit = MagicMock()
+        self.action.forms_enabled = True
+
+        # Call act
+        self.action.act(mock_event)
+
+        # Verify buildMcp was called because forms_enabled is True
+        self.action.buildMcp.assert_called_once_with(mock_event.event)
+        self.action.emit.assert_called_once_with(mock_mcp)
 
 
 if __name__ == "__main__":

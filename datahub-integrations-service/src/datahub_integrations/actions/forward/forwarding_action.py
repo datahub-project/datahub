@@ -14,6 +14,7 @@ from datahub.emitter.mcp import _make_generic_aspect, _try_from_generic_aspect
 from datahub.metadata.schema_classes import (
     EditableSchemaMetadataClass,
     GenericAspectClass,
+    FormPromptTypeClass,
     GlobalTagsClass,
     GlossaryTermAssociationClass,
     GlossaryTermsClass,
@@ -43,6 +44,7 @@ class ForwardingActionConfig(BaseModel):
     schema_registry_cert_location: Optional[str]
     schema_registry_key_location: Optional[str]
     mcp_topic: Optional[str]
+    forms_enabled: bool = False
 
 
 def create_schema_mcp(
@@ -253,6 +255,7 @@ def create_tags_mcp(
 
 class ForwardingAction(Action):
     kafka_emitter: DatahubKafkaEmitter
+    forms_enabled: bool
 
     SUPPORTED_PATCH_ASPECTS = {
         "globalTags",
@@ -309,6 +312,7 @@ class ForwardingAction(Action):
                 },
             )
         )
+        self.forms_enabled = config.forms_enabled
 
     def act(self, event: EventEnvelope) -> None:
         """
@@ -319,12 +323,16 @@ class ForwardingAction(Action):
         if event.event_type is METADATA_CHANGE_LOG_EVENT_V1_TYPE:
             orig_event = cast(MetadataChangeLogClass, event.event)
             logger.debug(f"received orig_event {orig_event}")
-            if (
+            if ((
                 orig_event.systemMetadata
                 and orig_event.systemMetadata.properties
                 and orig_event.systemMetadata.properties.get("appSource")
                 == "metadataTests"
-            ) or orig_event.aspectName == "testResults":
+            ) or orig_event.aspectName == "testResults"
+              or orig_event.aspectName == "testInfo"
+              or ((orig_event.aspectName == "formInfo"
+                  or orig_event.aspectName == "dynamicFormAssignment")
+                  and self.forms_enabled)):
                 mcps = self.buildMcp(orig_event)
                 if mcps is not None:
                     for mcp in mcps:
@@ -335,6 +343,8 @@ class ForwardingAction(Action):
         self, orig_event: MetadataChangeLogClass
     ) -> Union[Iterable[MetadataChangeProposalClass], None]:
         try:
+            # Parse out non-OSS fields to avoid model leakage and errors
+            # TODO: once confirmed upgraded to latest OSS version with no chance of rollback, this can be removed
             if orig_event.aspectName == "testResults":
                 test_results = _try_from_generic_aspect(
                     "testResults", orig_event.aspect
@@ -347,6 +357,36 @@ class ForwardingAction(Action):
                     passingObj._inner_dict.pop("testDefinitionMd5", None)
                     passingObj._inner_dict.pop("lastComputed", None)
                 orig_event.aspect = _make_generic_aspect(test_results)
+
+            if orig_event.aspectName == "testInfo":
+                test_info = _try_from_generic_aspect(
+                    "testInfo", orig_event.aspect
+                )[1]
+                test_info._inner_dict.pop("lastUpdatedTimestamp", None)
+                orig_event.aspect = _make_generic_aspect(test_info)
+
+            if orig_event.aspectName == "dynamicFormAssignment":
+                dynamic_form_assignment = _try_from_generic_aspect(
+                    "dynamicFormAssignment", orig_event.aspect
+                )[1]
+                dynamic_form_assignment._inner_dict.pop("json", None)
+                orig_event.aspect = _make_generic_aspect(dynamic_form_assignment)
+
+            if orig_event.aspectName == "formInfo":
+                form_info = _try_from_generic_aspect(
+                    "formInfo", orig_event.aspect
+                )[1]
+                for form_prompt in form_info.prompts or []:
+                    if (not (form_prompt.type or "") in [FormPromptTypeClass.STRUCTURED_PROPERTY,
+                                                         FormPromptTypeClass.FIELDS_STRUCTURED_PROPERTY]):
+                        raise Exception(
+                            f"Invalid form prompt type for urn: "
+                            f"{orig_event.get('entityUrn')}"
+                        )
+                form_info._inner_dict.pop("lastModified", None)
+                form_info._inner_dict.pop("created", None)
+                form_info._inner_dict.pop("status", None)
+                orig_event.aspect = _make_generic_aspect(form_info)
 
             mcp = []
             if orig_event.get("aspectName") in self.SUPPORTED_PATCH_ASPECTS:
