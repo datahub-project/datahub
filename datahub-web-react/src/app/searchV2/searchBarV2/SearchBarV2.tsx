@@ -28,6 +28,7 @@ import useFocusElementByCommandK from '@app/searchV2/searchBarV2/hooks/useFocusS
 import useRecentlySearchedQueriesOptions from '@app/searchV2/searchBarV2/hooks/useRecentlySearchedQueriesOptions';
 import useRecentlyViewedEntitiesOptions from '@app/searchV2/searchBarV2/hooks/useRecentlyViewedEntitiesOptions';
 import useViewAllResultsOptions from '@app/searchV2/searchBarV2/hooks/useViewAllResultsOptions';
+import { MIN_CHARACTER_COUNT_FOR_SEARCH } from '@app/searchV2/utils/constants';
 import filterSearchQuery from '@app/searchV2/utils/filterSearchQuery';
 import { useAppConfig, useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 import { colors, radius, spacing, transition } from '@src/alchemy-components';
@@ -308,7 +309,7 @@ export const SearchBarV2 = ({
         let cleanedQuery = filteredSearchQuery.trim();
         if (cleanedQuery.length === 0) {
             cleanedQuery = '*';
-        } else if (!cleanedQuery.includes('*') && cleanedQuery.length < 3) {
+        } else if (!cleanedQuery.includes('*') && cleanedQuery.length < MIN_CHARACTER_COUNT_FOR_SEARCH) {
             cleanedQuery = `${cleanedQuery}*`;
         }
 

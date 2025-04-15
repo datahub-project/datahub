@@ -3,7 +3,7 @@ import { useDebounce } from 'react-use';
 
 import { FieldToAppliedFieldFiltersMap } from '@app/searchV2/filtersV2/types';
 import { convertFiltersMapToFilters } from '@app/searchV2/filtersV2/utils';
-import { UnionType } from '@app/searchV2/utils/constants';
+import { MIN_CHARACTER_COUNT_FOR_SEARCH, UnionType } from '@app/searchV2/utils/constants';
 import { generateOrFilters } from '@app/searchV2/utils/generateOrFilters';
 import {
     useGetAutoCompleteMultipleResultsLazyQuery,
@@ -73,7 +73,7 @@ const useSearchAPI = (): APIResponse => {
     const updateData = useCallback(
         (query: string, orFilters: AndFilterInput[], viewUrn: string | undefined | null) => {
             // SearchAPI supports queries with 3 or longer characters
-            if (query.length < 3) {
+            if (query.length < MIN_CHARACTER_COUNT_FOR_SEARCH) {
                 setEntities(undefined);
                 // set to empty array instead of undefined to forcibly control facets
                 // FYI: undefined triggers requests to get facets. see `filtersV2/SearchFilters` for details
