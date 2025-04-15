@@ -1,12 +1,5 @@
-import { DownloadSimple } from 'phosphor-react';
 import { Button, Tooltip } from '@components';
 import React from 'react';
-import styled from 'styled-components';
-
-const StyledButton = styled(Button)`
-    height: 28px;
-    margin: 0px 4px 0px 4px;
-`;
 
 type Props = {
     setShowDownloadAsCsvModal: (showDownloadAsCsvModal: boolean) => any;
@@ -17,16 +10,16 @@ type Props = {
 export default function DownloadButton({ setShowDownloadAsCsvModal, isDownloadingCsv, disabled }: Props) {
     return (
         <Tooltip title="Download results..." showArrow={false} placement="top">
-            <StyledButton
+            <Button
                 onClick={() => setShowDownloadAsCsvModal(true)}
                 disabled={isDownloadingCsv || disabled}
-                variant="text"
                 color="gray"
-                size="lg"
+                size="sm"
+                isCircle
+                icon={{ icon: 'DownloadSimple', source: 'phosphor', size: 'md' }}
             >
-                <DownloadSimple />
                 {isDownloadingCsv ? 'Downloading...' : null}
-            </StyledButton>
+            </Button>
         </Tooltip>
     );
 }

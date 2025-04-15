@@ -7,7 +7,8 @@ import { getFilterColor } from './utils';
 const Pill = styled.div<{ color: string }>`
     border-radius: 20px;
     padding: 4px 8px;
-    background-color: ${colors.gray[1600]};
+    background-color: transparent;
+    border: 1px solid ${colors.gray[100]};
     :hover {
         opacity: 1;
         cursor: pointer;
@@ -30,7 +31,7 @@ const Text = styled.div`
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
-    color: ${colors.gray[900]};
+    color: ${colors.gray[600]};
 `;
 
 type Props = {

@@ -53,6 +53,7 @@ const FilterandMenuContainer = styled.div`
 const SearchMenuContainer = styled.div`
     display: flex;
     align-items: center;
+    gap: 8px;
 `;
 
 const CustomSwitch = styled.div`
@@ -62,10 +63,9 @@ const CustomSwitch = styled.div`
     display: flex;
     gap: 2px;
     align-items: center;
-    padding: 2px;
+    padding: 4px;
     width: fit-content;
     justify-content: space-between;
-    margin-left: 8px;
 }
 `;
 
