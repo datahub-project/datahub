@@ -2,7 +2,7 @@ package com.linkedin.metadata.kafka.hook.event;
 
 import static com.linkedin.metadata.AcrylConstants.*;
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.timeline.eventgenerator.ChangeEventGeneratorUtils.getSchemaFieldUrn;
+import static com.linkedin.metadata.utils.SchemaFieldUtils.generateSchemaFieldUrn;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -1302,7 +1302,7 @@ public class EntityChangeEventGeneratorHookTest {
         _mockClient,
         createChangeEvent(
             SCHEMA_FIELD_ENTITY_NAME,
-            getSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c1"),
+            generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c1"),
             ChangeCategory.DOCUMENTATION,
             ChangeOperation.ADD,
             null,
@@ -1314,7 +1314,7 @@ public class EntityChangeEventGeneratorHookTest {
         _mockClient,
         createChangeEvent(
             SCHEMA_FIELD_ENTITY_NAME,
-            getSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c2"),
+            generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c2"),
             ChangeCategory.DOCUMENTATION,
             ChangeOperation.MODIFY,
             null,
@@ -1326,7 +1326,7 @@ public class EntityChangeEventGeneratorHookTest {
         _mockClient,
         createChangeEvent(
             SCHEMA_FIELD_ENTITY_NAME,
-            getSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c3"),
+            generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c3"),
             ChangeCategory.DOCUMENTATION,
             ChangeOperation.REMOVE,
             null,
@@ -1377,7 +1377,7 @@ public class EntityChangeEventGeneratorHookTest {
         _mockClient,
         createChangeEvent(
             SCHEMA_FIELD_ENTITY_NAME,
-            getSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c1"),
+            generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c1"),
             ChangeCategory.DOCUMENTATION,
             ChangeOperation.ADD,
             null,
@@ -1389,7 +1389,7 @@ public class EntityChangeEventGeneratorHookTest {
         _mockClient,
         createChangeEvent(
             SCHEMA_FIELD_ENTITY_NAME,
-            getSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c2"),
+            generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c2"),
             ChangeCategory.DOCUMENTATION,
             ChangeOperation.MODIFY,
             null,
@@ -1401,7 +1401,7 @@ public class EntityChangeEventGeneratorHookTest {
         _mockClient,
         createChangeEvent(
             SCHEMA_FIELD_ENTITY_NAME,
-            getSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c3"),
+            generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c3"),
             ChangeCategory.DOCUMENTATION,
             ChangeOperation.REMOVE,
             null,

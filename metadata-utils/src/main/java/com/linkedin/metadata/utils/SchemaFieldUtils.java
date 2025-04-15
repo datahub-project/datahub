@@ -111,6 +111,11 @@ public class SchemaFieldUtils {
 
   // https://datahubproject.io/docs/advanced/field-path-spec-v2/#backward-compatibility
   @Nonnull
+  public static String downgradeFieldPath(@Nonnull SchemaField field) {
+    return downgradeFieldPath(field.getFieldPath());
+  }
+
+  @Nonnull
   private static String downgradeFieldPath(@Nonnull String fieldPath) {
     if (fieldPath.startsWith(FIELD_PATH_V2)) {
       return Arrays.stream(fieldPath.substring(FIELD_PATH_V2.length()).split("[.]"))
