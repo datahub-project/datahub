@@ -37,7 +37,6 @@ env:
   DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
   DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
 
-
 permissions:
   contents: read
   id-token: write
@@ -101,10 +100,10 @@ jobs:
         id: publish
         env:
           ENABLE_PUBLISH: >-
-             ${{
-                github.event_name != 'pull_request'
-                && ( secrets.ACRYL_DOCKER_PASSWORD != '' )
-             }}
+            ${{
+               github.event_name != 'pull_request'
+               && ( secrets.ACRYL_DOCKER_PASSWORD != '' )
+            }}
         run: |
           echo "Enable publish: ${{ env.ENABLE_PUBLISH }}"
           echo "publish=${{ env.ENABLE_PUBLISH }}" >> "$GITHUB_OUTPUT"
@@ -112,10 +111,10 @@ jobs:
         id: pr-publish
         env:
           ENABLE_PUBLISH: >-
-             ${{
-                (github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'publish') || contains(github.event.pull_request.labels.*.name, 'publish-docker')))
-                && ( secrets.ACRYL_DOCKER_PASSWORD != '' )
-             }}
+            ${{
+               (github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'publish') || contains(github.event.pull_request.labels.*.name, 'publish-docker')))
+               && ( secrets.ACRYL_DOCKER_PASSWORD != '' )
+            }}
         run: |
           echo "Enable PR publish: ${{ env.ENABLE_PUBLISH }}"
           echo "publish=${{ env.ENABLE_PUBLISH }}" >> "$GITHUB_OUTPUT"
@@ -167,24 +166,23 @@ jobs:
           distribution: "zulu"
           java-version: 17
 
-
           #- uses: gradle/actions/setup-gradle@v4
       - uses: actions/cache@v4
         with:
           path: |
             ~/.cache/uv
           key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
-  
+
       - uses: actions/cache@v4
         with:
           path: |
             ~/.cache/yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
-  
+
       - name: Set up Depot CLI
         if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
         uses: depot/setup-action@v1
-  
+
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
 
@@ -193,21 +191,19 @@ jobs:
           python-version: "3.10"
           cache: "pip"
 
-
       - name: Build all Docker Contexts
         if: ${{ env.DOCKER_CACHE == 'DEPOT' && env.DEPOT_PROJECT_ID != '' }}
         run: |
           ./gradlew :docker:buildImagesQuickstartDebugConsumers -PreleaseVersion=pr-build
-      
+
       - name: Capture build Id
         id: capture-build-id
         if: ${{ env.DOCKER_CACHE == 'DEPOT' && env.DEPOT_PROJECT_ID != '' }}
         run: |
           pip install jq
           DEPOT_BUILD_ID=$(jq -r '.["depot.build"]?.buildID' ${{ github.workspace }}/build/build-metadata.json)
-          
-          echo "build_id=${DEPOT_BUILD_ID}" >> "$GITHUB_OUTPUT"
 
+          echo "build_id=${DEPOT_BUILD_ID}" >> "$GITHUB_OUTPUT"
 
   gms_build:
     name: Build and Push DataHub GMS Docker Image
@@ -302,7 +298,7 @@ jobs:
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :metadata-jobs:mae-consumer-job:dockerPrepare
-      
+
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -318,7 +314,7 @@ jobs:
   mae_consumer_scan:
     name: "[Monitoring] Scan MAE consumer images for vulnerabilities"
     runs-on: depot-ubuntu-24.04
-    needs: [setup, smoke_test_lint,mae_consumer_build]
+    needs: [setup, smoke_test_lint, mae_consumer_build]
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -368,7 +364,7 @@ jobs:
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :metadata-jobs:mce-consumer-job:dockerPrepare
-          
+
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -384,7 +380,7 @@ jobs:
   mce_consumer_scan:
     name: "[Monitoring] Scan MCE consumer images for vulnerabilities"
     runs-on: depot-ubuntu-24.04
-    needs: [setup, smoke_test_lint,mce_consumer_build]
+    needs: [setup, smoke_test_lint, mce_consumer_build]
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -455,7 +451,7 @@ jobs:
   datahub_upgrade_scan:
     name: "[Monitoring] Scan DataHub Upgrade images for vulnerabilities"
     runs-on: ubuntu-latest
-    needs: [setup, smoke_test_lint,datahub_upgrade_build]
+    needs: [setup, smoke_test_lint, datahub_upgrade_build]
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -526,7 +522,7 @@ jobs:
   frontend_scan:
     name: "[Monitoring] Scan Frontend images for vulnerabilities"
     runs-on: ubuntu-24.04
-    needs: [setup, smoke_test_lint,frontend_build]
+    needs: [setup, smoke_test_lint, frontend_build]
     if: ${{ needs.setup.outputs.frontend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -591,7 +587,7 @@ jobs:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: "[Monitoring] Scan Kafka Setup images for vulnerabilities"
     runs-on: ubuntu-latest
-    needs: [ setup, smoke_test_lint,kafka_setup_build]
+    needs: [setup, smoke_test_lint, kafka_setup_build]
     if: ${{ needs.setup.outputs.kafka_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true') }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
@@ -653,7 +649,7 @@ jobs:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: "[Monitoring] Scan MySQL Setup images for vulnerabilities"
     runs-on: ubuntu-latest
-    needs: [ setup, smoke_test_lint,mysql_setup_build ]
+    needs: [setup, smoke_test_lint, mysql_setup_build]
     if: ${{ needs.setup.outputs.mysql_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true') }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
@@ -715,7 +711,7 @@ jobs:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: "[Monitoring] Scan ElasticSearch setup images for vulnerabilities"
     runs-on: ubuntu-latest
-    needs: [ setup, elasticsearch_setup_build ]
+    needs: [setup, elasticsearch_setup_build]
     if: ${{ needs.setup.outputs.elasticsearch_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' ) }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
@@ -782,7 +778,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
-    needs: [setup, smoke_test_lint,datahub_ingestion_base_build]
+    needs: [setup, smoke_test_lint, datahub_ingestion_base_build]
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
       - name: Free up disk space
@@ -829,7 +825,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
-    needs: [setup, smoke_test_lint,datahub_ingestion_base_build]
+    needs: [setup, smoke_test_lint, datahub_ingestion_base_build]
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
       - name: Check out the repo
@@ -923,7 +919,7 @@ jobs:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: "[Monitoring] Scan Datahub Ingestion Slim images for vulnerabilities"
     runs-on: ubuntu-latest
-    needs: [setup, smoke_test_lint,datahub_ingestion_slim_build]
+    needs: [setup, smoke_test_lint, datahub_ingestion_slim_build]
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
@@ -1010,7 +1006,7 @@ jobs:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: "[Monitoring] Scan Datahub Ingestion images for vulnerabilities"
     runs-on: depot-ubuntu-24.04
-    needs: [setup, smoke_test_lint,datahub_ingestion_full_build]
+    needs: [setup, smoke_test_lint, datahub_ingestion_full_build]
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
@@ -1070,10 +1066,10 @@ jobs:
         run: |
           python_batch_count=${{ steps.set-batch-count.outputs.python_batch_count }}
           python_matrix=$(printf "{\"test_strategy\":\"pytests\",\"batch\":\"0\",\"batch_count\":\"$python_batch_count\"}"; for ((i=1;i<python_batch_count;i++)); do printf ",{\"test_strategy\":\"pytests\", \"batch_count\":\"$python_batch_count\",\"batch\":\"%d\"}" $i; done)
-          
+
           cypress_batch_count=${{ steps.set-batch-count.outputs.cypress_batch_count }}
           cypress_matrix=$(printf "{\"test_strategy\":\"cypress\",\"batch\":\"0\",\"batch_count\":\"$cypress_batch_count\"}"; for ((i=1;i<cypress_batch_count;i++)); do printf ",{\"test_strategy\":\"cypress\", \"batch_count\":\"$cypress_batch_count\",\"batch\":\"%d\"}" $i; done)
-          
+
           includes=''
           if [[ "${{ needs.setup.outputs.backend_change }}" == 'true' || "${{ needs.setup.outputs.smoke_test_change }}" == 'true' || "${{ needs.setup.outputs.publish }}" == 'true' ]]; then
             includes="$python_matrix,$cypress_matrix"
@@ -1102,13 +1098,7 @@ jobs:
   smoke_test:
     name: Run Smoke Tests
     runs-on: ${{ needs.determine_runner.outputs.runner_type }}
-    needs:
-      [
-        setup,
-        smoke_test_matrix,
-        base_build,
-        determine_runner
-      ]
+    needs: [setup, smoke_test_matrix, base_build, determine_runner]
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.smoke_test_matrix.outputs.matrix) }}
@@ -1138,11 +1128,10 @@ jobs:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
 
-
       - name: Set up Depot CLI
         if: ${{ env.DOCKER_CACHE == 'DEPOT' && env.DEPOT_PROJECT_ID != '' }}
         uses: depot/setup-action@v1
-  
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
@@ -1166,7 +1155,7 @@ jobs:
           DOCKER_CACHE: GITHUB
       - name: pull images from depot
         if: ${{ env.DOCKER_CACHE == 'DEPOT' && env.DEPOT_PROJECT_ID != '' }}
-        run: | 
+        run: |
           depot pull --project ${{ env.DEPOT_PROJECT_ID }} ${{ needs.base_build.outputs.build_id }}
           docker images
       - name: run quickstart
@@ -1202,7 +1191,6 @@ jobs:
       - name: Build datahub cli
         run: |
           ./gradlew :metadata-ingestion:install
-
 
       - name: Smoke test
         env:
@@ -1258,7 +1246,7 @@ jobs:
   deploy_datahub_head:
     name: Deploy to Datahub HEAD
     runs-on: ubuntu-latest
-    needs: [setup, smoke_test_lint,smoke_test]
+    needs: [setup, smoke_test_lint, smoke_test]
     steps:
       - uses: aws-actions/configure-aws-credentials@v4
         if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'datahub-project' && needs.setup.outputs.repository_name == 'datahub' }}

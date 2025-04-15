@@ -23,10 +23,12 @@ and produces to the following topics
 > a single `MetadataChangeEvent` topic which has been deprecated and replaced by per-aspect Metadata Change Proposals. Hence, the name!
 
 ## Pre-requisites
-* You need to have [JDK8](https://www.oracle.com/java/technologies/jdk8-downloads.html) installed on your machine to be
-able to build `DataHub Metadata Service`.
+
+- You need to have [JDK8](https://www.oracle.com/java/technologies/jdk8-downloads.html) installed on your machine to be
+  able to build `DataHub Metadata Service`.
 
 ## Build
+
 `Metadata Change Event Consumer Job` is already built as part of top level build:
 
 ```
@@ -34,20 +36,25 @@ able to build `DataHub Metadata Service`.
 ```
 
 However, if you only want to build `Metadata Change Event Consumer Job` specifically:
+
 ```
 ./gradlew :metadata-jobs:mce-consumer-job:build
 ```
 
 ## Dependencies
+
 Before starting `Metadata Change Event Consumer Job`, you need to make sure that [Kafka, Schema Registry & Zookeeper](../../docker/kafka-setup)
 and [DataHub GMS](../../docker/datahub-gms) Docker containers are up and running.
 
 ## Start via Docker image
+
 Quickest way to try out `Metadata Change Event Consumer Job` is running the [Docker image](../../docker/datahub-mce-consumer).
 
 ## Start via command line
+
 If you do modify things and want to try it out quickly without building the Docker image, you can also run
 the application directly from command line after a successful [build](#build):
+
 ```
 MCP_CONSUMER_ENABLED=true ./gradlew :metadata-jobs:mce-consumer-job:bootRun
 ```
@@ -62,6 +69,7 @@ MCP_CONSUMER_ENABLED=true ./gradlew :metadata-jobs:mce-consumer-job:bootRun --de
 ```
 
 ## Endpoints
+
 Spring boot actuator has been enabled for MCE Application.
 `healthcheck`, `metrics` and `info` web endpoints are enabled by default.
 
@@ -88,4 +96,3 @@ will not increase ingestion performance.
 The Restli service endpoints are exposed for use locally (not via a K8 service) by the MCE consumer job itself. This is
 only true in standalone mode. When run within GMS, the Restli endpoints are already available and accessed via the K8
 service.
-
