@@ -1,0 +1,30 @@
+name: workflows format
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - ".github/**.{yml,yaml}"
+  pull_request:
+    branches:
+      - "**"
+    paths:
+      - ".github/**.{yml,yaml}"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  workflows_format_check:
+    name: workflows_format_check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@v3
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: run prettier --check
+        run: |-
+          ./gradlew :datahub-web-react:yamlPrettierCheck
