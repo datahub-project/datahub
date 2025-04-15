@@ -1,7 +1,7 @@
 import Link from 'antd/lib/typography/Link';
 import React from 'react';
 import styled from 'styled-components';
-import AcrylLogo from '../../images/acryl-light-mark.svg';
+import DataHubLogo from '../../images/datahublogo.png';
 
 const BannerWrapper = styled.div`
     padding: 12px;
@@ -16,7 +16,6 @@ const BannerWrapper = styled.div`
 
 const Logo = styled.img`
     margin-right: 12px;
-    height: 40px;
     width: 40px;
 `;
 
@@ -40,7 +39,7 @@ const TextContent = styled.div`
 export default function AcrylDemoBanner() {
     return (
         <BannerWrapper>
-            <Logo src={AcrylLogo} />
+            <Logo src={DataHubLogo} />
             <TextWrapper>
                 <Title>Schedule a Demo of DataHub Cloud</Title>
                 <TextContent>

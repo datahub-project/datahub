@@ -56,7 +56,8 @@ jobs:
                 "v-tarasevich-blitz-brain",
                 "ryota-cloud",
                 "annadoesdesign",
-                "jmacryl"
+                "jmacryl",
+                "esteban"
               ]'), 
               github.actor
             ) 

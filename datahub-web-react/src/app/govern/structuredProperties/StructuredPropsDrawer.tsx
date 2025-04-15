@@ -190,11 +190,14 @@ const StructuredPropsDrawer = ({
             });
         } else {
             form.validateFields().then(() => {
+                const allowedTypes = form.getFieldValue(['typeQualifier', 'allowedTypes']) ?? [];
+                const typeQualifier = allowedTypes.length > 0 ? { allowedTypes } : undefined;
                 const createInput = {
                     ...form.getFieldsValue(),
                     qualifiedName: form.getFieldValue('qualifiedName') || undefined,
                     valueType: valueTypes.find((type) => type.value === form.getFieldValue('valueType'))?.urn,
                     allowedValues,
+                    typeQualifier,
                     cardinality,
                     settings: {
                         isHidden: form.getFieldValue(['settings', 'isHidden']) ?? false,

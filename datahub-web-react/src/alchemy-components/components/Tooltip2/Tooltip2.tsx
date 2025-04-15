@@ -50,7 +50,7 @@ export function Tooltip2(props: Tooltip2Props & TooltipProps) {
             overlayInnerStyle={{
                 fontFamily: 'Mulish',
                 padding: '12px',
-                borderRadius: '8px',
+                borderRadius: '12px',
             }}
         >
             {props.children}

@@ -123,6 +123,7 @@ export const ActionButtonsContainer = styled.div({
 export const OptionList = styled.div({
     display: 'flex',
     flexDirection: 'column' as const,
+    overflow: 'auto',
 });
 
 export const LabelContainer = styled.div({
@@ -176,9 +177,9 @@ export const StyledIcon = styled(Icon)({
     color: colors.gray[1800],
 });
 
-export const StyledClearButton = styled(Button)({
-    backgroundColor: colors.transparent,
-    border: 'none',
+export const StyledClearButton = styled(Button).attrs({
+    variant: 'text',
+})({
     color: colors.gray[1800],
     padding: '0px',
 
