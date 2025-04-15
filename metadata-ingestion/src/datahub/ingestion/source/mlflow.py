@@ -629,19 +629,27 @@ class MLflowSource(StatefulIngestionSourceBase):
         except Exception as e:
             logger.info(f"\n⚠️ Error occurred: {e}")
 
+            # Log the full URL and parameters that search_func would use
+        if hasattr(search_func, "__self__"):
+            client = search_func.__self__
+            if hasattr(client, "_tracking_client"):
+                tracking_client = client._tracking_client
+                logger.info(f"!!! Tracking client: {tracking_client}")
+                logger.info(f"!!! Client store URI: {client.tracking_uri}")
         
         try:
             while True:
                 page_count += 1
                 logger.info(f"!!! Fetching page {page_count} with token: {next_page_token}")
                 
-                paged_list = search_func(page_token=next_page_token, filter_string=None, order_by=None, max_results=100)
+                paged_list = search_func(page_token=next_page_token, filter_string="", order_by=None, max_results=100)
 
                 logger.info("!!! RAW paged list repr:")
                 logger.info(paged_list)
+                logger.info("!!! List conversion result")
+                logger.info(paged_list.to_list())
 
                 items = paged_list.to_list()
-                logger.info(f"!!! Items: {items}")
                 page_items_count = len(items)
                 total_items += page_items_count
                 
