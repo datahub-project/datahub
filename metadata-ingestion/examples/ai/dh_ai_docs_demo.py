@@ -40,7 +40,7 @@ args = parser.parse_args()
 client = DatahubAIClient(token=args.token, server_url=args.server_url)
 
 # Use a unique prefix for all IDs to avoid conflicts
-prefix = "0414"
+prefix = "test"
 
 # Define all entity IDs upfront
 # Basic entity IDs
@@ -259,7 +259,7 @@ def create_advanced_datasets():
 def add_model_to_model_group(model, model_group):
     """Add model to model group relationship."""
     print("Adding model to model group...")
-    model.add_group(model_group.urn)
+    model.set_model_group(model_group.urn)
     client._emit_mcps(model.as_mcps())
 
 

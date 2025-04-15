@@ -1,4 +1,3 @@
-import argparse
 from datetime import datetime
 
 from datahub.emitter.mcp_builder import (
@@ -25,25 +24,8 @@ model_name = "ARIMA Model"
 model_group_id = "airline_forecast_models_group"
 model_group_name = "Airline Forecast Models Group"
 
-
-def init_client():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--token", required=False, help="DataHub access token")
-    parser.add_argument(
-        "--server_url",
-        required=False,
-        default="http://localhost:8080",
-        help="DataHub server URL (defaults to http://localhost:8080)",
-    )
-    args = parser.parse_args()
-
-    client = DataHubClient(token=args.token, server=args.server_url)
-    return client
-
-
 if __name__ == "__main__":
-    # init client
-    client = init_client()
+    client = DataHubClient.from_env()
 
     # Create model group
     model_group = MLModelGroup(
