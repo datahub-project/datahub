@@ -73,7 +73,7 @@ TEST_HIGHWATERMARK_COUNT_QUERY = f"""
     """
 TEST_GET_ROW_COUNT_QUERY = """
             SELECT row_count
-            FROM test_db.public.__TABLES__
+            FROM test_db.`public`.__TABLES__
             WHERE table_id='test_table';"""
 TEST_NUM_ROWS_VIA_COUNT_QUERY = """
         SELECT COUNT(*)

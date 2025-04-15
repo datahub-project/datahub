@@ -412,7 +412,7 @@ class BigQuerySource(Source):
     def _get_num_rows_via_stats_table(self, database_params: DatabaseParams) -> int:
         query = f"""
             SELECT row_count
-            FROM {database_params.project}.{database_params.dataset}.__TABLES__
+            FROM {database_params.project}.`{database_params.dataset}`.__TABLES__
             WHERE table_id='{database_params.table}';"""
 
         logger.debug(query)
