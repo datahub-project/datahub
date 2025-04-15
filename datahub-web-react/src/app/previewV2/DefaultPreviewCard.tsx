@@ -222,7 +222,6 @@ export default function DefaultPreviewCard({
     actions,
     browsePaths,
     description,
-    lastRunEvent,
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
     const supportedCapabilities = entityRegistry.getSupportedEntityCapabilities(entityType);
@@ -252,9 +251,9 @@ export default function DefaultPreviewCard({
 
     const { removeRelationship, removeButtonText } = useRemoveRelationship(entityType);
 
+    const lastRunEvent = data?.lastRunEvent;
     const shouldShowDPIinfo =
         lastRunEvent?.timestampMillis || lastRunEvent?.durationMillis || lastRunEvent?.result?.resultType;
-
     const entityHeader = (
         <EntityHeader
             name={name}

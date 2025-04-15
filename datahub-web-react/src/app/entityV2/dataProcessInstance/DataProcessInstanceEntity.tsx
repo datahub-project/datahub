@@ -144,7 +144,6 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                 externalUrl={data.properties?.externalUrl}
                 parentEntities={parentEntities}
                 container={data.container || undefined}
-                lastRunEvent={genericProperties?.lastRunEvent}
             />
         );
     };
