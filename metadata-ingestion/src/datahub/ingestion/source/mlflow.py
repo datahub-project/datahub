@@ -612,7 +612,16 @@ class MLflowSource(StatefulIngestionSourceBase):
         page_count = 0
         total_items = 0
 
+        import http.client as http_client
+        http_client.HTTPConnection.debuglevel = 1
+        
+        # Create a separate requests session to log its activity
+        import requests
+        session = requests.Session()
+        session.hooks['response'] = lambda r, *args, **kwargs: logger.info(f"SDK Request: {r.request.method} {r.request.url} Headers: {r.request.headers} Body: {r.request.body}")
+
         logger.info(f"!!! Sending manaul request to search API")
+        model_names = []
         try:
             response = requests.get(f"{self.client.tracking_uri}/api/2.0/mlflow/registered-models/search")
             logger.info(f"!!! Response: {response.json()}")
@@ -622,6 +631,7 @@ class MLflowSource(StatefulIngestionSourceBase):
                 logger.info(f"\n✅ Found {len(registered_models)} registered models:")
                 for m in registered_models:
                     logger.info(f"- {m.get('name', 'Unnamed')}")
+                    model_names.append(m.get("name"))
             else:
                 logger.info(f"\n❌ Failed to fetch models. Status code: {response.status_code}")
                 logger.info(f"Response: {response.text}")
@@ -629,14 +639,15 @@ class MLflowSource(StatefulIngestionSourceBase):
         except Exception as e:
             logger.info(f"\n⚠️ Error occurred: {e}")
 
-            # Log the full URL and parameters that search_func would use
-        if hasattr(search_func, "__self__"):
-            client = search_func.__self__
-            if hasattr(client, "_tracking_client"):
-                tracking_client = client._tracking_client
-                logger.info(f"!!! Tracking client: {tracking_client}")
-                logger.info(f"!!! Client store URI: {client.tracking_uri}")
         
+        try: 
+            for model_name in model_names:
+                logger.info(f"!!! Searching for model: {model_name}")
+                model = self.client.get_registered_model(model_name)
+                logger.info(f"!!! Found model: {model}")
+        except: 
+            logger.info(f"!!! Error occurred while fetching model: {model_name}")
+
         try:
             while True:
                 page_count += 1
