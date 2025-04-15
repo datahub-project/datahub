@@ -147,14 +147,7 @@ public class ValidationApiUtils {
     }
 
     if (!Objects.equals(mcp.getEntityType(), urn.getEntityType())) {
-      if (mcp.getEntityType().equalsIgnoreCase(urn.getEntityType())) {
-        log.warn(
-            "Expected matching URN and MCP entity types. Correcting MCP. {} != {} systemMetadata: {}",
-            urn.getEntityType(),
-            mcp.getEntityType(),
-            mcp.getSystemMetadata());
-        mcp.setEntityType(urn.getEntityType());
-      } else {
+      if (!mcp.getEntityType().equalsIgnoreCase(urn.getEntityType())) {
         throw new ValidationException(
             String.format(
                 "URN entity type does not match MCP entity type. %s != %s",
