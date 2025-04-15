@@ -27,6 +27,7 @@ import { StyledDivider } from './components';
 import { sanitizeRichText } from '../../../../Documentation/components/editor/utils';
 import { getFieldDescriptionDetails } from '../../utils/getFieldDescriptionDetails';
 import DocumentationPropagationDetails from '../../../../../../../sharedV2/propagation/DocumentationPropagationDetails';
+import { PROPOSAL_ENTITY_TYPES } from '../../../../Documentation/components/DescriptionEditor';
 
 const AddNewDescription = styled.div`
     margin: 0px;
@@ -66,8 +67,6 @@ interface Props {
     editableFieldInfo?: EditableSchemaFieldInfo;
     isShowMoreEnabled?: boolean;
 }
-
-const PROPOSAL_ENTITY_TYPES = [EntityType.GlossaryTerm, EntityType.GlossaryNode, EntityType.Dataset];
 
 export function getShouldShowProposeButton(entityType: EntityType) {
     return PROPOSAL_ENTITY_TYPES.includes(entityType);

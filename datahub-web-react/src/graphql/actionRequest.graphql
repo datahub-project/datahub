@@ -132,6 +132,17 @@ fragment actionRequestFields on ActionRequest {
                 description
             }
         }
+        ... on Domain {
+            properties {
+                name
+                description
+            }
+        }
+        ... on DataProduct {
+            properties {
+                name
+            }
+        }
     }
     subResourceType
     subResource

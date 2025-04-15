@@ -48,6 +48,18 @@ public class ProposeUpdateDescriptionResolver implements DataFetcher<Completable
               case Constants.GLOSSARY_TERM_ENTITY_NAME:
               case Constants.GLOSSARY_NODE_ENTITY_NAME:
               case Constants.DATASET_ENTITY_NAME:
+              case Constants.CONTAINER_ENTITY_NAME:
+              case Constants.CHART_ENTITY_NAME:
+              case Constants.DASHBOARD_ENTITY_NAME:
+              case Constants.DOMAIN_ENTITY_NAME:
+              case Constants.ML_FEATURE_ENTITY_NAME:
+              case Constants.ML_FEATURE_TABLE_ENTITY_NAME:
+              case Constants.ML_MODEL_ENTITY_NAME:
+              case Constants.ML_MODEL_GROUP_ENTITY_NAME:
+              case Constants.ML_PRIMARY_KEY_ENTITY_NAME:
+              case Constants.DATA_FLOW_ENTITY_NAME:
+              case Constants.DATA_JOB_ENTITY_NAME:
+              case Constants.DATA_PRODUCT_ENTITY_NAME:
                 return _proposalService.proposeUpdateResourceDescription(
                     context.getOperationContext(),
                     actor,

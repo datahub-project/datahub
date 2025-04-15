@@ -21,7 +21,23 @@ import {
 } from '../../../components/inferredDocs/utils';
 import ProposalDescriptionModal from '../../../containers/profile/sidebar/ProposalDescriptionModal';
 
-const PROPOSAL_ENTITY_TYPES = [EntityType.GlossaryTerm, EntityType.GlossaryNode, EntityType.Dataset];
+export const PROPOSAL_ENTITY_TYPES = [
+    EntityType.GlossaryTerm,
+    EntityType.GlossaryNode,
+    EntityType.Dataset,
+    EntityType.Container,
+    EntityType.Chart,
+    EntityType.Dashboard,
+    EntityType.Domain,
+    EntityType.Mlfeature,
+    EntityType.MlfeatureTable,
+    EntityType.Mlmodel,
+    EntityType.MlmodelGroup,
+    EntityType.MlprimaryKey,
+    EntityType.DataFlow,
+    EntityType.DataJob,
+    EntityType.DataProduct,
+];
 
 export function getShouldShowProposeButton(entityType: EntityType) {
     return PROPOSAL_ENTITY_TYPES.includes(entityType);

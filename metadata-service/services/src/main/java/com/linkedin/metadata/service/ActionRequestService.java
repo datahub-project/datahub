@@ -6,14 +6,27 @@ import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_STRUCTURE
 import static com.linkedin.metadata.Constants.ACTION_REQUEST_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.ACTION_REQUEST_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.ACTION_REQUEST_STATUS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.CHART_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.CONTAINER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.CORP_GROUP_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DASHBOARD_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_SCHEMA_PROPOSALS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_CONTRACT_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_CONTRACT_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_CONTRACT_STATUS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.DATA_FLOW_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DOMAIN_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DOMAIN_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.EDITABLE_CHART_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.EDITABLE_DASHBOARD_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.EDITABLE_DATASET_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.EDITABLE_DATA_FLOW_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.EDITABLE_DATA_JOB_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.ENTITY_PROPOSALS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_NODE_ENTITY_NAME;
@@ -21,6 +34,16 @@ import static com.linkedin.metadata.Constants.GLOSSARY_NODE_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_TERM_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_TERM_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GROUP_MEMBERSHIP_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.ML_FEATURE_EDITABLE_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.ML_FEATURE_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.ML_FEATURE_TABLE_EDITABLE_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.ML_FEATURE_TABLE_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.ML_MODEL_EDITABLE_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.ML_MODEL_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.ML_MODEL_GROUP_EDITABLE_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.ML_MODEL_GROUP_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.ML_PRIMARY_KEY_EDITABLE_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.ML_PRIMARY_KEY_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
 
 import com.datahub.authorization.AuthorizedActors;
@@ -45,6 +68,7 @@ import com.linkedin.actionrequest.OwnerProposal;
 import com.linkedin.actionrequest.StructuredPropertyProposal;
 import com.linkedin.actionrequest.TagProposal;
 import com.linkedin.ai.InferenceMetadata;
+import com.linkedin.chart.EditableChartProperties;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.GlossaryTermAssociation;
@@ -57,6 +81,8 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.GlossaryNodeUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.container.EditableContainerProperties;
+import com.linkedin.dashboard.EditableDashboardProperties;
 import com.linkedin.data.template.GetMode;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datacontract.DataContractProperties;
@@ -68,7 +94,11 @@ import com.linkedin.datacontract.FreshnessContract;
 import com.linkedin.datacontract.FreshnessContractArray;
 import com.linkedin.datacontract.SchemaContract;
 import com.linkedin.datacontract.SchemaContractArray;
+import com.linkedin.datajob.EditableDataFlowProperties;
+import com.linkedin.datajob.EditableDataJobProperties;
+import com.linkedin.dataproduct.DataProductProperties;
 import com.linkedin.dataset.EditableDatasetProperties;
+import com.linkedin.domain.DomainProperties;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
@@ -101,6 +131,11 @@ import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.ml.metadata.EditableMLFeatureProperties;
+import com.linkedin.ml.metadata.EditableMLFeatureTableProperties;
+import com.linkedin.ml.metadata.EditableMLModelGroupProperties;
+import com.linkedin.ml.metadata.EditableMLModelProperties;
+import com.linkedin.ml.metadata.EditableMLPrimaryKeyProperties;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.schema.EditableSchemaMetadata;
@@ -962,6 +997,43 @@ public class ActionRequestService extends BaseService {
           updateDatasetDescription(opContext, resourceUrn, description);
         }
         break;
+      case CONTAINER_ENTITY_NAME:
+        updateContainerDescription(opContext, resourceUrn, description);
+        break;
+      case CHART_ENTITY_NAME:
+        updateChartDescription(opContext, resourceUrn, description);
+        break;
+      case DASHBOARD_ENTITY_NAME:
+        updateDashboardDescription(opContext, resourceUrn, description);
+        break;
+      case DOMAIN_ENTITY_NAME:
+        updateDomainDescription(opContext, resourceUrn, description);
+        break;
+      case ML_FEATURE_ENTITY_NAME:
+        updateMLFeatureDescription(opContext, resourceUrn, description);
+        break;
+      case ML_FEATURE_TABLE_ENTITY_NAME:
+        updateMLFeatureTableDescription(opContext, resourceUrn, description);
+        break;
+      case ML_MODEL_ENTITY_NAME:
+        updateMLModelDescription(opContext, resourceUrn, description);
+        break;
+      case ML_MODEL_GROUP_ENTITY_NAME:
+        updateMLModelGroupDescription(opContext, resourceUrn, description);
+        break;
+      case ML_PRIMARY_KEY_ENTITY_NAME:
+        updateMLPrimaryKeyDescription(opContext, resourceUrn, description);
+        break;
+      case DATA_FLOW_ENTITY_NAME:
+        updateDataFlowDescription(opContext, resourceUrn, description);
+        break;
+      case DATA_JOB_ENTITY_NAME:
+        updateDataJobDescription(opContext, resourceUrn, description);
+        break;
+      case DATA_PRODUCT_ENTITY_NAME:
+        updateDataProductDescription(opContext, resourceUrn, description);
+        break;
+
       default:
         log.warn(
             String.format(
@@ -3800,6 +3872,270 @@ public class ActionRequestService extends BaseService {
             editableSchemaMetadata,
             resourceUrn,
             fieldPath,
+            description,
+            opContext.getSessionAuthentication().getActor());
+    this.entityClient.ingestProposal(opContext, proposal);
+  }
+
+  void updateContainerDescription(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn resourceUrn,
+      @Nonnull final String description)
+      throws Exception {
+    EditableContainerProperties editableContainerProperties =
+        (EditableContainerProperties)
+            this.entityService.getLatestAspect(
+                opContext, resourceUrn, CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME);
+    if (editableContainerProperties == null) {
+      editableContainerProperties = new EditableContainerProperties();
+    }
+
+    final MetadataChangeProposal proposal =
+        DescriptionUtils.createContainerDescriptionChangeProposal(
+            editableContainerProperties,
+            resourceUrn,
+            description,
+            opContext.getSessionAuthentication().getActor());
+    this.entityClient.ingestProposal(opContext, proposal);
+  }
+
+  void updateChartDescription(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn resourceUrn,
+      @Nonnull final String description)
+      throws Exception {
+    EditableChartProperties editableChartProperties =
+        (EditableChartProperties)
+            this.entityService.getLatestAspect(
+                opContext, resourceUrn, EDITABLE_CHART_PROPERTIES_ASPECT_NAME);
+    if (editableChartProperties == null) {
+      editableChartProperties = new EditableChartProperties();
+    }
+
+    final MetadataChangeProposal proposal =
+        DescriptionUtils.createChartDescriptionChangeProposal(
+            editableChartProperties,
+            resourceUrn,
+            description,
+            opContext.getSessionAuthentication().getActor());
+    this.entityClient.ingestProposal(opContext, proposal);
+  }
+
+  void updateDashboardDescription(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn resourceUrn,
+      @Nonnull final String description)
+      throws Exception {
+    EditableDashboardProperties editableDashboardProperties =
+        (EditableDashboardProperties)
+            this.entityService.getLatestAspect(
+                opContext, resourceUrn, EDITABLE_DASHBOARD_PROPERTIES_ASPECT_NAME);
+    if (editableDashboardProperties == null) {
+      editableDashboardProperties = new EditableDashboardProperties();
+    }
+
+    final MetadataChangeProposal proposal =
+        DescriptionUtils.createDashboardDescriptionChangeProposal(
+            editableDashboardProperties,
+            resourceUrn,
+            description,
+            opContext.getSessionAuthentication().getActor());
+    this.entityClient.ingestProposal(opContext, proposal);
+  }
+
+  void updateDomainDescription(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn resourceUrn,
+      @Nonnull final String description)
+      throws Exception {
+    DomainProperties domainProperties =
+        (DomainProperties)
+            this.entityService.getLatestAspect(
+                opContext, resourceUrn, DOMAIN_PROPERTIES_ASPECT_NAME);
+    if (domainProperties == null) {
+      domainProperties = new DomainProperties();
+    }
+
+    final MetadataChangeProposal proposal =
+        DescriptionUtils.createDomainDescriptionChangeProposal(
+            domainProperties,
+            resourceUrn,
+            description,
+            opContext.getSessionAuthentication().getActor());
+    this.entityClient.ingestProposal(opContext, proposal);
+  }
+
+  void updateMLFeatureDescription(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn resourceUrn,
+      @Nonnull final String description)
+      throws Exception {
+    EditableMLFeatureProperties editableMLFeatureProperties =
+        (EditableMLFeatureProperties)
+            this.entityService.getLatestAspect(
+                opContext, resourceUrn, ML_FEATURE_EDITABLE_PROPERTIES_ASPECT_NAME);
+    if (editableMLFeatureProperties == null) {
+      editableMLFeatureProperties = new EditableMLFeatureProperties();
+    }
+
+    final MetadataChangeProposal proposal =
+        DescriptionUtils.createMLFeatureDescriptionChangeProposal(
+            editableMLFeatureProperties,
+            resourceUrn,
+            description,
+            opContext.getSessionAuthentication().getActor());
+    this.entityClient.ingestProposal(opContext, proposal);
+  }
+
+  void updateMLFeatureTableDescription(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn resourceUrn,
+      @Nonnull final String description)
+      throws Exception {
+    EditableMLFeatureTableProperties editableMLFeatureTableProperties =
+        (EditableMLFeatureTableProperties)
+            this.entityService.getLatestAspect(
+                opContext, resourceUrn, ML_FEATURE_TABLE_EDITABLE_PROPERTIES_ASPECT_NAME);
+    if (editableMLFeatureTableProperties == null) {
+      editableMLFeatureTableProperties = new EditableMLFeatureTableProperties();
+    }
+
+    final MetadataChangeProposal proposal =
+        DescriptionUtils.createMLFeatureTableDescriptionChangeProposal(
+            editableMLFeatureTableProperties,
+            resourceUrn,
+            description,
+            opContext.getSessionAuthentication().getActor());
+    this.entityClient.ingestProposal(opContext, proposal);
+  }
+
+  void updateMLModelDescription(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn resourceUrn,
+      @Nonnull final String description)
+      throws Exception {
+    EditableMLModelProperties editableMLModelProperties =
+        (EditableMLModelProperties)
+            this.entityService.getLatestAspect(
+                opContext, resourceUrn, ML_MODEL_EDITABLE_PROPERTIES_ASPECT_NAME);
+    if (editableMLModelProperties == null) {
+      editableMLModelProperties = new EditableMLModelProperties();
+    }
+
+    final MetadataChangeProposal proposal =
+        DescriptionUtils.createMLModelDescriptionChangeProposal(
+            editableMLModelProperties,
+            resourceUrn,
+            description,
+            opContext.getSessionAuthentication().getActor());
+    this.entityClient.ingestProposal(opContext, proposal);
+  }
+
+  void updateMLModelGroupDescription(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn resourceUrn,
+      @Nonnull final String description)
+      throws Exception {
+    EditableMLModelGroupProperties editableMLModelGroupProperties =
+        (EditableMLModelGroupProperties)
+            this.entityService.getLatestAspect(
+                opContext, resourceUrn, ML_MODEL_GROUP_EDITABLE_PROPERTIES_ASPECT_NAME);
+    if (editableMLModelGroupProperties == null) {
+      editableMLModelGroupProperties = new EditableMLModelGroupProperties();
+    }
+
+    final MetadataChangeProposal proposal =
+        DescriptionUtils.createMLModelGroupDescriptionChangeProposal(
+            editableMLModelGroupProperties,
+            resourceUrn,
+            description,
+            opContext.getSessionAuthentication().getActor());
+    this.entityClient.ingestProposal(opContext, proposal);
+  }
+
+  void updateMLPrimaryKeyDescription(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn resourceUrn,
+      @Nonnull final String description)
+      throws Exception {
+    EditableMLPrimaryKeyProperties editableMLPrimaryKeyProperties =
+        (EditableMLPrimaryKeyProperties)
+            this.entityService.getLatestAspect(
+                opContext, resourceUrn, ML_PRIMARY_KEY_EDITABLE_PROPERTIES_ASPECT_NAME);
+    if (editableMLPrimaryKeyProperties == null) {
+      editableMLPrimaryKeyProperties = new EditableMLPrimaryKeyProperties();
+    }
+
+    final MetadataChangeProposal proposal =
+        DescriptionUtils.createMLPrimaryKeyDescriptionChangeProposal(
+            editableMLPrimaryKeyProperties,
+            resourceUrn,
+            description,
+            opContext.getSessionAuthentication().getActor());
+    this.entityClient.ingestProposal(opContext, proposal);
+  }
+
+  void updateDataFlowDescription(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn resourceUrn,
+      @Nonnull final String description)
+      throws Exception {
+    EditableDataFlowProperties editableDataFlowProperties =
+        (EditableDataFlowProperties)
+            this.entityService.getLatestAspect(
+                opContext, resourceUrn, EDITABLE_DATA_FLOW_PROPERTIES_ASPECT_NAME);
+    if (editableDataFlowProperties == null) {
+      editableDataFlowProperties = new EditableDataFlowProperties();
+    }
+
+    final MetadataChangeProposal proposal =
+        DescriptionUtils.createDataFlowDescriptionChangeProposal(
+            editableDataFlowProperties,
+            resourceUrn,
+            description,
+            opContext.getSessionAuthentication().getActor());
+    this.entityClient.ingestProposal(opContext, proposal);
+  }
+
+  void updateDataJobDescription(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn resourceUrn,
+      @Nonnull final String description)
+      throws Exception {
+    EditableDataJobProperties editableDataJobProperties =
+        (EditableDataJobProperties)
+            this.entityService.getLatestAspect(
+                opContext, resourceUrn, EDITABLE_DATA_JOB_PROPERTIES_ASPECT_NAME);
+    if (editableDataJobProperties == null) {
+      editableDataJobProperties = new EditableDataJobProperties();
+    }
+
+    final MetadataChangeProposal proposal =
+        DescriptionUtils.createDataJobDescriptionChangeProposal(
+            editableDataJobProperties,
+            resourceUrn,
+            description,
+            opContext.getSessionAuthentication().getActor());
+    this.entityClient.ingestProposal(opContext, proposal);
+  }
+
+  void updateDataProductDescription(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn resourceUrn,
+      @Nonnull final String description)
+      throws Exception {
+    DataProductProperties dataProductProperties =
+        (DataProductProperties)
+            this.entityService.getLatestAspect(
+                opContext, resourceUrn, EDITABLE_DATA_JOB_PROPERTIES_ASPECT_NAME);
+    if (dataProductProperties == null) {
+      dataProductProperties = new DataProductProperties();
+    }
+
+    final MetadataChangeProposal proposal =
+        DescriptionUtils.createDataProductDescriptionChangeProposal(
+            dataProductProperties,
+            resourceUrn,
             description,
             opContext.getSessionAuthentication().getActor());
     this.entityClient.ingestProposal(opContext, proposal);
