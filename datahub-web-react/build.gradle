@@ -158,7 +158,7 @@ def externalPrettierConfigs = [
 
 // Iterate through the configurations to create check and write tasks
 externalPrettierConfigs.each { config ->
-  tasks.register("${config.name}PrettierCheck") {
+  tasks.register("${config.name}PrettierCheck", YarnTask) {
     dependsOn(tasks.named('yarnInstall'))
     args = ['run', 'prettier', '--check', "../${config.pattern}"]
   }
