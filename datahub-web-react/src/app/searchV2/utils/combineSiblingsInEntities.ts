@@ -2,7 +2,6 @@ import { CombinedEntity, createSiblingEntityCombiner } from '@app/entity/shared/
 
 import { Entity } from '@types';
 
-// TODO:: add tests
 export function combineSiblingsInEntities(
     entities: Entity[] | undefined,
     shouldSepareteSiblings: boolean,
