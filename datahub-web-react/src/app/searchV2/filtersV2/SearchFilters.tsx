@@ -13,6 +13,7 @@ import {
     FiltersAppliedHandler,
     FiltersRenderer,
 } from '@app/searchV2/filtersV2/types';
+import { MIN_CHARACTER_COUNT_FOR_SEARCH } from '@app/searchV2/utils/constants';
 
 interface Props {
     query: string;
@@ -43,7 +44,8 @@ export default function SearchFilters({
         const cleanedQuery = query.trim();
         if (cleanedQuery.length === 0) return cleanedQuery;
         if (cleanedQuery.includes('*')) return cleanedQuery;
-        if (cleanedQuery.length < 3 && !cleanedQuery.endsWith('*')) return `${cleanedQuery}*`;
+        if (cleanedQuery.length < MIN_CHARACTER_COUNT_FOR_SEARCH && !cleanedQuery.endsWith('*'))
+            return `${cleanedQuery}*`;
         return query;
     }, [query]);
 

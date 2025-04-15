@@ -1,5 +1,5 @@
+import { convertFacetsToFieldToFacetStateMap } from '@app/searchV2/filtersV2/utils';
 import { FacetMetadata } from '@src/types.generated';
-import { convertFacetsToFieldToFacetStateMap } from '../utils';
 
 describe('convertFacetsToFieldToFacetStateMap', () => {
     const mockFacets: FacetMetadata[] = [
