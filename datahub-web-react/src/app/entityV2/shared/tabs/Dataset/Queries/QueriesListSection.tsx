@@ -141,9 +141,7 @@ export default function QueriesListSection({
         createdDateColumn,
         powersColumn,
         usedByColumn,
-        popularityColumn,
         columnsColumn,
-        lastRunColumn,
         editColumn,
     } = useQueryTableColumns({
         queries,
@@ -166,11 +164,11 @@ export default function QueriesListSection({
         editColumn,
     ];
 
-    const popularQueriesColumns = [queryTextColumn(), usedByColumn, lastRunColumn, columnsColumn, popularityColumn];
+    const popularQueriesColumns = [queryTextColumn(), usedByColumn, columnsColumn];
 
-    const downstreamQueriesColumns = [queryTextColumn(550), powersColumn, lastRunColumn];
+    const downstreamQueriesColumns = [queryTextColumn(550), powersColumn];
 
-    const recentQueriesColumns = [queryTextColumn(550), lastRunColumn];
+    const recentQueriesColumns = [queryTextColumn(550)];
 
     const pagionationOptions: false | TablePaginationConfig = showPagination
         ? ({

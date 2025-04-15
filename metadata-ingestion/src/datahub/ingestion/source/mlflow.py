@@ -7,6 +7,7 @@ from typing import Any, Callable, Iterable, List, Optional, Tuple, TypeVar, Unio
 from mlflow import MlflowClient
 from mlflow.entities import Dataset as MlflowDataset, Experiment, Run
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
+from mlflow.exceptions import MlflowException
 from mlflow.store.entities import PagedList
 from pydantic.fields import Field
 import requests

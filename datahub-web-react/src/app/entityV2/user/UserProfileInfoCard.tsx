@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Col } from 'antd';
-import { EntityRelationship, SearchResult } from '../../../types.generated';
+import { EntityRelationship, SearchResults } from '../../../types.generated';
 import SectionActionButton from '../shared/containers/profile/sidebar/SectionActionButton';
 import UserEditProfileModal from './UserEditProfileModal';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
@@ -31,7 +31,7 @@ export type SidebarData = {
     phone: string | undefined;
     aboutText: string | undefined;
     groupsDetails: Array<EntityRelationship>;
-    ownerships: Array<SearchResult> | undefined;
+    ownershipResults: SearchResults | undefined;
     urn: string | undefined;
     dataHubRoles: Array<EntityRelationship>;
 };

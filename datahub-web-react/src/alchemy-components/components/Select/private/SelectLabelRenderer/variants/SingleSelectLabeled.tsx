@@ -7,15 +7,15 @@ import {
     Placeholder,
     SelectValue,
 } from '../../../components';
-import { SelectLabelVariantProps } from '../../../types';
+import { SelectLabelVariantProps, SelectOption } from '../../../types';
 
-export default function SingleSelectLabeled({
+export default function SingleSelectLabeled<OptionType extends SelectOption>({
     selectedOptions,
     selectedValues,
     placeholder,
     showDescriptions,
     label,
-}: SelectLabelVariantProps) {
+}: SelectLabelVariantProps<OptionType>) {
     return (
         <LabelsWrapper shouldShowGap={false}>
             {!selectedValues.length && <Placeholder>{placeholder}</Placeholder>}

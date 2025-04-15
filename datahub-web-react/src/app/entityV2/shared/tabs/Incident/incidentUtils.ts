@@ -51,7 +51,10 @@ export const addOrUpdateIncidentInList = (existingIncidents, newIncidents) => {
     const updatedIncidents = incidents.map((incident) => {
         if (incident.urn === newIncidents.urn) {
             didUpdate = true;
-            return newIncidents;
+            return {
+                ...incident,
+                ...newIncidents,
+            };
         }
         return incident;
     });
