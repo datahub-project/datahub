@@ -485,12 +485,10 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         # Failing the above two approaches, pick out details from result_maker
         elif element.result_maker is not None:
-            model: str = ""
             input_fields = []
 
             explores = []
             if element.result_maker.query is not None:
-                model = element.result_maker.query.model
                 if element.result_maker.query.view is not None:
                     explores.append(element.result_maker.query.view)
                 input_fields = self._get_input_fields_from_query(
@@ -510,9 +508,13 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
             # In addition to the query, filters can point to fields as well
             assert element.result_maker.filterables is not None
+            # Create a mapping of explore names to their models to maintain correct associations
+            explore_to_model_map = {}
+
             for filterable in element.result_maker.filterables:
                 if filterable.view is not None and filterable.model is not None:
-                    model = filterable.model
+                    # Store the model for this view/explore in our mapping
+                    explore_to_model_map[filterable.view] = filterable.model
                     explores.append(filterable.view)
                     self.add_reachable_explore(
                         model=filterable.model,
@@ -535,6 +537,20 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
             explores = sorted(list(set(explores)))  # dedup the list of views
 
+            # Log the mapping of explores to models for debugging
+            if len(explore_to_model_map) > 1:
+                logger.debug(
+                    f"Dashboard element {element.id} has explores from multiple models: {explore_to_model_map}"
+                )
+
+            # If we have a query, use its model as the default for any explores that don't have a model in our mapping
+            default_model = ""
+            if (
+                element.result_maker.query is not None
+                and element.result_maker.query.model is not None
+            ):
+                default_model = element.result_maker.query.model
+
             return LookerDashboardElement(
                 id=element.id,
                 title=element.title if element.title is not None else "",
@@ -548,7 +564,11 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     else ""
                 ),
                 upstream_explores=[
-                    LookerExplore(model_name=model, name=exp) for exp in explores
+                    LookerExplore(
+                        model_name=explore_to_model_map.get(exp, default_model),
+                        name=exp,
+                    )
+                    for exp in explores
                 ],
                 input_fields=input_fields,
                 owner=None,
