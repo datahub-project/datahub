@@ -68,11 +68,15 @@ public class ValidationApiUtils {
   @Nonnull
   public static EntitySpec validateEntity(
       @Nonnull EntityRegistry entityRegistry, String entityType) {
-    EntitySpec entitySpec = entityRegistry.getEntitySpec(entityType);
-    if (entitySpec == null) {
-      throw new ValidationException("Unknown entity: " + entityType);
+    try {
+      EntitySpec entitySpec = entityRegistry.getEntitySpec(entityType);
+      if (entitySpec == null) {
+        throw new ValidationException("Unknown entity: " + entityType);
+      }
+      return entitySpec;
+    } catch (IllegalArgumentException e) {
+      throw new ValidationException(e.getMessage());
     }
-    return entitySpec;
   }
 
   @Nonnull
@@ -143,10 +147,19 @@ public class ValidationApiUtils {
     }
 
     if (!Objects.equals(mcp.getEntityType(), urn.getEntityType())) {
-      throw new ValidationException(
-          String.format(
-              "URN entity type does not match MCP entity type. %s != %s",
-              urn.getEntityType(), mcp.getEntityType()));
+      if (mcp.getEntityType().equalsIgnoreCase(urn.getEntityType())) {
+        log.warn(
+            "Expected matching URN and MCP entity types. Correcting MCP. {} != {} systemMetadata: {}",
+            urn.getEntityType(),
+            mcp.getEntityType(),
+            mcp.getSystemMetadata());
+        mcp.setEntityType(urn.getEntityType());
+      } else {
+        throw new ValidationException(
+            String.format(
+                "URN entity type does not match MCP entity type. %s != %s",
+                urn.getEntityType(), mcp.getEntityType()));
+      }
     }
 
     validateUrn(entityRegistry, urn);
