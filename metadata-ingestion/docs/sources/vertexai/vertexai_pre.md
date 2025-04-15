@@ -4,7 +4,32 @@ Ingesting metadata from VertexAI requires using the **Vertex AI** module.
 Please refer to the [Vertex AI documentation](https://cloud.google.com/vertex-ai/docs) for basic information on Vertex AI.
 
 #### Credentials to access to GCP
-Please read the section to understand how to set up application default Credentials to GCP [GCP docs](https://cloud.google.com/docs/authentication/provide-credentials-adc#how-to).
+Please read the section to understand how to set up application default Credentials to [GCP docs](https://cloud.google.com/docs/authentication/provide-credentials-adc#how-to).
+
+##### Permissions
+1. Grant the following permissions to the Service Account on every project where you would like to extract metadata from
+
+| Permission                          | Description                                                                | Default GCP Role Which Contains This Permission                                                                 |
+|-------------------------------------|----------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|
+| `aiplatform.models.list`            | Allows a user to view and list all ML models in a project                  | [roles/aiplatform.viewer](https://cloud.google.com/vertex-ai/docs/general/access-control#aiplatform.viewer)                       |
+| `aiplatform.models.get`             | Allows a user to view details of a specific ML model                       | [roles/aiplatform.viewer](https://cloud.google.com/vertex-ai/docs/general/access-control#aiplatform.viewer)             |
+| `aiplatform.endpoints.list`         | Allows a user to view and list all prediction endpoints in a project       | [roles/aiplatform.viewer](https://cloud.google.com/vertex-ai/docs/general/access-control#aiplatform.viewer)             |
+| `aiplatform.endpoints.get`          | Allows a user to view details of a specific prediction endpoint            | [roles/aiplatform.viewer](https://cloud.google.com/vertex-ai/docs/general/access-control#aiplatform.viewer)             |
+| `aiplatform.trainingPipelines.list` | Allows a user to view and list all training pipelines in a project         |[roles/aiplatform.viewer](https://cloud.google.com/vertex-ai/docs/general/access-control#aiplatform.viewer)             |
+| `aiplatform.trainingPipelines.get`  | Allows a user to view details of a specific training pipelines | [roles/aiplatform.viewer](https://cloud.google.com/vertex-ai/docs/general/access-control#aiplatform.viewer)             |
+| `aiplatform.customJobs.list`        | Allows a user to view and list all custom jobs in a project                | [roles/aiplatform.viewer](https://cloud.google.com/vertex-ai/docs/general/access-control#aiplatform.viewer)             |
+| `aiplatform.customJobs.get`         | Allows a user to view details of a specific custom job                     | [roles/aiplatform.viewer](https://cloud.google.com/vertex-ai/docs/general/access-control#aiplatform.viewer)             |
+| `aiplatform.experiments.list`       | Allows a user to view and list all experiments in a project                | [roles/aiplatform.viewer](https://cloud.google.com/vertex-ai/docs/general/access-control#aiplatform.viewer)             |
+| `laiplatform.experiments.get`       | Allows a user to view details of a specific experiment in a project        |[roles/aiplatform.viewer](https://cloud.google.com/vertex-ai/docs/general/access-control#aiplatform.viewer)             |
+| `aiplatform.metadataStores.list`    | allows a user to view and list all metadata store in a project             | [roles/aiplatform.viewer](https://cloud.google.com/vertex-ai/docs/general/access-control#aiplatform.viewer)                                                                                                                            |
+| `aiplatform.metadataStores.get`     | allows a user to view details of a specific metadata store                 | [roles/aiplatform.viewer](https://cloud.google.com/vertex-ai/docs/general/access-control#aiplatform.viewer)             |
+| `aiplatform.executions.list`        | allows a user to view and list all executions in a project                 |    [roles/aiplatform.viewer](https://cloud.google.com/vertex-ai/docs/general/access-control#aiplatform.viewer)                                                                                                                         |
+| `aiplatform.executions.get`         | allows a user to view details of a specific execution                      | [roles/aiplatform.viewer](https://cloud.google.com/vertex-ai/docs/general/access-control#aiplatform.viewer)             |
+| `aiplatform.datasets.list`          | allows a user to view and list all datasets in a project                   |    [roles/aiplatform.viewer](https://cloud.google.com/vertex-ai/docs/general/access-control#aiplatform.viewer)                                                                                                                         |
+| `aiplatform.datasets.get`           | allows a user to view details of a specific dataset                        | [roles/aiplatform.viewer](https://cloud.google.com/vertex-ai/docs/general/access-control#aiplatform.viewer)            |
+| `aiplatform.pipelineJobs.get`       | allows a user to view and list all pipeline jobs in a project              |     [roles/aiplatform.viewer](https://cloud.google.com/vertex-ai/docs/general/access-control#aiplatform.viewer)                                                                                                                        |
+| `aiplatform.pipelineJobs.list`      | allows a user to view details of a specific pipeline job                   |[roles/aiplatform.viewer](https://cloud.google.com/vertex-ai/docs/general/access-control#aiplatform.viewer)             |
+
 
 #### Create a service account and assign roles
 
@@ -26,7 +51,6 @@ Please read the section to understand how to set up application default Credenti
       "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/test%suppproject-id-1234567.iam.gserviceaccount.com"
    }
    ```
-
 3. To provide credentials to the source, you can either:
 
 - Set an environment variable:
