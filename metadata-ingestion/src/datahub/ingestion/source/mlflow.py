@@ -676,7 +676,7 @@ class MLflowSource(StatefulIngestionSourceBase):
                 page_count += 1
                 logger.info(f"!!! Fetching page {page_count} with token: {next_page_token}")
                 
-                paged_list = search_func(page_token=next_page_token, filter_string="name LIKE '%'", order_by=None, max_results=100)
+                paged_list = search_func(page_token=next_page_token, filter_string="tag.`mlflow.prompt.is_prompt` = 'true'", order_by=None, max_results=100)
 
                 logger.info(f"!!! RAW paged list repr: {len(paged_list)}")
                 # logger.info("!!! List conversion result")
