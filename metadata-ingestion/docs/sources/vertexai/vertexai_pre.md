@@ -7,8 +7,9 @@ Please refer to the [Vertex AI documentation](https://cloud.google.com/vertex-ai
 Please read the section to understand how to set up application default Credentials to [GCP docs](https://cloud.google.com/docs/authentication/provide-credentials-adc#how-to).
 
 ##### Permissions
-1. Grant the following permissions to the Service Account on every project where you would like to extract metadata from
+- Grant the following permissions to the Service Account on every project where you would like to extract metadata from
 
+Default GCP Role which contains these permissions [roles/aiplatform.viewer](https://cloud.google.com/vertex-ai/docs/general/access-control#aiplatform.viewer) 
 
 | Permission                          | Description                                                               |
 |-------------------------------------|---------------------------------------------------------------------------|
@@ -30,8 +31,6 @@ Please read the section to understand how to set up application default Credenti
 | `aiplatform.datasets.get`           | allows a user to view details of a specific dataset                       |
 | `aiplatform.pipelineJobs.get`       | allows a user to view and list all pipeline jobs in a project             |
 | `aiplatform.pipelineJobs.list`      | allows a user to view details of a specific pipeline job                  |
-
-Default GCP Role which contains these permissions [roles/aiplatform.viewer](https://cloud.google.com/vertex-ai/docs/general/access-control#aiplatform.viewer)   
 
 
 #### Create a service account and assign roles
