@@ -62,7 +62,7 @@ COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-mce
 
 FROM ${APP_ENV}-install AS final
 
-RUN addgroup -S datahub && adduser -S datahub -G datahub
+RUN addgroup -S datahub && adduser -S datahub -G datahub && chmod g-s /home/datahub
 USER datahub
 
 ENV JMX_OPTS=""

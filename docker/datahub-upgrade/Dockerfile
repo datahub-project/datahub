@@ -63,7 +63,7 @@ FROM base AS dev-install
 
 FROM ${APP_ENV}-install AS final
 
-RUN addgroup -S datahub && adduser -S datahub -G datahub
+RUN addgroup -S datahub && adduser -S datahub -G datahub && chmod g-s /home/datahub
 USER datahub
 
 ENV OTEL_EXPORTER_OTLP_MAX_PAYLOAD_SIZE=4194304 \
