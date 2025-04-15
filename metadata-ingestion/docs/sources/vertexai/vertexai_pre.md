@@ -6,6 +6,8 @@ Please refer to the [Vertex AI documentation](https://cloud.google.com/vertex-ai
 #### Credentials to access to GCP
 Please read the section to understand how to set up application default Credentials to GCP [GCP docs](https://cloud.google.com/docs/authentication/provide-credentials-adc#how-to).
 
+To run this ingestion source, you need `roles/aiplatform.viewer` level permissions.
+
 #### Create a service account and assign roles
 
 1. Setup a ServiceAccount as per [GCP docs](https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console) and assign the previously created role to this service account.
