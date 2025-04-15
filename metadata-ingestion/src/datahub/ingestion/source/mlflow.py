@@ -612,60 +612,82 @@ class MLflowSource(StatefulIngestionSourceBase):
         page_count = 0
         total_items = 0
 
-        import http.client as http_client
-        http_client.HTTPConnection.debuglevel = 1
-        
-        # Create a separate requests session to log its activity
-        import requests
-        session = requests.Session()
-        session.hooks['response'] = lambda r, *args, **kwargs: logger.info(f"SDK Request: {r.request.method} {r.request.url} Headers: {r.request.headers} Body: {r.request.body}")
+        # logger.info(f"!!! Sending manaul request to search API")
+        # model_names = []
+        # try:
+        #     response = requests.get(f"{self.client.tracking_uri}/api/2.0/mlflow/registered-models/search")
+        #     logger.info(f"!!! Response: {response.json()}")
+        #     if response.status_code == 200:
+        #         data = response.json()
+        #         registered_models = data.get("registered_models", [])
+        #         logger.info(f"\n✅ Found {len(registered_models)} registered models:")
+        #         for m in registered_models:
+        #             # logger.info(f"- {m.get('name', 'Unnamed')}")
+        #             model_names.append(m.get("name"))
+        #     else:
+        #         logger.info(f"\n❌ Failed to fetch models. Status code: {response.status_code}")
+        #         logger.info(f"Response: {response.text}")
 
-        logger.info(f"!!! Sending manaul request to search API")
-        model_names = []
-        try:
-            response = requests.get(f"{self.client.tracking_uri}/api/2.0/mlflow/registered-models/search")
-            logger.info(f"!!! Response: {response.json()}")
-            if response.status_code == 200:
-                data = response.json()
-                registered_models = data.get("registered_models", [])
-                logger.info(f"\n✅ Found {len(registered_models)} registered models:")
-                for m in registered_models:
-                    logger.info(f"- {m.get('name', 'Unnamed')}")
-                    model_names.append(m.get("name"))
+        # except Exception as e:
+        #     logger.info(f"\n⚠️ Error occurred: {e}")
+
+        
+        # try: 
+        #     for model_name in model_names:
+        #         logger.info(f"!!! Searching for model: {model_name}")
+        #         model = self.client.get_registered_model(model_name)
+        #         logger.info(f"!!! Found model: {model}")
+        # except: 
+        #     logger.info(f"!!! Error occurred while fetching model: {model_name}")
+
+                # Add request debugging to see exact SDK requests
+        import requests as req
+        original_send = req.Session.send
+        
+        def debugging_send(session_self, request, **kwargs):
+            # Only log when it's a call to the registered-models/search endpoint
+            if "registered-models/search" in request.url:
+                logger.info(f"!!! SDK REQUEST: {request.method} {request.url}")
+                logger.info(f"!!! SDK HEADERS: {request.headers}")
+                if request.body:
+                    try:
+                        body = request.body.decode('utf-8') if isinstance(request.body, bytes) else request.body
+                        logger.info(f"!!! SDK REQUEST BODY: {body}")
+                    except:
+                        logger.info(f"!!! SDK REQUEST BODY: {request.body} (couldn't decode)")
+                
+                response = original_send(session_self, request, **kwargs)
+                
+                logger.info(f"!!! SDK RESPONSE STATUS: {response.status_code}")
+                try:
+                    logger.info(f"!!! SDK RESPONSE BODY: {response.text}")
+                except:
+                    logger.info("!!! Couldn't log SDK response body")
+                
+                return response
             else:
-                logger.info(f"\n❌ Failed to fetch models. Status code: {response.status_code}")
-                logger.info(f"Response: {response.text}")
-
-        except Exception as e:
-            logger.info(f"\n⚠️ Error occurred: {e}")
-
-        
-        try: 
-            for model_name in model_names:
-                logger.info(f"!!! Searching for model: {model_name}")
-                model = self.client.get_registered_model(model_name)
-                logger.info(f"!!! Found model: {model}")
-        except: 
-            logger.info(f"!!! Error occurred while fetching model: {model_name}")
+                return original_send(session_self, request, **kwargs)
+    
+        # Patch the requests library to intercept SDK HTTP requests
+        req.Session.send = debugging_send
 
         try:
             while True:
                 page_count += 1
                 logger.info(f"!!! Fetching page {page_count} with token: {next_page_token}")
                 
-                paged_list = search_func(page_token=next_page_token, filter_string="", order_by=None, max_results=100)
+                paged_list = search_func(page_token=next_page_token, filter_string=None, order_by=None, max_results=100)
 
-                logger.info("!!! RAW paged list repr:")
-                logger.info(paged_list)
-                logger.info("!!! List conversion result")
-                logger.info(paged_list.to_list())
+                logger.info(f"!!! RAW paged list repr: {len(paged_list)}")
+                # logger.info("!!! List conversion result")
+                # logger.info(paged_list.to_list())
 
                 items = paged_list.to_list()
                 page_items_count = len(items)
                 total_items += page_items_count
                 
                 logger.info(f"!!! Page {page_count} returned {page_items_count} items")
-                logger.info(f"!!! First few items: {items[:3] if items else 'None'}")
+                # logger.info(f"!!! First few items: {items[:3] if items else 'None'}")
                 
                 if items:
                     first_item = items[0]
@@ -784,7 +806,7 @@ class MLflowSource(StatefulIngestionSourceBase):
             logger.info(f"Found {len(model_versions_list)} versions for model {registered_model.name}")
             
             for model_version in model_versions_list:
-                logger.info(f"!!! model version: {model_version.version}")
+                # logger.info(f"!!! model version: {model_version.version}")
                 run = self._get_mlflow_run(model_version)
                 # yield self._get_ml_model_properties_workunit(
                 #     registered_model=registered_model,
