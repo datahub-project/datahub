@@ -6,7 +6,34 @@ Please refer to the [Vertex AI documentation](https://cloud.google.com/vertex-ai
 
 #### Credentials to access to GCP
 
-Please read the section to understand how to set up application default Credentials to GCP [GCP docs](https://cloud.google.com/docs/authentication/provide-credentials-adc#how-to).
+Please read the section to understand how to set up application default Credentials to [GCP docs](https://cloud.google.com/docs/authentication/provide-credentials-adc#how-to).
+
+##### Permissions
+
+- Grant the following permissions to the Service Account on every project where you would like to extract metadata from
+
+Default GCP Role which contains these permissions [roles/aiplatform.viewer](https://cloud.google.com/vertex-ai/docs/general/access-control#aiplatform.viewer)
+
+| Permission                          | Description                                                          |
+| ----------------------------------- | -------------------------------------------------------------------- |
+| `aiplatform.models.list`            | Allows a user to view and list all ML models in a project            |
+| `aiplatform.models.get`             | Allows a user to view details of a specific ML model                 |
+| `aiplatform.endpoints.list`         | Allows a user to view and list all prediction endpoints in a project |
+| `aiplatform.endpoints.get`          | Allows a user to view details of a specific prediction endpoint      |
+| `aiplatform.trainingPipelines.list` | Allows a user to view and list all training pipelines in a project   |
+| `aiplatform.trainingPipelines.get`  | Allows a user to view details of a specific training pipeline        |
+| `aiplatform.customJobs.list`        | Allows a user to view and list all custom jobs in a project          |
+| `aiplatform.customJobs.get`         | Allows a user to view details of a specific custom job               |
+| `aiplatform.experiments.list`       | Allows a user to view and list all experiments in a project          |
+| `laiplatform.experiments.get`       | Allows a user to view details of a specific experiment in a project  |
+| `aiplatform.metadataStores.list`    | allows a user to view and list all metadata store in a project       |
+| `aiplatform.metadataStores.get`     | allows a user to view details of a specific metadata store           |
+| `aiplatform.executions.list`        | allows a user to view and list all executions in a project           |
+| `aiplatform.executions.get`         | allows a user to view details of a specific execution                |
+| `aiplatform.datasets.list`          | allows a user to view and list all datasets in a project             |
+| `aiplatform.datasets.get`           | allows a user to view details of a specific dataset                  |
+| `aiplatform.pipelineJobs.get`       | allows a user to view and list all pipeline jobs in a project        |
+| `aiplatform.pipelineJobs.list`      | allows a user to view details of a specific pipeline job             |
 
 #### Create a service account and assign roles
 
