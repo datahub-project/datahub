@@ -1,0 +1,15 @@
+source:
+  type: airbyte
+  config:
+    deployment_type: oss
+    host_port: http://localhost:8000
+    username: airbyte
+    password: password
+    verify_ssl: false
+    extract_column_level_lineage: true
+    platform_instance: custom-platform
+
+sink:
+  type: file
+  config:
+    filename: airbyte_platform_instance_mces.json

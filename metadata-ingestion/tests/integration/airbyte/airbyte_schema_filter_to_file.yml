@@ -1,0 +1,20 @@
+source:
+  type: airbyte
+  config:
+    deployment_type: oss
+    host_port: http://localhost:8000
+    username: airbyte
+    password: password
+    verify_ssl: false
+    extract_column_level_lineage: true
+    source_pattern:
+      allow:
+        - ".*mysql.*"
+    destination_pattern:
+      allow:
+        - ".*postgres.*"
+
+sink:
+  type: file
+  config:
+    filename: airbyte_schema_filter_mces.json

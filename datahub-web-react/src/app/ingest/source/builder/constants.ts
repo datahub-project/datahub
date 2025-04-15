@@ -40,7 +40,10 @@ import cassandraLogo from '../../../../images/cassandralogo.png';
 import datahubLogo from '../../../../images/datahublogo.png';
 import neo4j from '../../../../images/neo4j.png';
 import vertexAI from '../../../../images/vertexai.png';
+import airbyteLogo from '../../../../images/airbytelogo.png';
 
+export const AIRBYTE = 'airbyte';
+export const AIRBYTE_URN = `urn:li:dataPlatform:${AIRBYTE}`;
 export const ATHENA = 'athena';
 export const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
 export const AZURE = 'azure-ad';
@@ -145,6 +148,7 @@ export const VERTEX_AI = 'vertexai';
 export const VERTEXAI_URN = `urn:li:dataPlatform:${VERTEX_AI}`;
 
 export const PLATFORM_URN_TO_LOGO = {
+    [AIRBYTE_URN]: airbyteLogo,
     [ATHENA_URN]: athenaLogo,
     [AZURE_URN]: azureLogo,
     [BIGQUERY_URN]: bigqueryLogo,
