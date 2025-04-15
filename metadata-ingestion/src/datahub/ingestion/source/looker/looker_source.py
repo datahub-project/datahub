@@ -279,6 +279,11 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             return []
         result = []
 
+        if query is not None:
+            logger.debug(
+                f"Processing query: model={query.model}, view={query.view}, input_fields_count={len(query.fields) if query.fields else 0}"
+            )
+
         # query.dynamic_fields can contain:
         # - looker table calculations: https://docs.looker.com/exploring-data/using-table-calculations
         # - looker custom measures: https://docs.looker.com/de/exploring-data/adding-fields/custom-measure
@@ -399,9 +404,12 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             # Get the explore from the view directly
             explores = [element.query.view] if element.query.view is not None else []
             logger.debug(
-                f"Element {element.title}: Explores added via query: {explores}"
+                f"Dashboard element {element.title} (ID: {element.id}): Upstream explores added via query={explores} with model={element.query.model}, explore={element.query.view}"
             )
             for exp in explores:
+                logger.debug(
+                    f"Adding reachable explore: model={element.query.model}, explore={exp}, element_id={element.id}, title={element.title}"
+                )
                 self.add_reachable_explore(
                     model=element.query.model,
                     explore=exp,
@@ -1207,10 +1215,16 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             view_field_for_reference = input_field.view_field
 
             if input_field.view_field is None:
+                logger.debug(
+                    f"Getting explore for input field: model={input_field.model}, explore={input_field.explore}, field={input_field.name}"
+                )
                 explore = self.explore_registry.get_explore(
                     input_field.model, input_field.explore
                 )
                 if explore is not None:
+                    logger.debug(
+                        f"Found explore with model_name={explore.model_name} for input field {input_field.name}"
+                    )
                     # add this to the list of explores to finally generate metadata for
                     self.add_reachable_explore(
                         input_field.model, input_field.explore, entity_urn
@@ -1270,6 +1284,11 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         chart_urn = self._make_chart_urn(
             element_id=dashboard_element.get_urn_element_id()
         )
+
+        logger.debug(
+            f"Creating metrics dimensions for chart {dashboard_element.id}, found {len(self._input_fields_from_dashboard_element(dashboard_element))} input fields"
+        )
+
         input_fields_aspect = InputFieldsClass(
             fields=self._input_fields_from_dashboard_element(dashboard_element)
         )
@@ -1497,6 +1516,17 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             "fields",
             "slug",
         ]
+
+        # Add special logging for processing dashboards with GRR elements
+        for explore_key, via_list in self.reachable_explores.items():
+            if "headline_and_cohort_arr" in explore_key[1]:
+                logger.debug(
+                    f"Reachable explore: model={explore_key[0]}, explore={explore_key[1]}, via={via_list}"
+                )
+                if any("GRR" in via for via in via_list if isinstance(via, str)):
+                    logger.debug(
+                        f"Found headline_and_cohort_arr explore reachable from GRR: model={explore_key[0]}, explore={explore_key[1]}"
+                    )
 
         all_looks: List[Look] = self.looker_api.all_looks(
             fields=look_fields, soft_deleted=self.source_config.include_deleted
