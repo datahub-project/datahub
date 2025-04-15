@@ -158,7 +158,7 @@ class ActionsManager(contextlib.AbstractAsyncContextManager):
         # Because this task runs within the main task group, if it raises an exception, all other running actions
         # will automatically get cancelled. It's also shielded, which means that it will only be cancelled when
         # the overall pipeline manager exits.
-        async with anyio.CancelScope(shield=True) as cs:
+        with anyio.CancelScope(shield=True) as cs:
             action_spec._action_scope = cs
 
             try:
@@ -332,7 +332,9 @@ class ActionsManager(contextlib.AbstractAsyncContextManager):
     ) -> None:
         if urn in self.job_pipelines.get(stage, {}):
             action_spec: LiveActionSpec = self.job_pipelines[stage][urn]
-            await action_spec._action_scope.cancel()
+            # TODO: This "enqueues" the cancellation, but does not wait for the cancellation to complete.
+            # We'll probably need an anyio.Event or something to make this fully work.
+            action_spec._action_scope.cancel()
             logger.info(f"Cancelled {stage} pipeline {urn}.")
 
     async def _execute_pipeline_stage(
@@ -345,7 +347,7 @@ class ActionsManager(contextlib.AbstractAsyncContextManager):
         # Because this task runs within the main task group, if it raises an exception, all other running actions
         # will automatically get cancelled. It's also shielded, which means that it will only be cancelled when
         # the overall pipeline manager exits.
-        async with anyio.CancelScope(shield=True) as cs:
+        with anyio.CancelScope(shield=True) as cs:
             action_spec._action_scope = cs
 
             try:

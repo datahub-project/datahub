@@ -30,17 +30,22 @@ ext {
     docker_repo = 'datahub-integrations-service'
 }
 
-task checkPythonVersion(type: Exec) {
-    commandLine python_executable, '-c', 'import sys; assert sys.version_info >= (3, 10)'
+task installUv(type: Exec) {
+    commandLine 'bash', '-c', """
+        if ! command -v uv &> /dev/null; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+        else
+            echo "uv is already installed"
+        fi
+    """
 }
 
-task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
-    def sentinel_file = "${venv_name}/.venv_environment_sentinel"
+task environmentSetup(type: Exec, dependsOn: installUv) {
+    def sentinel_file = "${venv_name}/.uv_venv_environment_sentinel"
     inputs.file file('pyproject.toml')
     outputs.file(sentinel_file)
     commandLine 'bash', '-c',
-        "${python_executable} -m venv ${venv_name} && " +
-        "${venv_name}/bin/python -m pip install --upgrade uv && " +
+        "uv venv --python 3.11 venv && " +
         "touch ${sentinel_file}"
 }
 

@@ -1,6 +1,6 @@
 # Defining environment
 ARG APP_ENV=prod
-ARG PYTHON_VERSION=3.10
+ARG PYTHON_VERSION=3.11
 
 # INLINE-BEGIN @/docker/snippets/ingestion_base
 # This is the "base" image workflow.

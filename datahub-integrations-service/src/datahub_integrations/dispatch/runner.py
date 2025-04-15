@@ -11,7 +11,7 @@ import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
-from typing import Any, Deque, Iterator, Optional, Type
+from typing import Any, Deque, Generator, Iterator, Optional, Type
 
 import anyio
 import anyio.abc
@@ -218,6 +218,18 @@ class VenvReference:
         }
 
 
+# From https://anyio.readthedocs.io/en/stable/migration.html#task-groups-now-wrap-single-exceptions-in-groups
+@contextlib.contextmanager
+def collapse_excgroups() -> Generator[None, None, None]:
+    try:
+        yield
+    except BaseException as exc:
+        while isinstance(exc, BaseExceptionGroup) and len(exc.exceptions) == 1:
+            exc = exc.exceptions[0]
+
+        raise exc
+
+
 class SubprocessRunner:
     def __init__(self, logs: LogHolder | None = None) -> None:
         self._logs = logs or LogHolder()
@@ -243,49 +255,38 @@ class SubprocessRunner:
         self._process = await anyio.open_process(
             command,
             env=env,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             cwd=cwd,
         )
-        async with self._process, anyio.create_task_group() as tg:
-            tg.start_soon(self._read_logs, name="read_logs")
+        with collapse_excgroups():
+            async with self._process, anyio.create_task_group() as tg:
+                tg.start_soon(self._read_logs, name="read_logs")
 
-            try:
-                await self._process.wait()
+                try:
+                    await self._process.wait()
 
-            except anyio.get_cancelled_exc_class():
-                # On cancellation, gracefully kill the subprocess.
-                if self._process.returncode is None:
-                    with anyio.CancelScope(shield=True):
-                        await self.kill()
+                except anyio.get_cancelled_exc_class():
+                    # On cancellation, gracefully kill the subprocess.
+                    if self._process.returncode is None:
+                        with anyio.CancelScope(shield=True):
+                            await self.kill()
 
-                raise
+                    raise
 
-            else:
-                # Raise if the process exited with a non-zero return code.
-                if (
-                    self._process.returncode is not None
-                    and self._process.returncode != 0
-                ):
-                    raise subprocess.CalledProcessError(
-                        returncode=self._process.returncode, cmd=command
-                    )
+                else:
+                    # Raise if the process exited with a non-zero return code.
+                    if (
+                        self._process.returncode is not None
+                        and self._process.returncode != 0
+                    ):
+                        raise subprocess.CalledProcessError(
+                            returncode=self._process.returncode, cmd=command
+                        )
 
-            finally:
-                # Cancel the log reading task.
-                tg.cancel_scope.cancel()
-
-                with anyio.CancelScope(shield=True):
-                    await self._process.aclose()
-
-                    # Workaround for a bug in Python asyncio:
-                    # https://github.com/python/cpython/issues/88050
-                    # The bug was since fixed (https://github.com/python/cpython/pull/32073)
-                    # and was backported to Python 3.11. However, it was not
-                    # backported to Python 3.10: https://github.com/python/cpython/pull/97916
-                    with contextlib.suppress(AttributeError):
-                        # We need to suppress AttributeError in case we're not running with asyncio.
-                        self._process._process._transport.close()  # type: ignore
+                finally:
+                    tg.cancel_scope.cancel()
 
     async def _read_logs(self) -> None:
         assert self._process is not None
@@ -356,7 +357,11 @@ async def setup_venv(
         runner._logs.append(f"venv at {venv_loc} already exists, skipping setup.\n")
         return venv_reference
 
-    await runner.execute([_find_uv(), "venv", str(venv_loc)])
+    # Create the venv. We need to pass --python <executable> so that uv uses the same
+    # Python as the current process.
+    await runner.execute(
+        [_find_uv(), "venv", "--python", sys.executable, str(venv_loc)]
+    )
 
     # Assemble the requirements file.
     if venv_config.requirements_file is None:

@@ -74,10 +74,13 @@ async def test_run_timeout() -> None:
 
     logs = LogHolder(echo_to_stdout_prefix="test timeout: ")
     runner = SubprocessRunner(logs)
-    with pytest.raises(TimeoutError):
+    with pytest.raises(ExceptionGroup) as exc_info:
         async with anyio.create_task_group() as _tg:
             with anyio.fail_after(1):
                 await runner.execute(["sleep", "10"])
+    assert exc_info.group_contains(TimeoutError)
+    assert not exc_info.group_contains(anyio.get_cancelled_exc_class())
+    assert not exc_info.group_contains(subprocess.CalledProcessError)
 
     # We should have timed out after about 1 second.
     assert 1 < time.perf_counter() - start_time < 1.2
@@ -95,9 +98,8 @@ async def test_run_yes() -> None:
     # The `yes` command generates output indefinitely. This test ensures
     # that we handle log reading cleanup correctly during a cancellation.
     with pytest.raises(TimeoutError):
-        async with anyio.create_task_group() as _tg:
-            with anyio.fail_after(1):
-                await runner.execute(["yes", "wooooo " * 20])
+        with anyio.fail_after(1):
+            await runner.execute(["yes", "wooooo " * 20])
 
     assert "wooooo" in logs.get_logs()
 

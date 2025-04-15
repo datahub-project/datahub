@@ -9,7 +9,7 @@ description = ""
 authors = [
 	{ name="Acryl Data", email="eng@acryl.io" },
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 
 dependencies = [
 	"acryl-datahub[base,snowflake,bigquery]",
@@ -23,8 +23,7 @@ dependencies = [
 	# Actions.
 	"acryl-datahub-actions==0.2.0",
 	"httpx",
-	# Our usage of anyio currently requires 3.x because of the way it handles exception groups.
-	"anyio>=3,<4",
+	"anyio>=4",
 	"asyncer",
 	"reactpy",
 	"reactpy-router",
@@ -49,7 +48,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
 	"acryl-datahub[testing-utils]",
-	"ruff==0.9.6",
+	"ruff==0.11.4",
 	"pytest",
 	"mypy",
 	"pytest-cov",
@@ -77,7 +76,7 @@ dbt_sync_back = "datahub_integrations.dbt.dbt_sync_back:DbtSyncBackAction"
 ai_term_suggestion = "datahub_integrations.gen_ai.term_suggestion_action:TermSuggestionAction"
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py311"
 line-length = 88
 exclude = [
 	".git",
