@@ -103,10 +103,14 @@ jobs:
             -x :datahub-web-react:build \
             -x :metadata-integration:java:datahub-schematron:cli:test \
             --parallel
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - name: Gradle build (and test) for frontend
         if: ${{  matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' }}
         run: |
           ./gradlew :datahub-frontend:build :datahub-web-react:build --parallel
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - name: Gradle compile (jdk8) for legacy Spark
         if: ${{  matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' }}
         run: |
