@@ -6,6 +6,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import {
     Container,
+    DataProcessRunEvent,
     DataProduct,
     Deprecation,
     Domain,
@@ -41,7 +42,7 @@ export const Preview = ({
     health,
     parentEntities,
     parentContainers,
-    dataProcessInstanceProps,
+    lastRunEvent,
 }: {
     urn: string;
     name: string;
@@ -64,11 +65,7 @@ export const Preview = ({
     health?: Health[] | null;
     parentEntities?: Array<GeneratedEntity> | null;
     parentContainers?: ParentContainersResult | null;
-    dataProcessInstanceProps?: {
-        startTime?: number;
-        duration?: number;
-        status?: string;
-    };
+    lastRunEvent?: DataProcessRunEvent | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -97,7 +94,7 @@ export const Preview = ({
             paths={paths}
             health={health || undefined}
             parentEntities={parentEntities}
-            dataProcessInstanceProps={dataProcessInstanceProps}
+            lastRunEvent={lastRunEvent}
         />
     );
 };

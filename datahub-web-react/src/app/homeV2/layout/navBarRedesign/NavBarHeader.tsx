@@ -45,7 +45,6 @@ const Title = styled.div`
     overflow: hidden;
     max-width: calc(100% - 30px);
     text-overflow: ellipsis;
-    height: 24px;
     display: flex;
     align-items: end;
 `;

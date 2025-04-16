@@ -160,8 +160,6 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
         const genericProperties = this.getGenericEntityProperties(data);
         const parentEntities = getParentEntities(data);
 
-        const firstState = data?.state && data.state.length > 0 ? data.state[0] : undefined;
-
         return (
             <Preview
                 urn={data.urn}
@@ -181,11 +179,7 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                 parentContainers={data.parentContainers}
                 parentEntities={parentEntities}
                 container={data.container || undefined}
-                dataProcessInstanceProps={{
-                    startTime: firstState?.timestampMillis,
-                    duration: firstState?.durationMillis ?? undefined,
-                    status: firstState?.result?.resultType ?? undefined,
-                }}
+                lastRunEvent={data.state?.[0]}
             />
         );
     };

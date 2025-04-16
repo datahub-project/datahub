@@ -26,6 +26,7 @@ import { useRemoveDataProductAssets, useRemoveDomainAssets, useRemoveGlossaryTer
 import { useSearchContext } from '@app/search/context/SearchContext';
 import useContentTruncation from '@app/shared/useContentTruncation';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import DataProcessInstanceInfo from '@src/app/preview/DataProcessInstanceInfo';
 
 import {
     BrowsePathV2,
@@ -244,6 +245,9 @@ export default function DefaultPreviewCard({
 
     const { removeRelationship, removeButtonText } = useRemoveRelationship(entityType);
 
+    const lastRunEvent = data?.lastRunEvent;
+    const shouldShowDPIinfo =
+        lastRunEvent?.timestampMillis || lastRunEvent?.durationMillis || lastRunEvent?.result?.resultType;
     const entityHeader = (
         <EntityHeader
             name={name}
@@ -320,6 +324,11 @@ export default function DefaultPreviewCard({
                             <CompactMarkdownViewer content={description} />
                         </Documentation>
                     ) : null}
+                    {shouldShowDPIinfo && (
+                        <RowContainer style={{ marginTop: 8, justifyContent: 'flex-end' }}>
+                            <DataProcessInstanceInfo {...lastRunEvent} />
+                        </RowContainer>
+                    )}
                 </>
             ) : (
                 <CompactView
