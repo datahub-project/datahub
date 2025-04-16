@@ -92,10 +92,6 @@ shadowJar {
   // acryl-main doesn't perform any re-locations. I don't exactly know why, but keeping this comment here for future readers
 }
 
-checkShadowJar {
-   dependsOn shadowJar
-}
-
 assemble {
     dependsOn shadowJar
 }

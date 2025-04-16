@@ -185,7 +185,6 @@ shadowJar {
   relocate 'org.apache.hc', 'io.acryl.shaded.org.apache.hc'
   relocate 'org.reactivestreams', 'io.acryl.shaded.org.reactivestreams'
   relocate 'software.amazon.eventstream', 'io.acryl.shaded.software.amazon.eventstream'
-  finalizedBy checkShadowJar
 }
 
 assemble {
