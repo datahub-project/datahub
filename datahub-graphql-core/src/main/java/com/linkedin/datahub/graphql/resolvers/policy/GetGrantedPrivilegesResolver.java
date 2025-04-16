@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import com.datahub.authorization.AuthorizerChain;
 import com.datahub.authorization.DataHubAuthorizer;
 import com.datahub.authorization.EntitySpec;
+import com.datahub.authorization.PolicyEngine;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -13,14 +14,15 @@ import com.linkedin.datahub.graphql.generated.Privileges;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Resolver to support the getGrantedPrivileges end point Fetches all privileges that are granted
  * for the given actor for the given resource (optional)
  */
+@Slf4j
 public class GetGrantedPrivilegesResolver implements DataFetcher<CompletableFuture<Privileges>> {
 
   @Override
@@ -44,9 +46,29 @@ public class GetGrantedPrivilegesResolver implements DataFetcher<CompletableFutu
     if (context.getAuthorizer() instanceof AuthorizerChain) {
       DataHubAuthorizer dataHubAuthorizer =
           ((AuthorizerChain) context.getAuthorizer()).getDefaultAuthorizer();
-      List<String> privileges = dataHubAuthorizer.getGrantedPrivileges(actor, resourceSpec);
+
       return GraphQLConcurrencyUtils.supplyAsync(
-          () -> Privileges.builder().setPrivileges(privileges).build(),
+          () -> {
+            try {
+              PolicyEngine.PolicyGrantedPrivileges evalResult =
+                  dataHubAuthorizer.getGrantedPrivileges(actor, resourceSpec);
+
+              evalResult
+                  .getReasonOfDeny()
+                  .forEach(
+                      (k, v) -> {
+                        log.info("Policy {} denied due to {}", k, v);
+                      });
+
+              return Privileges.builder()
+                  .setPrivileges(evalResult.getPrivileges())
+                  .setEvaluationDetails(null)
+                  .build();
+            } catch (Exception e) {
+              log.error("Failed to get granted privileges", e);
+              throw new RuntimeException("Failed to get granted privileges", e);
+            }
+          },
           this.getClass().getSimpleName(),
           "get");
     }

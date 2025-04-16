@@ -9620,6 +9620,11 @@ input GetGrantedPrivilegesInput {
   Spec to identify resource. If empty, gets privileges granted to the actor
   """
   resourceSpec: ResourceSpec
+
+  """
+  Whether to include policy evaluation details
+  """
+  includeEvaluationDetails: Boolean = false
 }
 
 """
@@ -9645,6 +9650,11 @@ type Privileges {
   Granted Privileges
   """
   privileges: [String!]!
+
+  """
+  Details about how each policy was evaluated
+  """
+  evaluationDetails: [PolicyEvaluationDetail!]
 }
 
 """
@@ -13297,4 +13307,24 @@ extend type DataProcessInstance {
   The parent entity whose run instance it is
   """
   parentTemplate: Entity
+}
+
+"""
+Details about how a policy was evaluated for a given actor and resource
+"""
+type PolicyEvaluationDetail {
+  """
+  The policy that was evaluated
+  """
+  policyUrn: String!
+
+  """
+  Whether the policy granted access
+  """
+  granted: Boolean!
+
+  """
+  The privileges that were granted by this policy
+  """
+  grantedPrivileges: [String!]!
 }
