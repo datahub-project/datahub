@@ -1,5 +1,5 @@
 import { NestedSelect } from '@src/alchemy-components/components/Select/Nested/NestedSelect';
-import { SelectOption } from '@src/alchemy-components/components/Select/Nested/types';
+import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { useListOwnershipTypesQuery } from '@src/graphql/ownership.generated';
 import { OwnershipTypeEntity } from '@src/types.generated';
 import { Form } from 'antd';
@@ -37,7 +37,7 @@ const OwnershipTypeSelector = () => {
                 entity: ownershipType,
             })) || [];
 
-    function handleUpdate(values: SelectOption[]) {
+    function handleUpdate(values: NestedSelectOption[]) {
         if (values.length) {
             const allowedOwnershipTypes = values.map((v) => v.entity).filter((r) => !!r);
             form.setFieldValue(['ownershipParams', 'allowedOwnershipTypes'], allowedOwnershipTypes);

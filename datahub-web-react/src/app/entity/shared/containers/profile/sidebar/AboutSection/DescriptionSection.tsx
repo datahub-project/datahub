@@ -2,6 +2,7 @@ import { Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
+import DOMPurify from 'dompurify';
 import CompactContext from '../../../../../../shared/CompactContext';
 import MarkdownViewer, { MarkdownView } from '../../../../components/legacy/MarkdownViewer';
 import NoMarkdownViewer, { removeMarkdown } from '../../../../components/styled/StripMarkdownText';
@@ -68,12 +69,15 @@ export default function DescriptionSection({ description, baDescription, isExpan
         }
     }
 
+    const sanitizedDescription = DOMPurify.sanitize(description);
+    const sanitizedBADescription = DOMPurify.sanitize(baDescription || '');
+
     return (
         <>
             <ContentWrapper>
                 {isExpanded && (
                     <>
-                        <MarkdownViewer source={description} ignoreLimit />
+                        <MarkdownViewer source={sanitizedDescription} ignoreLimit />
                         {isOverLimit && (
                             <Typography.Link onClick={() => setIsExpanded(false)}>Read Less</Typography.Link>
                         )}
@@ -89,14 +93,14 @@ export default function DescriptionSection({ description, baDescription, isExpan
                         }
                         shouldWrap
                     >
-                        {description}
+                        {sanitizedDescription}
                     </NoMarkdownViewer>
                 )}
             </ContentWrapper>
             <BaContentWrapper>
                 {isBaExpanded && (
                     <>
-                        <MarkdownViewer source={baDescription || ''} ignoreLimit />
+                        <MarkdownViewer source={sanitizedBADescription || ''} ignoreLimit />
                         {isBaOverLimit && (
                             <Typography.Link onClick={() => setIsBaExpanded(false)}>Read Less</Typography.Link>
                         )}
@@ -112,7 +116,7 @@ export default function DescriptionSection({ description, baDescription, isExpan
                         }
                         shouldWrap
                     >
-                        {baDescription}
+                        {sanitizedBADescription}
                     </NoMarkdownViewer>
                 )}
             </BaContentWrapper>

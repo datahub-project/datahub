@@ -4,7 +4,7 @@ import {
     useGetContractProposalsQuery,
     useGetDatasetContractQuery,
 } from '../../../../../../../graphql/contract.generated';
-import { DataContractState } from '../../../../../../../types.generated';
+import { DataContract, DataContractState } from '../../../../../../../types.generated';
 import { useEntityData } from '../../../../../../entity/shared/EntityContext';
 import { DataContractProposal } from './proposal/DataContractProposal';
 import { DataContractSummary } from './DataContractSummary';
@@ -16,6 +16,7 @@ import { createBuilderState } from './builder/utils';
 import { getAssertionsSummary } from '../acrylUtils';
 import { DataContractEmptyState } from '../../../../../../entity/shared/tabs/Dataset/Validations/contract/DataContractEmptyState';
 import { useIsActiveProposal } from '../utils';
+import { ContractStructuredPropertiesSummary } from './ContractStructuredPropertiesSummary';
 
 const Container = styled.div`
     display: flex;
@@ -64,6 +65,8 @@ export const DataContractTab = () => {
     const hasFreshnessContract = freshnessContracts && freshnessContracts?.length;
     const hasSchemaContract = schemaContracts && schemaContracts?.length;
     const hasDataQualityContract = dataQualityContracts && dataQualityContracts?.length;
+    const hasStructuredProperties =
+        contract?.structuredProperties && (contract?.structuredProperties?.properties?.length || 0) > 0;
     const showLeftColumn = hasFreshnessContract || hasSchemaContract || undefined;
 
     const isActiveProposal = useIsActiveProposal(dataContractProposalData);
@@ -105,6 +108,12 @@ export const DataContractTab = () => {
                             </LeftColumn>
                         )}
                         <RightColumn>
+                            {hasStructuredProperties && contract && (
+                                <ContractStructuredPropertiesSummary
+                                    contract={contract as DataContract}
+                                    refetch={refetch}
+                                />
+                            )}
                             {hasDataQualityContract ? (
                                 <DataQualityContractSummary
                                     contracts={dataQualityContracts as any}

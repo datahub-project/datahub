@@ -951,7 +951,7 @@ jobs:
         if: ${{ needs.setup.outputs.ingestion_base_change == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
         with:
-          target: base-empty
+          target: ingestion-base-full
           images: |
             ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
           image_tag: ${{ needs.setup.outputs.tag }}
@@ -1046,7 +1046,7 @@ jobs:
 
   datahub_ingestion_slim_build:
     name: Build and Push DataHub Ingestion Docker Images
-    runs-on: depot-ubuntu-22.04-small
+    runs-on: depot-ubuntu-22.04
     outputs:
       tag: ${{ needs.setup.outputs.ingestion_change == 'true' && needs.setup.outputs.unique_slim_tag || 'head-slim' }}
       needs_artifact_download: ${{ needs.setup.outputs.ingestion_change == 'true' && ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true') }}
@@ -1065,6 +1065,10 @@ jobs:
           distribution: "zulu"
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
+      - uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}/build/dockerBuildContext/
+          key: ${{ runner.os }}-docker-${{ github.sha }}
       - name: Build codegen
         if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish =='true' || needs.setup.outputs.pr-publish =='true' }}
         run: ./gradlew :metadata-ingestion:codegen
@@ -1174,6 +1178,9 @@ jobs:
           registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+      - name: Build codegen
+        if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish =='true' || needs.setup.outputs.pr-publish =='true' }}
+        run: ./gradlew :metadata-ingestion:codegen
       - name: Build and push Full Image
         if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
@@ -1189,7 +1196,7 @@ jobs:
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
-          context: ./build/dockerBuildContext/docker/datahub-ingestion/docker
+          context: .
           file: ./docker/datahub-ingestion/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
           # Workaround 2025-01-25 - Depot publishing errors
@@ -1285,6 +1292,7 @@ jobs:
         setup,
         smoke_test_matrix,
         base_build,
+        datahub_ingestion_slim_build,
       ]
     strategy:
       fail-fast: false
@@ -1525,19 +1533,13 @@ jobs:
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
       - name: Update versions
         run: |
-          sed -i 's/__version__ = .*$/__version__ = "${{ needs.setup.outputs.python_release_version }}"/g' ./datahub-integrations-service/src/datahub_integrations/__init__.py
-          sed -i 's/^version = .*$/version = "${{ needs.setup.outputs.python_release_version }}"/g' ./datahub-integrations-service/pyproject.toml
-          cat ./datahub-integrations-service/src/datahub_integrations/__init__.py
-          cat ./datahub-integrations-service/pyproject.toml
+          python python-build/version_updater.py --directory ./datahub-integrations-service --version ${{ needs.setup.outputs.python_release_version }} --expected-update-count 2
+          python python-build/version_updater.py --directory ./metadata-ingestion --version ${{ needs.setup.outputs.python_release_version }} --expected-update-count 1
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
-          target: final
           images: |
             ${{ env.DATAHUB_INTEGRATIONS_IMAGE }}
-          build-args: |
-            BASE_IMAGE=${{ env.DATAHUB_INGESTION_IMAGE }}
-            DOCKER_VERSION=${{ needs.datahub_ingestion_slim_build.outputs.tag || 'head-slim' }}
           image_tag: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
@@ -1550,13 +1552,8 @@ jobs:
         if: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
         with:
-          target: final
           images: |
             ${{ env.ACRYLIO_DOCKER_INTEGRATIONS_IMAGE }}
-          build-args: |
-            BASE_IMAGE=${{ env.DATAHUB_INGESTION_IMAGE }}
-            DOCKER_VERSION=${{ needs.datahub_ingestion_slim_build.outputs.tag || 'head-slim' }}
-            RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
           image_tag: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}

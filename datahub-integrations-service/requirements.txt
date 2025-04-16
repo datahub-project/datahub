@@ -376,7 +376,7 @@ lxml==5.2.1
     # via reactpy
 makefun==1.15.2
     # via great-expectations
-marisa-trie==1.1.0
+marisa-trie==1.2.1
     # via language-data
 markupsafe==2.1.5
     # via
@@ -531,7 +531,7 @@ protobuf==4.25.5
     #   grpc-google-iam-v1
     #   grpcio-status
     #   proto-plus
-psutil==5.9.8
+psutil==7.0.0
     # via
     #   acryl-datahub
     #   ipykernel

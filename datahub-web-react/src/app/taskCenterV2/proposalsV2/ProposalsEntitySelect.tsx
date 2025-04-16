@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Entity } from '@src/types.generated';
 import _ from 'lodash';
 import { Pill, SimpleSelect } from '@src/alchemy-components';
-import { SelectOption } from '@src/alchemy-components/components/Select/Nested/types';
+import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@src/graphql/search.generated';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import EntitySearchInputResultV2 from '@src/app/entityV2/shared/EntitySearchInput/EntitySearchInputResultV2';
@@ -29,7 +29,7 @@ export const ProposalsEntitySelect = ({
     const [selectedEntityList, setSelectedEntityList] = useState<any>(
         selected || defaultSuggestions?.map((e) => e?.urn) || [],
     );
-    const [selectedEntityOptions, setSelectedEntityOptions] = useState<SelectOption[]>([]);
+    const [selectedEntityOptions, setSelectedEntityOptions] = useState<NestedSelectOption[]>([]);
 
     // Autocomplete results
     const [autoComplete, { data: autoCompleteData }] = useGetAutoCompleteMultipleResultsLazyQuery();
@@ -52,7 +52,7 @@ export const ProposalsEntitySelect = ({
     }, [entityRegistry, suggestions]);
 
     const handleUpdate = (values: string[]) => {
-        const newSelectedOptions: SelectOption[] = [];
+        const newSelectedOptions: NestedSelectOption[] = [];
         values.forEach((value) => {
             const alreadySelected = newSelectedOptions.find((item) => item?.value === value);
 
@@ -62,7 +62,7 @@ export const ProposalsEntitySelect = ({
                     selectedEntityOptions.find((o) => o?.value === value);
 
                 if (option) {
-                    newSelectedOptions.push(option as SelectOption);
+                    newSelectedOptions.push(option as NestedSelectOption);
                 }
             }
         });
@@ -77,7 +77,7 @@ export const ProposalsEntitySelect = ({
         handleUpdate(selectedAssets);
     };
 
-    const renderSelectedEntity = (selectedOption: SelectOption) => {
+    const renderSelectedEntity = (selectedOption: NestedSelectOption) => {
         return selectedOption ? (
             <Pill
                 key={selectedOption.value}
@@ -94,7 +94,7 @@ export const ProposalsEntitySelect = ({
         ) : null;
     };
 
-    const renderCustomEntityOption = (option: SelectOption) => {
+    const renderCustomEntityOption = (option: NestedSelectOption) => {
         return <>{option.entity && <EntitySearchInputResultV2 entity={option.entity} />}</>;
     };
 

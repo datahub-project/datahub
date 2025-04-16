@@ -13,6 +13,7 @@ const modalBodyStyle = { padding: 0, fontFamily: 'Mulish, sans-serif' };
 
 type IncidentDetailDrawerProps = {
     entity: EntityStagedForIncident;
+    urn: string;
     mode: IncidentAction;
     incident?: IncidentTableRow;
     onCancel?: () => void;
@@ -22,6 +23,7 @@ type IncidentDetailDrawerProps = {
 
 export const IncidentDetailDrawer = ({
     entity,
+    urn,
     mode,
     onCancel,
     onSubmit,
@@ -80,6 +82,7 @@ export const IncidentDetailDrawer = ({
                         mode={mode}
                         incidentUrn={incident?.urn}
                         onSubmit={handleSubmit}
+                        urn={urn}
                     />
                 ) : (
                     <IncidentView incident={incident as IncidentTableRow} />

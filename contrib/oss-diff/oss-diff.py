@@ -37,7 +37,8 @@ assert (_repo_root / ".git").exists(), f"Expected {_repo_root} to be a git repo"
 app = typer.Typer()
 
 _default_oss_branch = os.getenv("OSS_BRANCH", "master")
-_default_change_specifier = f"{_default_oss_branch}..."
+_default_saas_branch = os.getenv("SAAS_BRANCH", "")  # empty = HEAD
+_default_change_specifier = f"{_default_oss_branch}...{_default_saas_branch}"
 
 
 class ChangeType(Enum):

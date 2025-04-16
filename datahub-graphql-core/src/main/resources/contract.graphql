@@ -41,6 +41,17 @@ type DataContract implements Entity {
   status: DataContractStatus
 
   """
+  Structured properties about this Data Contract
+  """
+  structuredProperties: StructuredProperties
+
+  """
+  List of relationships between the source Entity and some destination entities with a given types
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  # SaaS Only
+  """
   The result of the Data Contract
   """
   result(
@@ -50,11 +61,6 @@ type DataContract implements Entity {
     Returns null if there is NO contract. Contract is PASSING if there are no assertions inside of it.
     """
     refresh: Boolean): DataContractResult
-
-  """
-  List of relationships between the source Entity and some destination entities with a given types
-  """
-  relationships(input: RelationshipsInput!): EntityRelationshipsResult
 }
 
 type DataContractProperties {
@@ -217,4 +223,3 @@ input DataQualityContractInput {
   """
   assertionUrn: String!
 }
-

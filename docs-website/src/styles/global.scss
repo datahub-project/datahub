@@ -27,11 +27,11 @@
 
   /* Navbar */
   --ifm-navbar-background-color: var(--ifm-background-color);
-  --ifm-navbar-height: 70px;
+  --ifm-navbar-height: 60px;
   --ifm-navbar-item-padding-horizontal: 1rem;
 
   /* Announcement Bar */
-  --docusaurus-announcement-bar-height: 48px !important;
+  --docusaurus-announcement-bar-height: 45px !important;
 
   /* Rule */
   --ifm-hr-border-width: 1px 0 0 0;
@@ -104,71 +104,143 @@ main>h1 {
 /* Announcement Bar */
 
 div[class^="announcementBar"] {
-  z-index: calc(var(--ifm-z-index-fixed) - 1);
+  z-index: 9999 !important;
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--docusaurus-announcement-bar-height);
+  font-size: 0.9rem;
 
   div {
+    height: 100%;
     display: flex;
     align-items: center;
-    padding: 0 .5rem;
-    justify-content: space-between;
+    justify-content: center;
+    padding: 0;
     font-size: 1rem;
 
-    >div {
+    .shimmer-banner {
+      width: 100%;
+      height: 100%;
       display: flex;
+      justify-content: center;
       align-items: center;
-      > div {
-        @media (max-width: 580px) {
-            display: none;
-          }
-      }
-      a>span {
-        @media (max-width: 580px) {
-          display: none;
-        }
-      }
-
-      >p {
-        text-align: left;
-        line-height: 1.1rem;
-        margin: 0;
-
-        @media (max-width: 580px) {
-          font-size: .9rem;
-        }
-        // >span {
-        //   @media (max-width: 780px) {
-        //     display: none;
-        //   }
-        // }
-
-        // @media (max-width: 480px) {
-        //   display: none;
-        // }
-      }
-    }
-
-    img {
-      width: 24px;
-      height: auto;
-      margin-right: 1rem;
-    }
-
-    a {
-      color: #EFB300;
-      text-decoration: none;
+      background: linear-gradient(
+        75deg,
+        #1c1e21 0%,    /* Gray 800 */
+        #333c48 50%,   /* Slightly lighter - blue streak */
+        #1c1e21 100%   /* Gray 800 */
+      );
+      background-size: 400% 400%;
+      animation: shimmer 10s ease-in-out infinite;
       font-size: 1rem;
-      padding-right: 0;
-      padding-left: 12px;
-      min-width: 108px;
+
+      p {
+        margin: 0;
+        padding: 0;
+        color: white;
+        font-weight: 500;
+      }
+
+      .button {
+        // animation: electric-wire 3s linear infinite;
+        background: transparent;
+        border-radius: 50px;
+        padding: 4px 12px;
+        margin-left: 12px;
+        transition: all 0.2s ease;
+        position: relative;
+        text-decoration: none;
+
+        div {
+          position: relative;
+          z-index: 1;
+          color: white;
+          font-size: 0.8rem;
+        }
+        &::before {
+          content: '';
+          z-index: 0;
+          background: conic-gradient(from var(--electric-wire-angle, 0deg), transparent, rgba(255, 255, 255, 0.751) 5%, transparent 20%);
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          border-radius: 100px;
+          animation: electric-wire 3s linear infinite;
+        }
+        &::after {
+          content: '';
+          z-index: 0;
+          height: calc(100% - 2px);
+          width: calc(100% - 2px);
+          position: absolute;
+          top: 1px;
+          left: 1px;
+          border-radius: 100px;
+          background-color: #444a50;
+          transition: all 1s;
+        }
+
+        &:hover {
+          border-color: rgba(250, 251, 255, 0.6);
+          &::after {
+            background-color: #767e88;
+          }
+        }
+      }
     }
   }
 }
 
-/** Navbar */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 50%;
+  }
+  50% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
 
+@property --electric-wire-angle {
+  syntax: '<angle>';
+  initial-value: 1deg;
+  inherits: false;
+}
+
+@keyframes electric-wire {
+  0% {
+    --electric-wire-angle: 1deg;
+  }
+  100% {
+    --electric-wire-angle: 360deg;
+  }
+}
+
+/* Add padding to body to prevent content from hiding under fixed elements */
+body {
+  padding-top: calc(var(--docusaurus-announcement-bar-height) + var(--ifm-navbar-height));
+}
+
+/** Navbar */
 .navbar {
+  position: fixed !important;
+  top: var(--docusaurus-announcement-bar-height);
+  left: 0;
+  right: 0;
+  margin: 0;
+  height: var(--ifm-navbar-height);
+  z-index: 9998;
+  background-color: var(--ifm-navbar-background-color);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.1);
+
   .navbar__logo {
-    height: 3rem;
+    height: 2.5rem;
   }
 
   .navbar__link {
@@ -524,7 +596,69 @@ div[class^="announcementBar"] {
   }
 }
 
+/* Algolia Search Modal Z-index & Position - DESKTOP */
+.DocSearch-Container {
+  z-index: 10000 !important;
+  top: 105px !important; /* Position overlay directly below fixed header+navbar (45px + 60px) */
+}
 
+.DocSearch-Modal {
+  margin-top: 10px !important; /* Add 10px gap between overlay top and modal */
+}
+
+/* Media queries for responsive design */
+@media (max-width: 768px) {
+  div[class^="announcementBar"] {
+    height: 72px !important; /* Increase height for stacked content */
+  }
+
+  div[class^="announcementBar"] .shimmer-banner {
+    flex-direction: column; /* Stack text and button */
+    padding: auto 1rem; /* Adjust padding */
+    justify-content: center; /* Center items vertically */
+    text-align: center; /* Center text */
+    gap: 0.2rem; /* Add space BETWEEN flex items */
+
+    p {
+      font-size: 0.9rem;
+      margin-right: 0;
+      margin-top: 0;
+      margin-left: 0;
+    }
+
+    .button {
+      margin-left: 0;
+      font-size: 0.7rem;
+      padding: 3px 10px;
+    }
+  }
+
+  /* Adjust body padding to account for taller announcement bar */
+  body {
+    padding-top: calc(65px + var(--ifm-navbar-height));
+  }
+
+  /* Adjust navbar top position */
+  .navbar {
+    top: 65px !important;
+  }
+
+  /* Adjust Search Modal position for taller header */
+  .DocSearch-Container {
+    top: 125px !important; /* 65px announcement + 60px navbar */
+  }
+  .DocSearch-Modal {
+    margin-top: 10px !important; /* Maintain 10px gap from container top */
+  }
+}
+
+/* Extra small screens */
+@media (max-width: 480px) {
+  div[class^="announcementBar"] .shimmer-banner p {
+    font-size: 0.8rem; /* Slightly smaller font for very narrow screens */
+  }
+  /* Other overrides for extra small screens can go here if needed */
+}
 
 @keyframes expand-on-scroll {
   from {
@@ -533,4 +667,8 @@ div[class^="announcementBar"] {
   to {
       transform: scaleY(1);
   }
+}
+
+.announcementBar .button {
+  border-radius: 50px;
 }

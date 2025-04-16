@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.datacontract;
 
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.DataContract;
 import com.linkedin.datahub.graphql.generated.DataContractProperties;
@@ -9,16 +10,20 @@ import com.linkedin.datahub.graphql.generated.DataQualityContract;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FreshnessContract;
 import com.linkedin.datahub.graphql.generated.SchemaContract;
+import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
+import com.linkedin.structured.StructuredProperties;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class DataContractMapper {
 
-  public static DataContract mapContract(@Nonnull final EntityResponse entityResponse) {
+  public static DataContract mapContract(
+      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
     final DataContract result = new DataContract();
     final EnvelopedAspectMap aspects = entityResponse.getAspects();
 
@@ -35,6 +40,16 @@ public class DataContractMapper {
     } else {
       throw new RuntimeException(
           String.format("Data Contract does not exist!. urn: %s", entityResponse.getUrn()));
+    }
+
+    final EnvelopedAspect dataContractStructuredProperties =
+        aspects.get(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME);
+    if (dataContractStructuredProperties != null) {
+      result.setStructuredProperties(
+          StructuredPropertiesMapper.map(
+              context,
+              new StructuredProperties(dataContractStructuredProperties.getValue().data()),
+              entityResponse.getUrn()));
     }
 
     final EnvelopedAspect dataContractStatus =

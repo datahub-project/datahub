@@ -31,8 +31,6 @@ import java.util.stream.Collectors;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-// single threaded to prevent sql logging collisions
-@Test(singleThreaded = true)
 public class EbeanEntityServiceOptimizationTest {
   /*
    Counts for ORM optimization calculations
@@ -234,7 +232,7 @@ public class EbeanEntityServiceOptimizationTest {
       entityService.ingestProposal(opContext, batch, false);
       // First collect all SQL statements that start with "txn[]"
       List<String> allSqlStatements = new ArrayList<>();
-      for (String sqlGroup : LoggedSql.collect()) {
+      for (String sqlGroup : new ArrayList<>(LoggedSql.collect())) {
         // Split by "txn[]" but preserve the prefix
         String[] parts = sqlGroup.split("(?=txn\\[\\])");
         for (String part : parts) {

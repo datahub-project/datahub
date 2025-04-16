@@ -1,5 +1,5 @@
 import { NestedSelect } from '@src/alchemy-components/components/Select/Nested/NestedSelect';
-import { SelectOption } from '@src/alchemy-components/components/Select/Nested/types';
+import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import {
     useGetAutoCompleteMultipleResultsLazyQuery,
@@ -59,7 +59,7 @@ const OwnershipSelector = () => {
         }
     }
 
-    function handleUpdate(values: SelectOption[]) {
+    function handleUpdate(values: NestedSelectOption[]) {
         if (values.length) {
             const allowedOwners = values.map((v) => v.entity).filter((r) => !!r);
             form.setFieldValue(['ownershipParams', 'allowedOwners'], allowedOwners);

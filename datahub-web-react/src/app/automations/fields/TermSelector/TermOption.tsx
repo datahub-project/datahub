@@ -1,3 +1,4 @@
+import { NestedSelectOption } from '@components/components/Select/Nested/types';
 import React, { useState, useEffect } from 'react';
 import { Radio } from 'antd';
 import styled from 'styled-components';
@@ -8,7 +9,6 @@ import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
 import { isResolutionRequired } from '@src/app/entityV2/view/builder/utils';
 import { LoadingOutlined } from '@ant-design/icons';
 import { EntityType } from '@src/types.generated';
-import { SelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import type { SelectDropdownProps, RadioValue } from './types';
 import { SelectDropdown } from './SelectDropdown';
 import { useGlossaryOptionsBuilder } from '../hooks';
@@ -119,7 +119,7 @@ const GlossaryTermDropdownSwitcher = ({
 }: {
     shouldUseGlossaryTermComponent?: boolean;
     loading: boolean;
-    onUpdate: (values: SelectOption[]) => void;
+    onUpdate: (values: NestedSelectOption[]) => void;
     initialOptions: any[];
     selects: SelectDropdownProps[]; // Dropdown options for selection
     handleTermsChange: (values: any, entity: EntityType) => void;
@@ -227,7 +227,7 @@ export const TermOption = ({
     }, [preselectedValue]);
 
     // Handle updates from glossary terms selector
-    const onUpdate = (values: SelectOption[]) => {
+    const onUpdate = (values: NestedSelectOption[]) => {
         const newSelectedOptions = values.reduce<SelectedOptionType>(
             (acc, glossary) => {
                 const { isParent, value } = glossary;

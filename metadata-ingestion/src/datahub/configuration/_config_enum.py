@@ -1,5 +1,4 @@
 from enum import Enum
-from typing import cast
 
 import pydantic
 import pydantic.types
@@ -11,12 +10,12 @@ from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
 class ConfigEnum(Enum):
     # Ideally we would use @staticmethod here, but some versions of Python don't support it.
     # See https://github.com/python/mypy/issues/7591.
-    def _generate_next_value_(name, start, count, last_values) -> str:  # type: ignore
+    def _generate_next_value_(  # type: ignore
+        name: str, start, count, last_values
+    ) -> str:
         # This makes the enum value match the enum option name.
         # From https://stackoverflow.com/a/44785241/5004662.
-        # Type checkers think name is a ConfigEnum instance, but this is a special case.
-        # See https://github.com/microsoft/pyright/issues/800
-        return cast(str, name)
+        return name
 
     if PYDANTIC_VERSION_2:
         # if TYPE_CHECKING:

@@ -10,10 +10,11 @@ source:
     client_secret: bar
     
     # Ingest elements of below PowerBi Workspace into Datahub
-    workspace_id_pattern:
+    workspace_name_pattern:
       allow:
-        - 4bd10256-e999-45dd-8e56-571c77153a5f
+        - MyWorkspace
       deny:
+        - PrivateWorkspace
 
     # Enable / Disable ingestion of ownership information for dashboards
     extract_ownership: true

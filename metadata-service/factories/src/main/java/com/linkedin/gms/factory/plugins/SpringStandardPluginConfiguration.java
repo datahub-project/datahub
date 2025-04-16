@@ -217,6 +217,7 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
+  @ConditionalOnProperty(name = "featureFlags.entityVersioning", havingValue = "true")
   public AspectPayloadValidator versionPropertiesValidator() {
     return new VersionPropertiesValidator()
         .setConfig(

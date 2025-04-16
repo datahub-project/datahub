@@ -138,6 +138,6 @@ def diff_metadata_json(
     return DeepDiff(
         golden,
         output,
-        exclude_regex_paths=list(ignore_paths),
+        exclude_regex_paths=ignore_paths,
         ignore_order=ignore_order,
     )

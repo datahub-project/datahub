@@ -1,3 +1,7 @@
+import { useApolloClient } from '@apollo/client';
+import { useUserContext } from '@app/context/useUserContext';
+import { getCacheIncident } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/hooks/useIncidentHandler';
+import { PAGE_SIZE, updateActiveIncidentInCache } from '@app/entityV2/shared/tabs/Incident/incidentUtils';
 import React from 'react';
 import { Modal, Form, Input, message } from 'antd';
 import { IncidentStage, IncidentState } from '@src/types.generated';
@@ -30,6 +34,8 @@ const ModalTitle = () => (
 );
 
 export const IncidentResolutionPopup = ({ incident, refetch, handleClose }: IncidentResolutionPopupProps) => {
+    const client = useApolloClient();
+    const { user } = useUserContext();
     const { urn, entityType } = useEntityData();
     const [updateIncidentStatusMutation] = useUpdateIncidentStatusMutation();
     const [form] = Form.useForm();
@@ -56,6 +62,27 @@ export const IncidentResolutionPopup = ({ incident, refetch, handleClose }: Inci
                     entityUrn: urn,
                     actionType: EntityActionType.ResolvedIncident,
                 });
+
+                const values = {
+                    title: incident.title,
+                    description: incident.description,
+                    type: incident.type,
+                    priority: incident.priority,
+                    state: IncidentState.Resolved,
+                    customType: incident.customType,
+                    stage: formData?.status || IncidentStage.Fixed,
+                    message: formData?.note,
+                    linkedAssets: incident.linkedAssets,
+                    assignees: incident.assignees,
+                    created: incident.created,
+                };
+
+                const updatedIncident = getCacheIncident({
+                    values,
+                    incidentUrn: incident.urn,
+                    user,
+                });
+                updateActiveIncidentInCache(client, urn, updatedIncident, PAGE_SIZE);
                 message.success({ content: 'Incident updated!', duration: 2 });
                 refetch();
                 handleClose?.();

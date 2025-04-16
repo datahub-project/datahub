@@ -401,11 +401,19 @@ spring:
     security:
       protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:PLAINTEXT}
 
+# Useful to debug low-level Spring errors such as class version mismatches
+#server:
+#  error:
+#    include-message: always
+#    include-binding-errors: always
+#    include-stacktrace: always
+
 springdoc:
   cache:
     disabled: false
   swagger-ui:
     path: /openapi/swagger-ui/index.html
+    urls-primary-name: DataHub v3 (OpenAPI)
   api-docs:
     path: /openapi/v3/api-docs
   groups:
@@ -807,6 +815,8 @@ cache:
           domains: 20
         dataProduct:
           domains: 20
+        telemetry:
+          telemetryClientId: 86400 # 1 day
 
 graphQL:
   concurrency:

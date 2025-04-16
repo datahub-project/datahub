@@ -4,7 +4,7 @@ import { CheckboxChangeEvent } from 'antd/lib/checkbox';
 import React, { useState } from 'react';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { EntityType, GlossaryTerm } from '@src/types.generated';
-import { SelectOption } from '@src/alchemy-components/components/Select/Nested/types';
+import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { AllowedItemsWrapper, StyledCheckbox, StyledLabel, SelectorWrapper } from '../styledComponents';
 import CardinalityField from './CardinalityField';
 import GlossaryTermsSelector from './GlossaryTermsSelector';
@@ -34,7 +34,7 @@ export default function GlossaryTermsQuestion() {
         }
     }
 
-    const onUpdate = (values: SelectOption[]) => {
+    const onUpdate = (values: NestedSelectOption[]) => {
         if (values.length) {
             const terms = values.map((v) => v.entity).filter((r) => !!r);
             form.setFieldValue(['glossaryTermsParams', 'allowedTerms'], terms);

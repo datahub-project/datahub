@@ -280,7 +280,10 @@ describe("Verify nested domains test functionalities", () => {
     cy.clickFirstOptionWithText("Marketing");
     cy.clickOptionWithText("Add to Assets");
     cy.waitTextVisible("Add assets to Domain");
-    cy.get("[data-testid='search-input']").last().type("Baz Chart 2");
+    cy.get("[data-testid='search-input']")
+      .last()
+      .type("Baz Chart 2", { delay: 0 });
+    cy.wait(1000);
     cy.get('[data-testid="preview-urn:li:chart:(looker,cypress_baz2)"]');
     cy.clickOptionWithSpecificClass(".ant-checkbox", 1);
     cy.clickOptionWithId("#continueButton");

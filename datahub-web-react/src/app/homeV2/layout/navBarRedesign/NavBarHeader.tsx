@@ -46,6 +46,7 @@ const Title = styled.div`
     overflow: hidden;
     max-width: calc(100% - 30px);
     text-overflow: ellipsis;
+    height: 24px;
     display: flex;
     align-items: end;
 `;
@@ -54,6 +55,7 @@ const StyledLink = styled(Link)`
     display: flex;
     height: 40px;
     align-items: center;
+    gap: 8px;
     max-width: calc(100% - 40px);
     width: 100%;
     gap: 8px;

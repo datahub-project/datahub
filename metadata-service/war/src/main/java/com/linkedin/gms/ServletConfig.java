@@ -24,7 +24,6 @@ import io.datahubproject.openapi.converter.StringToChangeCategoryConverter;
 import java.util.Arrays;
 import java.util.List;
 import javax.annotation.Nonnull;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.directory.scim.core.json.ObjectMapperFactory;
 import org.apache.directory.scim.core.schema.SchemaRegistry;
 import org.apache.directory.scim.protocol.Constants;
@@ -55,7 +54,6 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * Common configuration for all servlets. Generally this list also includes dependencies of the
  * embedded MAE/MCE consumers.
  */
-@Slf4j
 @Configuration
 @Order(1)
 @EnableWebMvc

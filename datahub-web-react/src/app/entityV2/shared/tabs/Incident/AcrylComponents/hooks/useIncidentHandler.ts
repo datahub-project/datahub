@@ -66,7 +66,17 @@ export const getCacheIncident = ({
     return newIncident;
 };
 
-export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, user, assignees, linkedAssets, entity }) => {
+export const useIncidentHandler = ({
+    mode,
+    onSubmit,
+    incidentUrn,
+    user,
+    assignees,
+    linkedAssets,
+    entity,
+    currentIncident,
+    urn,
+}) => {
     // Important: Here we are trying to fetch the URN of the sibling whose "profile" we are currently viewing.
     // We then insert any new incidents into this cache as well so that it immediately updates the page for the asset.
     const { urn: maybeCacheEntityUrn } = useEntityData();
@@ -175,11 +185,28 @@ export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, user, assignee
                 analytics.event({
                     type: EventType.EntityActionEvent,
                     entityType: entity?.entityType,
-                    entityUrn: entity.urn,
+                    entityUrn: urn,
                     actionType: EntityActionType.AddIncident,
                 });
             } else if (incidentUrn) {
-                await handleUpdateIncident(input, incidentUrn);
+                const updatedIncidentResponse: any = await handleUpdateIncident(input, incidentUrn);
+                if (updatedIncidentResponse?.data?.updateIncident) {
+                    const updatedIncident = getCacheIncident({
+                        values: {
+                            ...values,
+                            state: baseInput.status.state,
+                            stage: baseInput.status.stage || '',
+                            message: baseInput.status.message,
+                            priority: values.priority || null,
+                            assignees,
+                            linkedAssets,
+                            created: currentIncident.created,
+                        },
+                        user,
+                        incidentUrn,
+                    });
+                    updateActiveIncidentInCache(client, urn, updatedIncident, PAGE_SIZE);
+                }
                 showMessage('Incident Updated');
             }
 

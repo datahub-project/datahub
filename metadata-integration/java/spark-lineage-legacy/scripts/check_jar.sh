@@ -43,7 +43,8 @@ jar -tvf $jarFile |\
       grep -v "com/ibm/.*" |\
       grep -v "google/" |\
       grep -v "org/apache/avro" |\
-      grep -v "org/apache"
+      grep -v "org/apache" |\
+      grep -v "org/publicsuffix"
 
 
 if [ $? -ne 0 ]; then

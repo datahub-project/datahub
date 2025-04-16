@@ -20,7 +20,7 @@ type Props = {
 };
 
 export const IncidentListTable = ({ incidentData, filter, refetch, privileges }: Props) => {
-    const { urn, entityData } = useEntityData();
+    const { urn, entityType, entityData } = useEntityData();
     const { groupBy } = filter;
 
     const { expandedGroupIds, setExpandedGroupIds } = useGetExpandedTableGroupsFromEntityUrnInUrl(
@@ -124,9 +124,8 @@ export const IncidentListTable = ({ incidentData, filter, refetch, privileges }:
             </StyledTableContainer>
             {focusIncidentUrn && focusedIncidentEntity && (
                 <IncidentDetailDrawer
-                    entity={{
-                        urn,
-                    }}
+                    urn={urn}
+                    entity={{ urn, entityType }}
                     mode={IncidentAction.EDIT}
                     incident={focusedIncident}
                     privileges={privileges}

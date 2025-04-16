@@ -27,9 +27,13 @@
     "additions": 49,
     "deletions": 20
   },
+  ".github/workflows/docker-postgres-setup.yml": {
+    "additions": 8,
+    "deletions": 6
+  },
   ".github/workflows/docker-unified.yml": {
-    "additions": 645,
-    "deletions": 128
+    "additions": 657,
+    "deletions": 159
   },
   ".github/workflows/documentation.yml": {
     "additions": 3,
@@ -42,6 +46,10 @@
   ".github/workflows/metadata-model.yml": {
     "additions": 18,
     "deletions": 5
+  },
+  ".github/workflows/pr-labeler.yml": {
+    "additions": 59,
+    "deletions": 60
   },
   ".github/workflows/publish-datahub-jars.yml": {
     "additions": 12,
@@ -153,7 +161,7 @@
   },
   "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/config/AppConfigResolver.java": {
     "additions": null,
-    "deletions": 3
+    "deletions": 5
   },
   "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/connection/ConnectionMapper.java": {
     "additions": null,
@@ -593,7 +601,7 @@
   },
   "datahub-graphql-core/src/main/resources/contract.graphql": {
     "additions": null,
-    "deletions": 60
+    "deletions": 72
   },
   "datahub-graphql-core/src/main/resources/entity.graphql": {
     "additions": null,
@@ -609,7 +617,7 @@
   },
   "datahub-graphql-core/src/main/resources/ingestion.graphql": {
     "additions": null,
-    "deletions": 4
+    "deletions": 6
   },
   "datahub-graphql-core/src/main/resources/tests.graphql": {
     "additions": null,
@@ -752,8 +760,8 @@
     "deletions": "inf"
   },
   "datahub-upgrade/build.gradle": {
-    "additions": 40,
-    "deletions": 1
+    "additions": 52,
+    "deletions": 0
   },
   "datahub-upgrade/src/main/java/com/linkedin/datahub/upgrade/UpgradeCliApplication.java": {
     "additions": null,
@@ -771,10 +779,6 @@
     "additions": null,
     "deletions": 1
   },
-  "datahub-upgrade/src/main/java/com/linkedin/datahub/upgrade/system/AbstractMCLStep.java": {
-    "additions": null,
-    "deletions": 3
-  },
   "datahub-upgrade/src/main/java/com/linkedin/datahub/upgrade/system/browsepaths/BackfillBrowsePathsV2Step.java": {
     "additions": null,
     "deletions": 1
@@ -785,7 +789,7 @@
   },
   "datahub-upgrade/src/main/java/com/linkedin/datahub/upgrade/system/schemafield/GenerateSchemaFieldsFromSchemaMetadataStep.java": {
     "additions": null,
-    "deletions": 7
+    "deletions": 5
   },
   "datahub-upgrade/src/main/resources/logback.xml": {
     "additions": null,
@@ -801,7 +805,7 @@
   },
   "datahub-web-react/package.json": {
     "additions": null,
-    "deletions": 2
+    "deletions": 1
   },
   "datahub-web-react/public/manifest.json": {
     "additions": null,
@@ -836,7 +840,7 @@
     "deletions": null
   },
   "datahub-web-react/src/app/entity/dataset/profile/schema/components/SchemaDescriptionField.tsx": {
-    "additions": 105,
+    "additions": 110,
     "deletions": null
   },
   "datahub-web-react/src/app/entity/group/GroupProfile.tsx": {
@@ -904,11 +908,7 @@
     "deletions": null
   },
   "datahub-web-react/src/app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal.tsx": {
-    "additions": 152,
-    "deletions": null
-  },
-  "datahub-web-react/src/app/entity/shared/utils.ts": {
-    "additions": 89,
+    "additions": 149,
     "deletions": null
   },
   "datahub-web-react/src/app/entityV2/dataset/profile/schema/components/SchemaDescriptionField.tsx": {
@@ -940,12 +940,16 @@
     "deletions": null
   },
   "datahub-web-react/src/app/entityV2/shared/containers/profile/sidebar/shared/utils.tsx": {
-    "additions": 85,
+    "additions": 98,
     "deletions": null
   },
   "datahub-web-react/src/app/entityV2/shared/externalUrl/ViewInPlatform.tsx": {
     "additions": 44,
     "deletions": 82
+  },
+  "datahub-web-react/src/app/entityV2/shared/tabs/Dataset/Schema/utils/__tests__/useExtractFieldTagsInfo.test.ts": {
+    "additions": 140,
+    "deletions": 12
   },
   "datahub-web-react/src/app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionList.tsx": {
     "additions": 79,
@@ -983,10 +987,6 @@
     "additions": 111,
     "deletions": null
   },
-  "datahub-web-react/src/app/entityV2/shared/tabs/Properties/PropertiesTab.tsx": {
-    "additions": 95,
-    "deletions": null
-  },
   "datahub-web-react/src/app/entityV2/shared/utils.ts": {
     "additions": 102,
     "deletions": null
@@ -1000,7 +1000,7 @@
     "deletions": null
   },
   "datahub-web-react/src/app/ingest/ManageIngestionPage.tsx": {
-    "additions": 115,
+    "additions": 109,
     "deletions": null
   },
   "datahub-web-react/src/app/ingest/secret/SecretsList.tsx": {
@@ -1008,31 +1008,19 @@
     "deletions": null
   },
   "datahub-web-react/src/app/ingest/source/IngestionSourceList.tsx": {
-    "additions": 140,
+    "additions": 160,
     "deletions": null
   },
-  "datahub-web-react/src/app/ingest/source/IngestionSourceTable.tsx": {
-    "additions": 68,
-    "deletions": 46
-  },
-  "datahub-web-react/src/app/lineageV2/manualLineage/AddEntityEdge.tsx": {
-    "additions": null,
-    "deletions": "inf"
-  },
-  "datahub-web-react/src/app/lineageV2/manualLineage/LineageEntityView.tsx": {
-    "additions": null,
-    "deletions": "inf"
-  },
-  "datahub-web-react/src/app/lineageV2/manualLineage/ManageLineageModal.tsx": {
-    "additions": 136,
-    "deletions": null
+  "datahub-web-react/src/app/ingest/source/__tests__/tests_utils.test.tsx": {
+    "additions": 132,
+    "deletions": 1
   },
   "datahub-web-react/src/app/search/SearchPage.tsx": {
     "additions": 17,
     "deletions": 102
   },
   "datahub-web-react/src/app/searchV2/filters/__tests__/utils.test.tsx": {
-    "additions": 92,
+    "additions": 81,
     "deletions": null
   },
   "datahub-web-react/src/app/settings/SettingsPage.tsx": {
@@ -1052,7 +1040,7 @@
     "deletions": null
   },
   "datahub-web-react/src/app/sharedV2/tags/TagTermGroup.tsx": {
-    "additions": 192,
+    "additions": 193,
     "deletions": null
   },
   "datahub-web-react/src/conf/theme/theme_dark.config.json": {
@@ -1089,7 +1077,7 @@
   },
   "datahub-web-react/src/graphql/incident.graphql": {
     "additions": null,
-    "deletions": 10
+    "deletions": 9
   },
   "datahub-web-react/src/graphql/lineage.graphql": {
     "additions": null,
@@ -1113,15 +1101,15 @@
   },
   "datahub-web-react/src/graphql/user.graphql": {
     "additions": null,
-    "deletions": 3
+    "deletions": 1
   },
   "datahub-web-react/src/images/domain.svg": {
     "additions": null,
     "deletions": "inf"
   },
   "docker/build.gradle": {
-    "additions": 8,
-    "deletions": 4
+    "additions": 13,
+    "deletions": 9
   },
   "docker/datahub-actions/README.md": {
     "additions": null,
@@ -1129,7 +1117,7 @@
   },
   "docker/datahub-actions/env/docker.env": {
     "additions": null,
-    "deletions": 3
+    "deletions": 2
   },
   "docker/datahub-frontend/Dockerfile": {
     "additions": null,
@@ -1137,7 +1125,7 @@
   },
   "docker/datahub-frontend/env/docker.env": {
     "additions": null,
-    "deletions": 1
+    "deletions": 2
   },
   "docker/datahub-frontend/start.sh": {
     "additions": null,
@@ -1147,13 +1135,13 @@
     "additions": null,
     "deletions": 2
   },
-  "docker/datahub-ingestion-base/Dockerfile": {
+  "docker/datahub-gms/env/docker.env": {
     "additions": null,
-    "deletions": 2
+    "deletions": 1
   },
-  "docker/datahub-ingestion/Dockerfile": {
+  "docker/datahub-ingestion/build.gradle": {
     "additions": null,
-    "deletions": 2
+    "deletions": 5
   },
   "docker/datahub-mae-consumer/Dockerfile": {
     "additions": null,
@@ -1288,8 +1276,8 @@
     "deletions": 1
   },
   "docs/how/updating-datahub.md": {
-    "additions": 2,
-    "deletions": 2
+    "additions": 1,
+    "deletions": 0
   },
   "docs/incidents/incidents.md": {
     "additions": 1,
@@ -1298,10 +1286,6 @@
   "docs/managed-datahub/datahub-api/entity-events-api.md": {
     "additions": 19,
     "deletions": 13
-  },
-  "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor.md": {
-    "additions": 22,
-    "deletions": 0
   },
   "docs/managed-datahub/release-notes/v_0_3_8.md": {
     "additions": 1,
@@ -1355,10 +1339,6 @@
     "additions": null,
     "deletions": 1
   },
-  "entity-registry/src/main/java/com/linkedin/metadata/models/registry/LineageRegistry.java": {
-    "additions": null,
-    "deletions": 10
-  },
   "entity-registry/src/main/java/com/linkedin/metadata/utils/SystemMetadataUtils.java": {
     "additions": null,
     "deletions": 1
@@ -1373,6 +1353,10 @@
   },
   "gradle.properties": {
     "additions": 0,
+    "deletions": 1
+  },
+  "gradle/docker/docker.gradle": {
+    "additions": 20,
     "deletions": 1
   },
   "li-utils/src/main/java/com/linkedin/metadata/Constants.java": {
@@ -1447,10 +1431,6 @@
     "additions": 13,
     "deletions": 1
   },
-  "metadata-ingestion/setup.py": {
-    "additions": 1,
-    "deletions": 1
-  },
   "metadata-ingestion/src/datahub/api/entities/dataproduct/dataproduct.py": {
     "additions": 26,
     "deletions": 0
@@ -1471,10 +1451,6 @@
     "additions": "inf",
     "deletions": null
   },
-  "metadata-ingestion/src/datahub/configuration/_config_enum.py": {
-    "additions": 5,
-    "deletions": 4
-  },
   "metadata-ingestion/src/datahub/configuration/common.py": {
     "additions": 8,
     "deletions": 0
@@ -1492,12 +1468,8 @@
     "deletions": 6
   },
   "metadata-ingestion/src/datahub/ingestion/graph/filters.py": {
-    "additions": 31,
-    "deletions": 12
-  },
-  "metadata-ingestion/src/datahub/ingestion/source/tableau/tableau_common.py": {
-    "additions": 4,
-    "deletions": 4
+    "additions": 30,
+    "deletions": 11
   },
   "metadata-ingestion/src/datahub/secret/datahub_secret_store.py": {
     "additions": 4,
@@ -1514,18 +1486,6 @@
   "metadata-ingestion/src/datahub/telemetry/telemetry.py": {
     "additions": 3,
     "deletions": 1
-  },
-  "metadata-ingestion/src/datahub/testing/compare_metadata_json.py": {
-    "additions": 1,
-    "deletions": 1
-  },
-  "metadata-ingestion/tests/integration/fivetran/fivetran_bigquery_golden.json": {
-    "additions": "inf",
-    "deletions": null
-  },
-  "metadata-ingestion/tests/integration/s3/golden-files/local/golden_mces_single_file.json": {
-    "additions": 10,
-    "deletions": 10
   },
   "metadata-integration/java/datahub-client/build.gradle": {
     "additions": 86,
@@ -1561,11 +1521,11 @@
   },
   "metadata-io/src/main/java/com/linkedin/metadata/entity/EntityServiceImpl.java": {
     "additions": null,
-    "deletions": 20
+    "deletions": 9
   },
   "metadata-io/src/main/java/com/linkedin/metadata/entity/EntityUtils.java": {
     "additions": null,
-    "deletions": 20
+    "deletions": 3
   },
   "metadata-io/src/main/java/com/linkedin/metadata/entity/versioning/EntityVersioningServiceImpl.java": {
     "additions": null,
@@ -1675,10 +1635,6 @@
     "additions": null,
     "deletions": 1
   },
-  "metadata-io/src/test/java/com/linkedin/metadata/entity/EbeanEntityServiceOptimizationTest.java": {
-    "additions": null,
-    "deletions": 12
-  },
   "metadata-io/src/test/java/com/linkedin/metadata/entity/EntityServiceImplTest.java": {
     "additions": null,
     "deletions": 8
@@ -1701,7 +1657,7 @@
   },
   "metadata-io/src/test/java/com/linkedin/metadata/graph/dgraph/DgraphGraphServiceTest.java": {
     "additions": null,
-    "deletions": 6
+    "deletions": 5
   },
   "metadata-io/src/test/java/com/linkedin/metadata/graph/elastic/ElasticSearchGraphServiceTest.java": {
     "additions": null,
@@ -1709,7 +1665,7 @@
   },
   "metadata-io/src/test/java/com/linkedin/metadata/graph/neo4j/Neo4jGraphServiceTest.java": {
     "additions": null,
-    "deletions": 14
+    "deletions": 11
   },
   "metadata-io/src/test/java/com/linkedin/metadata/search/SearchServiceTestBase.java": {
     "additions": null,
@@ -1800,8 +1756,8 @@
     "deletions": 16
   },
   "metadata-io/src/test/resources/testng-other.xml": {
-    "additions": 1,
-    "deletions": 0
+    "additions": 6,
+    "deletions": 5
   },
   "metadata-io/src/test/resources/testng-search.xml": {
     "additions": 1,
@@ -1897,7 +1853,7 @@
   },
   "metadata-models/src/main/pegasus/com/linkedin/common/Deprecation.pdl": {
     "additions": null,
-    "deletions": 3
+    "deletions": 2
   },
   "metadata-models/src/main/pegasus/com/linkedin/common/GlobalTags.pdl": {
     "additions": null,
@@ -2061,7 +2017,7 @@
   },
   "metadata-service/configuration/src/main/resources/application.yaml": {
     "additions": null,
-    "deletions": 13
+    "deletions": 12
   },
   "metadata-service/configuration/src/main/resources/bootstrap_mcps.yaml": {
     "additions": null,
@@ -2072,7 +2028,7 @@
     "deletions": 2
   },
   "metadata-service/factories/build.gradle": {
-    "additions": 18,
+    "additions": 17,
     "deletions": 0
   },
   "metadata-service/factories/src/main/java/com/linkedin/gms/factory/assertions/AssertionServiceFactory.java": {
@@ -2107,17 +2063,13 @@
     "additions": null,
     "deletions": 7
   },
-  "metadata-service/factories/src/main/java/com/linkedin/gms/factory/kafka/KafkaEventConsumerFactory.java": {
-    "additions": null,
-    "deletions": 10
-  },
   "metadata-service/factories/src/main/java/com/linkedin/gms/factory/ownership/OwnershipTypeServiceFactory.java": {
     "additions": null,
     "deletions": 2
   },
   "metadata-service/factories/src/main/java/com/linkedin/gms/factory/plugins/SpringStandardPluginConfiguration.java": {
     "additions": null,
-    "deletions": 4
+    "deletions": 3
   },
   "metadata-service/factories/src/main/java/com/linkedin/gms/factory/query/QueryServiceFactory.java": {
     "additions": null,
@@ -2138,10 +2090,6 @@
   "metadata-service/factories/src/main/java/com/linkedin/gms/factory/search/ElasticSearchBulkProcessorFactory.java": {
     "additions": null,
     "deletions": 10
-  },
-  "metadata-service/factories/src/main/java/com/linkedin/gms/factory/search/ElasticSearchServiceFactory.java": {
-    "additions": null,
-    "deletions": 15
   },
   "metadata-service/factories/src/main/java/com/linkedin/gms/factory/search/ranker/SearchRankerFactory.java": {
     "additions": null,
@@ -2167,17 +2115,9 @@
     "additions": null,
     "deletions": 7
   },
-  "metadata-service/factories/src/main/java/com/linkedin/metadata/boot/steps/RestoreFormInfoIndicesStep.java": {
-    "additions": null,
-    "deletions": 1
-  },
   "metadata-service/factories/src/main/java/com/linkedin/metadata/boot/steps/RestoreGlossaryIndices.java": {
     "additions": null,
     "deletions": 4
-  },
-  "metadata-service/factories/src/test/java/com/linkedin/metadata/boot/steps/RestoreFormInfoIndicesStepTest.java": {
-    "additions": null,
-    "deletions": 5
   },
   "metadata-service/factories/src/test/java/com/linkedin/metadata/boot/steps/RestoreGlossaryIndicesTest.java": {
     "additions": null,
@@ -2202,10 +2142,6 @@
   "metadata-service/openapi-entity-servlet/src/test/java/io/datahubproject/openapi/v2/delegates/EntityApiDelegateImplTest.java": {
     "additions": null,
     "deletions": 1
-  },
-  "metadata-service/openapi-servlet/build.gradle": {
-    "additions": 12,
-    "deletions": 0
   },
   "metadata-service/openapi-servlet/models/src/main/java/io/datahubproject/openapi/client/OpenApiClient.java": {
     "additions": null,
@@ -2416,8 +2352,8 @@
     "deletions": 11
   },
   "metadata-service/war/build.gradle": {
-    "additions": 15,
-    "deletions": 1
+    "additions": 14,
+    "deletions": 0
   },
   "metadata-service/war/src/main/java/com/linkedin/gms/ServletConfig.java": {
     "additions": null,
@@ -2432,7 +2368,7 @@
     "deletions": 2
   },
   "metadata-service/war/src/main/resources/boot/policies.json": {
-    "additions": 144,
+    "additions": 143,
     "deletions": 12
   },
   "metadata-service/war/src/main/resources/logback.xml": {
@@ -2463,8 +2399,12 @@
     "additions": 2,
     "deletions": 1
   },
+  "python-build/generate_ingestion_docker.py": {
+    "additions": 3,
+    "deletions": 0
+  },
   "settings.gradle": {
-    "additions": 21,
+    "additions": 20,
     "deletions": 0
   },
   "smoke-test/build.gradle": {
@@ -2473,11 +2413,11 @@
   },
   "smoke-test/conftest.py": {
     "additions": null,
-    "deletions": 2
+    "deletions": 17
   },
   "smoke-test/requirements.txt": {
-    "additions": 1,
-    "deletions": 1
+    "additions": 3,
+    "deletions": 2
   },
   "smoke-test/run-quickstart.sh": {
     "additions": 6,
@@ -2488,8 +2428,8 @@
     "deletions": 3
   },
   "smoke-test/smoke.sh": {
-    "additions": 1,
-    "deletions": 1
+    "additions": 3,
+    "deletions": 3
   },
   "smoke-test/test_e2e.py": {
     "additions": null,
@@ -2529,9 +2469,9 @@
   },
   "smoke-test/tests/cypress/cypress/e2e/lineage/download_lineage_results.js": {
     "additions": null,
-    "deletions": 2
+    "deletions": 1
   },
-  "smoke-test/tests/cypress/cypress/e2e/lineageV2/v2_download_lineage_results.js": {
+  "smoke-test/tests/cypress/cypress/e2e/lineageV2/v2_lineage_graph.js": {
     "additions": null,
     "deletions": 1
   },
@@ -2610,6 +2550,10 @@
   "smoke-test/tests/cypress/example_to_datahub_rest.yml": {
     "additions": 1,
     "deletions": 1
+  },
+  "smoke-test/tests/cypress/integration_test.py": {
+    "additions": null,
+    "deletions": 9
   },
   "smoke-test/tests/incidents/data.json": {
     "additions": 1,

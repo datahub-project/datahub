@@ -103,7 +103,7 @@ public class BootstrapManagerFactory {
   private TimeseriesAspectService _timeseriesAspectService;
 
   @Autowired
-  @Qualifier("entityAspectMigrationsDao")
+  @Qualifier("entityAspectDao")
   private AspectMigrationsDao _migrationsDao;
 
   @Autowired

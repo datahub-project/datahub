@@ -1,7 +1,7 @@
 import { EntityType } from '@src/types.generated';
 import React, { useEffect, useState } from 'react';
 import { NestedSelect } from '@src/alchemy-components/components/Select/Nested/NestedSelect';
-import { SelectOption } from '@src/alchemy-components/components/Select/Nested/types';
+import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { useGetGlossaryNodeLazyQuery } from '@src/graphql/glossaryNode.generated';
 import {
@@ -15,7 +15,7 @@ const Wrapper = styled.div``;
 
 type GlossaryTermSelectorProps = {
     initialOptions: any[];
-    onUpdate: (values: SelectOption[]) => void;
+    onUpdate: (values: NestedSelectOption[]) => void;
     label?: string;
     placeholder?: string;
     areNodeSelectable?: boolean;
@@ -46,11 +46,11 @@ const GlossaryTermsSelector = ({
 
     const [seenUrns] = useState<Set<string>>(new Set());
     const [seenNodeUrns] = useState<Set<string>>(new Set());
-    const [childOptions, setChildOptions] = useState<SelectOption[]>([]);
+    const [childOptions, setChildOptions] = useState<NestedSelectOption[]>([]);
 
     const [getNode, { loading }] = useGetGlossaryNodeLazyQuery({
         onCompleted: (nodeData) => {
-            const childOptionsToAdd: SelectOption[] = [];
+            const childOptionsToAdd: NestedSelectOption[] = [];
             const alreadyPresentOptionUrns = childOptions.map((option) => option.value);
             const nodeUrn = nodeData.glossaryNode?.urn || '';
             seenNodeUrns.add(nodeUrn);
@@ -76,7 +76,7 @@ const GlossaryTermsSelector = ({
 
     const assignInitialTermsToDropdown = () => {
         if (initialOptions.length) {
-            const childOptionsToAdd: SelectOption[] = [];
+            const childOptionsToAdd: NestedSelectOption[] = [];
             const nodeWiseTerms = groupBy(initialOptions, 'parentId');
 
             Object.keys(nodeWiseTerms).forEach((node) => {
@@ -116,7 +116,7 @@ const GlossaryTermsSelector = ({
                 entity: term,
             })) || [];
 
-    function handleLoad(option: SelectOption) {
+    function handleLoad(option: NestedSelectOption) {
         if (!seenNodeUrns.has(option.value)) {
             getNode({ variables: { urn: option.value } });
         }

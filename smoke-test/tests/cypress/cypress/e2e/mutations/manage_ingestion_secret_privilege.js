@@ -1,3 +1,5 @@
+import { hasOperationName } from "../utils";
+
 const test_id = Math.floor(Math.random() * 100000);
 const platform_policy_name = `Platform test policy ${test_id}`;
 const number = Math.floor(Math.random() * 100000);
@@ -124,6 +126,10 @@ const deactivateExistingAllUserPolicies = () => {
 };
 
 describe("Manage Ingestion and Secret Privileges", () => {
+  beforeEach(() => {
+    cy.setIsThemeV2Enabled(false);
+  });
+
   let registeredEmail = "";
   it("create Metadata Ingestion platform policy and assign privileges to all users", () => {
     cy.loginWithCredentials();
@@ -175,6 +181,7 @@ describe("Manage Ingestion and Secret Privileges", () => {
     setRemoteExecutorsUIFlag(false);
     cy.clearCookies();
     cy.clearLocalStorage();
+    cy.setIsThemeV2Enabled(false);
     signIn();
     cy.waitTextVisible("Welcome back");
     cy.hideOnboardingTour();
@@ -192,6 +199,7 @@ describe("Manage Ingestion and Secret Privileges", () => {
   it("Verify new user can see ingestion and access Manage Secret tab", () => {
     cy.clearCookies();
     cy.clearLocalStorage();
+    cy.setIsThemeV2Enabled(false);
     cy.loginWithCredentials();
     cy.visit("/settings/permissions/policies");
     cy.waitTextVisible("Manage Permissions");

@@ -11,5 +11,6 @@ parallel followed by everything else.
     <suite-file path="testng-search.xml"/>
     <suite-file path="testng-cassandra.xml"/>
     <suite-file path="testng-other.xml"/>
+    <suite-file path="testng-sql-opt.xml"/>
 </suite-files>
 </suite>

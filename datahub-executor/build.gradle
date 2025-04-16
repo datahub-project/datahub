@@ -120,6 +120,7 @@ docker {
         include "docker/${docker_repo}/*"
         include "docker/snippets/*"
         include "/docker/datahub-ingestion/pyspark_jars.sh"
+        include "docker/datahub-ingestion/oracle_instantclient.sh"
         include "datahub-executor/src/**"
         include "datahub-executor/scripts/sync.sh"
         include "datahub-executor/pyproject.toml"

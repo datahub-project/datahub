@@ -1,20 +1,20 @@
 import { useMemo } from 'react';
-import { SelectOption } from './types';
+import { NestedSelectOption } from './types';
 
-interface Props {
-    selectedOptions: SelectOption[];
-    option: SelectOption;
-    children: SelectOption[];
-    selectableChildren: SelectOption[];
+interface Props<OptionType extends NestedSelectOption> {
+    selectedOptions: OptionType[];
+    option: OptionType;
+    children: OptionType[];
+    selectableChildren: OptionType[];
     implicitlySelectChildren: boolean;
     areParentsSelectable: boolean;
-    addOptions: (nodes: SelectOption[]) => void;
-    removeOptions: (nodes: SelectOption[]) => void;
-    setSelectedOptions: React.Dispatch<React.SetStateAction<SelectOption[]>>;
-    handleOptionChange: (node: SelectOption) => void;
+    addOptions: (nodes: OptionType[]) => void;
+    removeOptions: (nodes: OptionType[]) => void;
+    setSelectedOptions: React.Dispatch<React.SetStateAction<OptionType[]>>;
+    handleOptionChange: (node: OptionType) => void;
 }
 
-export default function useNestedOption({
+export default function useNestedOption<OptionType extends NestedSelectOption>({
     selectedOptions,
     option,
     children,
@@ -25,7 +25,7 @@ export default function useNestedOption({
     removeOptions,
     setSelectedOptions,
     handleOptionChange,
-}: Props) {
+}: Props<OptionType>) {
     const parentChildren = useMemo(() => children.filter((c) => c.isParent), [children]);
 
     const areAllChildrenSelected = useMemo(

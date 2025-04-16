@@ -215,6 +215,12 @@ public class PoliciesConfig {
           "Manage System Operations",
           "Allow access to all system operations/management APIs and controls.");
 
+  public static final Privilege GET_PLATFORM_EVENTS_PRIVILEGE =
+      Privilege.of(
+          "GET_PLATFORM_EVENTS",
+          "Get Platform Events",
+          "The ability to use the Events API to read Platform Events - Entity Change Events and Notification Request Events.");
+
   // Acryl-Main only.
   public static final Privilege MANAGE_MONITORS =
       Privilege.of(
@@ -227,12 +233,6 @@ public class PoliciesConfig {
           "MANAGE_ORGANIZATION_DISPLAY_PREFERENCES",
           "Manage Organization Display Preferences",
           "Create, update, and delete organization display preferences.");
-
-  public static final Privilege GET_PLATFORM_EVENTS_PRIVILEGE =
-      Privilege.of(
-          "GET_PLATFORM_EVENTS",
-          "Get Platform Events",
-          "The ability to use the Events API to read Platform Events - Entity Change Events and Notification Request Events.");
 
   public static final List<Privilege> PLATFORM_PRIVILEGES =
       ImmutableList.of(

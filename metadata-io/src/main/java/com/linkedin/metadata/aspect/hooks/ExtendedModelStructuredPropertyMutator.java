@@ -429,14 +429,10 @@ public class ExtendedModelStructuredPropertyMutator extends MutationHook {
               .getEntitySpec(patchItemUrn.getEntityType());
       MCPItem patchItem =
           PatchItemImpl.builder()
-              .urn(patchItemUrn)
-              .entitySpec(entitySpec)
-              .aspectName(STRUCTURED_PROPERTIES_ASPECT_NAME)
-              .aspectSpec(entitySpec.getAspectSpec(STRUCTURED_PROPERTIES_ASPECT_NAME))
-              .metadataChangeProposal(proposal)
-              .patch(PatchItemImpl.PatchItemImplBuilder.convertToJsonPatch(proposal))
-              .auditStamp(item.getAuditStamp())
-              .build(retrieverContext.getAspectRetriever().getEntityRegistry());
+              .build(
+                  proposal,
+                  item.getAuditStamp(),
+                  retrieverContext.getAspectRetriever().getEntityRegistry());
       additionalChanges.add(patchItem);
     }
   }

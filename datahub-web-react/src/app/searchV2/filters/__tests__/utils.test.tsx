@@ -558,4 +558,15 @@ describe('filter utils - getActionRequestFilterDisplayName', () => {
         const field: FilterField = { type: FieldType.ENUM, field: 'type', displayName: 'Type' };
         expect(getActionRequestFilterDisplayName(option, field)).toBe('');
     });
+    it('should return undefined if no display name and field is not a structured property filter', () => {
+        const option = { value: 'testValue' };
+        const field: FilterField = { type: FieldType.ENUM, field: 'structuredProperties.test', displayName: 'test' };
+        expect(getFilterDisplayName(option, field)).toBe('testValue');
+    });
+
+    it('should return the structured property value properly if this is a structured property filter (structured prop value is tested above)', () => {
+        const option = { value: 'testValue' };
+        const field: FilterField = { type: FieldType.ENUM, field: 'test', displayName: 'test' };
+        expect(getFilterDisplayName(option, field)).toBe(undefined);
+    });
 });

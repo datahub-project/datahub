@@ -1,8 +1,6 @@
 package com.linkedin.datahub.upgrade;
 
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeManager;
-import com.linkedin.datahub.upgrade.nocode.NoCodeUpgrade;
-import com.linkedin.datahub.upgrade.nocodecleanup.NoCodeCleanupUpgrade;
 import com.linkedin.datahub.upgrade.propagate.PropagateTerms;
 import com.linkedin.datahub.upgrade.removeunknownaspects.RemoveUnknownAspects;
 import com.linkedin.datahub.upgrade.restoreaspect.RestoreAspect;
@@ -37,14 +35,6 @@ public class UpgradeCli implements CommandLineRunner {
   }
 
   private final UpgradeManager _upgradeManager = new DefaultUpgradeManager();
-
-  @Inject
-  @Named("noCodeUpgrade")
-  private NoCodeUpgrade noCodeUpgrade;
-
-  @Inject
-  @Named("noCodeCleanup")
-  private NoCodeCleanupUpgrade noCodeCleanup;
 
   @Inject
   @Named("restoreIndices")
@@ -94,8 +84,6 @@ public class UpgradeCli implements CommandLineRunner {
 
   @Override
   public void run(String... cmdLineArgs) {
-    _upgradeManager.register(noCodeUpgrade);
-    _upgradeManager.register(noCodeCleanup);
     _upgradeManager.register(restoreIndices);
     _upgradeManager.register(restoreBackup);
     _upgradeManager.register(removeUnknownAspects);

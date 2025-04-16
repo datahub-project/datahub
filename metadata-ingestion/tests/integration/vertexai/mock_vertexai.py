@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List
 from unittest.mock import MagicMock
 
@@ -8,9 +8,12 @@ from google.cloud.aiplatform import (
     Experiment,
     ExperimentRun,
     Model,
+    PipelineJob,
 )
 from google.cloud.aiplatform.base import VertexAiResourceNoun
 from google.cloud.aiplatform.models import Endpoint, VersionInfo
+from google.cloud.aiplatform_v1 import PipelineTaskDetail
+from google.cloud.aiplatform_v1.types import PipelineJob as PipelineJobType
 
 
 def gen_mock_model(num: int = 1) -> Model:
@@ -105,8 +108,57 @@ def gen_mock_experiment(num: int = 1) -> Experiment:
 def gen_mock_experiment_run() -> ExperimentRun:
     mock_experiment_run = MagicMock(spec=ExperimentRun)
     mock_experiment_run.name = "mock_experiment_run"
-    mock_experiment_run.project = datetime.fromtimestamp(1647878400)
-    mock_experiment_run.update_time = datetime.fromtimestamp(1647878500)
+    mock_experiment_run.project = datetime.fromtimestamp(1647878400, tz=timezone.utc)
+    mock_experiment_run.update_time = datetime.fromtimestamp(
+        1647878500, tz=timezone.utc
+    )
     mock_experiment_run.display_name = "mock_experiment_run_display_name"
     mock_experiment_run.description = "mock_experiment_run_description"
     return mock_experiment_run
+
+
+def get_mock_pipeline_job() -> PipelineJob:
+    mock_pipeline_job = MagicMock(spec=PipelineJob)
+    mock_pipeline_job.name = "mock_pipeline_job"
+    mock_pipeline_job.resource_name = (
+        "projects/123/locations/us-central1/pipelineJobs/456"
+    )
+    mock_pipeline_job.labels = {"key1": "value1"}
+    mock_pipeline_job.create_time = datetime.fromtimestamp(1647878400, tz=timezone.utc)
+    mock_pipeline_job.update_time = datetime.fromtimestamp(1647878500, tz=timezone.utc)
+    mock_pipeline_job.location = "us-west2"
+    gca_resource = MagicMock(spec=PipelineJobType)
+    mock_pipeline_job.gca_resource = gca_resource
+    task_detail = MagicMock(spec=PipelineTaskDetail)
+    task_detail.task_name = "mock_pipeline_task"
+    task_detail.task_id = "dummy_task_id"
+    task_detail.task_id = "dummy_state"
+    task_detail.start_time = datetime.fromtimestamp(1647878400, tz=timezone.utc)
+    task_detail.create_time = datetime.fromtimestamp(1647878500, tz=timezone.utc)
+    task_detail.end_time = datetime.fromtimestamp(1647878600, tz=timezone.utc)
+    mock_pipeline_job.task_details = [task_detail]
+    gca_resource.pipeline_spec = {
+        "root": {
+            "dag": {
+                "tasks": {
+                    "reverse": {
+                        "componentRef": {"name": "comp-reverse"},
+                        "inputs": {
+                            "parameters": {
+                                "a": {
+                                    "taskOutputParameter": {
+                                        "producerTask": "concat",
+                                        "outputParameterKey": "Output",
+                                    }
+                                }
+                            }
+                        },
+                        "taskInfo": {"name": "reverse"},
+                        "dependentTasks": ["concat"],
+                    }
+                }
+            }
+        }
+    }
+
+    return mock_pipeline_job

@@ -18,19 +18,14 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
         id: GLOBAL_WELCOME_TO_DATAHUB_ID,
         content: (
             <div>
-                <div
-                    style={{
-                        width: '540px', // Adjusted width to be wider than the image
-                        borderRadius: '10px',
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        margin: '0 auto 20px auto',
-                    }}
-                >
-                    <Image preview={false} height={184} width={500} src={dataHubFlowDiagram} />
-                </div>
-                <Typography.Title level={3}>Welcome to DataHub! </Typography.Title>
+                <Image
+                    preview={false}
+                    height={184}
+                    width={500}
+                    style={{ marginLeft: '50px' }}
+                    src={dataHubFlowDiagram}
+                />
+                <Typography.Title level={3}>Welcome to DataHub! 👋</Typography.Title>
                 <Typography.Paragraph style={{ lineHeight: '22px' }}>
                     <strong>DataHub</strong> helps you discover, govern and ensure high quality for the important data
                     within your organization. You can:

@@ -737,6 +737,7 @@ entities:
       - dataContractProperties
       - dataContractStatus
       - status
+      - structuredProperties
   - name: dataHubPersona
     category: internal
     keyAspect: dataHubPersonaKey
@@ -798,6 +799,12 @@ entities:
       - dataPlatformInstance
       - platformResourceInfo
       - status
+  - name: dataHubOpenAPISchema
+    doc: Contains aspects which are used in OpenAPI requests/responses which are not otherwise present in the data model.
+    category: internal
+    keyAspect: dataHubOpenAPISchemaKey
+    aspects:
+      - systemMetadata
   # SaaS Only Entities
   # TODO: Move this out to acryl-entity-registry.yml
   - name: dataHubRemoteExecutor

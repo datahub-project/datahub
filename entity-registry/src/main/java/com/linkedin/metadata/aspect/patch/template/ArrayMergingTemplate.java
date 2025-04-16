@@ -45,8 +45,18 @@ public interface ArrayMergingTemplate<T extends RecordTemplate> extends Template
                     // if the keyField has a unit separator, we are working with a nested key
                     if (keyField.contains(UNIT_SEPARATOR_DELIMITER)) {
                       String[] keyParts = keyField.split(UNIT_SEPARATOR_DELIMITER);
-                      JsonNode keyObject = node.get(keyParts[0]);
-                      key = keyObject.get(keyParts[1]).asText();
+                      JsonNode keyObject = node;
+
+                      // Traverse through all parts of the key path
+                      for (int i = 0; i < keyParts.length - 1; i++) {
+                        keyObject = keyObject.get(keyParts[i]);
+                        // Handle null values to prevent NullPointerException
+                        if (keyObject == null) {
+                          throw new IllegalArgumentException("Invalid key path: " + keyField);
+                        }
+                      }
+
+                      key = keyObject.get(keyParts[keyParts.length - 1]).asText();
                     } else {
                       key = node.get(keyField).asText();
                     }

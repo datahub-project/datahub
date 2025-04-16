@@ -18,7 +18,8 @@ from datahub.utilities.time import datetime_to_ts_millis
 logger = logging.getLogger(__name__)
 
 # Pattern to extract both project_id and workspace_name from Hex metadata in SQL comments
-HEX_METADATA_PATTERN = r'-- Hex query metadata: \{.*?"project_id": "([^"]+)".*?"project_url": "https?://[^/]+/([^/]+)/hex/.*?\}'
+# Only match metadata with "context": "SCHEDULED_RUN" to filter out non-scheduled runs
+HEX_METADATA_PATTERN = r'-- Hex query metadata: \{.*?"context": "SCHEDULED_RUN".*?"project_id": "([^"]+)".*?"project_url": "https?://[^/]+/([^/]+)/hex/.*?\}'
 
 
 @dataclass
@@ -39,6 +40,7 @@ class HexQueryFetcherReport(SourceReport):
     fetched_query_objects: int = 0
     filtered_out_queries_missing_metadata: int = 0
     filtered_out_queries_different_workspace: int = 0
+    filtered_out_queries_no_match: int = 0
     filtered_out_queries_no_subjects: int = 0
     total_queries: int = 0
     total_dataset_subjects: int = 0
@@ -210,6 +212,7 @@ class HexQueryFetcher:
         match = re.search(HEX_METADATA_PATTERN, sql_statement)
 
         if not match:
+            self.report.filtered_out_queries_no_match += 1
             return None
 
         try:

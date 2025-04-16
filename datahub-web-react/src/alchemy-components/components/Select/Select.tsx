@@ -1,6 +1,6 @@
 import React from 'react';
 import { BasicSelect } from './BasicSelect';
-import { SelectProps } from './types';
+import { SelectOption, SelectProps } from './types';
 
 export const selectDefaults: SelectProps = {
     options: [],
@@ -20,8 +20,8 @@ export const selectDefaults: SelectProps = {
     showDescriptions: false,
 };
 
-export const Select = ({
-    options = selectDefaults.options,
+export const Select = <OptionType extends SelectOption = SelectOption>({
+    options = [],
     label = selectDefaults.label,
     values = [],
     initialValues,
@@ -40,7 +40,7 @@ export const Select = ({
     selectAllLabel = selectDefaults.selectAllLabel,
     showDescriptions = selectDefaults.showDescriptions,
     ...props
-}: SelectProps) => {
+}: SelectProps<OptionType>) => {
     return (
         <BasicSelect
             options={options}

@@ -6,19 +6,15 @@ ARG PYTHON_VERSION=3.10
 # This is the "base" image workflow.
 # While it has a bunch of intermediate stages, it "exports" a couple
 # stages for consumption.
-# - base-empty: A basic stage, with basic deps, Python, and a venv.
-# - base-slim: Currently the same as base-empty.
-# - base-full: Adds a JRE and Oracle client.
+# - python-base: A basic stage, with basic deps, Python, and a venv.
+# - ingestion-base-slim: Currently the same as base-empty.
+# - ingestion-base-full: Adds a JRE and Oracle client.
 
-FROM ubuntu:24.04 AS base-empty
-
-ARG PYTHON_VERSION
-RUN test -n "${PYTHON_VERSION}"  # PYTHON_VERSION must be set
+FROM ubuntu:24.04 AS python-base
 
 # TODO: This may not work on Ubuntu 24.04 due to the new deb822 package format.
 ARG UBUNTU_REPO_URL=http://ports.ubuntu.com/ubuntu-ports
 RUN if [ "${UBUNTU_REPO_URL}" != "http://ports.ubuntu.com/ubuntu-ports" ] ; then sed -i "s#http.*://ports.ubuntu.com/ubuntu-ports#${UBUNTU_REPO_URL}#g" /etc/apt/sources.list ; fi
-
 
 ENV HOME=/home/datahub
 RUN existing_group=$(getent group 1000 | cut -d: -f1) && \
@@ -53,34 +49,22 @@ RUN apt-get update && apt-get install -y \
     && add-apt-repository --no-update ppa:deadsnakes/ppa \
     && rm -rf /var/lib/apt/lists/*
 
+ARG PYTHON_VERSION
+RUN test -n "${PYTHON_VERSION}"  # PYTHON_VERSION must be set
+
 RUN apt-get update && apt-get install -y \
     python${PYTHON_VERSION} \
     python${PYTHON_VERSION}-venv \
     python${PYTHON_VERSION}-dev \
     python${PYTHON_VERSION}-distutils \
-    python3-pip \
-    python3-ldap \
     python-is-python3 \
-    libldap2-dev \
-    libsasl2-dev \
-    libsasl2-modules \
-    libaio-dev \
-    libaio1t64 \
-    libsasl2-modules-gssapi-mit \
-    krb5-user \
-    krb5-config \
-    libkrb5-dev \
-    librdkafka-dev \
     git \
     wget \
     curl \
     zip \
     unzip \
-    ldap-utils \
-    unixodbc \
-    libodbc2 \
-    && apt-get clean \
-    && rm -rf /var/lib/{apt,dpkg,cache,log}/
+    nano \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set the default python version.
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1 \
@@ -97,62 +81,53 @@ WORKDIR $HOME
 RUN uv venv --python "$PYTHON_VERSION"
 ENV VIRTUAL_ENV=$HOME/.venv
 ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
-# Requests comes with it's own CA bundle, but we want to use always use the system CA bundle.
+
+# We always want to use the system CA bundle.
+# Requests comes with it's own CA bundle, which we need to override.
 ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+# uv uses a different mechanism. See https://github.com/astral-sh/uv/issues/1474.
+ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
 
 
-FROM base-empty AS full-deps-prebuild
+FROM python-base AS ingestion-base-slim
 
 USER 0
-RUN apt-get update && apt-get install --no-install-recommends -y -qq \
-    build-essential \
-    maven \
+RUN apt-get update && apt-get install -y \
+    python3-ldap \
+    libldap2-dev \
+    libsasl2-dev \
+    libsasl2-modules \
+    libaio-dev \
+    libaio1t64 \
+    libsasl2-modules-gssapi-mit \
+    krb5-user \
+    krb5-config \
+    libkrb5-dev \
+    librdkafka-dev \
+    ldap-utils \
+    unixodbc \
+    libodbc2 \
     && rm -rf /var/lib/apt/lists/*
 USER datahub
 
-RUN uv pip install python-ldap==3.4.4
-RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000 \
-    --mount=type=bind,source=./docker/datahub-ingestion/pyspark_jars.sh,target=/pyspark_jars.sh \
-    uv pip install python-ldap==3.4.4 pyspark~=3.5.0 && \
-    /pyspark_jars.sh
-
-FROM base-empty AS base-slim
-# Nothing to do here.
-
-FROM base-slim AS base-full
+FROM ingestion-base-slim AS ingestion-base-full
 
 USER 0
+# We need to install build-essential in order to build some Python packages (e.g. python-ldap)
 RUN apt-get update && apt-get install --no-install-recommends -y -qq \
     default-jre-headless \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-RUN if [ $(arch) = "x86_64" ]; then \
-    mkdir /opt/oracle && \
-    cd /opt/oracle && \
-    wget --no-verbose -c https://download.oracle.com/otn_software/linux/instantclient/2115000/instantclient-basic-linux.x64-21.15.0.0.0dbru.zip && \
-    unzip instantclient-basic-linux.x64-21.15.0.0.0dbru.zip && \
-    rm instantclient-basic-linux.x64-21.15.0.0.0dbru.zip && \
-    sh -c "echo /opt/oracle/instantclient_21_15 > /etc/ld.so.conf.d/oracle-instantclient.conf" && \
-    ldconfig; \
-    else \
-    mkdir /opt/oracle && \
-    cd /opt/oracle && \
-    wget --no-verbose -c https://download.oracle.com/otn_software/linux/instantclient/1923000/instantclient-basic-linux.arm64-19.23.0.0.0dbru.zip && \
-    unzip instantclient-basic-linux.arm64-19.23.0.0.0dbru.zip && \
-    rm instantclient-basic-linux.arm64-19.23.0.0.0dbru.zip && \
-    sh -c "echo /opt/oracle/instantclient_19_23 > /etc/ld.so.conf.d/oracle-instantclient.conf" && \
-    ldconfig; \
-    fi;
+RUN --mount=type=bind,source=./docker/datahub-ingestion/oracle_instantclient.sh,target=/oracle_instantclient.sh \
+    /oracle_instantclient.sh
 
 USER datahub
-
-RUN --mount=from=full-deps-prebuild,source=$HOME/.venv,target=/venv-full \
-    rm -r .venv && \
-    cp -r /venv-full .venv
 # INLINE-END
 
-FROM base-${APP_ENV} AS final
+FROM ingestion-base-${APP_ENV} AS final
 
+COPY --from=powerman/dockerize:0.19 /usr/local/bin/dockerize /usr/local/bin
 COPY ./docker/datahub-ingestion-base/entrypoint.sh /entrypoint.sh
 ENTRYPOINT [ "/entrypoint.sh" ]
 ENV PATH="/datahub-ingestion/.local/bin:$PATH"

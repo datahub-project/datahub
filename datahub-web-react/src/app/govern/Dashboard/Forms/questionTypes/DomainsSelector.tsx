@@ -1,5 +1,5 @@
 import { NestedSelect } from '@src/alchemy-components/components/Select/Nested/NestedSelect';
-import { SelectOption } from '@src/alchemy-components/components/Select/Nested/types';
+import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { useListDomainsLazyQuery, useListDomainsQuery } from '@src/graphql/domain.generated';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@src/graphql/search.generated';
@@ -31,11 +31,11 @@ const DomainsSelector = () => {
         },
     });
 
-    const [childOptions, setChildOptions] = useState<SelectOption[]>([]);
+    const [childOptions, setChildOptions] = useState<NestedSelectOption[]>([]);
 
     const [listDomains] = useListDomainsLazyQuery({
         onCompleted: (listDomainsData) => {
-            const childOptionsToAdd: SelectOption[] = [];
+            const childOptionsToAdd: NestedSelectOption[] = [];
             listDomainsData.listDomains?.domains.forEach((domain) => {
                 const { urn, type } = domain;
                 childOptionsToAdd.push({
@@ -68,7 +68,7 @@ const DomainsSelector = () => {
             })),
         ) || [];
 
-    function handleLoad(option: SelectOption) {
+    function handleLoad(option: NestedSelectOption) {
         listDomains({ variables: { input: { start: 0, count: 1000, parentDomain: option.value } } });
     }
 
@@ -81,7 +81,7 @@ const DomainsSelector = () => {
         }
     }
 
-    function handleUpdate(values: SelectOption[]) {
+    function handleUpdate(values: NestedSelectOption[]) {
         if (values.length) {
             const allowedDomains = values.map((v) => v.entity).filter((r) => !!r);
             form.setFieldValue(['domainParams', 'allowedDomains'], allowedDomains);

@@ -655,23 +655,22 @@ export interface AssertionMonitorBuilderState {
             /**
              * Required if type is 'FIELD_VALUES'
              */
-            fields?:
-                | {
-                      /**
-                       * The V1 field path
-                       */
-                      path?: string;
+            fields?: {
+                /**
+                 * The V1 field path
+                 */
+                path?: string;
 
-                      /**
-                       * The standard data type
-                       */
-                      type?: SchemaFieldDataType;
+                /**
+                 * The standard data type
+                 */
+                type?: SchemaFieldDataType;
 
-                      /**
-                       * The native data type (optional)
-                       */
-                      nativeType?: string;
-                  }[];
+                /**
+                 * The native data type (optional)
+                 */
+                nativeType?: string;
+            }[];
         };
 
         /**

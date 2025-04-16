@@ -26,6 +26,7 @@ export const IncidentLinkedAssetsList = ({
     mode,
     setCachedLinkedAssets,
     setIsLinkedAssetsLoading,
+    urn,
 }: IncidentLinkedAssetsListProps) => {
     const [getEntities, { data: resolvedLinkedAssets, loading: entitiesLoading }] = useGetEntitiesLazyQuery();
     const entityRegistry = useEntityRegistryV2();
@@ -62,11 +63,11 @@ export const IncidentLinkedAssetsList = ({
     };
 
     useEffect(() => {
-        if (mode === IncidentAction.CREATE && initialUrn) {
-            if (initialUrn) {
+        if (mode === IncidentAction.CREATE) {
+            if (urn) {
                 getEntities({
                     variables: {
-                        urns: [initialUrn],
+                        urns: [urn],
                     },
                 });
             }

@@ -115,7 +115,7 @@ public class UpsertDataContractResolver implements DataFetcher<CompletableFuture
                       null);
 
               // Package and return result
-              return DataContractMapper.mapContract(entityResponse);
+              return DataContractMapper.mapContract(context, entityResponse);
             } catch (Exception e) {
               throw new RuntimeException(
                   String.format("Failed to perform update against input %s", input.toString()), e);

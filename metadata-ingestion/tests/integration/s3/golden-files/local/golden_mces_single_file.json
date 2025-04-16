@@ -1105,6 +1105,7 @@
             "columnCount": 5,
             "fieldProfiles": [
                 {
+                    "fieldPath": "FirstChord",
                     "uniqueCount": 5,
                     "uniqueProportion": 0.17857142857142858,
                     "nullCount": 0,
@@ -1152,10 +1153,10 @@
                         "6",
                         "6",
                         "6"
-                    ],
-                    "fieldPath": "FirstChord"
+                    ]
                 },
                 {
+                    "fieldPath": "SecondChord",
                     "uniqueCount": 5,
                     "uniqueProportion": 0.17857142857142858,
                     "nullCount": 0,
@@ -1203,10 +1204,10 @@
                         "6",
                         "6",
                         "6"
-                    ],
-                    "fieldPath": "SecondChord"
+                    ]
                 },
                 {
+                    "fieldPath": "ThirdChord",
                     "uniqueCount": 7,
                     "uniqueProportion": 0.25,
                     "nullCount": 0,
@@ -1262,10 +1263,10 @@
                         "5",
                         "5",
                         "6"
-                    ],
-                    "fieldPath": "ThirdChord"
+                    ]
                 },
                 {
+                    "fieldPath": "FourthChord",
                     "uniqueCount": 6,
                     "uniqueProportion": 0.21428571428571427,
                     "nullCount": 0,
@@ -1317,10 +1318,10 @@
                         "6",
                         "6",
                         "7"
-                    ],
-                    "fieldPath": "FourthChord"
+                    ]
                 },
                 {
+                    "fieldPath": "ProgressionQuality",
                     "uniqueCount": 20,
                     "uniqueProportion": 0.7142857142857143,
                     "nullCount": 0,
@@ -1428,8 +1429,7 @@
                         "Simple",
                         "Sweet",
                         "Wistful"
-                    ],
-                    "fieldPath": "ProgressionQuality"
+                    ]
                 }
             ]
         }

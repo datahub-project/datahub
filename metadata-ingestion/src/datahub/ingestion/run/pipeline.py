@@ -555,18 +555,20 @@ class Pipeline:
     def raise_from_status(self, raise_warnings: bool = False) -> None:
         if self.source.get_report().failures:
             raise PipelineExecutionError(
-                "Source reported errors", self.source.get_report()
+                "Source reported errors", self.source.get_report().failures
             )
         if self.sink.get_report().failures:
-            raise PipelineExecutionError("Sink reported errors", self.sink.get_report())
+            raise PipelineExecutionError(
+                "Sink reported errors", self.sink.get_report().failures
+            )
         if raise_warnings:
             if self.source.get_report().warnings:
                 raise PipelineExecutionError(
-                    "Source reported warnings", self.source.get_report()
+                    "Source reported warnings", self.source.get_report().warnings
                 )
             if self.sink.get_report().warnings:
                 raise PipelineExecutionError(
-                    "Sink reported warnings", self.sink.get_report()
+                    "Sink reported warnings", self.sink.get_report().warnings
                 )
 
     def log_ingestion_stats(self) -> None:
