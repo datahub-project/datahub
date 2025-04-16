@@ -51,6 +51,13 @@ const NUM_TICKS_AXIS_LEFT = 3;
 
 const PRIMARY_DATA_POINT_SIZE = 5;
 
+const formatYAxisValue = (value: number, skipRounding: boolean) => {
+    if (value >= 1000) {
+        return truncateNumberForDisplay(value.valueOf(), skipRounding);
+    }
+    return Math.round((value + Number.EPSILON) * 100) / 100;
+};
+
 export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimensions, renderHeader }: Props) => {
     const rawDataPoints = data.dataPoints;
 
@@ -149,11 +156,18 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                         tickStroke={ANTD_GRAY[9]}
                         tickLength={4}
                         numTicks={NUM_TICKS_AXIS_LEFT}
-                        tickFormat={(v) => truncateNumberForDisplay(v.valueOf(), skipRounding)}
-                        tickLabelProps={{
-                            fill: ANTD_GRAY[9],
-                            fontSize: 11,
-                            textAnchor: 'end',
+                        tickFormat={(v) => formatYAxisValue(v.valueOf(), skipRounding).toString()}
+                        tickLabelProps={(value, _index) => {
+                            return {
+                                fill: ANTD_GRAY[9],
+                                fontSize: 11,
+                                textAnchor: 'start' as const, // Explicitly cast to allowed type
+                                dx: '-2.5em',
+                                dy:
+                                    formatYAxisValue(value.valueOf(), skipRounding).toString().length > 4
+                                        ? '-0.3em'
+                                        : '0.3em',
+                            };
                         }}
                     />
                     <AxisBottom
