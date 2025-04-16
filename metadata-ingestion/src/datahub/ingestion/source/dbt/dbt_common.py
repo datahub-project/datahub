@@ -363,6 +363,11 @@ class DBTCommonConfig(
         "Set to False to skip it for engines like AWS Athena where it's not required.",
     )
 
+    dbt_is_primary_sibling: bool = Field(
+        default=True,
+        description="When enabled (default), DBT nodes are treated as the primary siblings and target platform nodes as secondary. When disabled, target platform nodes are treated as primary and DBT nodes as secondary.",
+    )
+
     @validator("target_platform")
     def validate_target_platform_value(cls, target_platform: str) -> str:
         if target_platform.lower() == DBT_PLATFORM:
@@ -1504,13 +1509,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         aspect=upstreams_lineage_class,
                         system_metadata=None,
                     )
-                    wu.is_primary_source = False
+                    wu.is_primary_source = not self.config.dbt_is_primary_sibling
                     yield wu
                 else:
                     yield MetadataChangeProposalWrapper(
                         entityUrn=node_datahub_urn,
                         aspect=upstreams_lineage_class,
-                    ).as_workunit(is_primary_source=False)
+                    ).as_workunit(
+                        is_primary_source=not self.config.dbt_is_primary_sibling
+                    )
 
     def extract_query_tag_aspects(
         self,
