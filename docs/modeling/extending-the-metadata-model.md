@@ -500,6 +500,7 @@ in both the forward and inverse directions.
 #### @UrnValidation
 
 This annotation can be applied to Urn fields inside an aspect. The annotation can optionally perform one or more of the following:
+
 - Enforce that the URN exists
 - Enforce stricter URN validation
 - Restrict the URN to specific entity types

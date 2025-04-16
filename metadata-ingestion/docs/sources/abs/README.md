@@ -8,7 +8,7 @@ section [Path Specs](https://datahubproject.io/docs/generated/ingestion/sources/
 This ingestion source maps the following Source System Concepts to DataHub Concepts:
 
 | Source Concept                         | DataHub Concept                                                                            | Notes            |
-|----------------------------------------|--------------------------------------------------------------------------------------------|------------------|
+| -------------------------------------- | ------------------------------------------------------------------------------------------ | ---------------- |
 | `"abs"`                                | [Data Platform](https://datahubproject.io/docs/generated/metamodel/entities/dataplatform/) |                  |
 | abs blob / Folder containing abs blobs | [Dataset](https://datahubproject.io/docs/generated/metamodel/entities/dataset/)            |                  |
 | abs container                          | [Container](https://datahubproject.io/docs/generated/metamodel/entities/container/)        | Subtype `Folder` |
@@ -20,12 +20,12 @@ prefix `http(s)://<account>.blob.core.windows.net/` or `azure://`).
 
 Supported file types are as follows:
 
-- CSV (*.csv)
-- TSV (*.tsv)
-- JSONL (*.jsonl)
-- JSON (*.json)
-- Parquet (*.parquet)
-- Apache Avro (*.avro)
+- CSV (\*.csv)
+- TSV (\*.tsv)
+- JSONL (\*.jsonl)
+- JSON (\*.json)
+- Parquet (\*.parquet)
+- Apache Avro (\*.avro)
 
 Schemas for Parquet and Avro files are extracted as provided.
 
