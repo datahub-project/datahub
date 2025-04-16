@@ -43,7 +43,6 @@ from datahub.ingestion.api.incremental_lineage_helper import (
     convert_upstream_lineage_to_patch,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
-from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.dbt.dbt_tests import (
@@ -854,7 +853,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         test_nodes: List[DBTNode],
         extra_custom_props: Dict[str, str],
         all_nodes_map: Dict[str, DBTNode],
-    ) -> Iterable[MetadataChangeProposalWrapper]:
+    ) -> Iterable[MetadataWorkUnit]:
         for node in sorted(test_nodes, key=lambda n: n.dbt_name):
             upstreams = get_upstreams_for_test(
                 test_node=node,
@@ -907,14 +906,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     yield MetadataChangeProposalWrapper(
                         entityUrn=assertion_urn,
                         aspect=self._make_data_platform_instance_aspect(),
-                    )
+                    ).as_workunit(is_primary_source=self.config.dbt_is_primary_sibling)
 
                     yield make_assertion_from_test(
                         custom_props,
                         node,
                         assertion_urn,
                         upstream_urn,
-                    )
+                    ).as_workunit(is_primary_source=self.config.dbt_is_primary_sibling)
 
                 for test_result in node.test_results:
                     if self.config.entities_enabled.can_emit_test_results:
@@ -924,6 +923,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                             assertion_urn,
                             upstream_urn,
                             test_warnings_are_errors=self.config.test_warnings_are_errors,
+                        ).as_workunit(
+                            is_primary_source=self.config.dbt_is_primary_sibling
                         )
                     else:
                         logger.debug(
@@ -1378,7 +1379,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     yield MetadataChangeProposalWrapper(
                         entityUrn=node_datahub_urn,
                         aspect=aspect,
-                    ).as_workunit()
+                    ).as_workunit(is_primary_source=self.config.dbt_is_primary_sibling)
 
                 dataset_snapshot = DatasetSnapshot(
                     urn=node_datahub_urn, aspects=list(snapshot_aspects)
@@ -1386,7 +1387,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
                 if self.config.write_semantics == "PATCH":
                     mce = self.get_patched_mce(mce)
-                yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
+                yield MetadataWorkUnit(
+                    id=dataset_snapshot.urn,
+                    mce=mce,
+                    is_primary_source=self.config.dbt_is_primary_sibling,
+                )
             else:
                 logger.debug(
                     f"Skipping emission of node {node_datahub_urn} because node_type {node.node_type} is disabled"
@@ -1394,15 +1399,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             # Model performance.
             if self.config.entities_enabled.can_emit_model_performance:
-                yield from auto_workunit(
-                    self._create_dataprocess_instance_mcps(node, upstream_lineage_class)
+                yield from self._create_dataprocess_instance_mcps(
+                    node, upstream_lineage_class
                 )
 
     def _create_dataprocess_instance_mcps(
         self,
         node: DBTNode,
         upstream_lineage_class: Optional[UpstreamLineageClass],
-    ) -> Iterable[MetadataChangeProposalWrapper]:
+    ) -> Iterable[MetadataWorkUnit]:
         if not node.model_performances:
             return
 
@@ -1438,17 +1443,23 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 url=self.get_external_url(node),
             )
 
-            yield from data_process_instance.generate_mcp(
+            for mcp in data_process_instance.generate_mcp(
                 materialize_iolets=False,
                 created_ts_millis=datetime_to_ts_millis(model_performance.start_time),
-            )
+            ):
+                yield mcp.as_workunit(
+                    is_primary_source=self.config.dbt_is_primary_sibling
+                )
 
-            yield from data_process_instance.start_event_mcp(
+            for mcp in data_process_instance.start_event_mcp(
                 start_timestamp_millis=datetime_to_ts_millis(
                     model_performance.start_time
                 ),
-            )
-            yield from data_process_instance.end_event_mcp(
+            ):
+                yield mcp.as_workunit(
+                    is_primary_source=self.config.dbt_is_primary_sibling
+                )
+            for mcp in data_process_instance.end_event_mcp(
                 end_timestamp_millis=datetime_to_ts_millis(model_performance.end_time),
                 start_timestamp_millis=datetime_to_ts_millis(
                     model_performance.start_time
@@ -1459,7 +1470,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     else InstanceRunResult.FAILURE
                 ),
                 result_type=model_performance.status,
-            )
+            ):
+                yield mcp.as_workunit(
+                    is_primary_source=self.config.dbt_is_primary_sibling
+                )
 
     def create_target_platform_mces(
         self,
@@ -1822,7 +1836,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         return MetadataChangeProposalWrapper(
             entityUrn=node_datahub_urn,
             aspect=SubTypesClass(typeNames=subtypes),
-        ).as_workunit()
+        ).as_workunit(is_primary_source=self.config.dbt_is_primary_sibling)
 
     def _create_lineage_aspect_for_dbt_node(
         self,
