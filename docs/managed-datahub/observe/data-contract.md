@@ -80,7 +80,9 @@ datahub datacontract upsert -f contract_definition.yml
 
 :::note Create Data Contracts via UI
 When creating a Data Contract via UI, the Freshness, Schema, and Data Quality assertions must be created first.
-::: 4. Now you can see it in the UI.
+:::
+
+4. Now you can see it in the UI.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/data_contracts/contracts-created.png"/>

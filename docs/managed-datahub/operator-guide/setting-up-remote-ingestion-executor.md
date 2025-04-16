@@ -258,7 +258,8 @@ Secret Configuration:
 - Default mount path: `/mnt/secrets` (override with `DATAHUB_EXECUTOR_FILE_SECRET_BASEDIR`)
 - Default file size limit: 1MB (override with `DATAHUB_EXECUTOR_FILE_SECRET_MAXLEN`)
 - Reference secrets in ingestion recipes using `${SECRET_NAME}` syntax
-  :::
+
+:::
 
 Example ingestion recipe using mounted secrets:
 

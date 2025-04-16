@@ -1387,7 +1387,8 @@ Structured Property Soft Delete Effects:
 - Updates to a soft deleted Structured Property's definition are denied
 - Adding a soft deleted Structured Property's value to an entity is denied
 - Search filters using a soft deleted Structured Property will be denied
-  :::
+
+:::
 
 :::note HARD DELETE
 A hard deleted Structured Property REMOVES all underlying data for the Structured Property entity and the Structured Property's values written to other entities.
@@ -1399,7 +1400,8 @@ Structured Property Hard Delete Effects:
 - Structured Property values are removed via PATCH MCPs on their respective entities
 - Rollback is not possible
 - Elasticsearch index mappings will continue to contain references to the hard deleted property until reindex
-  :::
+
+:::
 
 ### Soft Delete
 
