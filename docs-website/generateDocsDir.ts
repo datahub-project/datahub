@@ -284,7 +284,7 @@ function markdown_add_slug(
 // }
 
 function trim_anchor_link(url: string): string {
-  return url.replace(/#.+$/, "").replace(/^<(.+)>$/, "$1");
+  return url.replace(/#.+$/, "").replace(/^(.*)<(.+)>$/, "$1$2");
 }
 
 function new_url(original: string, filepath: string): string {

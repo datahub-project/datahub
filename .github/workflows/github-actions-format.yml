@@ -4,12 +4,12 @@ on:
     branches:
       - master
     paths:
-      - ".github/**.{yml,yaml}"
+      - ".github/**/*.{yml,yaml}"
   pull_request:
     branches:
       - "**"
     paths:
-      - ".github/**.{yml,yaml}"
+      - ".github/**/*.{yml,yaml}"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
