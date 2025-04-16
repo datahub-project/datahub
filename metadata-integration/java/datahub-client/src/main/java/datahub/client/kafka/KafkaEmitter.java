@@ -91,8 +91,16 @@ public class KafkaEmitter implements Emitter {
 
           @Override
           public void onCompletion(RecordMetadata metadata, Exception exception) {
-            MetadataWriteResponse response = mapResponse(metadata, exception);
-            datahubCallback.onCompletion(response);
+            try {
+              MetadataWriteResponse response = mapResponse(metadata, exception);
+              if (datahubCallback != null) {
+                datahubCallback.onCompletion(response);
+              } else {
+                log.warn("Callback became null after message was sent");
+              }
+            } catch (Exception e) {
+              log.error("Error in callback execution", e);
+            }
           }
         };
     log.debug("Emit: topic: {} \n record: {}", KafkaEmitter.DEFAULT_MCP_KAFKA_TOPIC, record);
