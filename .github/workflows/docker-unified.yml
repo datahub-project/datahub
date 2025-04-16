@@ -1238,7 +1238,7 @@ jobs:
           fi
 
   smoke_test:
-    name: Run Smoke Tests
+    name: Run Smoke Tests (${{ matrix.test_strategy }}, Batch ${{ matrix.batch }}/${{ matrix.batch_count }})
     runs-on: ${{ needs.determine_runner.outputs.runner_type }}
     needs:
       [
