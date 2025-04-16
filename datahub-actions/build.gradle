@@ -152,7 +152,9 @@ docker {
     exclude "**/*.xml"
     include ".dockerignore"
     include "docker/datahub-actions/**"
+    include "docker/snippets/**"
     include "datahub-actions/**"
+    include "python-build/**"
   }.exclude {
     i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
   }
