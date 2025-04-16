@@ -64,6 +64,9 @@ const UnborderedTabs = styled(Tabs)<{ $isClosed: boolean }>`
         height: 52px;
         transition: none !important;
         overflow: visible;
+        .anticon {
+            margin-right: 0;
+        }
         .ant-tabs-tab-btn {
             color: inherit !important;
             transition: none !important;
