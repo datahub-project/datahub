@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
 
-import { useUserContext } from '@app/context/useUserContext';
 import { FieldToAppliedFieldFiltersMap } from '@app/searchV2/filtersV2/types';
 import { convertFiltersMapToFilters } from '@app/searchV2/filtersV2/utils';
+import useSelectedView from '@app/searchV2/searchBarV2/hooks/useSelectedView';
 import { MIN_CHARACTER_COUNT_FOR_SEARCH, UnionType } from '@app/searchV2/utils/constants';
 import { generateOrFilters } from '@app/searchV2/utils/generateOrFilters';
 import { useAppConfig } from '@app/useAppConfig';
@@ -111,8 +111,7 @@ export const useSearchBarData = (
     query: string,
     appliedFilters: FieldToAppliedFieldFiltersMap | undefined,
 ): SearchResponse => {
-    const userContext = useUserContext();
-    const viewUrn = userContext.localState?.selectedViewUrn;
+    const { selectedView } = useSelectedView();
     const appConfig = useAppConfig();
     const searchAPIVariant = appConfig.config.searchBarConfig.apiVariant;
     const [debouncedQuery, setDebouncedQuery] = useState<string>('');
@@ -141,8 +140,8 @@ export const useSearchBarData = (
         const convertedFilters = convertFiltersMapToFilters(appliedFilters);
         const orFilters = generateOrFilters(UnionType.AND, convertedFilters);
 
-        updateData(debouncedQuery, orFilters, viewUrn);
-    }, [updateData, debouncedQuery, appliedFilters, viewUrn]);
+        updateData(debouncedQuery, orFilters, selectedView);
+    }, [updateData, debouncedQuery, appliedFilters, selectedView]);
 
     return { entities, facets, loading, searchAPIVariant };
 };
