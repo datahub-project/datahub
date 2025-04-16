@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import styled from 'styled-components';
+import styled, { createGlobalStyle } from 'styled-components';
 import { AxisScaleOutput } from '@visx/axis';
 import { Axis, LineSeries, XYChart, Tooltip, GlyphSeries } from '@visx/xychart';
 import { curveMonotoneX } from '@visx/curve';
@@ -9,6 +9,13 @@ import { lineColors } from './lineColors';
 import Legend from './Legend';
 import { addInterval } from '../../shared/time/timeUtils';
 import { formatNumber } from '../../shared/formatNumber';
+import colors from '../../../alchemy-components/theme/foundations/colors';
+
+const GlobalStyle = createGlobalStyle`
+    circle.visx-circle-glyph {
+        fill: ${colors.violet[600]} !important;
+    }
+`;
 
 type AxisConfig = {
     formatter: (tick: number) => string;
@@ -34,6 +41,10 @@ type Props = {
 const StyledTooltip = styled(Tooltip)`
     font-family: inherit !important;
     font-weight: 400 !important;
+
+    circle.visx-circle-glyph {
+        fill: #4c39be !important;
+    }
 `;
 
 const MARGIN = {
@@ -135,6 +146,7 @@ export const TimeSeriesChart = ({
 
     return (
         <>
+            <GlobalStyle />
             <XYChart
                 accessibilityLabel={chartData.title}
                 width={width}
@@ -142,6 +154,63 @@ export const TimeSeriesChart = ({
                 margin={{ top: MARGIN.TOP, right: MARGIN.RIGHT, bottom: MARGIN.BOTTOM, left: MARGIN.LEFT }}
                 xScale={{ type: 'time' }}
                 yScale={yScale ?? { type: 'linear' }}
+                theme={{
+                    colors: [colors.violet[600]],
+                    backgroundColor: 'white',
+                    htmlLabel: {
+                        color: colors.gray[600],
+                        fontSize: 10,
+                        fontFamily: 'sans-serif',
+                    },
+                    svgLabelBig: {
+                        fill: colors.gray[600],
+                        fontSize: 12,
+                        fontFamily: 'sans-serif',
+                    },
+                    svgLabelSmall: {
+                        fill: colors.gray[600],
+                        fontSize: 10,
+                        fontFamily: 'sans-serif',
+                    },
+                    gridStyles: {
+                        stroke: colors.gray[100],
+                        strokeWidth: 1,
+                    },
+                    axisStyles: {
+                        x: {
+                            top: {
+                                axisLine: { strokeWidth: 1, stroke: colors.violet[600] },
+                                axisLabel: {},
+                                tickLabel: {},
+                                tickLine: {},
+                                tickLength: 4,
+                            },
+                            bottom: {
+                                axisLine: { strokeWidth: 1, stroke: colors.violet[600] },
+                                axisLabel: {},
+                                tickLabel: {},
+                                tickLine: {},
+                                tickLength: 4,
+                            },
+                        },
+                        y: {
+                            left: {
+                                axisLine: { strokeWidth: 1, stroke: colors.violet[600] },
+                                axisLabel: {},
+                                tickLabel: {},
+                                tickLine: {},
+                                tickLength: 4,
+                            },
+                            right: {
+                                axisLine: { strokeWidth: 1, stroke: colors.violet[600] },
+                                axisLabel: {},
+                                tickLabel: {},
+                                tickLine: {},
+                                tickLength: 4,
+                            },
+                        },
+                    },
+                }}
             >
                 <Axis
                     orientation="bottom"

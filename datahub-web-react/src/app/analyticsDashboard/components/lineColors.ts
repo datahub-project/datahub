@@ -1,23 +1,14 @@
-import { cyan, gold, lime, orange, purple, red, volcano, yellow } from '@ant-design/colors';
+import { colors } from '../../../alchemy-components/theme';
 
 export const lineColors = [
-    cyan[6],
-    red[3],
-    orange[4],
-    yellow[5],
-    lime[5],
-    cyan[2],
-    purple[2],
-    red[5],
-    red[9],
-    volcano[5],
-    volcano[9],
-    purple[5],
-    purple[9],
-    cyan[5],
-    cyan[9],
-    lime[2],
-    lime[9],
-    gold[2],
-    gold[9],
+    colors.violet[600], // Darkest violet
+    colors.violet[400], // Third lightest
+    colors.violet[300], // Second lightest
+    colors.violet[100], // Lightest color (light blue)
+    // Add more colors for additional data series
+    colors.blue[400],
+    colors.gray[500],
+    colors.red[500],
+    colors.yellow[500],
+    colors.green[400],
 ];
