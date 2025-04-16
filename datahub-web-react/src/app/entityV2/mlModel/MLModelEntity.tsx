@@ -1,4 +1,5 @@
-import { CodeSandboxOutlined, PartitionOutlined, UnorderedListOutlined, WarningOutlined } from '@ant-design/icons';
+import { ListBullets } from '@phosphor-icons/react';
+import { CodeSandboxOutlined, PartitionOutlined, WarningOutlined } from '@ant-design/icons';
 import TabNameWithCount from '@app/entityV2/shared/tabs/Entity/TabNameWithCount';
 import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
@@ -179,7 +180,7 @@ export class MLModelEntity implements Entity<MlModel> {
             name: 'Properties',
             component: PropertiesTab,
             description: 'View additional properties about this asset',
-            icon: UnorderedListOutlined,
+            icon: ListBullets,
         },
     ];
 
