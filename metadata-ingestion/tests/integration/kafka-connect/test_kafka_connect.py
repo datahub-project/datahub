@@ -1,5 +1,4 @@
 import subprocess
-import time
 from typing import Any, Dict, List, Optional, cast
 from unittest import mock
 
@@ -14,6 +13,7 @@ from datahub.ingestion.source.kafka_connect.kafka_connect import SinkTopicFilter
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
+from tests.test_helpers.docker_helpers import wait_for_port
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
     validate_all_providers_have_committed_successfully,
@@ -25,6 +25,12 @@ GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
 KAFKA_CONNECT_SERVER = "http://localhost:28083"
 KAFKA_CONNECT_ENDPOINT = f"{KAFKA_CONNECT_SERVER}/connectors"
+
+
+def have_connectors_processed(container_name: str) -> bool:
+    """Check if Kafka Connect is responsive by looking for the Session key updated message"""
+    cmd = f"docker logs {container_name} 2>&1 | grep 'Session key updated'"
+    return subprocess.run(cmd, shell=True).returncode == 0
 
 
 @pytest.fixture(scope="module")
@@ -39,9 +45,19 @@ def kafka_connect_runner(docker_compose_runner, pytestconfig, test_resources_dir
     ]
 
     with docker_compose_runner(docker_compose_file, "kafka-connect") as docker_services:
-        # We rely fully on Docker's health checks to ensure services are ready
-        # No additional readiness check required in the test code
-        print("All Docker Compose services are running and healthy")
+        # In addition to Docker health checks, perform an explicit readiness check
+        print("Waiting for Kafka Connect to be ready...")
+        wait_for_port(docker_services, "test_broker", 29092, timeout=120)
+        wait_for_port(docker_services, "test_connect", 28083, timeout=120)
+        docker_services.wait_until_responsive(
+            timeout=120,
+            pause=5,
+            check=lambda: have_connectors_processed("test_connect")
+            and requests.get(f"{KAFKA_CONNECT_SERVER}/connector-plugins").status_code
+            == 200,
+        )
+
+        print("Kafka Connect is ready!")
         yield docker_services
 
 
@@ -325,9 +341,16 @@ def loaded_kafka_connect(kafka_connect_runner):
     assert r.status_code == 201  # Created
 
     # Connectors should be ready to process data thanks to Docker health checks
-    # Just a small wait to ensure all connectors have initialized
-    print("Waiting a moment for connectors to fully initialize...")
-    time.sleep(5)
+    # Give time for connectors to process the table data
+    print("Waiting for Kafka Connect connectors to initialize and process data...")
+    kafka_connect_runner.wait_until_responsive(
+        timeout=60,
+        pause=5,
+        check=lambda: have_connectors_processed("test_connect")
+        and requests.get(f"{KAFKA_CONNECT_SERVER}/connector-plugins").status_code
+        == 200,
+    )
+    print("Kafka Connect connectors are ready!")
 
 
 @freeze_time(FROZEN_TIME)
