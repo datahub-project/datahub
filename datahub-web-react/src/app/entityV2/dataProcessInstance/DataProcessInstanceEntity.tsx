@@ -128,7 +128,6 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
     renderPreview = (_: PreviewType, data: DataProcessInstance) => {
         const genericProperties = this.getGenericEntityProperties(data);
         const parentEntities = getParentEntities(data);
-
         return (
             <Preview
                 urn={data.urn}

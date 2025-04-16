@@ -23,7 +23,6 @@ import {
     Maybe,
     Owner,
     SearchInsight,
-    DataProcessRunEvent,
 } from '../../types.generated';
 import { EntityMenuActions, PreviewType } from '../entityV2/Entity';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../entityV2/shared/constants';
@@ -170,7 +169,6 @@ interface Props {
     statsSummary?: any;
     actions?: EntityMenuActions;
     browsePaths?: BrowsePathV2 | undefined;
-    lastRunEvent?: DataProcessRunEvent | null;
 }
 
 export default function DefaultPreviewCard({
