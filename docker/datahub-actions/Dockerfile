@@ -145,6 +145,11 @@ COPY --chown=datahub:datahub ./docker/datahub-actions/config /etc/datahub/action
 
 USER datahub
 
+ARG RELEASE_VERSION
+RUN test -n "$RELEASE_VERSION"  # RELEASE_VERSION is a required build arg
+RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
+    python /version_updater.py --directory /datahub-actions/ --version "$RELEASE_VERSION" --expected-update-count 1
+
 # For the datahub-actions build, we explicitly want to retain the uv cache.
 # This speeds up the process of creating venvs at runtime.
 # Because uv uses hardlinks for installing packages, keeping the cache around does not
