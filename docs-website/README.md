@@ -172,7 +172,7 @@ The markdown files are automatically formatted using Prettier. Currently, this i
 You can format all files by running:
 
 ```console
-../gradlew :datahub-web-react:mdPrettierWrite
+../gradlew :datahub-web-react:mdPrettierWriteChanged
 ```
 
 or by allowing pre-commit hooks to run when you commit your changes.
