@@ -82,16 +82,18 @@ jobs:
         id: tag
         run: |
           source .github/scripts/docker_helpers.sh
-          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
-          echo "tag=$(get_tag)" >> "$GITHUB_OUTPUT"
-          echo "slim_tag=$(get_tag_slim)" >> "$GITHUB_OUTPUT"
-          echo "full_tag=$(get_tag_full)" >> "$GITHUB_OUTPUT"
-          echo "unique_tag=$(get_unique_tag)" >> "$GITHUB_OUTPUT"
-          echo "unique_slim_tag=$(get_unique_tag_slim)" >> "$GITHUB_OUTPUT"
-          echo "unique_full_tag=$(get_unique_tag_full)" >> "$GITHUB_OUTPUT"
-          echo "python_release_version=$(get_python_docker_release_v)" >> "$GITHUB_OUTPUT"
-          echo "branch_name=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> "$GITHUB_OUTPUT"
-          echo "repository_name=${GITHUB_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
+          {
+            echo "short_sha=${SHORT_SHA}"
+            echo "tag=$(get_tag)"
+            echo "slim_tag=$(get_tag_slim)"
+            echo "full_tag=$(get_tag_full)"
+            echo "unique_tag=$(get_unique_tag)"
+            echo "unique_slim_tag=$(get_unique_tag_slim)"
+            echo "unique_full_tag=$(get_unique_tag_full)"
+            echo "python_release_version=$(get_python_docker_release_v)"
+            echo "branch_name=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
+            echo "repository_name=${GITHUB_REPOSITORY#*/}"
+          } >> "$GITHUB_OUTPUT"
       - name: Check whether docker login is possible
         id: docker-login
         env:
@@ -1199,10 +1201,16 @@ jobs:
         # to add it to the test matrix.
         run: |
           python_batch_count=${{ steps.set-batch-count.outputs.python_batch_count }}
-          python_matrix=$(printf "{\"test_strategy\":\"pytests\",\"batch\":\"0\",\"batch_count\":\"$python_batch_count\"}"; for ((i=1;i<python_batch_count;i++)); do printf ",{\"test_strategy\":\"pytests\", \"batch_count\":\"$python_batch_count\",\"batch\":\"%d\"}" $i; done)
+          python_matrix='{"test_strategy":"pytests","batch":"0","batch_count":"'"$python_batch_count"'"}'
+          for ((i=1;i<python_batch_count;i++)); do
+            python_matrix="$python_matrix"',{"test_strategy":"pytests","batch_count":"'"$python_batch_count"'","batch":"'"$i"'"}'
+          done
           
           cypress_batch_count=${{ steps.set-batch-count.outputs.cypress_batch_count }}
-          cypress_matrix=$(printf "{\"test_strategy\":\"cypress\",\"batch\":\"0\",\"batch_count\":\"$cypress_batch_count\"}"; for ((i=1;i<cypress_batch_count;i++)); do printf ",{\"test_strategy\":\"cypress\", \"batch_count\":\"$cypress_batch_count\",\"batch\":\"%d\"}" $i; done)
+          cypress_matrix='{"test_strategy":"cypress","batch":"0","batch_count":"'"$cypress_batch_count"'"}'
+          for ((i=1;i<cypress_batch_count;i++)); do
+            cypress_matrix="$cypress_matrix"',{"test_strategy":"cypress","batch_count":"'"$cypress_batch_count"'","batch":"'"$i"'"}'
+          done
           
           includes=''
           if [[ "${{ needs.setup.outputs.backend_change }}" == 'true' || "${{ needs.setup.outputs.smoke_test_change }}" == 'true' || "${{ needs.setup.outputs.publish }}" == 'true' ]]; then
