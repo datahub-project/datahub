@@ -48,7 +48,7 @@ export const DataQualityContractSummary = ({ contracts, showAction = false }: Pr
 
     const columns = [
         {
-            title: () => <ColumnHeader>ASSERTION</ColumnHeader>,
+            title: () => <ColumnHeader>Assertion</ColumnHeader>,
             render: (assertion: Assertion) => (
                 <>
                     {assertion.info?.datasetAssertion && (
@@ -67,7 +67,7 @@ export const DataQualityContractSummary = ({ contracts, showAction = false }: Pr
             ),
         },
         {
-            title: () => <ColumnHeader style={{ display: 'flex', justifyContent: 'center' }}>STATUS</ColumnHeader>,
+            title: () => <ColumnHeader style={{ display: 'flex', justifyContent: 'center' }}>Status</ColumnHeader>,
             render: (assertion: Assertion) => <DataContractAssertionStatus assertion={assertion} />,
         },
     ];

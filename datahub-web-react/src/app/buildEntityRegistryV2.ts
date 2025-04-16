@@ -4,6 +4,7 @@ import { BusinessAttributeEntity } from '@app/entityV2/businessAttribute/Busines
 import { ChartEntity } from '@app/entityV2/chart/ChartEntity';
 import { ContainerEntity } from '@app/entityV2/container/ContainerEntity';
 import { DashboardEntity } from '@app/entityV2/dashboard/DashboardEntity';
+import { DataContractEntity } from '@app/entityV2/dataContract/DataContractEntity';
 import { DataFlowEntity } from '@app/entityV2/dataFlow/DataFlowEntity';
 import { DataJobEntity } from '@app/entityV2/dataJob/DataJobEntity';
 import { DataPlatformEntity } from '@app/entityV2/dataPlatform/DataPlatformEntity';
@@ -29,6 +30,7 @@ import { UserEntity } from '@app/entityV2/user/User';
 export default function buildEntityRegistryV2() {
     const registry = new EntityRegistry();
     registry.register(new DatasetEntity());
+    registry.register(new DataContractEntity());
     registry.register(new DashboardEntity());
     registry.register(new ChartEntity());
     registry.register(new UserEntity());

@@ -17,6 +17,7 @@ import SidebarCollapsibleHeader from '@app/entityV2/shared/containers/profile/si
 import { UserAssets } from '@app/entityV2/user/UserAssets';
 import UserGroups from '@app/entityV2/user/UserGroups';
 import UserSideBar from '@app/entityV2/user/UserSidebar';
+import useGetUserGroupUrns from '@app/entityV2/user/useGetUserGroupUrns';
 import CompactContext from '@app/shared/CompactContext';
 import { EntityHead } from '@app/shared/EntityHead';
 import { RoutedTabs } from '@app/shared/RoutedTabs';
@@ -111,7 +112,9 @@ export default function UserProfile({ urn }: Props) {
     const userRoles: Array<EntityRelationship> =
         castedCorpUser?.roles?.relationships?.map((relationship) => relationship as EntityRelationship) || [];
 
-    const { data: userOwnedAsset } = useGetUserOwnedAssetsQuery({ variables: { urn } });
+    const { groupUrns } = useGetUserGroupUrns(urn);
+
+    const { data: userOwnedAsset } = useGetUserOwnedAssetsQuery({ variables: { urns: [urn, ...groupUrns] } });
     // Routed Tabs Constants
     const getTabs = () => {
         return [
@@ -158,7 +161,7 @@ export default function UserProfile({ urn }: Props) {
         aboutText: data?.corpUser?.editableProperties?.aboutMe || undefined,
         groupsDetails: userGroups,
         dataHubRoles: userRoles,
-        ownerships: userOwnedAsset?.searchAcrossEntities?.searchResults || undefined,
+        ownershipResults: userOwnedAsset?.searchAcrossEntities || undefined,
         urn,
     };
 

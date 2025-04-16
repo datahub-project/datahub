@@ -4,11 +4,16 @@ import styled from 'styled-components';
 
 import { EmbeddedListSearchModal } from '@app/entity/shared/components/styled/search/EmbeddedListSearchModal';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { extractEntityTypeCountsFromFacets } from '@app/ingest/source/utils';
+import {
+    extractEntityTypeCountsFromFacets,
+    getEntitiesIngestedByType,
+    getTotalEntitiesIngested,
+} from '@app/ingest/source/utils';
 import { UnionType } from '@app/search/utils/constants';
 import { Message } from '@app/shared/Message';
 import { formatNumber } from '@app/shared/formatNumber';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { ExecutionRequestResult, Maybe } from '@src/types.generated';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 
@@ -53,19 +58,27 @@ const ViewAllButton = styled(Button)`
 
 type Props = {
     id: string;
+    executionResult?: Maybe<Partial<ExecutionRequestResult>>;
 };
 
 const ENTITY_FACET_NAME = 'entity';
 const TYPE_NAMES_FACET_NAME = 'typeNames';
 
-export default function IngestedAssets({ id }: Props) {
+export default function IngestedAssets({ id, executionResult }: Props) {
     const entityRegistry = useEntityRegistry();
 
     // First thing to do is to search for all assets with the id as the run id!
     const [showAssetSearch, setShowAssetSearch] = useState(false);
 
+    // Try getting the counts via the ingestion report.
+    const totalEntitiesIngested = executionResult && getTotalEntitiesIngested(executionResult);
+    const entitiesIngestedByTypeFromReport = executionResult && getEntitiesIngestedByType(executionResult);
+
+    // Fallback to the search across entities.
+    // First thing to do is to search for all assets with the id as the run id!
     // Execute search
     const { data, loading, error } = useGetSearchResultsForMultipleQuery({
+        skip: totalEntitiesIngested === null || entitiesIngestedByTypeFromReport === null,
         variables: {
             input: {
                 query: '*',
@@ -92,11 +105,13 @@ export default function IngestedAssets({ id }: Props) {
     const hasSubTypeFacet = (facets || []).findIndex((facet) => facet.field === TYPE_NAMES_FACET_NAME) >= 0;
     const subTypeFacets =
         (hasSubTypeFacet && facets?.filter((facet) => facet.field === TYPE_NAMES_FACET_NAME)[0]) || undefined;
+
     const countsByEntityType =
-        (entityTypeFacets && extractEntityTypeCountsFromFacets(entityRegistry, entityTypeFacets, subTypeFacets)) || [];
+        entitiesIngestedByTypeFromReport ??
+        (entityTypeFacets ? extractEntityTypeCountsFromFacets(entityRegistry, entityTypeFacets, subTypeFacets) : []);
 
     // The total number of assets ingested
-    const total = data?.searchAcrossEntities?.total || 0;
+    const total = totalEntitiesIngested ?? data?.searchAcrossEntities?.total ?? 0;
 
     return (
         <>

@@ -21,15 +21,24 @@ export default function AutoComplete({
     value,
     ...props
 }: React.PropsWithChildren<AutoCompleteProps>) {
+    const { open } = props;
+
     const [internalValue, setInternalValue] = useState<string>(value || '');
-    const [internalOpen, setInternalOpen] = useState<boolean>(false);
+    const [internalOpen, setInternalOpen] = useState<boolean>(!!open);
 
     useEffect(() => {
         onDropdownVisibleChange?.(internalOpen);
     }, [internalOpen, onDropdownVisibleChange]);
 
+    useEffect(() => {
+        if (open !== undefined) setInternalOpen(open);
+    }, [open]);
+
+    useEffect(() => {
+        if (value !== undefined) setInternalValue(value);
+    }, [value]);
+
     const onChangeHandler = (newValue: string, option: OptionType | OptionType[]) => {
-        setInternalValue(newValue);
         if (!internalOpen && newValue !== '') setInternalOpen(true);
         onChange?.(newValue, option);
     };

@@ -244,6 +244,11 @@ const IconWrapper = styled.div<{ $isSelected?: boolean }>`
             max-height: 20px !important;
         }
     }
+
+    /* Ensure Phosphor icon weights are correctly applied */
+    & .ph-fill {
+        fill: ${(props) => (props.$isSelected ? 'url(#menu-item-selected-gradient) #533fd1' : '#8088a3')};
+    }
 `;
 
 const GradientDefs = () => (
@@ -321,6 +326,7 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab, hideColl
                 )}
                 {tabs.map((tab) => {
                     const TabIcon = tab.icon;
+                    const SelectedTabIcon = tab.selectedIcon || tab.icon;
                     const { name } = tab;
                     const isDisabled = !tab.display?.enabled(entityData, baseEntity);
                     const isSelected = !isClosed && selectedTab?.name === tab.name;
@@ -331,12 +337,10 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab, hideColl
                             tab={
                                 <TabIconContainer $isSelected={isSelected}>
                                     <IconWrapper $isSelected={isSelected}>
-                                        {typeof TabIcon === 'function' &&
-                                        (TabIcon.toString().includes('@phosphor-icons') ||
-                                            (TabIcon.displayName && TabIcon.displayName.includes('Phosphor'))) ? (
-                                            <TabIcon size={20} weight="regular" />
+                                        {isSelected ? (
+                                            <SelectedTabIcon size={20} weight="fill" />
                                         ) : (
-                                            <TabIcon />
+                                            <TabIcon size={20} weight="regular" />
                                         )}
                                     </IconWrapper>
                                     <TabTextWithTooltip

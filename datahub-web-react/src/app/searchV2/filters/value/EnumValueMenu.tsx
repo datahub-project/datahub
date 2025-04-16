@@ -3,14 +3,13 @@ import React, { useState } from 'react';
 import OptionsDropdownMenu from '@app/searchV2/filters/OptionsDropdownMenu';
 import { mapFilterOption } from '@app/searchV2/filters/mapFilterOption';
 import { FilterField, FilterValue, FilterValueOption } from '@app/searchV2/filters/types';
-import { getStructuredPropFilterDisplayName, useFilterDisplayName } from '@app/searchV2/filters/utils';
+import { getFilterDisplayName, useFilterDisplayName } from '@app/searchV2/filters/utils';
 import { OptionMenu } from '@app/searchV2/filters/value/styledComponents';
 import {
     deduplicateOptions,
     useFilterOptionsBySearchQuery,
     useLoadAggregationOptions,
 } from '@app/searchV2/filters/value/utils';
-import { STRUCTURED_PROPERTIES_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 interface Props {
@@ -57,10 +56,7 @@ export default function EnumValueMenu({
                 value: option.value,
                 count: option.count,
                 entity: option.entity,
-                displayName:
-                    option.displayName || field.field.startsWith(STRUCTURED_PROPERTIES_FILTER_NAME)
-                        ? getStructuredPropFilterDisplayName(field.field, option.value)
-                        : undefined,
+                displayName: getFilterDisplayName(option, field),
             },
             entityRegistry,
             selectedFilterOptions: values.map((value) => {

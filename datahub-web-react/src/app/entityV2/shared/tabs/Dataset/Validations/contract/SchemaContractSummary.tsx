@@ -45,11 +45,11 @@ export const SchemaContractSummary = ({ contracts, showAction = false }: Props) 
 
     const columns = [
         {
-            title: () => <ColumnHeader>NAME</ColumnHeader>,
+            title: () => <ColumnHeader>Name</ColumnHeader>,
             render: (field) => <>{field.fieldPath}</>,
         },
         {
-            title: () => <ColumnHeader>TYPE</ColumnHeader>,
+            title: () => <ColumnHeader>Type</ColumnHeader>,
             render: (field) => <>{field.type}</>,
         },
     ];

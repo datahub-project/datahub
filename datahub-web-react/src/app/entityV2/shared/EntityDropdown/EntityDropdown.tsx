@@ -39,7 +39,8 @@ import CreateEntityAnnouncementModal from '@app/entityV2/shared/announce/CreateE
 import { MarkAsDeprecatedButtonContents } from '@app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
-import { AddIncidentModal } from '@app/entityV2/shared/tabs/Incident/components/AddIncidentModal';
+import { IncidentDetailDrawer } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentDetailDrawer';
+import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { getEntityProfileDeleteRedirectPath } from '@app/shared/deleteUtils';
 import ShareButtonMenu from '@app/shared/share/v2/ShareButtonMenu';
@@ -402,13 +403,12 @@ const EntityDropdown = (props: Props) => {
             {isMoveModalVisible && isDomainEntity && <MoveDomainModal onClose={() => setIsMoveModalVisible(false)} />}
             {hasBeenDeleted && !onDelete && deleteRedirectPath && <Redirect to={deleteRedirectPath} />}
             {isRaiseIncidentModalVisible && (
-                <AddIncidentModal
+                <IncidentDetailDrawer
                     urn={urn}
-                    entityType={entityType}
-                    visible={isRaiseIncidentModalVisible}
-                    onClose={() => setIsRaiseIncidentModalVisible(false)}
-                    refetch={
-                        (() => {
+                    mode={IncidentAction.CREATE}
+                    onSubmit={() => {
+                        setIsRaiseIncidentModalVisible(false);
+                        setTimeout(() => {
                             refetchForEntity?.();
                             history.push(
                                 `${getEntityPath(
@@ -420,8 +420,14 @@ const EntityDropdown = (props: Props) => {
                                     'Incidents',
                                 )}`,
                             );
-                        }) as any
-                    }
+                        }, 3000);
+                    }}
+                    onCancel={() => setIsRaiseIncidentModalVisible(false)}
+                    entity={{
+                        urn,
+                        entityType,
+                        platform: entityData?.platform ?? entityData?.dataPlatformInstance?.platform,
+                    }}
                 />
             )}
             {isLinkAssetVersionModalVisible && (

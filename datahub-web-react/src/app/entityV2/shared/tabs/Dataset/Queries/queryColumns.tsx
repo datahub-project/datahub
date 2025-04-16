@@ -1,4 +1,3 @@
-import { Popover } from '@components';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { Modal, Typography, message } from 'antd';
@@ -7,13 +6,8 @@ import styled from 'styled-components';
 
 import ActorAvatar from '@app/entityV2/shared/ActorAvatar';
 import { ActionButton } from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
-import {
-    getBarsStatusFromPopularityTier,
-    getQueryPopularityTier,
-} from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import QueryBuilderModal from '@app/entityV2/shared/tabs/Dataset/Queries/QueryBuilderModal';
 import { Query } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
-import { PopularityBars } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/PopularityBars';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import MarkdownViewer from '@src/app/entity/shared/components/legacy/MarkdownViewer';
 
@@ -184,36 +178,9 @@ export const EditDeleteColumn = ({ query, hoveredQueryUrn, onEdited, onDeleted }
     );
 };
 
-/*
- * Popularity Column
- */
-
-const PopularityWrapper = styled.div`
-    display: flex;
-    justify-content: center;
-`;
-
-interface PopularityColumnProps {
+interface ColumnProps {
     query: Query;
 }
-
-export const PopularityColumn = ({ query }: PopularityColumnProps) => {
-    const { runsPercentileLast30days } = query;
-    if (!runsPercentileLast30days) return null;
-    const tier = getQueryPopularityTier(runsPercentileLast30days);
-    const status = getBarsStatusFromPopularityTier(tier);
-    return (
-        <Popover
-            content={
-                <>This query has been run more than {runsPercentileLast30days}% of other queries in the last 30 days.</>
-            }
-        >
-            <PopularityWrapper>
-                <PopularityBars status={status} />
-            </PopularityWrapper>
-        </Popover>
-    );
-};
 
 const ColumnsWrapper = styled.div`
     text-align: right;
@@ -222,6 +189,6 @@ const ColumnsWrapper = styled.div`
 /*
  * Columns Column
  */
-export const ColumnsColumn = ({ query }: PopularityColumnProps) => {
+export const ColumnsColumn = ({ query }: ColumnProps) => {
     return <ColumnsWrapper>{query.columns?.length ?? 0}</ColumnsWrapper>;
 };

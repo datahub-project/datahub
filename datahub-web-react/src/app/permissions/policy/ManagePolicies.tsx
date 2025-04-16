@@ -389,8 +389,9 @@ export const ManagePolicies = () => {
                             value={statusFilter}
                             onChange={(selection) => onStatusChange(selection as StatusType)}
                             style={{ width: 100 }}
+                            data-testid="policy-filter"
                         >
-                            <Select.Option value={StatusType.ALL} key="ALL">
+                            <Select.Option value={StatusType.ALL} key="ALL" data-testid="all-policies-option">
                                 All
                             </Select.Option>
                             <Select.Option value={StatusType.ACTIVE} key="ACTIVE">

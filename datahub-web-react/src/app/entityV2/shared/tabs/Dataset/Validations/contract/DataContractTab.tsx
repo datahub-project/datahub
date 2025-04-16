@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { DataContractEmptyState } from '@app/entity/shared/tabs/Dataset/Validations/contract/DataContractEmptyState';
 import { getAssertionsSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { ContractStructuredPropertiesSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/ContractStructuredPropertiesSummary';
 import { DataContractSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/DataContractSummary';
 import { DataQualityContractSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/DataQualityContractSummary';
 import { FreshnessContractSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/FreshnessContractSummary';
@@ -11,7 +12,7 @@ import { SchemaContractSummary } from '@app/entityV2/shared/tabs/Dataset/Validat
 import { DataContractBuilderModal } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/DataContractBuilderModal';
 
 import { useGetDatasetContractQuery } from '@graphql/contract.generated';
-import { DataContractState } from '@types';
+import { DataContract, DataContractState } from '@types';
 
 const Container = styled.div`
     display: flex;
@@ -54,6 +55,8 @@ export const DataContractTab = () => {
     const hasFreshnessContract = freshnessContracts && freshnessContracts?.length;
     const hasSchemaContract = schemaContracts && schemaContracts?.length;
     const hasDataQualityContract = dataQualityContracts && dataQualityContracts?.length;
+    const hasStructuredProperties =
+        contract?.structuredProperties && (contract?.structuredProperties?.properties?.length || 0) > 0;
     const showLeftColumn = hasFreshnessContract || hasSchemaContract || undefined;
 
     const onContractUpdate = () => {
@@ -93,6 +96,12 @@ export const DataContractTab = () => {
                             </LeftColumn>
                         )}
                         <RightColumn>
+                            {hasStructuredProperties && contract && (
+                                <ContractStructuredPropertiesSummary
+                                    contract={contract as DataContract}
+                                    refetch={refetch}
+                                />
+                            )}
                             {hasDataQualityContract ? (
                                 <DataQualityContractSummary
                                     contracts={dataQualityContracts as any}

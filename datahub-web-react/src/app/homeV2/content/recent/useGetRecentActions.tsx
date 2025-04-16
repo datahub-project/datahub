@@ -1,4 +1,8 @@
 import { ASSET_ENTITY_TYPES } from '@app/searchV2/utils/constants';
+import {
+    RECOMMENDATION_MODULE_ID_RECENTLY_EDITED_ENTITIES,
+    RECOMMENDATION_MODULE_ID_RECENTLY_VIEWED_ENTITIES,
+} from '@src/app/entityV2/shared/constants';
 
 import { useListRecommendationsQuery } from '@graphql/recommendations.generated';
 import { CorpUser, Entity, EntityType, ScenarioType } from '@types';
@@ -9,9 +13,6 @@ const SUPPORTED_ENTITY_TYPES = [
     EntityType.GlossaryNode,
     EntityType.GlossaryTerm,
 ];
-
-const RECENTLY_VIEWED_MODULE_ID = 'RecentlyViewedEntities';
-const RECENTLY_EDITED_MODULE_ID = 'RecentlyEditedEntities';
 
 export const useGetRecentActions = (user?: CorpUser | null) => {
     const { data, loading, error } = useListRecommendationsQuery({
@@ -29,14 +30,14 @@ export const useGetRecentActions = (user?: CorpUser | null) => {
     });
 
     const viewedModule = data?.listRecommendations?.modules?.find(
-        (module) => module.moduleId === RECENTLY_VIEWED_MODULE_ID,
+        (module) => module.moduleId === RECOMMENDATION_MODULE_ID_RECENTLY_VIEWED_ENTITIES,
     );
     const viewed =
         viewedModule?.content
             ?.filter((content) => content.entity && SUPPORTED_ENTITY_TYPES.includes(content.entity.type))
             .map((content) => content.entity) || [];
     const editedModule = data?.listRecommendations?.modules?.find(
-        (module) => module.moduleId === RECENTLY_EDITED_MODULE_ID,
+        (module) => module.moduleId === RECOMMENDATION_MODULE_ID_RECENTLY_EDITED_ENTITIES,
     );
     const edited =
         editedModule?.content

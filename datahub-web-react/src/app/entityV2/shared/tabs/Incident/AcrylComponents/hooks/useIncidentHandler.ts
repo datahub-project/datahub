@@ -6,7 +6,6 @@ import { useState } from 'react';
 import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
 import { PAGE_SIZE, updateActiveIncidentInCache } from '@app/entityV2/shared/tabs/Incident/incidentUtils';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import handleGraphQLError from '@src/app/shared/handleGraphQLError';
 import { useRaiseIncidentMutation, useUpdateIncidentMutation } from '@src/graphql/mutations.generated';
 import { EntityType, IncidentSourceType, IncidentState } from '@src/types.generated';
@@ -63,7 +62,7 @@ export const getCacheIncident = ({
 
         priority: values.priority,
         created: {
-            time: Date.now(),
+            time: values.created || Date.now(),
             actor: user?.urn,
         },
         assignees: values.assignees,
@@ -71,11 +70,20 @@ export const getCacheIncident = ({
     return newIncident;
 };
 
-export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, user, assignees, linkedAssets, entity }) => {
+export const useIncidentHandler = ({
+    mode,
+    onSubmit,
+    incidentUrn,
+    user,
+    assignees,
+    linkedAssets,
+    entity,
+    currentIncident,
+    urn,
+}) => {
     const [raiseIncidentMutation] = useRaiseIncidentMutation();
     const [updateIncidentMutation] = useUpdateIncidentMutation();
     const [form] = Form.useForm();
-    const { urn, entityType } = useEntityData();
     const client = useApolloClient();
     const isAddIncidentMode = mode === IncidentAction.CREATE;
 
@@ -158,8 +166,9 @@ export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, user, assignee
                     values: {
                         ...values,
                         state: baseInput.status.state,
-                        stage: baseInput.status.stage,
+                        stage: baseInput.status.stage || '',
                         message: baseInput.status.message,
+                        priority: values.priority || null,
                         assignees,
                         linkedAssets,
                     },
@@ -169,7 +178,7 @@ export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, user, assignee
                 updateActiveIncidentInCache(client, urn, newIncident, PAGE_SIZE);
                 analytics.event({
                     type: EventType.EntityActionEvent,
-                    entityType,
+                    entityType: entity?.entityType,
                     entityUrn: urn,
                     actionType: EntityActionType.AddIncident,
                 });
@@ -185,6 +194,7 @@ export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, user, assignee
                             priority: values.priority || null,
                             assignees,
                             linkedAssets,
+                            created: currentIncident.created,
                         },
                         user,
                         incidentUrn,

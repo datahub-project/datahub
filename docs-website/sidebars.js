@@ -300,6 +300,25 @@ module.exports = {
           ],
         },
         {
+          "Remote Executor": [
+            {
+              type: "doc",
+              id: "docs/managed-datahub/remote-executor/about",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/remote-executor/monitoring",
+              className: "saasOnly",
+            },
+          ],
+        },
+        {
           "DataHub API": [
             {
               type: "doc",
@@ -334,11 +353,6 @@ module.exports = {
         },
         {
           "Operator Guides": [
-            {
-              type: "doc",
-              id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
-              className: "saasOnly",
-            },
             {
               type: "doc",
               id: "docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge",
@@ -871,7 +885,6 @@ module.exports = {
         "docs/advanced/monitoring",
         "docs/deploy/telemetry",
         "docs/how/kafka-config",
-        "docs/advanced/no-code-upgrade",
         "docs/how/jattach-guide",
       ],
     },
@@ -952,7 +965,6 @@ module.exports = {
         "docs/advanced/mcp-mcl",
         "docs/advanced/writing-mcps",
         "docs/modeling/extending-the-metadata-model",
-        "docs/advanced/no-code-modeling",
         "docs/advanced/api-tracing",
         "datahub-web-react/src/app/analytics/README",
         "docker/datahub-upgrade/README",

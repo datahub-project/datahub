@@ -7,7 +7,8 @@ import { EntityLinkList } from '@app/homeV2/reference/sections/EntityLinkList';
 import { EmptyAssetsYouOwn } from '@app/homeV2/reference/sections/assets/EmptyAssetsYouOwn';
 import { useGetAssetsYouOwn } from '@app/homeV2/reference/sections/assets/useGetAssetsYouOwn';
 import { ReferenceSectionProps } from '@app/homeV2/reference/types';
-import { ASSET_ENTITY_TYPES, ENTITY_FILTER_NAME, OWNERS_FILTER_NAME, UnionType } from '@app/searchV2/utils/constants';
+import { OWNERS_FILTER_NAME, UnionType } from '@app/searchV2/utils/constants';
+import useGetUserGroupUrns from '@src/app/entityV2/user/useGetUserGroupUrns';
 
 const DEFAULT_MAX_ENTITIES_TO_SHOW = 5;
 
@@ -17,6 +18,7 @@ export const AssetsYouOwn = ({ hideIfEmpty }: ReferenceSectionProps) => {
     const { user } = userContext;
     const [entityCount, setEntityCount] = useState(DEFAULT_MAX_ENTITIES_TO_SHOW);
     const [showModal, setShowModal] = useState(false);
+    const { groupUrns } = useGetUserGroupUrns(user?.urn || '');
     const { entities, loading } = useGetAssetsYouOwn(user);
 
     if (hideIfEmpty && entities.length === 0) {
@@ -45,10 +47,7 @@ export const AssetsYouOwn = ({ hideIfEmpty }: ReferenceSectionProps) => {
                     title="Your assets"
                     fixedFilters={{
                         unionType: UnionType.AND,
-                        filters: [
-                            { field: OWNERS_FILTER_NAME, values: [user?.urn as string] },
-                            { field: ENTITY_FILTER_NAME, values: [...ASSET_ENTITY_TYPES] },
-                        ],
+                        filters: [{ field: OWNERS_FILTER_NAME, values: [user?.urn as string, ...groupUrns] }],
                     }}
                     onClose={() => setShowModal(false)}
                     placeholderText="Filter assets you own..."

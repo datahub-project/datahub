@@ -1,8 +1,10 @@
-import { PageTitle, Pagination, SearchBar } from '@components';
+import { Button, PageTitle, Pagination, SearchBar, Tooltip2 } from '@components';
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
+import { useUserContext } from '@app/context/useUserContext';
 import { PageContainer } from '@app/govern/structuredProperties/styledComponents';
+import CreateNewTagModal from '@app/tags/CreateNewTagModal/CreateNewTagModal';
 import EmptyTags from '@app/tags/EmptyTags';
 import TagsTable from '@app/tags/TagsTable';
 import { Message } from '@src/app/shared/Message';
@@ -56,6 +58,11 @@ const ManageTags = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('*');
     const entityRegistry = useEntityRegistry();
+    const [showCreateTagModal, setShowCreateTagModal] = useState(false);
+
+    // Check permissions using UserContext
+    const userContext = useUserContext();
+    const canCreateTags = userContext?.platformPrivileges?.createTags || userContext?.platformPrivileges?.manageTags;
 
     // Debounce search query input to reduce unnecessary renders
     useEffect(() => {
@@ -111,12 +118,45 @@ const ManageTags = () => {
         return <Message type="error" content={`Failed to load tags: ${searchError.message}`} />;
     }
 
+    // Create the Create Tag button with proper permissions handling
+    const renderCreateTagButton = () => {
+        if (!canCreateTags) {
+            return (
+                <Tooltip2
+                    title="You do not have permission to create tags"
+                    placement="left"
+                    showArrow
+                    mouseEnterDelay={0.1}
+                    mouseLeaveDelay={0.1}
+                >
+                    <span>
+                        <Button size="md" color="violet" icon={{ icon: 'Plus', source: 'phosphor' }} disabled>
+                            Create Tag
+                        </Button>
+                    </span>
+                </Tooltip2>
+            );
+        }
+
+        return (
+            <Button
+                onClick={() => setShowCreateTagModal(true)}
+                size="md"
+                color="violet"
+                icon={{ icon: 'Plus', source: 'phosphor' }}
+            >
+                Create Tag
+            </Button>
+        );
+    };
+
     return (
         <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
             {searchLoading && <LoadingBar />}
 
             <HeaderContainer>
                 <PageTitle title="Manage Tags" subTitle="Create and edit asset & column tags" />
+                {renderCreateTagButton()}
             </HeaderContainer>
 
             <SearchContainer>
@@ -149,6 +189,14 @@ const ManageTags = () => {
                     />
                 </>
             )}
+
+            <CreateNewTagModal
+                open={showCreateTagModal}
+                onClose={() => {
+                    setShowCreateTagModal(false);
+                    setTimeout(() => refetch(), 3000);
+                }}
+            />
         </PageContainer>
     );
 };

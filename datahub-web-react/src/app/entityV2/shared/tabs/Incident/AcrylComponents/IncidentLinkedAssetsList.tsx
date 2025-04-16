@@ -13,7 +13,6 @@ import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
 import { LinkedAssetsContainer } from '@app/entityV2/shared/tabs/Incident/styledComponents';
 import { IncidentLinkedAssetsListProps } from '@app/entityV2/shared/tabs/Incident/types';
 import { Button, Pill } from '@src/alchemy-components';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { EntityCapabilityType } from '@src/app/entityV2/Entity';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
@@ -31,8 +30,8 @@ export const IncidentLinkedAssetsList = ({
     mode,
     setCachedLinkedAssets,
     setIsLinkedAssetsLoading,
+    urn,
 }: IncidentLinkedAssetsListProps) => {
-    const { urn } = useEntityData();
     const [getEntities, { data: resolvedLinkedAssets, loading: entitiesLoading }] = useGetEntitiesLazyQuery();
     const entityRegistry = useEntityRegistryV2();
 
@@ -57,22 +56,25 @@ export const IncidentLinkedAssetsList = ({
     };
 
     const batchAddAssets = (entityUrns: Array<string>) => {
-        const updatedUrns = [...form.getFieldValue(RESOURCE_URN_FIELD_NAME), ...entityUrns];
+        const existingUrns = form.getFieldValue(RESOURCE_URN_FIELD_NAME) || [];
+        const updatedUrns = [...existingUrns, ...entityUrns];
         const uniqueUrns = [...new Set(updatedUrns)];
         form.setFieldValue(RESOURCE_URN_FIELD_NAME, uniqueUrns);
-        setIsBatchAddAssetListModalVisible(false);
         getEntities({
             variables: { urns: form.getFieldValue(RESOURCE_URN_FIELD_NAME) },
         });
+        setIsBatchAddAssetListModalVisible(false);
     };
 
     useEffect(() => {
         if (mode === IncidentAction.CREATE) {
-            getEntities({
-                variables: {
-                    urns: [urn],
-                },
-            });
+            if (urn) {
+                getEntities({
+                    variables: {
+                        urns: [urn],
+                    },
+                });
+            }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);

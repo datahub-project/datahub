@@ -1,4 +1,5 @@
 import { Typography } from 'antd';
+import DOMPurify from 'dompurify';
 import React, { useState } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
@@ -70,12 +71,15 @@ export default function DescriptionSection({ description, baDescription, isExpan
         }
     }
 
+    const sanitizedDescription = DOMPurify.sanitize(description);
+    const sanitizedBADescription = DOMPurify.sanitize(baDescription || '');
+
     return (
         <>
             <ContentWrapper>
                 {isExpanded && (
                     <>
-                        <MarkdownViewer source={description} ignoreLimit />
+                        <MarkdownViewer source={sanitizedDescription} ignoreLimit />
                         {isOverLimit && (
                             <Typography.Link onClick={() => setIsExpanded(false)}>Read Less</Typography.Link>
                         )}
@@ -91,14 +95,14 @@ export default function DescriptionSection({ description, baDescription, isExpan
                         }
                         shouldWrap
                     >
-                        {description}
+                        {sanitizedDescription}
                     </NoMarkdownViewer>
                 )}
             </ContentWrapper>
             <BaContentWrapper>
                 {isBaExpanded && (
                     <>
-                        <MarkdownViewer source={baDescription || ''} ignoreLimit />
+                        <MarkdownViewer source={sanitizedBADescription || ''} ignoreLimit />
                         {isBaOverLimit && (
                             <Typography.Link onClick={() => setIsBaExpanded(false)}>Read Less</Typography.Link>
                         )}
@@ -114,7 +118,7 @@ export default function DescriptionSection({ description, baDescription, isExpan
                         }
                         shouldWrap
                     >
-                        {baDescription}
+                        {sanitizedBADescription}
                     </NoMarkdownViewer>
                 )}
             </BaContentWrapper>

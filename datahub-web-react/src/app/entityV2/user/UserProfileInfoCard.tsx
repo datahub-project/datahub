@@ -13,7 +13,7 @@ import { UserBasicInfoContainer } from '@app/entityV2/user/UserBasicInfoContaine
 import UserEditProfileModal from '@app/entityV2/user/UserEditProfileModal';
 import CustomAvatar from '@app/shared/avatar/CustomAvatar';
 
-import { EntityRelationship, SearchResult } from '@types';
+import { EntityRelationship, SearchResults } from '@types';
 
 const AVATAR_STYLE = {
     marginRight: '0px',
@@ -32,7 +32,7 @@ export type SidebarData = {
     phone: string | undefined;
     aboutText: string | undefined;
     groupsDetails: Array<EntityRelationship>;
-    ownerships: Array<SearchResult> | undefined;
+    ownershipResults: SearchResults | undefined;
     urn: string | undefined;
     dataHubRoles: Array<EntityRelationship>;
 };

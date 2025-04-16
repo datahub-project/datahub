@@ -39,6 +39,7 @@ export const IncidentResolutionPopup = ({ incident, refetch, handleClose }: Inci
     const { urn, entityType } = useEntityData();
     const [updateIncidentStatusMutation] = useUpdateIncidentStatusMutation();
     const [form] = Form.useForm();
+    const formValues = Form.useWatch([], form);
 
     const handleValuesChange = (changedValues: any) => {
         Object.keys(changedValues).forEach((fieldName) => form.setFields([{ name: fieldName, errors: [] }]));
@@ -73,6 +74,7 @@ export const IncidentResolutionPopup = ({ incident, refetch, handleClose }: Inci
                     message: formData?.note,
                     linkedAssets: incident.linkedAssets,
                     assignees: incident.assignees,
+                    created: incident.created,
                 };
 
                 const updatedIncident = getCacheIncident({
@@ -131,7 +133,7 @@ export const IncidentResolutionPopup = ({ incident, refetch, handleClose }: Inci
                     showClear={false}
                     width="100%"
                     customStyle={{ flexDirection: 'column', alignItems: 'normal' }}
-                    value={form.getFieldValue(INCIDENT_OPTION_LABEL_MAPPING.stage.fieldName)}
+                    value={formValues?.[INCIDENT_OPTION_LABEL_MAPPING.stage.fieldName]}
                 />
                 <FormItem
                     name="note"

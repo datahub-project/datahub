@@ -14,7 +14,7 @@ export enum PopularityTier {
     TIER_4, // Least Popular
 }
 
-export const ACRYL_PLATFORM = 'Acryl';
+export const ACRYL_PLATFORM = 'DataHub Core';
 
 export enum ActionType {
     SHARE,
@@ -82,19 +82,6 @@ export const getChartPopularityTier = (viewCountPercentileLast30Days, uniqueUser
         return PopularityTier.TIER_2;
     }
     if (viewCountPercentileLast30Days > 0 || uniqueUserPercentileLast30Days > 0) {
-        return PopularityTier.TIER_3;
-    }
-    return PopularityTier.TIER_4;
-};
-
-export const getQueryPopularityTier = (runsPercentileLast30days: number) => {
-    if (runsPercentileLast30days > 80) {
-        return PopularityTier.TIER_1;
-    }
-    if (runsPercentileLast30days > 30) {
-        return PopularityTier.TIER_2;
-    }
-    if (runsPercentileLast30days > 0) {
         return PopularityTier.TIER_3;
     }
     return PopularityTier.TIER_4;

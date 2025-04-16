@@ -68,7 +68,7 @@ export const FreshnessContractSummary = ({ contracts, showAction = false }: Prop
             <SummaryContainer>
                 <Header>
                     <ClockCircleOutlined style={{ marginRight: 8 }} />
-                    UPDATE FREQUENCY
+                    Update Frequency
                 </Header>
                 <Body>
                     {!assertionDefinition && <>No contract found :(</>}

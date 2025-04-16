@@ -3,12 +3,14 @@ import React from 'react';
 
 import { IconStyleType } from '@app/entity/Entity';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { FieldType, FilterField } from '@app/searchV2/filters/types';
 import {
     PlatformIcon,
     canCreateViewFromFilters,
     combineAggregations,
     filterEmptyAggregations,
     filterOptionsWithSearch,
+    getFilterDisplayName,
     getFilterEntity,
     getFilterIconAndLabel,
     getFilterOptions,
@@ -467,5 +469,25 @@ describe('filter utils - getStructuredPropFilterDisplayName', () => {
                 '`test` _value_ for a [rich](www.google.com) text **situation** right here!',
             ),
         ).toBe('test value for a rich text situation right here!');
+    });
+});
+
+describe('filter utils - getFilterDisplayName', () => {
+    it('should return the displayName for an option if it exists', () => {
+        const option = { value: 'testValue', displayName: 'test name' };
+        const field: FilterField = { type: FieldType.ENUM, field: 'test', displayName: 'test' };
+        expect(getFilterDisplayName(option, field)).toBe('test name');
+    });
+
+    it('should return undefined if no display name and field is not a structured property filter', () => {
+        const option = { value: 'testValue' };
+        const field: FilterField = { type: FieldType.ENUM, field: 'structuredProperties.test', displayName: 'test' };
+        expect(getFilterDisplayName(option, field)).toBe('testValue');
+    });
+
+    it('should return the structured property value properly if this is a structured property filter (structured prop value is tested above)', () => {
+        const option = { value: 'testValue' };
+        const field: FilterField = { type: FieldType.ENUM, field: 'test', displayName: 'test' };
+        expect(getFilterDisplayName(option, field)).toBe(undefined);
     });
 });

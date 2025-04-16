@@ -3,7 +3,6 @@ import styled from 'styled-components';
 
 import { ANTD_GRAY_V2, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import useColumnsFilter from '@app/entityV2/shared/tabs/Dataset/Queries/QueryFilters/useColumnsFilter';
-import useUsersFilter from '@app/entityV2/shared/tabs/Dataset/Queries/QueryFilters/useUsersFilter';
 import SearchFilter from '@app/searchV2/filters/SearchFilter';
 import SelectedSearchFilters from '@app/searchV2/filters/SelectedSearchFilters';
 import { FilterPredicate } from '@app/searchV2/filters/types';
@@ -35,18 +34,11 @@ interface Props {
 export default function QueryFilters({
     selectedColumnsFilter,
     setSelectedColumnsFilter,
-    setSelectedUsersFilter,
+    setSelectedUsersFilter, // eslint-disable-line @typescript-eslint/no-unused-vars
     selectedUsersFilter,
     setPage,
 }: Props) {
     const onChangeFilters = (newFilters: FacetFilterInput[]) => {
-        const usedByFilter = newFilters.find((f) => f.field === 'topUsersLast30DaysFeature');
-        if (usedByFilter) {
-            setSelectedUsersFilter(usedByFilter);
-        } else {
-            setSelectedUsersFilter({ field: 'topUsersLast30DaysFeature', values: [] });
-        }
-
         const columnsFilter = newFilters.find((f) => f.field === 'entities');
         if (columnsFilter) {
             setSelectedColumnsFilter(columnsFilter);
@@ -57,15 +49,13 @@ export default function QueryFilters({
         setPage(1);
     };
 
-    const usersFilter = useUsersFilter({ selectedColumnsFilter, selectedUsersFilter });
     const columnsFilter = useColumnsFilter({ selectedColumnsFilter, selectedUsersFilter, setSelectedColumnsFilter });
 
     const filterPredicates: FilterPredicate[] = convertToAvailableFilterPredictes(
         [selectedUsersFilter, selectedColumnsFilter],
-        [usersFilter, columnsFilter],
+        [columnsFilter],
     );
-    let selectedFilters: FacetFilterInput[] = selectedColumnsFilter.values?.length ? [selectedColumnsFilter] : [];
-    selectedFilters = selectedUsersFilter.values?.length ? [...selectedFilters, selectedUsersFilter] : selectedFilters;
+    const selectedFilters: FacetFilterInput[] = selectedColumnsFilter.values?.length ? [selectedColumnsFilter] : [];
 
     const labelStyle = {
         backgroundColor: ANTD_GRAY_V2[15],
@@ -79,21 +69,13 @@ export default function QueryFilters({
                     filter={columnsFilter}
                     filterPredicates={filterPredicates}
                     onChangeFilters={onChangeFilters}
-                    activeFilters={[selectedColumnsFilter, selectedUsersFilter]}
+                    activeFilters={[selectedColumnsFilter]}
                     labelStyle={selectedColumnsFilter.values?.length ? undefined : labelStyle}
-                    shouldUseAggregationsFromFilter
-                />
-                <SearchFilter
-                    filter={usersFilter}
-                    filterPredicates={filterPredicates}
-                    onChangeFilters={onChangeFilters}
-                    activeFilters={[selectedUsersFilter, selectedColumnsFilter]}
-                    labelStyle={selectedUsersFilter.values?.length ? undefined : labelStyle}
                     shouldUseAggregationsFromFilter
                 />
             </FiltersWrapper>
             <SelectedSearchFilters
-                availableFilters={[columnsFilter, usersFilter]}
+                availableFilters={[columnsFilter]}
                 selectedFilters={selectedFilters}
                 unionType={UnionType.AND}
                 onChangeFilters={onChangeFilters}

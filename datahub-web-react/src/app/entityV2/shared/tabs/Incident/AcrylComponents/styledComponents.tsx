@@ -151,7 +151,6 @@ export const ActivityStatusText = styled.div`
 export const Header = styled.div`
     display: flex;
     align-items: center;
-    cursor: pointer;
     margin-bottom: 1rem;
 `;
 

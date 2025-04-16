@@ -10,11 +10,11 @@ import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuA
 import MoreOptionsMenuAction from '@app/entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
 import { usePreviewData } from '@app/entityV2/shared/PreviewContext';
 import { useSearchCardContext } from '@app/entityV2/shared/SearchCardContext';
-import { removeMarkdown } from '@app/entityV2/shared/components/styled/StripMarkdownText';
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { GlossaryPreviewCardDecoration } from '@app/entityV2/shared/containers/profile/header/GlossaryPreviewCardDecoration';
 import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
+import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import { DashboardLastUpdatedMs, DatasetLastUpdatedMs } from '@app/entityV2/shared/utils';
 import ColoredBackgroundPlatformIconGroup from '@app/previewV2/ColoredBackgroundPlatformIconGroup';
 import { CompactView } from '@app/previewV2/CompactView';
@@ -68,10 +68,10 @@ const TransparentButton = styled(Button)`
 const PreviewContainer = styled.div`
     display: flex;
     flex-direction: column;
+    height: auto;
     width: 100%;
     justify-content: space-between;
     align-items: start;
-
     .entityCount {
         margin-bottom: 2px;
     }
@@ -106,14 +106,9 @@ const InsightIconContainer = styled.span`
 `;
 
 const Documentation = styled.div`
-    width: 90%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 12px;
-    font-weight: 500;
-    color: ${REDESIGN_COLORS.SUB_TEXT};
     margin-top: 8px;
+    max-height: 300px;
+    overflow-y: auto;
 `;
 
 const ENTITY_TYPES_WITH_DESCRIPTION_PREVIEW = new Set([
@@ -264,6 +259,7 @@ export default function DefaultPreviewCard({
             previewData={previewData}
         />
     );
+
     return (
         <PreviewContainer data-testid={dataTestID ?? `preview-${urn}`}>
             {(entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm) && (
@@ -320,9 +316,9 @@ export default function DefaultPreviewCard({
                     {(previewType === PreviewType.HOVER_CARD ||
                         ENTITY_TYPES_WITH_DESCRIPTION_PREVIEW.has(entityType)) &&
                     description ? (
-                        <RowContainer>
-                            <Documentation>{removeMarkdown(description)}</Documentation>
-                        </RowContainer>
+                        <Documentation>
+                            <CompactMarkdownViewer content={description} />
+                        </Documentation>
                     ) : null}
                 </>
             ) : (

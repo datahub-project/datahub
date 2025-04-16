@@ -17,6 +17,7 @@ import {
     FilterOperatorType,
     FilterOptionType,
     FilterPredicate,
+    FilterValueOption,
 } from '@app/searchV2/filters/types';
 import {
     BOOLEAN_FIELDS,
@@ -679,4 +680,14 @@ export function getIsDateRangeFilter(field: FilterField | FacetMetadata) {
         return (field.entity as StructuredPropertyEntity).definition?.valueType?.urn === DATE_TYPE_URN;
     }
     return false;
+}
+
+export function getFilterDisplayName(option: FilterValueOption, field: FilterField) {
+    if (option.displayName) {
+        return option.displayName;
+    }
+
+    return field.field.startsWith(STRUCTURED_PROPERTIES_FILTER_NAME)
+        ? getStructuredPropFilterDisplayName(field.field, option.value)
+        : undefined;
 }

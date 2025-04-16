@@ -13,7 +13,7 @@ import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentSt
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { CorpUser, EntityPrivileges } from '@src/types.generated';
+import { CorpUser, EntityPrivileges, IncidentType } from '@src/types.generated';
 
 export const useIncidentsTableColumns = (refetch: () => void, privileges?: EntityPrivileges) => {
     return useMemo(() => {
@@ -49,12 +49,18 @@ export const useIncidentsTableColumns = (refetch: () => void, privileges?: Entit
                 title: 'Category',
                 dataIndex: 'type',
                 key: 'type',
-                render: (record) =>
-                    !record.groupName && (
-                        <CategoryType data-testid="incident-category" title={getCapitalizeWord(String(record?.type))}>
-                            {getCapitalizeWord(String(record?.type))}
-                        </CategoryType>
-                    ),
+                render: (record) => {
+                    const categoryName = getCapitalizeWord(
+                        record?.type === IncidentType.Custom ? record?.customType : record?.type,
+                    );
+                    return (
+                        !record.groupName && (
+                            <CategoryType data-testid="incident-category" title={categoryName}>
+                                {categoryName}
+                            </CategoryType>
+                        )
+                    );
+                },
                 sorter: (a, b) => {
                     return (b.type || '').localeCompare(a.type || '', undefined, { sensitivity: 'base' });
                 },

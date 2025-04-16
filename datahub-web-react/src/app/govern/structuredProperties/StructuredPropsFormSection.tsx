@@ -116,6 +116,7 @@ const StructuredPropsFormSection = ({
                                 values={formValues?.typeQualifier?.allowedTypes}
                                 disabledValues={disabledTypeQualifierValues}
                                 width="full"
+                                isDisabled={isEditMode ? !formValues?.typeQualifier?.allowedTypes?.length : false}
                             />
                         </Form.Item>
                     </Tooltip>
