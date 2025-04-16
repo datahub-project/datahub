@@ -151,7 +151,7 @@ docker {
     exclude "datahub-actions/tests/**"
     exclude "**/*.xml"
     include ".dockerignore"
-    include "docker/**"
+    include "docker/datahub-actions/**"
     include "datahub-actions/**"
   }.exclude {
     i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
