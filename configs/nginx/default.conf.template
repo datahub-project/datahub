@@ -1,0 +1,25 @@
+server {
+    listen 8000;
+
+    # Proxy configuration
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+    # Include basic authentication if needed
+    include /etc/nginx/auth.conf;
+
+    # API server proxy
+    location /api/ {
+        proxy_pass http://server:8001/api/;
+    }
+
+    # Web server proxy
+    location / {
+        proxy_pass http://webapp:80/;
+    }
+} 
