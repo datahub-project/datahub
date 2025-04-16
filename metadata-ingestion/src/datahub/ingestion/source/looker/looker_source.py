@@ -508,7 +508,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
             # In addition to the query, filters can point to fields as well
             assert element.result_maker.filterables is not None
-            # Create a mapping of explore names to their models to maintain correct associations
+
+            # Different dashboard elements my reference explores from different models
+            # so we need to create a mapping of explore names to their models to maintain correct associations
             explore_to_model_map = {}
 
             for filterable in element.result_maker.filterables:
@@ -537,11 +539,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
             explores = sorted(list(set(explores)))  # dedup the list of views
 
-            # Log the mapping of explores to models for debugging
-            if len(explore_to_model_map) > 1:
-                logger.debug(
-                    f"Dashboard element {element.id} has explores from multiple models: {explore_to_model_map}"
-                )
+            logger.debug(
+                f"Dashboard element {element.id} and their explores with the corresponding model: {explore_to_model_map}"
+            )
 
             # If we have a query, use its model as the default for any explores that don't have a model in our mapping
             default_model = ""
@@ -1235,16 +1235,10 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             view_field_for_reference = input_field.view_field
 
             if input_field.view_field is None:
-                logger.debug(
-                    f"Getting explore for input field: model={input_field.model}, explore={input_field.explore}, field={input_field.name}"
-                )
                 explore = self.explore_registry.get_explore(
                     input_field.model, input_field.explore
                 )
                 if explore is not None:
-                    logger.debug(
-                        f"Found explore with model_name={explore.model_name} for input field {input_field.name}"
-                    )
                     # add this to the list of explores to finally generate metadata for
                     self.add_reachable_explore(
                         input_field.model, input_field.explore, entity_urn
@@ -1303,10 +1297,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     ) -> MetadataChangeProposalWrapper:
         chart_urn = self._make_chart_urn(
             element_id=dashboard_element.get_urn_element_id()
-        )
-
-        logger.debug(
-            f"Creating metrics dimensions for chart {dashboard_element.id}, found {len(self._input_fields_from_dashboard_element(dashboard_element))} input fields"
         )
 
         input_fields_aspect = InputFieldsClass(
@@ -1536,17 +1526,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             "fields",
             "slug",
         ]
-
-        # Add special logging for processing dashboards with GRR elements
-        for explore_key, via_list in self.reachable_explores.items():
-            if "headline_and_cohort_arr" in explore_key[1]:
-                logger.debug(
-                    f"Reachable explore: model={explore_key[0]}, explore={explore_key[1]}, via={via_list}"
-                )
-                if any("GRR" in via for via in via_list if isinstance(via, str)):
-                    logger.debug(
-                        f"Found headline_and_cohort_arr explore reachable from GRR: model={explore_key[0]}, explore={explore_key[1]}"
-                    )
 
         all_looks: List[Look] = self.looker_api.all_looks(
             fields=look_fields, soft_deleted=self.source_config.include_deleted

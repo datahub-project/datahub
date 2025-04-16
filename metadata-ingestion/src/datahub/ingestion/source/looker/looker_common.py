@@ -1,9 +1,7 @@
 import datetime
-import inspect
 import itertools
 import logging
 import os
-import pprint
 import re
 from contextlib import contextmanager
 from dataclasses import dataclass, field as dataclasses_field
@@ -831,32 +829,6 @@ class LookerExplore:
     source_file: Optional[str] = None
     tags: List[str] = dataclasses_field(default_factory=list)
 
-    def __post_init__(self):
-        # Add stack trace debug logging when headline_and_cohort_arr is created with model_name=support
-        if self.name == "headline_and_cohort_arr":
-            logger.debug(
-                f"LookerExplore created with name={self.name}, model_name={self.model_name}"
-            )
-            if self.model_name in ["support", "core"]:
-                stack = []
-                for frame in inspect.stack()[1:11]:  # Get 10 frames, but __post_init__
-                    try:
-                        args, _, _, local_vars = inspect.getargvalues(frame.frame)
-                        arg_values = {
-                            arg: str(local_vars[arg]) for arg in args if arg != "self"
-                        }
-                        stack.append(
-                            f"Function: {frame.function} in {frame.filename}:{frame.lineno}"
-                        )
-                        stack.append(f"  Arguments: {arg_values}")
-                    except Exception as e:
-                        stack.append(f"Error collecting frame info: {e}")
-
-                logger.debug(
-                    f"STACK TRACE with args for {self.model_name}.headline_and_cohort_arr creation:\n"
-                    + "\n".join(stack)
-                )
-
     @validator("name")
     def remove_quotes(cls, v):
         # Sanitize the name.
@@ -970,10 +942,6 @@ class LookerExplore:
                 explore_field_set_to_lkml_fields(explore)
             )
 
-            logger.debug(
-                f"Explore {explore_name} view_name={explore.view_name} name={explore.name}"
-            )
-
             if explore.view_name is not None and explore.view_name != explore.name:
                 # explore is not named after a view and is instead using a from field, which is modeled as view_name.
                 aliased_explore = True
@@ -983,8 +951,6 @@ class LookerExplore:
                 aliased_explore = False
                 if explore.name is not None:
                     views.add(explore.name)
-
-            logger.debug(f"Views so far (step 1): {views}")
 
             if explore.joins is not None and explore.joins != []:
                 join_to_orig_name_map = {}
@@ -1021,8 +987,6 @@ class LookerExplore:
                         assert explore.view_name is not None
                         view_name = explore.view_name
                     views.add(view_name)
-
-            logger.debug(f"Views so far (step 2): {views}")
 
             view_fields: List[ViewField] = []
             field_name_vs_raw_explore_field: Dict = {}
@@ -1111,14 +1075,6 @@ class LookerExplore:
             if view_project_map:
                 logger.debug(f"views and their projects: {view_project_map}")
 
-            if (
-                logger.isEnabledFor(logging.DEBUG)
-                and explore_name == "headline_and_cohort_arr"
-            ):
-                logger.debug("lkml_fields")
-                pprint.pp(lkml_fields)
-            logger.debug(f"Views so far (last step): {views}")
-
             upstream_views_file_path: Dict[str, Optional[str]] = (
                 create_upstream_views_file_path_map(
                     lkml_fields=lkml_fields,
@@ -1168,9 +1124,7 @@ class LookerExplore:
                 source_file=explore.source_file,
                 tags=list(explore.tags) if explore.tags is not None else [],
             )
-            logger.debug(
-                f"Created LookerExplore from API: model_name={model}, name={explore_name}, resulting_model_name={looker_explore.model_name}"
-            )
+            logger.debug(f"Created LookerExplore from API: {looker_explore}")
             return looker_explore
         except SDKError as e:
             if "<title>Looker Not Found (404)</title>" in str(e):
@@ -1212,7 +1166,6 @@ class LookerExplore:
         dataset_name = config.explore_naming_pattern.replace_variables(
             self.get_mapping(config)
         )
-
         logger.debug(
             f"Generated dataset_name={dataset_name} for explore with model_name={self.model_name}, name={self.name}"
         )
