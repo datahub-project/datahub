@@ -47,9 +47,6 @@ jobs:
           distribution: "zulu"
           java-version: 17
       - uses: gradle/gradle-build-action@v2
-        with:
-          gradle-home-cache-cleanup: true
-          cache-read-only: ${{ github.event.pull_request.head.repo.fork }}
       - name: Gradle build for frontend
         if: ${{ needs.setup.outputs.frontend_change == 'true' }}
         run: |
