@@ -1,3 +1,4 @@
+import DataProcessInstanceInfo from '@src/app/preview/DataProcessInstanceInfo';
 import { CloseOutlined } from '@ant-design/icons';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
@@ -243,6 +244,9 @@ export default function DefaultPreviewCard({
 
     const { removeRelationship, removeButtonText } = useRemoveRelationship(entityType);
 
+    const lastRunEvent = data?.lastRunEvent;
+    const shouldShowDPIinfo =
+        lastRunEvent?.timestampMillis || lastRunEvent?.durationMillis || lastRunEvent?.result?.resultType;
     const entityHeader = (
         <EntityHeader
             name={name}
@@ -319,6 +323,11 @@ export default function DefaultPreviewCard({
                             <CompactMarkdownViewer content={description} />
                         </Documentation>
                     ) : null}
+                    {shouldShowDPIinfo && (
+                        <RowContainer style={{ marginTop: 8, justifyContent: 'flex-end' }}>
+                            <DataProcessInstanceInfo {...lastRunEvent} />
+                        </RowContainer>
+                    )}
                 </>
             ) : (
                 <CompactView

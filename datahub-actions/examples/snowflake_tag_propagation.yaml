@@ -1,0 +1,29 @@
+name: "snowflake_tag_propagation"
+source:
+  type: "kafka"
+  config:
+    connection:
+      bootstrap: ${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}
+      schema_registry_url: ${SCHEMA_REGISTRY_URL:-http://localhost:8081}
+filter:
+  event_type: "EntityChangeEvent_v1"
+action:
+  type: "snowflake_tag_propagation"
+  config:
+    tag_propagation:
+      tag_prefixes: 
+        - classification
+    term_propagation:
+      target_terms:
+        - Classification
+      term_groups:
+        - "Personal Information"
+    snowflake:
+      account_id: ${SNOWFLAKE_ACCOUNT_ID}
+      warehouse: COMPUTE_WH
+      username: ${SNOWFLAKE_USER_NAME}
+      password: ${SNOWFLAKE_PASSWORD}
+      role: ACCOUNTADMIN
+
+datahub:
+  server: "http://localhost:8080"
