@@ -8,6 +8,8 @@
     }
  *  */
 
+// Test
+
 export const getRedirectUrl = (newRoutes: { [key: string]: string }) => {
     let newPathname = `${window.location.pathname}${window.location.search}`;
     if (!newRoutes) {
