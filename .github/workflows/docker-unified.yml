@@ -1118,16 +1118,6 @@ jobs:
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
-
-      - name: Set up Depot CLI
-        if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
-        uses: depot/setup-action@v1
-
-      - uses: actions/cache/restore@v4
-        with:
-          path: ${{ github.workspace }}/build/dockerBuildContext/
-          key: ${{ runner.os }}-docker-${{ github.sha }}
-
       - name: Build and push Slim image
         if: ${{ needs.setup.outputs.actions_change == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
