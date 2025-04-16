@@ -18,25 +18,30 @@ export const useGetProposedProperties = ({ fieldPath, propertyUrn }: Props = {})
     );
 
     const proposedProperties = fieldPath
-        ? proposedRequests.flatMap(
-              (request) =>
-                  (request.subResource &&
-                      request.subResource === fieldPath &&
-                      request.params?.structuredPropertyProposal?.structuredProperties[0]?.structuredProperty?.exists &&
-                      (propertyUrn
-                          ? request.params?.structuredPropertyProposal?.structuredProperties[0]?.structuredProperty
-                                ?.urn === propertyUrn
-                          : true) &&
-                      request.params?.structuredPropertyProposal?.structuredProperties) ||
-                  [],
-          )
-        : proposedRequests.flatMap(
-              (request) =>
-                  (!request.subResource &&
-                      request.params?.structuredPropertyProposal?.structuredProperties[0]?.structuredProperty.exists &&
-                      request.params?.structuredPropertyProposal?.structuredProperties) ||
-                  [],
-          );
+        ? proposedRequests.flatMap((request) => {
+              if (request.subResource && request.subResource === fieldPath) {
+                  let properties = request.params?.structuredPropertyProposal?.structuredProperties?.filter(
+                      (prop) => prop.structuredProperty.exists,
+                  );
+                  if (propertyUrn) {
+                      properties = properties?.filter((prop) => prop.structuredProperty.urn === propertyUrn);
+                  }
+                  return properties || [];
+              }
+              return [];
+          })
+        : proposedRequests.flatMap((request) => {
+              if (!request.subResource) {
+                  let properties = request.params?.structuredPropertyProposal?.structuredProperties?.filter(
+                      (prop) => prop.structuredProperty.exists,
+                  );
+                  if (propertyUrn) {
+                      properties = properties?.filter((prop) => prop.structuredProperty.urn === propertyUrn);
+                  }
+                  return properties || [];
+              }
+              return [];
+          });
 
     const proposedRows: PropertyRow[] = proposedProperties.flatMap((property, index) => {
         const propertyRow = mapStructuredPropertyToPropertyRow(property, true);

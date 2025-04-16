@@ -86,7 +86,7 @@ public class ProposeTermsResolver implements DataFetcher<CompletableFuture<Strin
                   DataHubGraphQLErrorCode.SERVER_ERROR);
             } else if (e instanceof EntityDoesNotExistException) {
               throw new DataHubGraphQLException(
-                  "Failed to create tag proposal: " + e.getMessage(),
+                  "Failed to create term proposal: " + e.getMessage(),
                   DataHubGraphQLErrorCode.NOT_FOUND);
             } else {
               throw new DataHubGraphQLException(

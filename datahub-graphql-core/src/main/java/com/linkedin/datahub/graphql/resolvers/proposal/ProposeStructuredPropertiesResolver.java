@@ -93,7 +93,7 @@ public class ProposeStructuredPropertiesResolver implements DataFetcher<Completa
                   DataHubGraphQLErrorCode.SERVER_ERROR);
             } else if (e instanceof EntityDoesNotExistException) {
               throw new DataHubGraphQLException(
-                  "Failed to create tag proposal: " + e.getMessage(),
+                  "Failed to create structured property proposal: " + e.getMessage(),
                   DataHubGraphQLErrorCode.NOT_FOUND);
             } else {
               throw new DataHubGraphQLException(

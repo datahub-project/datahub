@@ -13,22 +13,30 @@ interface Props {
 const TermAssociationRequestItem = ({ actionRequest }: Props) => {
     const entityRegistry = useEntityRegistryV2();
 
-    const term =
-        actionRequest.params?.glossaryTermProposal?.glossaryTerm ||
-        actionRequest.params?.glossaryTermProposal?.glossaryTerms?.[0];
-    const termName = term && entityRegistry.getDisplayName(EntityType.GlossaryTerm, term);
-    const termView = term && (
-        <Link to={`/${entityRegistry.getPathName(EntityType.GlossaryTerm)}/${term.urn}`}>
-            <StyledTag
-                noMargin
-                $color={null}
-                style={{ marginRight: 2, marginLeft: 2 }}
-                $isApproved={actionRequest.result === ActionRequestResult.Accepted}
-            >
-                {termName}
-                <BookmarkSimple style={{ marginLeft: '2%' }} />
-            </StyledTag>
-        </Link>
+    const terms = actionRequest.params?.glossaryTermProposal?.glossaryTerm
+        ? [actionRequest.params?.glossaryTermProposal?.glossaryTerm]
+        : actionRequest.params?.glossaryTermProposal?.glossaryTerms;
+
+    const termView = terms && (
+        <>
+            {terms.map((term) => {
+                const termName = term && entityRegistry.getDisplayName(EntityType.GlossaryTerm, term);
+
+                return (
+                    <Link to={`/${entityRegistry.getPathName(EntityType.GlossaryTerm)}/${term.urn}`}>
+                        <StyledTag
+                            noMargin
+                            $color={null}
+                            style={{ marginRight: 2, marginLeft: 2 }}
+                            $isApproved={actionRequest.result === ActionRequestResult.Accepted}
+                        >
+                            {termName}
+                            <BookmarkSimple style={{ marginLeft: '2%' }} />
+                        </StyledTag>
+                    </Link>
+                );
+            })}
+        </>
     );
     return <AddContentView requestMetadataViews={[{ primary: termView }]} actionRequest={actionRequest} />;
 };

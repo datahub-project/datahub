@@ -218,12 +218,22 @@ export default function TagTermGroup({
         !uneditableGlossaryTerms?.terms?.length &&
         !proposedGlossaryTerms?.length;
 
+    const proposedTagItems = proposedTags?.flatMap((request) =>
+        request.params?.tagProposal?.tag ? [request.params?.tagProposal?.tag] : request.params?.tagProposal?.tags || [],
+    );
+
     const tagsLength =
-        (editableTags?.tags?.length ?? 0) + (uneditableTags?.tags?.length ?? 0) + (proposedTags?.length ?? 0);
+        (editableTags?.tags?.length ?? 0) + (uneditableTags?.tags?.length ?? 0) + (proposedTagItems?.length ?? 0);
+
+    const proposedTermItems = proposedGlossaryTerms?.flatMap((request) =>
+        request.params?.glossaryTermProposal?.glossaryTerm
+            ? [request.params?.glossaryTermProposal?.glossaryTerm]
+            : request.params?.glossaryTermProposal?.glossaryTerms || [],
+    );
     const termsLength =
         (editableGlossaryTerms?.terms?.length ?? 0) +
         (uneditableGlossaryTerms?.terms?.length ?? 0) +
-        (proposedGlossaryTerms?.length ?? 0);
+        (proposedTermItems?.length ?? 0);
 
     let renderedTags = 0;
     let renderedTerms = 0;
@@ -289,52 +299,65 @@ export default function TagTermGroup({
                 );
             })}
             {proposedGlossaryTerms?.map((actionRequest) => {
-                renderedTerms += 1;
-                if (showOneAndCount && renderedTerms === 2) {
-                    return <Count>{`+${termsLength - 1}`}</Count>;
-                }
-                if (showOneAndCount && renderedTerms > 2) return null;
-                const proposedTerm =
-                    actionRequest.params?.glossaryTermProposal?.glossaryTerm ||
-                    actionRequest.params?.glossaryTermProposal?.glossaryTerms?.[0];
-                const urn = proposedTerm?.urn;
-                const parentNodes = proposedTerm?.parentNodes;
-                const lastParentNode = parentNodes && parentNodes.count > 0 && parentNodes.nodes[parentNodes.count - 1];
-                const proposedTermColor = lastParentNode
-                    ? lastParentNode.displayProperties?.colorHex || generateColorFromPalette(lastParentNode.urn)
-                    : (urn && generateColorFromPalette(urn)) || ANTD_GRAY[6];
+                const proposedTerms = actionRequest.params?.glossaryTermProposal?.glossaryTerm
+                    ? [actionRequest.params?.glossaryTermProposal?.glossaryTerm]
+                    : actionRequest.params?.glossaryTermProposal?.glossaryTerms;
+
                 return (
                     <>
-                        {proposedTerm && (
-                            <ProposedTermContainer>
-                                <ProposedTerm
-                                    closable={false}
-                                    data-testid={`proposed-term-${proposedTerm?.name}`}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setShowProposalDecisionModal(true);
-                                    }}
-                                >
-                                    <TermRibbon opacity={0.5} color={proposedTermColor} />
-                                    <ProposedTermText>
-                                        {entityRegistry.getDisplayName(EntityType.GlossaryTerm, proposedTerm)}
-                                    </ProposedTermText>
-                                    <ProposalModal
-                                        actionRequest={actionRequest}
-                                        showProposalDecisionModal={showProposalDecisionModal}
-                                        onCloseProposalDecisionModal={onCloseProposalDecisionModal}
-                                        onProposalAcceptance={onProposalAcceptance}
-                                        onProposalRejection={onProposalRejection}
-                                        onActionRequestUpdate={onActionRequestUpdate}
-                                        elementName={entityRegistry.getDisplayName(
-                                            EntityType.GlossaryTerm,
-                                            proposedTerm,
-                                        )}
-                                    />
-                                    <ProposedIcon propertyName="Term" />
-                                </ProposedTerm>
-                            </ProposedTermContainer>
-                        )}
+                        {proposedTerms?.map((proposedTerm) => {
+                            renderedTerms += 1;
+                            if (showOneAndCount && renderedTerms === 2) {
+                                return <Count>{`+${termsLength - 1}`}</Count>;
+                            }
+                            if (showOneAndCount && renderedTerms > 2) return null;
+
+                            const urn = proposedTerm?.urn;
+                            const parentNodes = proposedTerm?.parentNodes;
+                            const lastParentNode =
+                                parentNodes && parentNodes.count > 0 && parentNodes.nodes[parentNodes.count - 1];
+                            const proposedTermColor = lastParentNode
+                                ? lastParentNode.displayProperties?.colorHex ||
+                                  generateColorFromPalette(lastParentNode.urn)
+                                : (urn && generateColorFromPalette(urn)) || ANTD_GRAY[6];
+                            return (
+                                <>
+                                    {proposedTerm && (
+                                        <ProposedTermContainer>
+                                            <ProposedTerm
+                                                closable={false}
+                                                data-testid={`proposed-term-${proposedTerm?.name}`}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setShowProposalDecisionModal(true);
+                                                }}
+                                            >
+                                                <TermRibbon opacity={0.5} color={proposedTermColor} />
+                                                <ProposedTermText>
+                                                    {entityRegistry.getDisplayName(
+                                                        EntityType.GlossaryTerm,
+                                                        proposedTerm,
+                                                    )}
+                                                </ProposedTermText>
+                                                <ProposalModal
+                                                    actionRequest={actionRequest}
+                                                    showProposalDecisionModal={showProposalDecisionModal}
+                                                    onCloseProposalDecisionModal={onCloseProposalDecisionModal}
+                                                    onProposalAcceptance={onProposalAcceptance}
+                                                    onProposalRejection={onProposalRejection}
+                                                    onActionRequestUpdate={onActionRequestUpdate}
+                                                    elementName={entityRegistry.getDisplayName(
+                                                        EntityType.GlossaryTerm,
+                                                        proposedTerm,
+                                                    )}
+                                                />
+                                                <ProposedIcon propertyName="Term" />
+                                            </ProposedTerm>
+                                        </ProposedTermContainer>
+                                    )}
+                                </>
+                            );
+                        })}
                     </>
                 );
             })}
@@ -394,43 +417,49 @@ export default function TagTermGroup({
                 );
             })}
             {proposedTags?.map((actionRequest) => {
-                renderedTags += 1;
-                if (showOneAndCount && renderedTags === 2) {
-                    return <Count>{`+${tagsLength - 1}`}</Count>;
-                }
-                if (showOneAndCount && renderedTags > 2) return null;
-
-                const proposedTag =
-                    actionRequest?.params?.tagProposal?.tag || actionRequest?.params?.tagProposal?.tags?.[0];
-
+                const tags = actionRequest?.params?.tagProposal?.tag
+                    ? [actionRequest?.params?.tagProposal?.tag]
+                    : actionRequest?.params?.tagProposal?.tags;
                 return (
                     <>
-                        {proposedTag && (
-                            <ProposedTag
-                                data-testid={`proposed-tag-${proposedTag?.properties?.name}`}
-                                $colorHash={proposedTag?.urn}
-                                $color={proposedTag?.properties?.colorHex}
-                                $showOneAndCount={showOneAndCount}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setShowProposalDecisionModal(true);
-                                }}
-                            >
-                                <ProposedTagContent>
-                                    {entityRegistry.getDisplayName(EntityType.Tag, proposedTag)}
-                                    <ProposalModal
-                                        actionRequest={actionRequest}
-                                        showProposalDecisionModal={showProposalDecisionModal}
-                                        onCloseProposalDecisionModal={onCloseProposalDecisionModal}
-                                        onProposalAcceptance={onProposalAcceptance}
-                                        onProposalRejection={onProposalRejection}
-                                        onActionRequestUpdate={onActionRequestUpdate}
-                                        elementName={proposedTag?.properties?.name}
-                                    />
-                                    <ProposedIcon propertyName="Tag" />
-                                </ProposedTagContent>
-                            </ProposedTag>
-                        )}
+                        {tags?.map((proposedTag) => {
+                            renderedTags += 1;
+                            if (showOneAndCount && renderedTags === 2) {
+                                return <Count>{`+${tagsLength - 1}`}</Count>;
+                            }
+                            if (showOneAndCount && renderedTags > 2) return null;
+
+                            return (
+                                <>
+                                    {proposedTag && (
+                                        <ProposedTag
+                                            data-testid={`proposed-tag-${proposedTag?.properties?.name}`}
+                                            $colorHash={proposedTag?.urn}
+                                            $color={proposedTag?.properties?.colorHex}
+                                            $showOneAndCount={showOneAndCount}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setShowProposalDecisionModal(true);
+                                            }}
+                                        >
+                                            <ProposedTagContent>
+                                                {entityRegistry.getDisplayName(EntityType.Tag, proposedTag)}
+                                                <ProposalModal
+                                                    actionRequest={actionRequest}
+                                                    showProposalDecisionModal={showProposalDecisionModal}
+                                                    onCloseProposalDecisionModal={onCloseProposalDecisionModal}
+                                                    onProposalAcceptance={onProposalAcceptance}
+                                                    onProposalRejection={onProposalRejection}
+                                                    onActionRequestUpdate={onActionRequestUpdate}
+                                                    elementName={proposedTag?.properties?.name}
+                                                />
+                                                <ProposedIcon propertyName="Tag" />
+                                            </ProposedTagContent>
+                                        </ProposedTag>
+                                    )}
+                                </>
+                            );
+                        })}
                     </>
                 );
             })}

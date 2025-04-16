@@ -156,8 +156,8 @@ export default function EditTagTermsModal({
     const [batchRemoveTermsMutation] = useBatchRemoveTermsMutation();
 
     // Saas-only
-    const [proposeTagMutation] = useProposeTagsMutation();
-    const [proposeTermMutation] = useProposeTermsMutation();
+    const [proposeTagsMutation] = useProposeTagsMutation();
+    const [proposeTermsMutation] = useProposeTermsMutation();
 
     const [tagTermSearch, { data: tagsSearchData, loading: searchLoading }] = useGetAutoCompleteResultsLazyQuery();
 
@@ -308,10 +308,10 @@ export default function EditTagTermsModal({
         let mutation: ((input: any) => Promise<any>) | null = null;
 
         if (type === EntityType.Tag) {
-            mutation = proposeTagMutation;
+            mutation = proposeTagsMutation;
         }
         if (type === EntityType.GlossaryTerm) {
-            mutation = proposeTermMutation;
+            mutation = proposeTermsMutation;
         }
 
         // Proposals only supported on a single entity as of today.
@@ -326,7 +326,7 @@ export default function EditTagTermsModal({
         let actionQualifier;
         if (type === EntityType.Tag) {
             input = {
-                tagUrns: [urns[0]],
+                tagUrns: urns,
                 resourceUrn: resources[0].resourceUrn,
                 subResource: resources[0].subResource,
                 subResourceType: resources[0].subResource ? SubResourceType.DatasetField : null,
@@ -336,7 +336,7 @@ export default function EditTagTermsModal({
         }
         if (type === EntityType.GlossaryTerm) {
             input = {
-                termUrns: [urns[0]],
+                termUrns: urns,
                 resourceUrn: resources[0].resourceUrn,
                 subResource: resources[0].subResource,
                 subResourceType: resources[0].subResource ? SubResourceType.DatasetField : null,
@@ -592,7 +592,7 @@ export default function EditTagTermsModal({
         variant: 'outline',
         type: 'button',
         onClick: handlePropose,
-        disabled: urns.length === 0 || urns.length > 1 || disableAction,
+        disabled: urns.length === 0 || disableAction,
         buttonDataTestId: 'create-proposal-btn',
     };
 
