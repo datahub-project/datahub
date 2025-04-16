@@ -94,7 +94,11 @@ def test_get_fuzzy_column_lineage():
         {
             "upstream_fields": {"id", "customer_id", "userName", "address_id"},
             "downstream_fields": {"id", "customerId", "user_name", "user_address"},
-            "expected": {"id": ["id"], "customerId": ["customer_id"], "user_name": ["userName"]}, # user_address <> address_id shouldn't match
+            "expected": {
+                "id": ["id"],
+                "customerId": ["customer_id"],
+                "user_name": ["userName"],
+            },  # user_address <> address_id shouldn't match
         },
     ]
 

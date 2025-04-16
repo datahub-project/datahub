@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import difflib
 import logging
-from typing import TYPE_CHECKING, Literal, Optional, Union
+from typing import TYPE_CHECKING, List, Literal, Optional, Union
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -38,7 +38,7 @@ class LineageClient:
         )
         if schema_metadata is None:
             return set()
-    
+
         return {field.fieldPath for field in schema_metadata.fields}
 
     def _get_strict_column_lineage(
@@ -48,19 +48,21 @@ class LineageClient:
     ) -> ColumnLineageMapping:
         """Find matches between upstream and downstream fields with case-insensitive matching."""
         strict_column_lineage: ColumnLineageMapping = {}
-        
+
         # Create case-insensitive mapping of upstream fields
         case_insensitive_map = {field.lower(): field for field in upstream_fields}
-        
+
         # Match downstream fields using case-insensitive comparison
         for downstream_field in downstream_fields:
             lower_field = downstream_field.lower()
             if lower_field in case_insensitive_map:
                 # Use the original case of the upstream field
-                strict_column_lineage[downstream_field] = [case_insensitive_map[lower_field]]
-        
+                strict_column_lineage[downstream_field] = [
+                    case_insensitive_map[lower_field]
+                ]
+
         return strict_column_lineage
-    
+
     def _get_fuzzy_column_lineage(
         self,
         upstream_fields: set[str],
@@ -222,7 +224,9 @@ class LineageClient:
             raise SdkUsageError(
                 f"Dataset {updater.urn} does not exist, and hence cannot be updated."
             )
-        mcps = updater.build()
+        mcps: List[
+            Union[MetadataChangeProposalWrapper, models.MetadataChangeProposalClass]
+        ] = list(updater.build())
         if query_entity:
             mcps.extend(query_entity)
         self._client._graph.emit_mcps(mcps)
