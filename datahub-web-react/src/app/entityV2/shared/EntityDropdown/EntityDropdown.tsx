@@ -347,6 +347,7 @@ const EntityDropdown = (props: Props) => {
                                         undefined
                                     }
                                     name={entityData?.name}
+                                    qualifiedName={entityData?.properties?.qualifiedName}
                                 />
                             </StyledSubMenu>
                         )}{' '}

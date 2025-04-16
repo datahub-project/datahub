@@ -4,15 +4,17 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import CopyLinkMenuItem from './items/CopyLinkMenuItem';
 import CopyUrnMenuItem from './items/CopyUrnMenuItem';
 import EmailMenuItem from './items/EmailMenuItem';
+import CopyNameMenuItem from './items/CopyNameMenuItem';
 
 interface ShareButtonMenuProps {
     urn: string;
     entityType: EntityType;
     subType?: string | null;
     name?: string | null;
+    qualifiedName?: string | null;
 }
 
-export default function ShareButtonMenu({ urn, entityType, subType, name }: ShareButtonMenuProps) {
+export default function ShareButtonMenu({ urn, entityType, subType, name, qualifiedName }: ShareButtonMenuProps) {
     const entityRegistry = useEntityRegistry();
 
     const displayName = name || urn;
@@ -24,7 +26,16 @@ export default function ShareButtonMenu({ urn, entityType, subType, name }: Shar
 
             {navigator.clipboard && <CopyUrnMenuItem key="1" urn={urn} type={displayType} />}
 
-            <EmailMenuItem key="2" urn={urn} name={displayName} type={displayType} />
+            {navigator.clipboard && (
+                <CopyNameMenuItem
+                    key="2"
+                    name={displayName}
+                    type={displayType}
+                    qualifiedName={qualifiedName || undefined}
+                />
+            )}
+
+            <EmailMenuItem key="4" urn={urn} name={displayName} type={displayType} />
         </>
     );
 }
