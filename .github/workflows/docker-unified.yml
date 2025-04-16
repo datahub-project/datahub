@@ -1068,7 +1068,7 @@ jobs:
   datahub_actions_scan:
     name: "[Monitoring] Scan Datahub Actions images for vulnerabilities"
     runs-on: depot-ubuntu-24.04
-    needs: [setup, smoke_test_lint,datahub_actions_build]
+    needs: [setup, smoke_test_lint, datahub_actions_build]
     if: ${{ needs.setup.outputs.actions_change == 'true' || needs.setup.outputs.publish == 'true' }}
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -1135,7 +1135,7 @@ jobs:
   datahub_actions_slim_scan:
     name: "[Monitoring] Scan Datahub Actions Slim images for vulnerabilities"
     runs-on: depot-ubuntu-24.04
-    needs: [setup, smoke_test_lint,datahub_actions_slim_build]
+    needs: [setup, smoke_test_lint, datahub_actions_slim_build]
     if: ${{ needs.setup.outputs.actions_change == 'true' || needs.setup.outputs.publish == 'true' }}
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -1201,13 +1201,13 @@ jobs:
           for ((i=1;i<python_batch_count;i++)); do
             python_matrix="$python_matrix"',{"test_strategy":"pytests","batch_count":"'"$python_batch_count"'","batch":"'"$i"'"}'
           done
-          
+
           cypress_batch_count=${{ steps.set-batch-count.outputs.cypress_batch_count }}
           cypress_matrix='{"test_strategy":"cypress","batch":"0","batch_count":"'"$cypress_batch_count"'"}'
           for ((i=1;i<cypress_batch_count;i++)); do
             cypress_matrix="$cypress_matrix"',{"test_strategy":"cypress","batch_count":"'"$cypress_batch_count"'","batch":"'"$i"'"}'
           done
-          
+
           includes=''
           if [[ "${{ needs.setup.outputs.backend_change }}" == 'true' || "${{ needs.setup.outputs.smoke_test_change }}" == 'true' || "${{ needs.setup.outputs.publish }}" == 'true' ]]; then
             includes="$python_matrix,$cypress_matrix"
@@ -1242,7 +1242,7 @@ jobs:
         smoke_test_matrix,
         base_build,
         determine_runner,
-        datahub_actions_slim_build
+        datahub_actions_slim_build,
       ]
     strategy:
       fail-fast: false
