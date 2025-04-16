@@ -52,6 +52,7 @@ class DockerPluginExtension {
   MapProperty<String, String> tags
   ListProperty<String> platforms
   ListProperty<Object> dependencies // May contain tasks or task  names
+  Property<String> target
 
   DockerPluginExtension(Project project) {
     this.project = project
@@ -61,6 +62,7 @@ class DockerPluginExtension {
     tags = project.objects.mapProperty(String, String)
     platforms = project.objects.listProperty(String)
     dependencies = project.objects.listProperty(Object)
+    target = project.objects.property(String)
   }
 
   def files(Object... files) {
@@ -89,6 +91,10 @@ class DockerPluginExtension {
 
   def dependsOn(Object... tasks) {
     dependencies.addAll(tasks)
+  }
+
+  def target(String value) {
+    target.set(value)
   }
 }
 
@@ -130,6 +136,10 @@ project.afterEvaluate {
     }
     if (extension.platforms.get()) {
       dockerCmd << "--platform=${extension.platforms.get().join(',')}"
+    }
+
+    if (extension.target.isPresent()) {
+      dockerCmd += ["--target", extension.target.get()]
     }
 
     // Add GitHub Actions specific arguments if running in GitHub workflow and using gha cache.
@@ -217,18 +227,27 @@ project.afterEvaluate {
     }
   }
 
-  project.tasks.register("dockerFromCacheWithPush") {
-    // Variant of dockerFromCAche that also pushes to the depot registry. this may go away once we flatten our docker images.
+  project.tasks.register("generateBakeSnippet") {
+    ext.bakeSpec = []
     group "docker"
-    description "Builds the docker image from cache and applies all tags defined but without the dependencies."
-    // Reference the docker original task's configuration and run it but without its dependencies
-    
+    description "Generates bake snippets for the project"
+
     doLast {
-      def originalTaskInstance = tasks.named('docker').get()
-      project.exec {
-        commandLine originalTaskInstance.commandLine
-        workingDir originalTaskInstance.workingDir
+      def bake_spec_target = [
+        context: "${buildContext}",
+        dockerfile: "${extension.dockerfile.get().toPath()}",
+        tags: extension.tags.get().values()
+      ]
+      if (extension.buildArgs.get()) {
+        bake_spec_target.args = extension.buildArgs.get()
       }
+      if (extension.platforms.get()) {
+        bake_spec_target.platforms = extension.platforms.get()
+      }
+
+      ext.bakeSpec = [
+        target: [ "${project.name}": bake_spec_target]
+      ]
     }
   }
 

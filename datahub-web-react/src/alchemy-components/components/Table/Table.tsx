@@ -91,6 +91,7 @@ export const Table = <T,>({
                                 <TableHeaderCell
                                     key={column.key} // Unique key for each header cell
                                     width={column.width}
+                                    minWidth={column.minWidth}
                                     maxWidth={column.maxWidth}
                                     shouldAddRightBorder={index !== columns.length - 1} // Add border unless last column
                                 >

@@ -25,7 +25,7 @@ export const useGetColumns = ({ onActionRequestUpdate, showPendingView }: Props)
             render: (record) => {
                 return <ActionRequestListItem actionRequest={record} />;
             },
-            width: '550px',
+            minWidth: '650px',
         },
         {
             title: 'Date',
@@ -59,7 +59,7 @@ export const useGetColumns = ({ onActionRequestUpdate, showPendingView }: Props)
                     </OverflowText>
                 );
             },
-            width: '20%',
+            width: '200px',
         },
         {
             title: '',
