@@ -10,7 +10,11 @@ export const TableContainer = styled.div<{ isScrollable?: boolean; maxHeight?: s
         overflow: isScrollable ? 'auto' : 'hidden',
         width: '100%',
         maxHeight: maxHeight || '100%',
-        scrollbarWidth: 'none',
+
+        '&::-webkit-scrollbar': {
+            height: '8px', // For horizontal scrollbar - visible
+            width: '0px', // For vertical scrollbar - invisible
+        },
 
         '& .selected-row': {
             background: `${colors.gray[100]} !important`,
@@ -32,18 +36,22 @@ export const TableHeader = styled.thead({
     zIndex: 100,
 });
 
-export const TableHeaderCell = styled.th<{ width?: string; maxWidth?: string; shouldAddRightBorder?: boolean }>(
-    ({ width, maxWidth, shouldAddRightBorder }) => ({
-        padding: `${spacing.sm} ${spacing.md}`,
-        color: colors.gray[1700],
-        fontSize: typography.fontSizes.sm,
-        fontWeight: typography.fontWeights.medium,
-        textAlign: 'start',
-        width: width || 'auto',
-        maxWidth,
-        borderRight: shouldAddRightBorder ? `1px solid ${colors.gray[1400]}` : borders.none,
-    }),
-);
+export const TableHeaderCell = styled.th<{
+    width?: string;
+    maxWidth?: string;
+    minWidth?: string;
+    shouldAddRightBorder?: boolean;
+}>(({ width, maxWidth, minWidth, shouldAddRightBorder }) => ({
+    padding: `${spacing.sm} ${spacing.md}`,
+    color: colors.gray[1700],
+    fontSize: typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.medium,
+    textAlign: 'start',
+    width: width || 'auto',
+    maxWidth,
+    minWidth,
+    borderRight: shouldAddRightBorder ? `1px solid ${colors.gray[1400]}` : borders.none,
+}));
 
 export const HeaderContainer = styled.div<{ alignment?: AlignmentOptions }>(({ alignment }) => ({
     display: 'flex',

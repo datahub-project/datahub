@@ -42,14 +42,14 @@ const ProposalsTable = ({
                 columns={columns}
                 data={actionRequests}
                 isLoading={isLoading}
-                isScrollable
                 rowKey={(record) => record.urn}
                 rowSelection={{
                     selectedRowKeys: selectedKeys,
                     onChange: (keys) => setSelectedKeys(keys),
                 }}
                 onRowClick={onRowClick}
-                style={{ tableLayout: 'fixed' }}
+                style={{ tableLayout: 'auto' }}
+                isScrollable
             />
         </TableContainer>
     );

@@ -7,6 +7,7 @@ export interface Column<T> {
     dataIndex?: string;
     render?: (record: T, index: number) => React.ReactNode;
     width?: string;
+    minWidth?: string;
     maxWidth?: string;
     sorter?: (a: T, b: T) => number;
     alignment?: AlignmentOptions;
