@@ -21,9 +21,9 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -32,14 +32,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-@ConditionalOnProperty(name = "eventsApi.enabled", havingValue = "true")
 @RestController
+@Slf4j
 @RequestMapping("/openapi/v1/events")
 @Tag(name = "Events", description = "An API for fetching events for a topic.")
 public class ExternalEventsController {
 
-  private static final int MAX_POLL_TIMEOUT_SECONDS = 60; // 1 minute
-  private static final int MAX_LIMIT = 5000; // Max of 5,000 messages per batch
+  static final int MAX_POLL_TIMEOUT_SECONDS = 60; // 1 minute
+  static final int MAX_LIMIT = 5000; // Max of 5,000 messages per batch
 
   @Autowired private ExternalEventsService eventsService;
   @Autowired private AuthorizerChain authorizationChain;
@@ -79,31 +79,41 @@ public class ExternalEventsController {
               description =
                   "The window to lookback in days if there is no offset provided. Defaults to null.")
           @RequestParam(name = "lookbackWindowDays", required = false)
-          Integer lookbackWindowDays)
-      throws Exception {
+          Integer lookbackWindowDays) {
+    try {
+      final Authentication authentication = AuthenticationContext.getAuthentication();
 
-    final Authentication authentication = AuthenticationContext.getAuthentication();
+      final OperationContext opContext =
+          OperationContext.asSession(
+              systemOperationContext,
+              RequestContext.builder()
+                  .buildOpenapi(authentication.getActor().toUrnStr(), request, "poll", List.of()),
+              authorizationChain,
+              authentication,
+              true);
 
-    final OperationContext opContext =
-        OperationContext.asSession(
-            systemOperationContext,
-            RequestContext.builder()
-                .buildOpenapi(authentication.getActor().toUrnStr(), request, "poll", List.of()),
-            authorizationChain,
-            authentication,
-            true);
+      if (isAuthorizedToGetEvents(opContext, topic)) {
+        return toResponse(
+            eventsService.poll(
+                topic,
+                offsetId,
+                getLimit(limit),
+                getPollTimeout(pollTimeoutSeconds),
+                lookbackWindowDays));
+      }
+      // If unauthorized
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
 
-    if (isAuthorizedToGetEvents(opContext, topic)) {
-      return toResponse(
-          eventsService.poll(
-              topic,
-              offsetId,
-              getLimit(limit),
-              getPollTimeout(pollTimeoutSeconds),
-              lookbackWindowDays));
+    } catch (Exception ex) {
+      // Log the exception
+      log.error("An unexpected error occurred while polling events. Returning 500 to client", ex);
+
+      // Return a generic error response
+      String errorMessage = "An unexpected error occurred: " + ex.getMessage();
+      ExternalEventsResponse response = new ExternalEventsResponse();
+      response.setErrorMessage(errorMessage);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
-    // Else, we're unauthorized.
-    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
   }
 
   private boolean isAuthorizedToGetEvents(
