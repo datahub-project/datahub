@@ -31,6 +31,7 @@ from datahub.metadata.urns import (
     QueryUrn,
     SchemaFieldUrn,
 )
+from datahub.sql_parsing.fingerprint_utils import generate_hash
 from datahub.sql_parsing.schema_resolver import (
     SchemaResolver,
     SchemaResolverInterface,
@@ -48,7 +49,6 @@ from datahub.sql_parsing.sqlglot_lineage import (
 )
 from datahub.sql_parsing.sqlglot_utils import (
     _parse_statement,
-    generate_hash,
     get_query_fingerprint,
     try_format_query,
 )

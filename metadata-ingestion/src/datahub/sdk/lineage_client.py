@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import difflib
 import logging
-from typing import TYPE_CHECKING, Literal, Optional, Union
+from typing import TYPE_CHECKING, List, Literal, Optional, Union
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.errors import SdkUsageError
+from datahub.metadata.schema_classes import SchemaMetadataClass
 from datahub.metadata.urns import DatasetUrn, QueryUrn
 from datahub.sdk._shared import DatasetUrnOrStr
 from datahub.sdk._utils import DEFAULT_ACTOR_URN
@@ -30,6 +32,81 @@ class LineageClient:
     def __init__(self, client: DataHubClient):
         self._client = client
 
+    def _get_fields_from_dataset_urn(self, dataset_urn: DatasetUrn) -> set[str]:
+        schema_metadata = self._client._graph.get_aspect(
+            str(dataset_urn), SchemaMetadataClass
+        )
+        if schema_metadata is None:
+            return set()
+
+        return {field.fieldPath for field in schema_metadata.fields}
+
+    def _get_strict_column_lineage(
+        self,
+        upstream_fields: set[str],
+        downstream_fields: set[str],
+    ) -> ColumnLineageMapping:
+        """Find matches between upstream and downstream fields with case-insensitive matching."""
+        strict_column_lineage: ColumnLineageMapping = {}
+
+        # Create case-insensitive mapping of upstream fields
+        case_insensitive_map = {field.lower(): field for field in upstream_fields}
+
+        # Match downstream fields using case-insensitive comparison
+        for downstream_field in downstream_fields:
+            lower_field = downstream_field.lower()
+            if lower_field in case_insensitive_map:
+                # Use the original case of the upstream field
+                strict_column_lineage[downstream_field] = [
+                    case_insensitive_map[lower_field]
+                ]
+
+        return strict_column_lineage
+
+    def _get_fuzzy_column_lineage(
+        self,
+        upstream_fields: set[str],
+        downstream_fields: set[str],
+    ) -> ColumnLineageMapping:
+        """Generate fuzzy matches between upstream and downstream fields."""
+
+        # Simple normalization function for better matching
+        def normalize(s: str) -> str:
+            return s.lower().replace("_", "")
+
+        # Create normalized lookup for upstream fields
+        normalized_upstream = {normalize(field): field for field in upstream_fields}
+
+        fuzzy_column_lineage = {}
+        for downstream_field in downstream_fields:
+            # Try exact match first
+            if downstream_field in upstream_fields:
+                fuzzy_column_lineage[downstream_field] = [downstream_field]
+                continue
+
+            # Try normalized match
+            norm_downstream = normalize(downstream_field)
+            if norm_downstream in normalized_upstream:
+                fuzzy_column_lineage[downstream_field] = [
+                    normalized_upstream[norm_downstream]
+                ]
+                continue
+
+            # If no direct match, find closest match using similarity
+            matches = difflib.get_close_matches(
+                norm_downstream,
+                normalized_upstream.keys(),
+                n=1,  # Return only the best match
+                cutoff=0.8,  # Adjust cutoff for sensitivity
+            )
+
+            if matches:
+                fuzzy_column_lineage[downstream_field] = [
+                    normalized_upstream[matches[0]]
+                ]
+
+        return fuzzy_column_lineage
+
     def add_dataset_copy_lineage(
         self,
         *,
@@ -44,14 +121,23 @@ class LineageClient:
 
         if column_lineage is None:
             cll = None
-        elif column_lineage == "auto_fuzzy":
-            # TODO: Add support for the auto lineage mapping.
-            # This should be a more advanced, fuzzy match based on the column names.
-            raise NotImplementedError("TODO")
-        elif column_lineage == "auto_strict":
-            # similar to auto_fuzzy, but with a strict match on the column names.
-            raise NotImplementedError("TODO")
-        else:
+        elif column_lineage in ["auto_fuzzy", "auto_strict"]:
+            upstream_schema = self._get_fields_from_dataset_urn(upstream)
+            downstream_schema = self._get_fields_from_dataset_urn(downstream)
+            if column_lineage == "auto_fuzzy":
+                mapping = self._get_fuzzy_column_lineage(
+                    upstream_schema, downstream_schema
+                )
+            else:
+                mapping = self._get_strict_column_lineage(
+                    upstream_schema, downstream_schema
+                )
+            cll = parse_cll_mapping(
+                upstream=upstream,
+                downstream=downstream,
+                cll_mapping=mapping,
+            )
+        elif isinstance(column_lineage, dict):
             cll = parse_cll_mapping(
                 upstream=upstream,
                 downstream=downstream,
@@ -138,7 +224,9 @@ class LineageClient:
             raise SdkUsageError(
                 f"Dataset {updater.urn} does not exist, and hence cannot be updated."
             )
-        mcps = updater.build()
+        mcps: List[
+            Union[MetadataChangeProposalWrapper, models.MetadataChangeProposalClass]
+        ] = list(updater.build())
         if query_entity:
             mcps.extend(query_entity)
         self._client._graph.emit_mcps(mcps)
