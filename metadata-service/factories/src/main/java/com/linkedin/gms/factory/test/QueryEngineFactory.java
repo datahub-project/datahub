@@ -10,6 +10,7 @@ import com.linkedin.metadata.test.query.QueryEngine;
 import com.linkedin.metadata.test.query.QueryVersionedAspectEvaluator;
 import com.linkedin.metadata.test.query.StructuredPropertyEvaluator;
 import com.linkedin.metadata.test.query.SystemAspectEvaluator;
+import com.linkedin.metadata.test.query.ownerTypes.OwnerTypesExistenceEvaluator;
 import com.linkedin.metadata.test.query.schemafield.SchemaFieldEvaluator;
 import com.linkedin.metadata.test.query.virtualFields.VirtualFieldsQueryEvaluator;
 import javax.annotation.Nonnull;
@@ -42,6 +43,8 @@ public class QueryEngineFactory {
     final SchemaFieldEvaluator schemaFieldEvaluator = new SchemaFieldEvaluator(entityService);
     final VirtualFieldsQueryEvaluator virtualFieldsQueryEvaluator =
         new VirtualFieldsQueryEvaluator();
+    final OwnerTypesExistenceEvaluator ownerTypesExistenceEvaluator =
+        new OwnerTypesExistenceEvaluator(entityService);
     return new QueryEngine(
         ImmutableList.of(
             urnTypeEvaluator,
@@ -49,6 +52,7 @@ public class QueryEngineFactory {
             systemAspectEvaluator,
             structuredPropertyEvaluator,
             schemaFieldEvaluator,
-            virtualFieldsQueryEvaluator));
+            virtualFieldsQueryEvaluator,
+            ownerTypesExistenceEvaluator));
   }
 }
