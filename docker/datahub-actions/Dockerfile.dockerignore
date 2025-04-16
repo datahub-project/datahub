@@ -1,10 +1,10 @@
 docker/datahub-actions/Dockerfile
 .git
-**scripts/
-**build/
-**venv/
-**tests/
-**smoke-test/
+**/build/
+**/venv/
+**/.venv/
+**/tests/
+**/smoke-test/
 **/*.xml
 .*/
 datahub-actions/.*/
