@@ -9654,7 +9654,7 @@ type Privileges {
   """
   Details about how each policy was evaluated
   """
-  evaluationDetails: [PolicyEvaluationDetail!]
+  evaluationDetails: [PolicyEvaluationDetail]
 }
 
 """
@@ -13316,15 +13316,10 @@ type PolicyEvaluationDetail {
   """
   The policy that was evaluated
   """
-  policyUrn: String!
-
-  """
-  Whether the policy granted access
-  """
-  granted: Boolean!
+  policyName: String!
 
   """
   The privileges that were granted by this policy
   """
-  grantedPrivileges: [String!]!
+  reason: String!
 }
