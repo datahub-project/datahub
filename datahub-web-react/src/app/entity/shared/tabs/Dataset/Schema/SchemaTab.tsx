@@ -44,13 +44,23 @@ const LoadingWrapper = styled.div`
 export const SchemaTab = ({ properties }: { properties?: any }) => {
     const entityRegistry = useEntityRegistry();
     const baseEntity = useBaseEntity<GetDatasetQuery>();
+    const [showRaw, setShowRaw] = useState(false);
     // Dynamically load the schema + editable schema information.
-    const { entityWithSchema, loading, refetch } = useGetEntityWithSchema();
+    const { entityWithSchema, loading, refetch } = useGetEntityWithSchema(undefined, (data) => {
+        const schemaMetadata = data?.dataset?.schemaMetadata;
+        if (
+            schemaMetadata?.fields?.length === 0 &&
+            schemaMetadata?.platformSchema?.__typename === 'TableSchema' &&
+            schemaMetadata?.platformSchema?.schema?.length > 0
+        ) {
+            // default to raw schema if only raw schema is available
+            setShowRaw(true);
+        }
+    });
     let schemaMetadata: any = entityWithSchema?.schemaMetadata || undefined;
     let editableSchemaMetadata: any = entityWithSchema?.editableSchemaMetadata || undefined;
     const datasetUrn: string = baseEntity?.dataset?.urn || '';
     const usageStats = baseEntity?.dataset?.usageStats;
-    const [showRaw, setShowRaw] = useState(false);
     const location = useLocation();
     const schemaFilter = getSchemaFilterFromQueryString(location);
     const [filterText, setFilterText] = useState(schemaFilter);
