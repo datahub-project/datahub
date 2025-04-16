@@ -55,8 +55,8 @@ export const Checkbox = ({
                         setChecked(!checked);
                         setIsChecked?.(!checked);
                         onCheckboxChange?.();
-                        e.stopPropagation();
                     }
+                    e.stopPropagation();
                 }}
             >
                 <StyledCheckbox

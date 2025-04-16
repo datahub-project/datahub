@@ -26,15 +26,18 @@ export const useGetSelectionColumn = <T,>(
             />
         ),
         key: 'row-selection',
-        render: (record: T, index: number) => (
-            <CheckboxWrapper>
-                <Checkbox
-                    isChecked={selectedRowKeys.includes(getRowKey(record, index, rowKey))}
-                    onCheckboxChange={() => handleRowSelect(record, index)}
-                    size="xs"
-                />
-            </CheckboxWrapper>
-        ),
+        render: (record: T, index: number) => {
+            return (
+                <CheckboxWrapper>
+                    <Checkbox
+                        isChecked={selectedRowKeys.includes(getRowKey(record, index, rowKey))}
+                        isDisabled={!!rowSelection && rowSelection?.getCheckboxProps?.(record)?.disabled}
+                        onCheckboxChange={() => handleRowSelect(record, index)}
+                        size="xs"
+                    />
+                </CheckboxWrapper>
+            );
+        },
         width: '48px',
         maxWidth: '60px',
     };

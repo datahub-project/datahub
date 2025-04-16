@@ -14,6 +14,7 @@ const TableContainer = styled.div`
 interface Props {
     actionRequests: ActionRequest[];
     isLoading: boolean;
+    isRowSelectionDisabled: (record: ActionRequest) => boolean;
     onActionRequestUpdate: () => void;
     selectedKeys: string[];
     setSelectedKeys: React.Dispatch<React.SetStateAction<string[]>>;
@@ -24,6 +25,7 @@ interface Props {
 const ProposalsTable = ({
     actionRequests,
     isLoading,
+    isRowSelectionDisabled,
     onActionRequestUpdate,
     selectedKeys,
     setSelectedKeys,
@@ -46,6 +48,9 @@ const ProposalsTable = ({
                 rowSelection={{
                     selectedRowKeys: selectedKeys,
                     onChange: (keys) => setSelectedKeys(keys),
+                    getCheckboxProps: (record) => ({
+                        disabled: isRowSelectionDisabled(record),
+                    }),
                 }}
                 onRowClick={onRowClick}
                 style={{ tableLayout: 'auto' }}

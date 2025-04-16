@@ -38,6 +38,9 @@ export interface TableProps<T> extends TableHTMLAttributes<HTMLTableElement> {
 export interface RowSelectionProps<T> {
     selectedRowKeys: string[];
     onChange?: (selectedKeys: string[], selectedRows: T[]) => void;
+    getCheckboxProps?: (T) => {
+        disabled: boolean;
+    };
 }
 
 export interface ExpandableProps<T> {

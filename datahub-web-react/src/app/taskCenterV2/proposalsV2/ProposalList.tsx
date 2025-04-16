@@ -183,6 +183,9 @@ export const ProposalList = ({
                     onRowClick={onProposalClick}
                     actionRequests={actionRequests as ActionRequest[]}
                     isLoading={loading}
+                    isRowSelectionDisabled={(record: ActionRequest) => {
+                        return record.status === 'COMPLETED';
+                    }}
                     onActionRequestUpdate={onActionRequestUpdate}
                     selectedKeys={selectedUrns}
                     setSelectedKeys={setSelectedUrns}
