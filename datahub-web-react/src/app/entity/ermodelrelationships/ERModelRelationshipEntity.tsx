@@ -1,23 +1,26 @@
+import { DatabaseFilled, DatabaseOutlined } from '@ant-design/icons';
 import * as React from 'react';
-import { DatabaseOutlined, DatabaseFilled } from '@ant-design/icons';
-import { EntityType, ErModelRelationship, OwnershipType, SearchResult } from '../../../types.generated';
-import { Entity, IconStyleType, PreviewType } from '../Entity';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { GenericEntityProperties } from '../shared/types';
-import { ERModelRelationshipPreviewCard } from './preview/ERModelRelationshipPreviewCard';
-import ermodelrelationshipIcon from '../../../images/ermodelrelationshipIcon.svg';
-import { ERModelRelationshipTab } from '../shared/tabs/ERModelRelationship/ERModelRelationshipTab';
+
+import { Entity, IconStyleType, PreviewType } from '@app/entity/Entity';
+import '@app/entity/ermodelrelationships/preview/ERModelRelationshipAction.less';
+import { ERModelRelationshipPreviewCard } from '@app/entity/ermodelrelationships/preview/ERModelRelationshipPreviewCard';
+import { EntityProfile } from '@app/entity/shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { SidebarTagsSection } from '@app/entity/shared/containers/profile/sidebar/SidebarTagsSection';
+import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
+import { DocumentationTab } from '@app/entity/shared/tabs/Documentation/DocumentationTab';
+import { ERModelRelationshipTab } from '@app/entity/shared/tabs/ERModelRelationship/ERModelRelationshipTab';
+import { PropertiesTab } from '@app/entity/shared/tabs/Properties/PropertiesTab';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+
 import {
     useGetErModelRelationshipQuery,
     useUpdateErModelRelationshipMutation,
-} from '../../../graphql/ermodelrelationship.generated';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import './preview/ERModelRelationshipAction.less';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+} from '@graphql/ermodelrelationship.generated';
+import { EntityType, ErModelRelationship, OwnershipType, SearchResult } from '@types';
+
+import ermodelrelationshipIcon from '@images/ermodelrelationshipIcon.svg';
 
 /**
  * Definition of the DataHub ErModelRelationship entity.

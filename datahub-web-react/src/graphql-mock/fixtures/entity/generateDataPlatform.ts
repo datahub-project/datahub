@@ -1,8 +1,9 @@
-import kafkaLogo from '../../../images/kafkalogo.png';
-import s3Logo from '../../../images/s3.png';
-import snowflakeLogo from '../../../images/snowflakelogo.png';
-import bigqueryLogo from '../../../images/bigquerylogo.png';
-import { DataPlatform, EntityType, PlatformType } from '../../../types.generated';
+import { DataPlatform, EntityType, PlatformType } from '@types';
+
+import bigqueryLogo from '@images/bigquerylogo.png';
+import kafkaLogo from '@images/kafkalogo.png';
+import s3Logo from '@images/s3.png';
+import snowflakeLogo from '@images/snowflakelogo.png';
 
 export const platformLogo = {
     kafka: kafkaLogo,

@@ -1,18 +1,20 @@
-import React from 'react';
-import styled from 'styled-components';
-import { Tooltip } from '@components';
 import { AuditOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import { Assertion, EntityType, DataContract, AssertionRunEvent } from '../../../../../../types.generated';
-import { REDESIGN_COLORS } from '../../../constants';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { isAssertionPartOfContract } from './contract/utils';
-import { AssertionDescription } from './assertion/profile/summary/AssertionDescription';
-import { AssertionResultDot } from './assertion/profile/shared/AssertionResultDot';
-import { AssertionResultPopover } from './assertion/profile/shared/result/AssertionResultPopover';
-import { ResultStatusType } from './assertion/profile/summary/shared/resultMessageUtils';
-import { useEntityData } from '../../../../../entity/shared/EntityContext';
-import { AssertionListItemActions } from './assertion/profile/actions/AssertionListItemActions';
+import styled from 'styled-components';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { AssertionListItemActions } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/AssertionListItemActions';
+import { AssertionResultDot } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/AssertionResultDot';
+import { AssertionResultPopover } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopover';
+import { AssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/AssertionDescription';
+import { ResultStatusType } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultMessageUtils';
+import { isAssertionPartOfContract } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Assertion, AssertionRunEvent, DataContract, EntityType } from '@types';
 
 const DetailsContainer = styled.div`
     display: flex;

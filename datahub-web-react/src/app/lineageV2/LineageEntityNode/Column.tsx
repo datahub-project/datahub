@@ -1,32 +1,35 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
-import { useGetLineageUrl } from '@app/lineageV2/lineageUtils';
-import { ColumnAsset } from '@app/lineageV2/types';
-import { useAppConfig } from '@app/useAppConfig';
-import { useGetLineageCountsLazyQuery } from '@graphql/lineage.generated';
-import LinkOut from '@images/link-out.svg?react';
-import { Spin, Typography } from 'antd';
 import { Tooltip } from '@components';
+import { Spin, Typography } from 'antd';
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Handle, Position } from 'reactflow';
 import styled from 'styled-components';
-import { EntityType } from '../../../types.generated';
-import { EventType } from '../../analytics';
-import analytics from '../../analytics/analytics';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../entityV2/shared/constants';
-import { generateSchemaFieldUrn } from '../../entityV2/shared/tabs/Lineage/utils';
-import { CompactFieldIconWithTooltip } from '../../sharedV2/icons/CompactFieldIcon';
+
+import { EventType } from '@app/analytics';
+import analytics from '@app/analytics/analytics';
+import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
+import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
+import { LineageDisplayColumn } from '@app/lineageV2/LineageEntityNode/useDisplayedColumns';
 import {
-    createColumnRef,
     HOVER_COLOR,
     LineageDisplayContext,
     LineageNodesContext,
-    onClickPreventSelect,
     SELECT_COLOR,
+    createColumnRef,
+    onClickPreventSelect,
     useIgnoreSchemaFieldStatus,
-} from '../common';
-import { LineageDisplayColumn } from './useDisplayedColumns';
+} from '@app/lineageV2/common';
+import { useGetLineageUrl } from '@app/lineageV2/lineageUtils';
+import { ColumnAsset } from '@app/lineageV2/types';
+import { CompactFieldIconWithTooltip } from '@app/sharedV2/icons/CompactFieldIcon';
+import { useAppConfig } from '@app/useAppConfig';
+
+import { useGetLineageCountsLazyQuery } from '@graphql/lineage.generated';
+import { EntityType } from '@types';
+
+import LinkOut from '@images/link-out.svg?react';
 
 const HOVER_REQUEST_DELAY = 300;
 

@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import CheckOutlinedIcon from '@mui/icons-material/CheckOutlined';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import TextArea from 'antd/lib/input/TextArea';
 import Paragraph from 'antd/lib/typography/Paragraph';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import CheckOutlinedIcon from '@mui/icons-material/CheckOutlined';
-import SectionActionButton from '../containers/profile/sidebar/SectionActionButton';
-import { SidebarSection } from '../containers/profile/sidebar/SidebarSection';
-import { AboutSection, AboutSectionText, EmptyValue } from '../SidebarStyledComponents';
+import React, { useEffect, useState } from 'react';
+
+import { AboutSection, AboutSectionText, EmptyValue } from '@app/entityV2/shared/SidebarStyledComponents';
+import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 
 type Props = {
     aboutText: string;

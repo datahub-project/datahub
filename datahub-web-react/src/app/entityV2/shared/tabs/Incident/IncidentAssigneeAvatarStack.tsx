@@ -1,7 +1,8 @@
 import React from 'react';
+
+import { MAX_VISIBLE_ASSIGNEE } from '@app/entityV2/shared/tabs/Incident/constant';
+import { AssigneeAvatarStackContainer } from '@app/entityV2/shared/tabs/Incident/styledComponents';
 import { AvatarStack } from '@src/alchemy-components/components/AvatarStack/AvatarStack';
-import { MAX_VISIBLE_ASSIGNEE } from './constant';
-import { AssigneeAvatarStackContainer } from './styledComponents';
 
 export const IncidentAssigneeAvatarStack = ({ assignees }: { assignees: any[] }) => {
     return (

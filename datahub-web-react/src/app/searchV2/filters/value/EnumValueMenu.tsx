@@ -1,11 +1,16 @@
 import React, { useState } from 'react';
-import { FilterField, FilterValue, FilterValueOption } from '../types';
-import { mapFilterOption } from '../mapFilterOption';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import OptionsDropdownMenu from '../OptionsDropdownMenu';
-import { deduplicateOptions, useFilterOptionsBySearchQuery, useLoadAggregationOptions } from './utils';
-import { OptionMenu } from './styledComponents';
-import { getFilterDisplayName, useFilterDisplayName } from '../utils';
+
+import OptionsDropdownMenu from '@app/searchV2/filters/OptionsDropdownMenu';
+import { mapFilterOption } from '@app/searchV2/filters/mapFilterOption';
+import { FilterField, FilterValue, FilterValueOption } from '@app/searchV2/filters/types';
+import { getFilterDisplayName, useFilterDisplayName } from '@app/searchV2/filters/utils';
+import { OptionMenu } from '@app/searchV2/filters/value/styledComponents';
+import {
+    deduplicateOptions,
+    useFilterOptionsBySearchQuery,
+    useLoadAggregationOptions,
+} from '@app/searchV2/filters/value/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 interface Props {
     field: FilterField;
