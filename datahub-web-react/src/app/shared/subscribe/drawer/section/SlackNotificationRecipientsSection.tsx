@@ -245,7 +245,7 @@ export default function SlackNotificationRecipientSection() {
                 </DisabledText>
             ) : (
                 <DisabledText>
-                    Slack notifications are disabled. Reach out to your Acryl admins for more information.
+                    Slack notifications are disabled. Reach out to your DataHub admins for more information.
                 </DisabledText>
             );
         }

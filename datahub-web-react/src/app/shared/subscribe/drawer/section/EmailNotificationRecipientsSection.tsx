@@ -227,7 +227,7 @@ export default function EmailNotificationRecipientSection({ isPersonal }: Props)
                 </StyledEmailSection>
             ) : (
                 <DisabledText>
-                    Email notifications are disabled. Reach out to your Acryl admins for more information.
+                    Email notifications are disabled. Reach out to your DataHub admins for more information.
                 </DisabledText>
             )}
         </NotificationSwitchContainer>

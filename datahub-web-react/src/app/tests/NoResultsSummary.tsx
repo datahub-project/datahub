@@ -55,7 +55,7 @@ export const NoResultsSummary = () => {
                             </a>
                         </Section>
                         <Section>
-                            Still have questions or feedback? Reach out to your Acryl customer representative!
+                            Still have questions or feedback? Reach out to your DataHub customer representative!
                         </Section>
                     </Paragraph>
                 </Container>

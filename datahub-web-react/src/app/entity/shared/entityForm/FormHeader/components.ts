@@ -1,39 +1,38 @@
-import { ArrowLeftOutlined, ArrowRightOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-import { ANTD_GRAY_V2 } from '../../constants';
-import BackgroundDots from '../../../../../images/background_dots.svg';
+import { colors } from '@src/alchemy-components';
+import { ArrowLeft as ArrowLeftIcon, ArrowRight as ArrowRightIcon } from 'phosphor-react';
 
 export const BulkNavigationWrapper = styled.div<{ $hideBackground?: boolean }>`
     padding: 16px 68px 16px 24px;
-    background-color: ${ANTD_GRAY_V2[10]};
     display: flex;
-    justify-content: flex-end;
+    justify-content: flex-start;
+    border-bottom: 1px solid ${colors.gray[100]};
     ${(props) =>
         !props.$hideBackground &&
         `
-        background-image: url(${BackgroundDots});
         background-position: right;
         background-repeat: no-repeat;
     `}
 `;
 
 export const NavigationWrapper = styled.div<{ isHidden: boolean }>`
-    font-size: 20px;
-    color: white;
+    font-size: 16px;
+    font-weight: bold;
+    color: ${colors.gray[600]};
     display: flex;
     flex-wrap: nowrap;
     ${(props) => props.isHidden && 'opacity: 0;'}
     align-items: center;
 `;
 
-export const ArrowLeft = styled(ArrowLeftOutlined)<{ $shouldHide?: boolean }>`
-    margin-right: 24px;
+export const ArrowLeft = styled(ArrowLeftIcon)<{ $shouldHide?: boolean }>`
+    margin-right: 16px;
     cursor: pointer;
     ${(props) => props.$shouldHide && 'visibility: hidden;'}
 `;
 
-export const ArrowRight = styled(ArrowRightOutlined)<{ $shouldHide?: boolean }>`
-    margin-left: 24px;
+export const ArrowRight = styled(ArrowRightIcon)<{ $shouldHide?: boolean }>`
+    margin-left: 16px;
     cursor: pointer;
     ${(props) => props.$shouldHide && 'visibility: hidden;'}
 `;

@@ -131,14 +131,16 @@ export const Preferences = () => {
                     <>
                         <StyledCard>
                             <UserSettingRow>
-                                <TextContainer>
-                                    <SettingText>Try Acryl 2.0 (beta)</SettingText>
-                                    <DescriptionText>
-                                        Enable an early preview of Acryl 2.0 - a complete makeover for your app with a
-                                        sleek new design and advanced features. Flip the switch and refresh your browser
-                                        to try it out!
-                                    </DescriptionText>
-                                </TextContainer>
+                                <span>
+                                    <SettingText>Try DataHub 2.0 (beta)</SettingText>
+                                    <div>
+                                        <DescriptionText>
+                                            Enable an early preview of DataHub 2.0 - a complete makeover for your app
+                                            with a sleek new design and advanced features. Flip the switch and refresh
+                                            your browser to try it out!
+                                        </DescriptionText>
+                                    </div>
+                                </span>
                                 <Switch
                                     label=""
                                     checked={isThemeV2EnabledForUser}

@@ -171,9 +171,9 @@ const InstancesListEmptyState = () => (
         <Body>
             <FlexWrapper>
                 <div style={{ textAlign: 'center', fontSize: '18px' }}>
-                    <PrimaryHeading>Your Acryl Instances</PrimaryHeading>
+                    <PrimaryHeading>Your DataHub Instances</PrimaryHeading>
                     <p style={{ marginTop: '1rem' }}>
-                        {` Looks like you haven't set up any connections to other Acryl Instances.`}
+                        {` Looks like you haven't set up any connections to other DataHub Instances.`}
                     </p>
                     <p>Add a new connection using the button on the top right of this page!</p>
                 </div>
@@ -276,8 +276,10 @@ const AcrylInstances = () => {
                         <LeftContainer>
                             {hasHistory && <BackButton onGoBack={goBack} />}
                             <Header>
-                                <HeaderTitle> Acryl</HeaderTitle>
-                                <HeaderSubtext>Integrate with other Acryl instances</HeaderSubtext>
+                                <HeaderTitle> DataHub</HeaderTitle>
+                                <HeaderSubtext>
+                                    Integrate with another DataHub Cloud instance to enable data sharing
+                                </HeaderSubtext>
                             </Header>
                         </LeftContainer>
                         <RightContainer>

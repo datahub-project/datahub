@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
+import { colors, PageTitle } from '@src/alchemy-components';
 import AppLogoLink from '../../../../shared/AppLogoLink';
 import EntityNavigation from './EntityNavigation';
 import { FormView, useEntityFormContext } from '../EntityFormContext';
@@ -9,16 +10,12 @@ import BulkVerifyHeader from '../BulkVerify/BulkVerifyHeader';
 
 const Header = styled.div`
     padding: 12px 24px;
-    background-color: black;
     font-size: 24px;
     display: flex;
     align-items: center;
-    color: white;
+    color: ${colors.gray[600]};
     justify-content: space-between;
-`;
-
-const HeaderText = styled.div`
-    margin-left: 24px;
+    border-bottom: 1px solid ${colors.gray[100]};
 `;
 
 const StyledDivider = styled.div`
@@ -29,6 +26,7 @@ const StyledDivider = styled.div`
 const TitleWrapper = styled.div`
     display: flex;
     align-items: center;
+    gap: 28px;
 `;
 
 export default function FormPageHeader() {
@@ -41,7 +39,10 @@ export default function FormPageHeader() {
             <Header>
                 <TitleWrapper>
                     <AppLogoLink />
-                    <HeaderText>Complete Compliance Tasks</HeaderText>
+                    <PageTitle
+                        title="Complete Compliance Tasks"
+                        subTitle="Provide the required compliance information for your assets"
+                    />
                 </TitleWrapper>
                 <FormViewToggle />
             </Header>

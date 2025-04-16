@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import AcrylIcon from '../../../images/datahub-logo-light.svg?react';
+import AcrylIcon from '../../../images/acryl-light-mark.svg?react';
 import introduceBg from '../../../images/introduceBg.svg';
 
 const Container = styled.div`
@@ -8,22 +8,26 @@ const Container = styled.div`
     flex-direction: column;
     justify-content: space-between;
     max-width: 470px;
-    margin: 15px;
     padding: 52px 65px 65px 52px;
-    background: #191d2e url(${introduceBg}) no-repeat bottom right;
+    background: #191d2e url(${introduceBg}) no-repeat bottom left;
     border-radius: 18px;
+`;
+
+const StyledAcrylIcon = styled(AcrylIcon)`
+    width: 32px;
+    height: 32px;
 `;
 
 const Title = styled.div`
     max-width: 240px;
     margin-bottom: 30px;
-    color: #fff;
+    color: #374066;
     font: 700 35px/44px Mulish;
 `;
 
 const Subtitle = styled.div`
     width: 371px;
-    color: #fff;
+    color: #5f6685;
     font: 400 16px/24px Mulish;
 `;
 
@@ -40,12 +44,12 @@ export const IntroduceYourselfLeftSidebar = () => {
     return (
         <Container>
             <AcrylTitle>
-                <AcrylIcon />
+                <StyledAcrylIcon />
             </AcrylTitle>
             <div>
                 <Title>Start your data journey</Title>
                 <Subtitle>
-                    Thousands of data professionals use Acryl to discover trusted data, ensure data quality and
+                    Thousands of data professionals use DataHub to discover trusted data, ensure data quality and
                     collaborate with their colleagues
                 </Subtitle>
             </div>

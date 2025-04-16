@@ -1,7 +1,7 @@
 import React from 'react';
 import { Image, Typography } from 'antd';
 import { OnboardingStep } from '../OnboardingStep';
-import acrylMainDiagram from '../../../images/acryl_hero.svg';
+import acrylMainDiagram from '../../../images/datahub-flow-diagram-light.png';
 import { ANTD_GRAY } from '../../entityV2/shared/constants';
 
 export const V2_SEARCH_BAR_ID = 'v2-search-bar';
@@ -21,7 +21,7 @@ const HomePageOnboardingConfig: OnboardingStep[] = [
             <div>
                 <div
                     style={{
-                        backgroundColor: 'black',
+                        backgroundColor: 'white',
                         width: '540px', // Adjusted width to be wider than the image
                         borderRadius: '10px',
                         display: 'flex',
@@ -32,10 +32,10 @@ const HomePageOnboardingConfig: OnboardingStep[] = [
                 >
                     <Image preview={false} height={184} width={500} src={acrylMainDiagram} />
                 </div>
-                <Typography.Title level={3}>Welcome to Acryl DataHub! </Typography.Title>
+                <Typography.Title level={3}>Welcome to DataHub! </Typography.Title>
                 <Typography.Paragraph style={{ lineHeight: '22px' }}>
-                    Acryl <strong>DataHub</strong> helps you discover, govern and ensure high quality for the important
-                    data within your organization. You can:
+                    <strong>DataHub</strong> helps you discover, govern and ensure high quality for the important data
+                    within your organization. You can:
                 </Typography.Paragraph>
                 <Typography.Paragraph style={{ lineHeight: '24px' }}>
                     <ul>

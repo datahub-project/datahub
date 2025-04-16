@@ -3,6 +3,7 @@ import React from 'react';
 import { CloseOutlined } from '@ant-design/icons';
 import { Modal } from 'antd';
 import styled from 'styled-components';
+import { colors } from '@src/alchemy-components';
 
 import EntityForm from './EntityForm';
 import FormPageHeader from '../../../entity/shared/entityForm/FormHeader/FormPageHeader';
@@ -32,7 +33,7 @@ const StyledModal = styled(Modal)`
 
 const StyledClose = styled(CloseOutlined)`
     && {
-        color: white;
+        color: ${colors.gray[600]};
         font-size: 24px;
         margin: 18px 12px 0 0;
     }

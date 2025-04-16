@@ -53,10 +53,10 @@ export const SLACK_INTEGRATION = {
  */
 
 const ACRYL_INSTANCE_INTEGRATION = {
-    id: 'acryl',
-    name: 'Acryl',
+    id: 'datahub',
+    name: 'DataHub',
     img: acrylLogo,
-    description: 'Integrate with another Acryl instance to enable sharing, etc.',
+    description: 'Integrate with another DataHub Cloud instance to enable data sharing',
     content: <AcrylInstances />,
 };
 
