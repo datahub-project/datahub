@@ -52,9 +52,7 @@ def kafka_connect_runner(docker_compose_runner, pytestconfig, test_resources_dir
         docker_services.wait_until_responsive(
             timeout=120,
             pause=5,
-            check=lambda: have_connectors_processed("test_connect")
-            and requests.get(f"{KAFKA_CONNECT_SERVER}/connector-plugins").status_code
-            == 200,
+            check=lambda: requests.get(KAFKA_CONNECT_ENDPOINT).status_code == 200,
         )
 
         print("Kafka Connect is ready!")
