@@ -446,6 +446,7 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
                                     entityUrn={tagUrn}
                                     owner={ownerItem}
                                     hidePopOver
+                                    refetch={refetch}
                                 />
                             ))
                         ) : (
