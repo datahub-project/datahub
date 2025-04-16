@@ -284,6 +284,7 @@ entities:
       - ownership
       - deprecation
       - domains
+      - globalTags
       - status
       - browsePaths
       - structuredProperties
@@ -297,6 +298,7 @@ entities:
       - glossaryNodeInfo
       - institutionalMemory
       - ownership
+      - globalTags
       - status
       - structuredProperties
       - forms

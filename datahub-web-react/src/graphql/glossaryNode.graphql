@@ -38,6 +38,9 @@ query getGlossaryNode($urn: String!) {
         forms {
             ...formsFields
         }
+        tags {
+            ...globalTagsFields
+        }
         children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 10000 }) {
             total
             relationships {

@@ -195,6 +195,9 @@ fragment autoCompleteFields on Entity {
     ... on GlossaryTerm {
         name
         hierarchicalName
+        tags {
+            ...globalTagsFields
+        }
         properties {
             name
         }
@@ -816,6 +819,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         parentNodes {
             ...parentNodesFields
         }
+        tags {
+            ...globalTagsFields
+        }
         domain {
             ...entityDomain
         }
@@ -829,6 +835,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         ...glossaryNode
         parentNodes {
             ...parentNodesFields
+        }
+        tags {
+            ...globalTagsFields
         }
         structuredProperties {
             properties {

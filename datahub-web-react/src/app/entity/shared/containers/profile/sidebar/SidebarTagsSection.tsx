@@ -32,43 +32,49 @@ export const SidebarTagsSection = ({ properties, readOnly }: Props) => {
 
     return (
         <div>
-            <span id={ENTITY_PROFILE_TAGS_ID}>
-                <SidebarHeader title="Tags" />
-                <TagTermGroup
-                    editableTags={
-                        properties?.customTagPath
-                            ? getNestedValue(entityData, properties?.customTagPath)
-                            : entityData?.globalTags
-                    }
-                    canAddTag={canAddTag}
-                    canRemove
-                    showEmptyMessage
-                    entityUrn={mutationUrn}
-                    entityType={entityType}
-                    refetch={refetch}
-                    readOnly={readOnly}
-                    fontSize={12}
-                />
-            </span>
-            <StyledDivider />
-            <span id={ENTITY_PROFILE_GLOSSARY_TERMS_ID}>
-                <SidebarHeader title="Glossary Terms" />
-                <TagTermGroup
-                    editableGlossaryTerms={
-                        properties?.customTermPath
-                            ? getNestedValue(entityData, properties?.customTermPath)
-                            : entityData?.glossaryTerms
-                    }
-                    canAddTerm={canAddTerm}
-                    canRemove
-                    showEmptyMessage
-                    entityUrn={mutationUrn}
-                    entityType={entityType}
-                    refetch={refetch}
-                    readOnly={readOnly}
-                    fontSize={12}
-                />
-            </span>
+            {canAddTag && (
+                <span id={ENTITY_PROFILE_TAGS_ID}>
+                    <SidebarHeader title="Tags" />
+                    <TagTermGroup
+                        editableTags={
+                            properties?.customTagPath
+                                ? getNestedValue(entityData, properties?.customTagPath)
+                                : entityData?.globalTags
+                        }
+                        canAddTag={canAddTag}
+                        canRemove
+                        showEmptyMessage
+                        entityUrn={mutationUrn}
+                        entityType={entityType}
+                        refetch={refetch}
+                        readOnly={readOnly}
+                        fontSize={12}
+                    />
+                </span>
+            )}
+            {canAddTerm && (
+                <>
+                    <StyledDivider />
+                    <span id={ENTITY_PROFILE_GLOSSARY_TERMS_ID}>
+                        <SidebarHeader title="Glossary Terms" />
+                        <TagTermGroup
+                            editableGlossaryTerms={
+                                properties?.customTermPath
+                                    ? getNestedValue(entityData, properties?.customTermPath)
+                                    : entityData?.glossaryTerms
+                            }
+                            canAddTerm={canAddTerm}
+                            canRemove
+                            showEmptyMessage
+                            entityUrn={mutationUrn}
+                            entityType={entityType}
+                            refetch={refetch}
+                            readOnly={readOnly}
+                            fontSize={12}
+                        />
+                    </span>
+                </>
+            )}
         </div>
     );
 };

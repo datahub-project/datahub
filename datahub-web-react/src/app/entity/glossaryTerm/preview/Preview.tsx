@@ -1,6 +1,6 @@
 import React from 'react';
 import { BookOutlined } from '@ant-design/icons';
-import { Deprecation, Domain, EntityType, Owner, ParentNodesResult } from '../../../../types.generated';
+import { Deprecation, Domain, EntityType, GlobalTags, Owner, ParentNodesResult } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType, PreviewType } from '../../Entity';
@@ -16,6 +16,7 @@ export const Preview = ({
     parentNodes,
     previewType,
     domain,
+    tags,
 }: {
     urn: string;
     name: string;
@@ -25,6 +26,7 @@ export const Preview = ({
     parentNodes?: ParentNodesResult | null;
     previewType: PreviewType;
     domain?: Domain | undefined;
+    tags?: GlobalTags;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -44,6 +46,7 @@ export const Preview = ({
             entityTitleSuffix={
                 <UrlButton href={getRelatedEntitiesUrl(entityRegistry, urn)}>View Related Entities</UrlButton>
             }
+            tags={tags}
         />
     );
 };

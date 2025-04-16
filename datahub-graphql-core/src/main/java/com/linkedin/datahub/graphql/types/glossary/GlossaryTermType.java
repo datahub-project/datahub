@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.glossary;
 
 import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -54,6 +55,7 @@ public class GlossaryTermType
           GLOSSARY_RELATED_TERM_ASPECT_NAME,
           INSTITUTIONAL_MEMORY_ASPECT_NAME,
           OWNERSHIP_ASPECT_NAME,
+          GLOBAL_TAGS_ASPECT_NAME,
           STATUS_ASPECT_NAME,
           BROWSE_PATHS_ASPECT_NAME,
           DOMAINS_ASPECT_NAME,

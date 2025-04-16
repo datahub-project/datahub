@@ -1,4 +1,5 @@
 import { AppstoreOutlined, FileOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
 import React from 'react';
 import { BookmarksSimple } from '@phosphor-icons/react';
 import { useGetGlossaryNodeQuery } from '../../../graphql/glossaryNode.generated';
@@ -129,6 +130,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
         {
             component: SidebarOwnerSection,
         },
+        { component: SidebarTagsSection },
         {
             component: SidebarStructuredProperties,
         },
@@ -193,6 +195,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             EntityCapabilityType.OWNERS,
             EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.SOFT_DELETE,
+            EntityCapabilityType.TAGS,
         ]);
     };
 
