@@ -308,9 +308,10 @@ const extractFilterOptionListFromIncidents = (incidents: Incident[]) => {
             if (index > -1) {
                 remainingIncidentTypes.splice(index, 1);
             }
-            const categoryName =
-                category === IncidentType.Custom && incident.customType ? incident.customType : incident.incidentType;
-            filterGroupCounts.category[categoryName] = (filterGroupCounts.category[categoryName] || 0) + 1;
+            const categoryName = getIncidentType(incident);
+            if (categoryName) {
+                filterGroupCounts.category[categoryName] = (filterGroupCounts.category[categoryName] || 0) + 1;
+            }
         }
 
         // filter out tracked stages
@@ -390,8 +391,7 @@ const getFilteredIncidents = (incidents: Incident[], filter: IncidentListFilter)
 
     // Apply cateory, priority, and stage
     return incidents.filter((incident: Incident) => {
-        const categoryName =
-            incident.incidentType === IncidentType.Custom ? incident.customType : incident.incidentType;
+        const categoryName = getIncidentType(incident);
         const matchesCategory = category.length === 0 || (categoryName ? category.includes(categoryName) : false);
         const matchesPriority = priority.length === 0 || priority.includes(incident.priority || 'None');
         const matchesStage = stage.length === 0 || stage.includes(incident.status.stage || 'None');
