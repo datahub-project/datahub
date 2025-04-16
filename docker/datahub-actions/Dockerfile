@@ -40,7 +40,7 @@ COPY --chown=datahub:datahub ./docker/datahub-actions/config /etc/datahub/action
 USER datahub
 WORKDIR /actions-src
 
-FROM base AS prod-slim-install
+FROM base AS slim-install
 
 # Effectively builds the image without the .cache (looks like it is duplicated but is not)
 RUN --mount=type=cache,target=/datahub-ingestion/.cache/uv,uid=1000,gid=1000 \

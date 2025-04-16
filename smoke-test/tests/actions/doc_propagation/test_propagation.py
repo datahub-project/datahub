@@ -94,7 +94,9 @@ class ActionTestEnv(BaseModel):
 
 @pytest.fixture(scope="module")
 def action_env_vars(pytestconfig) -> ActionTestEnv:
-    common_test_resources_dir = Path(pytestconfig.rootdir) / "tests" / "resources"
+    common_test_resources_dir = (
+        Path(pytestconfig.rootdir) / "test_resources" / "actions"
+    )
     env_file = common_test_resources_dir / "actions.env"
     # validate the env file exists
     assert env_file.exists()
@@ -157,7 +159,7 @@ def root_dir(pytestconfig):
 
 @pytest.fixture(scope="module", autouse=False)
 def test_resources_dir(root_dir):
-    return Path(root_dir) / "tests" / "actions" / "doc_propagation" / "resources"
+    return Path(root_dir) / "test_resources" / "actions"
 
 
 @pytest.fixture(scope="function")
@@ -175,12 +177,6 @@ def ingest_cleanup_data(ingest_cleanup_data_function):
 def graph():
     graph: DataHubGraph = DataHubGraph(config=DatahubClientConfig(server=get_gms_url()))
     yield graph
-
-
-@pytest.mark.dependency()
-def test_healthchecks(wait_for_healthchecks):
-    # Call to wait_for_healthchecks fixture will do the actual functionality.
-    pass
 
 
 @pytest.fixture(scope="function")
@@ -203,7 +199,9 @@ def dataset_depth_map(test_id):
 
 
 @pytest.fixture(scope="function")
-def ingest_cleanup_data_function(request, test_resources_dir, graph, test_id):
+def ingest_cleanup_data_function(
+    graph_client, auth_session, request, test_resources_dir, graph, test_id
+):
     @contextmanager
     def _ingest_cleanup_data(template_file="datasets_template.yaml"):
         new_file, filename = tempfile.mkstemp(suffix=f"_{test_id}.json")
@@ -213,14 +211,14 @@ def ingest_cleanup_data_function(request, test_resources_dir, graph, test_id):
             print(
                 f"Ingesting datasets test data for test_id: {test_id} using template: {template_file}"
             )
-            ingest_file_via_rest(filename)
+            ingest_file_via_rest(auth_session=auth_session, filename=filename)
             yield all_urns
         finally:
             if DELETE_AFTER_TEST:
                 print(f"Removing test data for test_id: {test_id}")
-                delete_urns_from_file(filename)
+                delete_urns_from_file(graph_client=graph_client, filename=filename)
                 for urn in all_urns:
-                    graph.delete_entity(urn, hard=True)
+                    graph_client.delete_entity(urn, hard=True)
                 wait_for_writes_to_sync()
             os.remove(filename)
 
@@ -228,7 +226,7 @@ def ingest_cleanup_data_function(request, test_resources_dir, graph, test_id):
 
 
 @pytest.fixture(scope="function")
-def large_fanout_graph_function(graph: DataHubGraph):
+def large_fanout_graph_function(graph_client: DataHubGraph):
     @contextmanager
     def _large_fanout_graph(
         test_id: str, max_fanout: int
@@ -241,12 +239,12 @@ def large_fanout_graph_function(graph: DataHubGraph):
             if delete_prior_to_running:
                 for i in range(1, max_index + 1):
                     dataset_urn = f"urn:li:dataset:(urn:li:dataPlatform:hive,{dataset_base_name}_{i},PROD)"
-                    graph.delete_entity(dataset_urn, hard=True)
-                graph.delete_entity(
+                    graph_client.delete_entity(dataset_urn, hard=True)
+                graph_client.delete_entity(
                     f"urn:li:dataset:(urn:li:dataPlatform:events,{dataset_base_name}_0,PROD)",
                     hard=True,
                 )
-                graph.delete_entity(
+                graph_client.delete_entity(
                     f"urn:li:dataset:(urn:li:dataPlatform:events,{dataset_base_name}_1,PROD)",
                     hard=True,
                 )
@@ -270,7 +268,7 @@ def large_fanout_graph_function(graph: DataHubGraph):
                     )
                 ],
             )
-            graph.emit(
+            graph_client.emit(
                 MetadataChangeProposalWrapper(
                     entityUrn=dataset_1, aspect=schema_metadata_1
                 )
@@ -323,7 +321,7 @@ def large_fanout_graph_function(graph: DataHubGraph):
                         upstreams,
                     ],
                 ):
-                    graph.emit(mcp)
+                    graph_client.emit(mcp)
                 all_urns.append(dataset_i)
 
             wait_for_writes_to_sync()
@@ -331,13 +329,13 @@ def large_fanout_graph_function(graph: DataHubGraph):
         finally:
             if DELETE_AFTER_TEST:
                 for urn in all_urns:
-                    graph.delete_entity(urn, hard=True)
+                    graph_client.delete_entity(urn, hard=True)
 
     return _large_fanout_graph
 
 
 def add_col_col_lineage(
-    graph, test_id: str, depth: int, dataset_depth_map: Dict[int, str]
+    graph_client, test_id: str, depth: int, dataset_depth_map: Dict[int, str]
 ):
     field_path = "ip"
 
@@ -347,7 +345,9 @@ def add_col_col_lineage(
         downstream_dataset = dataset_depth_map[current_depth + 1]
         downstream_field = f"urn:li:schemaField:({downstream_dataset},{field_path})"
         upstream_field = f"urn:li:schemaField:({upstream_dataset},{field_path})"
-        upstreams = graph.get_aspect(downstream_dataset, models.UpstreamLineageClass)
+        upstreams = graph_client.get_aspect(
+            downstream_dataset, models.UpstreamLineageClass
+        )
         upstreams.fineGrainedLineages = [
             models.FineGrainedLineageClass(
                 upstreamType=models.FineGrainedLineageUpstreamTypeClass.FIELD_SET,
@@ -356,7 +356,7 @@ def add_col_col_lineage(
                 downstreams=[downstream_field],
             )
         ]
-        graph.emit(
+        graph_client.emit(
             MetadataChangeProposalWrapper(
                 entityUrn=downstream_dataset, aspect=upstreams
             )
@@ -367,7 +367,7 @@ def add_col_col_lineage(
 
 
 def add_col_col_cycle_lineage(
-    graph, test_id: str, dataset_depth_map: Dict[int, str], cycle: List[int]
+    graph_client, test_id: str, dataset_depth_map: Dict[int, str], cycle: List[int]
 ):
     field_path = "ip"
 
@@ -380,7 +380,9 @@ def add_col_col_cycle_lineage(
         downstream_dataset = dataset_depth_map[dest]
         downstream_field = f"urn:li:schemaField:({downstream_dataset},{field_path})"
         upstream_field = f"urn:li:schemaField:({upstream_dataset},{field_path})"
-        upstreams = graph.get_aspect(downstream_dataset, models.UpstreamLineageClass)
+        upstreams = graph_client.get_aspect(
+            downstream_dataset, models.UpstreamLineageClass
+        )
         upstreams.fineGrainedLineages = [
             models.FineGrainedLineageClass(
                 upstreamType=models.FineGrainedLineageUpstreamTypeClass.FIELD_SET,
@@ -389,7 +391,7 @@ def add_col_col_cycle_lineage(
                 downstreams=[downstream_field],
             )
         ]
-        graph.emit(
+        graph_client.emit(
             MetadataChangeProposalWrapper(
                 entityUrn=downstream_dataset, aspect=upstreams
             )
@@ -399,13 +401,13 @@ def add_col_col_cycle_lineage(
     return field_pairs
 
 
-def add_field_description(f1, description, graph):
+def add_field_description(f1, description, graph_client):
     urn = Urn.from_string(f1)
     dataset_urn = urn.entity_ids[0]
-    schema_metadata = graph.get_aspect(dataset_urn, models.SchemaMetadataClass)
+    schema_metadata = graph_client.get_aspect(dataset_urn, models.SchemaMetadataClass)
     field = next(f for f in schema_metadata.fields if f.fieldPath == urn.entity_ids[1])
     field.description = description
-    graph.emit(
+    graph_client.emit(
         MetadataChangeProposalWrapper(entityUrn=dataset_urn, aspect=schema_metadata)
     )
     wait_for_writes_to_sync()
@@ -415,85 +417,88 @@ def add_field_description(f1, description, graph):
     wait=tenacity.wait_exponential(multiplier=1, max=10),
     stop=tenacity.stop_after_delay(60),
 )
-def check_propagated_description(downstream_field, description, graph):
-    documentation = graph.get_aspect(downstream_field, models.DocumentationClass)
+def check_propagated_description(downstream_field, description, graph_client):
+    documentation = graph_client.get_aspect(downstream_field, models.DocumentationClass)
     assert any(doc.documentation == description for doc in documentation.documentations)
 
 
-def ensure_no_propagated_description(graph, schema_field):
-    documentation = graph.get_aspect(schema_field, models.DocumentationClass)
+def ensure_no_propagated_description(graph_client, schema_field):
+    documentation = graph_client.get_aspect(schema_field, models.DocumentationClass)
     assert documentation is None or not documentation.documentations
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
 def test_col_col_propagation_depth_1(
-    ingest_cleanup_data, graph, test_id, dataset_depth_map
+    ingest_cleanup_data, graph_client, test_id, dataset_depth_map
 ):
     downstream_field, upstream_field = add_col_col_lineage(
-        graph, depth=1, test_id=test_id, dataset_depth_map=dataset_depth_map
+        graph_client, depth=1, test_id=test_id, dataset_depth_map=dataset_depth_map
     )[0]
-    add_field_description(upstream_field, "This is the new description", graph)
-    check_propagated_description(downstream_field, "This is the new description", graph)
+    add_field_description(
+        upstream_field, "This is the new description", graph_client=graph_client
+    )
+    check_propagated_description(
+        downstream_field, "This is the new description", graph_client
+    )
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
 def test_col_col_propagation_depth_6(
-    ingest_cleanup_data, graph, test_id, dataset_depth_map
+    ingest_cleanup_data, graph_client, test_id, dataset_depth_map
 ):
     field_pairs = add_col_col_lineage(
-        graph, depth=6, test_id=test_id, dataset_depth_map=dataset_depth_map
+        graph_client, depth=6, test_id=test_id, dataset_depth_map=dataset_depth_map
     )
     upstream_field = field_pairs[0][1]
     add_field_description(
-        upstream_field, f"This is the new description {test_id}", graph
+        upstream_field, f"This is the new description {test_id}", graph_client
     )
     for downstream_field, _ in field_pairs[:-1]:
         check_propagated_description(
-            downstream_field, f"This is the new description {test_id}", graph
+            downstream_field, f"This is the new description {test_id}", graph_client
         )
 
     # last hop should NOT be propagated
     last_downstream_field = f"urn:li:schemaField:({dataset_depth_map[6]},ip)"
-    ensure_no_propagated_description(graph, last_downstream_field)
+    ensure_no_propagated_description(graph_client, last_downstream_field)
     # Call to wait_for_healthchecks fixture will do the actual functionality.
     # now check upstream propagation
     add_field_description(
-        last_downstream_field, f"This is the new upstream description {test_id}", graph
+        last_downstream_field,
+        f"This is the new upstream description {test_id}",
+        graph_client,
     )
     propagated_upstream_field = f"urn:li:schemaField:({dataset_depth_map[1]},ip)"
     check_propagated_description(
         propagated_upstream_field,
         f"This is the new upstream description {test_id}",
-        graph,
+        graph_client,
     )
     # propagation depth will prevent the last hop from being propagated
-    ensure_no_propagated_description(graph, upstream_field)
+    ensure_no_propagated_description(graph_client, upstream_field)
     # also check that the previously propagated descriptions (for downstream
     # fields) are still there
     for index in [1, 2, 3, 4]:
         check_propagated_description(
             f"urn:li:schemaField:({dataset_depth_map[index]},ip)",
             description=f"This is the new description {test_id}",
-            graph=graph,
+            graph_client=graph_client,
         )
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
 def test_col_col_propagation_cycles(
-    ingest_cleanup_data_function, graph, test_id, dataset_depth_map
+    ingest_cleanup_data_function, graph_client, test_id, dataset_depth_map
 ):
     custom_template = "datasets_for_cycles_template.yaml"
     with ingest_cleanup_data_function(custom_template) as urns:
         [u for u in urns]
         click_dataset_urn = dataset_depth_map[0]
         hive_dataset_urn = dataset_depth_map[1]
-        graph.emit(
+        graph_client.emit(
             MetadataChangeProposalWrapper(
                 entityUrn=click_dataset_urn,
                 aspect=models.SiblingsClass(siblings=[hive_dataset_urn], primary=True),
             )
         )
-        graph.emit(
+        graph_client.emit(
             MetadataChangeProposalWrapper(
                 entityUrn=hive_dataset_urn,
                 aspect=models.SiblingsClass(
@@ -503,7 +508,7 @@ def test_col_col_propagation_cycles(
         )
         # create field level lineage
         add_col_col_cycle_lineage(
-            graph,
+            graph_client,
             test_id=test_id,
             dataset_depth_map=dataset_depth_map,
             cycle=[1, 2, 3, 4, 1],
@@ -511,23 +516,27 @@ def test_col_col_propagation_cycles(
         wait_for_writes_to_sync()
         field = f"urn:li:schemaField:({click_dataset_urn},ip)"
         add_field_description(
-            f1=field, description=f"This is the new description {test_id}", graph=graph
+            f1=field,
+            description=f"This is the new description {test_id}",
+            graph_client=graph_client,
         )
         for index in [1, 2, 3, 4]:
             check_propagated_description(
                 f"urn:li:schemaField:({dataset_depth_map[index]},ip)",
                 description=f"This is the new description {test_id}",
-                graph=graph,
+                graph_client=graph_client,
             )
         # make sure the original field does not have a propagated description
         ensure_no_propagated_description(
-            graph, f"urn:li:schemaField:({click_dataset_urn},ip)"
+            graph_client, f"urn:li:schemaField:({click_dataset_urn},ip)"
         )
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
 def test_col_col_propagation_large_fanout(
-    large_fanout_graph_function, test_id: str, action_env_vars: ActionTestEnv, graph
+    large_fanout_graph_function,
+    test_id: str,
+    action_env_vars: ActionTestEnv,
+    graph_client,
 ):
     default_max_fanout = (
         action_env_vars.DATAHUB_ACTIONS_DOC_PROPAGATION_MAX_PROPAGATION_FANOUT
@@ -546,7 +555,7 @@ def test_col_col_propagation_large_fanout(
                 )
             ]
         )
-        graph.emit(
+        graph_client.emit(
             MetadataChangeProposalWrapper(
                 entityUrn=dataset_1, aspect=editable_schema_metadata
             )
@@ -560,7 +569,9 @@ def test_col_col_propagation_large_fanout(
             downstream_field = f"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,large_fanout_dataset_{test_id}_{i},PROD),ip)"
 
             try:
-                check_propagated_description(downstream_field, new_description, graph)
+                check_propagated_description(
+                    downstream_field, new_description, graph_client
+                )
                 num_fields_with_propagated_description += 1
             except tenacity.RetryError:
                 logger.error(
