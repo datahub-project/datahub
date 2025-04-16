@@ -1,4 +1,5 @@
 import subprocess
+import time
 from typing import Any, Dict, List, Optional, cast
 from unittest import mock
 
@@ -13,7 +14,6 @@ from datahub.ingestion.source.kafka_connect.kafka_connect import SinkTopicFilter
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
-from tests.test_helpers.docker_helpers import wait_for_port
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
     validate_all_providers_have_committed_successfully,
@@ -27,24 +27,6 @@ KAFKA_CONNECT_SERVER = "http://localhost:28083"
 KAFKA_CONNECT_ENDPOINT = f"{KAFKA_CONNECT_SERVER}/connectors"
 
 
-def is_mysql_up(container_name: str, port: int) -> bool:
-    """A cheap way to figure out if mysql is responsive on a container"""
-
-    cmd = f"docker logs {container_name} 2>&1 | grep '/var/run/mysqld/mysqld.sock' | grep {port}"
-    ret = subprocess.run(
-        cmd,
-        shell=True,
-    )
-    return ret.returncode == 0
-
-
-def have_connectors_processed(container_name: str) -> bool:
-    """A cheap way to figure out if postgres is responsive on a container"""
-
-    cmd = f"docker logs {container_name} 2>&1 | grep 'Session key updated'"
-    return subprocess.run(cmd, shell=True).returncode == 0
-
-
 @pytest.fixture(scope="module")
 def kafka_connect_runner(docker_compose_runner, pytestconfig, test_resources_dir):
     test_resources_dir_kafka = pytestconfig.rootpath / "tests/integration/kafka"
@@ -55,30 +37,11 @@ def kafka_connect_runner(docker_compose_runner, pytestconfig, test_resources_dir
         str(test_resources_dir_kafka / "docker-compose.yml"),
         str(test_resources_dir / "docker-compose.override.yml"),
     ]
-    with docker_compose_runner(
-        docker_compose_file, "kafka-connect", cleanup=False
-    ) as docker_services:
-        wait_for_port(
-            docker_services,
-            "test_mysql",
-            3306,
-            timeout=120,
-            checker=lambda: is_mysql_up("test_mysql", 3306),
-        )
 
     with docker_compose_runner(docker_compose_file, "kafka-connect") as docker_services:
-        # We sometimes run into issues where the broker fails to come up on the first try because
-        # of all the other processes that are running. By running docker compose twice, we can
-        # avoid some test flakes. How does this work? The "key" is the same between both
-        # calls to the docker_compose_runner and the first one sets cleanup=False.
-
-        wait_for_port(docker_services, "test_broker", 29092, timeout=120)
-        wait_for_port(docker_services, "test_connect", 28083, timeout=120)
-        docker_services.wait_until_responsive(
-            timeout=30,
-            pause=1,
-            check=lambda: requests.get(KAFKA_CONNECT_ENDPOINT).status_code == 200,
-        )
+        # We rely fully on Docker's health checks to ensure services are ready
+        # No additional readiness check required in the test code
+        print("All Docker Compose services are running and healthy")
         yield docker_services
 
 
@@ -89,7 +52,7 @@ def test_resources_dir(pytestconfig):
 
 @pytest.fixture(scope="module")
 def loaded_kafka_connect(kafka_connect_runner):
-    # # Setup mongo cluster
+    print("Initializing MongoDB replica set...")
     command = "docker exec test_mongo mongosh test_db -f /scripts/mongo-init.js"
     ret = subprocess.run(command, shell=True, capture_output=True)
     assert ret.returncode == 0
@@ -298,6 +261,7 @@ def loaded_kafka_connect(kafka_connect_runner):
     r.raise_for_status()
     assert r.status_code == 201  # Created
 
+    print("Populating MongoDB with test data...")
     command = "docker exec test_mongo mongosh test_db -f /scripts/mongo-populate.js"
     ret = subprocess.run(command, shell=True, capture_output=True)
     assert ret.returncode == 0
@@ -360,12 +324,10 @@ def loaded_kafka_connect(kafka_connect_runner):
     )
     assert r.status_code == 201  # Created
 
-    # Give time for connectors to process the table data
-    kafka_connect_runner.wait_until_responsive(
-        timeout=30,
-        pause=1,
-        check=lambda: have_connectors_processed("test_connect"),
-    )
+    # Connectors should be ready to process data thanks to Docker health checks
+    # Just a small wait to ensure all connectors have initialized
+    print("Waiting a moment for connectors to fully initialize...")
+    time.sleep(5)
 
 
 @freeze_time(FROZEN_TIME)

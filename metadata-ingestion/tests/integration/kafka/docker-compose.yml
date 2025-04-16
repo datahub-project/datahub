@@ -60,6 +60,12 @@ services:
         condition: service_healthy
     ports:
       - "28081:8081"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -f http://localhost:8081/subjects || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     restart: on-failure:3
     deploy:
       resources:
