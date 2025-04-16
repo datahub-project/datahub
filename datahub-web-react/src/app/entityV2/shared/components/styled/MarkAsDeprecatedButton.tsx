@@ -1,18 +1,11 @@
-import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { Button } from '@src/alchemy-components';
 import DeprecatedIcon from '../../../../../images/deprecated-status.svg?react';
-import { REDESIGN_COLORS } from '../../constants';
 
-// Styled Components
-// Todo(Gabe): replace this with the @components button once it supports text buttons with hover states
 const StyledButton = styled(Button)`
     padding: 4px;
     margin-top: -8px;
-    color: ${REDESIGN_COLORS.LINK_GREY};
-    :hover {
-        color: ${REDESIGN_COLORS.LINK_GREY};
-    }
 `;
 
 const FlexContainer = styled.div`
@@ -52,7 +45,7 @@ export const MarkAsDeprecatedButtonContents = ({ internalText }: MarkAsDeprecate
 // Main Component
 const MarkAsDeprecatedButton = ({ onClick, internalText }: DeprecatedButtonProps) => {
     return (
-        <StyledButton onClick={onClick} type="text">
+        <StyledButton onClick={onClick} variant="text">
             <MarkAsDeprecatedButtonContents internalText={internalText} />
         </StyledButton>
     );

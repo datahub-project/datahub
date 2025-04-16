@@ -99,6 +99,10 @@ buildCache {
 }
 
 def installPreCommitHooks() {
+    if (System.getenv("CI") == "true") {
+        println("Skipping pre-commit hooks in CI")
+        return 
+    }
     def preCommitInstalled = false
     try {
         def process = ["which", "pre-commit"].execute()
