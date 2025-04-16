@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { CorpUser, IncidentStage, IncidentState, IncidentType } from '@src/types.generated';
+import { IncidentStage, IncidentState, IncidentType } from '@src/types.generated';
 import { Input } from '@src/alchemy-components';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 import { Editor } from '@src/alchemy-components/components/Editor/Editor';
@@ -36,12 +36,11 @@ const HalfWidthInput = styled(Input)`
 `;
 
 export const IncidentEditor = ({
+    entity,
     incidentUrn,
     onSubmit,
     data,
     mode = IncidentAction.CREATE,
-    entity,
-    urn,
 }: IncidentEditorProps) => {
     const assigneeValues = data?.assignees && getAssigneeWithURN(data.assignees);
     const isFormValid = Boolean(
@@ -53,8 +52,8 @@ export const IncidentEditor = ({
     const { user } = useUserContext();
     const userHasChangedState = useRef(false);
     const isFirstRender = useRef(true);
-    const [cachedAssignees, setCachedAssignees] = useState<CorpUser[]>([]);
-    const [cachedLinkedAssets, setCachedLinkedAssets] = useState<string[]>([]);
+    const [cachedAssignees, setCachedAssignees] = useState<any[]>([]);
+    const [cachedLinkedAssets, setCachedLinkedAssets] = useState<any[]>([]);
     const [isLoadingAssigneeOrAssets, setIsLoadingAssigneeOrAssets] = useState(true);
 
     const [isRequiredFieldsFilled, setIsRequiredFieldsFilled] = useState<boolean>(
@@ -213,7 +212,6 @@ export const IncidentEditor = ({
                         mode={mode}
                         setCachedLinkedAssets={setCachedLinkedAssets}
                         setIsLinkedAssetsLoading={setIsLoadingAssigneeOrAssets}
-                        urn={urn}
                     />
                 </SelectFormItem>
                 {mode === IncidentAction.EDIT && (
