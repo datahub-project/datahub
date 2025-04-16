@@ -177,32 +177,35 @@ const ActionsColumn = ({ actionRequest, onUpdate, showPendingView }: Props) => {
         <>
             {actionResultView}
             {!!modalType && (
-                <Modal
-                    buttons={[
-                        {
-                            text: 'Cancel',
-                            variant: 'text',
-                            onClick: handleCancel,
-                        },
-                        {
-                            text: 'Submit',
-                            variant: 'filled',
-                            onClick: modalType === ProposalModalType.Accept ? acceptRequest : rejectRequest,
-                        },
-                    ]}
-                    onCancel={handleCancel}
-                    title={modalConfig[modalType].title}
-                    subtitle={modalConfig[modalType].subtitle}
-                >
-                    <Form form={form} initialValues={{}} layout="vertical">
-                        <div>
-                            <div>Reason</div>
-                            <Form.Item name={PROPOSAL_REVIEW_NOTE}>
-                                <Input.TextArea rows={4} placeholder={modalConfig[modalType].placeholder} />
-                            </Form.Item>
-                        </div>
-                    </Form>
-                </Modal>
+                // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+                <div onClick={(e) => e.stopPropagation()}>
+                    <Modal
+                        buttons={[
+                            {
+                                text: 'Cancel',
+                                variant: 'text',
+                                onClick: handleCancel,
+                            },
+                            {
+                                text: 'Submit',
+                                variant: 'filled',
+                                onClick: modalType === ProposalModalType.Accept ? acceptRequest : rejectRequest,
+                            },
+                        ]}
+                        onCancel={handleCancel}
+                        title={modalConfig[modalType].title}
+                        subtitle={modalConfig[modalType].subtitle}
+                    >
+                        <Form form={form} initialValues={{}} layout="vertical">
+                            <div>
+                                <div>Reason</div>
+                                <Form.Item name={PROPOSAL_REVIEW_NOTE}>
+                                    <Input.TextArea rows={4} placeholder={modalConfig[modalType].placeholder} />
+                                </Form.Item>
+                            </div>
+                        </Form>
+                    </Modal>
+                </div>
             )}
         </>
     );
