@@ -181,10 +181,10 @@ externalPrettierConfigs.each { config ->
 
     if (matchingFiles.isEmpty()) {
       logger.lifecycle("No changed files found matching ${config.pattern}.")
-      args = []
+      return
     }
 
-    logger.lifecycle("Running Prettier on ${matchingFiles.size()} changed Markdown files")
+    logger.lifecycle("Running Prettier on ${matchingFiles.size()} changed ${config.name} files")
     args = ['run', 'prettier', '--write'] + matchingFiles.collect { "../${it}" }
   }
 }
