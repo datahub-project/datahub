@@ -40,7 +40,7 @@ export const SelectItemCheckboxGroup: React.FC<SelectItemCheckboxGroupProps> = (
                     <Checkbox
                         value={option.value}
                         isChecked={selectedOptions.includes(option.value)}
-                        onChange={() => handleCheckboxToggle(option.value)}
+                        setIsChecked={() => handleCheckboxToggle(option.value)}
                     />
                 </StyledCheckboxLabel>
             ))}
