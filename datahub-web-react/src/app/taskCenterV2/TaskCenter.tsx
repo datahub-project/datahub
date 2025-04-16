@@ -22,6 +22,7 @@ const ProposalsContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: b
     display: flex;
     flex-direction: column;
     flex: 1;
+    height: calc(100%-20px);
 
     border-radius: ${(props) => {
         if (props.isV2 && props.$isShowNavBarRedesign) return props.theme.styles['border-radius-navbar-redesign'];
@@ -36,7 +37,6 @@ const ProposalsContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: b
         overflow: hidden;
         box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
         background: white;
-        height: 100%;
     `}
 
     &&& .ant-tabs-nav {
@@ -98,7 +98,7 @@ export const StyledBadge = styled(BadgeAntd)`
 
 const PageContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolean }>`
     display: flex;
-    height: calc(100% - 20px);
+    height: 100%;
     gap: 12px;
     border-radius: ${(props) => {
         if (props.isV2 && props.$isShowNavBarRedesign) return props.theme.styles['border-radius-navbar-redesign'];
@@ -108,11 +108,12 @@ const PageContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolea
         !props.$isShowNavBarRedesign &&
         `
         margin-right: ${props.isV2 ? '12px' : '0'};
+        height: calc(100% - 20px);
     `}
 `;
 
 const SidebarContainer = styled.div<{ height: string }>`
-    max-height: ${(props) => props.height};
+    height: ${(props) => props.height};
     display: flex;
     flex-direction: column;
     position: sticky;
