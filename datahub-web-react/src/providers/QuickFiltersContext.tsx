@@ -1,5 +1,6 @@
 import React, { useContext } from 'react';
-import { QuickFilter } from '../types.generated';
+
+import { QuickFilter } from '@types';
 
 interface AppStateType {
     quickFilters: QuickFilter[] | null;

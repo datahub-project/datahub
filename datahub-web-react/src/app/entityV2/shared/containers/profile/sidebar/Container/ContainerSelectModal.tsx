@@ -1,11 +1,13 @@
-import { Button, Form, Modal, Select, Tag } from 'antd';
 import { Tooltip } from '@components';
+import { Button, Form, Modal, Select, Tag } from 'antd';
 import React, { ReactNode, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
-import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
-import { Container, Entity, EntityType } from '../../../../../../../types.generated';
-import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
+
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
+import { Container, Entity, EntityType } from '@types';
 
 type Props = {
     onCloseModal: () => void;

@@ -1,13 +1,13 @@
-import React from 'react';
-import { Button, Typography } from 'antd';
 import { ClockCircleOutlined, LineChartOutlined } from '@ant-design/icons';
-
+import { Button, Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { ViewType } from './viewType';
-import TabToolbar from '../../../components/styled/TabToolbar';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../../constants';
-import { LookbackWindow } from './lookbackWindows';
-import LookbackWindowSelect from './historical/LookbackWindowSelect';
+
+import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
+import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import LookbackWindowSelect from '@app/entityV2/shared/tabs/Dataset/Stats/historical/LookbackWindowSelect';
+import { LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
+import { ViewType } from '@app/entityV2/shared/tabs/Dataset/Stats/viewType';
 
 const StatsHeaderContainer = styled.div`
     display: flex;

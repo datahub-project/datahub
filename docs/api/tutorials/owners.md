@@ -84,7 +84,6 @@ You can see the user `The bar` has been created and the user `Datahub` has been 
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/user-upserted.png"/>
 </p>
 
-
 ## Upsert Group
 
 <Tabs>
@@ -135,7 +134,6 @@ You can see the group `Foo Group` has been created under `Settings > Access > Us
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/group-upserted.png"/>
 </p>
-
 
 ## Read Owners
 
@@ -282,11 +280,9 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 
 You can now see `bfoo` has been added as an owner to the `fct_users_created` dataset.
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/owner-added.png"/>
 </p>
-
 
 ## Remove Owners
 
@@ -354,8 +350,6 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 
 You can now see `John Doe` has been removed as an owner from the `fct_users_created` dataset.
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/owner-removed.png"/>
 </p>
-

@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
 import { Typography } from 'antd';
-import { useRouteMatch } from 'react-router-dom';
+import React, { useState } from 'react';
 import { useHistory } from 'react-router';
-import { CorpUser, EntityRelationshipsResult } from '../../../types.generated';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { ShowMoreButton, TagsSection } from '../shared/SidebarStyledComponents';
-import { ShowMoreSection } from '../shared/sidebarSection/ShowMoreSection';
-import { GroupMemberLink } from './GroupMemberLink';
-import { TabType } from './types';
+import { useRouteMatch } from 'react-router-dom';
+
+import { GroupMemberLink } from '@app/entityV2/group/GroupMemberLink';
+import { TabType } from '@app/entityV2/group/types';
+import { ShowMoreButton, TagsSection } from '@app/entityV2/shared/SidebarStyledComponents';
+import { ShowMoreSection } from '@app/entityV2/shared/sidebarSection/ShowMoreSection';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { CorpUser, EntityRelationshipsResult } from '@types';
 
 type Props = {
     groupMemberRelationships: EntityRelationshipsResult;

@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
+import { Route, Switch } from 'react-router-dom';
 import styled from 'styled-components/macro';
-import { Switch, Route } from 'react-router-dom';
-import { PageRoutes } from '../../conf/Global';
-import { EntityPage } from '../entity/EntityPage';
-import { useEntityRegistry } from '../useEntityRegistry';
-import ManageDomainsPageV2 from './nestedDomains/ManageDomainsPageV2';
-import { EntityType } from '../../types.generated';
-import ManageDomainsSidebar from './nestedDomains/ManageDomainsSidebar';
-import { DomainsContext } from './DomainsContext';
-import { GenericEntityProperties } from '../entity/shared/types';
+
+import { DomainsContext } from '@app/domain/DomainsContext';
+import ManageDomainsPageV2 from '@app/domain/nestedDomains/ManageDomainsPageV2';
+import ManageDomainsSidebar from '@app/domain/nestedDomains/ManageDomainsSidebar';
+import { EntityPage } from '@app/entity/EntityPage';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { PageRoutes } from '@conf/Global';
+
+import { EntityType } from '@types';
 
 const ContentWrapper = styled.div`
     display: flex;
