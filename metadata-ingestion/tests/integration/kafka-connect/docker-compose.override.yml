@@ -66,17 +66,19 @@ services:
              
         echo "All components installed successfully, launching Kafka Connect worker..."
         
-        # sleep infinity
+        # Create a flag file to indicate installation is complete for the healthcheck
+        # However, this results on a healtcheck not very trustable, as the service startup just after this takes a significant amount of time
+        # So client validation is needed; see check_connectors_ready
+        touch /tmp/connectors_installed
+        
         # Launch connect worker and ensure it's in the foreground to catch any startup errors
         exec /etc/confluent/docker/run
     healthcheck:
-      # First verify that the REST API is accepting connections
-      # Then verify that Connect has finished initializing all connector plugins
-      test: ["CMD-SHELL", "curl -s http://localhost:28083/ > /dev/null && curl -s http://localhost:28083/connector-plugins | grep -q 'class' && echo 'Kafka Connect REST API and plugins ready' || exit 1"]
+      test: ["CMD-SHELL", "test -f /tmp/connectors_installed || (echo 'Not all plugins installed yet' && exit 1)"]
       interval: 10s
       timeout: 10s
       retries: 20
-      start_period: 180s
+      start_period: 60s
   mysqldb:
     image: mysql:8.0
     environment:
