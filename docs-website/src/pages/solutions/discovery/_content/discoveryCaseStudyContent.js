@@ -16,7 +16,7 @@ const caseStudyContent = {
         },
         {
           imgSrc: "/img/solutions/logo-dpg-media.png",
-          title: "How Acryl Data Helped DPG Media Save 25% Per Mo in Snowflake.",
+          title: "How DataHub Helped DPG Media Save 25% Per Mo in Snowflake.",
           link: "/adoption-stories/#dpg-media",
           alt: "DPG Media",
         }

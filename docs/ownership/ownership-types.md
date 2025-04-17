@@ -7,7 +7,7 @@ import TabItem from '@theme/TabItem';
 <FeatureAvailability/>
 
 **🤝 Version compatibility**
-> Open Source DataHub: **0.10.4** | Acryl: **0.2.8**
+> DataHub Core: **0.10.4** | DataHug Cloud: **0.2.8**
 
 ## What are Custom Ownership Types?
 Custom Ownership Types are an improvement on the way to establish ownership relationships between users and the data assets they manage within DataHub.

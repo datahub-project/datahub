@@ -1,7 +1,7 @@
 ---
 description: >-
   This page will help you set up OIDC SSO with your identity provider to log
-  into Acryl Data
+  into DataHub
 ---
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 

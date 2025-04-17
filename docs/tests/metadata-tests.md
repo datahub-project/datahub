@@ -63,7 +63,7 @@ given to those users who will be serving as metadata Admins of the platform. The
 > - Data Job (e.g. Task)
 > - Container (Database, Schema, Project)
 >
-> If you'd like to see Metadata Tests for other asset types, please let your Acryl Customer Success partner know!
+> If you'd like to see Metadata Tests for other asset types, please let your DataHub Cloud CustomerSuccess partner know!
 
 ## Using Metadata Tests
 

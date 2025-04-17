@@ -7,33 +7,33 @@ For the Town Hall meetings after June 2023, please refer to our [LinkedIn Live e
 ### June 2023
 [Full YouTube video](https://www.youtube.com/watch?v=1QVcUmRQK5E)
 
-- Community & Project Updates - Maggie Hays & Shirshanka Das (Acryl Data)
+- Community & Project Updates - Maggie Hays & Shirshanka Das (DataHub)
 - Community Case Study: Dataset Joins - Raj Tekal & Bobbie-Jean Nowak (Optum)
-- DataHub 201: Column-Level Data Lineage - Hyejin Yoon (Acryl Data)
-- Sneak Peek:  BigQuery Column-Level Lineage with SQL Parsing - Harshal Sheth (Acryl Data)
-- DataHub Performance Tuning – Indy Prentice (Acryl Data)
+- DataHub 201: Column-Level Data Lineage - Hyejin Yoon (DataHub)
+- Sneak Peek:  BigQuery Column-Level Lineage with SQL Parsing - Harshal Sheth (DataHub)
+- DataHub Performance Tuning – Indy Prentice (DataHub)
 
 
 ### May 2023
 [Full YouTube video](https://www.youtube.com/watch?v=KHNPjSbbZR8)
 
 **Agenda**
-- Community - Maggie Hays & Shirshanka Das (Acryl Data)
+- Community - Maggie Hays & Shirshanka Das (DataHub)
 - Community Case Study: Jira + DataHub for Access Requests - Joshua Garza (Sharp Healthcare)
-- Sneak Peek: Use your own ownership types - Pedro Silva (Acryl Data)
-- Sneak Peek: Data Contracts are coming! – John Joyce, Shirshanka (Acryl Data)
-- Bring DataHub into your BI Tools — Chris Collins (Acryl Data)
+- Sneak Peek: Use your own ownership types - Pedro Silva (DataHub)
+- Sneak Peek: Data Contracts are coming! – John Joyce, Shirshanka (DataHub)
+- Bring DataHub into your BI Tools — Chris Collins (DataHub)
 
 ### Apr 2023
 [Full YouTube video](https://www.youtube.com/watch?v=D5YYGu-ZIBo)
 
 **Agenda**
-- Community & Roadmap Updates - Maggie Hays & Shirshanka Das (Acryl Data)
-- DataHub 201: Python SDK - Hyejin Yoon (Acryl Data)
-- Streamlined Search & Browse Experience - Chris Collins (Acryl Data)
-- Acryl's DataHub GitHub Actions - Harshal Sheth (Acryl Data)
-- Data Products in DataHub - Shirshanka Das & Chris Collins (Acryl Data)
-- DataHub Docs Bot - Maggie Hays (Acryl Data)
+- Community & Roadmap Updates - Maggie Hays & Shirshanka Das (DataHub)
+- DataHub 201: Python SDK - Hyejin Yoon (DataHub)
+- Streamlined Search & Browse Experience - Chris Collins (DataHub)
+- DataHub GitHub Actions - Harshal Sheth (DataHub)
+- Data Products in DataHub - Shirshanka Das & Chris Collins (DataHub)
+- DataHub Docs Bot - Maggie Hays (DataHub)
 
 ###  Mar 2023 
 
@@ -101,7 +101,7 @@ November Town Hall (in December!)
 
 **Agenda**
 
-- Conquer Data Governance with Acryl Data’s Metadata Tests - Learn how to tackle Data Governance with incremental, automation-driven governance using Metadata Tests provided in Acryl Data’s DataHub Cloud offering
+- Conquer Data Governance with DataHub’s Metadata Tests - Learn how to tackle Data Governance with incremental, automation-driven governance using Metadata Tests provided in DataHub’s DataHub Cloud offering
 - Community Case Study - The Grab Team shares how they are using DataHub for data discoverability, automated classification and governance workflows, data quality observability, and beyond!
 - Upcoming Ingestion Sources - We’ll tell you the ins and outs of our upcoming dbt Cloud and Unity Catalog connectors
 - Sneak Peek! Saved Views - Learn how you can soon use Saved Views to help end-users navigate entities in DataHub with more precision and focus
@@ -204,11 +204,11 @@ November Town Hall (in December!)
 **Agenda**
 
 
-- Community & Roadmap Updates by Maggie Hays (Acryl Data)
-- Project Updates by Shirshanka Das  (Acryl Data)
+- Community & Roadmap Updates by Maggie Hays (DataHub)
+- Project Updates by Shirshanka Das  (DataHub)
 - Community Case Study: Adding Dataset Transformers by Eric Cooklin (Stash)
-- Demo: Data Domains & Containers by John Joyce (Acryl Data)
-- DataHub Basics — Data Profiling & Usage Stats 101 by Maggie Hays & Tamás Németh (Acryl Data)
+- Demo: Data Domains & Containers by John Joyce (DataHub)
+- DataHub Basics — Data Profiling & Usage Stats 101 by Maggie Hays & Tamás Németh (DataHub)
 - Demo: Spark Lineage by Mugdha Hardikar (GS Lab) & Shirshanka Das
 
 ### Dec 2021
@@ -216,11 +216,11 @@ November Town Hall (in December!)
 
 **Agenda**
 
-- Community & Roadmap Updates by Maggie Hays (Acryl Data)
-- Project Updates by Shirshanka Das (Acryl Data)
+- Community & Roadmap Updates by Maggie Hays (DataHub)
+- Project Updates by Shirshanka Das (DataHub)
 - 2021 DataHub Community in Review by Maggie Hays
-- DataHub Basics -- Users, Groups, & Authentication 101 by Pedro Silva (Acryl Data)
-- Sneak Peek: UI-Based Ingestion by John Joyce (Acryl Data)
+- DataHub Basics -- Users, Groups, & Authentication 101 by Pedro Silva (DataHub)
+- Sneak Peek: UI-Based Ingestion by John Joyce (DataHub)
 - Case Study — DataHub at Grofers by Shubham Gupta
 - Top DataHub Contributors of 2021 - Maggie Hays
 - Final Surprise! We Interviewed a 10yo and a 70yo about DataHub
@@ -230,11 +230,11 @@ November Town Hall (in December!)
 
 **Agenda**
 
-- Community & Roadmap Updates by Maggie Hays (Acryl Data)
-- Project Updates by Shirshanka Das (Acryl Data)
-- DataHub Basics -- Lineage 101 by John Joyce & Surya Lanka (Acryl Data)
-- Introducing No-Code UI by Gabe Lyons & Shirshanka Das (Acryl Data)
-- DataHub API Authentication by John Joyce (Acryl Data)
+- Community & Roadmap Updates by Maggie Hays (DataHub)
+- Project Updates by Shirshanka Das (DataHub)
+- DataHub Basics -- Lineage 101 by John Joyce & Surya Lanka (DataHub)
+- Introducing No-Code UI by Gabe Lyons & Shirshanka Das (DataHub)
+- DataHub API Authentication by John Joyce (DataHub)
 - Case Study: LinkedIn pilot to extend the OSS UI by Aikepaer Abuduweili & Joshua Shinavier
 
 ### Oct 2021
@@ -242,12 +242,12 @@ November Town Hall (in December!)
 
 **Agenda**
 
-- DataHub Community & Roadmap Update - Maggie Hays (Acryl Data)
-- October Project Updates - Shirshanka Das (Acryl Data)
-- Introducing Recommendations - John Joyce & Dexter Lee (Acryl Data)
+- DataHub Community & Roadmap Update - Maggie Hays (DataHub)
+- October Project Updates - Shirshanka Das (DataHub)
+- Introducing Recommendations - John Joyce & Dexter Lee (DataHub)
 - Case Study: DataHub @ hipages - Chris Coulson (hipages) 
-- Data Profiling Improvements - Surya Lanka & Harshal Sheth (Acryl Data)
-- Lineage Improvements & BigQuery Dataset Lineage by Gabe Lyons & Varun Bharill (Acryl Data)
+- Data Profiling Improvements - Surya Lanka & Harshal Sheth (DataHub)
+- Lineage Improvements & BigQuery Dataset Lineage by Gabe Lyons & Varun Bharill (DataHub)
 
 ### Sep 2021 
 [Full YouTube video](https://youtu.be/nQDiKPKnLLQ)
@@ -256,12 +256,12 @@ November Town Hall (in December!)
 
 - Project Updates and Callouts by Shirshanka
    - GraphQL Public API Annoucement
-- Demo: Faceted Search by Gabe Lyons (Acryl Data)
-- Stateful Ingestion by Shirshanka Das & Surya Lanka (Acryl Data)
+- Demo: Faceted Search by Gabe Lyons (DataHub)
+- Stateful Ingestion by Shirshanka Das & Surya Lanka (DataHub)
 - Case-Study: DataHub @ Adevinta by Martinez de Apellaniz   
-- Recent Improvements to the Looker Connector by Shirshanka Das & Maggie Hays (Acryl Data)
+- Recent Improvements to the Looker Connector by Shirshanka Das & Maggie Hays (DataHub)
 - Offline
-   - Foreign Key and Related Term Mapping by Gabe Lyons (Acryl Data) [video](https://www.loom.com/share/79f27c2d9f6c4a3b8aacbc48c19add18)
+   - Foreign Key and Related Term Mapping by Gabe Lyons (DataHub) [video](https://www.loom.com/share/79f27c2d9f6c4a3b8aacbc48c19add18)
 
 ### Aug 2021 
 [Full YouTube video](https://youtu.be/3joZINi3ti4)
@@ -272,11 +272,11 @@ November Town Hall (in December!)
    - Business Glossary Demo
    - 0.8.12 Upcoming Release Highlights 
    - Users and Groups Management (Okta, Azure AD)
-- Demo: Fine Grained Access Control by John Joyce (Acryl Data)
+- Demo: Fine Grained Access Control by John Joyce (DataHub)
 - Community Case-Study: DataHub @ Warung Pintar and Redash integration by Taufiq Ibrahim (Bizzy Group) 
-- New User Experience by John Joyce (Acryl Data)
+- New User Experience by John Joyce (DataHub)
 - Offline
-   - Performance Monitoring by Dexter Lee (Acryl Data) [video](https://youtu.be/6Xfr_Y9abZo)
+   - Performance Monitoring by Dexter Lee (DataHub) [video](https://youtu.be/6Xfr_Y9abZo)
 
 
 ### Jul 2021 
@@ -289,9 +289,9 @@ November Town Hall (in December!)
 
 - Project Updates by Shirshanka
    - Release highlights
-- Deep Dive: Data Observability: Phase 1 by Harshal Sheth, Dexter Lee (Acryl Data)
+- Deep Dive: Data Observability: Phase 1 by Harshal Sheth, Dexter Lee (DataHub)
 - Case Study: Building User Feedback into DataHub by Melinda Cardenas (NY Times)
-- Demo: AWS SageMaker integration for Models and Features by Kevin Hu (Acryl Data)
+- Demo: AWS SageMaker integration for Models and Features by Kevin Hu (DataHub)
 
 
 ### Jun 2021 
@@ -306,9 +306,9 @@ November Town Hall (in December!)
     - Release notes
     - RBAC update
     - Roadmap for H2 2021
--  Demo: Table Popularity powered by Query Activity by Harshal Sheth (Acryl Data)
+-  Demo: Table Popularity powered by Query Activity by Harshal Sheth (DataHub)
 - Case Study: Business Glossary in production at Saxo Bank by Sheetal Pratik (Saxo Bank), Madhu Podila (ThoughtWorks)
-- Developer Session: Simplified Deployment for DataHub by John Joyce, Gabe Lyons (Acryl Data)
+- Developer Session: Simplified Deployment for DataHub by John Joyce, Gabe Lyons (DataHub)
 
 
 ### May 2021 
@@ -321,10 +321,10 @@ November Town Hall (in December!)
 
 - Project Updates by Shirshanka - 10 mins
    - 0.8.0 Release
-   - AWS Recipe by Dexter Lee (Acryl Data)
-- Demo: Product Analytics design sprint (Maggie Hays (SpotHero), Dexter Lee (Acryl Data)) - 10 mins
+   - AWS Recipe by Dexter Lee (DataHub)
+- Demo: Product Analytics design sprint (Maggie Hays (SpotHero), Dexter Lee (DataHub)) - 10 mins
 - Use-Case: DataHub on GCP by Sharath Chandra (Confluent) - 10 mins
-- Deep Dive: No Code Metadata Engine by John Joyce (Acryl Data) - 20 mins
+- Deep Dive: No Code Metadata Engine by John Joyce (DataHub) - 20 mins
 - General Q&A and closing remarks
 
 ### Apr 2021 

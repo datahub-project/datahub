@@ -7,7 +7,7 @@ import TabItem from '@theme/TabItem';
 <FeatureAvailability/>
 
 **🤝 Version compatibility**
-> Open Source DataHub: **0.10.3** | Acryl: **0.2.8**
+> DataHub Core: **0.10.3** | DataHub Cloud: **0.2.8**
 
 ## What are Data Products?
 Data Products are an innovative way to organize and manage your Data Assets, such as Tables, Topics, Views, Pipelines, Charts, Dashboards, etc., within DataHub. These Data Products belong to a specific Domain and can be easily accessed by various teams or stakeholders within your organization.

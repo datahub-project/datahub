@@ -1,7 +1,7 @@
 # Assertions
 
 :::note Contract Monitoring Support
-Currently we support Snowflake, Redshift, BigQuery, and Databricks for out-of-the-box contract monitoring as part of Acryl Observe.
+Currently we support Snowflake, Redshift, BigQuery, and Databricks for out-of-the-box contract monitoring as part of DataHub Cloud Observe.
 :::
 
 An assertion is **a data quality test that finds data that violates a specified rule.** 
@@ -9,11 +9,11 @@ Assertions serve as the building blocks of [Data Contracts](/docs/managed-datahu
 
 ## How to Create and Run Assertions
 
-Data quality tests (a.k.a. assertions) can be created and run by Acryl or ingested from a 3rd party tool.
+Data quality tests (a.k.a. assertions) can be created and run by DataHub Cloud or ingested from a 3rd party tool.
 
-### Acryl Observe
+### DataHub Cloud Observe
 
-For Acryl-provided assertion runners, we can deploy an agent in your environment to hit your sources and DataHub. Acryl Observe offers out-of-the-box evaluation of the following kinds of assertions:
+For DataHub-provided assertion runners, we can deploy an agent in your environment to hit your sources and DataHub. DataHub Cloud Observe offers out-of-the-box evaluation of the following kinds of assertions:
 
 - [Freshness](/docs/managed-datahub/observe/freshness-assertions.md) (SLAs)
 - [Volume](/docs/managed-datahub/observe/volume-assertions.md)
@@ -40,7 +40,7 @@ If you opt for a 3rd party tool, it will be your responsibility to ensure the as
 
 Beyond the ability to see the results of the assertion checks (and history of the results) both on the physical asset’s page in the DataHub UI and as the result of DataHub API calls, you can also get notified via [Slack messages](/docs/managed-datahub/slack/saas-slack-setup.md) (DMs or to a team channel) based on your [subscription](https://youtu.be/VNNZpkjHG_I?t=79) to an assertion change event. In the future, we’ll also provide the ability to subscribe directly to contracts.
 
-With Acryl Observe, you can get the Assertion Change event by getting API events via [AWS EventBridge](/docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge.md) (the availability and simplicity of setup of each solution dependent on your current Acryl setup – chat with your Acryl representative to learn more).
+With DataHub Cloud Observe, you can get the Assertion Change event by getting API events via [AWS EventBridge](/docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge.md) (the availability and simplicity of setup of each solution dependent on your current DataHub Cloud setup – chat with your DataHub Cloud representative to learn more).
 
 
 ## Cost

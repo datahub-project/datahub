@@ -30,7 +30,7 @@ SHOW_ACCESS_MANAGEMENT=true
 
 ### DataHub Cloud
 
-If you're using DataHub Cloud (managed by Acryl), enabling the Access Management feature just requires contacting your Acryl Customer Success representative. They can enable this feature for your environment without any configuration changes on your part.
+If you're using DataHub Cloud, enabling the Access Management feature just requires contacting your DataHub Cloud CustomerSuccess representative. They can enable this feature for your environment without any configuration changes on your part.
 
 ## UI Location
 Under a dataset, the new tab "Access Management" should appear if configured correctly.

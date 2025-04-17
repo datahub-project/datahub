@@ -2,7 +2,7 @@
 
 :::info
 
-This feature is currently in open beta in Acryl Cloud. Reach out to your Acryl representative to get access.
+This feature is currently in open beta in DataHub Cloud. Reach out to your DataHub Cloud representative to get access.
 
 :::
 
@@ -16,11 +16,11 @@ This feature is enabled by default in Open Source DataHub.
 
 ## Capabilities
 
-### Open Source
+### DataHub Core (Open Source)
 - **Column-Level Docs Propagation**: Automatically propagate documentation to downstream columns and sibling columns that are derived or dependent on the source column.
 - **(Coming Soon) Asset-Level Docs Propagation**: Propagate descriptions to sibling assets. 
 
-### DataHub Cloud (Acryl)
+### DataHub Cloud
 - Includes all the features of Open Source.
 - **Propagation Rollback (Undo)**: Offers the ability to undo any propagation changes, providing a safety net against accidental updates.
 - **Historical Backfilling**: Automatically backfills historical data for newly documented columns to maintain consistency across time.

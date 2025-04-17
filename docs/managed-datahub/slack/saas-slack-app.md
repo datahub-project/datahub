@@ -18,7 +18,7 @@ The command-based capabilities on the Slack App revolve around search.
 ### Querying for Assets
 You can trigger a search by simplying typing `/acryl my favorite table`.
 <p align="center">
-    <img width="70%" alt="Example of an in-Slack Acryl search command being performed." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/slack_app_search_1.png" />
+    <img width="70%" alt="Example of an in-Slack DataHub Cloud search command being performed." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/slack_app_search_1.png" />
 </p>
 
 Right within Slack, you'll be presented with results matching your query, and a handful of quick-actions for your convenience.

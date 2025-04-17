@@ -325,7 +325,7 @@ The `saveResult` argument determines whether the result of the assertion will be
 and available to view through the DataHub UI. If this is set to false, the result will NOT be stored in DataHub's
 backend. The value defaults to `true`.
 
-If the assertion is external (not natively executed by Acryl), this API will return an error.
+If the assertion is external (not natively executed by DataHub), this API will return an error.
 
 If running the assertion is successful, the result will be returned as follows:
 
@@ -374,7 +374,7 @@ The `saveResults` argument determines whether the result of the assertion will b
 and available to view through the DataHub UI. If this is set to false, the result will NOT be stored in DataHub's
 backend. The value defaults to `true`.
 
-If any of the assertion are external (not natively executed by Acryl), they will simply be omitted from the result set.
+If any of the assertion are external (not natively executed by DataHub), they will simply be omitted from the result set.
 
 If running the assertions is successful, the results will be returned as follows:
 
@@ -449,7 +449,7 @@ The `saveResults` argument determines whether the result of the assertion will b
 and available to view through the DataHub UI. If this is set to false, the result will NOT be stored in DataHub's
 backend. The value defaults to `true`.
 
-If any of the assertion are external (not natively executed by Acryl), they will simply be omitted from the result
+If any of the assertion are external (not natively executed by DataHub), they will simply be omitted from the result
 set.
 
 If running the assertions is successful, the results will be returned as follows:
@@ -1165,7 +1165,7 @@ If you see the following response, the operation was successful:
 ## (Advanced) Create and Report Results for Custom Assertions
 
 If you'd like to create and report results for your own custom assertions, e.g. those which are run and 
-evaluated outside of Acryl, you need to generate 2 important Assertion Entity aspects, and give the assertion a unique
+evaluated outside of DataHub Cloud, you need to generate 2 important Assertion Entity aspects, and give the assertion a unique
 URN of the following format:
 
 

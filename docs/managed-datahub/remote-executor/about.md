@@ -52,10 +52,10 @@ To get started with Remote Executor:
 ## FAQ
 
 ### Is Remote Executor required for DataHub Cloud?
-No, DataHub Cloud comes with an Acryl-managed executor by default. Remote Executor is an optional feature for cases where you need to ingest from private sources or maintain stricter control over credentials and network access.
+No, DataHub Cloud comes with an managed executor by default. Remote Executor is an optional feature for cases where you need to ingest from private sources or maintain stricter control over credentials and network access.
 
 ### Can I use multiple Remote Executors?
-Yes, you can deploy multiple Remote Executors for high availability or to handle different security zones. Contact your Acryl representative for details.
+Yes, you can deploy multiple Remote Executors for high availability or to handle different security zones. Contact your DataHub Cloud representative for details.
 
 ### What platforms are supported?
 Remote Executor can be deployed on various platforms including:
@@ -63,7 +63,7 @@ Remote Executor can be deployed on various platforms including:
 - Kubernetes (v1.28+)
   - Cloud-agnostic deployment supporting all major cloud providers (AWS EKS, Google GKE, Azure AKS, etc.)
   - Compatible with self-managed Kubernetes clusters
-- Other container platforms (contact Acryl for details)
+- Other container platforms (contact DataHub team for details)
 
 ### How secure is the Remote Executor?
 The Remote Executor is designed with security as a top priority:
