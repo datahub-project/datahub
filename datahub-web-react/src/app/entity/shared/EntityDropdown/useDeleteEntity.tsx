@@ -1,13 +1,15 @@
+import { Modal, message } from 'antd';
 import { useState } from 'react';
-import { message, Modal } from 'antd';
-import { EntityType } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { getDeleteEntityMutation } from '../../../shared/deleteUtils';
-import analytics, { EventType } from '../../../analytics';
-import { useGlossaryEntityData } from '../GlossaryEntityContext';
-import { getParentNodeToUpdate, updateGlossarySidebar } from '../../../glossary/utils';
-import { useHandleDeleteDomain } from './useHandleDeleteDomain';
-import { removeTermFromGlossaryNode } from '../../../glossary/cacheUtils';
+
+import analytics, { EventType } from '@app/analytics';
+import { useHandleDeleteDomain } from '@app/entity/shared/EntityDropdown/useHandleDeleteDomain';
+import { useGlossaryEntityData } from '@app/entity/shared/GlossaryEntityContext';
+import { removeTermFromGlossaryNode } from '@app/glossary/cacheUtils';
+import { getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
+import { getDeleteEntityMutation } from '@app/shared/deleteUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType } from '@types';
 
 /**
  * Performs the flow for deleting an entity of a given type.

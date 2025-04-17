@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import OptionsDropdownMenu from '../OptionsDropdownMenu';
-import { mapFilterOption } from '../mapFilterOption';
-import { EntityFilterField, FilterValue, FilterValueOption } from '../types';
-import { OptionMenu } from './styledComponents';
-import { deduplicateOptions, useFilterOptionsBySearchQuery, useLoadSearchOptions } from './utils';
+
+import OptionsDropdownMenu from '@app/searchV2/filters/OptionsDropdownMenu';
+import { mapFilterOption } from '@app/searchV2/filters/mapFilterOption';
+import { EntityFilterField, FilterValue, FilterValueOption } from '@app/searchV2/filters/types';
+import { OptionMenu } from '@app/searchV2/filters/value/styledComponents';
+import {
+    deduplicateOptions,
+    useFilterOptionsBySearchQuery,
+    useLoadSearchOptions,
+} from '@app/searchV2/filters/value/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 interface Props {
     field: EntityFilterField;

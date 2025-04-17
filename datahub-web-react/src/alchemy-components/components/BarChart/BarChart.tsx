@@ -1,20 +1,30 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { colors } from '@src/alchemy-components/theme';
 import { LinearGradient } from '@visx/gradient';
 import { ParentSize } from '@visx/responsive';
 import { Axis, AxisScale, BarSeries, Grid, Tooltip, XYChart } from '@visx/xychart';
-import { Popover } from '../Popover';
-import { ChartWrapper, StyledBarSeries } from './components';
-import { AxisProps, BarChartProps, ColorAccessor, Datum, GridProps, XAccessor, YAccessor } from './types';
-import { getMockedProps } from './utils';
-import useMergedProps from './hooks/useMergedProps';
-import usePrepareScales from './hooks/usePrepareScales';
-import usePrepareAccessors from './hooks/usePrepareAccessors';
-import { COLOR_SCHEME_TO_PARAMS, DEFAULT_COLOR_SCHEME } from './constants';
-import TruncatableTick from './components/TruncatableTick';
-import { barChartDefault } from './defaults';
-import LeftAxisMarginSetter from './components/LeftAxisMarginSetter';
-import { abbreviateNumber } from '../dataviz/utils';
+import React, { useCallback, useMemo, useState } from 'react';
+
+import { ChartWrapper, StyledBarSeries } from '@components/components/BarChart/components';
+import LeftAxisMarginSetter from '@components/components/BarChart/components/LeftAxisMarginSetter';
+import TruncatableTick from '@components/components/BarChart/components/TruncatableTick';
+import { COLOR_SCHEME_TO_PARAMS, DEFAULT_COLOR_SCHEME } from '@components/components/BarChart/constants';
+import { barChartDefault } from '@components/components/BarChart/defaults';
+import useMergedProps from '@components/components/BarChart/hooks/useMergedProps';
+import usePrepareAccessors from '@components/components/BarChart/hooks/usePrepareAccessors';
+import usePrepareScales from '@components/components/BarChart/hooks/usePrepareScales';
+import {
+    AxisProps,
+    BarChartProps,
+    ColorAccessor,
+    Datum,
+    GridProps,
+    XAccessor,
+    YAccessor,
+} from '@components/components/BarChart/types';
+import { getMockedProps } from '@components/components/BarChart/utils';
+import { Popover } from '@components/components/Popover';
+import { abbreviateNumber } from '@components/components/dataviz/utils';
+
+import { colors } from '@src/alchemy-components/theme';
 
 export function BarChart({
     data,

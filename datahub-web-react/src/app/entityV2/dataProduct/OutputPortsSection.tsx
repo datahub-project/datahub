@@ -1,19 +1,21 @@
-import React, { useEffect, useState } from 'react';
-import RefreshIcon from '@mui/icons-material/Refresh';
 import OutputIcon from '@mui/icons-material/Output';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { useListDataProductAssetsLazyQuery, useListDataProductAssetsQuery } from '../../../graphql/search.generated';
-import { useEntityData } from '../../entity/shared/EntityContext';
-import { SummaryTabHeaderTitle } from '../shared/summary/HeaderComponents';
-import { HorizontalList } from '../shared/summary/ListComponents';
-import { SCREEN_WIDTH_BREAK_POINT } from './constants';
-import { Card } from '../../sharedV2/cards/components';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
 // import AddOutputPortCard from './AddOutputPortCard';
-import { StyledHeaderWrapper } from './AssetsSections';
-import { SearchResult } from '../../../types.generated';
-import { ANTD_GRAY } from '../shared/constants';
-import { OUTPUT_PORTS_FIELD } from '../../search/utils/constants';
-import SummaryEntityCard from '../../sharedV2/cards/SummaryEntityCard';
+import { StyledHeaderWrapper } from '@app/entityV2/dataProduct/AssetsSections';
+import { SCREEN_WIDTH_BREAK_POINT } from '@app/entityV2/dataProduct/constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { SummaryTabHeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
+import { HorizontalList } from '@app/entityV2/shared/summary/ListComponents';
+import { OUTPUT_PORTS_FIELD } from '@app/search/utils/constants';
+import SummaryEntityCard from '@app/sharedV2/cards/SummaryEntityCard';
+import { Card } from '@app/sharedV2/cards/components';
+
+import { useListDataProductAssetsLazyQuery, useListDataProductAssetsQuery } from '@graphql/search.generated';
+import { SearchResult } from '@types';
 
 const OutputPortsWrapper = styled.div`
     display: flex;

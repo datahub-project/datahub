@@ -19,4 +19,7 @@ public class ExternalEventsResponse {
 
   @Schema(description = "The raw events")
   private List<ExternalEvent> events;
+
+  @Schema(description = "The error message if the request failed")
+  private String errorMessage;
 }

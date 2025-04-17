@@ -1,21 +1,23 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import Modal from 'antd/lib/modal/Modal';
 import { Empty, Select, message } from 'antd';
-import { getModalDomContainer } from '@src/utils/focus';
-import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
+import Modal from 'antd/lib/modal/Modal';
 import { debounce } from 'lodash';
 import React, { useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
-import { useGetRecommendations } from '@src/app/shared/recommendation';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+
+import { IconStyleType } from '@app/entityV2/Entity';
+import { handleBatchError } from '@app/entityV2/shared/utils';
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button } from '@src/alchemy-components';
-import { useGetAutoCompleteMultipleResultsLazyQuery } from '../../../../../../../graphql/search.generated';
-import { DataProduct, Entity, EntityType } from '../../../../../../../types.generated';
-import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { IconStyleType } from '../../../../../Entity';
-import { useBatchSetDataProductMutation } from '../../../../../../../graphql/dataProduct.generated';
-import { handleBatchError } from '../../../../utils';
+import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import { useGetRecommendations } from '@src/app/shared/recommendation';
+import { getModalDomContainer } from '@src/utils/focus';
+
+import { useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';
+import { useGetAutoCompleteMultipleResultsLazyQuery } from '@graphql/search.generated';
+import { DataProduct, Entity, EntityType } from '@types';
 
 const OptionWrapper = styled.div`
     padding: 2px 0;

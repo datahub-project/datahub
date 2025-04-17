@@ -557,3 +557,17 @@ wrapper {
   gradleVersion = project.versionGradle
   distributionType = Wrapper.DistributionType.ALL
 }
+
+tasks.register('format') {
+  dependsOn(':datahub-web-react:graphqlPrettierWrite')
+  dependsOn(':datahub-web-react:githubActionsPrettierWrite')
+  dependsOn(':datahub-web-react:mdPrettierWrite')
+  dependsOn('spotlessApply')
+}
+
+tasks.register('formatChanged') {
+  dependsOn(':datahub-web-react:graphqlPrettierWriteChanged')
+  dependsOn(':datahub-web-react:githubActionsPrettierWriteChanged')
+  dependsOn(':datahub-web-react:mdPrettierWriteChanged')
+  dependsOn('spotlessApply')
+}
