@@ -523,7 +523,14 @@ export const RECIPE_FIELDS: RecipeFields = {
             TARGET_PLATFORM,
             TARGET_PLATFORM_INSTANCE,
         ],
-        filterFields: [NODE_ALLOW, NODE_DENY],
+        filterFields: [
+            NODE_ALLOW,
+            NODE_DENY,
+            DATABASE_ALLOW,
+            DATABASE_DENY,
+            SCHEMA_ALLOW,
+            SCHEMA_DENY
+        ],
         advancedFields: [
             INCLUDE_MODELS,
             INCLUDE_SOURCES,
@@ -533,7 +540,7 @@ export const RECIPE_FIELDS: RecipeFields = {
             DBT_EXTRACT_OWNERS,
             STATEFUL_INGESTION_ENABLED,
         ],
-        filterSectionTooltip: 'Include or exclude specific dbt Node (resources) from ingestion.',
+        filterSectionTooltip: 'Include or exclude specific dbt Nodes, Databases, and Schemas from ingestion.',
     },
     [POWER_BI]: {
         fields: [POWERBI_TENANT_ID, POWERBI_CLIENT_ID, POWERBI_CLIENT_SECRET],
