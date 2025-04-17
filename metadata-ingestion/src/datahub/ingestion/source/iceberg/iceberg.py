@@ -616,12 +616,20 @@ class IcebergSource(StatefulIngestionSourceBase):
         self, namespace: Identifier, properties: Properties
     ) -> Iterable[_Aspect]:
         namespace_repr = ".".join(namespace)
+        custom_properties: Dict[str, str] = {}
+        for k, v in properties.items():
+            try:
+                custom_properties[str(k)] = str(v)
+            except Exception as e:
+                LOGGER.warning(
+                    f"Exception when trying to parse namespace properties for {namespace_repr}. Exception: {e}"
+                )
         yield Status(removed=False)
         yield ContainerProperties(
             name=namespace_repr,
             qualifiedName=namespace_repr,
             env=self.config.env,
-            customProperties=properties,
+            customProperties=custom_properties,
         )
         yield SubTypes(typeNames=[DatasetContainerSubTypes.NAMESPACE])
         dpi = self._get_dataplatform_instance_aspect()
