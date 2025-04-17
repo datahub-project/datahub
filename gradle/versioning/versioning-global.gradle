@@ -24,7 +24,7 @@ def cliMajorVersion = "0.15.0" // base default cli major version
 def snapshotVersion = false
 def javaVersion = ""
 
-// Used to tag docker images. If the project property dockerTag is set, use it as is (posssibly add suffixes like slim, pythonVersion if applicable). 
+// Used to tag docker images. If the project property tag is set, use it as is (posssibly add suffixes like slim, pythonVersion if applicable). 
 // Otherwise, compute the tag from the version.
 def versionTag = "" 
 
@@ -85,8 +85,8 @@ if (project.hasProperty("releaseVersion")) {
   }
 }
 
-if (project.hasProperty("dockerTag")) {
-  versionTag = dockerTag
+if (project.hasProperty("tag")) {
+  versionTag = tag
 } else {
   versionTag = "v" + version
 }
