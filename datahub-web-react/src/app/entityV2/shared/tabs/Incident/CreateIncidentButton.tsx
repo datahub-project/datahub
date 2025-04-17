@@ -1,4 +1,4 @@
-import React, { Dispatch, SetStateAction } from 'react';
+import React from 'react';
 import { Dropdown, message } from 'antd';
 
 import { Tooltip } from '@src/alchemy-components';
@@ -6,18 +6,10 @@ import { PlusOutlined } from '@ant-design/icons';
 import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
-import { EntityPrivileges } from '@src/types.generated';
 
 import { useSiblingOptionsForIncidentBuilder } from './utils';
-import { EntityStagedForIncident } from './types';
+import { CreateIncidentButtonProps, EntityStagedForIncident } from './types';
 import { CreateButton, SiblingSelectionDropdownLink } from './styledComponents';
-import { NO_PERMISSIONS_MESSAGE } from './constant';
-
-type CreateIncidentButtonProps = {
-    privileges: EntityPrivileges;
-    setShowIncidentBuilder: Dispatch<SetStateAction<boolean>>;
-    setEntity: Dispatch<SetStateAction<EntityStagedForIncident>>;
-};
 
 export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEntity }: CreateIncidentButtonProps) => {
     const { entityData, urn: entityUrn, entityType: dataEntityType } = useEntityData();
@@ -28,7 +20,9 @@ export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEn
 
     const siblingOptionsToAuthorOn = useSiblingOptionsForIncidentBuilder(entityData, entityUrn, dataEntityType) ?? [];
 
-    const canEditIncidents = !!privileges?.canEditIncidents;
+    const noPermissionsMessage = 'You do not have permission to edit incidents for this asset.';
+
+    const canEditIncidents = privileges?.canEditIncidents || false;
 
     const onCreateIncidentForEntity = ({ urn, platform, entityType }: Partial<EntityStagedForIncident>) => {
         if (!urn || !platform || !entityType) {
@@ -75,7 +69,7 @@ export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEn
                     </CreateButton>
                 </Dropdown>
             ) : (
-                <Tooltip showArrow={false} title={!canEditIncidents ? NO_PERMISSIONS_MESSAGE : null}>
+                <Tooltip showArrow={false} title={!canEditIncidents ? noPermissionsMessage : null}>
                     <CreateButton
                         onClick={() => setShowIncidentBuilder(true)}
                         disabled={!canEditIncidents}

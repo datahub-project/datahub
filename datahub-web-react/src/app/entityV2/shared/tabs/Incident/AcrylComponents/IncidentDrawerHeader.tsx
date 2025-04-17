@@ -2,10 +2,10 @@ import React from 'react';
 import { Button } from '@src/alchemy-components';
 import { Tooltip2 } from '@src/alchemy-components/components/Tooltip2';
 import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
+import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
 import { DataPlatform, EntityPrivileges } from '@src/types.generated';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useIncidentURNCopyLink } from '../hooks';
-import { IncidentAction, NO_PERMISSIONS_MESSAGE } from '../constant';
+import { IncidentAction, noPermissionsMessage } from '../constant';
 import { IncidentTableRow } from '../types';
 import {
     ForPlatformWrapper,
@@ -34,10 +34,9 @@ export const IncidentDrawerHeader = ({
     platform,
     privileges,
 }: IncidentDrawerHeaderProps) => {
-    const entityRegistry = useEntityRegistry();
     const handleIncidentLinkCopy = useIncidentURNCopyLink(data ? data?.urn : '');
 
-    const canEditIncidents = !!privileges?.canEditIncidents;
+    const canEditIncidents = privileges?.canEditIncidents || false;
 
     return (
         <StyledHeader>
@@ -48,14 +47,14 @@ export const IncidentDrawerHeader = ({
                 {platform && (
                     <ForPlatformWrapper>
                         <PlatformIcon platform={platform} size={16} styles={{ marginRight: 4 }} />
-                        {entityRegistry.getDisplayName(platform.type, platform)}
+                        {capitalizeFirstLetter(platform.name)}
                     </ForPlatformWrapper>
                 )}
             </StyledHeaderTitleContainer>
             <StyledHeaderActions>
                 {mode === IncidentAction.EDIT && isEditActive === false && (
                     <>
-                        <Tooltip2 title={canEditIncidents ? 'Edit Incident' : NO_PERMISSIONS_MESSAGE}>
+                        <Tooltip2 title={canEditIncidents ? 'Edit Incident' : noPermissionsMessage}>
                             <span>
                                 <Button
                                     icon={{ icon: 'PencilSimpleLine', color: 'gray', source: 'phosphor' }}

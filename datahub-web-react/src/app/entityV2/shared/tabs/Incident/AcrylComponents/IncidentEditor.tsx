@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { CorpUser, IncidentStage, IncidentState, IncidentType } from '@src/types.generated';
+import React, { useEffect, useState, useRef } from 'react';
+import { IncidentStage, IncidentState, IncidentType } from '@src/types.generated';
 import { Input } from '@src/alchemy-components';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 import { Editor } from '@src/alchemy-components/components/Editor/Editor';
@@ -36,13 +36,13 @@ const HalfWidthInput = styled(Input)`
 `;
 
 export const IncidentEditor = ({
+    entity,
     incidentUrn,
     onSubmit,
     data,
     mode = IncidentAction.CREATE,
-    entity,
-    urn,
 }: IncidentEditorProps) => {
+    const assigneeValues = data?.assignees && getAssigneeWithURN(data.assignees);
     const isFormValid = Boolean(
         data?.title?.length &&
             data?.description &&
@@ -51,8 +51,9 @@ export const IncidentEditor = ({
     );
     const { user } = useUserContext();
     const userHasChangedState = useRef(false);
-    const [cachedAssignees, setCachedAssignees] = useState<CorpUser[]>([]);
-    const [cachedLinkedAssets, setCachedLinkedAssets] = useState<string[]>([]);
+    const isFirstRender = useRef(true);
+    const [cachedAssignees, setCachedAssignees] = useState<any[]>([]);
+    const [cachedLinkedAssets, setCachedLinkedAssets] = useState<any[]>([]);
     const [isLoadingAssigneeOrAssets, setIsLoadingAssigneeOrAssets] = useState(true);
 
     const [isRequiredFieldsFilled, setIsRequiredFieldsFilled] = useState<boolean>(
@@ -70,17 +71,20 @@ export const IncidentEditor = ({
     });
     const formValues = Form.useWatch([], form);
 
-    const assigneeValues = useMemo(() => {
-        return data?.assignees && getAssigneeWithURN(data.assignees);
-    }, [data?.assignees]);
-
     useEffect(() => {
-        if (!form) return;
         // Set the initial value for the custom category field when it becomes visible
         if (formValues?.type === IncidentType.Custom) {
             if (form.getFieldValue('customType') === '') form.setFieldValue('customType', data?.customType || '');
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [formValues]);
 
+    useEffect(() => {
+        // Skip effect on first render
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return;
+        }
         // Ensure we don't override user's choice if they manually change the state
         if (
             mode === IncidentAction.EDIT &&
@@ -89,7 +93,8 @@ export const IncidentEditor = ({
         ) {
             form.setFieldValue('state', IncidentState.Resolved);
         }
-    }, [formValues, form, data?.customType, mode]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [formValues?.status]);
 
     const handleValuesChange = (changedValues: any) => {
         Object.keys(changedValues).forEach((fieldName) => form.setFields([{ name: fieldName, errors: [] }]));
@@ -228,7 +233,6 @@ export const IncidentEditor = ({
                         mode={mode}
                         setCachedLinkedAssets={setCachedLinkedAssets}
                         setIsLinkedAssetsLoading={setIsLoadingAssigneeOrAssets}
-                        urn={urn}
                     />
                 </SelectFormItem>
                 {mode === IncidentAction.EDIT && (
