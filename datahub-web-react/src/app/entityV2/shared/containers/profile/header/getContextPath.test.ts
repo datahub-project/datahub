@@ -1,7 +1,8 @@
 import { GenericEntityProperties } from '@app/entity/shared/types';
+import { getContextPath } from '@app/entityV2/shared/containers/profile/header/getContextPath';
 import { dataPlatform } from '@src/Mocks';
+
 import { EntityType } from '@types';
-import { getContextPath } from './getContextPath';
 
 const PARENT_CONTAINERS: GenericEntityProperties['parentContainers'] = {
     containers: [

@@ -1,19 +1,20 @@
-import React, { useState } from 'react';
-import { Typography, Table, TablePaginationConfig } from 'antd';
-import { Popover } from '@components';
-import { TooltipPlacement } from 'antd/es/tooltip';
 import { InfoCircleOutlined } from '@ant-design/icons';
+import { Popover } from '@components';
+import { Table, TablePaginationConfig, Typography } from 'antd';
+import { TooltipPlacement } from 'antd/es/tooltip';
+import React, { useState } from 'react';
 import styled from 'styled-components';
+
+import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import AddButton from '@app/entityV2/shared/tabs/Dataset/Queries/AddButton';
+import QueryFilters from '@app/entityV2/shared/tabs/Dataset/Queries/QueryFilters/QueryFilters';
+import { QueriesTabSection, Query } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
+import useQueryTableColumns from '@app/entityV2/shared/tabs/Dataset/Queries/useQueryTableColumns';
+import { DEFAULT_PAGE_SIZE } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/constants';
+import Loading from '@app/shared/Loading';
+import usePagination, { Pagination } from '@app/sharedV2/pagination/usePagination';
+import { Sorting } from '@app/sharedV2/sorting/useSorting';
 import { FacetFilterInput } from '@src/types.generated';
-import { QueriesTabSection, Query } from './types';
-import { DEFAULT_PAGE_SIZE } from './utils/constants';
-import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '../../../constants';
-import useQueryTableColumns from './useQueryTableColumns';
-import Loading from '../../../../../shared/Loading';
-import usePagination, { Pagination } from '../../../../../sharedV2/pagination/usePagination';
-import { Sorting } from '../../../../../sharedV2/sorting/useSorting';
-import AddButton from './AddButton';
-import QueryFilters from './QueryFilters/QueryFilters';
 
 const SectionWrapper = styled.div<{ $borderRadiusBottom?: boolean }>`
     background-color: white;

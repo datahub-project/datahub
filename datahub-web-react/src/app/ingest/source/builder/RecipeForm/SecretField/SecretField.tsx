@@ -1,12 +1,14 @@
-import React, { ReactNode } from 'react';
-import { AutoComplete, Divider, Form } from 'antd';
 import { useApolloClient } from '@apollo/client';
+import { AutoComplete, Divider, Form } from 'antd';
+import React, { ReactNode } from 'react';
 import styled from 'styled-components/macro';
-import { Secret } from '../../../../../../types.generated';
-import CreateSecretButton from './CreateSecretButton';
-import { RecipeField } from '../common';
-import { ANTD_GRAY } from '../../../../../entity/shared/constants';
-import { clearSecretListCache } from '../../../../secret/cacheUtils';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { clearSecretListCache } from '@app/ingest/secret/cacheUtils';
+import CreateSecretButton from '@app/ingest/source/builder/RecipeForm/SecretField/CreateSecretButton';
+import { RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
+
+import { Secret } from '@types';
 
 const StyledDivider = styled(Divider)`
     margin: 0;

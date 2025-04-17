@@ -8,7 +8,7 @@ module.exports = {
         'plugin:vitest/recommended',
         'prettier',
     ],
-    plugins: ['@typescript-eslint', '@stylistic/js', 'react-refresh'],
+    plugins: ['@typescript-eslint', '@stylistic/js', 'react-refresh', 'import-alias'],
     parserOptions: {
         ecmaVersion: 2020, // Allows for the parsing of modern ECMAScript features
         sourceType: 'module', // Allows for the use of imports
@@ -23,6 +23,7 @@ module.exports = {
         'arrow-body-style': 'off',
         'class-methods-use-this': 'off',
         'import/no-extraneous-dependencies': 'off',
+        'import/no-relative-packages': 'error',
         'import/prefer-default-export': 'off', // TODO: remove this lint rule
         'no-console': 'off',
         'no-plusplus': 'off',
@@ -50,18 +51,36 @@ module.exports = {
         'vitest/prefer-to-be': 'off',
         '@typescript-eslint/no-use-before-define': ['error', { functions: false, classes: false }],
         'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+        'import-alias/import-alias': [
+            'error',
+            {
+                aliases: [
+                    // Must be kept consistent with tsconfig.json, vite.config.ts, and .prettierrc.js
+                    { alias: '@components/', matcher: '^src/alchemy-components/' },
+                    { alias: '@app/', matcher: '^src/app/' },
+                    { alias: '@conf/', matcher: '^src/conf/' },
+                    { alias: '@graphql/', matcher: '^src/graphql/' },
+                    { alias: '@graphql-mock/', matcher: '^src/graphql-mock/' },
+                    { alias: '@images/', matcher: '^src/images/' },
+                    { alias: '@providers/', matcher: '^src/providers/' },
+                    { alias: '@utils/', matcher: '^src/utils/' },
+                    { alias: '@types', matcher: '^src/types.generated' },
+                    { alias: '@src/', matcher: '^src/' },
+                ],
+            },
+        ],
     },
     settings: {
         react: {
             version: 'detect', // Tells eslint-plugin-react to automatically detect the version of React to use
         },
     },
-	overrides: [
-		{
-			files: ['src/app/searchV2/**/*.tsx', 'src/app/entityV2/**/*.tsx'],
-			rules: {
-				'import/no-cycle': 'off',
-			},
-		},
-	],
+    overrides: [
+        {
+            files: ['src/app/searchV2/**/*.tsx', 'src/app/entityV2/**/*.tsx'],
+            rules: {
+                'import/no-cycle': 'off',
+            },
+        },
+    ],
 };

@@ -1,35 +1,33 @@
+import { Tooltip } from '@components';
+import { Tag as CustomTag, Form, Select, Tag, Typography } from 'antd';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Form, Select, Tag, Typography, Tag as CustomTag } from 'antd';
-import { Tooltip } from '@components';
 import styled from 'styled-components/macro';
 
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { useAppConfig } from '../../useAppConfig';
+import DomainNavigator from '@app/domain/nestedDomains/domainNavigator/DomainNavigator';
+import { RESOURCE_TYPE, RESOURCE_URN, TYPE, URN } from '@app/permissions/policy/constants';
 import {
-    useGetSearchResultsForMultipleLazyQuery,
-    useGetSearchResultsLazyQuery,
-} from '../../../graphql/search.generated';
-import { ResourceFilter, PolicyType, EntityType, Domain, Entity } from '../../../types.generated';
-import {
+    EMPTY_POLICY,
     convertLegacyResourceFilter,
     createCriterionValue,
     createCriterionValueWithEntity,
-    EMPTY_POLICY,
     getFieldValues,
     getFieldValuesOfTags,
     mapResourceTypeToDisplayName,
     mapResourceTypeToEntityType,
     mapResourceTypeToPrivileges,
     setFieldValues,
-} from './policyUtils';
-import DomainNavigator from '../../domain/nestedDomains/domainNavigator/DomainNavigator';
-import { BrowserWrapper } from '../../shared/tags/AddTagsTermsModal';
-import ClickOutside from '../../shared/ClickOutside';
-import { TagTermLabel } from '../../shared/tags/TagTermLabel';
-import { ENTER_KEY_CODE } from '../../shared/constants';
-import { useGetRecommendations } from '../../shared/recommendation';
-import { RESOURCE_TYPE, RESOURCE_URN, TYPE, URN } from './constants';
+} from '@app/permissions/policy/policyUtils';
+import ClickOutside from '@app/shared/ClickOutside';
+import { ENTER_KEY_CODE } from '@app/shared/constants';
+import { useGetRecommendations } from '@app/shared/recommendation';
+import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
+import { TagTermLabel } from '@app/shared/tags/TagTermLabel';
+import { useAppConfig } from '@app/useAppConfig';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetSearchResultsForMultipleLazyQuery, useGetSearchResultsLazyQuery } from '@graphql/search.generated';
+import { Domain, Entity, EntityType, PolicyType, ResourceFilter } from '@types';
 
 type Props = {
     policyType: PolicyType;

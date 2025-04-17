@@ -1,15 +1,17 @@
+import { Collapse, Form, Input, Modal, Typography, message } from 'antd';
 import React, { useRef, useState } from 'react';
-import { message, Input, Modal, Typography, Form, Collapse } from 'antd';
 import styled from 'styled-components';
+
+import analytics, { EventType } from '@app/analytics';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { Editor as MarkdownEditor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
+import { validateCustomUrnId } from '@app/shared/textUtil';
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { Button } from '@src/alchemy-components';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
-import { useCreateGroupMutation } from '../../../graphql/group.generated';
-import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
-import { validateCustomUrnId } from '../../shared/textUtil';
-import analytics, { EventType } from '../../analytics';
-import { CorpGroup, EntityType } from '../../../types.generated';
-import { Editor as MarkdownEditor } from '../../entity/shared/tabs/Documentation/components/editor/Editor';
-import { ANTD_GRAY } from '../../entity/shared/constants';
+
+import { useCreateGroupMutation } from '@graphql/group.generated';
+import { CorpGroup, EntityType } from '@types';
 
 type Props = {
     onClose: () => void;

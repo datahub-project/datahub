@@ -1,10 +1,11 @@
+import { Tooltip } from 'antd';
+import React from 'react';
+import styled from 'styled-components';
+
 import StructuredPropertyValue from '@src/app/entityV2/shared/tabs/Properties/StructuredPropertyValue';
 import { mapStructuredPropertyToPropertyRow } from '@src/app/entityV2/shared/tabs/Properties/useStructuredProperties';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { SchemaFieldEntity, SearchResult, StdDataType } from '@src/types.generated';
-import { Tooltip } from 'antd';
-import React from 'react';
-import styled from 'styled-components';
 
 const ValuesContainer = styled.span`
     max-width: 120px;
