@@ -14,7 +14,6 @@ from datahub.sdk._utils import DEFAULT_ACTOR_URN
 from datahub.sdk.dataset import ColumnLineageMapping, parse_cll_mapping
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.sql_parsing.fingerprint_utils import generate_hash
-from datahub.sql_parsing.sql_parsing_aggregator import make_query_subjects
 from datahub.utilities.ordered_set import OrderedSet
 
 if TYPE_CHECKING:
@@ -191,6 +190,8 @@ class LineageClient:
             # Eventually we might want to use our regex-based fingerprinting instead.
             fingerprint = generate_hash(query_text)
             query_urn = QueryUrn(fingerprint).urn()
+
+            from datahub.sql_parsing.sql_parsing_aggregator import make_query_subjects
 
             query_entity = MetadataChangeProposalWrapper.construct_many(
                 query_urn,
