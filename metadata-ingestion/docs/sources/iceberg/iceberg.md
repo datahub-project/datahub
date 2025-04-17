@@ -1,12 +1,12 @@
 ## Setting up connection to an Iceberg catalog
 
-There are multiple servers compatible with the Iceberg Catalog standard. DataHub's `iceberg` connector uses `pyiceberg`
+There are multiple servers compatible with the Iceberg Catalog specification. DataHub's `iceberg` connector uses `pyiceberg`
 library to extract metadata from them. The recipe for the source consists of 2 parts:
 1. `catalog` part which is passed as-is to the `pyiceberg` library and configures connection and its details (i.e. authentication). 
    The name of catalog specified in the recipe has no consequence, it is just a formal requirement from he library. 
    Only one catalog will be considered for the ingestion.
 2. Other part consists of parameters, such as `env` or `stateful_ingestion` which are standard DataHub's ingestor
-   configuration parameters and are described in next chapter.
+   configuration parameters and are described in another chapter.
 
 This chapter discusses various examples of setting up connection to a catalog, depending on underlying implementation.
 Iceberg is designed to have catalog and warehouse separated, which is reflected in how we configure it. It is especially
@@ -111,6 +111,70 @@ source:
        s3.endpoint: "http://minio-host:9000"
 ```
 
+### Iceberg REST Catalog (with authentication) + S3
+
+This example assume IRC requires token authentication (via `Authorization` header). There are more options available,
+see https://py.iceberg.apache.org/configuration/#rest-catalog for details. Moreover, the assumption here is that environment
+(i.e. pod) is already authenticated to perform actions against AWS S3.
+
+```yaml
+source:
+ type: "iceberg"
+ config:
+   env: dev
+   catalog:
+     demo:
+       type: 'rest'
+       uri: "http://iceberg-catalog-uri"
+       token: "token-value"
+       s3.region: "us-west-2"
+```
+
+#### Special REST connection parameter for resiliency
+
+Unlike other parameters provided in the dictionary under `catalog` key, `connection` parameter is a custom feature in
+DataHub allowing to inject connection resiliency parameters to the REST connection made by the ingestor. `connection`
+allows for 2 parameters:
+* `timeout` is provided as amount of seconds, it needs to be whole number (or `null` to turn it off)
+* `retry` is a complex object representing parameters used to create [urllib3 Retry object](https://urllib3.readthedocs.io/en/latest/reference/urllib3.util.html#module-urllib3.util.retry).
+  There are many possible parameters, most important would be `total` (total retries) and `backoff_factor`. See the linked docs
+  for the details.
+  
+
+```yaml
+source:
+ type: "iceberg"
+ config:
+   env: dev
+   catalog:
+     demo:
+       type: 'rest'
+       uri: "http://iceberg-catalog-uri"
+       connection:
+          retry:
+             backoff_factor: 0.5
+             total: 3
+          timeout: 120
+```
+
+### SQL catalog + Azure DLS as the warehouse
+
+This example targets `Postgres` as the sql-type `Iceberg` catalog and uses Azure DLS as the warehouse.
+
+```yaml
+source:
+   type: "iceberg"
+   config:
+      env: dev
+      catalog:
+       demo:
+         type: sql
+         uri: postgresql+psycopg2://user:password@sqldatabase.postgres.database.azure.com:5432/icebergcatalog
+         adlfs.tenant-id: <Azure tenant ID>
+         adlfs.account-name: <Azure storage account name>
+         adlfs.client-id: <Azure Client/Application ID>
+         adlfs.client-secret: <Azure Client Secret>
+```
 
 ## Concept Mapping
 
