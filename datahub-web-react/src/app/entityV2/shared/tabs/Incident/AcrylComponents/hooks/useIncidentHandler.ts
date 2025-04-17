@@ -3,13 +3,13 @@ import { Form, message } from 'antd';
 import _ from 'lodash';
 import { useState } from 'react';
 
+import { useEntityData } from '@app/entity/shared/EntityContext';
 import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
 import { PAGE_SIZE, updateActiveIncidentInCache } from '@app/entityV2/shared/tabs/Incident/incidentUtils';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
 import handleGraphQLError from '@src/app/shared/handleGraphQLError';
 import { useRaiseIncidentMutation, useUpdateIncidentMutation } from '@src/graphql/mutations.generated';
 import { EntityType, IncidentSourceType, IncidentState } from '@src/types.generated';
-import { useEntityData } from '@app/entity/shared/EntityContext';
 
 export const getCacheIncident = ({
     values,

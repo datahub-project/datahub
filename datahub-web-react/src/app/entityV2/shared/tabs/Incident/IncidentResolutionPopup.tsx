@@ -1,5 +1,5 @@
-import React from 'react';
 import { Form, Input, Modal, message } from 'antd';
+import React from 'react';
 
 import { IncidentSelectField } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentSelectedField';
 import { INCIDENT_OPTION_LABEL_MAPPING, INCIDENT_RESOLUTION_STAGES } from '@app/entityV2/shared/tabs/Incident/constant';
