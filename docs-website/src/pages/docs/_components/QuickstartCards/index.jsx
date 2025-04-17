@@ -11,10 +11,10 @@ const quickstartContent =  [
   },
 {
     title: "Learn about DataHub Cloud",
-    icon: "datahub-cloud-mono-light-horizontal",
+    icon: "datahub-cloud-color-dark-horizontal",
     to: "managed-datahub/managed-datahub-overview",
-    color: 'black',
-    fontColor: 'white',
+    color: '#e6f4ff',
+    fontColor: '#091013',
 }
 ]
 
