@@ -26,7 +26,7 @@ HOSTED_DOCS_ONLY-->
 
 # DataHub: The Data Discovery Platform for the Modern Data Stack
 
-### Built with ❤️ by <img src="https://datahubproject.io/img/acryl-logo-light-mark.png" width="20"/> [DataHub](https://acryldata.io) and <img src="https://datahubproject.io/img/LI-In-Bug.png" width="20"/> [LinkedIn](https://engineering.linkedin.com)
+### Built with ❤️ by <img src="https://datahubproject.io/img/datahub-logo-color-mark.svg" width="20"/> [DataHub](https://acryldata.io) and <img src="https://datahubproject.io/img/LI-In-Bug.png" width="20"/> [LinkedIn](https://engineering.linkedin.com)
 
 <div>
   <a target="_blank" href="https://github.com/datahub-project/datahub/blob/master/LICENSE">
