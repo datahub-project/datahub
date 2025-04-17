@@ -121,6 +121,7 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 
 <!-- Remove all unnecessary/irrelevant DataHub Concepts -->
 
+
 | Source Concept                                                                           | DataHub Concept                                                    | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 |------------------------------------------------------------------------------------------|--------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `iceberg`                                                                                | [Data Platform](docs/generated/metamodel/entities/dataPlatform.md) |                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
@@ -129,6 +130,7 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 | [Table property](https://iceberg.apache.org/docs/latest/configuration/#table-properties) | [CorpGroup](docs/generated/metamodel/entities/corpGroup.md)        | The value of a table property can be used as the name of a CorpGroup owner. This table property name can be configured with the source option `group_ownership_property`.                                                                                                                                                                                                                                                                       |
 | Namespace                                                                                | [Container](docs/generated/metamodel/entities/container.md)        | Namespaces are mapped to containers, tables which belong to a namespace are represented by datasets which belong to the container representing their namespace.                                                                                                                                                                                                                                                                                 | 
 | [Table schema](https://iceberg.apache.org/spec/#schemas-and-data-types)                  | [SchemaField](docs/generated/metamodel/entities/schemaField.md)    | Maps to the fields defined within the Iceberg table schema definition.                                                                                                                                                                                                                                                                                                                                                                          | 
+
 
 ## Troubleshooting
 
@@ -139,4 +141,5 @@ exceptions appearing when increasing `processing_threads` configuration paramete
 files (i.e. using `ulimit` in Linux).
 
 ## DataHub Iceberg REST Catalog
+
 DataHub also implements the Iceberg REST Catalog. See [here](docs/iceberg-catalog.md) for more details.

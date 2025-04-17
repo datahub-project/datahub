@@ -1,9 +1,11 @@
 import React from 'react';
-import { EntityType } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import CopyLinkMenuItem from './items/CopyLinkMenuItem';
-import CopyUrnMenuItem from './items/CopyUrnMenuItem';
-import EmailMenuItem from './items/EmailMenuItem';
+
+import CopyLinkMenuItem from '@app/shared/share/v2/items/CopyLinkMenuItem';
+import CopyUrnMenuItem from '@app/shared/share/v2/items/CopyUrnMenuItem';
+import EmailMenuItem from '@app/shared/share/v2/items/EmailMenuItem';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType } from '@types';
 
 interface ShareButtonMenuProps {
     urn: string;

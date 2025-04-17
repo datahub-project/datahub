@@ -1,14 +1,16 @@
-import { colors } from '@src/alchemy-components/theme';
 import { ParentSize } from '@visx/responsive';
 import React, { useMemo } from 'react';
-import { ChartWrapper } from './components';
-import { AxisBottomMonths } from './private/components/AxisBottomMonths';
-import { AxisLeftWeekdays } from './private/components/AxisLeftWeekdays';
-import { Calendar } from './private/components/Calendar';
-import { CalendarProvider } from './private/context';
-import { CalendarChartProps } from './types';
-import { prepareCalendarData } from './utils';
-import { CalendarContainer } from './private/components/CalendarContainer';
+
+import { ChartWrapper } from '@components/components/CalendarChart/components';
+import { AxisBottomMonths } from '@components/components/CalendarChart/private/components/AxisBottomMonths';
+import { AxisLeftWeekdays } from '@components/components/CalendarChart/private/components/AxisLeftWeekdays';
+import { Calendar } from '@components/components/CalendarChart/private/components/Calendar';
+import { CalendarContainer } from '@components/components/CalendarChart/private/components/CalendarContainer';
+import { CalendarProvider } from '@components/components/CalendarChart/private/context';
+import { CalendarChartProps } from '@components/components/CalendarChart/types';
+import { prepareCalendarData } from '@components/components/CalendarChart/utils';
+
+import { colors } from '@src/alchemy-components/theme';
 
 const commonLabelProps = {
     fill: colors.gray[1700],

@@ -1,8 +1,9 @@
+import { Popover } from '@components';
 import React from 'react';
 import styled from 'styled-components';
-import { Popover } from '@components';
-import { percentileToColor, percentileToLabel } from './statsUtils';
-import { ANTD_GRAY } from '../constants';
+
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { percentileToColor, percentileToLabel } from '@app/entityV2/shared/stats/statsUtils';
 
 const Description = styled.div`
     color: white;

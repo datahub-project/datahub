@@ -1,18 +1,19 @@
 import { Tabs, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
 import { useHistory } from 'react-router';
-import { IngestionSourceList } from './source/IngestionSourceList';
-import { useAppConfig } from '../useAppConfig';
-import { useUserContext } from '../context/useUserContext';
-import { SecretsList } from './secret/SecretsList';
-import { OnboardingTour } from '../onboarding/OnboardingTour';
+import styled from 'styled-components';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { SecretsList } from '@app/ingest/secret/SecretsList';
+import { IngestionSourceList } from '@app/ingest/source/IngestionSourceList';
+import { TabType } from '@app/ingest/types';
+import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import {
     INGESTION_CREATE_SOURCE_ID,
     INGESTION_REFRESH_SOURCES_ID,
-} from '../onboarding/config/IngestionOnboardingConfig';
-import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
-import { TabType } from './types';
+} from '@app/onboarding/config/IngestionOnboardingConfig';
+import { useAppConfig } from '@app/useAppConfig';
+import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;

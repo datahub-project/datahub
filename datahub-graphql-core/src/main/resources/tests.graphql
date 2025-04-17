@@ -2,40 +2,40 @@
 A metadata entity representing a DataHub Test
 """
 type Test implements Entity {
-    """
-    The primary key of the Test itself
-    """
-    urn: String!
+  """
+  The primary key of the Test itself
+  """
+  urn: String!
 
-    """
-    The standard Entity Type
-    """
-    type: EntityType!
+  """
+  The standard Entity Type
+  """
+  type: EntityType!
 
-    """
-    The name of the Test
-    """
-    name: String!
+  """
+  The name of the Test
+  """
+  name: String!
 
-    """
-    The category of the Test (user defined)
-    """
-    category: String!
+  """
+  The category of the Test (user defined)
+  """
+  category: String!
 
-    """
-    Description of the test
-    """
-    description: String
+  """
+  Description of the test
+  """
+  description: String
 
-    """
-    Definition for the test
-    """
-    definition: TestDefinition!
+  """
+  Definition for the test
+  """
+  definition: TestDefinition!
 
-    """
-    Unused for tests
-    """
-    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+  """
+  Unused for tests
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
 }
 
 """
@@ -53,15 +53,15 @@ type TestDefinition {
 The result type of a test that has been run
 """
 enum TestResultType {
-    """
-    The test succeeded.
-    """
-    SUCCESS
+  """
+  The test succeeded.
+  """
+  SUCCESS
 
-    """
-    The test failed.
-    """
-    FAILURE
+  """
+  The test failed.
+  """
+  FAILURE
 }
 
 """
@@ -95,10 +95,10 @@ type TestResult {
 }
 
 extend type Dataset {
-    """
-    The results of evaluating tests
-    """
-    testResults: TestResults
+  """
+  The results of evaluating tests
+  """
+  testResults: TestResults
 }
 
 extend type Query {

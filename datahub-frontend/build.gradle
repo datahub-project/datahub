@@ -76,7 +76,7 @@ task unversionZip(type: Copy, dependsOn: [':datahub-web-react:distZip', distZip]
 
 docker {
   dependsOn(stageMainDist)
-  name "${docker_registry}/${docker_repo}:v${version}"
+  name "${docker_registry}/${docker_repo}:${versionTag}"
   dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
   files "${buildDir}/stage"
   files fileTree(rootProject.projectDir) {

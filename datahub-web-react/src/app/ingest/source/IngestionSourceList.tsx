@@ -1,38 +1,44 @@
 import { PlusOutlined, RedoOutlined } from '@ant-design/icons';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Button, Modal, Pagination, Select, message } from 'antd';
 import { debounce } from 'lodash';
 import * as QueryString from 'query-string';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router';
-import { Button, message, Modal, Pagination, Select } from 'antd';
 import styled from 'styled-components';
+
+import analytics, { EventType } from '@app/analytics';
+import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import { ONE_SECOND_IN_MS } from '@app/entity/shared/tabs/Dataset/Queries/utils/constants';
+import IngestionSourceTable from '@app/ingest/source/IngestionSourceTable';
+import RecipeViewerModal from '@app/ingest/source/RecipeViewerModal';
+import { IngestionSourceBuilderModal } from '@app/ingest/source/builder/IngestionSourceBuilderModal';
+import { DEFAULT_EXECUTOR_ID, SourceBuilderState, StringMapEntryInput } from '@app/ingest/source/builder/types';
+import { ExecutionDetailsModal } from '@app/ingest/source/executions/ExecutionRequestDetailsModal';
+import { isExecutionRequestActive } from '@app/ingest/source/executions/IngestionSourceExecutionList';
+import useRefreshIngestionData from '@app/ingest/source/executions/useRefreshIngestionData';
+import { useCommandS } from '@app/ingest/source/hooks';
+import {
+    CLI_EXECUTOR_ID,
+    addToListIngestionSourcesCache,
+    removeFromListIngestionSourcesCache,
+} from '@app/ingest/source/utils';
+import {
+    INGESTION_CREATE_SOURCE_ID,
+    INGESTION_REFRESH_SOURCES_ID,
+} from '@app/onboarding/config/IngestionOnboardingConfig';
+import { SearchBar } from '@app/search/SearchBar';
+import { Message } from '@app/shared/Message';
+import { scrollToTop } from '@app/shared/searchUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
 import {
     useCreateIngestionExecutionRequestMutation,
     useCreateIngestionSourceMutation,
     useDeleteIngestionSourceMutation,
     useListIngestionSourcesQuery,
     useUpdateIngestionSourceMutation,
-} from '../../../graphql/ingestion.generated';
-import { Message } from '../../shared/Message';
-import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
-import { IngestionSourceBuilderModal } from './builder/IngestionSourceBuilderModal';
-import { addToListIngestionSourcesCache, CLI_EXECUTOR_ID, removeFromListIngestionSourcesCache } from './utils';
-import { DEFAULT_EXECUTOR_ID, SourceBuilderState, StringMapEntryInput } from './builder/types';
-import { IngestionSource, SortCriterion, SortOrder, UpdateIngestionSourceInput } from '../../../types.generated';
-import { SearchBar } from '../../search/SearchBar';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { ExecutionDetailsModal } from './executions/ExecutionRequestDetailsModal';
-import RecipeViewerModal from './RecipeViewerModal';
-import IngestionSourceTable from './IngestionSourceTable';
-import { scrollToTop } from '../../shared/searchUtils';
-import useRefreshIngestionData from './executions/useRefreshIngestionData';
-import { isExecutionRequestActive } from './executions/IngestionSourceExecutionList';
-import analytics, { EventType } from '../../analytics';
-import {
-    INGESTION_CREATE_SOURCE_ID,
-    INGESTION_REFRESH_SOURCES_ID,
-} from '../../onboarding/config/IngestionOnboardingConfig';
-import { ONE_SECOND_IN_MS } from '../../entity/shared/tabs/Dataset/Queries/utils/constants';
-import { useCommandS } from './hooks';
+} from '@graphql/ingestion.generated';
+import { IngestionSource, SortCriterion, SortOrder, UpdateIngestionSourceInput } from '@types';
 
 const PLACEHOLDER_URN = 'placeholder-urn';
 

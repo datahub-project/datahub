@@ -79,6 +79,8 @@ include ':metadata-service:openapi-servlet:models'
 include ':metadata-integration:java:datahub-schematron:lib'
 include ':metadata-integration:java:datahub-schematron:cli'
 include ':metadata-service:iceberg-catalog'
+include ':metadata-service:events-service'
+include ':datahub-actions'
 
 buildCache {
     def depotSecret = System.getenv('DEPOT_TOKEN');
@@ -97,6 +99,10 @@ buildCache {
 }
 
 def installPreCommitHooks() {
+    if (System.getenv("CI") == "true") {
+        println("Skipping pre-commit hooks in CI")
+        return 
+    }
     def preCommitInstalled = false
     try {
         def process = ["which", "pre-commit"].execute()

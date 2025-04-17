@@ -1,4 +1,7 @@
 import { Dispatch, SetStateAction } from 'react';
+
+import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
+import { BaseItemType } from '@src/alchemy-components/components/Timeline/types';
 import {
     AuditStamp,
     CorpUser,
@@ -13,8 +16,6 @@ import {
     IncidentType,
     OwnerType,
 } from '@src/types.generated';
-import { BaseItemType } from '@src/alchemy-components/components/Timeline/types';
-import { IncidentAction } from './constant';
 
 export type IncidentListFilter = {
     sortBy: string;
@@ -23,7 +24,7 @@ export type IncidentListFilter = {
         searchText: string;
         priority: string[];
         stage: string[];
-        type: string[];
+        category: string[];
         state: string[];
     };
 };
@@ -31,7 +32,7 @@ export type IncidentListFilter = {
 export type IncidentGroupBy = {
     priority: IncidentGroup[];
     stage: IncidentGroup[];
-    type: IncidentGroup[];
+    category: IncidentGroup[];
     state: IncidentGroup[];
 };
 
@@ -60,7 +61,7 @@ export type IncidentGroup = {
 
 export type IncidentFilterOptions = {
     filterGroupOptions: {
-        type: IncidentType[];
+        category: IncidentType[];
         stage: IncidentStage[];
         priority: IncidentPriority[];
         state: IncidentState[];
@@ -101,6 +102,7 @@ export type IncidentEditorProps = {
     data?: IncidentTableRow;
     mode?: IncidentAction;
     entity?: EntityStagedForIncident;
+    urn?: string;
 };
 
 export type IncidentLinkedAssetsListProps = {
@@ -109,12 +111,14 @@ export type IncidentLinkedAssetsListProps = {
     mode: IncidentAction;
     setCachedLinkedAssets: React.Dispatch<React.SetStateAction<any[]>>;
     setIsLinkedAssetsLoading: React.Dispatch<React.SetStateAction<boolean>>;
+    urn?: string;
 };
 
 export interface TimelineContentDetails extends BaseItemType {
     action: string;
     actor: CorpUser;
     time: number;
+    message?: string;
 }
 
 export enum IncidentConstant {
@@ -126,7 +130,7 @@ export enum IncidentConstant {
 
 export type EntityStagedForIncident = {
     urn: string;
-    platform: DataPlatform;
+    platform?: DataPlatform;
     entityType: EntityType;
 };
 
