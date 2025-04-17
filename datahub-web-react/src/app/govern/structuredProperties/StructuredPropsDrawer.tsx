@@ -199,7 +199,6 @@ const StructuredPropsDrawer = ({
             form.validateFields().then(() => {
                 const allowedTypes = form.getFieldValue(['typeQualifier', 'allowedTypes']) ?? [];
                 const typeQualifier = allowedTypes.length > 0 ? { allowedTypes } : undefined;
-
                 const createInput = {
                     ...form.getFieldsValue(),
                     qualifiedName: form.getFieldValue('qualifiedName') || undefined,

@@ -1,4 +1,5 @@
-import { CodeSandboxOutlined, PartitionOutlined, UnorderedListOutlined, WarningOutlined } from '@ant-design/icons';
+import { ListBullets } from '@phosphor-icons/react';
+import { CodeSandboxOutlined, PartitionOutlined, WarningOutlined } from '@ant-design/icons';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import * as React from 'react';
 import { useGetMlModelQuery } from '../../../graphql/mlModel.generated';
@@ -182,7 +183,7 @@ export class MLModelEntity implements Entity<MlModel> {
             name: 'Properties',
             component: PropertiesTab,
             description: 'View additional properties about this asset',
-            icon: UnorderedListOutlined,
+            icon: ListBullets,
         },
     ];
 

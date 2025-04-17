@@ -124,6 +124,7 @@ export const ActionButtonsContainer = styled.div({
 export const OptionList = styled.div({
     display: 'flex',
     flexDirection: 'column' as const,
+    overflow: 'auto',
 });
 
 export const LabelContainer = styled.div({

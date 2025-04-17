@@ -1,0 +1,44 @@
+# This file is used to define a dataset and provide metadata for it
+- urn: urn:li:dataset:(urn:li:dataPlatform:events,{{ test_id }}.ClickEvent,PROD)
+  subtype: Topic
+  description: |
+    This is a sample event that is generated when a user clicks on a link.
+    Do not use this event for any purpose other than testing.
+  schema:
+    file: test_resources/actions/user_clicks.avsc
+    fields:
+      - id: ip
+        description: 'the ip address of the user'
+      - id: user_id
+        description: 'the user id'
+
+# dataset 4 has downstream - user.clicks (which creates a cycle) (as long as
+# ClickEvent and user.clicks are siblings, the cycle is created)
+# Since yaml doesn't support creation of siblings, we create siblings programmatically
+- urn: urn:li:dataset:(urn:li:dataPlatform:hive,{{ test_id }}.user.clicks_4,PROD)
+  subtype: Table
+  schema:
+    file: test_resources/actions/user_clicks.avsc
+  downstreams:
+    - urn:li:dataset:(urn:li:dataPlatform:hive,{{ test_id }}.user.clicks,PROD)
+
+- urn: urn:li:dataset:(urn:li:dataPlatform:hive,{{ test_id }}.user.clicks_3,PROD)
+  subtype: Table
+  schema:
+    file: test_resources/actions/user_clicks.avsc
+  downstreams:
+    - urn:li:dataset:(urn:li:dataPlatform:hive,{{ test_id }}.user.clicks_4,PROD)
+
+- urn: urn:li:dataset:(urn:li:dataPlatform:hive,{{ test_id }}.user.clicks_2,PROD)
+  subtype: Table
+  schema:
+    file: test_resources/actions/user_clicks.avsc
+  downstreams:
+    - urn:li:dataset:(urn:li:dataPlatform:hive,{{ test_id }}.user.clicks_3,PROD)
+
+- urn: urn:li:dataset:(urn:li:dataPlatform:hive,{{ test_id }}.user.clicks,PROD)
+  subtype: Table
+  schema:
+    file: test_resources/actions/user_clicks.avsc
+  downstreams:
+    - urn:li:dataset:(urn:li:dataPlatform:hive,{{ test_id }}.user.clicks_2,PROD)

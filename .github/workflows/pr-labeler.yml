@@ -56,7 +56,8 @@ jobs:
           "ryota-cloud",
           "annadoesdesign",
           "jmacryl",
-          "anthonyburdi"
+          "anthonyburdi",
+          "esteban"
           ]'),
           github.actor
           )
