@@ -1042,7 +1042,7 @@ jobs:
   datahub_actions_build:
     name: Build and Push DataHub Actions Docker Image
     runs-on: depot-ubuntu-24.04
-    needs: [setup, base_build]
+    needs: [setup]
     if: ${{ needs.setup.outputs.actions_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true'}}
     steps:
       - name: Check out the repo
@@ -1060,6 +1060,8 @@ jobs:
           image_tag: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+          build-args: |
+            RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/datahub-actions/Dockerfile
@@ -1102,7 +1104,7 @@ jobs:
   datahub_actions_slim_build:
     name: Build and Push DataHub Actions Slim Docker Image
     runs-on: depot-ubuntu-24.04
-    needs: [setup, base_build]
+    needs: [setup]
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
       needs_artifact_download: ${{ needs.setup.outputs.actions_change == 'true' && ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true') }}
@@ -1122,6 +1124,7 @@ jobs:
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           build-args: |
             APP_ENV=slim
+            RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/datahub-actions/Dockerfile
