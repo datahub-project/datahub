@@ -759,6 +759,11 @@ type SearchAcrossLineageResults {
   Optional freshness characteristics of this query (cached, staleness etc.)
   """
   freshness: FreshnessStats
+
+  """
+  The path taken when doing search across lineage
+  """
+  lineageSearchPath: LineageSearchPath
 }
 
 """
@@ -1519,4 +1524,18 @@ input GroupingCriterion {
   e.g. dataset, domain, etc.
   """
   groupingEntityType: EntityType!
+}
+
+"""
+The path taken when doing search across lineage
+"""
+enum LineageSearchPath {
+  """
+  Designates the tortoise lineage code path
+  """
+  TORTOISE
+  """
+  Designates the lightning lineage code path
+  """
+  LIGHTNING
 }
