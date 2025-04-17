@@ -1,10 +1,12 @@
-import React from 'react';
+import { MockedProvider } from '@apollo/client/testing';
 import { render, screen } from '@testing-library/react';
+import React from 'react';
+
+import DownloadAsCsvModal from '@app/entityV2/shared/components/styled/search/DownloadAsCsvModal';
 import { LineageTabContext } from '@src/app/entityV2/shared/tabs/Lineage/LineageTabContext';
 import TestPageContainer from '@src/utils/test-utils/TestPageContainer';
-import { MockedProvider } from '@apollo/client/testing';
-import { LineageDirection, LineageSearchPath } from '../../../../../../../types.generated';
-import DownloadAsCsvModal from '../DownloadAsCsvModal';
+
+import { LineageDirection, LineageSearchPath } from '@types';
 
 describe('DownloadAsCsvModal', () => {
     const defaultProps = {

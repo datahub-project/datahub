@@ -1,4 +1,4 @@
-import { DataHubViewFilter, DataHubViewType, EntityType, LogicalOperator } from '../../../types.generated';
+import { DataHubViewFilter, DataHubViewType, EntityType, LogicalOperator } from '@types';
 
 /**
  * Default builder state when creating a new View.

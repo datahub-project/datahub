@@ -100,7 +100,7 @@ module.exports = {
         {
           label: "Automations",
           type: "category",
-          collapsed: false,
+          collapsed: true,
           items: [
             {
               label: "Documentation Propagation",
@@ -164,6 +164,11 @@ module.exports = {
             {
               type: "doc",
               id: "docs/features/feature-guides/compliance-forms/complete-a-form",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/compliance-forms/analytics",
+              className: "saasOnly",
             },
           ],
         },
@@ -1027,6 +1032,9 @@ module.exports = {
     //"docs/how/build-metadata-service",
     //"docs/how/graph-onboarding",
     //"docs/demo/graph-onboarding",
+    //"datahub-actions/README",
+    //"datahub-actions/src/datahub_actions/plugin/action/tag/README",
+    //"datahub-actions/src/datahub_actions/plugin/action/term/README",
     //"metadata-integration/java/spark-lineage/README",
     // "metadata-integration/java/acryl-spark-lineage/README.md
     // "metadata-integration/java/openlineage-converter/README"

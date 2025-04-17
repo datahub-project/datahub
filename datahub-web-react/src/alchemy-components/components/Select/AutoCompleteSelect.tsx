@@ -1,6 +1,7 @@
 import { Dropdown, Text } from '@components';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
+
 import {
     ActionButtonsContainer,
     Container,
@@ -15,9 +16,9 @@ import {
     SelectLabelContainer,
     StyledClearButton,
     StyledIcon,
-} from './components';
-import { ActionButtonsProps, SelectProps } from './types';
-import DropdownSearchBar from './private/DropdownSearchBar';
+} from '@components/components/Select/components';
+import DropdownSearchBar from '@components/components/Select/private/DropdownSearchBar';
+import { ActionButtonsProps, SelectProps } from '@components/components/Select/types';
 
 const NoSuggestions = styled.div`
     padding: 8px;

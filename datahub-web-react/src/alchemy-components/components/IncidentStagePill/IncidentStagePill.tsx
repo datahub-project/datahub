@@ -1,10 +1,11 @@
+import { CheckCircle, Circle, CircleDashed, CircleHalf, Hexagon } from '@phosphor-icons/react';
 import React from 'react';
-import { Hexagon, Circle, CircleHalf, CheckCircle, CircleDashed } from '@phosphor-icons/react';
-import { IncidentStage } from '@src/types.generated';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
-import { Pill } from '../Pills';
-import { IncidentStageLabel } from './constant';
+import { IncidentStageLabel } from '@components/components/IncidentStagePill/constant';
+import { Pill } from '@components/components/Pills';
+
+import colors from '@src/alchemy-components/theme/foundations/colors';
+import { IncidentStage } from '@src/types.generated';
 
 const INCIDENT_STAGE = {
     [IncidentStage.Triage]: {

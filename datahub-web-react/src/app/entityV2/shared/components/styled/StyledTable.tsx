@@ -1,6 +1,7 @@
 import { Table } from 'antd';
 import styled from 'styled-components';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../constants';
+
+import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 export const StyledTable = styled(Table)`
     overflow: inherit;

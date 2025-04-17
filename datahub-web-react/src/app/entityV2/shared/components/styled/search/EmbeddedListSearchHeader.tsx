@@ -1,19 +1,21 @@
-import React, { useContext, useState } from 'react';
-import { Button as AntButton, Typography } from 'antd';
 import { ExclamationCircleFilled, FilterOutlined } from '@ant-design/icons';
-import { Button, colors } from '@src/alchemy-components';
+import { Button as AntButton, Typography } from 'antd';
+import React, { useContext, useState } from 'react';
 import styled from 'styled-components/macro';
-import SearchSortSelect from '@src/app/searchV2/sorting/SearchSortSelect';
+
+import { EntityAndType } from '@app/entity/shared/types';
+import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
+import { SearchSelectBar } from '@app/entityV2/shared/components/styled/search/SearchSelectBar';
+import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
+import { SearchBar } from '@app/search/SearchBar';
+import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/utils/types';
+import SearchMenuItems from '@app/sharedV2/search/SearchMenuItems';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Button, colors } from '@src/alchemy-components';
 import { useSearchContext } from '@src/app/search/context/SearchContext';
-import TabToolbar from '../TabToolbar';
-import { SearchBar } from '../../../../../search/SearchBar';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { AndFilterInput, LineageSearchPath } from '../../../../../../types.generated';
-import { SearchSelectBar } from './SearchSelectBar';
-import { EntityAndType } from '../../../../../entity/shared/types';
-import { DownloadSearchResultsInput, DownloadSearchResults } from '../../../../../search/utils/types';
-import SearchMenuItems from '../../../../../sharedV2/search/SearchMenuItems';
-import { LineageTabContext } from '../../../tabs/Lineage/LineageTabContext';
+import SearchSortSelect from '@src/app/searchV2/sorting/SearchSortSelect';
+
+import { AndFilterInput, LineageSearchPath } from '@types';
 
 const HeaderContainer = styled.div`
     display: flex;

@@ -1,11 +1,13 @@
-import React from 'react';
+import { MockedProvider } from '@apollo/client/testing';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import React from 'react';
+
+import EmbeddedListSearchHeader from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchHeader';
 import { LineageTabContext } from '@src/app/entityV2/shared/tabs/Lineage/LineageTabContext';
 import TestPageContainer from '@src/utils/test-utils/TestPageContainer';
-import { MockedProvider } from '@apollo/client/testing';
-import EmbeddedListSearchHeader from '../EmbeddedListSearchHeader';
-import { LineageDirection, LineageSearchPath } from '../../../../../../../types.generated';
+
+import { LineageDirection, LineageSearchPath } from '@types';
 
 describe('EmbeddedListSearchHeader', () => {
     const defaultProps = {

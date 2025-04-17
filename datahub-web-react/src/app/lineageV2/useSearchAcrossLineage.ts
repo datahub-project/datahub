@@ -1,24 +1,26 @@
-import pruneAllDuplicateEdges from '@app/lineageV2/pruneAllDuplicateEdges';
 import { useEffect, useState } from 'react';
-import { useSearchAcrossLineageStructureLazyQuery } from '../../graphql/search.generated';
-import { Entity, EntityType, LineageDirection, Maybe, SearchAcrossLineageInput } from '../../types.generated';
-import { DBT_URN } from '../ingest/source/builder/constants';
-import { useGetLineageTimeParams } from '../lineage/utils/useGetLineageTimeParams';
-import { DEGREE_FILTER_NAME } from '../search/utils/constants';
-import { useEntityRegistryV2 } from '../useEntityRegistry';
+
+import { DBT_URN } from '@app/ingest/source/builder/constants';
+import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import {
-    addToAdjacencyList,
     FetchStatus,
     Filters,
-    getEdgeId,
-    isQuery,
-    isTransformational,
     LINEAGE_FILTER_PAGINATION,
     LineageEntity,
     NodeContext,
+    addToAdjacencyList,
+    getEdgeId,
+    isQuery,
+    isTransformational,
     reverseDirection,
     setDefault,
-} from './common';
+} from '@app/lineageV2/common';
+import pruneAllDuplicateEdges from '@app/lineageV2/pruneAllDuplicateEdges';
+import { DEGREE_FILTER_NAME } from '@app/search/utils/constants';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+
+import { useSearchAcrossLineageStructureLazyQuery } from '@graphql/search.generated';
+import { Entity, EntityType, LineageDirection, Maybe, SearchAcrossLineageInput } from '@types';
 
 const PER_HOP_LIMIT = 2;
 

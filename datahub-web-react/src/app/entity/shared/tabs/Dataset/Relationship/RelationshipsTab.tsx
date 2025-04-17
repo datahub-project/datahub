@@ -1,23 +1,22 @@
+import { ExclamationCircleFilled, LoadingOutlined, PlusOutlined } from '@ant-design/icons';
 import { Icon } from '@components';
 import { Button, Card, Divider, Empty, Input, Modal, Pagination } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { ExclamationCircleFilled, LoadingOutlined, PlusOutlined } from '@ant-design/icons';
-import { useBaseEntity } from '../../../EntityContext';
-import './RelationshipsTab.less';
-import { EntityType, ErModelRelationship } from '../../../../../../types.generated';
-import { useGetSearchResultsQuery } from '../../../../../../graphql/search.generated';
-import {
-    GetDatasetQuery,
-    useGetDatasetLazyQuery,
-    useGetDatasetSchemaLazyQuery,
-} from '../../../../../../graphql/dataset.generated';
-import { useGetEntityWithSchema } from '../Schema/useGetEntitySchema';
-import closeIcon from '../../../../../../images/close_dark.svg';
-import { CreateERModelRelationModal } from '../../../components/styled/ERModelRelationship/CreateERModelRelationModal';
-import { ERModelRelationPreview } from '../../../components/styled/ERModelRelationship/ERModelRelationPreview';
-import { SearchSelectModal } from '../../../components/styled/search/SearchSelectModal';
-import { ANTD_GRAY } from '../../../constants';
+
+import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { CreateERModelRelationModal } from '@app/entity/shared/components/styled/ERModelRelationship/CreateERModelRelationModal';
+import { ERModelRelationPreview } from '@app/entity/shared/components/styled/ERModelRelationship/ERModelRelationPreview';
+import { SearchSelectModal } from '@app/entity/shared/components/styled/search/SearchSelectModal';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import '@app/entity/shared/tabs/Dataset/Relationship/RelationshipsTab.less';
+import { useGetEntityWithSchema } from '@app/entity/shared/tabs/Dataset/Schema/useGetEntitySchema';
+
+import { GetDatasetQuery, useGetDatasetLazyQuery, useGetDatasetSchemaLazyQuery } from '@graphql/dataset.generated';
+import { useGetSearchResultsQuery } from '@graphql/search.generated';
+import { EntityType, ErModelRelationship } from '@types';
+
+import closeIcon from '@images/close_dark.svg';
 
 const StyledPagination = styled(Pagination)`
     margin: 0px;

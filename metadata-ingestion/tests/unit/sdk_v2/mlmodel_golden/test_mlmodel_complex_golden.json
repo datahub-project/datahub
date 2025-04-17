@@ -1,0 +1,114 @@
+[
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test_model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:mlflow"
+        }
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test_model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "mlModelProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "framework": "pytorch",
+                "task": "segmentation",
+                "dataset": "cityscapes"
+            },
+            "externalUrl": "https://example.com/new",
+            "trainingJobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,training_pipeline,prod),train_model)",
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,training_pipeline,prod),validate_model)",
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_flow,prod),test_job)"
+            ],
+            "name": "New Name",
+            "description": "New Description",
+            "created": {
+                "time": 1744206083000
+            },
+            "lastModified": {
+                "time": 1744206083000
+            },
+            "hyperParams": [
+                {
+                    "name": "learning_rate",
+                    "value": "0.01"
+                },
+                {
+                    "name": "batch_size",
+                    "value": "32"
+                },
+                {
+                    "name": "epochs",
+                    "value": "100"
+                }
+            ],
+            "trainingMetrics": [
+                {
+                    "name": "accuracy",
+                    "value": "0.95"
+                },
+                {
+                    "name": "f1",
+                    "value": "0.92"
+                },
+                {
+                    "name": "precision",
+                    "value": "0.94"
+                }
+            ],
+            "tags": [],
+            "groups": []
+        }
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test_model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "versionProperties",
+    "aspect": {
+        "json": {
+            "versionSet": "urn:li:versionSet:(mlmodel_test_model_versions,mlModel)",
+            "version": {
+                "versionTag": "1.0.0"
+            },
+            "aliases": [
+                {
+                    "versionTag": "test_model_v1"
+                },
+                {
+                    "versionTag": "yolov5_coco"
+                },
+                {
+                    "versionTag": "alias3"
+                }
+            ],
+            "sortId": "000001.0.0",
+            "versioningScheme": "LEXICOGRAPHIC_STRING"
+        }
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test_model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:test_tag"
+                }
+            ]
+        }
+    }
+}
+]

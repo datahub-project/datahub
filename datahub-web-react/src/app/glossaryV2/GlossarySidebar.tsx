@@ -1,16 +1,18 @@
+import { Button, Tooltip } from '@components';
 import React, { useState } from 'react';
-import { Tooltip, Button } from '@components';
 import styled from 'styled-components/macro';
-import { REDESIGN_COLORS } from '../entityV2/shared/constants';
-import useSidebarWidth from '../sharedV2/sidebar/useSidebarWidth';
-import GlossarySearch from './GlossarySearch';
-import GlossaryBrowser from './GlossaryBrowser/GlossaryBrowser';
-import { SidebarWrapper } from '../sharedV2/sidebar/components';
-import CreateGlossaryEntityModal from '../entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
-import { EntityType } from '../../types.generated';
-import { useUserContext } from '../context/useUserContext';
-import { useGetRootGlossaryNodesQuery } from '../../graphql/glossary.generated';
-import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
+
+import { useUserContext } from '@app/context/useUserContext';
+import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import GlossaryBrowser from '@app/glossaryV2/GlossaryBrowser/GlossaryBrowser';
+import GlossarySearch from '@app/glossaryV2/GlossarySearch';
+import { SidebarWrapper } from '@app/sharedV2/sidebar/components';
+import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
+import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+
+import { useGetRootGlossaryNodesQuery } from '@graphql/glossary.generated';
+import { EntityType } from '@types';
 
 const StyledSidebarWrapper = styled(SidebarWrapper)<{ $isEntityProfile?: boolean }>`
     ${(props) =>

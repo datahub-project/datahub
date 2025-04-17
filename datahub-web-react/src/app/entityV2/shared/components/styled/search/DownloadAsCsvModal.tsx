@@ -1,17 +1,22 @@
+import { ExclamationCircleFilled, LoadingOutlined } from '@ant-design/icons';
+import { Text, colors } from '@components';
+import { Button, Input, Modal, Spin, notification } from 'antd';
 import React, { useContext, useState } from 'react';
 import { useLocation } from 'react-router';
-import { Button, Input, Modal, Spin, notification } from 'antd';
-import { ExclamationCircleFilled, LoadingOutlined } from '@ant-design/icons';
-import { colors, Text } from '@src/alchemy-components';
 import styled from 'styled-components';
-import { AndFilterInput, LineageSearchPath } from '../../../../../../types.generated';
-import { getSearchCsvDownloadHeader, transformResultsToCsvRow } from './downloadAsCsvUtil';
-import { downloadRowsAsCsv } from '../../../../../search/utils/csvUtils';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { useEntityData } from '../../../../../entity/shared/EntityContext';
-import analytics, { EventType } from '../../../../../analytics';
-import { DownloadSearchResultsInput, DownloadSearchResults } from '../../../../../search/utils/types';
-import { LineageTabContext } from '../../../tabs/Lineage/LineageTabContext';
+
+import analytics, { EventType } from '@app/analytics';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import {
+    getSearchCsvDownloadHeader,
+    transformResultsToCsvRow,
+} from '@app/entityV2/shared/components/styled/search/downloadAsCsvUtil';
+import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
+import { downloadRowsAsCsv } from '@app/search/utils/csvUtils';
+import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/utils/types';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { AndFilterInput, LineageSearchPath } from '@types';
 
 const ImpactAnalysisWarning = styled.div`
     gap: 8px;

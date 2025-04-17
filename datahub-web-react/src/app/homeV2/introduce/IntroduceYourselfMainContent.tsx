@@ -3,28 +3,27 @@ import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined
 import CheckIcon from '@mui/icons-material/Check';
 import KeyboardArrowDownOutlinedIcon from '@mui/icons-material/KeyboardArrowDownOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
-import colors from '@src/alchemy-components/theme/foundations/colors';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { useListGlobalViewsQuery } from '@src/graphql/view.generated';
 import { Button, Select, message } from 'antd';
 import { orderBy } from 'lodash';
 import React, { useContext, useState } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
-import { useListRecommendationsQuery } from '../../../graphql/recommendations.generated';
-import {
-    useUpdateCorpUserPropertiesMutation,
-    useUpdateCorpUserViewsSettingsMutation,
-} from '../../../graphql/user.generated';
-import { DataHubViewType, DataPlatform, EntityType, ScenarioType } from '../../../types.generated';
-import analytics, { EventType } from '../../analytics';
-import { useUserContext } from '../../context/useUserContext';
-import OnboardingContext from '../../onboarding/OnboardingContext';
-import Loading from '../../shared/Loading';
-import PlatformIcon from '../../sharedV2/icons/PlatformIcon';
-import { useGetDataPlatforms } from '../content/tabs/discovery/sections/platform/useGetDataPlatforms';
-import { PLATFORMS_MODULE_ID } from '../content/tabs/discovery/sections/platform/useGetPlatforms';
-import { PERSONA_TYPE_TO_VIEW_URN, PersonaType, ROLE_TO_PERSONA_TYPE } from '../shared/types';
+
+import analytics, { EventType } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
+import { useGetDataPlatforms } from '@app/homeV2/content/tabs/discovery/sections/platform/useGetDataPlatforms';
+import { PLATFORMS_MODULE_ID } from '@app/homeV2/content/tabs/discovery/sections/platform/useGetPlatforms';
+import { PERSONA_TYPE_TO_VIEW_URN, PersonaType, ROLE_TO_PERSONA_TYPE } from '@app/homeV2/shared/types';
+import OnboardingContext from '@app/onboarding/OnboardingContext';
+import Loading from '@app/shared/Loading';
+import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
+import colors from '@src/alchemy-components/theme/foundations/colors';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { useListGlobalViewsQuery } from '@src/graphql/view.generated';
+
+import { useListRecommendationsQuery } from '@graphql/recommendations.generated';
+import { useUpdateCorpUserPropertiesMutation, useUpdateCorpUserViewsSettingsMutation } from '@graphql/user.generated';
+import { DataHubViewType, DataPlatform, EntityType, ScenarioType } from '@types';
 
 const Container = styled.div`
     flex: 1;

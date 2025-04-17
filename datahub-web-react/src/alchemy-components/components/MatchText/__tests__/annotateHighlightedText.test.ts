@@ -1,4 +1,4 @@
-import { annotateHighlightedText } from '../utils';
+import { annotateHighlightedText } from '@components/components/MatchText/utils';
 
 const SAMPLE_INPUT = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit';
 

@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import (
     TYPE_CHECKING,
     Callable,
+    Dict,
     List,
     Optional,
     Sequence,
@@ -14,6 +15,7 @@ from typing import (
 
 from typing_extensions import TypeAlias, assert_never
 
+import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import (
     make_ts_millis,
@@ -30,14 +32,16 @@ from datahub.metadata.urns import (
     DataJobUrn,
     DataPlatformInstanceUrn,
     DataPlatformUrn,
+    DataProcessInstanceUrn,
     DatasetUrn,
     DomainUrn,
     GlossaryTermUrn,
     OwnershipTypeUrn,
     TagUrn,
     Urn,
+    VersionSetUrn,
 )
-from datahub.sdk._utils import add_list_unique, remove_list_unique
+from datahub.sdk._utils import DEFAULT_ACTOR_URN, add_list_unique, remove_list_unique
 from datahub.sdk.entity import Entity
 from datahub.utilities.urns.error import InvalidUrnError
 
@@ -50,7 +54,35 @@ DatajobUrnOrStr: TypeAlias = Union[str, DataJobUrn]
 
 ActorUrn: TypeAlias = Union[CorpUserUrn, CorpGroupUrn]
 
-_DEFAULT_ACTOR_URN = CorpUserUrn("__ingestion").urn()
+TrainingMetricsInputType: TypeAlias = Union[
+    List[models.MLMetricClass], Dict[str, Optional[str]]
+]
+HyperParamsInputType: TypeAlias = Union[
+    List[models.MLHyperParamClass], Dict[str, Optional[str]]
+]
+MLTrainingJobInputType: TypeAlias = Union[Sequence[Union[str, DataProcessInstanceUrn]]]
+
+
+def convert_training_metrics(
+    metrics: TrainingMetricsInputType,
+) -> List[models.MLMetricClass]:
+    if isinstance(metrics, dict):
+        return [
+            models.MLMetricClass(name=name, value=str(value))
+            for name, value in metrics.items()
+        ]
+    return metrics
+
+
+def convert_hyper_params(
+    params: HyperParamsInputType,
+) -> List[models.MLHyperParamClass]:
+    if isinstance(params, dict):
+        return [
+            models.MLHyperParamClass(name=name, value=str(value))
+            for name, value in params.items()
+        ]
+    return params
 
 
 def make_time_stamp(ts: Optional[datetime]) -> Optional[models.TimeStampClass]:
@@ -441,7 +473,7 @@ class HasTerms(Entity):
     def _terms_audit_stamp(self) -> models.AuditStampClass:
         return models.AuditStampClass(
             time=0,
-            actor=_DEFAULT_ACTOR_URN,
+            actor=DEFAULT_ACTOR_URN,
         )
 
     def set_terms(self, terms: TermsInputType) -> None:
@@ -529,7 +561,7 @@ class HasInstitutionalMemory(Entity):
     def _institutional_memory_audit_stamp(self) -> models.AuditStampClass:
         return models.AuditStampClass(
             time=0,
-            actor=_DEFAULT_ACTOR_URN,
+            actor=DEFAULT_ACTOR_URN,
         )
 
     @classmethod
@@ -578,3 +610,109 @@ class HasInstitutionalMemory(Entity):
             self._link_key,
             self._parse_link_association_class(link),
         )
+
+
+class HasVersion(Entity):
+    """Mixin for entities that have version properties."""
+
+    def _get_version_props(self) -> Optional[models.VersionPropertiesClass]:
+        return self._get_aspect(models.VersionPropertiesClass)
+
+    def _ensure_version_props(self) -> models.VersionPropertiesClass:
+        version_props = self._get_version_props()
+        if version_props is None:
+            guid_dict = {"urn": str(self.urn)}
+            version_set_urn = VersionSetUrn(
+                id=builder.datahub_guid(guid_dict), entity_type=self.urn.ENTITY_TYPE
+            )
+
+            version_props = models.VersionPropertiesClass(
+                versionSet=str(version_set_urn),
+                version=models.VersionTagClass(versionTag="0.1.0"),
+                sortId="0000000.1.0",
+            )
+            self._set_aspect(version_props)
+        return version_props
+
+    @property
+    def version(self) -> Optional[str]:
+        version_props = self._get_version_props()
+        if version_props and version_props.version:
+            return version_props.version.versionTag
+        return None
+
+    def set_version(self, version: str) -> None:
+        """Set the version of the entity."""
+        guid_dict = {"urn": str(self.urn)}
+        version_set_urn = VersionSetUrn(
+            id=builder.datahub_guid(guid_dict), entity_type=self.urn.ENTITY_TYPE
+        )
+
+        version_props = self._get_version_props()
+        if version_props is None:
+            # If no version properties exist, create a new one
+            version_props = models.VersionPropertiesClass(
+                version=models.VersionTagClass(versionTag=version),
+                versionSet=str(version_set_urn),
+                sortId=version.zfill(10),  # Pad with zeros for sorting
+            )
+        else:
+            # Update existing version properties
+            version_props.version = models.VersionTagClass(versionTag=version)
+            version_props.versionSet = str(version_set_urn)
+            version_props.sortId = version.zfill(10)
+
+        self._set_aspect(version_props)
+
+    @property
+    def version_aliases(self) -> List[str]:
+        version_props = self._get_version_props()
+        if version_props and version_props.aliases:
+            return [
+                alias.versionTag
+                for alias in version_props.aliases
+                if alias.versionTag is not None
+            ]
+        return []  # Return empty list instead of None
+
+    def set_version_aliases(self, aliases: List[str]) -> None:
+        version_props = self._get_aspect(models.VersionPropertiesClass)
+        if version_props:
+            version_props.aliases = [
+                models.VersionTagClass(versionTag=alias) for alias in aliases
+            ]
+        else:
+            # If no version properties exist, we need to create one with a default version
+            guid_dict = {"urn": str(self.urn)}
+            version_set_urn = VersionSetUrn(
+                id=builder.datahub_guid(guid_dict), entity_type=self.urn.ENTITY_TYPE
+            )
+            self._set_aspect(
+                models.VersionPropertiesClass(
+                    version=models.VersionTagClass(
+                        versionTag="0.1.0"
+                    ),  # Default version
+                    versionSet=str(version_set_urn),
+                    sortId="0000000.1.0",
+                    aliases=[
+                        models.VersionTagClass(versionTag=alias) for alias in aliases
+                    ],
+                )
+            )
+
+    def add_version_alias(self, alias: str) -> None:
+        if not alias:
+            raise ValueError("Alias cannot be empty")
+        version_props = self._ensure_version_props()
+        if version_props.aliases is None:
+            version_props.aliases = []
+        version_props.aliases.append(models.VersionTagClass(versionTag=alias))
+        self._set_aspect(version_props)
+
+    def remove_version_alias(self, alias: str) -> None:
+        version_props = self._get_version_props()
+        if version_props and version_props.aliases:
+            version_props.aliases = [
+                a for a in version_props.aliases if a.versionTag != alias
+            ]
+            self._set_aspect(version_props)

@@ -1,8 +1,10 @@
-import { message, Modal } from 'antd';
+import { Modal, message } from 'antd';
 import { useState } from 'react';
-import { useEntityData } from '../../../entity/shared/EntityContext';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useDeleteGlossaryEntityMutation } from '../../../../graphql/glossary.generated';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useDeleteGlossaryEntityMutation } from '@graphql/glossary.generated';
 
 function useDeleteGlossaryEntity() {
     const [hasBeenDeleted, setHasBeenDeleted] = useState(false);

@@ -1,5 +1,6 @@
 import { HTMLAttributes } from 'react';
-import type { FontSizeOptions, FontColorOptions, FontWeightOptions, Color } from '@components/theme/config';
+
+import type { Color, FontColorOptions, FontSizeOptions, FontWeightOptions } from '@components/theme/config';
 
 export interface HeadingPropsDefaults {
     type: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';

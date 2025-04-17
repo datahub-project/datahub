@@ -1,13 +1,14 @@
-import { PropertyCardinality, StdDataType, StructuredPropertyEntity } from '@src/types.generated';
 import React from 'react';
-import StructuredPropertySearchSelectUrnInput from '../../../entityForm/prompts/StructuredPropertyPrompt/UrnInput/StructuredPropertySearchSelectUrnInput';
-import UrnInput from '../../../entityForm/prompts/StructuredPropertyPrompt/UrnInput/UrnInput';
-import DateInput from './DateInput';
-import MultiSelectInput from './MultiSelectInput';
-import NumberInput from './NumberInput';
-import RichTextInput from './RichTextInput';
-import SingleSelectInput from './SingleSelectInput';
-import StringInput from './StringInput';
+
+import DateInput from '@app/entity/shared/components/styled/StructuredProperty/DateInput';
+import MultiSelectInput from '@app/entity/shared/components/styled/StructuredProperty/MultiSelectInput';
+import NumberInput from '@app/entity/shared/components/styled/StructuredProperty/NumberInput';
+import RichTextInput from '@app/entity/shared/components/styled/StructuredProperty/RichTextInput';
+import SingleSelectInput from '@app/entity/shared/components/styled/StructuredProperty/SingleSelectInput';
+import StringInput from '@app/entity/shared/components/styled/StructuredProperty/StringInput';
+import StructuredPropertySearchSelectUrnInput from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/UrnInput/StructuredPropertySearchSelectUrnInput';
+import UrnInput from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/UrnInput/UrnInput';
+import { PropertyCardinality, StdDataType, StructuredPropertyEntity } from '@src/types.generated';
 
 interface Props {
     structuredProperty: StructuredPropertyEntity;
