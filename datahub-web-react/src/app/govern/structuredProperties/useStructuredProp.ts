@@ -1,8 +1,9 @@
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { EntityType, PropertyCardinality, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
 import { FormInstance } from 'antd';
 import { useMemo } from 'react';
-import { getEntityTypeUrn, StructuredProp, valueTypes } from './utils';
+
+import { StructuredProp, getEntityTypeUrn, valueTypes } from '@app/govern/structuredProperties/utils';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { EntityType, PropertyCardinality, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
 
 interface Props {
     selectedProperty?: SearchResult;

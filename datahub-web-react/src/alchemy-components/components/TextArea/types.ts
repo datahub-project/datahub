@@ -1,5 +1,6 @@
 import { TextareaHTMLAttributes } from 'react';
-import { IconNames } from '../Icon';
+
+import { IconNames } from '@components/components/Icon';
 
 export interface TextAreaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
     label: string;

@@ -2,12 +2,13 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { Domain, EntityType } from '../../../../types.generated';
-import { DomainColoredIcon } from './DomainColoredIcon';
-import EntityCount from '../containers/profile/header/EntityCount';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { HoverEntityTooltip } from '../../../recommendations/renderer/component/HoverEntityTooltip';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import EntityCount from '@app/entityV2/shared/containers/profile/header/EntityCount';
+import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
+import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Domain, EntityType } from '@types';
 
 const DomainLinkContainer = styled.div`
     display: flex;

@@ -1,12 +1,14 @@
+import { Typography } from 'antd';
+import React from 'react';
+import styled from 'styled-components';
+
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { ContainerIconBase } from '@app/entityV2/shared/containers/profile/header/PlatformContent/ContainerIcon';
 import MatchTextSizeWrapper from '@app/sharedV2/text/MatchTextSizeWrapper';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+
 import { Container } from '@types';
-import { Typography } from 'antd';
-import React from 'react';
-import styled from 'styled-components';
 
 const ContainerPathWrapper = styled.div`
     display: flex;

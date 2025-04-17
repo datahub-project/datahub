@@ -1,4 +1,4 @@
-import { EntityType } from '../../../types.generated';
+import { EntityType } from '@types';
 
 // TODO(Gabe): integrate this w/ the theme
 export const REDESIGN_COLORS = {
@@ -44,8 +44,8 @@ export const REDESIGN_COLORS = {
     SECONDARY_LIGHT_GREY: '#9DA7C0',
     ACTION_ICON_GREY: '#676b75',
     AVATAR_STYLE_WHITE_BACKGROUND: '#ffffff66',
-    GROUP_AVATAR_STYLE_GRADIENT: 'linear-gradient(0deg, #CB427B 0%, #CB427B 100%), #65B5C0',
-    PROFILE_AVATAR_STYLE_GRADIENT: 'linear-gradient(93deg, #23c5b1 5.11%, #30d572 112.87%), #65b5c0',
+    GROUP_AVATAR_STYLE_GRADIENT: 'linear-gradient(0deg, #705EE4 0%, #533FD1 100%), #4C39BE',
+    PROFILE_AVATAR_STYLE_GRADIENT: 'linear-gradient(93deg, #705EE4 5.11%, #533FD1 112.87%), #4C39BE',
     SIDE_BAR_BORDER_RIGHT: '#e8e8e8',
     DARK_PURPLE: '#6C6B88',
     LINK_GREY: '#586287',
@@ -231,3 +231,7 @@ export const UNKNOWN_DATA_PLATFORM = 'urn:li:dataPlatform:unknown';
 export const SMART_ASSERTION_STALE_IN_DAYS = 3;
 
 export const TITLE_CASE_EXCEPTION_WORDS = ['of', 'the', 'in', 'on', 'and', 'a', 'an', 'to', 'for', 'at', 'by'];
+
+export const RECOMMENDATION_MODULE_ID_RECENTLY_VIEWED_ENTITIES = 'RecentlyViewedEntities';
+export const RECOMMENDATION_MODULE_ID_RECENTLY_EDITED_ENTITIES = 'RecentlyEditedEntities';
+export const RECOMMENDATION_MODULE_ID_RECENT_SEARCHES = 'RecentSearches';

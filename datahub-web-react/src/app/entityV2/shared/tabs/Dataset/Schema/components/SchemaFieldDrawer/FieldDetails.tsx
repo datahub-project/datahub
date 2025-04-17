@@ -1,15 +1,17 @@
-import SchemaEditableContext from '@app/shared/SchemaEditableContext';
-import MarkAsDeprecatedButton from '@src/app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
 import { Button, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Deprecation, SubResourceType, UsageQueryResult } from '../../../../../../../../types.generated';
-import { useMutationUrn } from '../../../../../../../entity/shared/EntityContext';
-import { UpdateDeprecationModal } from '../../../../../EntityDropdown/UpdateDeprecationModal';
-import CreateEntityAnnouncementModal from '../../../../../announce/CreateEntityAnnouncementModal';
-import { DeprecationIcon } from '../../../../../components/styled/DeprecationIcon';
-import { REDESIGN_COLORS } from '../../../../../constants';
-import { FieldPopularity } from './FieldPopularity';
+
+import { useMutationUrn } from '@app/entity/shared/EntityContext';
+import { UpdateDeprecationModal } from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationModal';
+import CreateEntityAnnouncementModal from '@app/entityV2/shared/announce/CreateEntityAnnouncementModal';
+import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { FieldPopularity } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldPopularity';
+import SchemaEditableContext from '@app/shared/SchemaEditableContext';
+import MarkAsDeprecatedButton from '@src/app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
+
+import { Deprecation, SubResourceType, UsageQueryResult } from '@types';
 
 const FieldDetailsWrapper = styled.div`
     padding: 16px 12px;
