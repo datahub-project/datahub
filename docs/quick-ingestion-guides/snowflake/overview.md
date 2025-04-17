@@ -23,7 +23,7 @@ The pipeline will also extract:
 * **Table-level profile statistics** to help you understand the shape of the data
 
 :::caution
-You will NOT have extracted Stages, Snowpipes, Streams, Tasks, Procedures from Snowflake, as the connector does not support ingesting these assets yet.
+You will NOT have extracted Stages, Snowpipes, Streams, or Tasks from Snowflake, as the connector does not support ingesting these assets yet.
 :::
 
 ### Caveats
