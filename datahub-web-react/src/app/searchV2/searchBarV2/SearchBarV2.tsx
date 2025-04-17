@@ -1,5 +1,3 @@
-import { colors, radius, spacing, transition } from '@src/alchemy-components';
-import { AutoComplete } from '@src/alchemy-components/components/AutoComplete';
 import { Skeleton } from 'antd';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
@@ -10,18 +8,20 @@ import AutocompleteDropdown from '@app/searchV2/searchBarV2/components/Autocompl
 import AutocompletePlaceholder from '@app/searchV2/searchBarV2/components/AutocompletePlaceholder';
 import SearchBarInput from '@app/searchV2/searchBarV2/components/SearchBarInput';
 import {
+    AUTOCOMPLETE_DROPDOWN_ALIGN,
     AUTOCOMPLETE_DROPDOWN_ALIGN_WITH_NEW_NAV_BAR,
-    BOX_SHADOW
+    BOX_SHADOW,
 } from '@app/searchV2/searchBarV2/constants';
 import useFocusElementByCommandK from '@app/searchV2/searchBarV2/hooks/useFocusSearchBarByCommandK';
 import useOptions from '@app/searchV2/searchBarV2/hooks/useOptions';
+import { useSearchBarData } from '@app/searchV2/searchBarV2/hooks/useSearchBarData';
 import useSelectOption from '@app/searchV2/searchBarV2/hooks/useSelectOption';
-import { useSearchBarData } from '@app/searchV2/useSearchBarData';
 import { MIN_CHARACTER_COUNT_FOR_SEARCH } from '@app/searchV2/utils/constants';
 import filterSearchQuery from '@app/searchV2/utils/filterSearchQuery';
 import { useAppConfig, useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
+import { colors, radius, spacing, transition } from '@src/alchemy-components';
+import { AutoComplete } from '@src/alchemy-components/components/AutoComplete';
 import { SearchBarApi } from '@src/types.generated';
-import { AUTOCOMPLETE_DROPDOWN_ALIGN } from './constants';
 
 export const Wrapper = styled.div<{ $open?: boolean; $isShowNavBarRedesign?: boolean }>`
     background: transparent;

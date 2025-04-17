@@ -1,5 +1,6 @@
-import { EntityType } from '@src/types.generated';
 import React from 'react';
+
+import { EntityType } from '@src/types.generated';
 
 export interface Option {
     value: string;

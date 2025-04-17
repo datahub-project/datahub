@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 
+import { Wrapper } from '@components/components/Utils/ClickOutside/components';
 import { ClickOutsideProps } from '@components/components/Utils/ClickOutside/types';
-import { Wrapper } from './components';
 
 export default function ClickOutside({
     children,

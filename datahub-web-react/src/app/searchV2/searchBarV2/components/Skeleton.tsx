@@ -1,6 +1,7 @@
 import { Skeleton as AntdSkeleton } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 const SkeletonContainer = styled.div<{ $width: string }>`

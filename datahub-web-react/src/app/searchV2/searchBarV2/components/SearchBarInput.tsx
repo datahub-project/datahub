@@ -1,12 +1,12 @@
-import { colors, radius, SearchBar, transition } from '@src/alchemy-components';
-import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { InputRef } from 'antd';
 import React, { forwardRef, useCallback, useState } from 'react';
+import styled from 'styled-components';
 
 import { CommandK } from '@app/searchV2/CommandK';
+import { BOX_SHADOW } from '@app/searchV2/searchBarV2/constants';
+import { SearchBar, colors, radius, transition } from '@src/alchemy-components';
 import { ViewSelect } from '@src/app/entityV2/view/select/ViewSelect';
-import styled from 'styled-components';
-import { BOX_SHADOW } from '../constants';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 const PRE_NAV_BAR_REDESIGN_SEARCHBAR_BACKGROUND = '#343444';
 

@@ -1,9 +1,10 @@
+import { useEffect, useMemo, useState } from 'react';
+
 import useSearchResultsOptions from '@app/searchV2/searchBarV2/hooks/useAutocompleteSuggestionsOptions';
 import useRecentlySearchedQueriesOptions from '@app/searchV2/searchBarV2/hooks/useRecentlySearchedQueriesOptions';
 import useRecentlyViewedEntitiesOptions from '@app/searchV2/searchBarV2/hooks/useRecentlyViewedEntitiesOptions';
 import useViewAllResultsOptions from '@app/searchV2/searchBarV2/hooks/useViewAllResultsOptions';
 import { Entity } from '@src/types.generated';
-import { useEffect, useMemo, useState } from 'react';
 
 export default function useOptions(
     searchQuery: string,
