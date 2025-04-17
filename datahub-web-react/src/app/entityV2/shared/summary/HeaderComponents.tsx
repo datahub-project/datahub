@@ -1,9 +1,10 @@
+import { BookOpen } from '@phosphor-icons/react';
 import React from 'react';
 import styled from 'styled-components';
-import { ReadOutlined } from '@ant-design/icons';
-import { REDESIGN_COLORS } from '../constants';
 
-export const SUMMARY_TAB_ICON = ReadOutlined;
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+
+export const SUMMARY_TAB_ICON = BookOpen;
 
 export const SummaryTabWrapper = styled.div`
     display: flex;

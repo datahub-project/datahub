@@ -337,8 +337,16 @@
     {
         "urn": "urn:li:dataPlatform:vertexai",
         "name": "vertexai",
-        "displayName": "VertexAI",
+        "displayName": "Vertex AI",
+        "description": "Import ML Models and lineage from Google Vertex AI.",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/vertexai/",
         "recipe": "source:\n  type: vertexai\n  config:\n    project_id: # you GCP project ID \n     region: # region where your GCP project resides  \n   # Credentials\n        # Add GCP credentials"
+    },
+    {
+        "urn": "urn:li:dataPlatform:hex",
+        "name": "hex",
+        "displayName": "Hex",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/hex/",
+        "recipe": "source:\n  type: hex\n  config:\n    workspace_name: # Your Hex Workspace name\n     token: # Your PAT or Workspace token"
     }
 ]

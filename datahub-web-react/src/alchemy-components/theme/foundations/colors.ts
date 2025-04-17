@@ -2,28 +2,31 @@ const colors = {
     transparent: 'transparent',
     current: 'currentColor',
     white: '#FFFFFF',
-    black: '#000000',
+    black: '#000000', // do not use black, use grays 600 for primary text and 1700 for secondary
 
     gray: {
-        100: '#EBECF0',
-        200: '#CFD1DA',
-        300: '#A9ADBD',
-        400: '#81879F',
-        500: '#5B6282', // primary value
-        600: '#374066',
-        700: '#2F3657',
-        800: '#272D48',
-        900: '#231A58',
-        1000: '#F1F3FD', // grays 1000-1300 aren't actually gray, should not be used
-        1100: '#F1FBFE',
-        1200: '#FBF3EF',
-        1300: '#F7FBF4',
-        1400: '#E9EAEE',
-        1500: '#F9FAFC',
-        1600: '#F5F6FA',
-        1700: '#5F6685',
-        1800: '#8088A3',
+        0: '#FFFFFF', // white
+        100: '#EBECF0', // border
+        200: '#CFD1DA', // should be deprecated
+        300: '#A9ADBD', // should be deprecated
+        400: '#81879F', // should be deprecated
+        500: '#5B6282', // should be deprecated
+        600: '#374066', // primary text
+        700: '#2F3657', // should be deprecated
+        800: '#272D48', // should be deprecated
+        900: '#231A58', // should be deprecated
+        1000: '#F1F3FD', // grays violet 0
+        1100: '#F1FBFE', // blue 0
+        1200: '#FBF3EF', // red 0
+        1300: '#F7FBF4', // green 0
+        1400: '#E9EAEE', // border
+        1500: '#F9FAFC', // bg surface
+        1600: '#F5F6FA', // bg of new nav
+        1700: '#5F6685', // secondary text
+        1800: '#8088A3', // tertiary text, disabled text, placeholder text, icon
         1900: '#A3A7B9',
+        2000: '#1E2338', // dark bg-suface
+        2100: '#171B2B', // dark bg
     },
 
     violet: {
@@ -32,8 +35,8 @@ const colors = {
         200: '#B0A7EA',
         300: '#8C7EE0',
         400: '#7565DA',
-        500: '#533FD1', // primary value
-        600: '#4C39BE',
+        500: '#533FD1',
+        600: '#4C39BE', // primary value
         700: '#3B2D94',
         800: '#2E2373',
         900: '#231A58',

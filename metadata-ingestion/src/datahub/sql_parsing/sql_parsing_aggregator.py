@@ -30,6 +30,7 @@ from datahub.metadata.urns import (
     DatasetUrn,
     QueryUrn,
     SchemaFieldUrn,
+    Urn,
 )
 from datahub.sql_parsing.fingerprint_utils import generate_hash
 from datahub.sql_parsing.schema_resolver import (
@@ -138,6 +139,8 @@ class QueryMetadata:
     confidence_score: float
 
     used_temp_tables: bool = True
+
+    origin: Optional[Urn] = None
 
     def make_created_audit_stamp(self) -> models.AuditStampClass:
         return models.AuditStampClass(
@@ -262,6 +265,7 @@ class PreparsedQuery:
     )
     # Use this to store addtitional key-value information about query for debugging
     extra_info: Optional[dict] = None
+    origin: Optional[Urn] = None
 
 
 @dataclasses.dataclass
@@ -944,6 +948,7 @@ class SqlParsingAggregator(Closeable):
                 column_usage=parsed.column_usage or {},
                 confidence_score=parsed.confidence_score,
                 used_temp_tables=session_has_temp_tables,
+                origin=parsed.origin,
             )
         )
 

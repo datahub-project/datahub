@@ -170,7 +170,7 @@ public class EntityUtils {
       @Nullable EntityAspect entityAspect,
       boolean forUpdate) {
     return Optional.ofNullable(entityAspect)
-        .map(aspect -> toSystemAspects(retrieverContext, List.of(aspect), forUpdate))
+        .map(aspect -> toSystemAspects(retrieverContext, List.of(aspect)))
         .filter(systemAspects -> !systemAspects.isEmpty())
         .map(systemAspects -> systemAspects.get(0));
   }
@@ -186,15 +186,13 @@ public class EntityUtils {
   @Nonnull
   public static Map<String, Map<String, SystemAspect>> toSystemAspects(
       @Nonnull RetrieverContext retrieverContext,
-      @Nonnull Map<String, Map<String, EntityAspect>> rawAspects,
-      boolean forUpdate) {
+      @Nonnull Map<String, Map<String, EntityAspect>> rawAspects) {
     List<SystemAspect> systemAspects =
         toSystemAspects(
             retrieverContext,
             rawAspects.values().stream()
                 .flatMap(m -> m.values().stream())
-                .collect(Collectors.toList()),
-            forUpdate);
+                .collect(Collectors.toList()));
 
     // map the list into the desired shape
     return systemAspects.stream()
@@ -217,13 +215,10 @@ public class EntityUtils {
 
   @Nonnull
   public static List<SystemAspect> toSystemAspectFromEbeanAspects(
-      @Nonnull RetrieverContext retrieverContext,
-      @Nonnull Collection<EbeanAspectV2> rawAspects,
-      boolean forUpdate) {
+      @Nonnull RetrieverContext retrieverContext, @Nonnull Collection<EbeanAspectV2> rawAspects) {
     return toSystemAspects(
         retrieverContext,
-        rawAspects.stream().map(EbeanAspectV2::toEntityAspect).collect(Collectors.toList()),
-        forUpdate);
+        rawAspects.stream().map(EbeanAspectV2::toEntityAspect).collect(Collectors.toList()));
   }
 
   /**
@@ -232,14 +227,14 @@ public class EntityUtils {
    * <p>This should be the 1 point that all conversions from database representations to java
    * objects happens since we need to enforce read mutations happen.
    *
+   * @param retrieverContext retriever context to fetch with
    * @param rawAspects raw aspects to convert
    * @return map converted aspects
    */
   @Nonnull
   public static List<SystemAspect> toSystemAspects(
       @Nonnull final RetrieverContext retrieverContext,
-      @Nonnull Collection<EntityAspect> rawAspects,
-      boolean forUpdate) {
+      @Nonnull Collection<EntityAspect> rawAspects) {
     EntityRegistry entityRegistry = retrieverContext.getAspectRetriever().getEntityRegistry();
 
     // Build
@@ -258,11 +253,7 @@ public class EntityUtils {
                       aspectSpec != null,
                       String.format("Aspect %s could not be found", raw.getAspect()));
 
-                  if (forUpdate) {
-                    return EntityAspect.EntitySystemAspect.builder().forUpdate(raw, entityRegistry);
-                  } else {
-                    return EntityAspect.EntitySystemAspect.builder().forInsert(raw, entityRegistry);
-                  }
+                  return EntityAspect.EntitySystemAspect.builder().forUpdate(raw, entityRegistry);
                 })
             .collect(Collectors.toList());
 

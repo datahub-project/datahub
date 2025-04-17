@@ -2,6 +2,7 @@ import json
 from typing import Any
 from unittest.mock import Mock
 
+import pytest
 from requests import Response
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -9,6 +10,7 @@ from datahub.emitter.response_helper import (
     extract_trace_data,
     extract_trace_data_from_mcps,
 )
+from datahub.errors import APITracingWarning
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeProposal
 
 
@@ -41,7 +43,8 @@ def test_invalid_status_code():
 def test_missing_trace_header():
     """Test that missing trace header returns None"""
     response = create_response(status_code=200, headers={}, json_data=[])
-    result = extract_trace_data(response)
+    with pytest.warns(APITracingWarning):
+        result = extract_trace_data(response)
     assert result is None
 
 
@@ -138,22 +141,6 @@ def test_missing_urn():
     assert "test:2" in result.data
 
 
-def test_custom_trace_header():
-    """Test using a custom trace header"""
-    response = create_response(
-        status_code=200,
-        headers={"custom-trace": "test-trace-id"},
-        json_data=[{"urn": "test:1", "status": {"removed": False}}],
-    )
-
-    result = extract_trace_data(response, trace_header="custom-trace")
-
-    assert result is not None
-    assert result.trace_id == "test-trace-id"
-    assert "test:1" in result.data
-    assert len(result.data["test:1"]) == 1
-
-
 def test_mcps_invalid_status_code():
     """Test that non-200 status codes return None for MCPs"""
     response = create_response(
@@ -168,7 +155,8 @@ def test_mcps_missing_trace_header():
     """Test that missing trace header returns None for MCPs"""
     response = create_response(status_code=200, headers={}, json_data=[])
     mcps = [create_mcp("urn:test:1", "testAspect")]
-    result = extract_trace_data_from_mcps(response, mcps)
+    with pytest.warns(APITracingWarning):
+        result = extract_trace_data_from_mcps(response, mcps)
     assert result is None
 
 

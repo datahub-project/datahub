@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from datahub.ingestion.source.sql.mssql.job_models import StoredProcedure
-from datahub.ingestion.source.sql.mssql.stored_procedure_lineage import (
+from datahub.ingestion.source.sql.stored_procedures.base import (
     generate_procedure_lineage,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
@@ -97,9 +97,11 @@ def test_stored_procedure_lineage(procedure_sql_file: str) -> None:
     mcps = list(
         generate_procedure_lineage(
             schema_resolver=schema_resolver,
-            procedure=procedure,
+            procedure=procedure.to_base_procedure(),
             procedure_job_urn=data_job_urn,
             is_temp_table=lambda name: "temp" in name.lower(),
+            default_db=procedure.db,
+            default_schema=procedure.schema,
         )
     )
     mce_helpers.check_goldens_stream(

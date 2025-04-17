@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import time
+import warnings
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -24,9 +25,9 @@ from typing import (
 
 import pydantic
 import requests
-from deprecated import deprecated
 from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import HTTPError, RequestException
+from typing_extensions import deprecated
 
 from datahub._version import nice_version_name
 from datahub.cli import config_utils
@@ -40,7 +41,7 @@ from datahub.configuration.common import (
     TraceTimeoutError,
     TraceValidationError,
 )
-from datahub.emitter.aspect import JSON_CONTENT_TYPE
+from datahub.emitter.aspect import JSON_CONTENT_TYPE, JSON_PATCH_CONTENT_TYPE
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.request_helper import make_curl_command
@@ -50,6 +51,7 @@ from datahub.emitter.response_helper import (
     extract_trace_data_from_mcps,
 )
 from datahub.emitter.serialization_helper import pre_json_transform
+from datahub.errors import APITracingWarning
 from datahub.ingestion.api.closeable import Closeable
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
@@ -107,9 +109,9 @@ class RestSinkEndpoint(ConfigEnum):
     OPENAPI = auto()
 
 
-DEFAULT_REST_SINK_ENDPOINT = pydantic.parse_obj_as(
+DEFAULT_REST_EMITTER_ENDPOINT = pydantic.parse_obj_as(
     RestSinkEndpoint,
-    os.getenv("DATAHUB_REST_SINK_DEFAULT_ENDPOINT", RestSinkEndpoint.RESTLI),
+    os.getenv("DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT", RestSinkEndpoint.RESTLI),
 )
 
 
@@ -227,7 +229,9 @@ class DataHubRestEmitter(Closeable, Emitter):
         ca_certificate_path: Optional[str] = None,
         client_certificate_path: Optional[str] = None,
         disable_ssl_verification: bool = False,
-        openapi_ingestion: bool = False,
+        openapi_ingestion: bool = (
+            DEFAULT_REST_EMITTER_ENDPOINT == RestSinkEndpoint.OPENAPI
+        ),
         default_trace_mode: bool = False,
     ):
         if not gms_server:
@@ -357,8 +361,14 @@ class DataHubRestEmitter(Closeable, Emitter):
                 )["aspect"]["json"]
             else:
                 obj = mcp.aspect.to_obj()
-                if obj.get("value") and obj.get("contentType") == JSON_CONTENT_TYPE:
+                content_type = obj.get("contentType")
+                if obj.get("value") and content_type == JSON_CONTENT_TYPE:
+                    # Undo double serialization.
                     obj = json.loads(obj["value"])
+                elif content_type == JSON_PATCH_CONTENT_TYPE:
+                    raise NotImplementedError(
+                        "Patches are not supported for OpenAPI ingestion. Set the endpoint to RESTLI."
+                    )
                 aspect_value = pre_json_transform(obj)
             return (
                 url,
@@ -597,7 +607,7 @@ class DataHubRestEmitter(Closeable, Emitter):
 
         return len(mcp_obj_chunks)
 
-    @deprecated
+    @deprecated("Use emit with a datasetUsageStatistics aspect instead")
     def emit_usage(self, usageStats: UsageAggregation) -> None:
         url = f"{self._gms_server}/usageStats?action=batchIngest"
 
@@ -749,6 +759,12 @@ class DataHubRestEmitter(Closeable, Emitter):
             trace_flag if trace_flag is not None else self._default_trace_mode
         )
         resolved_async_flag = async_flag if async_flag is not None else async_default
+        if resolved_trace_flag and not resolved_async_flag:
+            warnings.warn(
+                "API tracing is only available with async ingestion. For sync mode, API errors will be surfaced as exceptions.",
+                APITracingWarning,
+                stacklevel=3,
+            )
         return resolved_trace_flag and resolved_async_flag
 
     def __repr__(self) -> str:

@@ -1,11 +1,13 @@
 import React from 'react';
 import styled from 'styled-components';
-import { useBaseEntity } from '../../../../../../entity/shared/EntityContext';
-import { QueryEntity } from '../../../../../../../types.generated';
-import { SidebarSection } from '../SidebarSection';
-import PlatformIcon from '../../../../../../sharedV2/icons/PlatformIcon';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { REDESIGN_COLORS } from '../../../../constants';
+
+import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { QueryEntity } from '@types';
 
 const DefinitionLink = styled.a`
     align-items: center;

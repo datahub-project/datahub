@@ -1,17 +1,21 @@
-import React, { useEffect, useState } from 'react';
 import { LoadingOutlined } from '@ant-design/icons';
-import { Button, Pill } from '@src/alchemy-components';
 import { Plus } from 'phosphor-react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
+
+import { SearchSelectModal } from '@app/entityV2/shared/components/styled/search/SearchSelectModal';
+import {
+    AssetWrapper,
+    LinkedAssets,
+    LoadingWrapper,
+} from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
+import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
+import { LinkedAssetsContainer } from '@app/entityV2/shared/tabs/Incident/styledComponents';
+import { IncidentLinkedAssetsListProps } from '@app/entityV2/shared/tabs/Incident/types';
+import { Button, Pill } from '@src/alchemy-components';
 import { EntityCapabilityType } from '@src/app/entityV2/Entity';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import { IncidentLinkedAssetsListProps } from '../types';
-import { AssetWrapper, LinkedAssets, LoadingWrapper } from './styledComponents';
-import { LinkedAssetsContainer } from '../styledComponents';
-import { SearchSelectModal } from '../../../components/styled/search/SearchSelectModal';
-import { IncidentAction } from '../constant';
+import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
 
 const RESOURCE_URN_FIELD_NAME = 'resourceUrns';
 
@@ -26,8 +30,8 @@ export const IncidentLinkedAssetsList = ({
     mode,
     setCachedLinkedAssets,
     setIsLinkedAssetsLoading,
+    urn,
 }: IncidentLinkedAssetsListProps) => {
-    const { urn } = useEntityData();
     const [getEntities, { data: resolvedLinkedAssets, loading: entitiesLoading }] = useGetEntitiesLazyQuery();
     const entityRegistry = useEntityRegistryV2();
 
@@ -47,35 +51,37 @@ export const IncidentLinkedAssetsList = ({
     }, [linkedAssets]);
 
     const removeLinkedAsset = (asset) => {
-        console.log('Removing linked asset ');
         const selectedAssets = linkedAssets?.filter((existingAsset: any) => existingAsset.urn !== asset.urn);
         setLinkedAssets(selectedAssets as any);
     };
 
     const batchAddAssets = (entityUrns: Array<string>) => {
-        const updatedUrns = [...form.getFieldValue(RESOURCE_URN_FIELD_NAME), ...entityUrns];
+        const existingUrns = form.getFieldValue(RESOURCE_URN_FIELD_NAME) || [];
+        const updatedUrns = [...existingUrns, ...entityUrns];
         const uniqueUrns = [...new Set(updatedUrns)];
         form.setFieldValue(RESOURCE_URN_FIELD_NAME, uniqueUrns);
-        setIsBatchAddAssetListModalVisible(false);
         getEntities({
             variables: { urns: form.getFieldValue(RESOURCE_URN_FIELD_NAME) },
         });
+        setIsBatchAddAssetListModalVisible(false);
     };
 
     useEffect(() => {
-        if (mode === IncidentAction.ADD) {
-            getEntities({
-                variables: {
-                    urns: [urn],
-                },
-            });
+        if (mode === IncidentAction.CREATE) {
+            if (urn) {
+                getEntities({
+                    variables: {
+                        urns: [urn],
+                    },
+                });
+            }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
         setLinkedAssets(resolvedLinkedAssets?.entities as any);
-        if (mode === IncidentAction.ADD) {
+        if (mode === IncidentAction.CREATE) {
             form.setFieldValue(RESOURCE_URN_FIELD_NAME, [urn]);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -117,12 +123,11 @@ export const IncidentLinkedAssetsList = ({
                                     return (
                                         <Pill
                                             key={asset.urn}
-                                            label={asset?.properties?.name}
+                                            label={entityRegistry.getDisplayName(asset.type, asset)}
                                             rightIcon="Close"
                                             color="violet"
                                             variant="outline"
                                             onClickRightIcon={() => {
-                                                console.log('Clicked to remove');
                                                 removeLinkedAsset(asset);
                                             }}
                                             clickable

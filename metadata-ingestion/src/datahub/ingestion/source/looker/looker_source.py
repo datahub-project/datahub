@@ -363,7 +363,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         filters: MutableMapping[str, Any] = (
             query.filters if query.filters is not None else {}
         )
-        for field in filters.keys():
+        for field in filters:
             if field is None:
                 continue
 
@@ -877,8 +877,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             # fine to set them to None.
             # TODO: Track project names for each explore.
             explores_to_fetch = [
-                (None, model, explore)
-                for (model, explore) in self.reachable_explores.keys()
+                (None, model, explore) for (model, explore) in self.reachable_explores
             ]
         explores_to_fetch.sort()
 

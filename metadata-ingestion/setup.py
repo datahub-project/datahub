@@ -15,7 +15,7 @@ _self_pin = (
 
 base_requirements = {
     # Our min version of typing_extensions is somewhat constrained by Airflow.
-    "typing_extensions>=4.2.0",
+    "typing_extensions>=4.5.0",
     # Actual dependencies.
     "typing-inspect",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
@@ -317,7 +317,7 @@ delta_lake = {
     *s3_base,
     *abs_base,
     # Version 0.18.0 broken on ARM Macs: https://github.com/delta-io/delta-rs/issues/2577
-    "deltalake>=0.6.3, != 0.6.4, < 0.18.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
+    "deltalake>=0.6.3, != 0.6.4, != 0.18.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
     "deltalake>=0.6.3, != 0.6.4; platform_system != 'Darwin' or platform_machine != 'arm64'",
 }
 
@@ -465,7 +465,11 @@ plugins: Dict[str, Set[str]] = {
     "lookml": looker_common,
     "metabase": {"requests"} | sqlglot_lib,
     "mlflow": {
-        "mlflow-skinny>=2.3.0",
+        "mlflow-skinny>=2.3.0,<2.21.0",
+        # Pinned to avoid the breaking change introduced in MLflow 2.21.0 where search_registered_models injects an implicit filter
+        # https://github.com/mlflow/mlflow/pull/14795
+        # Upper bound can be removed once the upstream issue is resolved,
+        # or we have a reliable and backward-compatible way to handle prompt filtering.
         # It's technically wrong for packages to depend on setuptools. However, it seems mlflow does it anyways.
         "setuptools",
     },
@@ -593,6 +597,7 @@ test_api_requirements = {
     "pytest-timeout",
     # Missing numpy requirement in 8.0.0
     "deepdiff!=8.0.0",
+    "orderly-set!=5.4.0",  # 5.4.0 uses invalid types on Python 3.8
     "PyYAML",
     "pytest-docker>=1.1.0",
 }
@@ -604,7 +609,7 @@ debug_requirements = {
 lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
-    "ruff==0.9.7",
+    "ruff==0.11.4",
     "mypy==1.10.1",
 }
 
@@ -804,7 +809,8 @@ entry_points = {
         "sac = datahub.ingestion.source.sac.sac:SACSource",
         "cassandra = datahub.ingestion.source.cassandra.cassandra:CassandraSource",
         "neo4j = datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource",
-        "vertexai = datahub.ingestion.source.vertexai:VertexAISource",
+        "vertexai = datahub.ingestion.source.vertexai.vertexai:VertexAISource",
+        "hex = datahub.ingestion.source.hex.hex:HexSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "pattern_cleanup_ownership = datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership",

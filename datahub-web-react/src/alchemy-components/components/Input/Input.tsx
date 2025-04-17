@@ -2,12 +2,18 @@ import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { InputProps } from './types';
-
-import { ErrorMessage, InputContainer, InputField, InputWrapper, Label, Required, WarningMessage } from './components';
-
-import { Icon } from '../Icon';
-import { getInputType } from './utils';
+import { Icon } from '@components/components/Icon';
+import {
+    ErrorMessage,
+    InputContainer,
+    InputField,
+    InputWrapper,
+    Label,
+    Required,
+    WarningMessage,
+} from '@components/components/Input/components';
+import { InputProps } from '@components/components/Input/types';
+import { getInputType } from '@components/components/Input/utils';
 
 export const inputDefaults: InputProps = {
     value: '',
@@ -47,7 +53,6 @@ export const Input = ({
     errorOnHover = inputDefaults.errorOnHover,
     type = inputDefaults.type,
     id,
-    styles,
     inputStyles,
     inputTestId,
     ...props
@@ -72,14 +77,14 @@ export const Input = ({
     };
 
     return (
-        <InputWrapper {...props} style={styles}>
+        <InputWrapper {...props}>
             {label && (
                 <Label aria-label={label}>
                     {label} {isRequired && <Required>*</Required>}
                 </Label>
             )}
             <InputContainer {...inputBaseProps}>
-                {icon && <SearchIcon icon={icon.name} source={icon.source} variant={icon.variant} size="xl" />}
+                {icon && <SearchIcon size="xl" {...icon} />}
                 <InputField
                     value={value}
                     onChange={(e) => setValue?.(e.target.value)}

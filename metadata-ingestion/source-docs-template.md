@@ -1,6 +1,7 @@
-# Source Name 
+# Source Name
 
 <!-- Set Support Status -->
+
 ![Certified](https://img.shields.io/badge/support%20status-certified-brightgreen)
 ![Incubating](https://img.shields.io/badge/support%20status-incubating-blue)
 ![Testing](https://img.shields.io/badge/support%20status-testing-lightgrey)
@@ -19,54 +20,54 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 
 <!-- Remove all unnecessary/irrevant DataHub Concepts -->
 
-| Source Concept | DataHub Concept | Notes |
-| -- | -- | -- |
-| | [Data Platform](docs/generated/metamodel/entities/dataPlatform.md) | |
-| | [Dataset](docs/generated/metamodel/entities/dataset.md) | |
-| | [Data Job](docs/generated/metamodel/entities/dataJob.md) | |
-| | [Data Flow](docs/generated/metamodel/entities/dataFlow.md) | |
-| | [Chart](docs/generated/metamodel/entities/chart.md) | |
-| | [Dashboard](docs/generated/metamodel/entities/dashboard.md) | |
-| | [User (a.k.a CorpUser)](docs/generated/metamodel/entities/corpuser.md) | |
-| | CorpGroup | |
-| | Domain | |
-| | Container | | 
-| | Tag | | 
-| | GlossaryTerm | | 
-| | GlossaryNode | | 
-| | Assertion | | 
-| | DataProcess | | 
-| | MlFeature | | 
-| | MlFeatureTable | | 
-| | MlModel | | 
-| | MlModelDeployment | | 
-| | MlPrimaryKey | | 
-| | SchemaField | | 
-| | DataHubPolicy | | 
-| | DataHubIngestionSource | | 
-| | DataHubSecret | | 
-| | DataHubExecutionRequest | | 
-| | DataHubREtention | | 
+| Source Concept | DataHub Concept                                                        | Notes |
+| -------------- | ---------------------------------------------------------------------- | ----- |
+|                | [Data Platform](docs/generated/metamodel/entities/dataPlatform.md)     |       |
+|                | [Dataset](docs/generated/metamodel/entities/dataset.md)                |       |
+|                | [Data Job](docs/generated/metamodel/entities/dataJob.md)               |       |
+|                | [Data Flow](docs/generated/metamodel/entities/dataFlow.md)             |       |
+|                | [Chart](docs/generated/metamodel/entities/chart.md)                    |       |
+|                | [Dashboard](docs/generated/metamodel/entities/dashboard.md)            |       |
+|                | [User (a.k.a CorpUser)](docs/generated/metamodel/entities/corpuser.md) |       |
+|                | CorpGroup                                                              |       |
+|                | Domain                                                                 |       |
+|                | Container                                                              |       |
+|                | Tag                                                                    |       |
+|                | GlossaryTerm                                                           |       |
+|                | GlossaryNode                                                           |       |
+|                | Assertion                                                              |       |
+|                | DataProcess                                                            |       |
+|                | MlFeature                                                              |       |
+|                | MlFeatureTable                                                         |       |
+|                | MlModel                                                                |       |
+|                | MlModelDeployment                                                      |       |
+|                | MlPrimaryKey                                                           |       |
+|                | SchemaField                                                            |       |
+|                | DataHubPolicy                                                          |       |
+|                | DataHubIngestionSource                                                 |       |
+|                | DataHubSecret                                                          |       |
+|                | DataHubExecutionRequest                                                |       |
+|                | DataHubREtention                                                       |       |
 
 ### Supported Capabilities
 
 <!-- This should be an auto-generated table of supported DataHub features/functionality -->
 <!-- Each capability should link out to a feature guide -->
 
-| Capability | Status | Notes |
-| --- | :-: | --- |
-| Data Container | ✅ | Enabled by default |
-| Detect Deleted Entities | ✅ | Requires recipe configuration |
-| Data Domain | ❌ | Requires transformer |
-| Dataset Profiling | ✅ | Requires `acryl-datahub[source-usage-name]` |
-| Dataset Usage | ✅ | Requires `acryl-datahub[source-usage-name]` |
-| Extract Descriptions | ✅ | Enabled by default |
-| Extract Lineage | ✅ | Enabled by default |
-| Extract Ownership | ✅ | Enabled by default |
-| Extract Tags | ❌ | Requires transformer |
-| Partition Support | ❌ | Not applicable to source |
-| Platform Instance | ❌ | Not applicable to source |
-| ... | |
+| Capability              | Status | Notes                                       |
+| ----------------------- | :----: | ------------------------------------------- |
+| Data Container          |   ✅   | Enabled by default                          |
+| Detect Deleted Entities |   ✅   | Requires recipe configuration               |
+| Data Domain             |   ❌   | Requires transformer                        |
+| Dataset Profiling       |   ✅   | Requires `acryl-datahub[source-usage-name]` |
+| Dataset Usage           |   ✅   | Requires `acryl-datahub[source-usage-name]` |
+| Extract Descriptions    |   ✅   | Enabled by default                          |
+| Extract Lineage         |   ✅   | Enabled by default                          |
+| Extract Ownership       |   ✅   | Enabled by default                          |
+| Extract Tags            |   ❌   | Requires transformer                        |
+| Partition Support       |   ❌   | Not applicable to source                    |
+| Platform Instance       |   ❌   | Not applicable to source                    |
+| ...                     |        |
 
 ## Metadata Ingestion Quickstart
 
@@ -74,9 +75,9 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 
 In order to ingest metadata from [Source Name], you will need:
 
-* eg. Python version, source version, source access requirements
-* eg. Steps to configure source access
-* ...
+- eg. Python version, source version, source access requirements
+- eg. Steps to configure source access
+- ...
 
 ### Install the Plugin(s)
 
@@ -88,7 +89,7 @@ Run the following commands to install the relevant plugin(s):
 
 ### Configure the Ingestion Recipe(s)
 
-Use the following recipe(s) to get started with ingestion. 
+Use the following recipe(s) to get started with ingestion.
 
 _For general pointers on writing and running a recipe, see our [main recipe guide](../README.md#recipes)._
 

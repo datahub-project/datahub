@@ -757,4 +757,13 @@
     displayName: vertexai
     type: OTHERS
     logoUrl: "/assets/platforms/vertexai.png"
-
+- entityUrn: urn:li:dataPlatform:hex
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: hex
+    displayName: Hex
+    type: OTHERS
+    logoUrl: "/assets/platforms/hex.png"

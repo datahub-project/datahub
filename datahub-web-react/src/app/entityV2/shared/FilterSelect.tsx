@@ -1,7 +1,8 @@
-import React, { useMemo, useCallback } from 'react';
-import { NestedSelect } from '@src/alchemy-components/components/Select/Nested/NestedSelect';
-import { SelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import capitalize from 'lodash/capitalize';
+import React, { useCallback, useMemo } from 'react';
+
+import { NestedSelect } from '@src/alchemy-components/components/Select/Nested/NestedSelect';
+import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 
 interface FilterOption {
     name: string;
@@ -18,7 +19,7 @@ interface FilterSelectProps {
     filterOptions: FilterGroupOptions;
     onFilterChange: (selectedFilters: FilterOption[]) => void;
     excludedCategories?: string[];
-    initialSelectedOptions?: SelectOption[];
+    initialSelectedOptions?: NestedSelectOption[];
 }
 
 export const FilterSelect = ({
@@ -28,8 +29,8 @@ export const FilterSelect = ({
     initialSelectedOptions,
 }: FilterSelectProps) => {
     const handleFilterChange = useCallback(
-        (selectedValues: SelectOption[]) => {
-            const updatedFilters = selectedValues.map((option: SelectOption) => {
+        (selectedValues: NestedSelectOption[]) => {
+            const updatedFilters = selectedValues.map((option: NestedSelectOption) => {
                 return filterOptions[option.parentValue!].find((filter) => filter.name === option.value)!;
             });
 
@@ -38,15 +39,15 @@ export const FilterSelect = ({
         [filterOptions, onFilterChange],
     );
 
-    const options = useMemo((): SelectOption[] => {
-        const createOptions = (category: string, filters: any[]): SelectOption[] => {
-            const parentOption: SelectOption = {
+    const options = useMemo((): NestedSelectOption[] => {
+        const createOptions = (category: string, filters: any[]): NestedSelectOption[] => {
+            const parentOption: NestedSelectOption = {
                 value: category,
                 label: capitalize(category),
                 isParent: true,
             };
 
-            const childOptions: SelectOption[] = filters.map((filter) => ({
+            const childOptions: NestedSelectOption[] = filters.map((filter) => ({
                 value: filter.name,
                 label: filter.displayName,
                 parentValue: category,
@@ -56,7 +57,7 @@ export const FilterSelect = ({
             return [parentOption, ...childOptions];
         };
 
-        return Object.entries(filterOptions).reduce<SelectOption[]>((opts, [category, filters]) => {
+        return Object.entries(filterOptions).reduce<NestedSelectOption[]>((opts, [category, filters]) => {
             if (!excludedCategories?.includes(category)) {
                 opts.push(...createOptions(category, filters));
             }
@@ -67,7 +68,6 @@ export const FilterSelect = ({
 
     return (
         <NestedSelect
-            label=""
             placeholder="Filter"
             options={options}
             initialValues={initialSelectedOptions}
@@ -75,7 +75,7 @@ export const FilterSelect = ({
             isMultiSelect
             areParentsSelectable={false}
             width={100}
-            showCount
+            selectLabelProps={{ variant: 'labeled', label: 'Filter' }}
             shouldAlwaysSyncParentValues
             hideParentCheckbox
         />

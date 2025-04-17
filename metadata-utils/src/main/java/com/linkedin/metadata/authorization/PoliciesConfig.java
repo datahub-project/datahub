@@ -121,6 +121,9 @@ public class PoliciesConfig {
   public static final Privilege MANAGE_TAGS_PRIVILEGE =
       Privilege.of("MANAGE_TAGS", "Manage Tags", "Create and remove Tags.");
 
+  public static final Privilege VIEW_MANAGE_TAGS_PRIVILEGE =
+      Privilege.of("VIEW_MANAGE_TAGS", "View Manage Tags", "View the 'Manage Tags' page.");
+
   public static final Privilege CREATE_TAGS_PRIVILEGE =
       Privilege.of("CREATE_TAGS", "Create Tags", "Create new Tags.");
 
@@ -191,6 +194,12 @@ public class PoliciesConfig {
           "Manage System Operations",
           "Allow access to all system operations/management APIs and controls.");
 
+  public static final Privilege GET_PLATFORM_EVENTS_PRIVILEGE =
+      Privilege.of(
+          "GET_PLATFORM_EVENTS",
+          "Get Platform Events",
+          "The ability to use the Events API to read Platform Events - Entity Change Events and Notification Request Events.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES =
       ImmutableList.of(
           MANAGE_POLICIES_PRIVILEGE,
@@ -210,6 +219,7 @@ public class PoliciesConfig {
           MANAGE_GLOSSARIES_PRIVILEGE,
           MANAGE_USER_CREDENTIALS_PRIVILEGE,
           MANAGE_TAGS_PRIVILEGE,
+          VIEW_MANAGE_TAGS_PRIVILEGE,
           CREATE_TAGS_PRIVILEGE,
           CREATE_DOMAINS_PRIVILEGE,
           CREATE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE,
@@ -222,7 +232,8 @@ public class PoliciesConfig {
           VIEW_STRUCTURED_PROPERTIES_PAGE_PRIVILEGE,
           MANAGE_DOCUMENTATION_FORMS_PRIVILEGE,
           MANAGE_FEATURES_PRIVILEGE,
-          MANAGE_SYSTEM_OPERATIONS_PRIVILEGE);
+          MANAGE_SYSTEM_OPERATIONS_PRIVILEGE,
+          GET_PLATFORM_EVENTS_PRIVILEGE);
 
   // Resource Privileges //
 

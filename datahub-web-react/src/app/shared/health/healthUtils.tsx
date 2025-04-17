@@ -9,8 +9,11 @@ import {
 } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
-import { HealthStatus, HealthStatusType, Health } from '../../../types.generated';
-import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '../../entity/shared/tabs/Incident/incidentUtils';
+
+import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@app/entity/shared/tabs/Incident/incidentUtils';
+import { GenericEntityProperties } from '@src/app/entity/shared/types';
+
+import { Health, HealthStatus, HealthStatusType } from '@types';
 
 const HEALTH_INDICATOR_COLOR = '#d48806';
 
@@ -38,6 +41,10 @@ export const isUnhealthy = (healths: Health[]) => {
     const incidentHealth = healths.find((health) => health.type === HealthStatusType.Incidents);
     const hasActiveIncidents = incidentHealth?.status === HealthStatus.Fail;
     return isFailingAssertions || hasActiveIncidents;
+};
+
+export const isDeprecated = (entity: GenericEntityProperties) => {
+    return entity.deprecation?.deprecated;
 };
 
 export const isHealthy = (healths: Health[]) => {
