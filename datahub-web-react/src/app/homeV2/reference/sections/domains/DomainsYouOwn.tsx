@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { useUserContext } from '../../../../context/useUserContext';
-import { EntityLinkList } from '../EntityLinkList';
-import { EmbeddedListSearchModal } from '../../../../entityV2/shared/components/styled/search/EmbeddedListSearchModal';
-import { ENTITY_FILTER_NAME, OWNERS_FILTER_NAME, UnionType } from '../../../../searchV2/utils/constants';
-import { Domain, EntityType } from '../../../../../types.generated';
-import { EmptyDomainsYouOwn } from './EmptyDomainsYouOwn';
-import { useGetDomainsYouOwn } from './useGetDomainsYouOwn';
-import { ReferenceSectionProps } from '../../types';
-import { ReferenceSection } from '../../../layout/shared/styledComponents';
-import { DomainMiniPreview } from '../../../../entityV2/shared/links/DomainMiniPreview';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { EmbeddedListSearchModal } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchModal';
+import { DomainMiniPreview } from '@app/entityV2/shared/links/DomainMiniPreview';
+import { ReferenceSection } from '@app/homeV2/layout/shared/styledComponents';
+import { EntityLinkList } from '@app/homeV2/reference/sections/EntityLinkList';
+import { EmptyDomainsYouOwn } from '@app/homeV2/reference/sections/domains/EmptyDomainsYouOwn';
+import { useGetDomainsYouOwn } from '@app/homeV2/reference/sections/domains/useGetDomainsYouOwn';
+import { ReferenceSectionProps } from '@app/homeV2/reference/types';
+import { ENTITY_FILTER_NAME, OWNERS_FILTER_NAME, UnionType } from '@app/searchV2/utils/constants';
+
+import { Domain, EntityType } from '@types';
 
 const DEFAULT_MAX_ENTITIES_TO_SHOW = 5;
 

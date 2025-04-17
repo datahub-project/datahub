@@ -1,10 +1,12 @@
+import CloseIcon from '@mui/icons-material/Close';
 import React from 'react';
 import styled from 'styled-components';
-import CloseIcon from '@mui/icons-material/Close';
+
+import { ANTD_GRAY, REDESIGN_COLORS, SEARCH_COLORS } from '@app/entityV2/shared/constants';
+import { ViewOptionName } from '@app/entityV2/view/select/ViewOptionName';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { DataHubView } from '../../../../types.generated';
-import { ViewOptionName } from './ViewOptionName';
-import { ANTD_GRAY, REDESIGN_COLORS, SEARCH_COLORS } from '../../shared/constants';
+
+import { DataHubView } from '@types';
 
 const Container = styled.div`
     display: flex;

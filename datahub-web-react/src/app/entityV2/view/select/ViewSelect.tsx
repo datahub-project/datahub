@@ -1,24 +1,26 @@
+import { Popover, colors } from '@components';
+import { debounce } from 'lodash';
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useHistory } from 'react-router';
-import { colors, Popover } from '@components';
 import styled from 'styled-components';
-import { debounce } from 'lodash';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { HALF_SECOND_IN_MS, MAX_ROWS_BEFORE_DEBOUNCE } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/constants';
+import { ViewBuilder } from '@app/entityV2/view/builder/ViewBuilder';
+import { ViewBuilderMode } from '@app/entityV2/view/builder/types';
+import { ViewSelectPopoverContent } from '@app/entityV2/view/select/ViewSelectPopoverContent';
+import { renderSelectedView } from '@app/entityV2/view/select/renderSelectedView';
+import { renderViewOptionGroup } from '@app/entityV2/view/select/renderViewOptionGroup';
+import '@app/entityV2/view/select/style.css';
+import { filterViews } from '@app/entityV2/view/select/utils';
+import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '@app/entityV2/view/utils';
+import { PageRoutes } from '@conf/Global';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { useListMyViewsQuery, useListGlobalViewsQuery } from '../../../../graphql/view.generated';
-import { useUserContext } from '../../../context/useUserContext';
-import { DataHubView, DataHubViewType } from '../../../../types.generated';
-import { ViewBuilder } from '../builder/ViewBuilder';
-import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '../utils';
-import { PageRoutes } from '../../../../conf/Global';
-import { ViewBuilderMode } from '../builder/types';
-import { renderViewOptionGroup } from './renderViewOptionGroup';
-import { renderSelectedView } from './renderSelectedView';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../shared/constants';
-import { HALF_SECOND_IN_MS, MAX_ROWS_BEFORE_DEBOUNCE } from '../../shared/tabs/Dataset/Queries/utils/constants';
-import { filterViews } from './utils';
-import { ViewSelectPopoverContent } from './ViewSelectPopoverContent';
-import './style.css';
+
+import { useListGlobalViewsQuery, useListMyViewsQuery } from '@graphql/view.generated';
+import { DataHubView, DataHubViewType } from '@types';
 
 type ViewBuilderDisplayState = {
     mode: ViewBuilderMode;

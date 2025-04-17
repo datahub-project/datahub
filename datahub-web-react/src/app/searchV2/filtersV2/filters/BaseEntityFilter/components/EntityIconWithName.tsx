@@ -1,9 +1,10 @@
 import React from 'react';
+import styled from 'styled-components';
+
 import { Text } from '@src/alchemy-components';
 import { SingleEntityIcon } from '@src/app/searchV2/autoCompleteV2/components/icon/SingleEntityIcon';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { Entity } from '@src/types.generated';
-import styled from 'styled-components';
 
 const Container = styled.div`
     display: flex;

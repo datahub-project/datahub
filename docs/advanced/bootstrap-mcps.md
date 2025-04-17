@@ -19,7 +19,7 @@ not split, then all steps are blocking.
 
 1. An initial blocking sequence which is run prior to the new version of GMS and other components
 2. Second sequence of steps where GMS and other components are allowed to run while additional data migration steps are
-continued in the background
+   continued in the background
 
 When applying bootstrap MCPs `system-update` will perform the following steps:
 
@@ -52,16 +52,16 @@ unless `force=true` for each `name`/`version` combination.
 
 See the following table of options for descriptions of each field in the template configuration.
 
-| Field         | Default  | Required  | Description                                                                                                |
-|---------------|----------|-----------|------------------------------------------------------------------------------------------------------------|
-| name          |          | `true`    | The name for the collection of template MCPs.                                                              |
-| version       |          | `true`    | A string version for the collection of template MCPs.                                                      |
-| force         | `false`  | `false`   | Ignores the previous run history, will not skip execution if run previously.                               |
-| blocking      | `false`  | `false`   | Run before GMS and other components during upgrade/install if running in split blocking/non-blocking mode. |
-| async         | `true`   | `false`   | Controls whether the MCPs are executed for sync or async ingestion.                                        |
-| optional      | `false`  | `false`   | Whether to ignore a failure or fail the entire `system-update` job.                                        |
-| mcps_location |          | `true`    | The location of the file which contains the template MCPs                                                  |
-| values_env    |          | `false`   | The environment variable which contains override template values.                                          |
+| Field         | Default | Required | Description                                                                                                |
+| ------------- | ------- | -------- | ---------------------------------------------------------------------------------------------------------- |
+| name          |         | `true`   | The name for the collection of template MCPs.                                                              |
+| version       |         | `true`   | A string version for the collection of template MCPs.                                                      |
+| force         | `false` | `false`  | Ignores the previous run history, will not skip execution if run previously.                               |
+| blocking      | `false` | `false`  | Run before GMS and other components during upgrade/install if running in split blocking/non-blocking mode. |
+| async         | `true`  | `false`  | Controls whether the MCPs are executed for sync or async ingestion.                                        |
+| optional      | `false` | `false`  | Whether to ignore a failure or fail the entire `system-update` job.                                        |
+| mcps_location |         | `true`   | The location of the file which contains the template MCPs                                                  |
+| values_env    |         | `false`  | The environment variable which contains override template values.                                          |
 
 ## Template MCPs
 
@@ -70,7 +70,6 @@ variable. Defaults can be provided inline making override only necessary when pr
 
 In general the file contains a list of MCPs which follow the schema definition for MCPs exactly. Any valid field for an MCP
 is accepted, including optional fields such as `headers`.
-
 
 ### Example: Native Group
 
@@ -99,16 +98,22 @@ An example template MCP collection, configuration, and values environment variab
 Creating an entry in the `bootstrap_mcps.yaml` to populate the values from the environment variable `DATAHUB_TEST_GROUP_VALUES`
 
 ```yaml
-    - name: test-group
-      version: v1
-      mcps_location: "bootstrap_mcps/test-group.yaml"
-      values_env: "DATAHUB_TEST_GROUP_VALUES"
+- name: test-group
+  version: v1
+  mcps_location: "bootstrap_mcps/test-group.yaml"
+  values_env: "DATAHUB_TEST_GROUP_VALUES"
 ```
 
 An example json values are loaded from environment variable in `DATAHUB_TEST_GROUP_VALUES` might look like the following.
 
 ```json
-{"group":{"id":"mygroup", "displayName":"My Group", "description":"Description of the group"}}
+{
+  "group": {
+    "id": "mygroup",
+    "displayName": "My Group",
+    "description": "Description of the group"
+  }
+}
 ```
 
 Using standard mustache template semantics the values in the environment would be inserted into the yaml structure
@@ -139,12 +144,12 @@ to the required json structure and stored as a string.
   aspectName: dataHubIngestionSourceInfo
   changeType: UPSERT
   aspect:
-    type: 'demo-data'
-    name: 'demo-data'
+    type: "demo-data"
+    name: "demo-data"
     config:
       recipe:
         source:
-          type: 'datahub-gc'
+          type: "datahub-gc"
           config: {}
       executorId: default
 ```
@@ -166,14 +171,13 @@ bootstrap:
 
 In the above example, we've added a `revision_env` which allows overriding the MCP bootstrap definition itself (excluding `revision_env`).
 
-In this example we could configure `REVISION_ENV` to contain a timestamp or hash: `{"version":"2024060600"}` 
+In this example we could configure `REVISION_ENV` to contain a timestamp or hash: `{"version":"2024060600"}`
 This value can be changed/incremented each time the helm supplied template values change. This ensures the MCP is updated
 with the latest values during deployment.
 
-
 ## Known Limitations
 
-* Supported change types: 
-  * UPSERT
-  * CREATE
-  * CREATE_ENTITY
+- Supported change types:
+  - UPSERT
+  - CREATE
+  - CREATE_ENTITY

@@ -1,8 +1,8 @@
 import styled from 'styled-components';
 
-import { typography, colors } from '@components/theme';
+import { HeadingStyleProps } from '@components/components/Heading/types';
+import { colors, typography } from '@components/theme';
 import { getColor, getFontSize } from '@components/theme/utils';
-import { HeadingStyleProps } from './types';
 
 const headingStyles = {
     H1: {

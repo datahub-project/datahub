@@ -1,16 +1,17 @@
+import { PlusOutlined } from '@ant-design/icons';
 import { useApolloClient } from '@apollo/client';
 import { Button } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
-import DomainsTitle from './DomainsTitle';
-import RootDomains from './RootDomains';
-import { DOMAINS_CREATE_DOMAIN_ID, DOMAINS_INTRO_ID } from '../../onboarding/config/DomainsOnboardingConfig';
-import { OnboardingTour } from '../../onboarding/OnboardingTour';
-import { ANTD_GRAY_V2 } from '../../entity/shared/constants';
-import CreateDomainModal from '../CreateDomainModal';
-import { updateListDomainsCache } from '../utils';
-import { useDomainsContext } from '../DomainsContext';
+
+import CreateDomainModal from '@app/domain/CreateDomainModal';
+import { useDomainsContext } from '@app/domain/DomainsContext';
+import DomainsTitle from '@app/domain/nestedDomains/DomainsTitle';
+import RootDomains from '@app/domain/nestedDomains/RootDomains';
+import { updateListDomainsCache } from '@app/domain/utils';
+import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+import { OnboardingTour } from '@app/onboarding/OnboardingTour';
+import { DOMAINS_CREATE_DOMAIN_ID, DOMAINS_INTRO_ID } from '@app/onboarding/config/DomainsOnboardingConfig';
 
 const PageWrapper = styled.div`
     background-color: ${ANTD_GRAY_V2[1]};

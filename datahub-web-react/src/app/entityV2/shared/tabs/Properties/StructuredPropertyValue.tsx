@@ -1,17 +1,19 @@
 import Icon from '@ant-design/icons/lib/components/Icon';
-import { getSchemaFieldParentLink } from '@src/app/entityV2/schemaField/utils';
-import { CompactEntityNameComponent } from '@src/app/recommendations/renderer/component/CompactEntityNameComponent';
-import { Entity, EntityType } from '@src/types.generated';
 import { Typography } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
-import ExternalLink from '../../../../../images/link-out.svg?react';
-import EntityIcon from '../../../../entity/shared/components/styled/EntityIcon';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
-import { ANTD_GRAY } from '../../constants';
-import CompactMarkdownViewer from '../Documentation/components/CompactMarkdownViewer';
-import { ValueColumnData } from './types';
+
+import EntityIcon from '@app/entity/shared/components/styled/EntityIcon';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
+import { ValueColumnData } from '@app/entityV2/shared/tabs/Properties/types';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { getSchemaFieldParentLink } from '@src/app/entityV2/schemaField/utils';
+import { CompactEntityNameComponent } from '@src/app/recommendations/renderer/component/CompactEntityNameComponent';
+import { Entity, EntityType } from '@src/types.generated';
+
+import ExternalLink from '@images/link-out.svg?react';
 
 const ValueText = styled(Typography.Text)<{ size: number }>`
     font-family: 'Manrope';

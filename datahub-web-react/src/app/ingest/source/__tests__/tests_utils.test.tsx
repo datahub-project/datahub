@@ -1,6 +1,8 @@
-import { vi, describe, test, expect, beforeEach, afterAll } from 'vitest';
-import { getEntitiesIngestedByType } from '../utils';
-import { ExecutionRequestResult } from '../../../../types.generated';
+import { afterAll, beforeEach, describe, expect, test, vi } from 'vitest';
+
+import { getEntitiesIngestedByType } from '@app/ingest/source/utils';
+
+import { ExecutionRequestResult } from '@types';
 
 // Mock the structuredReport property of ExecutionRequestResult
 const mockExecutionRequestResult = (structuredReportData: any): Partial<ExecutionRequestResult> => {

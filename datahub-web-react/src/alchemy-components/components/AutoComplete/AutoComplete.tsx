@@ -1,10 +1,15 @@
 import { AutoComplete as AntdAutoComplete } from 'antd';
 import React, { useCallback, useEffect, useState } from 'react';
-import ClickOutside from '../Utils/ClickOutside/ClickOutside';
-import { DropdownWrapper } from './components';
-import { AUTOCOMPLETE_WRAPPER_CLASS_CSS_SELECTOR, AUTOCOMPLETE_WRAPPER_CLASS_NAME, ESCAPE_KEY } from './constants';
-import { AutoCompleteProps, OptionType } from './types';
-import { OverlayClassProvider } from '../Utils';
+
+import { DropdownWrapper } from '@components/components/AutoComplete/components';
+import {
+    AUTOCOMPLETE_WRAPPER_CLASS_CSS_SELECTOR,
+    AUTOCOMPLETE_WRAPPER_CLASS_NAME,
+    ESCAPE_KEY,
+} from '@components/components/AutoComplete/constants';
+import { AutoCompleteProps, OptionType } from '@components/components/AutoComplete/types';
+import { OverlayClassProvider } from '@components/components/Utils';
+import ClickOutside from '@components/components/Utils/ClickOutside/ClickOutside';
 
 export default function AutoComplete({
     children,

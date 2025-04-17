@@ -1,9 +1,10 @@
 import { MockedProvider } from '@apollo/client/testing';
 import { fireEvent, render, waitFor } from '@testing-library/react';
 import React from 'react';
-import { mocks } from '../../../../../Mocks';
-import TestPageContainer from '../../../../../utils/test-utils/TestPageContainer';
-import SchemaDescriptionField from '../schema/components/SchemaDescriptionField';
+
+import SchemaDescriptionField from '@app/entityV2/dataset/profile/schema/components/SchemaDescriptionField';
+import { mocks } from '@src/Mocks';
+import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 describe('SchemaDescriptionField', () => {
     it('renders editable description', async () => {

@@ -1,12 +1,14 @@
 import { BookOutlined } from '@ant-design/icons';
-import { message, Modal, Tag } from 'antd';
+import { Modal, Tag, message } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
 import Highlight from 'react-highlighter';
-import { useRemoveTermMutation } from '../../../../graphql/mutations.generated';
-import { EntityType, GlossaryTermAssociation, SubResourceType } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useHasMatchedFieldByUrn } from '../../../search/context/SearchResultContext';
+import styled from 'styled-components';
+
+import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useRemoveTermMutation } from '@graphql/mutations.generated';
+import { EntityType, GlossaryTermAssociation, SubResourceType } from '@types';
 
 const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
 

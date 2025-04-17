@@ -1,12 +1,13 @@
 import React, { useCallback, useContext, useState } from 'react';
 import { useOnSelectionChange, useStore } from 'reactflow';
 import styled from 'styled-components/macro';
-import translateFieldPath from '../entityV2/dataset/profile/schema/utils/translateFieldPath';
-import EntitySidebarContext, { FineGrainedOperation } from '../sharedV2/EntitySidebarContext';
-import CompactContext from '../shared/CompactContext';
-import useSidebarWidth from '../sharedV2/sidebar/useSidebarWidth';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { LineageDisplayContext, LineageEntity, LineageNodesContext } from './common';
+
+import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/translateFieldPath';
+import { LineageDisplayContext, LineageEntity, LineageNodesContext } from '@app/lineageV2/common';
+import CompactContext from '@app/shared/CompactContext';
+import EntitySidebarContext, { FineGrainedOperation } from '@app/sharedV2/EntitySidebarContext';
+import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const SidebarWrapper = styled.div<{ $distanceFromTop: number }>`
     position: absolute;

@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
-import { EXACT_SEARCH_PREFIX } from '../../utils/constants';
-import ViewAllResults from '../components/ViewAllResults';
-import { EXACT_AUTOCOMPLETE_OPTION_TYPE } from '../constants';
+
+import ViewAllResults from '@app/searchV2/searchBarV2/components/ViewAllResults';
+import { EXACT_AUTOCOMPLETE_OPTION_TYPE } from '@app/searchV2/searchBarV2/constants';
+import { EXACT_SEARCH_PREFIX } from '@app/searchV2/utils/constants';
 
 export default function useViewAllResultsOptions(query: string, shouldShow?: boolean) {
     return useMemo(() => {

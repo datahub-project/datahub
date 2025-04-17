@@ -1,10 +1,12 @@
-import { Entity } from '@src/types.generated';
 import React from 'react';
 import styled from 'styled-components';
-import { StdDataType } from '../../../../../types.generated';
-import { TabRenderType } from '../../types';
-import StructuredPropertyValue from './StructuredPropertyValue';
-import { PropertyRow } from './types';
+
+import StructuredPropertyValue from '@app/entityV2/shared/tabs/Properties/StructuredPropertyValue';
+import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
+import { TabRenderType } from '@app/entityV2/shared/types';
+import { Entity } from '@src/types.generated';
+
+import { StdDataType } from '@types';
 
 interface Props {
     propertyRow: PropertyRow;

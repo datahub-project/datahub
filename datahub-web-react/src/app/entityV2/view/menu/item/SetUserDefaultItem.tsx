@@ -1,9 +1,10 @@
 import React from 'react';
-import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { ViewItem } from '@app/entityV2/view/menu/item/ViewItem';
+import { UserDefaultViewIcon } from '@app/entityV2/view/shared/UserDefaultViewIcon';
 import { colors } from '@src/alchemy-components';
-import { UserDefaultViewIcon } from '../../shared/UserDefaultViewIcon';
-import { REDESIGN_COLORS } from '../../../shared/constants';
-import { ViewItem } from './ViewItem';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 type Props = {
     key: string;
