@@ -1,6 +1,10 @@
 from typing import Any, Callable, List, Protocol, TypeVar
 
 from datahub.errors import ItemNotFoundError
+from datahub.metadata.urns import CorpUserUrn
+
+# TODO: Change __ingestion to _ingestion.
+DEFAULT_ACTOR_URN = CorpUserUrn("__ingestion").urn()
 
 
 class _SupportsEq(Protocol):
