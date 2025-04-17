@@ -656,7 +656,7 @@ public class DgraphGraphServiceTest extends GraphServiceTestBaseNoVia {
                     put("key", "dest-key");
                   }
                 }),
-            Arrays.asList("relationship1", "relationship2"),
+            ImmutableList.of("relationship1", "relationship2"),
             newRelationshipFilter(EMPTY_FILTER, direction),
             0,
             100),
@@ -847,7 +847,7 @@ public class DgraphGraphServiceTest extends GraphServiceTestBaseNoVia {
   @Test(dataProvider = "NoViaFindRelatedEntitiesDestinationTypeTests")
   public void testFindRelatedEntitiesDestinationType(
       String datasetType,
-      List<String> relationshipTypes,
+      Set<String> relationshipTypes,
       RelationshipFilter relationships,
       List<RelatedEntity> expectedRelatedEntities)
       throws Exception {
@@ -859,7 +859,7 @@ public class DgraphGraphServiceTest extends GraphServiceTestBaseNoVia {
   @Test(dataProvider = "NoViaFindRelatedEntitiesSourceTypeTests")
   public void testFindRelatedEntitiesSourceType(
       String datasetType,
-      List<String> relationshipTypes,
+      Set<String> relationshipTypes,
       RelationshipFilter relationships,
       List<RelatedEntity> expectedRelatedEntities)
       throws Exception {

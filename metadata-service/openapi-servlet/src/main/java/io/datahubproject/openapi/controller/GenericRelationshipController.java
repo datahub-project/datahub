@@ -26,6 +26,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -93,7 +94,7 @@ public abstract class GenericRelationshipController {
             null,
             null,
             null,
-            List.of(relationshipType),
+            Set.of(relationshipType),
             new RelationshipFilter().setDirection(RelationshipDirection.UNDIRECTED),
             Edge.EDGE_SORT_CRITERION,
             scrollId,
@@ -186,8 +187,8 @@ public abstract class GenericRelationshipController {
               null,
               null,
               relationshipTypes.length > 0 && !relationshipTypes[0].equals("*")
-                  ? Arrays.stream(relationshipTypes).toList()
-                  : List.of(),
+                  ? Arrays.stream(relationshipTypes).collect(Collectors.toSet())
+                  : Set.of(),
               new RelationshipFilter()
                   .setDirection(RelationshipDirection.UNDIRECTED)
                   .setOr(QueryUtils.newFilter("destination.urn", entityUrn).getOr()),
@@ -204,8 +205,8 @@ public abstract class GenericRelationshipController {
               null,
               null,
               relationshipTypes.length > 0 && !relationshipTypes[0].equals("*")
-                  ? Arrays.stream(relationshipTypes).toList()
-                  : List.of(),
+                  ? Arrays.stream(relationshipTypes).collect(Collectors.toSet())
+                  : Set.of(),
               new RelationshipFilter()
                   .setDirection(RelationshipDirection.UNDIRECTED)
                   .setOr(QueryUtils.newFilter("source.urn", entityUrn).getOr()),

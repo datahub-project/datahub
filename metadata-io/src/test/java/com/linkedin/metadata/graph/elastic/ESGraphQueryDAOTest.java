@@ -1,14 +1,20 @@
 package com.linkedin.metadata.graph.elastic;
 
+import static com.linkedin.metadata.Constants.CHART_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DASHBOARD_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
+
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.UrnArrayArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
-import com.linkedin.metadata.graph.GraphFilters;
+import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
@@ -16,11 +22,12 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import org.opensearch.index.query.QueryBuilder;
+import org.skyscreamer.jsonassert.JSONAssert;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -57,91 +64,100 @@ public class ESGraphQueryDAOTest {
     String expectedQueryFullMultipleFilters =
         Resources.toString(urlFullMultipleFilters, StandardCharsets.UTF_8);
 
-    List<Urn> urns = List.of(Urn.createFromString("urn:li:dataset:test-urn"));
-    List<Urn> urnsMultiple1 =
-        ImmutableList.of(
+    Set<Urn> urns = Set.of(Urn.createFromString("urn:li:dataset:test-urn"));
+    Set<Urn> urnsMultiple1 =
+        ImmutableSet.of(
             UrnUtils.getUrn("urn:li:dataset:test-urn"),
             UrnUtils.getUrn("urn:li:dataset:test-urn2"),
             UrnUtils.getUrn("urn:li:dataset:test-urn3"));
-    List<Urn> urnsMultiple2 =
-        ImmutableList.of(
+    Set<Urn> urnsMultiple2 =
+        ImmutableSet.of(
             UrnUtils.getUrn("urn:li:chart:test-urn"),
             UrnUtils.getUrn("urn:li:chart:test-urn2"),
             UrnUtils.getUrn("urn:li:chart:test-urn3"));
-    List<LineageRegistry.EdgeInfo> edgeInfos =
-        new ArrayList<>(
-            ImmutableList.of(
-                new LineageRegistry.EdgeInfo(
-                    "DownstreamOf",
-                    RelationshipDirection.INCOMING,
-                    Constants.DATASET_ENTITY_NAME)));
-    List<LineageRegistry.EdgeInfo> edgeInfosMultiple1 =
-        ImmutableList.of(
+    Set<LineageRegistry.EdgeInfo> edgeInfos =
+        ImmutableSet.of(
             new LineageRegistry.EdgeInfo(
-                "DownstreamOf", RelationshipDirection.OUTGOING, Constants.DATASET_ENTITY_NAME),
+                "DownstreamOf", RelationshipDirection.INCOMING, DATASET_ENTITY_NAME));
+    Set<LineageRegistry.EdgeInfo> edgeInfosMultiple1 =
+        ImmutableSet.of(
             new LineageRegistry.EdgeInfo(
-                "Consumes", RelationshipDirection.OUTGOING, Constants.DATASET_ENTITY_NAME));
-    List<LineageRegistry.EdgeInfo> edgeInfosMultiple2 =
-        ImmutableList.of(
+                "DownstreamOf", RelationshipDirection.OUTGOING, DATASET_ENTITY_NAME),
             new LineageRegistry.EdgeInfo(
-                "DownstreamOf", RelationshipDirection.OUTGOING, Constants.DATA_JOB_ENTITY_NAME),
+                "Consumes", RelationshipDirection.OUTGOING, DATASET_ENTITY_NAME));
+    Set<LineageRegistry.EdgeInfo> edgeInfosMultiple2 =
+        ImmutableSet.of(
             new LineageRegistry.EdgeInfo(
-                "Consumes", RelationshipDirection.OUTGOING, Constants.DATA_JOB_ENTITY_NAME));
-    String entityType = "testEntityType";
-    Map<String, List<Urn>> urnsPerEntityType = Map.of(entityType, urns);
-    Map<String, List<Urn>> urnsPerEntityTypeMultiple =
+                "DownstreamOf", RelationshipDirection.OUTGOING, DATA_JOB_ENTITY_NAME),
+            new LineageRegistry.EdgeInfo(
+                "Consumes", RelationshipDirection.OUTGOING, DATA_JOB_ENTITY_NAME));
+
+    Map<String, Set<Urn>> urnsPerEntityType = Map.of(DATASET_ENTITY_NAME, urns);
+    Map<String, Set<Urn>> urnsPerEntityTypeMultiple =
+        Map.of(DATASET_ENTITY_NAME, urnsMultiple1, CHART_ENTITY_NAME, urnsMultiple2);
+    Map<String, Set<LineageRegistry.EdgeInfo>> edgesPerEntityType =
+        Map.of(DATASET_ENTITY_NAME, edgeInfos);
+    Map<String, Set<LineageRegistry.EdgeInfo>> edgesPerEntityTypeMultiple =
         Map.of(
-            Constants.DATASET_ENTITY_NAME,
-            urnsMultiple1,
-            Constants.CHART_ENTITY_NAME,
-            urnsMultiple2);
-    Map<String, List<LineageRegistry.EdgeInfo>> edgesPerEntityType = Map.of(entityType, edgeInfos);
-    Map<String, List<LineageRegistry.EdgeInfo>> edgesPerEntityTypeMultiple =
-        Map.of(
-            Constants.DATASET_ENTITY_NAME, edgeInfosMultiple1,
-            Constants.DATA_JOB_ENTITY_NAME, edgeInfosMultiple2);
-    GraphFilters graphFilters = new GraphFilters(ImmutableList.of(Constants.DATASET_ENTITY_NAME));
-    GraphFilters graphFiltersMultiple =
-        new GraphFilters(
-            ImmutableList.of(
-                Constants.DATASET_ENTITY_NAME,
-                Constants.DASHBOARD_ENTITY_NAME,
-                Constants.DATA_JOB_ENTITY_NAME));
+            DATASET_ENTITY_NAME,
+            edgeInfosMultiple1,
+            DATA_JOB_ENTITY_NAME,
+            edgeInfosMultiple2,
+            CHART_ENTITY_NAME,
+            Set.of());
+
     Long startTime = 0L;
     Long endTime = 1L;
 
     ESGraphQueryDAO graphQueryDAO =
-        new ESGraphQueryDAO(null, null, null, new GraphQueryConfiguration());
-    QueryBuilder limitedBuilder =
-        graphQueryDAO.getLineageQueryForEntityType(urns, edgeInfos, graphFilters);
+        new ESGraphQueryDAO(
+            null, operationContext.getLineageRegistry(), null, new GraphQueryConfiguration());
+    QueryBuilder limitedBuilder = graphQueryDAO.getLineageQueryForEntityType(urns, edgeInfos);
+
+    LineageGraphFilters lineageGraphFilters =
+        new LineageGraphFilters(
+            LineageDirection.DOWNSTREAM,
+            ImmutableSet.of(DATASET_ENTITY_NAME),
+            null,
+            new ConcurrentHashMap<>(edgesPerEntityType));
 
     QueryBuilder fullBuilder =
         graphQueryDAO.getLineageQuery(
             operationContext.withLineageFlags(
                 f -> new LineageFlags().setEndTimeMillis(endTime).setStartTimeMillis(startTime)),
             urnsPerEntityType,
-            edgesPerEntityType,
-            graphFilters);
+            lineageGraphFilters);
+
+    LineageGraphFilters lineageGraphFiltersEmpty =
+        new LineageGraphFilters(
+            LineageDirection.DOWNSTREAM,
+            ImmutableSet.of(),
+            null,
+            new ConcurrentHashMap<>(edgesPerEntityType));
 
     QueryBuilder fullBuilderEmptyFilters =
         graphQueryDAO.getLineageQuery(
-            operationContext,
-            urnsPerEntityType,
-            edgesPerEntityType,
-            GraphFilters.emptyGraphFilters);
+            operationContext, urnsPerEntityType, lineageGraphFiltersEmpty);
+
+    LineageGraphFilters lineageGraphFiltersMultiple =
+        new LineageGraphFilters(
+            LineageDirection.DOWNSTREAM,
+            ImmutableSet.of(DATASET_ENTITY_NAME, DASHBOARD_ENTITY_NAME, DATA_JOB_ENTITY_NAME),
+            null,
+            new ConcurrentHashMap<>());
 
     QueryBuilder fullBuilderMultipleFilters =
         graphQueryDAO.getLineageQuery(
             operationContext.withLineageFlags(
                 f -> new LineageFlags().setEndTimeMillis(endTime).setStartTimeMillis(startTime)),
             urnsPerEntityTypeMultiple,
-            edgesPerEntityTypeMultiple,
-            graphFiltersMultiple);
+            lineageGraphFiltersMultiple);
 
     Assert.assertEquals(limitedBuilder.toString(), expectedQueryLimited);
     Assert.assertEquals(fullBuilder.toString(), expectedQueryFull);
     Assert.assertEquals(fullBuilderEmptyFilters.toString(), expectedQueryFullEmptyFilters);
-    Assert.assertEquals(fullBuilderMultipleFilters.toString(), expectedQueryFullMultipleFilters);
+    JSONAssert.assertEquals(
+        fullBuilderMultipleFilters.toString(), expectedQueryFullMultipleFilters, false);
   }
 
   @Test
