@@ -198,7 +198,7 @@ jobs:
       - name: Build all Images
         if: ${{ env.DOCKER_CACHE == 'DEPOT' && env.DEPOT_PROJECT_ID != '' }}
         run: |
-          ./gradlew :docker:buildImagesQuickstartAll -PreleaseVersion=${{ needs.setup.outputs.unique_tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
+          ./gradlew :docker:buildImagesQuickstartAll -Ptag=${{ needs.setup.outputs.unique_tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
 
           docker images
 
@@ -393,7 +393,7 @@ jobs:
           docker pull confluentinc/cp-kafka:7.4.0 &
           docker pull mysql:8.2 &
           docker pull opensearchproject/opensearch:2.9.0 &
-          ./gradlew :docker:buildImagesQuickstartDebugConsumers -PreleaseVersion=pr-build 
+          ./gradlew :docker:buildImagesQuickstartDebugConsumers -PreleaseVersion=${{ needs.setup.outputs.unique_tag }}
 
           wait
           docker images
@@ -407,7 +407,7 @@ jobs:
       - name: run quickstart
         env:
           DATAHUB_TELEMETRY_ENABLED: false
-          DATAHUB_VERSION: pr-build
+          DATAHUB_VERSION: ${{ needs.setup.outputs.unique_tag }}
           DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_ACTIONS_IMAGE }}
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
