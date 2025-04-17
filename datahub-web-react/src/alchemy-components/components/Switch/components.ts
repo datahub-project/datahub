@@ -1,21 +1,17 @@
 import styled from 'styled-components';
 
-import { borders, colors, shadows, spacing, transition } from '@components/theme';
-import { ColorOptions, SizeOptions } from '@components/theme/config';
-
-import { Icon } from '../Icon';
-
-import { formLabelTextStyles } from '../commonStyles';
-
+import { Icon } from '@components/components/Icon';
+import type { SwitchLabelPosition } from '@components/components/Switch/types';
 import {
     getIconTransformPositionLeft,
     getIconTransformPositionTop,
     getInputHeight,
     getSliderTransformPosition,
     getToggleSize,
-} from './utils';
-
-import type { SwitchLabelPosition } from './types';
+} from '@components/components/Switch/utils';
+import { formLabelTextStyles } from '@components/components/commonStyles';
+import { borders, colors, shadows, spacing, transition } from '@components/theme';
+import { ColorOptions, SizeOptions } from '@components/theme/config';
 
 export const Label = styled.div({
     ...formLabelTextStyles,

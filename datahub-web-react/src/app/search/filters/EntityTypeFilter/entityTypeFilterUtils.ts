@@ -1,15 +1,16 @@
-import { AggregateAcrossEntitiesQuery } from '../../../../graphql/search.generated';
-import { AggregationMetadata, FacetFilterInput, FacetMetadata } from '../../../../types.generated';
-import EntityRegistry from '../../../entity/EntityRegistry';
+import EntityRegistry from '@app/entity/EntityRegistry';
+import { mapFilterOption } from '@app/search/filters/mapFilterOption';
+import { FilterOptionType } from '@app/search/filters/types';
+import { filterOptionsWithSearch, getFilterIconAndLabel, getFilterOptions } from '@app/search/filters/utils';
 import {
-    LEGACY_ENTITY_FILTER_FIELDS,
-    ENTITY_SUB_TYPE_FILTER_NAME,
     ENTITY_FILTER_NAME,
+    ENTITY_SUB_TYPE_FILTER_NAME,
     FILTER_DELIMITER,
-} from '../../utils/constants';
-import { mapFilterOption } from '../mapFilterOption';
-import { FilterOptionType } from '../types';
-import { filterOptionsWithSearch, getFilterIconAndLabel, getFilterOptions } from '../utils';
+    LEGACY_ENTITY_FILTER_FIELDS,
+} from '@app/search/utils/constants';
+
+import { AggregateAcrossEntitiesQuery } from '@graphql/search.generated';
+import { AggregationMetadata, FacetFilterInput, FacetMetadata } from '@types';
 
 const BACKWARDS_COMPATIBLE_FILTER_FIELDS = [ENTITY_SUB_TYPE_FILTER_NAME, ...LEGACY_ENTITY_FILTER_FIELDS];
 
@@ -91,7 +92,7 @@ export function getDisplayedFilterOptions(
                 .filter(
                     (option) => option.value.includes(FILTER_DELIMITER) && option.value.includes(filterOption.value),
                 )
-                .map((option) => ({ field: ENTITY_SUB_TYPE_FILTER_NAME, ...option } as FilterOptionType))
+                .map((option) => ({ field: ENTITY_SUB_TYPE_FILTER_NAME, ...option }) as FilterOptionType)
                 .filter((o) => filterNestedOptions(o, entityRegistry, searchQuery));
             return mapFilterOption({
                 filterOption,

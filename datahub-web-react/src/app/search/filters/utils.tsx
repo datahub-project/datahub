@@ -1,7 +1,3 @@
-import moment from 'moment-timezone';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import Icon from '@ant-design/icons/lib/components/Icon';
-import TableIcon from '@src/images/table-icon.svg?react';
 import {
     BookOutlined,
     DatabaseOutlined,
@@ -11,11 +7,16 @@ import {
     TagOutlined,
     UserOutlined,
 } from '@ant-design/icons';
-import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
-import { DATE_TYPE_URN } from '@src/app/shared/constants';
-import styled from 'styled-components';
-import { STRUCTURED_PROPERTY_FILTER } from '@src/app/searchV2/filters/field/fields';
+import Icon from '@ant-design/icons/lib/components/Icon';
+import moment from 'moment-timezone';
 import React, { useLayoutEffect, useState } from 'react';
+import styled from 'styled-components';
+
+import { IconStyleType } from '@app/entity/Entity';
+import EntityRegistry from '@app/entity/EntityRegistry';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { FACETS_TO_ENTITY_TYPES } from '@app/search/filters/constants';
+import { FilterOptionType } from '@app/search/filters/types';
 import {
     BROWSE_PATH_V2_FILTER_NAME,
     CONTAINER_FILTER_NAME,
@@ -31,10 +32,18 @@ import {
     TAGS_FILTER_NAME,
     TYPE_NAMES_FILTER_NAME,
     UNIT_SEPARATOR,
-} from '../utils/constants';
+} from '@app/search/utils/constants';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
+import { STRUCTURED_PROPERTY_FILTER } from '@src/app/searchV2/filters/field/fields';
+import { DATE_TYPE_URN } from '@src/app/shared/constants';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import TableIcon from '@src/images/table-icon.svg?react';
 
+import { GetAutoCompleteMultipleResultsQuery } from '@graphql/search.generated';
 import {
     AggregationMetadata,
+    Container,
     DataPlatform,
     DataPlatformInstance,
     Domain,
@@ -43,17 +52,10 @@ import {
     FacetFilterInput,
     FacetMetadata,
     GlossaryTerm,
-    Container,
     StructuredPropertyEntity,
-} from '../../../types.generated';
-import { IconStyleType } from '../../entity/Entity';
-import EntityRegistry from '../../entity/EntityRegistry';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import DomainsIcon from '../../../images/domain.svg?react';
-import { GetAutoCompleteMultipleResultsQuery } from '../../../graphql/search.generated';
-import { FACETS_TO_ENTITY_TYPES } from './constants';
-import { FilterOptionType } from './types';
-import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
+} from '@types';
+
+import DomainsIcon from '@images/domain.svg?react';
 
 // either adds or removes selectedFilterValues to/from activeFilters for a given filterField
 export function getNewFilters(filterField: string, activeFilters: FacetFilterInput[], selectedFilterValues: string[]) {

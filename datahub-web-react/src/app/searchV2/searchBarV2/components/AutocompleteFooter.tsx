@@ -1,8 +1,9 @@
-import React from 'react';
-import { colors, Text } from '@src/alchemy-components';
 import { ArrowDown, ArrowElbowDownLeft, ArrowUp } from 'phosphor-react';
+import React from 'react';
 import styled from 'styled-components';
-import KeyIcon from './KeyIcon';
+
+import KeyIcon from '@app/searchV2/searchBarV2/components/KeyIcon';
+import { Text, colors } from '@src/alchemy-components';
 
 const Container = styled.div`
     position: sticky;

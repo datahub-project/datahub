@@ -1,10 +1,11 @@
 import React from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
-import { MatchedFieldName } from './constants';
-import { useAppConfig } from '../../useAppConfig';
-import { useMatchedFieldsByGroup } from '../../search/context/SearchResultContext';
-import { useSearchQuery } from '../../search/context/SearchContext';
+
+import { useSearchQuery } from '@app/search/context/SearchContext';
+import { useMatchedFieldsByGroup } from '@app/search/context/SearchResultContext';
+import { MatchedFieldName } from '@app/searchV2/matches/constants';
+import { useAppConfig } from '@app/useAppConfig';
 
 type Props = {
     field: MatchedFieldName;

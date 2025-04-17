@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
 import { Typography } from 'antd';
-import styled from 'styled-components';
+import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
-import translateFieldPath from './translateFieldPath';
-import { ExtendedSchemaFields } from './types';
-import TypeLabel from '../../../../shared/tabs/Dataset/Schema/components/TypeLabel';
-import { ForeignKeyConstraint, SchemaMetadata } from '../../../../../../types.generated';
-import PrimaryKeyLabel from '../../../../shared/tabs/Dataset/Schema/components/PrimaryKeyLabel';
-import PartitioningKeyLabel from '../../../../shared/tabs/Dataset/Schema/components/PartitioningKeyLabel';
-import NullableLabel from '../../../../shared/tabs/Dataset/Schema/components/NullableLabel';
-import ForeignKeyLabel from '../../../../shared/tabs/Dataset/Schema/components/ForeignKeyLabel';
+import styled from 'styled-components';
+
+import translateFieldPath from '@app/entity/dataset/profile/schema/utils/translateFieldPath';
+import { ExtendedSchemaFields } from '@app/entity/dataset/profile/schema/utils/types';
+import ForeignKeyLabel from '@app/entity/shared/tabs/Dataset/Schema/components/ForeignKeyLabel';
+import NullableLabel from '@app/entity/shared/tabs/Dataset/Schema/components/NullableLabel';
+import PartitioningKeyLabel from '@app/entity/shared/tabs/Dataset/Schema/components/PartitioningKeyLabel';
+import PrimaryKeyLabel from '@app/entity/shared/tabs/Dataset/Schema/components/PrimaryKeyLabel';
+import TypeLabel from '@app/entity/shared/tabs/Dataset/Schema/components/TypeLabel';
+
+import { ForeignKeyConstraint, SchemaMetadata } from '@types';
 
 const MAX_FIELD_PATH_LENGTH = 200;
 

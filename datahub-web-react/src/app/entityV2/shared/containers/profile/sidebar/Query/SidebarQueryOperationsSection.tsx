@@ -1,9 +1,10 @@
 import React, { useContext } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import styled from 'styled-components';
-import EntitySidebarContext, { FineGrainedOperation } from '../../../../../../sharedV2/EntitySidebarContext';
-import { REDESIGN_COLORS } from '../../../../constants';
-import { SidebarSection } from '../SidebarSection';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import EntitySidebarContext, { FineGrainedOperation } from '@app/sharedV2/EntitySidebarContext';
 
 export default function SidebarQueryOperationsSection() {
     const { fineGrainedOperations } = useContext(EntitySidebarContext);

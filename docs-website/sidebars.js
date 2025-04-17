@@ -100,7 +100,7 @@ module.exports = {
         {
           label: "Automations",
           type: "category",
-          collapsed: false,
+          collapsed: true,
           items: [
             {
               label: "Documentation Propagation",
@@ -164,6 +164,11 @@ module.exports = {
             {
               type: "doc",
               id: "docs/features/feature-guides/compliance-forms/complete-a-form",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/compliance-forms/analytics",
+              className: "saasOnly",
             },
           ],
         },

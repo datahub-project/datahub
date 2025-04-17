@@ -1,10 +1,12 @@
 import React from 'react';
 import styled from 'styled-components';
-import { DatasetFieldProfile } from '../../../../../../../../types.generated';
-import { REDESIGN_COLORS } from '../../../../../constants';
-import { SidebarSection } from '../../../../../containers/profile/sidebar/SidebarSection';
-import StatsSummaryRow from './StatsSummaryRow';
-import { StyledDivider } from './components';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import StatsSummaryRow from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsSummaryRow';
+import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
+
+import { DatasetFieldProfile } from '@types';
 
 const ViewAll = styled.div`
     color: ${REDESIGN_COLORS.DARK_GREY};

@@ -8,6 +8,7 @@ curl --location --request POST 'https://demo.datahubproject.io/api/gms/operation
 ```
 
 The endpoint takes no parameters, and the output will be a string representing a JSON object containing the following information about each index:
+
 ```
       {
         "aspectName": "datasetusagestatistics",
