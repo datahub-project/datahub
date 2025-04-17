@@ -27,11 +27,7 @@ import com.linkedin.policy.*;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -1343,10 +1339,10 @@ public class PolicyEngineTest {
     final List<DataHubPolicyInfo> policies =
         ImmutableList.of(dataHubPolicyInfo1, dataHubPolicyInfo2, dataHubPolicyInfo3);
 
-    assertEquals(
+    PolicyEngine.PolicyGrantedPrivileges grantedPrivileges =
         _policyEngine.getGrantedPrivileges(
-            systemOperationContext, policies, resolvedAuthorizedUserSpec, Optional.empty()),
-        Collections.emptyList());
+            systemOperationContext, policies, resolvedAuthorizedUserSpec, Optional.empty());
+    assertEquals(grantedPrivileges.getPrivileges(), Collections.emptyList());
 
     ResolvedEntitySpec resourceSpec =
         buildEntityResolvers(
@@ -1356,13 +1352,16 @@ public class PolicyEngineTest {
             Collections.singleton(DOMAIN_URN),
             Collections.emptySet(),
             Collections.emptySet()); // Everything matches
-    assertEquals(
+
+    grantedPrivileges =
         _policyEngine.getGrantedPrivileges(
             systemOperationContext,
             policies,
             resolvedAuthorizedUserSpec,
-            Optional.of(resourceSpec)),
-        ImmutableList.of("PRIVILEGE_1", "PRIVILEGE_2_1", "PRIVILEGE_2_2"));
+            Optional.of(resourceSpec));
+    assertEquals(
+        new HashSet<>(grantedPrivileges.getPrivileges()),
+        ImmutableSet.of("PRIVILEGE_1", "PRIVILEGE_2_1", "PRIVILEGE_2_2"));
 
     resourceSpec =
         buildEntityResolvers(
@@ -1372,13 +1371,16 @@ public class PolicyEngineTest {
             Collections.singleton("urn:li:domain:domain2"),
             Collections.emptySet(),
             Collections.emptySet()); // Domain doesn't match
-    assertEquals(
+
+    grantedPrivileges =
         _policyEngine.getGrantedPrivileges(
             systemOperationContext,
             policies,
             resolvedAuthorizedUserSpec,
-            Optional.of(resourceSpec)),
-        ImmutableList.of("PRIVILEGE_2_1", "PRIVILEGE_2_2"));
+            Optional.of(resourceSpec));
+    assertEquals(
+        new HashSet<>(grantedPrivileges.getPrivileges()),
+        ImmutableSet.of("PRIVILEGE_2_1", "PRIVILEGE_2_2"));
 
     resourceSpec =
         buildEntityResolvers(
@@ -1388,13 +1390,14 @@ public class PolicyEngineTest {
             Collections.singleton(DOMAIN_URN),
             Collections.emptySet(),
             Collections.emptySet()); // Resource doesn't match
-    assertEquals(
+
+    grantedPrivileges =
         _policyEngine.getGrantedPrivileges(
             systemOperationContext,
             policies,
             resolvedAuthorizedUserSpec,
-            Optional.of(resourceSpec)),
-        ImmutableList.of("PRIVILEGE_1"));
+            Optional.of(resourceSpec));
+    assertEquals(grantedPrivileges.getPrivileges(), ImmutableList.of("PRIVILEGE_1"));
 
     final EntityResponse entityResponse = new EntityResponse();
     final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
@@ -1416,13 +1419,16 @@ public class PolicyEngineTest {
             Collections.singleton(DOMAIN_URN),
             Collections.emptySet(),
             Collections.emptySet()); // Is owner
-    assertEquals(
+
+    grantedPrivileges =
         _policyEngine.getGrantedPrivileges(
             systemOperationContext,
             policies,
             resolvedAuthorizedUserSpec,
-            Optional.of(resourceSpec)),
-        ImmutableList.of("PRIVILEGE_1", "PRIVILEGE_2_1", "PRIVILEGE_2_2", "PRIVILEGE_3"));
+            Optional.of(resourceSpec));
+    assertEquals(
+        new HashSet<>(grantedPrivileges.getPrivileges()),
+        ImmutableSet.of("PRIVILEGE_1", "PRIVILEGE_2_1", "PRIVILEGE_2_2", "PRIVILEGE_3"));
 
     resourceSpec =
         buildEntityResolvers(
@@ -1432,13 +1438,13 @@ public class PolicyEngineTest {
             Collections.singleton(DOMAIN_URN),
             Collections.emptySet(),
             Collections.emptySet()); // Resource type doesn't match
-    assertEquals(
+    grantedPrivileges =
         _policyEngine.getGrantedPrivileges(
             systemOperationContext,
             policies,
             resolvedAuthorizedUserSpec,
-            Optional.of(resourceSpec)),
-        Collections.emptyList());
+            Optional.of(resourceSpec));
+    assertEquals(grantedPrivileges.getPrivileges(), Collections.emptyList());
   }
 
   @Test
