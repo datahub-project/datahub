@@ -2,12 +2,13 @@ import React from 'react';
 import styled from 'styled-components';
 
 import EntityIcon from '@app/searchV2/autoCompleteV2/components/icon/EntityIcon';
+import Matches from '@app/searchV2/autoCompleteV2/components/matches/Matches';
 import EntitySubtitle from '@app/searchV2/autoCompleteV2/components/subtitle/EntitySubtitle';
 import { getEntityDisplayType } from '@app/searchV2/autoCompleteV2/utils';
 import { Text } from '@src/alchemy-components';
 import { MatchText } from '@src/alchemy-components/components/MatchText';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { Entity } from '@src/types.generated';
+import { Entity, MatchedField } from '@src/types.generated';
 
 const Container = styled.div`
     display: flex;
@@ -20,12 +21,15 @@ const ContentContainer = styled.div`
     display: flex;
     flex-direction: row;
     gap: 8px;
+    overflow: hidden;
+    width: 100%;
 `;
 
 const DescriptionContainer = styled.div`
     display: flex;
     flex-direction: column;
-    max-width: 400px;
+    overflow: hidden;
+    width: 100%;
 `;
 
 const EntityTitleContainer = styled.div``;
@@ -46,9 +50,15 @@ interface EntityAutocompleteItemProps {
     entity: Entity;
     query?: string;
     siblings?: Entity[];
+    matchedFields?: MatchedField[];
 }
 
-export default function AutoCompleteEntityItem({ entity, query, siblings }: EntityAutocompleteItemProps) {
+export default function AutoCompleteEntityItem({
+    entity,
+    query,
+    siblings,
+    matchedFields,
+}: EntityAutocompleteItemProps) {
     const entityRegistry = useEntityRegistryV2();
     const displayName = entityRegistry.getDisplayName(entity.type, entity);
     const displayType = getEntityDisplayType(entity, entityRegistry);
@@ -66,6 +76,8 @@ export default function AutoCompleteEntityItem({ entity, query, siblings }: Enti
                     </EntityTitleContainer>
 
                     <EntitySubtitle entity={entity} />
+
+                    <Matches matchedFields={matchedFields} entity={entity} query={query} displayName={displayName} />
                 </DescriptionContainer>
             </ContentContainer>
 

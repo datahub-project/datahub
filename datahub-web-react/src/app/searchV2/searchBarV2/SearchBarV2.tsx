@@ -70,7 +70,7 @@ export const SearchBarV2 = ({
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
     const { appliedFilters, hasAppliedFilters, flatAppliedFilters, clear, updateFieldFilters } = useAppliedFilters();
     const {
-        entities,
+        entitiesWithMatchedFields,
         facets,
         loading: isDataLoading,
         searchAPIVariant,
@@ -91,7 +91,7 @@ export const SearchBarV2 = ({
     const options = useOptions(
         searchQuery,
         showViewAllResults,
-        entities,
+        entitiesWithMatchedFields,
         !!isDataLoading,
         shouldCombineSiblings,
         isSearching,
