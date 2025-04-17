@@ -17,5 +17,10 @@ record QueryStatement {
      * A SQL Query
      */
     SQL
+
+    /**
+     * Unknown query language
+     */
+    UNKNOWN
   } = "SQL"
 }

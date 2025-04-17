@@ -1,13 +1,15 @@
 import { geekblue } from '@ant-design/colors';
-import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined';
-import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
 import { Tooltip } from '@components';
+import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined';
 import React from 'react';
 import styled from 'styled-components';
-import { UsageQueryResult } from '../../../../../../../types.generated';
+
+import { FieldPopularity } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldPopularity';
+import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
+
 // import { ReactComponent as LineageDisabledIcon } from '../../../../../../../images/lineage-disabled-icon.svg';
-import { GetDatasetQuery } from '../../../../../../../graphql/dataset.generated';
-import { FieldPopularity } from '../components/SchemaFieldDrawer/FieldPopularity';
+import { GetDatasetQuery } from '@graphql/dataset.generated';
+import { UsageQueryResult } from '@types';
 
 export const UsageBar = styled.div<{ width: number }>`
     width: ${(props) => props.width}px;

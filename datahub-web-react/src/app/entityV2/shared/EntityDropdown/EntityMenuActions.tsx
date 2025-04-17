@@ -1,16 +1,17 @@
 import { MoreOutlined } from '@ant-design/icons';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
+
+import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import DeleteEntityMenuItem from '@app/entityV2/shared/EntityDropdown/DeleteEntityMenuAction';
+import ExternalUrlMenuAction from '@app/entityV2/shared/EntityDropdown/ExternalUrlMenuAction';
+import MoreOptionsMenuAction from '@app/entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
+import MoveEntityMenuAction from '@app/entityV2/shared/EntityDropdown/MoveEntityMenuAction';
+import RaiseIncidentMenuAction from '@app/entityV2/shared/EntityDropdown/RaiseIncidentMenuAction';
+import UpdateDeprecationMenuAction from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationMenuAction';
+import ShareMenuAction from '@app/shared/share/v2/ShareMenuAction';
+import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 import { useAppConfig } from '@src/app/useAppConfig';
-import { useEntityData, useRefetch } from '../../../entity/shared/EntityContext';
-import ShareMenuAction from '../../../shared/share/v2/ShareMenuAction';
-import EntitySidebarContext from '../../../sharedV2/EntitySidebarContext';
-import DeleteEntityMenuItem from './DeleteEntityMenuAction';
-import ExternalUrlMenuAction from './ExternalUrlMenuAction';
-import MoreOptionsMenuAction from './MoreOptionsMenuAction';
-import MoveEntityMenuAction from './MoveEntityMenuAction';
-import RaiseIncidentMenuAction from './RaiseIncidentMenuAction';
-import UpdateDeprecationMenuAction from './UpdateDeprecationMenuAction';
 
 export enum EntityMenuItems {
     EXTERNAL_URL,
