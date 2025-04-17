@@ -10,7 +10,7 @@ ext {
     docker_repo = 'datahub-ingestion'
     docker_dir = 'datahub-ingestion'
     docker_target = project.getProperties().getOrDefault("dockerTarget", "slim")
-    docker_version = "v${version}${docker_target == 'slim' ? '-slim' : ''}"
+    docker_version = "v${versionTag}${docker_target == 'slim' ? '-slim' : ''}"
     python_docker_version = project.getProperties().getOrDefault("pythonDockerVersion", "1!0.0.0+docker.${version}")
 
     revision = 12 // increment to trigger rebuild
