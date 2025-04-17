@@ -1,21 +1,22 @@
 import React from 'react';
+
 import {
     ActionButtonsContainer,
     DescriptionContainer,
     LabelsWrapper,
     Placeholder,
     SelectValue,
-} from '../../../components';
-import { SelectLabelVariantProps } from '../../../types';
+} from '@components/components/Select/components';
+import { SelectLabelVariantProps, SelectOption } from '@components/components/Select/types';
 
-export default function SingleSelectCustom({
+export default function SingleSelectCustom<OptionType extends SelectOption>({
     selectedOptions,
     selectedValues,
     placeholder,
     isMultiSelect,
     showDescriptions,
     renderCustomSelectedValue,
-}: SelectLabelVariantProps) {
+}: SelectLabelVariantProps<OptionType>) {
     return (
         <LabelsWrapper shouldShowGap={false}>
             {!selectedValues?.length && <Placeholder>{placeholder}</Placeholder>}

@@ -1,9 +1,10 @@
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import StripMarkdownText from '../../shared/components/styled/StripMarkdownText';
-import { SidebarHeader } from '../../shared/containers/profile/sidebar/SidebarHeader';
-import { useEntityData, useRouteToTab } from '../../../entity/shared/EntityContext';
+
+import { useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
+import StripMarkdownText from '@app/entityV2/shared/components/styled/StripMarkdownText';
+import { SidebarHeader } from '@app/entityV2/shared/containers/profile/sidebar/SidebarHeader';
 
 const DescriptionTypography = styled(Typography.Paragraph)`
     max-width: 65ch;

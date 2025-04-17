@@ -1,17 +1,19 @@
-import React from 'react';
-import { Button, Typography } from 'antd';
 import { FilterOutlined } from '@ant-design/icons';
+import { Button, Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components/macro';
-import SearchSortSelect from '@src/app/searchV2/sorting/SearchSortSelect';
+
+import { EntityAndType } from '@app/entity/shared/types';
+import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
+import { SearchSelectBar } from '@app/entityV2/shared/components/styled/search/SearchSelectBar';
+import { SearchBar } from '@app/search/SearchBar';
+import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/utils/types';
+import SearchMenuItems from '@app/sharedV2/search/SearchMenuItems';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useSearchContext } from '@src/app/search/context/SearchContext';
-import TabToolbar from '../TabToolbar';
-import { SearchBar } from '../../../../../search/SearchBar';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { AndFilterInput } from '../../../../../../types.generated';
-import { SearchSelectBar } from './SearchSelectBar';
-import { EntityAndType } from '../../../../../entity/shared/types';
-import { DownloadSearchResultsInput, DownloadSearchResults } from '../../../../../search/utils/types';
-import SearchMenuItems from '../../../../../sharedV2/search/SearchMenuItems';
+import SearchSortSelect from '@src/app/searchV2/sorting/SearchSortSelect';
+
+import { AndFilterInput } from '@types';
 
 const HeaderContainer = styled.div`
     display: flex;

@@ -100,7 +100,7 @@ module.exports = {
         {
           label: "Automations",
           type: "category",
-          collapsed: false,
+          collapsed: true,
           items: [
             {
               label: "Documentation Propagation",
@@ -164,6 +164,11 @@ module.exports = {
             {
               type: "doc",
               id: "docs/features/feature-guides/compliance-forms/complete-a-form",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/compliance-forms/analytics",
+              className: "saasOnly",
             },
           ],
         },
@@ -300,6 +305,25 @@ module.exports = {
           ],
         },
         {
+          "Remote Executor": [
+            {
+              type: "doc",
+              id: "docs/managed-datahub/remote-executor/about",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/remote-executor/monitoring",
+              className: "saasOnly",
+            },
+          ],
+        },
+        {
           "DataHub API": [
             {
               type: "doc",
@@ -334,11 +358,6 @@ module.exports = {
         },
         {
           "Operator Guides": [
-            {
-              type: "doc",
-              id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
-              className: "saasOnly",
-            },
             {
               type: "doc",
               id: "docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge",
@@ -871,7 +890,6 @@ module.exports = {
         "docs/advanced/monitoring",
         "docs/deploy/telemetry",
         "docs/how/kafka-config",
-        "docs/advanced/no-code-upgrade",
         "docs/how/jattach-guide",
       ],
     },
@@ -952,7 +970,6 @@ module.exports = {
         "docs/advanced/mcp-mcl",
         "docs/advanced/writing-mcps",
         "docs/modeling/extending-the-metadata-model",
-        "docs/advanced/no-code-modeling",
         "docs/advanced/api-tracing",
         "datahub-web-react/src/app/analytics/README",
         "docker/datahub-upgrade/README",
@@ -1015,6 +1032,9 @@ module.exports = {
     //"docs/how/build-metadata-service",
     //"docs/how/graph-onboarding",
     //"docs/demo/graph-onboarding",
+    //"datahub-actions/README",
+    //"datahub-actions/src/datahub_actions/plugin/action/tag/README",
+    //"datahub-actions/src/datahub_actions/plugin/action/term/README",
     //"metadata-integration/java/spark-lineage/README",
     // "metadata-integration/java/acryl-spark-lineage/README.md
     // "metadata-integration/java/openlineage-converter/README"

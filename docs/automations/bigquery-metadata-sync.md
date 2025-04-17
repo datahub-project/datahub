@@ -26,12 +26,12 @@ BigQuery. This automation is exclusively available in DataHub Cloud (Acryl).
 
 ## Sync Capabilities
 
-| DataHub Source | BigQuery Target | Sync Direction | Notes |
-|----------------|-----------------|----------------|--------|
-| Table Tags | Table Labels | Bi-directional | Changes in either system reflect in both |
-| Table Descriptions | Table Descriptions | Bi-directional | Changes in either system reflect in both |
-| Column Descriptions | Column Descriptions | Bi-directional | Changes in either system reflect in both. <br/> Thes sync doesn't delete table description from BigQuery |
-| Column Glossary Terms | Column Policy Tags | DataHub → BigQuery | Created under DataHub taxonomy |
+| DataHub Source        | BigQuery Target     | Sync Direction     | Notes                                                                                                    |
+| --------------------- | ------------------- | ------------------ | -------------------------------------------------------------------------------------------------------- |
+| Table Tags            | Table Labels        | Bi-directional     | Changes in either system reflect in both                                                                 |
+| Table Descriptions    | Table Descriptions  | Bi-directional     | Changes in either system reflect in both                                                                 |
+| Column Descriptions   | Column Descriptions | Bi-directional     | Changes in either system reflect in both. <br/> Thes sync doesn't delete table description from BigQuery |
+| Column Glossary Terms | Column Policy Tags  | DataHub → BigQuery | Created under DataHub taxonomy                                                                           |
 
 ## Setup Instructions
 
@@ -39,12 +39,12 @@ BigQuery. This automation is exclusively available in DataHub Cloud (Acryl).
 
 Ensure your service account has the following permissions:
 
-| Task | Required Permissions | Available Role |
-|------|---------------------|----------------|
-| Policy Tag Management | • `datacatalog.taxonomies.create`<br/>• `datacatalog.taxonomies.update`<br/>• `datacatalog.taxonomies.list`<br/>• `datacatalog.taxonomies.get`<br/>• `bigquery.tables.createTagBinding` | Policy Tag Admin |
-| Policy Tag Assignment | • `bigquery.tables.updateTag` | - |
-| Description Management | • `bigquery.tables.update` | - |
-| Label Management | • `bigquery.tables.update` | - |
+| Task                   | Required Permissions                                                                                                                                                                    | Available Role   |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| Policy Tag Management  | • `datacatalog.taxonomies.create`<br/>• `datacatalog.taxonomies.update`<br/>• `datacatalog.taxonomies.list`<br/>• `datacatalog.taxonomies.get`<br/>• `bigquery.tables.createTagBinding` | Policy Tag Admin |
+| Policy Tag Assignment  | • `bigquery.tables.updateTag`                                                                                                                                                           | -                |
+| Description Management | • `bigquery.tables.update`                                                                                                                                                              | -                |
+| Label Management       | • `bigquery.tables.update`                                                                                                                                                              | -                |
 
 **Note**: `bigquery.tables` permissions must be granted in every project where metadata sync is needed.
 
@@ -64,39 +64,39 @@ Ensure your service account has the following permissions:
 
 3. **Configure Automation**:
 
-    1. **Select a Propagation Action**
+   1. **Select a Propagation Action**
 
-    <p align="left">
-      <img width="50%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/bigquery-propagation/automation-form.png"/>
-    </p>
+   <p align="left">
+     <img width="50%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/bigquery-propagation/automation-form.png"/>
+   </p>
 
-    | Propagation Type | DataHub Entity | BigQuery Entity | Note |
-    | -------- | ------- | ------- | ------- |
-    | Table Tags as Labels | [Table Tag](https://datahubproject.io/docs/tags/) | [BigQuery Label](https://cloud.google.com/bigquery/docs/labels-intro) | - |
-    | Column Glossary Terms as Policy Tags | [Glossary Term on Table Column](https://datahubproject.io/docs/glossary/business-glossary/) | [Policy Tag](https://cloud.google.com/bigquery/docs/best-practices-policy-tags) | <ul><li>Assigned Policy tags are created under DataHub taxonomy.</li></ul><ul><li>Only the latest assigned glossary term set as policy tag. BigQuery only supports one assigned policy tag.</li></ul> <ul><li>Policy Tags are not synced to DataHub as glossary term from BigQuery.</li></ul>
-    | Table Descriptions | [Table Description](https://datahubproject.io/docs/api/tutorials/descriptions/) | Table Description | - |
-    | Column Descriptions | [Column Description](https://datahubproject.io/docs/api/tutorials/descriptions/) | Column Description | - |
+   | Propagation Type                     | DataHub Entity                                                                              | BigQuery Entity                                                                 | Note                                                                                                                                                                                                                                                                                          |
+   | ------------------------------------ | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | Table Tags as Labels                 | [Table Tag](https://datahubproject.io/docs/tags/)                                           | [BigQuery Label](https://cloud.google.com/bigquery/docs/labels-intro)           | -                                                                                                                                                                                                                                                                                             |
+   | Column Glossary Terms as Policy Tags | [Glossary Term on Table Column](https://datahubproject.io/docs/glossary/business-glossary/) | [Policy Tag](https://cloud.google.com/bigquery/docs/best-practices-policy-tags) | <ul><li>Assigned Policy tags are created under DataHub taxonomy.</li></ul><ul><li>Only the latest assigned glossary term set as policy tag. BigQuery only supports one assigned policy tag.</li></ul> <ul><li>Policy Tags are not synced to DataHub as glossary term from BigQuery.</li></ul> |
+   | Table Descriptions                   | [Table Description](https://datahubproject.io/docs/api/tutorials/descriptions/)             | Table Description                                                               | -                                                                                                                                                                                                                                                                                             |
+   | Column Descriptions                  | [Column Description](https://datahubproject.io/docs/api/tutorials/descriptions/)            | Column Description                                                              | -                                                                                                                                                                                                                                                                                             |
 
-    :::note
+   :::note
 
-    You can limit propagation based on specific Tags and Glossary Terms. If none are selected, ALL Tags or Glossary Terms will be automatically propagated to BigQuery tables and columns. (The recommended approach is to not specify a filter to avoid inconsistent states.)
+   You can limit propagation based on specific Tags and Glossary Terms. If none are selected, ALL Tags or Glossary Terms will be automatically propagated to BigQuery tables and columns. (The recommended approach is to not specify a filter to avoid inconsistent states.)
 
-    :::
+   :::
 
-    :::note
+   :::note
 
-    - BigQuery supports only one Policy Tag per table field. Consequently, the most recently assigned Glossary Term will be set as the Policy Tag for that field.
-    - Policy Tags cannot be applied to fields in External tables. Therefore, if a Glossary Term is assigned to a field in an External table, it will not be applied.
+   - BigQuery supports only one Policy Tag per table field. Consequently, the most recently assigned Glossary Term will be set as the Policy Tag for that field.
+   - Policy Tags cannot be applied to fields in External tables. Therefore, if a Glossary Term is assigned to a field in an External table, it will not be applied.
 
-    :::
+   :::
 
-    2. **Fill in the required fields to connect to BigQuery, along with the name, description, and category**
+   2. **Fill in the required fields to connect to BigQuery, along with the name, description, and category**
 
-    <p align="left">
-      <img width="50%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/bigquery-propagation/connection_config.png"/>
-    </p>
+   <p align="left">
+     <img width="50%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/bigquery-propagation/connection_config.png"/>
+   </p>
 
-    3. **Finally, click 'Save and Run' to start the automation**
+   3. **Finally, click 'Save and Run' to start the automation**
 
 ## 3. Propagating for Existing Assets (Optional)
 
@@ -182,7 +182,7 @@ A: Ensure that the service account used for the automation has the necessary per
 
 ### Q: Can table description removed?
 
-No, the sync can only modify table description but it won't remove or clear a description from a table. 
+No, the sync can only modify table description but it won't remove or clear a description from a table.
 
 ## Related Documentation
 

@@ -1,16 +1,18 @@
-import React, { useState } from 'react';
-import { Button, Pagination, message } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
+import { Button, Pagination, message } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { useListOwnershipTypesQuery } from '../../../graphql/ownership.generated';
-import { Message } from '../../shared/Message';
-import { OwnershipBuilderModal } from './OwnershipBuilderModal';
-import TabToolbar from '../shared/components/styled/TabToolbar';
-import { OwnershipTable } from './table/OwnershipTable';
-import { OwnershipTypeEntity } from '../../../types.generated';
-import { SearchBar } from '../../search/SearchBar';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { scrollToTop } from '../../shared/searchUtils';
+
+import { OwnershipBuilderModal } from '@app/entityV2/ownership/OwnershipBuilderModal';
+import { OwnershipTable } from '@app/entityV2/ownership/table/OwnershipTable';
+import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
+import { SearchBar } from '@app/search/SearchBar';
+import { Message } from '@app/shared/Message';
+import { scrollToTop } from '@app/shared/searchUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
+import { OwnershipTypeEntity } from '@types';
 
 const PaginationContainer = styled.div`
     display: flex;

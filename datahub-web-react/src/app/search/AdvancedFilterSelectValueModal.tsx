@@ -1,12 +1,11 @@
 import React from 'react';
-import { FacetMetadata, EntityType } from '../../types.generated';
-import { ContainerSelectModal } from '../entity/shared/containers/profile/sidebar/Container/ContainerSelectModal';
-import { SetDomainModal } from '../entity/shared/containers/profile/sidebar/Domain/SetDomainModal';
-import { EditOwnersModal } from '../entity/shared/containers/profile/sidebar/Ownership/EditOwnersModal';
-import { SelectPlatformModal } from '../entity/shared/containers/profile/sidebar/Platform/SelectPlatformModal';
-import EditTagTermsModal from '../shared/tags/AddTagsTermsModal';
-import { ChooseEntityTypeModal } from './ChooseEntityTypeModal';
-import { EditTextModal } from './EditTextModal';
+
+import { ContainerSelectModal } from '@app/entity/shared/containers/profile/sidebar/Container/ContainerSelectModal';
+import { SetDomainModal } from '@app/entity/shared/containers/profile/sidebar/Domain/SetDomainModal';
+import { EditOwnersModal } from '@app/entity/shared/containers/profile/sidebar/Ownership/EditOwnersModal';
+import { SelectPlatformModal } from '@app/entity/shared/containers/profile/sidebar/Platform/SelectPlatformModal';
+import { ChooseEntityTypeModal } from '@app/search/ChooseEntityTypeModal';
+import { EditTextModal } from '@app/search/EditTextModal';
 import {
     CONTAINER_FILTER_NAME,
     DESCRIPTION_FILTER_NAME,
@@ -23,7 +22,10 @@ import {
     REMOVED_FILTER_NAME,
     TAGS_FILTER_NAME,
     TYPE_NAMES_FILTER_NAME,
-} from './utils/constants';
+} from '@app/search/utils/constants';
+import EditTagTermsModal from '@app/shared/tags/AddTagsTermsModal';
+
+import { EntityType, FacetMetadata } from '@types';
 
 type Props = {
     facet?: FacetMetadata | null;
