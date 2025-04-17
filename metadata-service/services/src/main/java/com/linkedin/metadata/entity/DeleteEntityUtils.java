@@ -241,16 +241,19 @@ public class DeleteEntityUtils {
     completedFormsArray.add(
         buildCriterion("completedForms", Condition.EQUAL, deletedUrn.toString()));
     // next, get all metadata tests created for this form
-    final CriterionArray metadataTestSourceArray = new CriterionArray();
-    metadataTestSourceArray.add(
-        buildCriterion("sourceEntity", Condition.EQUAL, deletedUrn.toString()));
-    metadataTestSourceArray.add(buildCriterion("sourceType", Condition.EQUAL, "FORMS"));
+    final CriterionArray formTestArray = new CriterionArray();
+    formTestArray.add(buildCriterion("sourceEntity", Condition.EQUAL, deletedUrn.toString()));
+    formTestArray.add(buildCriterion("sourceType", Condition.EQUAL, "FORMS"));
+    final CriterionArray formPromptTestArray = new CriterionArray();
+    formPromptTestArray.add(buildCriterion("sourceEntity", Condition.EQUAL, deletedUrn.toString()));
+    formPromptTestArray.add(buildCriterion("sourceType", Condition.EQUAL, "FORM_PROMPT"));
     return new Filter()
         .setOr(
             new ConjunctiveCriterionArray(
                 new ConjunctiveCriterion().setAnd(incompleteFormsArray),
                 new ConjunctiveCriterion().setAnd(completedFormsArray),
-                new ConjunctiveCriterion().setAnd(metadataTestSourceArray)));
+                new ConjunctiveCriterion().setAnd(formTestArray),
+                new ConjunctiveCriterion().setAnd(formPromptTestArray)));
   }
 
   @Nullable

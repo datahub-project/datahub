@@ -438,4 +438,73 @@ public class DeleteEntityUtilsTest extends TestCase {
     assertEquals(
         DeleteEntityUtils.getEntityNamesForStructuredPropertyDeletion(), ImmutableList.of("form"));
   }
+
+  @Test
+  public void testFilterForFormDeletion() {
+    Urn deletedFormUrn = UrnUtils.getUrn("urn:li:form:1");
+
+    // Create expected filter components
+    final CriterionArray incompleteFormsArray = new CriterionArray();
+    incompleteFormsArray.add(
+        new Criterion()
+            .setField("incompleteForms")
+            .setValues(new StringArray(deletedFormUrn.toString()))
+            .setNegated(false)
+            .setValue("")
+            .setCondition(Condition.EQUAL));
+
+    final CriterionArray completedFormsArray = new CriterionArray();
+    completedFormsArray.add(
+        new Criterion()
+            .setField("completedForms")
+            .setValues(new StringArray(deletedFormUrn.toString()))
+            .setNegated(false)
+            .setValue("")
+            .setCondition(Condition.EQUAL));
+
+    final CriterionArray formTestArray = new CriterionArray();
+    formTestArray.add(
+        new Criterion()
+            .setField("sourceEntity")
+            .setValues(new StringArray(deletedFormUrn.toString()))
+            .setNegated(false)
+            .setValue("")
+            .setCondition(Condition.EQUAL));
+    formTestArray.add(
+        new Criterion()
+            .setField("sourceType")
+            .setValues(new StringArray("FORMS"))
+            .setNegated(false)
+            .setValue("")
+            .setCondition(Condition.EQUAL));
+
+    final CriterionArray formPromptTestArray = new CriterionArray();
+    formPromptTestArray.add(
+        new Criterion()
+            .setField("sourceEntity")
+            .setValues(new StringArray(deletedFormUrn.toString()))
+            .setNegated(false)
+            .setValue("")
+            .setCondition(Condition.EQUAL));
+    formPromptTestArray.add(
+        new Criterion()
+            .setField("sourceType")
+            .setValues(new StringArray("FORM_PROMPT"))
+            .setNegated(false)
+            .setValue("")
+            .setCondition(Condition.EQUAL));
+
+    // Create expected filter
+    Filter expectedFilter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion().setAnd(incompleteFormsArray),
+                    new ConjunctiveCriterion().setAnd(completedFormsArray),
+                    new ConjunctiveCriterion().setAnd(formTestArray),
+                    new ConjunctiveCriterion().setAnd(formPromptTestArray)));
+
+    // Compare with actual filter
+    assertEquals(DeleteEntityUtils.getFilterForFormDeletion(deletedFormUrn), expectedFilter);
+  }
 }
