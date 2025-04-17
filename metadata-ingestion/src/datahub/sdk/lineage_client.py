@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import difflib
 import logging
-from typing import TYPE_CHECKING, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, List, Literal, Optional, Set, Union
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -32,19 +32,20 @@ class LineageClient:
     def __init__(self, client: DataHubClient):
         self._client = client
 
-    def _get_fields_from_dataset_urn(self, dataset_urn: DatasetUrn) -> set[str]:
+    def _get_fields_from_dataset_urn(self, dataset_urn: DatasetUrn) -> Set[str]:
         schema_metadata = self._client._graph.get_aspect(
             str(dataset_urn), SchemaMetadataClass
         )
         if schema_metadata is None:
-            return set()
+            return Set()
 
         return {field.fieldPath for field in schema_metadata.fields}
 
+    @classmethod
     def _get_strict_column_lineage(
-        self,
-        upstream_fields: set[str],
-        downstream_fields: set[str],
+        cls,
+        upstream_fields: Set[str],
+        downstream_fields: Set[str],
     ) -> ColumnLineageMapping:
         """Find matches between upstream and downstream fields with case-insensitive matching."""
         strict_column_lineage: ColumnLineageMapping = {}
@@ -63,10 +64,11 @@ class LineageClient:
 
         return strict_column_lineage
 
+    @classmethod
     def _get_fuzzy_column_lineage(
-        self,
-        upstream_fields: set[str],
-        downstream_fields: set[str],
+        cls,
+        upstream_fields: Set[str],
+        downstream_fields: Set[str],
     ) -> ColumnLineageMapping:
         """Generate fuzzy matches between upstream and downstream fields."""
 
