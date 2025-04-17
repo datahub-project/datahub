@@ -1,5 +1,6 @@
-import { AppliedFieldFilterValue } from '@src/app/searchV2/filtersV2/types';
 import { useMemo } from 'react';
+
+import { AppliedFieldFilterValue } from '@src/app/searchV2/filtersV2/types';
 
 export default function useValues(appliedFilters: AppliedFieldFilterValue | undefined): string[] {
     const values = useMemo(

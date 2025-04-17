@@ -1,15 +1,16 @@
+import { Alert, Space, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
-import { Alert, message, Space, Typography } from 'antd';
 import styled from 'styled-components';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import RecipeBuilder from '@app/ingest/source/builder/RecipeBuilder';
+import { getRecipeJson } from '@app/ingest/source/builder/RecipeForm/TestConnection/TestConnectionButton';
+import { CONNECTORS_WITH_FORM } from '@app/ingest/source/builder/RecipeForm/constants';
+import { YamlEditor } from '@app/ingest/source/builder/YamlEditor';
+import { IngestionSourceBuilderStep } from '@app/ingest/source/builder/steps';
+import { StepProps } from '@app/ingest/source/builder/types';
+import { getPlaceholderRecipe, getSourceConfigs, jsonToYaml } from '@app/ingest/source/utils';
 import { Button } from '@src/alchemy-components';
-import { StepProps } from './types';
-import { getPlaceholderRecipe, getSourceConfigs, jsonToYaml } from '../utils';
-import { YamlEditor } from './YamlEditor';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
-import { IngestionSourceBuilderStep } from './steps';
-import RecipeBuilder from './RecipeBuilder';
-import { CONNECTORS_WITH_FORM } from './RecipeForm/constants';
-import { getRecipeJson } from './RecipeForm/TestConnection/TestConnectionButton';
 
 const LOOKML_DOC_LINK = 'https://datahubproject.io/docs/generated/ingestion/sources/looker#module-lookml';
 

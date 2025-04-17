@@ -1,3 +1,5 @@
+import { UnionType } from '@app/search/utils/constants';
+
 import {
     Entity,
     FacetFilterInput,
@@ -7,8 +9,7 @@ import {
     Scalars,
     SearchAcrossEntitiesInput,
     SearchInsight,
-} from '../../../../../../types.generated';
-import { UnionType } from '../../../../../search/utils/constants';
+} from '@types';
 
 export type GetSearchResultsParams = {
     variables: {

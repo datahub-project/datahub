@@ -3,23 +3,23 @@
 ## Background
 
 Up to this point, there's been a historical constraint on all entity browse paths. Namely, each browse path has been
-required to end with a path component that represents "simple name" for an entity. For example, a Browse Path for a 
+required to end with a path component that represents "simple name" for an entity. For example, a Browse Path for a
 Snowflake Table called "test_table" may look something like this:
 
 ```
 /prod/snowflake/warehouse1/db1/test_table
 ```
 
-In the UI, we artificially truncate the final path component when you are browsing the Entity hierarchy, so your browse experience 
-would be: 
+In the UI, we artificially truncate the final path component when you are browsing the Entity hierarchy, so your browse experience
+would be:
 
 `prod` > `snowflake` > `warehouse1`> `db1` > `Click Entity`
 
 As you can see, the final path component `test_table` is effectively ignored. It could have any value, and we would still ignore
-it in the UI. This behavior serves as a workaround to the historical requirement that all browse paths end with a simple name. 
+it in the UI. This behavior serves as a workaround to the historical requirement that all browse paths end with a simple name.
 
 This data constraint stands in opposition the original intention of Browse Paths: to provide a simple mechanism for organizing
-assets into a hierarchical folder structure. For this reason, we've changed the semantics of Browse Paths to better align with the original intention. 
+assets into a hierarchical folder structure. For this reason, we've changed the semantics of Browse Paths to better align with the original intention.
 Going forward, you will not be required to provide a final component detailing the "name". Instead, you will be able to provide a simpler path that
 omits this final component:
 
@@ -27,9 +27,9 @@ omits this final component:
 /prod/snowflake/warehouse1/db1
 ```
 
-and the browse experience from the UI will continue to work as you would expect: 
+and the browse experience from the UI will continue to work as you would expect:
 
-`prod` > `snowflake` > `warehouse1`> `db1` > `Click Entity`. 
+`prod` > `snowflake` > `warehouse1`> `db1` > `Click Entity`.
 
 With this change comes a fix to a longstanding bug where multiple browse paths could not be attached to a single URN. Going forward,
 we will support producing multiple browse paths for the same entity, and allow you to traverse via multiple paths. For example
@@ -46,10 +46,11 @@ return MetadataChangeProposalWrapper(
     aspect=browse_path,
 )
 ```
-*Using the Python Emitter SDK to produce multiple Browse Paths for the same entity*
+
+_Using the Python Emitter SDK to produce multiple Browse Paths for the same entity_
 
 We've received multiple bug reports, such as [this issue](https://github.com/datahub-project/datahub/issues/5525), and requests to address these issues with Browse, and thus are deciding
-to do it now before more workarounds are created.  
+to do it now before more workarounds are created.
 
 ## What this means for you
 
@@ -61,7 +62,7 @@ There will be 2 ways to upgrade to the new browse path format. Depending on your
 1. Migrate default browse paths to the new format by restarting DataHub
 2. Upgrade your version of the `datahub` CLI to push new browse path format (version `v0.8.45`)
 
-Each step will be discussed in detail below. 
+Each step will be discussed in detail below.
 
 ### 1. Migrating default browse paths to the new format
 
@@ -75,21 +76,21 @@ UPGRADE_DEFAULT_BROWSE_PATHS_ENABLED=true
 And restart the `datahub-gms` instance. This will cause GMS to perform a boot-time migration of all your existing Browse Paths
 to the new format, removing the unnecessarily name component at the very end.
 
-If the migration is successful, you'll see the following in your GMS logs: 
+If the migration is successful, you'll see the following in your GMS logs:
 
 ```
 18:58:17.414 [main] INFO c.l.m.b.s.UpgradeDefaultBrowsePathsStep:60 - Successfully upgraded all browse paths!
 ```
 
-After this one-time migration is complete, you should be able to navigate the Browse hierarchy exactly as you did previously. 
+After this one-time migration is complete, you should be able to navigate the Browse hierarchy exactly as you did previously.
 
 > Note that certain ingestion sources actively produce their own Browse Paths, which overrides the default path
-> computed by DataHub. 
-> 
+> computed by DataHub.
+>
 > In these cases, getting the updated Browse Path will require re-running your ingestion process with the updated
-> version of the connector. This is discussed in more detail in the next section. 
+> version of the connector. This is discussed in more detail in the next section.
 
-### 2. Upgrading the `datahub` CLI to push new browse paths 
+### 2. Upgrading the `datahub` CLI to push new browse paths
 
 If you are actively ingesting metadata from one or more of following sources
 
@@ -104,7 +105,7 @@ If you are actively ingesting metadata from one or more of following sources
 9. Business Glossary
 
 You will need to upgrade the DataHub CLI to >= `v0.8.45` and re-run metadata ingestion. This will generate the new browse path format
-and overwrite the existing paths for entities that were extracted from these sources. 
+and overwrite the existing paths for entities that were extracted from these sources.
 
 ### If you are producing custom Browse Paths
 
@@ -125,9 +126,8 @@ Your users will be able to find the entity by traversing through these folders i
 
 `my` > `custom` > `browse`> `path` > `Click Entity`.
 
-
-> Note that if you are using the Browse Path Transformer you *will* be impacted in the same way. It is recommended that you revisit the
-> paths that you are producing, and update them to the new format. 
+> Note that if you are using the Browse Path Transformer you _will_ be impacted in the same way. It is recommended that you revisit the
+> paths that you are producing, and update them to the new format.
 
 ## Support
 

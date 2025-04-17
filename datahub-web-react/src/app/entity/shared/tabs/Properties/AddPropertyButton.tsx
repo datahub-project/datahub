@@ -1,5 +1,13 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { colors, Icon, Input as InputComponent, Text } from '@src/alchemy-components';
+import { Tooltip } from '@components';
+import { Dropdown } from 'antd';
+import React, { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import styled from 'styled-components';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import EditStructuredPropertyModal from '@app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
+import { Icon, Input as InputComponent, Text, colors } from '@src/alchemy-components';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { getEntityTypesPropertyFilter, getNotHiddenPropertyFilter } from '@src/app/govern/structuredProperties/utils';
@@ -7,14 +15,7 @@ import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useIsThemeV2 } from '@src/app/useIsThemeV2';
 import { PageRoutes } from '@src/conf/Global';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
-import { Dropdown } from 'antd';
-import { Tooltip } from '@components';
 import { EntityType, Maybe, StructuredProperties, StructuredPropertyEntity } from '@src/types.generated';
-import React, { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import styled from 'styled-components';
-import { useEntityData } from '../../EntityContext';
-import EditStructuredPropertyModal from './Edit/EditStructuredPropertyModal';
 
 const AddButton = styled.div<{ isThemeV2: boolean; isV1Drawer?: boolean }>`
     border-radius: 200px;

@@ -1,26 +1,27 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { TITLE_CASE_EXCEPTION_WORDS } from '@app/entityV2/shared/constants';
+import { OUTPUT_PORTS_FIELD } from '@app/search/utils/constants';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { TimeWindowSize } from '@app/shared/time/timeUtils';
+
 import {
+    ChartProperties,
     ChartStatsSummary,
     DashboardStatsSummary,
     DataProduct,
+    Dataset,
     DatasetProfile,
+    DatasetProperties,
     DatasetStatsSummary,
     DateInterval,
     Entity,
     EntityRelationshipsResult,
     EntityType,
-    SearchResult,
-    DatasetProperties,
-    ChartProperties,
     Operation,
-    Dataset,
-} from '../../../types.generated';
-
-import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-import { GenericEntityProperties } from '../../entity/shared/types';
-import { OUTPUT_PORTS_FIELD } from '../../search/utils/constants';
-import { TimeWindowSize } from '../../shared/time/timeUtils';
-import { TITLE_CASE_EXCEPTION_WORDS } from './constants';
+    SearchResult,
+} from '@types';
 
 export function dictToQueryStringParams(params: Record<string, string | boolean>) {
     return Object.keys(params)

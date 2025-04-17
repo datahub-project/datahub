@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
-
-import { Input } from 'antd';
 import { FormOutlined, SearchOutlined } from '@ant-design/icons';
+import { Input } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { DataPlatformCard } from '@app/ingest/source/builder/DataPlatformCard';
+import { CUSTOM } from '@app/ingest/source/builder/constants';
+import { IngestionSourceBuilderStep } from '@app/ingest/source/builder/steps';
+import { SourceBuilderState, SourceConfig, StepProps } from '@app/ingest/source/builder/types';
+import useGetSourceLogoUrl from '@app/ingest/source/builder/useGetSourceLogoUrl';
 import { Button } from '@src/alchemy-components';
-import { SourceConfig, SourceBuilderState, StepProps } from './types';
-import { IngestionSourceBuilderStep } from './steps';
-import useGetSourceLogoUrl from './useGetSourceLogoUrl';
-import { CUSTOM } from './constants';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
-import { DataPlatformCard } from './DataPlatformCard';
 
 const Container = styled.div`
     max-height: 82vh;

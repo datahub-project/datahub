@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
-import { AppliedFieldFilterUpdater, FieldToAppliedFieldFiltersMap } from '../types';
+
+import { AppliedFieldFilterUpdater, FieldToAppliedFieldFiltersMap } from '@app/searchV2/filtersV2/types';
 
 export default function useAppliedFilters(defaultAppliedFilters?: FieldToAppliedFieldFiltersMap) {
     const [appliedFilters, setAppliedFilters] = useState<FieldToAppliedFieldFiltersMap | undefined>(

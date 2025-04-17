@@ -20,7 +20,7 @@ By integrating your external roles into DataHub, teams can reduce access request
 
 ### Self-hosted DataHub
 
-For self-hosted DataHub deployments, the Access Management feature is *disabled* by default. To enable it,
+For self-hosted DataHub deployments, the Access Management feature is _disabled_ by default. To enable it,
 simply set the `SHOW_ACCESS_MANAGEMENT` environment variable for the `datahub-gms` service container
 to `true`. For example in your `docker/datahub-gms/docker.env`, you'd configure:
 
@@ -33,6 +33,7 @@ SHOW_ACCESS_MANAGEMENT=true
 If you're using DataHub Cloud, enabling the Access Management feature just requires contacting your DataHub Cloud CustomerSuccess representative. They can enable this feature for your environment without any configuration changes on your part.
 
 ## UI Location
+
 Under a dataset, the new tab "Access Management" should appear if configured correctly.
 
 <p align="center">
@@ -40,12 +41,13 @@ Under a dataset, the new tab "Access Management" should appear if configured cor
 </p>
 
 ## Data Model
+
 Access management introduces a new entity in DataHub's metadata model called a Role.
 A Role is comprised of:
 
-* A unique key (URN)
-* Properties of the role (name, description, type, request URL)
-* A list of users that have been provisioned the role
+- A unique key (URN)
+- Properties of the role (name, description, type, request URL)
+- A list of users that have been provisioned the role
 
 This role must then be associated with datasets through a new aspect called access.
 
@@ -120,7 +122,7 @@ datahub put --urn "urn:li:role:reader" --aspect actors -d - <<-EOF
 {
   "users": [
     {"user": "urn:li:corpuser:datahubuser"}
-  ] 
+  ]
 }
 EOF
 ```
@@ -217,7 +219,7 @@ To see Access Management in action, check out our [DataHub Townhall demo](https:
 
 Future enhancements planned for Access Management include:
 
-* Modeling external policies in addition to just roles
-* Automatically extracting roles/policies from sources like BigQuery, Snowflake, etc.
-* Extending support to more entity types beyond datasets
-* Advanced access request workflows with approvals
+- Modeling external policies in addition to just roles
+- Automatically extracting roles/policies from sources like BigQuery, Snowflake, etc.
+- Extending support to more entity types beyond datasets
+- Advanced access request workflows with approvals

@@ -26,6 +26,7 @@ x-mysql-profiles: &mysql-profiles
   - quickstart-storage
   - quickstart-consumers
   - debug
+  - debug-datahub-actions
   - debug-frontend
   - debug-backend
   - debug-consumers
@@ -55,6 +56,7 @@ x-elasticsearch-profiles: &elasticsearch-profiles
 
 x-opensearch-profiles-quickstart: &opensearch-profiles-quickstart
   - quickstart
+  - quickstart-datahub-actions
   - quickstart-backend
   - quickstart-frontend
   - quickstart-storage
@@ -63,6 +65,7 @@ x-opensearch-profiles-quickstart: &opensearch-profiles-quickstart
   - quickstart-consumers
 x-opensearch-profiles-dev: &opensearch-profiles-dev
   - debug
+  - debug-datahub-actions
   - debug-frontend
   - debug-backend
   - debug-postgres
@@ -72,12 +75,14 @@ x-opensearch-profiles-dev: &opensearch-profiles-dev
 x-opensearch-profiles: &opensearch-profiles
   - quickstart
   - quickstart-backend
+  - quickstart-actions
   - quickstart-frontend
   - quickstart-storage
   - quickstart-cassandra
   - quickstart-postgres
   - quickstart-consumers
   - debug
+  - debug-datahub-actions
   - debug-frontend
   - debug-backend
   - debug-postgres
@@ -89,6 +94,7 @@ x-opensearch-profiles: &opensearch-profiles
 x-profiles-quickstart: &profiles-quickstart
   - quickstart
   - quickstart-backend
+  - quickstart-actions
   - quickstart-frontend
   - quickstart-storage
   - quickstart-cassandra
@@ -96,6 +102,7 @@ x-profiles-quickstart: &profiles-quickstart
   - quickstart-consumers
 x-profiles-dev: &profiles-dev
   - debug
+  - debug-datahub-actions
   - debug-frontend
   - debug-backend
   - debug-postgres

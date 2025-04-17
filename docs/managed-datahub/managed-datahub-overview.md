@@ -5,6 +5,7 @@
 DataHub Cloud delivers a fully-managed version of DataHub's powerful metadata platform, offering enhanced capabilities for data discovery, observability, and governance that accelerate the production-readiness of your data and AI assets.
 
 ### Enterprise-Grade Service
+
 - **Proven Implementation Service** tailored to your organization's specific needs
 - **SLA-Backed Reliability** ensuring 99.5% uptime for critical operations
 - **Optimized Performance** with infrastructure fine-tuned and managed by experts
@@ -12,10 +13,12 @@ DataHub Cloud delivers a fully-managed version of DataHub's powerful metadata pl
 - **Enhanced Security Controls** meeting enterprise compliance requirements
 
 ### Accelerated Adoption
+
 - **Comprehensive Team Training** to maximize platform utilization
 - **Expert Support** providing guidance through your data journey
 
 ### Add-on Capabilities
+
 - **Enhanced Discovery & Understanding** with personalized user experiences, AI-generated documentation and propagation, and collaboration features
 - **Improved Data Quality Monitoring** with ability to run quality checks, use AI anomaly detection, and comprehensively monitor data assets
 - **Robust Governance Mechanisms** with dynamic compliance forms, certification & approval workflows, and enforced governance standards

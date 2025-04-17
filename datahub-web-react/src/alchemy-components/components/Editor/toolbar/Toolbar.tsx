@@ -1,7 +1,3 @@
-import React from 'react';
-import { Divider } from 'antd';
-import { useActive, useCommands } from '@remirror/react';
-import styled from 'styled-components';
 import {
     Code,
     CodeBlock,
@@ -13,11 +9,17 @@ import {
     TextStrikethrough,
     TextUnderline,
 } from '@phosphor-icons/react';
+import { useActive, useCommands } from '@remirror/react';
+import { Divider } from 'antd';
+import React from 'react';
+import styled from 'styled-components';
+
+import { AddImageButton } from '@components/components/Editor/toolbar/AddImageButton';
+import { AddLinkButton } from '@components/components/Editor/toolbar/AddLinkButton';
+import { CommandButton } from '@components/components/Editor/toolbar/CommandButton';
+import { HeadingMenu } from '@components/components/Editor/toolbar/HeadingMenu';
+
 import colors from '@src/alchemy-components/theme/foundations/colors';
-import { CommandButton } from './CommandButton';
-import { HeadingMenu } from './HeadingMenu';
-import { AddImageButton } from './AddImageButton';
-import { AddLinkButton } from './AddLinkButton';
 
 const Container = styled.div`
     position: sticky;

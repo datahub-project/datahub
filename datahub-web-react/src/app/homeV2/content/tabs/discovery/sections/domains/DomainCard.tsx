@@ -1,16 +1,18 @@
+import { Divider } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
-import { Divider } from 'antd';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { SEARCH_COLORS } from '@app/entityV2/shared/constants';
+import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
+import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
+import { formatNumber } from '@app/shared/formatNumber';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { colors } from '@src/alchemy-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { Domain, EntityType } from '../../../../../../../types.generated';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { ANTD_GRAY } from '../../../../../../entity/shared/constants';
-import { formatNumber } from '../../../../../../shared/formatNumber';
-import { DomainColoredIcon } from '../../../../../../entityV2/shared/links/DomainColoredIcon';
-import { HoverEntityTooltip } from '../../../../../../recommendations/renderer/component/HoverEntityTooltip';
-import { SEARCH_COLORS } from '../../../../../../entityV2/shared/constants';
+
+import { Domain, EntityType } from '@types';
 
 const Card = styled(Link)<{ $isShowNavBarRedesign?: boolean }>`
     border-radius: ${(props) => (props.$isShowNavBarRedesign ? '8px' : '10px')};

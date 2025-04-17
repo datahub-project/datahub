@@ -264,5 +264,3 @@ data assets). Typically, it is defined against _metadata_ attributes, as opposed
 a Metadata Test may verify that ALL tables in Snowflake have at least 1 assigned owner, and a human-authored description.
 Metadata Tests allow you to manage broad policies across your entire data ecosystem driven by metadata, for example to
 augment a larger scale Data Governance initiative.
-
-

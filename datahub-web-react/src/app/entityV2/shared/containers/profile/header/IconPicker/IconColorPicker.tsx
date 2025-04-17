@@ -2,10 +2,11 @@ import { Input, Modal } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { useUpdateDisplayPropertiesMutation } from '../../../../../../../graphql/mutations.generated';
-import { IconLibrary } from '../../../../../../../types.generated';
-import { useEntityData, useRefetch } from '../../../../../../entity/shared/EntityContext';
-import { ChatIconPicker } from './IconPicker';
+import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { ChatIconPicker } from '@app/entityV2/shared/containers/profile/header/IconPicker/IconPicker';
+
+import { useUpdateDisplayPropertiesMutation } from '@graphql/mutations.generated';
+import { IconLibrary } from '@types';
 
 type IconColorPickerProps = {
     name: string;

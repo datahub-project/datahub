@@ -1,4 +1,4 @@
-import { EntityType } from '../../../types.generated';
+import { EntityType } from '@types';
 
 // TODO(Gabe): integrate this w/ the theme
 export const REDESIGN_COLORS = {

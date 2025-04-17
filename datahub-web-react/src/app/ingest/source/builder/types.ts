@@ -1,4 +1,4 @@
-import { IngestionSourceBuilderStep } from './steps';
+import { IngestionSourceBuilderStep } from '@app/ingest/source/builder/steps';
 
 /**
  * The size of the builder modal

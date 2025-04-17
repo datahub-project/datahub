@@ -1,6 +1,7 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # AWS PrivateLink
+
 <FeatureAvailability saasOnly />
 
 If you require a private connection between the provisioned DataHub instance and your own existing AWS account, DataHub Cloud supports using AWS PrivateLink in order to complete this private connection.
@@ -9,7 +10,7 @@ In order to complete this connection, the DataHub integrations team will require
 
 Once that team reports the PrivateLink has been created, the team will give you a VPC Endpoint Service Name to use.
 
-In order to complete the connection, you will have to create a VPC Endpoint in your AWS account.  To do so, please follow these instructions:
+In order to complete the connection, you will have to create a VPC Endpoint in your AWS account. To do so, please follow these instructions:
 
 :::info
 Before following the instructions below, please create a VPC security group with ports 80, and 443 (Both TCP) and any required CIDR blocks or other sources as an inbound rule

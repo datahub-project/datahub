@@ -1,12 +1,17 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';
-import { BrowsePathEntry, BrowsePathV2 } from '../../types.generated';
-import { REDESIGN_COLORS } from '../entityV2/shared/constants';
-import { Ellipsis, StyledTooltip } from '../entityV2/shared/containers/profile/header/PlatformContent/ParentNodesView';
-import ContextPathEntityLink from './ContextPathEntityLink';
-import { PreviewType } from '../entityV2/Entity';
-import { ContextPathSeparator } from './ContextPathSeparator';
+
+import { PreviewType } from '@app/entityV2/Entity';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import {
+    Ellipsis,
+    StyledTooltip,
+} from '@app/entityV2/shared/containers/profile/header/PlatformContent/ParentNodesView';
+import ContextPathEntityLink from '@app/previewV2/ContextPathEntityLink';
+import { ContextPathSeparator } from '@app/previewV2/ContextPathSeparator';
+
+import { BrowsePathEntry, BrowsePathV2 } from '@types';
 
 export const PlatformText = styled.div<{
     $maxWidth?: number;
