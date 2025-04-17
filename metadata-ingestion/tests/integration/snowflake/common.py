@@ -638,37 +638,6 @@ def default_query_results(  # noqa: C901
             for op_idx in range(1, num_ops + 1)
         ]
     elif query in [
-        snowflake_query.SnowflakeQuery.view_dependencies(),
-    ]:
-        return [
-            {
-                "REFERENCED_OBJECT_DOMAIN": "table",
-                "REFERENCING_OBJECT_DOMAIN": "view",
-                "DOWNSTREAM_VIEW": "TEST_DB.TEST_SCHEMA.VIEW_2",
-                "VIEW_UPSTREAM": "TEST_DB.TEST_SCHEMA.TABLE_2",
-            }
-        ]
-    elif query in [
-        snowflake_query.SnowflakeQuery.view_dependencies_v2(),
-    ]:
-        # VIEW_2 has dependency on TABLE_2
-        return [
-            {
-                "DOWNSTREAM_TABLE_NAME": "TEST_DB.TEST_SCHEMA.VIEW_2",
-                "DOWNSTREAM_TABLE_DOMAIN": "view",
-                "UPSTREAM_TABLES": json.dumps(
-                    [
-                        {
-                            "upstream_object_name": "TEST_DB.TEST_SCHEMA.TABLE_2",
-                            "upstream_object_domain": "table",
-                        }
-                    ]
-                ),
-            }
-        ]
-    elif query in [
-        snowflake_query.SnowflakeQuery.view_dependencies_v2(),
-        snowflake_query.SnowflakeQuery.view_dependencies(),
         snowflake_query.SnowflakeQuery.show_external_tables(),
         snowflake_query.SnowflakeQuery.copy_lineage_history(
             start_time_millis=1654473600000, end_time_millis=1654621200000
