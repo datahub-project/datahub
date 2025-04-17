@@ -72,7 +72,7 @@ export const SearchBarV2 = ({
     const { appliedFilters, hasAppliedFilters, flatAppliedFilters, clear, updateFieldFilters } = useAppliedFilters();
     const { hasSelectedView, clearSelectedView } = useSelectedView();
     const {
-        entities,
+        entitiesWithMatchedFields,
         facets,
         loading: isDataLoading,
         searchAPIVariant,
@@ -93,7 +93,7 @@ export const SearchBarV2 = ({
     const options = useOptions(
         searchQuery,
         showViewAllResults,
-        entities,
+        entitiesWithMatchedFields,
         !!isDataLoading,
         shouldCombineSiblings,
         isSearching,

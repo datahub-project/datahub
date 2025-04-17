@@ -1297,6 +1297,14 @@ query getSearchResultsForMultipleTrimmed($input: SearchAcrossEntitiesInput!) {
             entity {
                 ...autoCompleteFields
             }
+            matchedFields {
+                name
+                value
+                entity {
+                    urn
+                    type
+                }
+            }
         }
         facets {
             ...facetFields
