@@ -1,4 +1,4 @@
-import { InputProps , InputRef } from 'antd';
+import { InputProps, InputRef } from 'antd';
 import React, { forwardRef } from 'react';
 
 import { StyledSearchBar } from '@components/components/SearchBar/components';

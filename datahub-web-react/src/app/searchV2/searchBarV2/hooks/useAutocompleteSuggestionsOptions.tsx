@@ -2,10 +2,10 @@ import React, { useMemo } from 'react';
 
 import AutoCompleteEntityItem from '@app/searchV2/autoCompleteV2/AutoCompleteEntityItem';
 import SectionHeader from '@app/searchV2/searchBarV2/components/SectionHeader';
+import { SectionOption } from '@app/searchV2/searchBarV2/types';
 import { combineSiblingsInEntities } from '@app/searchV2/utils/combineSiblingsInEntities';
 import { Loader } from '@src/alchemy-components';
 import { Entity } from '@src/types.generated';
-import { SectionOption } from '@app/searchV2/searchBarV2/types';
 
 export default function useSearchResultsOptions(
     entities: Entity[] | undefined,
