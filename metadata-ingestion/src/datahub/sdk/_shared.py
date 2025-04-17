@@ -84,6 +84,7 @@ def convert_hyper_params(
         ]
     return params
 
+
 def make_time_stamp(ts: Optional[datetime]) -> Optional[models.TimeStampClass]:
     if ts is None:
         return None
