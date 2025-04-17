@@ -215,12 +215,14 @@ def test_add_dataset_copy_lineage_auto_fuzzy(client: DataHubClient) -> None:
 
     # Mock the _get_fields_from_dataset_urn method to return our test fields
     lineage_client._get_fields_from_dataset_urn = MagicMock()  # type: ignore
-    lineage_client._get_fields_from_dataset_urn.side_effect = lambda urn: {  # type: ignore
-        field.fieldPath
-        for field in (
-            upstream_schema if "upstream" in str(urn) else downstream_schema
-        ).fields
-    }
+    lineage_client._get_fields_from_dataset_urn.side_effect = lambda urn: sorted(
+        {  # type: ignore
+            field.fieldPath
+            for field in (
+                upstream_schema if "upstream" in str(urn) else downstream_schema
+            ).fields
+        }
+    )
 
     # Run the lineage function
     lineage_client.add_dataset_copy_lineage(
@@ -303,12 +305,14 @@ def test_add_dataset_copy_lineage_auto_strict(client: DataHubClient) -> None:
 
     # Mock the _get_fields_from_dataset_urn method to return our test fields
     lineage_client._get_fields_from_dataset_urn = MagicMock()  # type: ignore
-    lineage_client._get_fields_from_dataset_urn.side_effect = lambda urn: {  # type: ignore
-        field.fieldPath
-        for field in (
-            upstream_schema if "upstream" in str(urn) else downstream_schema
-        ).fields
-    }
+    lineage_client._get_fields_from_dataset_urn.side_effect = lambda urn: sorted(
+        {  # type: ignore
+            field.fieldPath
+            for field in (
+                upstream_schema if "upstream" in str(urn) else downstream_schema
+            ).fields
+        }
+    )
 
     # Run the lineage function
     lineage_client.add_dataset_copy_lineage(
@@ -319,12 +323,14 @@ def test_add_dataset_copy_lineage_auto_strict(client: DataHubClient) -> None:
 
     # Mock the _get_fields_from_dataset_urn method to return our test fields
     lineage_client._get_fields_from_dataset_urn = MagicMock()  # type: ignore
-    lineage_client._get_fields_from_dataset_urn.side_effect = lambda urn: {  # type: ignore
-        field.fieldPath
-        for field in (
-            upstream_schema if "upstream" in str(urn) else downstream_schema
-        ).fields
-    }
+    lineage_client._get_fields_from_dataset_urn.side_effect = lambda urn: sorted(
+        {  # type: ignore
+            field.fieldPath
+            for field in (
+                upstream_schema if "upstream" in str(urn) else downstream_schema
+            ).fields
+        }
+    )
 
     # Run the lineage function
     lineage_client.add_dataset_copy_lineage(
