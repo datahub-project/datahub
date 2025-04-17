@@ -409,6 +409,19 @@ class SnowflakeConnection(Closeable):
         try:
             logger.info(f"Query: {query}", stacklevel=2)
             resp = self._connection.cursor(DictCursor).execute(query)
+            if resp is not None and resp.rowcount is not None:
+                # We often run multiple queries in parallel, so it's useful
+                # to have a preview of the query in the logs to help with readability.
+                # We only show the first 2 lines of the query, and truncate the rest.
+                query_lines = query.lstrip().split("\n")
+                if len(query_lines) > 2:
+                    query_preview = "\\n".join(query_lines[:2]) + " ..."
+                else:
+                    query_preview = query.strip()
+                logger.info(
+                    f"Got {resp.rowcount} row(s) back from Snowflake for query: {query_preview}",
+                    stacklevel=2,
+                )
             return resp
 
         except Exception as e:
