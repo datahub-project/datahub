@@ -59,7 +59,8 @@ public class GetGrantedPrivilegesResolver implements DataFetcher<CompletableFutu
 
               List<PolicyEvaluationDetail> evaluationDetailList = null;
 
-              if (input.getIncludeEvaluationDetails()) {
+              if (input.getIncludeEvaluationDetails()
+                  && PolicyAuthUtils.canManagePolicies(context)) {
                 evaluationDetailList = new ArrayList<>();
                 for (Map.Entry<String, String> entry : evalResult.getReasonOfDeny().entrySet()) {
                   evaluationDetailList.add(
