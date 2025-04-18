@@ -1,4 +1,8 @@
 import { Button, Icon } from '@components';
+<<<<<<< HEAD
+=======
+import { colors, radius, shadows, spacing, transition, typography, zIndices } from '@components/theme';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 import { Checkbox } from 'antd';
 import styled from 'styled-components';
 
@@ -25,7 +29,10 @@ export const SelectBase = styled.div<SelectStyleProps>(
         transition: sharedTransition,
         justifyContent: 'space-between',
         alignSelf: position || 'end',
+<<<<<<< HEAD
         minHeight: '36px',
+=======
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
         alignItems: 'center',
         overflow: 'auto',
         textWrapMode: 'nowrap',

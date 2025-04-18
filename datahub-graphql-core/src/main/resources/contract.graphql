@@ -59,9 +59,18 @@ type DataContract implements Entity {
   """
   result(
     """
+<<<<<<< HEAD
     Experimental --
     If true, any native data contract assertions will be re-evaluated before returning the result.
     Returns null if there is NO contract. Contract is PASSING if there are no assertions inside of it.
+=======
+    Structured properties about this Data Contract
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    List of relationships between the source Entity and some destination entities with a given types
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
     """
     refresh: Boolean
   ): DataContractResult

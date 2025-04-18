@@ -1,11 +1,20 @@
+<<<<<<< HEAD
 import { Image } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+=======
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 import { IconStyleType } from '@src/app/entityV2/Entity';
 import { getPlatformName } from '@src/app/entityV2/shared/utils';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { Entity } from '@src/types.generated';
+<<<<<<< HEAD
+=======
+import { Image } from 'antd';
+import React, { useState } from 'react';
+import styled from 'styled-components';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const ImageIcon = styled(Image)<{ $size: number }>`
     height: ${(props) => props.$size}px;

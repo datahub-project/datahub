@@ -767,7 +767,11 @@ The previous version `1` of the `globalTags` aspect is returned as expected with
 ### Generic Patching
 
 The OpenAPI v3 PATCH endpoints offer advantages over previous patch support by removing the need for specific backend
+<<<<<<< HEAD
 code to handle patching, see [Template Classes](/docs/advanced/patch.md#implementation-details). This technique leverages
+=======
+code to handle patching, see [Template Classes](/docs/advanced/patch.md#implementation-details). This technique leverages 
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 the natural JSON structure of aspects and extends a generic patching mechanism based on the JSON Patch standard (RFC 6902)
 with significant enhancements for array operations.
 
@@ -780,6 +784,7 @@ Standard JSON Patch Limitations:
 
 The JSON Patch standard allows for array modifications primarily through index-based operations:
 
+<<<<<<< HEAD
 - `add/[index]`: Insert at specific position
 - `remove/[index]`: Remove element at position
 - `replace/[index]`: Replace element at position
@@ -806,6 +811,34 @@ This approach allows for:
 - Targeted modifications without needing to know current array state
 - Concurrent updates without conflicts (when modifying different array elements)
 - More intuitive and maintainable API usage
+=======
+* `add/[index]`: Insert at specific position
+* `remove/[index]`: Remove element at position
+* `replace/[index]`: Replace element at position
+
+This approach becomes problematic when:
+
+* Array ordering is unpredictable or may change
+* Multiple clients are modifying the same resource concurrently
+* The client doesn't have knowledge of current array indexes
+
+Key Concept: Array Primary Keys:
+
+DataHub extends the JSON Patch standard with the `arrayPrimaryKeys` field that transforms array operations into map-like 
+operations:
+
+* Arrays are conceptually treated as maps where each element can be addressed by its primary key
+* Primary keys can be composite (multiple fields combined)
+* Path expressions use these keys instead of numeric indexes
+* Backend handles the conversion between the map-like operations and actual array modifications
+
+This approach allows for:
+
+* Idempotent operations regardless of array order
+* Targeted modifications without needing to know current array state
+* Concurrent updates without conflicts (when modifying different array elements)
+* More intuitive and maintainable API usage
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 #### Primary Key Definition and Path Construction
 
@@ -819,7 +852,14 @@ The `arrayPrimaryKeys` property specifies which fields uniquely identify each ar
 ```json
 {
   "arrayPrimaryKeys": {
+<<<<<<< HEAD
     "tags": ["attribution␟source", "tag"]
+=======
+    "tags": [
+      "attribution␟source",
+      "tag"
+    ]
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
   },
   "patch": [
     {
@@ -840,17 +880,29 @@ The `arrayPrimaryKeys` property specifies which fields uniquely identify each ar
 
 In this example:
 
+<<<<<<< HEAD
 - tags is the array field being patched
 - The primary key is a composite of attribution.source and tag
 - The `␟`, "Unit Separator" (U+241F), delimiter indicates a nested path in the first key component
+=======
+* tags is the array field being patched
+* The primary key is a composite of attribution.source and tag
+* The `␟`, "Unit Separator" (U+241F), delimiter indicates a nested path in the first key component
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 Path Construction:
 
 When the backend processes a patch operation, it:
 
+<<<<<<< HEAD
 - Converts the array to a map using the specified primary key fields
 - Processes the operation against this map representation
 - Converts the map back to an array for storage
+=======
+* Converts the array to a map using the specified primary key fields
+* Processes the operation against this map representation
+* Converts the map back to an array for storage
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 For example, with the path:
 
@@ -860,17 +912,28 @@ For example, with the path:
 
 The system:
 
+<<<<<<< HEAD
 - Identifies tags as the target array
 - Uses `urn:li:platformResource:source1` as the value for `attribution.source`
 - Uses `urn:li:tag:tag1` as the value for the tag
 - Finds the matching array element(s) with these key values
+=======
+* Identifies tags as the target array
+* Uses `urn:li:platformResource:source1` as the value for `attribution.source`
+* Uses `urn:li:tag:tag1` as the value for the tag
+* Finds the matching array element(s) with these key values
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 Supported Operations:
 
 The implementation supports standard JSON Patch operations:
 
 | Operation | Description                            |
+<<<<<<< HEAD
 | --------- | -------------------------------------- |
+=======
+|-----------|----------------------------------------|
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 | add       | Add a new element or replace if exists |
 | remove    | Remove an element matching keys        |
 
@@ -895,9 +958,15 @@ Adding Tagged Elements with Attribution:
 
 This operation:
 
+<<<<<<< HEAD
 - Checks if an element with matching keys exists in the array
 - If not found, adds the new element
 - If found, replaces the existing element
+=======
+* Checks if an element with matching keys exists in the array
+* If not found, adds the new element
+* If found, replaces the existing element
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 Selective Removal:
 
@@ -910,6 +979,12 @@ Selective Removal:
 
 This operation:
 
+<<<<<<< HEAD
 - Finds elements matching the composite key
 - Removes only those elements
 - Preserves other elements, even with partially matching keys
+=======
+* Finds elements matching the composite key
+* Removes only those elements
+* Preserves other elements, even with partially matching keys
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105

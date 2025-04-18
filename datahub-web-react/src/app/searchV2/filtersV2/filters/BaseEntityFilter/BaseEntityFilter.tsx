@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { debounce } from 'lodash';
 import React, { useCallback, useState } from 'react';
 
@@ -8,6 +9,17 @@ import useValues from '@app/searchV2/filtersV2/filters/hooks/useValues';
 import { FilterComponentProps } from '@app/searchV2/filtersV2/types';
 import { Select } from '@src/alchemy-components';
 import { Entity, EntityType, FilterOperator } from '@src/types.generated';
+=======
+import { Select } from '@src/alchemy-components';
+import { Entity, EntityType, FilterOperator } from '@src/types.generated';
+import { debounce } from 'lodash';
+import React, { useCallback, useState } from 'react';
+import { FilterComponentProps } from '../../types';
+import { DEBOUNCE_ON_SEARCH_TIMEOUT_MS } from '../constants';
+import useValues from '../hooks/useValues';
+import useOptions from './hooks/useOptions';
+import { BaseEntitySelectOption } from './types';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 interface BaseEntityFilterProps extends FilterComponentProps {
     filterName: string;

@@ -1,10 +1,17 @@
+<<<<<<< HEAD
 import { useEffect, useState } from 'react';
 
+=======
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 import {
     GetAutoCompleteMultipleResultsQuery,
     useGetAutoCompleteMultipleResultsLazyQuery,
 } from '@src/graphql/search.generated';
 import { EntityType } from '@src/types.generated';
+<<<<<<< HEAD
+=======
+import { useEffect, useState } from 'react';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const LIMIT_OF_SUGGESTIONS = 20;
 

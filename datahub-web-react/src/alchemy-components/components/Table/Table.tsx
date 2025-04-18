@@ -189,12 +189,17 @@ export const Table = <T,>({
                                 <TableRow
                                     key={key}
                                     canExpand={canExpand}
+<<<<<<< HEAD
                                     onClick={(e) => {
                                         if (focusedRowIndex === index) {
                                             setFocusedRowIndex(null);
                                         } else {
                                             setFocusedRowIndex(index);
                                         }
+=======
+                                    onClick={() => {
+                                        setFocusedRowIndex(index);
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
                                         if (canExpand) onExpand?.(row); // Handle row expansion
                                         onRowClick?.(row); // Handle row click
                                         e.stopPropagation();
@@ -207,6 +212,7 @@ export const Table = <T,>({
                                             currentRefs[index] = el;
                                         }
                                     }}
+                                    isFocused={focusedRowIndex === index}
                                     isRowClickable={isRowClickable}
                                     data-testId={rowDataTestId?.(row)}
                                     canHover

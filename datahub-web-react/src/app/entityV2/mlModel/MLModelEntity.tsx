@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { CodeSandboxOutlined, PartitionOutlined, WarningOutlined } from '@ant-design/icons';
 import { ListBullets } from '@phosphor-icons/react';
 import * as React from 'react';
@@ -24,6 +25,10 @@ import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/ut
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
+=======
+import { ListBullets } from '@phosphor-icons/react';
+import { CodeSandboxOutlined, PartitionOutlined, WarningOutlined } from '@ant-design/icons';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 import TabNameWithCount from '@app/entityV2/shared/tabs/Entity/TabNameWithCount';
 import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';

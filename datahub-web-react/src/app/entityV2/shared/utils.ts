@@ -344,6 +344,7 @@ export const tryExtractSubResourceDescription = (entity: Entity, subResource: st
 };
 
 /**
+<<<<<<< HEAD
  * Recursively replaces null values with undefined values in an object.
  * This is useful for converting null values to undefined values in an object while preserving the types.
  */
@@ -441,4 +442,13 @@ export function extractPlatformNameFromAssetUrn(urn: string) {
     // Then extract the platform name from the platform URN
     const platformName = extractPlatformNameFromPlatformUrn(platformUrn);
     return platformName;
+=======
+ * Type guard for entity type
+ */
+export function isEntityType(entityType?: string): entityType is EntityType {
+    if (entityType === undefined) return false;
+
+    const possibleValues: Array<string> = Array.from(Object.values(EntityType));
+    return possibleValues.includes(entityType);
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 }

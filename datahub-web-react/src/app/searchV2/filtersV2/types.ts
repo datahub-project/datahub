@@ -1,6 +1,11 @@
+<<<<<<< HEAD
 import React from 'react';
 
 import { FacetFilterInput, FacetMetadata } from '@src/types.generated';
+=======
+import { FacetFilterInput, FacetMetadata } from '@src/types.generated';
+import React from 'react';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 export type FieldName = string;
 

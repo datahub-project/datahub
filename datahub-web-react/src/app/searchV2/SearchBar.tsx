@@ -28,10 +28,39 @@ import usePrevious from '@app/shared/usePrevious';
 import { useAppConfig, useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 import { useQuickFiltersContext } from '@providers/QuickFiltersContext';
 import { Button, colors } from '@src/alchemy-components';
+<<<<<<< HEAD
 import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { useListRecommendationsQuery } from '@graphql/recommendations.generated';
 import { AutoCompleteResultForEntity, FacetFilterInput, ScenarioType } from '@types';
+=======
+import { AutoCompleteResultForEntity, FacetFilterInput, ScenarioType } from '../../types.generated';
+import { EntityRegistry } from '../../entityRegistryContext';
+import filterSearchQuery from './utils/filterSearchQuery';
+import { ANTD_GRAY_V2 } from '../entity/shared/constants';
+import { getEntityPath } from '../entity/shared/containers/profile/utils';
+import { EXACT_SEARCH_PREFIX } from './utils/constants';
+import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
+import AutoCompleteItem from './autoComplete/AutoCompleteItem';
+import { useQuickFiltersContext } from '../../providers/QuickFiltersContext';
+import QuickFilters from './autoComplete/quickFilters/QuickFilters';
+import { getFiltersWithQuickFilter } from './utils/filterUtils';
+import usePrevious from '../shared/usePrevious';
+import analytics, { Event, EventType } from '../analytics';
+import RecommendedOption from './autoComplete/RecommendedOption';
+import SectionHeader, { EntityTypeLabel } from './autoComplete/SectionHeader';
+import { useUserContext } from '../context/useUserContext';
+import ViewAllSearchItem from './ViewAllSearchItem';
+import { ViewSelect } from '../entityV2/view/select/ViewSelect';
+import { combineSiblingsInAutoComplete } from './utils/combineSiblingsInAutoComplete';
+import { CommandK } from './CommandK';
+import { V2_SEARCH_BAR_VIEWS } from '../onboarding/configV2/HomePageOnboardingConfig';
+import { REDESIGN_COLORS } from '../entityV2/shared/constants';
+import useSearchViewAll from './useSearchViewAll';
+import { useAppConfig, useIsShowSeparateSiblingsEnabled } from '../useAppConfig';
+import useFocusElementByCommandK from './searchBarV2/hooks/useFocusSearchBarByCommandK';
+import { FiltersAppliedHandler } from './filtersV2/types';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const StyledAutoComplete = styled(AutoComplete)<{ $isShowNavBarRedesign?: boolean }>`
     width: 100%;

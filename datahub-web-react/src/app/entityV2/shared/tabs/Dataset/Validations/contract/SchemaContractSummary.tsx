@@ -1,11 +1,17 @@
 import { Table } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+<<<<<<< HEAD
 
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { DataContractSummaryFooter } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/DataContractSummaryFooter';
 
 import { SchemaContract } from '@types';
+=======
+import { SchemaContract } from '../../../../../../../types.generated';
+import { ANTD_GRAY } from '../../../../constants';
+import { DataContractSummaryFooter } from './DataContractSummaryFooter';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const TitleText = styled.div`
     color: ${ANTD_GRAY[7]};

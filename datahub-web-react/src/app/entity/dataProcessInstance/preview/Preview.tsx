@@ -17,8 +17,16 @@ import {
     Health,
     Owner,
     ParentContainersResult,
+<<<<<<< HEAD
     SearchInsight,
 } from '@types';
+=======
+    DataProcessRunEvent,
+} from '../../../../types.generated';
+import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import { IconStyleType } from '../../Entity';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 export const Preview = ({
     urn,

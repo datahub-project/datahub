@@ -1,6 +1,10 @@
 # Glossary Term Propagation Action
 
+<<<<<<< HEAD
 The Glossary Term Propagation Action allows you to propagate glossary terms from your assets into downstream entities.
+=======
+The Glossary Term Propagation Action allows you to propagate glossary terms from your assets into downstream entities. 
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 ## Use Cases
 
@@ -12,7 +16,11 @@ Propagation can be controlled via a specified list of terms or a specified list 
 
 ### Target Terms
 
+<<<<<<< HEAD
 - Given a list of "target terms", the propagation action will detect application of the target term to any field or dataset and propagate it down (as a dataset-level tag) on all downstream datasets. For example, given a target term of `Classification.Confidential` (the default), if you apply `Classification.Confidential` term to a dataset (at the dataset level or a field-level), this action will find all the downstream datasets and apply the `Classification.Confidential` tag to them at the dataset level. Note that downstream application is only at the dataset level, regardless of whether the primary application was at the field level or the dataset level.
+=======
+- Given a list of "target terms", the propagation action will detect application of the target term to any field or dataset and propagate it down (as a dataset-level tag) on all downstream datasets. For example, given a target term of `Classification.Confidential` (the default), if you apply `Classification.Confidential` term to a dataset (at the dataset level or a field-level), this action will find all the downstream datasets and apply the `Classification.Confidential` tag to them at the dataset level. Note that downstream application is only at the dataset level, regardless of whether the primary application was at the field level or the dataset level. 
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 - This action also supports term linkage. If you apply a term that is linked to the target term via inheritance, then this action will detect that application and propagate it downstream as well. For example, if the term `PersonalInformation.Email` inherits `Classification.Confidential` (the target term), and if you apply the `PersonalInformation.Email` term to a dataset (or a field in the dataset), it will be picked up by the action, and the `PersonalInformation.Email` term will be applied at the dataset level to all the downstream entities.
 
 ### Term Groups
@@ -53,4 +61,8 @@ datahub:
 
 ## Caveats
 
+<<<<<<< HEAD
 - Term Propagation is currently only supported for downstream datasets. Terms will not propagate to downstream dashboards or charts. Let us know if this is an important feature for you.
+=======
+- Term Propagation is currently only supported for downstream datasets. Terms will not propagate to downstream dashboards or charts. Let us know if this is an important feature for you.
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105

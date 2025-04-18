@@ -1,6 +1,7 @@
 import { Check, Warning } from '@phosphor-icons/react';
 import { FormInstance } from 'antd/es/form/Form';
 import React from 'react';
+<<<<<<< HEAD
 
 import { SelectFormItem, SelectWrapper } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
 import { INCIDENT_OPTION_LABEL_MAPPING } from '@app/entityV2/shared/tabs/Incident/constant';
@@ -8,6 +9,9 @@ import { IncidentConstant } from '@app/entityV2/shared/tabs/Incident/types';
 import { SimpleSelect, colors } from '@src/alchemy-components';
 import { IconLabel } from '@src/alchemy-components/components/IconLabel';
 import { IconType } from '@src/alchemy-components/components/IconLabel/types';
+=======
+import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 import { IncidentPriorityLabel } from '@src/alchemy-components/components/IncidentPriorityLabel';
 import { IncidentStagePill } from '@src/alchemy-components/components/IncidentStagePill';
 import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';

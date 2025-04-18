@@ -1,7 +1,10 @@
 package com.linkedin.datahub.upgrade;
 
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeManager;
+<<<<<<< HEAD
 import com.linkedin.datahub.upgrade.propagate.PropagateTerms;
+=======
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 import com.linkedin.datahub.upgrade.removeunknownaspects.RemoveUnknownAspects;
 import com.linkedin.datahub.upgrade.restoreaspect.RestoreAspect;
 import com.linkedin.datahub.upgrade.restorebackup.RestoreBackup;

@@ -1,6 +1,7 @@
 import { Popover } from '@components';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+<<<<<<< HEAD
 import { Modal, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
@@ -19,6 +20,19 @@ import MarkdownViewer from '@src/app/entity/shared/components/legacy/MarkdownVie
 
 import { useDeleteQueryMutation } from '@graphql/query.generated';
 import { CorpUser, EntityType } from '@types';
+=======
+import { Modal, Typography, message } from 'antd';
+import React, { useState } from 'react';
+import styled from 'styled-components';
+import MarkdownViewer from '@src/app/entity/shared/components/legacy/MarkdownViewer';
+import { useDeleteQueryMutation } from '../../../../../../graphql/query.generated';
+import { CorpUser, EntityType } from '../../../../../../types.generated';
+import { useEntityRegistryV2 } from '../../../../../useEntityRegistry';
+import ActorAvatar from '../../../ActorAvatar';
+import { ActionButton } from '../../../containers/profile/sidebar/SectionActionButton';
+import QueryBuilderModal from './QueryBuilderModal';
+import { Query } from './types';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 /*
  * Description Column
@@ -165,36 +179,9 @@ export const EditDeleteColumn = ({ query, hoveredQueryUrn, onEdited, onDeleted }
     );
 };
 
-/*
- * Popularity Column
- */
-
-const PopularityWrapper = styled.div`
-    display: flex;
-    justify-content: center;
-`;
-
-interface PopularityColumnProps {
+interface ColumnProps {
     query: Query;
 }
-
-export const PopularityColumn = ({ query }: PopularityColumnProps) => {
-    const { runsPercentileLast30days } = query;
-    if (!runsPercentileLast30days) return null;
-    const tier = getQueryPopularityTier(runsPercentileLast30days);
-    const status = getBarsStatusFromPopularityTier(tier);
-    return (
-        <Popover
-            content={
-                <>This query has been run more than {runsPercentileLast30days}% of other queries in the last 30 days.</>
-            }
-        >
-            <PopularityWrapper>
-                <PopularityBars status={status} />
-            </PopularityWrapper>
-        </Popover>
-    );
-};
 
 const ColumnsWrapper = styled.div`
     text-align: right;
@@ -203,6 +190,6 @@ const ColumnsWrapper = styled.div`
 /*
  * Columns Column
  */
-export const ColumnsColumn = ({ query }: PopularityColumnProps) => {
+export const ColumnsColumn = ({ query }: ColumnProps) => {
     return <ColumnsWrapper>{query.columns?.length ?? 0}</ColumnsWrapper>;
 };

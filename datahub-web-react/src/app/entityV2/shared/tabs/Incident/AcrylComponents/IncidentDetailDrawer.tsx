@@ -22,7 +22,10 @@ type IncidentDetailDrawerProps = {
 };
 
 export const IncidentDetailDrawer = ({
+<<<<<<< HEAD
     entity,
+=======
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
     urn,
     mode,
     onCancel,

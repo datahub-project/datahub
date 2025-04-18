@@ -18,8 +18,12 @@ import org.springframework.context.annotation.Configuration;
       "io.datahubproject.openapi.v3",
       "com.linkedin.gms.factory.timeline",
       "com.linkedin.gms.factory.event",
+<<<<<<< HEAD
       "org.springdoc",
       "io.datahubproject.openapi.tests"
+=======
+      "org.springdoc"
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
     })
 @Configuration
 public class OpenAPIServletConfig {}

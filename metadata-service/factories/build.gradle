@@ -17,7 +17,10 @@ dependencies {
   implementation project(':ingestion-scheduler')
   implementation project(':metadata-service:schema-registry-api')
   implementation project(':metadata-service:events-service')
+<<<<<<< HEAD
   implementation project(':metadata-service:openapi-servlet:models')
+=======
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
   implementation (externalDependency.awsGlueSchemaRegistrySerde) {
     exclude group: 'org.json', module: 'json'

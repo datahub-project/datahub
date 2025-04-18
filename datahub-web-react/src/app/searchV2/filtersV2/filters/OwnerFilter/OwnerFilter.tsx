@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import React, { useCallback } from 'react';
 import styled from 'styled-components';
 
@@ -7,6 +8,16 @@ import { Text } from '@src/alchemy-components';
 import EntityIcon from '@src/app/searchV2/autoCompleteV2/components/icon/EntityIcon';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { CorpUser, Entity, EntityType } from '@src/types.generated';
+=======
+import { Text } from '@src/alchemy-components';
+import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { CorpUser, Entity, EntityType } from '@src/types.generated';
+import React, { useCallback } from 'react';
+import styled from 'styled-components';
+import EntityIcon from '@src/app/searchV2/autoCompleteV2/components/icon/EntityIcon';
+import { FilterComponentProps } from '../../types';
+import BaseEntityFilter from '../BaseEntityFilter/BaseEntityFilter';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 interface PlatformLabelProps {
     entity: Entity;

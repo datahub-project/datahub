@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import React from 'react';
 import styled from 'styled-components';
 
@@ -7,6 +8,15 @@ import { EntityContext } from '@src/app/entity/shared/EntityContext';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 
 import { DataContract, EntityType } from '@types';
+=======
+import { EntityContext } from '@src/app/entity/shared/EntityContext';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import React from 'react';
+import styled from 'styled-components';
+import { DataContract, EntityType } from '../../../../../../../types.generated';
+import { ANTD_GRAY } from '../../../../constants';
+import { PropertiesTab } from '../../../Properties/PropertiesTab';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const TitleText = styled.div`
     color: ${ANTD_GRAY[7]};

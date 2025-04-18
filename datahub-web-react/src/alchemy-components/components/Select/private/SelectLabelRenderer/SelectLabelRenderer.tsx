@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+<<<<<<< HEAD
 
 import MultiSelectCustom from '@components/components/Select/private/SelectLabelRenderer/variants/MultiSelectCustom';
 import MultiSelectDefault from '@components/components/Select/private/SelectLabelRenderer/variants/MultiSelectDefault';
@@ -8,6 +9,16 @@ import SingleSelectDefault from '@components/components/Select/private/SelectLab
 import SingleSelectLabeled from '@components/components/Select/private/SelectLabelRenderer/variants/SingleSelectLabeled';
 import { SelectLabelDisplayProps, SelectOption } from '@components/components/Select/types';
 
+=======
+import { SelectOption, SelectLabelDisplayProps } from '../../types';
+import MultiSelectDefault from './variants/MultiSelectDefault';
+import MultiSelectLabeled from './variants/MultiSelectLabeled';
+import SingleSelectDefault from './variants/SingleSelectDefault';
+import SingleSelectLabeled from './variants/SingleSelectLabeled';
+import SingleSelectCustom from './variants/SingleSelectCustom';
+import MultiSelectCustom from './variants/MultiSelectCustom';
+
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 export default function SelectLabelRenderer<OptionType extends SelectOption>({
     variant,
     ...props

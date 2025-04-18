@@ -11,11 +11,15 @@ The DataHub Garbage Collection (GC) source is a maintenance component responsibl
 Manages Elasticsearch indices in DataHub, particularly focusing on time-series data.
 
 #### Configuration
+<<<<<<< HEAD
 
+=======
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 ```yaml
 source:
   type: datahub-gc
   config:
+<<<<<<< HEAD
     truncate_indices: true
     truncate_index_older_than_days: 30
     truncation_watch_until: 10000
@@ -31,6 +35,22 @@ source:
   - DashboardUsageStatistics
   - QueryUsageStatistics
   - Timeseries Aspects
+=======
+      truncate_indices: true
+      truncate_index_older_than_days: 30
+      truncation_watch_until: 10000
+      truncation_sleep_between_seconds: 30
+```
+
+#### Features
+- Truncates old Elasticsearch indices for the following timeseries aspects:
+    - DatasetOperations
+    - DatasetUsageStatistics
+    - ChartUsageStatistics
+    - DashboardUsageStatistics
+    - QueryUsageStatistics
+    - Timeseries Aspects
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 - Monitors truncation progress
 - Implements safe deletion with monitoring thresholds
 - Supports gradual truncation with sleep intervals
@@ -40,7 +60,10 @@ source:
 Manages access tokens in DataHub to maintain security and prevent token accumulation.
 
 #### Configuration
+<<<<<<< HEAD
 
+=======
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 ```yaml
 source:
   type: datahub-gc
@@ -49,7 +72,10 @@ source:
 ```
 
 #### Features
+<<<<<<< HEAD
 
+=======
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 - Automatically identifies and revokes expired access tokens
 - Processes tokens in batches for efficiency
 - Maintains system security by removing outdated credentials
@@ -61,7 +87,10 @@ source:
 Manages the lifecycle of data processes, jobs, and their instances (DPIs) within DataHub.
 
 #### Features
+<<<<<<< HEAD
 
+=======
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 - Cleans up Data Process Instances (DPIs) based on age and count
 - Can remove empty DataJobs and DataFlows
 - Supports both soft and hard deletion
@@ -69,7 +98,10 @@ Manages the lifecycle of data processes, jobs, and their instances (DPIs) within
 - Maintains configurable retention policies
 
 #### Configuration
+<<<<<<< HEAD
 
+=======
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 ```yaml
 source:
   type: datahub-gc
@@ -90,12 +122,19 @@ source:
 
 - Maximum 9000 DPIs per job for performance
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 ### 4. Execution Request Cleanup
 
 Manages DataHub execution request records to prevent accumulation of historical execution data.
 
 #### Features
+<<<<<<< HEAD
 
+=======
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 - Maintains execution history per ingestion source
 - Preserves minimum number of recent requests
 - Removes old requests beyond retention period
@@ -103,7 +142,10 @@ Manages DataHub execution request records to prevent accumulation of historical 
 - Automatic cleanup of corrupted records
 
 #### Configuration
+<<<<<<< HEAD
 
+=======
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 ```yaml
 source:
   type: datahub-gc
@@ -123,7 +165,10 @@ source:
 Manages the permanent removal of soft-deleted entities after a retention period.
 
 #### Features
+<<<<<<< HEAD
 
+=======
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 - Permanently removes soft-deleted entities after retention period
 - Handles entity references cleanup
 - Special handling for query entities
@@ -131,7 +176,10 @@ Manages the permanent removal of soft-deleted entities after a retention period.
 - Concurrent processing with safety limits
 
 #### Configuration
+<<<<<<< HEAD
 
+=======
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 ```yaml
 source:
   type: datahub-gc
@@ -142,17 +190,27 @@ source:
       batch_size: 500
       max_workers: 10
       delay: 0.25
+<<<<<<< HEAD
       entity_types: null # Optional list of entity types to clean
       platform: null # Optional platform filter
       env: null # Optional environment filter
       query: null # Optional custom query filter
+=======
+      entity_types: null  # Optional list of entity types to clean
+      platform: null      # Optional platform filter
+      env: null          # Optional environment filter
+      query: null        # Optional custom query filter
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
       limit_entities_delete: 25000
       futures_max_at_time: 1000
       runtime_limit_seconds: 7200
 ```
 
 ### Performance Considerations
+<<<<<<< HEAD
 
+=======
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 - Concurrent processing using thread pools
 - Configurable batch sizes for optimal performance
 - Rate limiting through configurable delays
@@ -161,7 +219,10 @@ source:
 ## Reporting
 
 Each cleanup task maintains detailed reports including:
+<<<<<<< HEAD
 
+=======
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 - Number of entities processed
 - Number of entities removed
 - Errors encountered

@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import { getUniqueItemsByKey } from '@app/searchV2/filtersV2/utils';
+=======
+import { getUniqueItemsByKey } from '../utils';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 describe('getUniqueItemsByKey', () => {
     it('returns unique items based on a keyAccessor function', () => {

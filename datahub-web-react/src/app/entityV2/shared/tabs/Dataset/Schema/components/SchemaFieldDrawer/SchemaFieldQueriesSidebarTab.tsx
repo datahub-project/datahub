@@ -3,6 +3,7 @@ import { Button, Typography } from 'antd';
 import moment from 'moment';
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
+<<<<<<< HEAD
 
 import { useBaseEntity, useRouteToTab } from '@app/entity/shared/EntityContext';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
@@ -16,6 +17,17 @@ import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 
 import NoStatsAvailble from '@images/no-stats-available.svg?react';
+=======
+import NoStatsAvailble from '../../../../../../../../images/no-stats-available.svg?react';
+import { useBaseEntity, useRouteToTab } from '../../../../../../../entity/shared/EntityContext';
+import { ANTD_GRAY } from '../../../../../constants';
+import Query from '../../../Queries/Query';
+import { QueryCreatedBy } from '../../../Queries/queryColumns';
+import { usePopularQueries } from '../../../Queries/usePopularQueries';
+import { GetDatasetQuery } from '../../../../../../../../graphql/dataset.generated';
+import Loading from '../../../../../../../shared/Loading';
+import { generateSchemaFieldUrn } from '../../../../Lineage/utils';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 interface Props {
     properties: {
@@ -58,15 +70,6 @@ const QuerySubtitleContainer = styled.div`
 const SubtitleSection = styled.div`
     display: flex;
     flex-direction: row;
-`;
-
-const PopularityLabel = styled.span`
-    line-height: 26px;
-    margin-right: 8px;
-`;
-
-const PopularityColumnContainer = styled.div`
-    margin-bottom: 5px;
 `;
 
 const QUERIES_TO_SHOW = 6;
@@ -182,12 +185,6 @@ export default function SchemaFieldQueriesSidebarTab({ properties: { fieldPath }
                                         </StyledCreatedBy>
                                     )}
                                     on {moment(query.lastRun).format('MM/DD/YYYY')}
-                                </SubtitleSection>
-                                <SubtitleSection>
-                                    <PopularityLabel>Popularity</PopularityLabel>
-                                    <PopularityColumnContainer>
-                                        <PopularityColumn query={query} />
-                                    </PopularityColumnContainer>
                                 </SubtitleSection>
                             </QuerySubtitleContainer>
                         </StyledQueryCard>

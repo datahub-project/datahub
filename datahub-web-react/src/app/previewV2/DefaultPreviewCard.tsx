@@ -1,3 +1,4 @@
+import DataProcessInstanceInfo from '@src/app/preview/DataProcessInstanceInfo';
 import { CloseOutlined } from '@ant-design/icons';
 import { Button, Typography } from 'antd';
 import React, { ReactNode } from 'react';
@@ -44,7 +45,31 @@ import {
     Maybe,
     Owner,
     SearchInsight,
+<<<<<<< HEAD
 } from '@types';
+=======
+} from '../../types.generated';
+import { EntityMenuActions, PreviewType } from '../entityV2/Entity';
+import { ANTD_GRAY, REDESIGN_COLORS } from '../entityV2/shared/constants';
+import { GlossaryPreviewCardDecoration } from '../entityV2/shared/containers/profile/header/GlossaryPreviewCardDecoration';
+import { PopularityTier } from '../entityV2/shared/containers/profile/sidebar/shared/utils';
+import { EntityMenuItems } from '../entityV2/shared/EntityDropdown/EntityMenuActions';
+import MoreOptionsMenuAction from '../entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
+import { usePreviewData } from '../entityV2/shared/PreviewContext';
+import { useSearchContext } from '../search/context/SearchContext';
+import useContentTruncation from '../shared/useContentTruncation';
+import { useEntityRegistryV2 } from '../useEntityRegistry';
+import ColoredBackgroundPlatformIconGroup from './ColoredBackgroundPlatformIconGroup';
+import { CompactView } from './CompactView';
+import ContextPath from './ContextPath';
+import DefaultPreviewCardFooter from './DefaultPreviewCardFooter';
+import EntityHeader from './EntityHeader';
+
+import { useEntityContext, useEntityData } from '../entity/shared/EntityContext';
+import { DashboardLastUpdatedMs, DatasetLastUpdatedMs } from '../entityV2/shared/utils';
+import { useRemoveDataProductAssets, useRemoveDomainAssets, useRemoveGlossaryTermAssets } from './utils';
+import CompactMarkdownViewer from '../entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const TransparentButton = styled(Button)`
     color: ${REDESIGN_COLORS.TITLE_PURPLE};

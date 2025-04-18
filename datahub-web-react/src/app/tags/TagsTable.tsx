@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { NetworkStatus } from '@apollo/client';
 import { Modal, Table } from '@components';
 import { message } from 'antd';
@@ -5,6 +6,19 @@ import React, { useCallback, useMemo, useState } from 'react';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { ManageTag } from '@app/tags/ManageTag';
+=======
+import React, { useState, useMemo, useCallback } from 'react';
+import { NetworkStatus } from '@apollo/client';
+import { Table, Modal } from '@components';
+import { message } from 'antd';
+import { AlignmentOptions } from '@src/alchemy-components/theme/config';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { GetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
+import { EntityType } from '@src/types.generated';
+import { useDeleteTagMutation } from '../../graphql/tag.generated';
+import { useUserContext } from '../context/useUserContext';
+import { ManageTag } from './ManageTag';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 import {
     TagActionsColumn,
     TagAppliedToColumn,

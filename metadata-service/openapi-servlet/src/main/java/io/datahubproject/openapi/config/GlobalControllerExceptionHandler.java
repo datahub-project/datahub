@@ -142,6 +142,7 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
     return new ResponseEntity<>(
         Map.of("error", "Invalid JSON format", "message", e.getMessage()), HttpStatus.BAD_REQUEST);
   }
+<<<<<<< HEAD
 
   @ExceptionHandler({ScimException.class})
   public ResponseEntity<ErrorResponse> handleScimException(ScimException e) {
@@ -152,4 +153,6 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
   public ResponseEntity<ErrorResponse> handleResourceException(ResourceException e) {
     return new ErrorResponse(HttpStatus.valueOf(e.getStatus()), e.getMessage()).toResponseEntity();
   }
+=======
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 }

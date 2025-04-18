@@ -16,6 +16,7 @@ import {
     StyledCheckbox,
     StyledClearButton,
     StyledIcon,
+<<<<<<< HEAD
 } from '@components/components/Select/components';
 import DropdownFooterActions from '@components/components/Select/private/DropdownFooterActions';
 import DropdownSearchBar from '@components/components/Select/private/DropdownSearchBar';
@@ -23,6 +24,15 @@ import DropdownSelectAllOption from '@components/components/Select/private/Dropd
 import SelectLabelRenderer from '@components/components/Select/private/SelectLabelRenderer/SelectLabelRenderer';
 import { ActionButtonsProps, SelectOption, SelectProps } from '@components/components/Select/types';
 import { getFooterButtonSize } from '@components/components/Select/utils';
+=======
+} from './components';
+import SelectLabelRenderer from './private/SelectLabelRenderer/SelectLabelRenderer';
+import { ActionButtonsProps, SelectOption, SelectProps } from './types';
+import { getFooterButtonSize } from './utils';
+import DropdownSearchBar from './private/DropdownSearchBar';
+import DropdownFooterActions from './private/DropdownFooterActions';
+import DropdownSelectAllOption from './private/DropdownSelectAllOption';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const SelectActionButtons = ({
     selectedValues,

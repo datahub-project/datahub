@@ -41,6 +41,10 @@ export const IncidentEditor = ({
     onSubmit,
     data,
     mode = IncidentAction.CREATE,
+<<<<<<< HEAD
+=======
+    entity,
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
     urn,
 }: IncidentEditorProps) => {
     const assigneeValues = data?.assignees && getAssigneeWithURN(data.assignees);

@@ -1,5 +1,10 @@
+<<<<<<< HEAD
 import { Dropdown, Icon } from '@components';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+=======
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Dropdown, Icon } from '@components';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 import { NestedOption } from '@components/components/Select/Nested/NestedOption';
 import { NestedSelectOption } from '@components/components/Select/Nested/types';
@@ -12,11 +17,23 @@ import {
     SelectBase,
     SelectLabel,
     StyledClearButton,
+<<<<<<< HEAD
 } from '@components/components/Select/components';
 import DropdownFooterActions from '@components/components/Select/private/DropdownFooterActions';
 import DropdownSearchBar from '@components/components/Select/private/DropdownSearchBar';
 import SelectLabelRenderer from '@components/components/Select/private/SelectLabelRenderer/SelectLabelRenderer';
 import { CustomOptionRenderer, SelectLabelProps, SelectSizeOptions } from '@components/components/Select/types';
+=======
+} from '../components';
+
+import { CustomOptionRenderer, SelectLabelProps, SelectSizeOptions } from '../types';
+import { NestedOption } from './NestedOption';
+import { NestedSelectOption } from './types';
+import DropdownSearchBar from '../private/DropdownSearchBar';
+import DropdownFooterActions from '../private/DropdownFooterActions';
+import SelectLabelRenderer from '../private/SelectLabelRenderer/SelectLabelRenderer';
+import { filterNestedSelectOptions } from './utils';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const NO_PARENT_VALUE = 'no_parent_value';
 

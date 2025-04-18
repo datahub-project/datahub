@@ -14,6 +14,14 @@ import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { CorpUser, EntityPrivileges, IncidentType } from '@src/types.generated';
+<<<<<<< HEAD
+=======
+import { getQueryParams } from '../Dataset/Validations/assertionUtils';
+import { getAssigneeNamesWithAvatarUrl, getLinkedAssetsCount } from './utils';
+import { IncidentResolveButton } from './IncidentResolveButton';
+import { IncidentAssigneeAvatarStack } from './IncidentAssigneeAvatarStack';
+import { CategoryType } from './styledComponents';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 export const useIncidentsTableColumns = (refetch: () => void, privileges?: EntityPrivileges) => {
     return useMemo(() => {

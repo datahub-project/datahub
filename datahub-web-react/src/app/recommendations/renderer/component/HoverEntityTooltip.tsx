@@ -1,12 +1,19 @@
 import { Tooltip } from '@components';
 import { TooltipPlacement } from 'antd/es/tooltip';
 import React from 'react';
+<<<<<<< HEAD
 
 import { PreviewType } from '@app/entity/Entity';
 import { HoverEntityTooltipContext } from '@app/recommendations/HoverEntityTooltipContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Entity } from '@types';
+=======
+import { Entity } from '../../../../types.generated';
+import { PreviewType } from '../../../entity/Entity';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import { HoverEntityTooltipContext } from '../../HoverEntityTooltipContext';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 type Props = {
     entity?: Entity;

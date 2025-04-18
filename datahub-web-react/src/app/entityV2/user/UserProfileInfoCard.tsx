@@ -1,5 +1,12 @@
 import { Col } from 'antd';
+<<<<<<< HEAD
 import React, { useState } from 'react';
+=======
+import { EntityRelationship, SearchResults } from '../../../types.generated';
+import SectionActionButton from '../shared/containers/profile/sidebar/SectionActionButton';
+import UserEditProfileModal from './UserEditProfileModal';
+import CustomAvatar from '../../shared/avatar/CustomAvatar';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 import {
     CustomAvatarContainer,

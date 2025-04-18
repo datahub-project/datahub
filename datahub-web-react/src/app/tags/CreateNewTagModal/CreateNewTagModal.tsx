@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { Modal } from '@components';
 import { message } from 'antd';
 import React, { useState } from 'react';
@@ -9,6 +10,17 @@ import { ModalButton } from '@app/tags/CreateNewTagModal/types';
 
 import { useBatchAddOwnersMutation, useSetTagColorMutation } from '@graphql/mutations.generated';
 import { useCreateTagMutation } from '@graphql/tag.generated';
+=======
+import React, { useState } from 'react';
+import { message } from 'antd';
+import { Modal } from '@components';
+import { useCreateTagMutation } from '../../../graphql/tag.generated';
+import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
+import { useBatchAddOwnersMutation, useSetTagColorMutation } from '../../../graphql/mutations.generated';
+import { ModalButton } from './types';
+import TagDetailsSection from './TagDetailsSection';
+import OwnersSection, { PendingOwner } from './OwnersSection';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 type CreateNewTagModalProps = {
     open: boolean;

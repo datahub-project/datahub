@@ -87,8 +87,11 @@ if __name__ == "__main__":
     for file in [
         "docker/datahub-ingestion-base/Dockerfile",
         "docker/datahub-ingestion/Dockerfile",
+<<<<<<< HEAD
         # SaaS only.
         "docker/datahub-executor/Dockerfile",
         "docker/datahub-integrations-service/Dockerfile",
+=======
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
     ]:
         update_template(Path(_repo_root / file), check_only=check_only)

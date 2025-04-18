@@ -1,4 +1,5 @@
 import { Col } from 'antd';
+<<<<<<< HEAD
 import React, { useState } from 'react';
 
 import { OwnershipContainer, ShowMoreText } from '@app/entityV2/shared/SidebarStyledComponents';
@@ -7,6 +8,13 @@ import { ShowMoreSection } from '@app/entityV2/shared/sidebarSection/ShowMoreSec
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
 
 import { SearchResults } from '@types';
+=======
+import { OwnershipContainer, ShowMoreText } from '../SidebarStyledComponents';
+import { SidebarSection } from '../containers/profile/sidebar/SidebarSection';
+import { EntityLink } from '../../../homeV2/reference/sections/EntityLink';
+import { SearchResults } from '../../../../types.generated';
+import { ShowMoreSection } from './ShowMoreSection';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const DEFAULT_MAX_ENTITIES_TO_SHOW = 4;
 

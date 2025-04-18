@@ -36,6 +36,7 @@ consistency and ensure complete data availability.
 ## Trace API
 
 Known Limitations:
+<<<<<<< HEAD
 
 - Tracing can fail in some cases where a batch of aspects introduces a conflict between a system generated aspect and one
   included within a batch. An example, `upstreamLineage` and `siblings` aspects together may conflict with a system generated
@@ -43,6 +44,14 @@ Known Limitations:
 
 The trace API's status retrieval functionality requires three key identifiers to locate specific write operations:
 the trace ID (unique to the request), the URN, and the aspect name. This combination of identifiers ensures precise
+=======
+  - Tracing can fail in some cases where a batch of aspects introduces a conflict between a system generated aspect and one 
+    included within a batch. An example, `upstreamLineage` and `siblings` aspects together may conflict with a system generated
+    `siblings` aspect normally generated from `upstreamLineage` in an MCL hook.
+
+The trace API's status retrieval functionality requires three key identifiers to locate specific write operations: 
+the trace ID (unique to the request), the URN, and the aspect name. This combination of identifiers ensures precise 
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 operation tracking within the system.
 
 For batch operations involving multiple URNs and aspects, a single trace ID is assigned to monitor the entire request.
@@ -225,8 +234,12 @@ The following shows a few examples of requests/response pairs.
 ### Ingestion Tracing (Experimental)
 
 Known Limitations:
+<<<<<<< HEAD
 
 - Patches are not yet supported. The following doesn't work when patches are generated.
+=======
+  - Patches are not yet supported. The following doesn't work when patches are generated.
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 Ingestion can be used with tracing enabled however it does require using an `ASYNC` mode as well as the `OPENAPI`. This
 can be enabled by setting a couple environment variables shown below.
@@ -267,6 +280,7 @@ A test was executed with 627,712 aspects in `ASYNC_BATCH` and averaged over 2 ru
 a 3.84% increase in runtime. Example test runs shown below.
 
 Without Tracing:
+<<<<<<< HEAD
 
 ```json
 {
@@ -298,6 +312,33 @@ With Tracing:
   "async_batches_split": 0,
   "main_thread_blocking_timer": "1224.738 seconds"
 }
+=======
+```json
+{'total_records_written': 627712,
+  'records_written_per_second': 376,
+  'total_duration_in_seconds': 1665.25,
+  'mode': 'ASYNC_BATCH',
+  'max_threads': 15,
+  'gms_version': 'v0.3.9.3',
+  'pending_requests': 0,
+  'async_batches_prepared': 6290,
+  'async_batches_split': 0,
+  'main_thread_blocking_timer': '1186.301 seconds'}
+```
+
+With Tracing:
+```json
+{'total_records_written': 627612,
+  'records_written_per_second': 368,
+  'total_duration_in_seconds': 1701.51,
+  'mode': 'ASYNC_BATCH',
+  'max_threads': 15,
+  'gms_version': 'v0.3.9.3',
+  'pending_requests': 0,
+  'async_batches_prepared': 6291,
+  'async_batches_split': 0,
+  'main_thread_blocking_timer': '1224.738 seconds'}
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 ```
 
 ## Trace Exporters

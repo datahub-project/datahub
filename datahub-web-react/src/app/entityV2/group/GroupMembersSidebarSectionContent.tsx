@@ -23,7 +23,11 @@ export default function GroupMembersSidebarSectionContent({ groupMemberRelations
 
     const entityRegistry = useEntityRegistry();
     const relationshipsTotal = groupMemberRelationships?.total || 0;
+<<<<<<< HEAD
     const relationshipsAvailableCount = groupMemberRelationships?.relationships?.length || 0;
+=======
+    const relationshipsAvailableCount = groupMemberRelationships.relationships?.length || 0;
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
     const hasHiddenEntities = relationshipsTotal > relationshipsAvailableCount;
     const isShowingMaxEntities = entityCount >= relationshipsAvailableCount;

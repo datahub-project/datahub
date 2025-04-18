@@ -2,9 +2,15 @@ import { Button, Pill, Switch, Tooltip2 } from '@components';
 import { Card, Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
+import { Pill, Button, Tooltip2, Switch } from '@components';
+import { Card, Divider } from 'antd';
 import { colors } from '@components/theme';
 
+<<<<<<< HEAD
+import { colors } from '@components/theme';
+
+=======
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 const StyledCard = styled(Card)`
     && {
         border-radius: 12px;

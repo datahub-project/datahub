@@ -1,8 +1,15 @@
+<<<<<<< HEAD
 import { useMemo } from 'react';
 
 import useAutocompleteResults from '@app/searchV2/filtersV2/filters/BaseEntityFilter/hooks/useAutocompleteResults';
 import { isDomain } from '@src/app/entityV2/domain/utils';
 import { EntityType } from '@src/types.generated';
+=======
+import { EntityType } from '@src/types.generated';
+import { useMemo } from 'react';
+import { isDomain } from '@src/app/entityV2/domain/utils';
+import useAutocompleteResults from '../../BaseEntityFilter/hooks/useAutocompleteResults';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const ENTITY_TYPES = [EntityType.Domain];
 

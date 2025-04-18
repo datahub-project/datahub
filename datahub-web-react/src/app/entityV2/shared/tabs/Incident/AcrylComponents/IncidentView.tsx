@@ -7,9 +7,26 @@ import { getPlainTextDescriptionFromAssertion } from '@app/entityV2/shared/tabs/
 import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import { IncidentActivitySection } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentActivitySection';
 import {
+<<<<<<< HEAD
     DEFAULT_MAX_ENTITIES_TO_SHOW,
     INCIDENT_STATE_TO_ACTIVITY,
 } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/constant';
+=======
+    Assertion,
+    AssertionInfo,
+    CorpUser,
+    EntityType,
+    IncidentSourceType,
+    IncidentState,
+    IncidentType,
+} from '@src/types.generated';
+import { Check, Warning } from '@phosphor-icons/react';
+import { IconLabel } from '@src/alchemy-components/components/IconLabel';
+import { IconType } from '@src/alchemy-components/components/IconLabel/types';
+import colors from '@src/alchemy-components/theme/foundations/colors';
+import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 import {
     CategoryText,
     Container,

@@ -43,11 +43,15 @@
         "VIEW_DOCUMENTATION_FORMS_PAGE",
         "MANAGE_FEATURES",
         "MANAGE_SYSTEM_OPERATIONS",
+<<<<<<< HEAD
         "GET_PLATFORM_EVENTS",
         "CREATE_CONSTRAINTS",
         "MANAGE_CONNECTIONS",
         "MANAGE_MONITORS",
         "MANAGE_ORGANIZATION_DISPLAY_PREFERENCES"
+=======
+        "GET_PLATFORM_EVENTS"
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
       ],
       "displayName": "Root User - All Platform Privileges",
       "description": "Grants all platform privileges to root user.",

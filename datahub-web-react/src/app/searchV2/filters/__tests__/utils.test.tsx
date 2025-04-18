@@ -19,6 +19,7 @@ import {
     getNumActiveFiltersForFilter,
     getNumActiveFiltersForGroupOfFilters,
     getStructuredPropFilterDisplayName,
+<<<<<<< HEAD
     isAnyOptionSelected,
     isFilterOptionSelected,
 } from '@app/searchV2/filters/utils';
@@ -28,6 +29,12 @@ import { DATE_TYPE_URN } from '@src/app/shared/constants';
 import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
 
 import { EntityType } from '@types';
+=======
+    getFilterDisplayName,
+} from '../utils';
+import { ENTITY_SUB_TYPE_FILTER_NAME } from '../../utils/constants';
+import { FieldType, FilterField } from '../types';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 describe('filter utils - getNewFilters', () => {
     it('should get the correct list of filters when adding filters where the filter field did not already exist', () => {
@@ -480,6 +487,7 @@ describe('filter utils - getFilterDisplayName', () => {
         expect(getFilterDisplayName(option, field)).toBe('test name');
     });
 
+<<<<<<< HEAD
     it('should return formatted display name for action request type fields when aggregationsEntityTypes includes ActionRequest', () => {
         const option = { value: 'TAG_ASSOCIATION' };
         const field: FilterField = { type: FieldType.ENUM, field: 'type', displayName: 'Type' };
@@ -561,6 +569,8 @@ describe('filter utils - getActionRequestFilterDisplayName', () => {
         expect(getActionRequestFilterDisplayName(option, field)).toBe('');
     });
 
+=======
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
     it('should return undefined if no display name and field is not a structured property filter', () => {
         const option = { value: 'testValue' };
         const field: FilterField = { type: FieldType.ENUM, field: 'structuredProperties.test', displayName: 'test' };

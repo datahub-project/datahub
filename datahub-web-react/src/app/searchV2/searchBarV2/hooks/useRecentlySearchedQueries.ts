@@ -1,9 +1,16 @@
+<<<<<<< HEAD
 import { useMemo } from 'react';
 
+=======
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 import { useUserContext } from '@src/app/context/useUserContext';
 import { RECOMMENDATION_MODULE_ID_RECENT_SEARCHES } from '@src/app/entityV2/shared/constants';
 import { useListRecommendationsQuery } from '@src/graphql/recommendations.generated';
 import { ScenarioType } from '@src/types.generated';
+<<<<<<< HEAD
+=======
+import { useMemo } from 'react';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 export default function useRecentlySearchedQueries(skip?: boolean) {
     const { user, loaded } = useUserContext();

@@ -1,6 +1,10 @@
+<<<<<<< HEAD
 import { ArrowRightOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Divider, Typography } from 'antd';
+=======
+import DataProcessInstanceInfo from '@src/app/preview/DataProcessInstanceInfo';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 import React, { ReactNode, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -37,6 +41,7 @@ import {
     Deprecation,
     Domain,
     Entity,
+<<<<<<< HEAD
     EntityPath,
     GlobalTags,
     GlossaryTerms,
@@ -46,6 +51,29 @@ import {
     ParentContainersResult,
     SearchInsight,
 } from '@types';
+=======
+    DataProcessRunEvent,
+} from '../../types.generated';
+import TagTermGroup from '../shared/tags/TagTermGroup';
+import { ANTD_GRAY } from '../entity/shared/constants';
+import NoMarkdownViewer from '../entity/shared/components/styled/StripMarkdownText';
+import { getNumberWithOrdinal } from '../entity/shared/utils';
+import { useEntityData } from '../entity/shared/EntityContext';
+import PlatformContentView from '../entity/shared/containers/profile/header/PlatformContent/PlatformContentView';
+import useContentTruncation from '../shared/useContentTruncation';
+import EntityCount from '../entity/shared/containers/profile/header/EntityCount';
+import { ExpandedActorGroup } from '../entity/shared/components/styled/ExpandedActorGroup';
+import { DeprecationPill } from '../entity/shared/components/styled/DeprecationPill';
+import { PreviewType } from '../entity/Entity';
+import ExternalUrlButton from '../entity/shared/ExternalUrlButton';
+import EntityPaths from './EntityPaths/EntityPaths';
+import { DataProductLink } from '../shared/tags/DataProductLink';
+import { EntityHealth } from '../entity/shared/containers/profile/header/EntityHealth';
+import SearchTextHighlighter from '../search/matches/SearchTextHighlighter';
+import { getUniqueOwners } from './utils';
+import StructuredPropertyBadge from '../entity/shared/containers/profile/header/StructuredPropertyBadge';
+import { usePreviewData } from '../entity/shared/PreviewContext';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const PreviewContainer = styled.div`
     display: flex;

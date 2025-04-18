@@ -1,4 +1,5 @@
 import { useState } from 'react';
+<<<<<<< HEAD
 
 import { DEFAULT_PAGE_SIZE } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/constants';
 import {
@@ -13,22 +14,25 @@ import useSorting from '@app/sharedV2/sorting/useSorting';
 
 import { useListQueriesQuery } from '@graphql/query.generated';
 import { FacetFilterInput, QueryEntity, QuerySource, SortOrder } from '@types';
+=======
+import { useListQueriesQuery } from '../../../../../../graphql/query.generated';
+import { FacetFilterInput, QueryEntity, QuerySource } from '../../../../../../types.generated';
+import { filterQueries, getAndFilters, getQueryEntitiesFilter } from './utils/filterQueries';
+import usePagination from '../../../../../sharedV2/pagination/usePagination';
+import { DEFAULT_PAGE_SIZE } from './utils/constants';
+import { mapQuery } from './utils/mapQuery';
+import useSorting from '../../../../../sharedV2/sorting/useSorting';
+import { useQueryParamValue } from '../../../useQueryParamValue';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 interface Props {
     entityUrn?: string;
     siblingUrn?: string;
     filterText: string;
     defaultSelectedColumns?: string[];
-    defaultSelectedUsers?: string[];
 }
 
-export const usePopularQueries = ({
-    entityUrn,
-    siblingUrn,
-    filterText,
-    defaultSelectedColumns,
-    defaultSelectedUsers,
-}: Props) => {
+export const usePopularQueries = ({ entityUrn, siblingUrn, filterText, defaultSelectedColumns }: Props) => {
     const columnFromQueryParam = useQueryParamValue('column') as string | null;
     const siblingColumnFromQueryParam = useQueryParamValue('siblingColumn') as string | null;
     let columnsFromQueryParams = columnFromQueryParam ? [decodeURI(columnFromQueryParam)] : [];
@@ -40,7 +44,7 @@ export const usePopularQueries = ({
         values: [...(columnsFromQueryParams.length ? columnsFromQueryParams : defaultSelectedColumns || [])],
     };
     const [selectedColumnsFilter, setSelectedColumnsFilter] = useState<FacetFilterInput>(defaultColumnsFilter);
-    const defaultUsersFilter = { field: 'topUsersLast30DaysFeature', values: [...(defaultSelectedUsers || [])] };
+    const defaultUsersFilter = { field: '', values: [] }; // Not supported
     const [selectedUsersFilter, setSelectedUsersFilter] = useState<FacetFilterInput>(defaultUsersFilter);
 
     const pagination = usePagination(DEFAULT_PAGE_SIZE);
@@ -56,11 +60,7 @@ export const usePopularQueries = ({
                 start,
                 count,
                 source: QuerySource.System,
-                sortInput:
-                    sortField && sortOrder
-                        ? { sortCriterion: { field: sortField, sortOrder } }
-                        : { sortCriterion: { field: 'runsPercentileLast30days', sortOrder: SortOrder.Descending } },
-
+                sortInput: sortField && sortOrder ? { sortCriterion: { field: sortField, sortOrder } } : null,
                 orFilters: [{ and: andFilters }],
             },
         },

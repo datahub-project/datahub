@@ -1,7 +1,11 @@
 ## Configuration Notes
 
 1. Refer [Microsoft AD App Creation doc](https://docs.microsoft.com/en-us/power-bi/developer/embedded/embed-service-principal) to create a Microsoft AD Application. Once Microsoft AD Application is created you can configure client-credential i.e. client_id and client_secret in recipe for ingestion.
+<<<<<<< HEAD
 2. Enable admin access if you want to ingest data source and dataset information, including lineage, and endorsement tags. Refer section [Admin Ingestion vs. Basic Ingestion](#admin-ingestion-vs-basic-ingestion) for more detail.
+=======
+2. Enable admin access if you want to ingest data source and dataset information, including lineage, and endorsement tags. Refer section [Admin Ingestion vs. Basic Ingestion](#admin-ingestion-vs-basic-ingestion) for more detail. 
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
    Login to PowerBI as Admin and from `Admin API settings` allow below permissions
 
@@ -28,7 +32,11 @@
 
 ## Lineage
 
+<<<<<<< HEAD
 This source extracts table lineage for tables present in PowerBI Datasets. Lets consider a PowerBI Dataset `SALES_REPORT` and a PostgreSQL database is configured as data-source in `SALES_REPORT` dataset.
+=======
+This source extracts table lineage for tables present in PowerBI Datasets. Lets consider a PowerBI Dataset `SALES_REPORT` and a PostgreSQL database is configured as data-source in `SALES_REPORT` dataset. 
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 Consider `SALES_REPORT` PowerBI Dataset has a table `SALES_ANALYSIS` which is backed by `SALES_ANALYSIS_VIEW` of PostgreSQL Database then in this case `SALES_ANALYSIS_VIEW` will appear as upstream dataset for `SALES_ANALYSIS` table.
 
@@ -37,6 +45,11 @@ You can control table lineage ingestion using `extract_lineage` configuration pa
 PowerBI Source extracts the lineage information by parsing PowerBI M-Query expressions and from dataset data returned by the PowerBI API.
 
 The source will attempt to extract information from ODBC connection strings in M-Query expressions to determine the database type. If the database type matches a supported platform and the source is able to extract enough information to construct a valid Dataset URN, it will extract lineage for that data source.
+<<<<<<< HEAD
+=======
+
+PowerBI Source will extract lineage for the below listed PowerBI Data Sources: 
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 PowerBI Source will extract lineage for the below listed PowerBI Data Sources:
 

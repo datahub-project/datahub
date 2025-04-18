@@ -1,8 +1,14 @@
 import React, { useMemo } from 'react';
+<<<<<<< HEAD
 
 import AutoCompleteEntityItem from '@app/searchV2/autoCompleteV2/AutoCompleteEntityItem';
 import SectionHeader from '@app/searchV2/searchBarV2/components/SectionHeader';
 import useRecentlyViewedEntities from '@app/searchV2/searchBarV2/hooks/useRecentlyViewedEntities';
+=======
+import SectionHeader from '../components/SectionHeader';
+import useRecentlyViewedEntities from './useRecentlyViewedEntities';
+import AutoCompleteEntityItem from '../../autoCompleteV2/AutoCompleteEntityItem';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 export default function useRecentlyViewedEntitiesOptions() {
     const { entities: recentlyViewedEntities } = useRecentlyViewedEntities();

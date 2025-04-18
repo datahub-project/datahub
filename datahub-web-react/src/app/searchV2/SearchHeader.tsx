@@ -1,4 +1,5 @@
 import { ArrowRight } from '@phosphor-icons/react';
+<<<<<<< HEAD
 import { Button, Layout } from 'antd';
 import React, { useContext, useState } from 'react';
 import styled from 'styled-components';
@@ -17,6 +18,21 @@ import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { AutoCompleteResultForEntity } from '@types';
+=======
+import { V2_SEARCH_BAR_ID } from '../onboarding/configV2/HomePageOnboardingConfig';
+import { SearchBar } from './SearchBar';
+import { AutoCompleteResultForEntity } from '../../types.generated';
+import { EntityRegistry } from '../../entityRegistryContext';
+import { useAppConfig } from '../useAppConfig';
+import OnboardingContext from '../onboarding/OnboardingContext';
+import { useNavBarContext } from '../homeV2/layout/navBarRedesign/NavBarContext';
+import NavBarToggler from '../homeV2/layout/navBarRedesign/NavBarToggler';
+import { REDESIGN_COLORS } from '../entityV2/shared/constants';
+import useSearchViewAll from './useSearchViewAll';
+import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
+import { FiltersAppliedHandler } from './filtersV2/types';
+import { SearchBarV2 } from './searchBarV2/SearchBarV2';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const getStyles = ($isShowNavBarRedesign?: boolean) => {
     return {

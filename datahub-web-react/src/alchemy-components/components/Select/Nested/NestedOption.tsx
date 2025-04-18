@@ -3,12 +3,20 @@ import { Checkbox } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
+<<<<<<< HEAD
 import { NestedSelectOption } from '@components/components/Select/Nested/types';
 import useNestedSelectOptionChildren from '@components/components/Select/Nested/useNestedSelectOptionChildren';
 import useNestedOption from '@components/components/Select/Nested/useSelectOption';
 import { OptionLabel } from '@components/components/Select/components';
 import { CustomOptionRenderer } from '@components/components/Select/types';
 import theme from '@components/theme';
+=======
+import { OptionLabel } from '../components';
+import { NestedSelectOption } from './types';
+import useNestedOption from './useSelectOption';
+import useNestedSelectOptionChildren from './useNestedSelectOptionChildren';
+import { CustomOptionRenderer } from '../types';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const ParentOption = styled.div`
     display: flex;

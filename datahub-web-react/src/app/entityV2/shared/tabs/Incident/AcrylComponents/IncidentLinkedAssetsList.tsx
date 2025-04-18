@@ -15,7 +15,15 @@ import { IncidentLinkedAssetsListProps } from '@app/entityV2/shared/tabs/Inciden
 import { Button, Pill } from '@src/alchemy-components';
 import { EntityCapabilityType } from '@src/app/entityV2/Entity';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+<<<<<<< HEAD
 import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
+=======
+import { IncidentLinkedAssetsListProps } from '../types';
+import { AssetWrapper, LinkedAssets, LoadingWrapper } from './styledComponents';
+import { LinkedAssetsContainer } from '../styledComponents';
+import { SearchSelectModal } from '../../../components/styled/search/SearchSelectModal';
+import { IncidentAction } from '../constant';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const RESOURCE_URN_FIELD_NAME = 'resourceUrns';
 

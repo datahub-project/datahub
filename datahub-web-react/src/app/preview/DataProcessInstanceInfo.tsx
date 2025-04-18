@@ -10,8 +10,12 @@ import {
     toRelativeTimeString,
 } from '@app/shared/time/timeUtils';
 import colors from '@src/alchemy-components/theme/foundations/colors';
+<<<<<<< HEAD
 
 import { DataProcessInstanceRunResultType, DataProcessRunEvent } from '@types';
+=======
+import { DataProcessInstanceRunResultType, DataProcessRunEvent } from '../../types.generated';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const StatContainer = styled.div`
     display: flex;

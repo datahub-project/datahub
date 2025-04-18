@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import React, { useMemo } from 'react';
 
 import useOptions from '@app/searchV2/filtersV2/filters/EntityTypeFilter/hooks/useOptions';
@@ -6,6 +7,15 @@ import { FilterComponentProps } from '@app/searchV2/filtersV2/types';
 import { NestedSelect } from '@src/alchemy-components/components/Select/Nested/NestedSelect';
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { FilterOperator } from '@src/types.generated';
+=======
+import { NestedSelect } from '@src/alchemy-components/components/Select/Nested/NestedSelect';
+import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
+import { FilterOperator } from '@src/types.generated';
+import React, { useMemo } from 'react';
+import { FilterComponentProps } from '../../types';
+import useValues from '../hooks/useValues';
+import useOptions from './hooks/useOptions';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 export default function EntityTypeFilter({ fieldName, facetState, appliedFilters, onUpdate }: FilterComponentProps) {
     const values = useValues(appliedFilters);

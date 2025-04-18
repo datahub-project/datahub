@@ -28,9 +28,31 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { PageRoutes } from '@conf/Global';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+<<<<<<< HEAD
 
 import { useGetUserOwnedAssetsQuery, useGetUserQuery } from '@graphql/user.generated';
 import { EntityRelationship, EntityType } from '@types';
+=======
+import { PageRoutes } from '../../../conf/Global';
+import { useGetUserOwnedAssetsQuery, useGetUserQuery } from '../../../graphql/user.generated';
+import { EntityRelationship, EntityType } from '../../../types.generated';
+import { EntityContext } from '../../entity/shared/EntityContext';
+import { EntityHead } from '../../shared/EntityHead';
+import { GenericEntityProperties } from '../../entity/shared/types';
+import UserGroups from './UserGroups';
+import { RoutedTabs } from '../../shared/RoutedTabs';
+import { UserAssets } from './UserAssets';
+import UserSideBar from './UserSidebar';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { ErrorSection } from '../../shared/error/ErrorSection';
+import { StyledEntitySidebarContainer, StyledSidebar } from '../shared/containers/profile/sidebar/EntityProfileSidebar';
+import CompactContext from '../../shared/CompactContext';
+import { EntitySidebarTabs } from '../shared/containers/profile/sidebar/EntitySidebarTabs';
+import EntitySidebarSectionsTab from '../shared/containers/profile/sidebar/EntitySidebarSectionsTab';
+import EntitySidebarContext from '../../sharedV2/EntitySidebarContext';
+import SidebarCollapsibleHeader from '../shared/containers/profile/sidebar/SidebarCollapsibleHeader';
+import useGetUserGroupUrns from './useGetUserGroupUrns';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 export interface Props {
     urn: string;

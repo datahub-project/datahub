@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+import LineageGraph from '@app/lineageV2/LineageGraph';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 import { colors } from '@components';
 import React, { useContext } from 'react';
 import styled from 'styled-components';

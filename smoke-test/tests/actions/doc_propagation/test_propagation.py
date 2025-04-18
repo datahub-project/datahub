@@ -28,9 +28,12 @@ from tests.utils import (
     wait_for_writes_to_sync,
 )
 
+<<<<<<< HEAD
 # Actions container not run in SaaS at the moment
 pytest.skip(allow_module_level=True)
 
+=======
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 logger = logging.getLogger(__name__)
 
 DELETE_AFTER_TEST = os.getenv("DELETE_AFTER_TEST", "false").lower() == "true"
@@ -422,7 +425,10 @@ def add_field_description(f1, description, graph_client):
 )
 def check_propagated_description(downstream_field, description, graph_client):
     documentation = graph_client.get_aspect(downstream_field, models.DocumentationClass)
+<<<<<<< HEAD
     assert documentation is not None
+=======
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
     assert any(doc.documentation == description for doc in documentation.documentations)
 
 

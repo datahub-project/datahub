@@ -22,7 +22,11 @@ Currently, the [Hex API](https://learn.hex.tech/docs/api/api-reference) has some
 
 Please keep these limitations in mind when working with the Hex connector.
 
+<<<<<<< HEAD
 For the **Dataset - Hex Project lineage**, the connector relies on the
+=======
+For the **Dataset - Hex Project lineage**, the connector relies on the 
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 [_Hex query metadata_](https://learn.hex.tech/docs/explore-data/cells/sql-cells/sql-cells-introduction#query-metadata) feature.
 Therefore, in order to extract lineage information, the required setup must include:
 

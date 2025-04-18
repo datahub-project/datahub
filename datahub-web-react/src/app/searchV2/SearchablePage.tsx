@@ -1,3 +1,9 @@
+<<<<<<< HEAD
+=======
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useHistory, useLocation } from 'react-router';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 import { debounce } from 'lodash';
 import * as QueryString from 'query-string';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -25,12 +31,39 @@ import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { PageRoutes } from '@conf/Global';
 import { useQuickFiltersContext } from '@providers/QuickFiltersContext';
 import { colors } from '@src/alchemy-components';
+<<<<<<< HEAD
 
 import {
     GetAutoCompleteMultipleResultsQuery,
     useGetAutoCompleteMultipleResultsLazyQuery,
 } from '@graphql/search.generated';
 import { FacetFilterInput } from '@types';
+=======
+import { useDebounce } from 'react-use';
+import { SearchHeader } from './SearchHeader';
+import { useEntityRegistry } from '../useEntityRegistry';
+import { FacetFilterInput } from '../../types.generated';
+import {
+    GetAutoCompleteMultipleResultsQuery,
+    useGetAutoCompleteMultipleResultsLazyQuery,
+} from '../../graphql/search.generated';
+import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
+import analytics, { EventType } from '../analytics';
+import useFilters from './utils/useFilters';
+import { PageRoutes } from '../../conf/Global';
+import { getAutoCompleteInputFromQuickFilter } from './utils/filterUtils';
+import { useQuickFiltersContext } from '../../providers/QuickFiltersContext';
+import { useUserContext } from '../context/useUserContext';
+import { useSelectedSortOption } from '../search/context/SearchContext';
+import { NavSidebar as NavSidebarRedesign } from '../homeV2/layout/navBarRedesign/NavSidebar';
+import { NavSidebar } from '../homeV2/layout/NavSidebar';
+import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
+import { FieldToAppliedFieldFiltersMap } from './filtersV2/types';
+import { generateOrFilters } from './utils/generateOrFilters';
+import { UnionType } from './utils/constants';
+import { useAppConfig } from '../useAppConfig';
+import { convertFiltersMapToFilters } from './filtersV2/utils';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const Body = styled.div`
     display: flex;

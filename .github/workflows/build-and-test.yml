@@ -203,7 +203,11 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
   docker-codegen-validation:
+<<<<<<< HEAD
     runs-on: depot-ubuntu-22.04-small
+=======
+    runs-on: ubuntu-latest
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
     needs: setup
     if: ${{ needs.setup.outputs.docker_change == 'true' }}
     steps:

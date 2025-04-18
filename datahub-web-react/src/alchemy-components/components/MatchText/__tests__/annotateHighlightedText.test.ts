@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import { annotateHighlightedText } from '@components/components/MatchText/utils';
+=======
+import { annotateHighlightedText } from '../utils';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const SAMPLE_INPUT = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit';
 

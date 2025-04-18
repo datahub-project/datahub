@@ -786,6 +786,7 @@ cache:
           domains: 20
         dashboard:
           dashboardUsageStatistics: 21600 # 6hrs
+<<<<<<< HEAD
           domains: 20
         globalSettings:
           globalSettingsInfo: 60
@@ -815,6 +816,8 @@ cache:
           domains: 20
         dataProduct:
           domains: 20
+=======
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
         telemetry:
           telemetryClientId: 86400 # 1 day
 
@@ -972,6 +975,9 @@ metadataChangeProposal:
       initialIntervalMs: ${MCP_TIMESERIES_INITIAL_INTERVAL_MS:100}
       multiplier: ${MCP_TIMESERIES_MULTIPLIER:10}
       maxIntervalMs: ${MCP_TIMESERIES_MAX_INTERVAL_MS:30000}
+
+eventsApi:
+  enabled: ${EVENTS_API_ENABLED:true}
 
 eventsApi:
   enabled: ${EVENTS_API_ENABLED:true}

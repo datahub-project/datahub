@@ -5,6 +5,7 @@
         <packages>
             <package name="com.linkedin.metadata.*">
                 <exclude name="com.linkedin.metadata.graph.search.elasticsearch.*" />
+<<<<<<< HEAD
                 <exclude name="com.linkedin.metadata.search.elasticsearch.*" />
                 <exclude name="com.linkedin.metadata.graph.search.opensearch.*" />
                 <exclude name="com.linkedin.metadata.search.opensearch.*" />
@@ -13,6 +14,15 @@
                 <exclude name="com.linkedin.metadata.graph.neo4j.*" />
                 <exclude name="com.linkedin.metadata.entity.EbeanEntityServiceOptimizationTest" />
                 <exclude name="com.linkedin.metadata.test.batch.opensearch.*" />
+=======
+                <exclude name="com.linkedin.metadata.search.elasticsearch.*"/>
+                <exclude name="com.linkedin.metadata.graph.search.opensearch.*" />
+                <exclude name="com.linkedin.metadata.search.opensearch.*"/>
+                <exclude name="com.linkedin.metadata.entity.cassandra.*" />
+                <exclude name="com.linkedin.metadata.timeline.cassandra.*"/>
+                <exclude name="com.linkedin.metadata.graph.neo4j.*"/>
+                <exclude name="com.linkedin.metadata.entity.EbeanEntityServiceOptimizationTest"/>
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
             </package>
         </packages>
     </test>

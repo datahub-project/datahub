@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { RoleEntity } from '@app/entityV2/Access/RoleEntity';
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { BusinessAttributeEntity } from '@app/entityV2/businessAttribute/BusinessAttributeEntity';
@@ -26,6 +27,36 @@ import { SchemaFieldEntity } from '@app/entityV2/schemaField/SchemaFieldEntity';
 import { StructuredPropertyEntity } from '@app/entityV2/structuredProperty/StructuredPropertyEntity';
 import { TagEntity } from '@app/entityV2/tag/Tag';
 import { UserEntity } from '@app/entityV2/user/User';
+=======
+import { RoleEntity } from './entityV2/Access/RoleEntity';
+import EntityRegistry from './entityV2/EntityRegistry';
+import { BusinessAttributeEntity } from './entityV2/businessAttribute/BusinessAttributeEntity';
+import { ChartEntity } from './entityV2/chart/ChartEntity';
+import { ContainerEntity } from './entityV2/container/ContainerEntity';
+import { DashboardEntity } from './entityV2/dashboard/DashboardEntity';
+import { DataContractEntity } from './entityV2/dataContract/DataContractEntity';
+import { DataFlowEntity } from './entityV2/dataFlow/DataFlowEntity';
+import { DataJobEntity } from './entityV2/dataJob/DataJobEntity';
+import { DataPlatformEntity } from './entityV2/dataPlatform/DataPlatformEntity';
+import { DataPlatformInstanceEntity } from './entityV2/dataPlatformInstance/DataPlatformInstanceEntity';
+import { DataProcessInstanceEntity } from './entityV2/dataProcessInstance/DataProcessInstanceEntity';
+import { DataProductEntity } from './entityV2/dataProduct/DataProductEntity';
+import { DatasetEntity } from './entityV2/dataset/DatasetEntity';
+import { DomainEntity } from './entityV2/domain/DomainEntity';
+import GlossaryNodeEntity from './entityV2/glossaryNode/GlossaryNodeEntity';
+import { GlossaryTermEntity } from './entityV2/glossaryTerm/GlossaryTermEntity';
+import { GroupEntity } from './entityV2/group/Group';
+import { MLFeatureEntity } from './entityV2/mlFeature/MLFeatureEntity';
+import { MLFeatureTableEntity } from './entityV2/mlFeatureTable/MLFeatureTableEntity';
+import { MLModelEntity } from './entityV2/mlModel/MLModelEntity';
+import { MLModelGroupEntity } from './entityV2/mlModelGroup/MLModelGroupEntity';
+import { MLPrimaryKeyEntity } from './entityV2/mlPrimaryKey/MLPrimaryKeyEntity';
+import { QueryEntity } from './entityV2/query/QueryEntity';
+import { SchemaFieldEntity } from './entityV2/schemaField/SchemaFieldEntity';
+import { StructuredPropertyEntity } from './entityV2/structuredProperty/StructuredPropertyEntity';
+import { TagEntity } from './entityV2/tag/Tag';
+import { UserEntity } from './entityV2/user/User';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 export default function buildEntityRegistryV2() {
     const registry = new EntityRegistry();

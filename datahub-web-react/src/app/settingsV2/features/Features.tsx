@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
+<<<<<<< HEAD
 import { v4 as uuidv4 } from 'uuid';
 
 import { Feature, FeatureType } from '@app/settingsV2/features/Feature';
@@ -8,6 +9,12 @@ import {
     useUpdateDocPropagationSettings,
 } from '@app/settingsV2/features/useDocPropagationSettings';
 import { PageTitle } from '@src/alchemy-components';
+=======
+import { PageTitle } from '@src/alchemy-components';
+import { v4 as uuidv4 } from 'uuid';
+import { Feature, FeatureType } from './Feature';
+import { useGetDocPropagationSettings, useUpdateDocPropagationSettings } from './useDocPropagationSettings';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const Page = styled.div`
     display: flex;

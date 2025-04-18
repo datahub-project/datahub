@@ -86,7 +86,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+<<<<<<< HEAD
 import org.apache.directory.scim.core.schema.SchemaRegistry;
+=======
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.springframework.beans.factory.annotation.Autowired;

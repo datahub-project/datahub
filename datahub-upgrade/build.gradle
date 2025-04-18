@@ -186,6 +186,7 @@ task runRestoreIndicesUrn(type: Exec) {
           bootJar.getArchiveFile().get(), "-u", "RestoreIndices", "-a", "batchSize=100", "-a", "urnBasedPagination=true"
 }
 
+<<<<<<< HEAD
 task runNoCode(type: Exec) {
   dependsOn bootJar
   group = "Execution"
@@ -210,6 +211,8 @@ task runMetadataTests(type: Exec) {
           bootJar.getArchiveFile().get(), "-u", "EvaluateTests", "-a", "batchSize=3"
 }
 
+=======
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 docker {
   dependsOn(bootJar)
   name "${docker_registry}/${docker_repo}:${versionTag}"

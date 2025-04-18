@@ -16,6 +16,7 @@ import { GitCommit, LinkBreak, Link as LinkIcon } from 'phosphor-react';
 import React, { useState } from 'react';
 import { Redirect, useHistory } from 'react-router';
 import styled from 'styled-components';
+<<<<<<< HEAD
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
@@ -49,6 +50,31 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useUpdateDeprecationMutation } from '@graphql/mutations.generated';
 import { EntityType } from '@types';
+=======
+import { useUpdateDeprecationMutation } from '../../../../graphql/mutations.generated';
+import { EntityType } from '../../../../types.generated';
+import { useUserContext } from '../../../context/useUserContext';
+import { getEntityProfileDeleteRedirectPath } from '../../../shared/deleteUtils';
+import ShareButtonMenu from '../../../shared/share/v2/ShareButtonMenu';
+import { useAppConfig, useIsNestedDomainsEnabled } from '../../../useAppConfig';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import CreateEntityAnnouncementModal from '../announce/CreateEntityAnnouncementModal';
+import { MarkAsDeprecatedButtonContents } from '../components/styled/MarkAsDeprecatedButton';
+import { ANTD_GRAY, REDESIGN_COLORS } from '../constants';
+import { getEntityPath } from '../containers/profile/utils';
+import { useIsSeparateSiblingsMode } from '../useIsSeparateSiblingsMode';
+import CreateGlossaryEntityModal from './CreateGlossaryEntityModal';
+import { EntityMenuItems } from './EntityMenuActions';
+import MoveDomainModal from './MoveDomainModal';
+import MoveGlossaryEntityModal from './MoveGlossaryEntityModal';
+import { UpdateDeprecationModal } from './UpdateDeprecationModal';
+import useDeleteEntity from './useDeleteEntity';
+import { isDeleteDisabled, isMoveDisabled, shouldDisplayChildDeletionWarning } from './utils';
+import LinkAssetVersionModal from './versioning/LinkAssetVersionModal';
+import UnlinkAssetVersionModal from './versioning/UnlinkAssetVersionModal';
+import { IncidentDetailDrawer } from '../tabs/Incident/AcrylComponents/IncidentDetailDrawer';
+import { IncidentAction } from '../tabs/Incident/constant';
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const MenuItem = styled.div`
     font-size: 13px;
@@ -404,11 +430,14 @@ const EntityDropdown = (props: Props) => {
             {hasBeenDeleted && !onDelete && deleteRedirectPath && <Redirect to={deleteRedirectPath} />}
             {isRaiseIncidentModalVisible && (
                 <IncidentDetailDrawer
+<<<<<<< HEAD
                     entity={{
                         urn,
                         entityType,
                         platform: entityData?.platform ?? entityData?.dataPlatformInstance?.platform,
                     }}
+=======
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
                     urn={urn}
                     mode={IncidentAction.CREATE}
                     onSubmit={() => {
@@ -428,6 +457,14 @@ const EntityDropdown = (props: Props) => {
                         }, 3000);
                     }}
                     onCancel={() => setIsRaiseIncidentModalVisible(false)}
+<<<<<<< HEAD
+=======
+                    entity={{
+                        urn,
+                        entityType,
+                        platform: entityData?.platform ?? entityData?.dataPlatformInstance?.platform,
+                    }}
+>>>>>>> dbad52283b070c7cc136306c1553770db2f72105
                 />
             )}
             {isLinkAssetVersionModalVisible && (
