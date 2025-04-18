@@ -12,22 +12,20 @@ import { EntityPrivileges, Incident } from '@src/types.generated';
 const modalBodyStyle = { padding: 0, fontFamily: 'Mulish, sans-serif' };
 
 type IncidentDetailDrawerProps = {
-    urn: string;
+    entity: EntityStagedForIncident;
     mode: IncidentAction;
     incident?: IncidentTableRow;
     onCancel?: () => void;
     onSubmit?: (incident?: Incident) => void;
-    entity?: EntityStagedForIncident;
     privileges?: EntityPrivileges;
 };
 
 export const IncidentDetailDrawer = ({
-    urn,
+    entity,
     mode,
     onCancel,
     onSubmit,
     incident,
-    entity,
     privileges,
 }: IncidentDetailDrawerProps) => {
     const [isEditView, setIsEditView] = useState<boolean>(false);
@@ -83,7 +81,6 @@ export const IncidentDetailDrawer = ({
                         incidentUrn={incident?.urn}
                         entity={entity}
                         onSubmit={handleSubmit}
-                        urn={urn}
                     />
                 ) : (
                     <IncidentView incident={incident as IncidentTableRow} />

@@ -36,12 +36,11 @@ const HalfWidthInput = styled(Input)`
 `;
 
 export const IncidentEditor = ({
+    entity,
     incidentUrn,
     onSubmit,
     data,
     mode = IncidentAction.CREATE,
-    entity,
-    urn,
 }: IncidentEditorProps) => {
     const assigneeValues = data?.assignees && getAssigneeWithURN(data.assignees);
     const isFormValid = Boolean(
@@ -53,8 +52,8 @@ export const IncidentEditor = ({
     const { user } = useUserContext();
     const userHasChangedState = useRef(false);
     const isFirstRender = useRef(true);
-    const [cachedAssignees, setCachedAssignees] = useState<any>([]);
-    const [cachedLinkedAssets, setCachedLinkedAssets] = useState<any>([]);
+    const [cachedAssignees, setCachedAssignees] = useState<any[]>([]);
+    const [cachedLinkedAssets, setCachedLinkedAssets] = useState<any[]>([]);
     const [isLoadingAssigneeOrAssets, setIsLoadingAssigneeOrAssets] = useState(true);
 
     const [isRequiredFieldsFilled, setIsRequiredFieldsFilled] = useState<boolean>(
@@ -69,8 +68,6 @@ export const IncidentEditor = ({
         assignees: cachedAssignees,
         linkedAssets: cachedLinkedAssets,
         entity,
-        currentIncident: data,
-        urn,
     });
     const formValues = Form.useWatch([], form);
 
@@ -88,7 +85,6 @@ export const IncidentEditor = ({
             isFirstRender.current = false;
             return;
         }
-
         // Ensure we don't override user's choice if they manually change the state
         if (
             mode === IncidentAction.EDIT &&
@@ -118,15 +114,37 @@ export const IncidentEditor = ({
         }
     };
 
-    const actionButtonLabel = mode === IncidentAction.CREATE ? 'Create' : 'Update';
     const showCustomCategory = form.getFieldValue('type') === IncidentType.Custom;
-    const isLinkedAssetPresent = !formValues?.resourceUrns?.length;
+    const isLinkedAssetMissing = !formValues?.resourceUrns?.length;
     const isSubmitButtonDisabled =
         !validateForm(form) ||
         !isRequiredFieldsFilled ||
         isLoadingAssigneeOrAssets ||
-        isLinkedAssetPresent ||
+        isLinkedAssetMissing ||
         isLoading;
+
+    const actionButtonLabel = mode === IncidentAction.CREATE ? 'Create' : 'Update';
+    const actionButton = isLoading ? (
+        <>
+            <StyledSpinner />
+            {actionButtonLabel === 'Create' ? 'Creating...' : 'Updating...'}
+        </>
+    ) : (
+        actionButtonLabel
+    );
+
+    const resolutionInput = form.getFieldValue('state') === IncidentState.Resolved && (
+        <SelectFormItem
+            label="Resolution Note"
+            name="message"
+            rules={[{ required: false }]}
+            customStyle={{
+                color: colors.gray[600],
+            }}
+        >
+            <HalfWidthInput label="" placeholder="Add a resolution note......" id="incident-message" />
+        </SelectFormItem>
+    );
 
     return (
         <StyledForm
@@ -209,12 +227,12 @@ export const IncidentEditor = ({
                     initialValue={getLinkedAssetsData(data?.linkedAssets) || []}
                 >
                     <IncidentLinkedAssetsList
+                        initialUrn={entity?.urn}
                         form={form}
                         data={data}
                         mode={mode}
                         setCachedLinkedAssets={setCachedLinkedAssets}
                         setIsLinkedAssetsLoading={setIsLoadingAssigneeOrAssets}
-                        urn={urn}
                     />
                 </SelectFormItem>
                 {mode === IncidentAction.EDIT && (
@@ -227,30 +245,11 @@ export const IncidentEditor = ({
                         value={formValues?.[INCIDENT_OPTION_LABEL_MAPPING.state.fieldName]}
                     />
                 )}
-                {form.getFieldValue('state') === IncidentState.Resolved && (
-                    <SelectFormItem
-                        label="Resolution Note"
-                        name="message"
-                        rules={[{ required: false }]}
-                        customStyle={{
-                            color: colors.gray[600],
-                        }}
-                    >
-                        <HalfWidthInput label="" placeholder="Add a resolution note......" id="incident-message" />
-                    </SelectFormItem>
-                )}
+                {resolutionInput}
             </StyledFormElements>
             <IncidentFooter>
                 <SaveButton data-testid="incident-create-button" type="submit" disabled={isSubmitButtonDisabled}>
-                    {/* {actionButtonLabel} */}
-                    {isLoading ? (
-                        <>
-                            <StyledSpinner />
-                            {actionButtonLabel === 'Create' ? 'Creating...' : 'Updating...'}
-                        </>
-                    ) : (
-                        actionButtonLabel
-                    )}
+                    {actionButton}
                 </SaveButton>
             </IncidentFooter>
         </StyledForm>
