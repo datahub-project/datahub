@@ -15,10 +15,10 @@ const colors = {
         700: '#2F3657', // should be deprecated
         800: '#272D48', // should be deprecated
         900: '#231A58', // should be deprecated
-        1000: '#F1F3FD', // violet 0
-        1100: '#F1FBFE', // blue 0
-        1200: '#FBF3EF', // red 0
-        1300: '#F7FBF4', // green 0
+        1000: '#F1F3FD', // deprecated use violet 0
+        1100: '#F1FBFE', // deprecated use blue 0
+        1200: '#FBF3EF', // deprecated use red 0
+        1300: '#F7FBF4', // deprecated use green 0
         1400: '#E9EAEE', // border and secondary text dark mode
         1500: '#F9FAFC', // bg surface and tertiary text dark mode
         1600: '#F5F6FA', // bg of new nav also used for primary text dark mode
