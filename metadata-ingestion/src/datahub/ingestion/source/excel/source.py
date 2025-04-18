@@ -4,14 +4,14 @@ import logging
 import os
 import re
 from datetime import datetime, timezone
+from enum import Enum, auto
+from io import BytesIO
 from pathlib import PurePath
-from typing import Any, Dict, Iterable, List, Optional, Type
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, Union
+from urllib.parse import urlparse
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import (
-    ContainerKey,
-)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -25,6 +25,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
     get_bucket_relative_path,
+    strip_s3_prefix,
 )
 from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.excel.config import ExcelSourceConfig
@@ -104,8 +105,17 @@ field_type_mapping: Dict[str, Type] = {
 }
 
 
-class HDF5ContainerKey(ContainerKey):
-    path: str
+ALLOWED_EXTENSIONS = [".xlsx", ".xlsm", ".xltx", ".xltm"]
+
+
+class UriType(Enum):
+    HTTP = auto()
+    HTTPS = auto()
+    LOCAL_FILE = auto()
+    ABSOLUTE_PATH = auto()
+    S3 = auto()
+    S3A = auto()
+    UNKNOWN = auto()
 
 
 @platform_name("Excel")
@@ -145,15 +155,46 @@ class ExcelSource(StatefulIngestionSourceBase):
         ]
 
     @staticmethod
-    def local_browser(path_spec: str) -> Iterable[BrowsePath]:
-        # Use glob to find all paths matching the pattern
-        matching_paths = glob.glob(path_spec, recursive=True)
+    def uri_type(uri: str) -> Tuple[UriType, str]:
+        if not uri or not isinstance(uri, str):
+            return UriType.UNKNOWN, ""
 
-        # Filter to include only files (not directories)
+        uri = uri.strip()
+        parsed = urlparse(uri)
+        scheme = parsed.scheme.lower()
+
+        if scheme == "http":
+            return UriType.HTTP, uri[7:]
+        elif scheme == "https":
+            return UriType.HTTPS, uri[8:]
+        elif scheme == "file":
+            if uri.startswith("file:///"):
+                return UriType.LOCAL_FILE, uri[7:]
+
+        if scheme == "s3":
+            return UriType.S3, uri[5:]
+        elif scheme == "s3a":
+            return UriType.S3A, uri[6:]
+
+        if os.path.isabs(uri):
+            return UriType.ABSOLUTE_PATH, uri
+
+        if scheme:
+            return UriType.UNKNOWN, uri[len(scheme) + 3 :]
+
+        return UriType.UNKNOWN, ""
+
+    @staticmethod
+    def is_excel_file(path: str) -> bool:
+        _, ext = os.path.splitext(path)
+        return ext.lower() in ALLOWED_EXTENSIONS
+
+    @staticmethod
+    def local_browser(path_spec: str) -> Iterable[BrowsePath]:
+        matching_paths = glob.glob(path_spec, recursive=True)
         matching_files = [path for path in matching_paths if os.path.isfile(path)]
 
         for file in sorted(matching_files):
-            # We need to make sure the path is in posix style that is not true on windows
             full_path = PurePath(os.path.normpath(file)).as_posix()
             yield BrowsePath(
                 file=full_path,
@@ -190,17 +231,35 @@ class ExcelSource(StatefulIngestionSourceBase):
             s3_path = self.create_s3_path(obj.bucket_name, obj.key)
             logger.debug(f"Path: {s3_path}")
 
-            content_type = None
-            if self.config.use_s3_content_type:
-                content_type = s3.Object(obj.bucket_name, obj.key).content_type
-
             yield BrowsePath(
                 file=s3_path,
                 timestamp=obj.last_modified,
                 size=obj.size,
                 partitions=[],
-                content_type=content_type,
+                content_type=None,
             )
+
+    def get_s3_file(self, path_spec: str) -> Union[BytesIO, None]:
+        if self.config.aws_config is None:
+            raise ValueError("aws_config not set. Cannot browse s3")
+        s3 = self.config.aws_config.get_s3_resource(self.config.verify_ssl)
+        bucket_name = get_bucket_name(path_spec)
+        key = get_bucket_relative_path(path_spec)
+        logger.debug(f"Getting file: {key} from bucket: {bucket_name}")
+        try:
+            obj = s3.Object(bucket_name, key)
+            file_content = obj.get()["Body"].read()
+            binary_stream = io.BytesIO(file_content)
+            binary_stream.seek(0)
+            return binary_stream
+        except Exception as e:
+            self.report.report_file_dropped(path_spec)
+            self.report.warning(
+                message="Error reading Excel file from S3",
+                context=f"Path={path_spec}",
+                exc=e,
+            )
+            return None
 
     @staticmethod
     def get_field_type(field_type: str) -> SchemaFieldDataType:
@@ -300,6 +359,16 @@ class ExcelSource(StatefulIngestionSourceBase):
             )
             yield from profiler.get_workunits()
 
+    def process_file(
+        self, file_content: BytesIO, path: str, filename: str
+    ) -> Iterable[MetadataWorkUnit]:
+        xls = ExcelFile(filename, file_content, self.report)
+        result = xls.load_workbook()
+
+        if result:
+            for table in xls.get_tables():
+                yield from self.process_dataset(path, filename, table)
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.container_WU_creator = ContainerWUCreator(
             self.platform,
@@ -309,20 +378,58 @@ class ExcelSource(StatefulIngestionSourceBase):
 
         with PerfTimer() as timer:
             for path_spec in self.config.path_list:
-                for browse_path in self.local_browser(path_spec):
-                    if not self.config.path_pattern.allowed(browse_path.file):
-                        self.report.report_dropped(browse_path.file)
-                        continue
-                    basename = os.path.basename(browse_path.file)
-                    path = os.path.dirname(browse_path.file)
-                    filename = os.path.splitext(basename)[0]
-                    logger.debug(f"Processing {filename}")
-                    with open(browse_path.file, "rb") as f:
-                        file_content = f.read()
-                    bytes_io = io.BytesIO(file_content)
-                    xls = ExcelFile(bytes_io)
-                    for table in xls.get_tables():
-                        yield from self.process_dataset(path, filename, table)
+                logger.debug(f"Processing path: {path_spec}")
+                uri_type, path = self.uri_type(path_spec)
+                logger.debug(f"URI Type: {uri_type} Path: {path}")
+
+                if uri_type == UriType.LOCAL_FILE or uri_type == UriType.ABSOLUTE_PATH:
+                    logger.debug(f"Searching local path: {path}")
+
+                    for browse_path in self.local_browser(path):
+                        if not self.config.path_pattern.allowed(browse_path.file):
+                            self.report.report_dropped(browse_path.file)
+                            continue
+
+                        if not self.is_excel_file(browse_path.file):
+                            logger.debug(
+                                f"Skipping unsupported file {browse_path.file}"
+                            )
+                            continue
+
+                        basename = os.path.basename(browse_path.file)
+                        path = os.path.dirname(browse_path.file)
+                        filename = os.path.splitext(basename)[0]
+
+                        logger.debug(f"Processing {filename}")
+                        with open(browse_path.file, "rb") as f:
+                            file_content = f.read()
+                        bytes_io = io.BytesIO(file_content)
+
+                        yield from self.process_file(bytes_io, path, filename)
+
+                elif uri_type == UriType.S3 or uri_type == UriType.S3A:
+                    logger.debug(f"Searching S3 path: {path}")
+
+                    for browse_path in self.s3_browser(path_spec):
+                        if not self.config.path_pattern.allowed(browse_path.file):
+                            self.report.report_dropped(browse_path.file)
+                            continue
+
+                        if not self.is_excel_file(browse_path.file):
+                            logger.debug(f"No files found on path {browse_path.file}")
+                            continue
+
+                        uri_path = strip_s3_prefix(browse_path.file)
+                        basename = os.path.basename(uri_path)
+                        filename = os.path.splitext(basename)[0]
+
+                        logger.debug(f"Processing {browse_path.file}")
+                        file_data = self.get_s3_file(browse_path.file)
+
+                        if file_data is None:
+                            continue
+
+                        yield from self.process_file(file_data, uri_path, filename)
 
             time_taken = timer.elapsed_seconds()
 

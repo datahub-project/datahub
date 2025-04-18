@@ -43,14 +43,6 @@ class ExcelSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         description="Either a boolean, in which case it controls whether we verify the server's TLS certificate, or a string, in which case it must be a path to a CA bundle to use.",
     )
 
-    use_s3_content_type: bool = Field(
-        default=False,
-        description=(
-            "If enabled, use S3 Object metadata to determine content type over file extension, if set."
-            " Warning: this requires a separate query to S3 for each object, which can be slow for large datasets."
-        ),
-    )
-
     convert_urns_to_lowercase: bool = Field(
         default=False,
         description="Enable to convert the Excel asset urns to lowercase",

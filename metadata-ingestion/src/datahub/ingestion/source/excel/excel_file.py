@@ -10,6 +10,8 @@ import openpyxl
 import pandas as pd
 from openpyxl.workbook import Workbook
 
+from datahub.ingestion.source.excel.report import ExcelSourceReport
+
 logger = logging.getLogger(__name__)
 
 
@@ -26,43 +28,66 @@ class ExcelTable:
 
 class ExcelFile:
     wb: Workbook
-    file: BinaryIO
+    filename: str
+    data: Union[bytes, BinaryIO, str, io.TextIOBase]
     sheet_list: List[str]
     active_sheet: str
     properties: Dict[str, Any]
+    report: ExcelSourceReport
 
     def __init__(
         self,
-        file: Union[bytes, BinaryIO, str, io.TextIOBase],
+        filename: str,
+        data: Union[bytes, BinaryIO, str, io.TextIOBase],
+        report: ExcelSourceReport,
     ) -> None:
-        if isinstance(file, bytes):
-            self.file = io.BytesIO(file)
-        elif isinstance(file, str):
-            self.file = io.BytesIO(io.StringIO(file).getvalue().encode("utf-8"))
-        elif hasattr(file, "read") and callable(file.read):
-            if hasattr(file, "seekable") and file.seekable():
-                if isinstance(file, TextIOBase):
-                    data = file.read()
-                    self.file = io.BytesIO(data.encode("utf-8"))
+        self.filename = filename
+        self.data = data
+        self.report = report
+        self.sheet_list = []
+        self.active_sheet = ""
+        self.properties = {}
+
+    def load_workbook(self) -> bool:
+        file: Union[BinaryIO, None] = None
+        try:
+            if isinstance(self.data, bytes):
+                file = io.BytesIO(self.data)
+            elif isinstance(self.data, str):
+                file = io.BytesIO(io.StringIO(self.data).getvalue().encode("utf-8"))
+            elif hasattr(self.data, "read") and callable(self.data.read):
+                if hasattr(self.data, "seekable") and self.data.seekable():
+                    if isinstance(self.data, TextIOBase):
+                        data = self.data.read()
+                        file = io.BytesIO(data.encode("utf-8"))
+                    else:
+                        file = self.data
                 else:
-                    self.file = file
-            else:
-                content = file.read()
-                if isinstance(content, str):
-                    content = content.encode("utf-8")
-                    self.file = io.BytesIO(content)
-                elif isinstance(content, bytes):
-                    self.file = io.BytesIO(content)
+                    content = self.data.read()
+                    if isinstance(content, str):
+                        content = content.encode("utf-8")
+                        file = io.BytesIO(content)
+                    elif isinstance(content, bytes):
+                        file = io.BytesIO(content)
 
-        if not self.file:
-            raise TypeError(
-                f"Expected bytes, string, or file-like object, got {type(file)}"
+            if not file:
+                raise TypeError(
+                    f"File {self.filename}: Expected bytes, string, or file-like object, got {type(self.data)}"
+                )
+
+            self.wb = openpyxl.load_workbook(file, data_only=True)
+            self.properties = self.read_excel_properties(self.wb)
+            self.sheet_list = self.wb.sheetnames
+            self.active_sheet = self.wb.active.title
+            return True
+        except Exception as e:
+            self.report.report_file_dropped(self.filename)
+            self.report.warning(
+                message="Error reading Excel file",
+                context=f"Filename={self.filename}",
+                exc=e,
             )
-
-        self.wb = openpyxl.load_workbook(self.file, data_only=True)
-        self.properties = self.read_excel_properties(self.wb)
-        self.sheet_list = self.wb.sheetnames
-        self.active_sheet = self.wb.active.title
+            return False
 
     @property
     def sheet_names(self) -> List[str]:
@@ -135,12 +160,21 @@ class ExcelFile:
             header_row = header_row[: last_non_empty_idx + 1]
 
         # Create the column names for the DataFrame
-        column_names = []
+        column_names: List[str] = []
+        seen_columns: Dict[str, int] = {}
         for i, col in enumerate(header_row):
             if col is None or str(col).strip() == "":
-                column_names.append(f"Unnamed_{i}")
+                col_name = f"Unnamed_{i}"
             else:
-                column_names.append(str(col).strip())
+                col_name = str(col).strip()
+
+            if col_name in seen_columns:
+                seen_columns[col_name] += 1
+                col_name = f"{col_name}_{seen_columns[col_name]}"
+            else:
+                seen_columns[col_name] = 0
+
+            column_names.append(col_name)
 
         # Create the DataFrame with the table data
         data_rows = rows[header_row_idx + 1 : footer_start_idx]
