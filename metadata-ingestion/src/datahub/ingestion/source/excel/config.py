@@ -1,12 +1,10 @@
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
-from datahub.ingestion.source.data_lake_common.config import PathSpecsConfigMixin
-from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -16,10 +14,17 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
 
-PathSpec.SUPPORTED_FILE_TYPES = ["xls", "xlsx"]
 
+class ExcelSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
+    path_list: List[str] = Field(
+        description="List of paths to HDF5 files or directories to ingest."
+    )
 
-class ExcelSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin, PathSpecsConfigMixin):
+    path_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for file paths to filter in ingestion.",
+    )
+
     aws_config: Optional[AwsConnectionConfig] = Field(
         default=None, description="AWS configuration"
     )
@@ -36,6 +41,19 @@ class ExcelSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin, P
     verify_ssl: Union[bool, str] = Field(
         default=True,
         description="Either a boolean, in which case it controls whether we verify the server's TLS certificate, or a string, in which case it must be a path to a CA bundle to use.",
+    )
+
+    use_s3_content_type: bool = Field(
+        default=False,
+        description=(
+            "If enabled, use S3 Object metadata to determine content type over file extension, if set."
+            " Warning: this requires a separate query to S3 for each object, which can be slow for large datasets."
+        ),
+    )
+
+    convert_urns_to_lowercase: bool = Field(
+        default=False,
+        description="Enable to convert the Excel asset urns to lowercase",
     )
 
     profile_pattern: AllowDenyPattern = Field(

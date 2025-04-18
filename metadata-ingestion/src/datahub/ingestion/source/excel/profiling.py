@@ -10,14 +10,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.excel.config import ExcelSourceConfig
 from datahub.ingestion.source.excel.report import ExcelSourceReport
-
-# from datahub.ingestion.source.hdf5.util import (
-#     decode_type,
-#     get_column_count,
-#     get_column_name,
-#     get_column_values,
-#     numpy_value_to_string,
-# )
+from datahub.ingestion.source.excel.util import gen_dataset_name
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
     DatasetProfileClass,
@@ -55,29 +48,25 @@ class ExcelProfiler:
     report: ExcelSourceReport
     df: pd.DataFrame
     filename: str
-    file_path: str
-    workbook: str
+    sheet_name: str
     dataset_urn: str
     path: str
 
     def __init__(
-            self,
-            config: ExcelSourceConfig,
-            report: ExcelSourceReport,
-            df: pd.DataFrame,
-            filename: str,
-            file_path: str,
-            workbook: str,
-            dataset_urn: str,
-            path: str,
+        self,
+        config: ExcelSourceConfig,
+        report: ExcelSourceReport,
+        df: pd.DataFrame,
+        filename: str,
+        sheet_name: str,
+        dataset_urn: str,
+        path: str,
     ) -> None:
         self.config = config
         self.report = report
         self.df = df
         self.filename = filename
-        self.file_path = file_path
-        self.workbook = workbook
-        self.workbook_name = f"{filename}/{workbook}"
+        self.sheet_name = sheet_name
         self.dataset_urn = dataset_urn
         self.path = path
 
@@ -94,25 +83,25 @@ class ExcelProfiler:
             self.sample_fields = 0
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        logger.info(f"Profiling file {self.filename} workbook {self.workbook}")
+        logger.info(f"Profiling file {self.filename} sheet {self.sheet_name}")
 
         try:
             yield from self.generate_profile()
         except Exception as exc:
             self.report.profiling_skipped_other[self.filename] += 1
             self.report.failure(
-                message="Failed to profile workbook",
-                context=f"File {self.filename} Workbook {self.workbook}",
+                message="Failed to profile Excel sheet",
+                context=f"File {self.filename} Sheet {self.sheet_name}",
                 exc=exc,
             )
 
     def generate_profile(self) -> Iterable[MetadataWorkUnit]:
         if (
-                not self.config.profile_pattern.allowed(f"{self.file_path}/{self.workbook_name}")
-                and self.config.profiling.report_dropped_profiles
+            not self.config.profile_pattern.allowed(self.sheet_name)
+            and self.config.profiling.report_dropped_profiles
         ):
             self.report.profiling_skipped_table_profile_pattern[self.filename] += 1
-            logger.info(f"Profiling not allowed for workbook {self.workbook_name}")
+            logger.info(f"Profiling not allowed for sheet {self.sheet_name}")
             return
 
         try:
@@ -120,7 +109,7 @@ class ExcelProfiler:
         except Exception as exc:
             self.report.warning(
                 message="Profiling Failed",
-                context=f"{self.workbook_name}",
+                context=f"File {self.filename} Sheet {self.sheet_name}",
                 exc=exc,
             )
             return
@@ -148,7 +137,7 @@ class ExcelProfiler:
 
     @staticmethod
     def _create_field_profile(
-            field_name: str, field_stats: ColumnMetric
+        field_name: str, field_stats: ColumnMetric
     ) -> DatasetFieldProfileClass:
         quantiles = field_stats.quantiles
         return DatasetFieldProfileClass(
@@ -180,49 +169,33 @@ class ExcelProfiler:
             return self.collect_dataset_data(profile_data)
 
     def collect_dataset_data(self, profile_data: ProfileData) -> ProfileData:
-        profile_data.row_count = self.dataset.shape[0]
-        if self.dataset.dtype.kind == "V":
-            field_names = self.dataset.dtype.names
-            field_count = len(field_names)
-            profile_data.column_count = field_count
-        elif len(self.dataset.shape) > 1:
-            profile_data.column_count = self.dataset.shape[1]
-        else:
-            profile_data.column_count = 1
+        profile_data.row_count = self.df.shape[0]
+        profile_data.column_count = self.df.shape[1]
 
         return profile_data
 
     def collect_column_data(self, profile_data: ProfileData) -> ProfileData:
         dropped_fields = set()
-        dataset_name = self.dataset.name
+        dataset_name = gen_dataset_name(
+            self.filename, self.sheet_name, self.config.convert_urns_to_lowercase
+        )
 
-        if self.dataset.dtype.names is not None:
-            logger.info(f"Attempting to profile compound dataset {dataset_name}")
-            for n, (f_name, f_type) in enumerate(self.dataset.dtype.descr):
-                if 0 < self.sample_fields <= n:
-                    dropped_fields.add(f_name)
-                    continue
-                profile_data.column_metrics[f_name] = ColumnMetric()
-                profile_data.column_metrics[f_name].values.extend(
-                    self.dataset[f_name].tolist()
-                )
-                profile_data.column_metrics[f_name].col_type = decode_type(f_type)
-        else:
-            logger.info(
-                f"Attempting to profile dataset {dataset_name} shape {self.dataset.shape} type {self.dataset.dtype}"
-            )
-            column_count = get_column_count(self.config, self.dataset.shape)
-            for n in range(column_count):
-                f_name = get_column_name(self.config, n)
-                if 0 < self.sample_fields <= n:
-                    dropped_fields.add(f_name)
-                    continue
-                values = get_column_values(self.config, self.dataset, n)
-                profile_data.column_metrics[f_name] = ColumnMetric()
-                profile_data.column_metrics[f_name].values.extend(values)
-                profile_data.column_metrics[f_name].col_type = decode_type(
-                    self.dataset.dtype
-                )
+        logger.info(f"Attempting to profile dataset {dataset_name}")
+
+        # Get data types for each column
+        data_types = self.df.dtypes.to_dict()
+
+        # Convert numpy types to string representation for better readability
+        data_types = {col: str(dtype) for col, dtype in data_types.items()}
+
+        for n, (f_name, f_type) in enumerate(data_types.items()):
+            if 0 < self.sample_fields <= n:
+                dropped_fields.add(f_name)
+                continue
+            values = self.df[f_name].tolist()
+            profile_data.column_metrics[f_name] = ColumnMetric()
+            profile_data.column_metrics[f_name].values.extend(values)
+            profile_data.column_metrics[f_name].col_type = f_type
 
         if len(dropped_fields) > 0:
             if self.config.profiling.report_dropped_profiles:
@@ -231,8 +204,8 @@ class ExcelProfiler:
                     f"Dropped fields for {dataset_name} ({', '.join(sorted(dropped_fields))})"
                 )
 
-        profile_data.row_count = self.dataset.shape[0]
-        profile_data.column_count = len(profile_data.column_metrics)
+        profile_data.row_count = self.df.shape[0]
+        profile_data.column_count = self.df.shape[1]
 
         return self.add_field_statistics(profile_data)
 
@@ -243,7 +216,7 @@ class ExcelProfiler:
                     self.compute_field_statistics(column_metrics)
                 except Exception as exc:
                     self.report.warning(
-                        message="Profiling Failed For Column Stats",
+                        message="Profiling Failed For Column Statistics",
                         context=field_name,
                         exc=exc,
                     )
@@ -288,7 +261,7 @@ class ExcelProfiler:
 
         if values and self.config.profiling.include_field_sample_values:
             column_metrics.sample_values = [
-                numpy_value_to_string(v) for v in values[: self.field_sample_count]
+                str(v) for v in values[: self.field_sample_count]
             ]
 
     @staticmethod
@@ -307,8 +280,21 @@ class ExcelProfiler:
                 "uint64",
                 "intp",
                 "uintp",
+                "int8",
+                "int16",
+                "int32",
+                "int64",
+                "uint8",
+                "uint16",
+                "uint32",
+                "uint64",
                 "float16",
                 "float32",
                 "float64",
                 "float128",
+                "float32",
+                "float64",
+                "complex64",
+                "complex128",
+                "complex256",
             ]

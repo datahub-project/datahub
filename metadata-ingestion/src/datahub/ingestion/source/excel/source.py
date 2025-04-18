@@ -1,9 +1,11 @@
 import glob
+import io
 import logging
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import PurePath
-from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, Iterable, List, Optional, Type
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -20,15 +22,16 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws.s3_util import (
+    get_bucket_name,
+    get_bucket_relative_path,
+)
 from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.excel.config import ExcelSourceConfig
+from datahub.ingestion.source.excel.excel_file import ExcelFile, ExcelTable
+from datahub.ingestion.source.excel.profiling import ExcelProfiler
 from datahub.ingestion.source.excel.report import ExcelSourceReport
-# from datahub.ingestion.source.hdf5.util import (
-#     decode_type,
-#     get_column_count,
-#     get_column_name,
-#     numpy_value_to_string,
-# )
+from datahub.ingestion.source.excel.util import gen_dataset_name
 from datahub.ingestion.source.s3.source import BrowsePath
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -54,7 +57,6 @@ from datahub.utilities.perf_timer import PerfTimer
 logger: logging.Logger = logging.getLogger(__name__)
 
 field_type_mapping: Dict[str, Type] = {
-    "bool_": BooleanTypeClass,
     "int8": NumberTypeClass,
     "int16": NumberTypeClass,
     "int32": NumberTypeClass,
@@ -63,22 +65,42 @@ field_type_mapping: Dict[str, Type] = {
     "uint16": NumberTypeClass,
     "uint32": NumberTypeClass,
     "uint64": NumberTypeClass,
+    "Int8": NumberTypeClass,
+    "Int16": NumberTypeClass,
+    "Int32": NumberTypeClass,
+    "Int64": NumberTypeClass,
+    "UInt8": NumberTypeClass,
+    "UInt16": NumberTypeClass,
+    "UInt32": NumberTypeClass,
+    "UInt64": NumberTypeClass,
     "intp": NumberTypeClass,
     "uintp": NumberTypeClass,
     "float16": NumberTypeClass,
     "float32": NumberTypeClass,
     "float64": NumberTypeClass,
     "float128": NumberTypeClass,
+    "Float32": NumberTypeClass,
+    "Float64": NumberTypeClass,
     "complex64": NumberTypeClass,
     "complex128": NumberTypeClass,
     "complex256": NumberTypeClass,
-    "str_": StringTypeClass,
-    "unicode_": StringTypeClass,
-    "string_": StringTypeClass,
-    "object_": RecordTypeClass,
+    "bool": BooleanTypeClass,
+    "boolean": BooleanTypeClass,
+    "object": StringTypeClass,
+    "string": StringTypeClass,
     "datetime64": DateTypeClass,
+    "datetime64[ns]": DateTypeClass,
+    "datetime64[ns, tz]": DateTypeClass,
     "timedelta64": DateTypeClass,
-    "void": NullTypeClass,
+    "timedelta64[ns]": DateTypeClass,
+    "period": DateTypeClass,
+    "period[D]": DateTypeClass,
+    "period[M]": DateTypeClass,
+    "period[Y]": DateTypeClass,
+    "category": RecordTypeClass,
+    "interval": RecordTypeClass,
+    "sparse": RecordTypeClass,
+    "NA": NullTypeClass,
 }
 
 
@@ -101,7 +123,7 @@ class ExcelSource(StatefulIngestionSourceBase):
     config: ExcelSourceConfig
     report: ExcelSourceReport
     container_WU_creator: ContainerWUCreator
-    platform: str = "hdf5"
+    platform: str = "excel"
 
     def __init__(self, ctx: PipelineContext, config: ExcelSourceConfig):
         super().__init__(config, ctx)
@@ -131,7 +153,7 @@ class ExcelSource(StatefulIngestionSourceBase):
         matching_files = [path for path in matching_paths if os.path.isfile(path)]
 
         for file in sorted(matching_files):
-            # We need to make sure the path is in posix style which is not true on windows
+            # We need to make sure the path is in posix style that is not true on windows
             full_path = PurePath(os.path.normpath(file)).as_posix()
             yield BrowsePath(
                 file=full_path,
@@ -142,27 +164,43 @@ class ExcelSource(StatefulIngestionSourceBase):
                 partitions=[],
             )
 
-    def h5py_dataset_iterator(
-            self, node: Union[h5py.File, h5py.Group], prefix: str = ""
-    ) -> Iterable[Tuple[str, h5py.Dataset]]:
-        for key in node.keys():
-            item = node[key]
-            path = f"{prefix}/{key}"
-            if isinstance(item, h5py.Dataset):
-                yield path, item
-            elif isinstance(item, h5py.Group):
-                yield from self.h5py_dataset_iterator(item, path)
-
-    def hdf5_browser(
-            self, browse_path: BrowsePath
-    ) -> Iterable[Tuple[str, h5py.Dataset]]:
-        with h5py.File(browse_path.file, "r") as f:
-            for path, dataset in self.h5py_dataset_iterator(f):
-                yield path, dataset
+    @staticmethod
+    def get_prefix(relative_path: str) -> str:
+        index = re.search(r"[*|{]", relative_path)
+        if index:
+            return relative_path[: index.start()]
+        else:
+            return relative_path
 
     @staticmethod
-    def dataset_name(path: str) -> str:
-        return path.split("/")[-1]
+    def create_s3_path(bucket_name: str, key: str) -> str:
+        return f"s3://{bucket_name}/{key}"
+
+    def s3_browser(self, path_spec: str) -> Iterable[BrowsePath]:
+        if self.config.aws_config is None:
+            raise ValueError("aws_config not set. Cannot browse s3")
+        s3 = self.config.aws_config.get_s3_resource(self.config.verify_ssl)
+        bucket_name = get_bucket_name(path_spec)
+        logger.debug(f"Scanning bucket: {bucket_name}")
+        bucket = s3.Bucket(bucket_name)
+        prefix = self.get_prefix(get_bucket_relative_path(path_spec))
+        logger.debug(f"Scanning objects with prefix:{prefix}")
+
+        for obj in bucket.objects.filter(Prefix=prefix).page_size(1000):
+            s3_path = self.create_s3_path(obj.bucket_name, obj.key)
+            logger.debug(f"Path: {s3_path}")
+
+            content_type = None
+            if self.config.use_s3_content_type:
+                content_type = s3.Object(obj.bucket_name, obj.key).content_type
+
+            yield BrowsePath(
+                file=s3_path,
+                timestamp=obj.last_modified,
+                size=obj.size,
+                partitions=[],
+                content_type=content_type,
+            )
 
     @staticmethod
     def get_field_type(field_type: str) -> SchemaFieldDataType:
@@ -170,54 +208,31 @@ class ExcelSource(StatefulIngestionSourceBase):
         return SchemaFieldDataType(type=type_class())
 
     def construct_schema_field(self, f_name: str, f_type: str) -> SchemaField:
-        dtype = decode_type(f_type)
-        logger.debug(f"Field: {f_name} Type: {dtype}")
+        logger.debug(f"Field: {f_name} Type: {f_type}")
         return SchemaField(
             fieldPath=f_name,
-            nativeDataType=dtype,
-            type=self.get_field_type(dtype),
+            nativeDataType=f_type,
+            type=self.get_field_type(f_type),
             description=None,
             nullable=False,
             recursive=False,
         )
 
     def construct_schema_metadata(
-            self,
-            name: str,
-            dataset: h5py.Dataset,
+        self,
+        name: str,
+        dataset: ExcelTable,
     ) -> SchemaMetadata:
         canonical_schema: List[SchemaField] = []
-        dropped_fields = set()
 
-        if dataset.dtype.names is not None:
-            logger.info(f"Attempting to extract fields from compound dataset {name}")
-            for n, (f_name, f_type) in enumerate(dataset.dtype.descr):
-                if 0 < self.max_schema_size <= n:
-                    dropped_fields.add(f_name)
-                    continue
-                canonical_schema.append(self.construct_schema_field(f_name, f_type))
-        else:
-            logger.info(
-                f"Attempting to extract fields from dataset {name} shape {dataset.shape} "
-                f"row orientation is {self.config.row_orientation}"
-            )
-            column_count = get_column_count(self.config, dataset.shape)
-            for n in range(column_count):
-                f_name = get_column_name(self.config, n)
-                if 0 < self.max_schema_size <= n:
-                    dropped_fields.add(f_name)
-                    continue
-                f_type = dataset.dtype
-                canonical_schema.append(
-                    self.construct_schema_field(f_name, f_type.name)
-                )
+        # Get data types for each column
+        data_types = dataset.df.dtypes.to_dict()
 
-        if len(dropped_fields) > 0:
-            self.report.report_warning(
-                title="Too many schema fields",
-                message="Ingested a subset of the schema because it has too many schema fields.",
-                context=f"Dropped Fields: {len(dropped_fields)}, Dataset: {dataset.name}",
-            )
+        # Convert numpy types to string representation for better readability
+        data_types = {col: str(dtype) for col, dtype in data_types.items()}
+
+        for f_name, f_type in data_types.items():
+            canonical_schema.append(self.construct_schema_field(f_name, f_type))
 
         return SchemaMetadata(
             schemaName=name,
@@ -229,19 +244,18 @@ class ExcelSource(StatefulIngestionSourceBase):
         )
 
     @staticmethod
-    def get_dataset_attributes(dataset: h5py.Dataset) -> dict:
-        attributes = {}
-        for attr_name in dataset.attrs:
-            attributes[attr_name] = numpy_value_to_string(dataset.attrs[attr_name])
-        attributes["dataset_shape"] = str(dataset.shape)
-        attributes["dataset_dtype"] = dataset.dtype.name
-        attributes["dataset_size"] = str(dataset.size)
-        return attributes
+    def get_dataset_attributes(metadata: Dict[str, Any]) -> dict:
+        result = {}
+        for key, value in metadata.items():
+            result[key] = str(value)
+        return result
 
     def process_dataset(
-            self, path: str, dataset: h5py.Dataset
+        self, path: str, filename: str, table: ExcelTable
     ) -> Iterable[MetadataWorkUnit]:
-        dataset_name = self.dataset_name(path)
+        dataset_name = gen_dataset_name(
+            filename, table.sheet_name, self.config.convert_urns_to_lowercase
+        )
         dataset_urn = make_dataset_urn_with_platform_instance(
             platform=self.platform,
             name=dataset_name,
@@ -249,7 +263,7 @@ class ExcelSource(StatefulIngestionSourceBase):
             env=self.config.env,
         )
 
-        attributes = self.get_dataset_attributes(dataset)
+        attributes = self.get_dataset_attributes(table.metadata)
         dataset_properties = DatasetPropertiesClass(
             tags=[],
             customProperties=attributes,
@@ -257,7 +271,7 @@ class ExcelSource(StatefulIngestionSourceBase):
 
         schema_metadata = self.construct_schema_metadata(
             name=dataset_name,
-            dataset=dataset,
+            dataset=table,
         )
 
         yield MetadataChangeProposalWrapper(
@@ -275,8 +289,14 @@ class ExcelSource(StatefulIngestionSourceBase):
         )
 
         if self.config.is_profiling_enabled():
-            profiler = HDF5Profiler(
-                self.config, self.report, dataset, dataset_urn, path
+            profiler = ExcelProfiler(
+                self.config,
+                self.report,
+                table.df,
+                filename,
+                table.sheet_name,
+                dataset_urn,
+                path,
             )
             yield from profiler.get_workunits()
 
@@ -288,21 +308,21 @@ class ExcelSource(StatefulIngestionSourceBase):
         )
 
         with PerfTimer() as timer:
-            for path_spec in self.config.path_specs:
+            for path_spec in self.config.path_list:
                 for browse_path in self.local_browser(path_spec):
                     if not self.config.path_pattern.allowed(browse_path.file):
                         self.report.report_dropped(browse_path.file)
                         continue
                     basename = os.path.basename(browse_path.file)
+                    path = os.path.dirname(browse_path.file)
                     filename = os.path.splitext(basename)[0]
-                    for dspath, dataset in self.hdf5_browser(browse_path):
-                        if not self.config.dataset_pattern.allowed(dspath):
-                            self.report.report_dropped(dspath)
-                            continue
-                        logger.info(f"Processing dataset {dataset.name}")
-                        path = f"root/{filename}{dspath}"
-                        logger.info(f"Processing path {path}")
-                        yield from self.process_dataset(path, dataset)
+                    logger.debug(f"Processing {filename}")
+                    with open(browse_path.file, "rb") as f:
+                        file_content = f.read()
+                    bytes_io = io.BytesIO(file_content)
+                    xls = ExcelFile(bytes_io)
+                    for table in xls.get_tables():
+                        yield from self.process_dataset(path, filename, table)
 
             time_taken = timer.elapsed_seconds()
 
