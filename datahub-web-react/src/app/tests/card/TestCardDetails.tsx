@@ -92,11 +92,13 @@ export const TestCardDetails = ({ test, onEdited, onDeleted, index }: Props) => 
                 setShowEditTestModal(false);
                 onEdited?.({ urn: test.urn, ...newTest });
             })
-            .catch((_) => {
+            .catch((error) => {
                 message.destroy();
+                const errorMessage =
+                    error.graphQLErrors?.[0]?.message || 'Failed to save Test! Please review your test definition.';
                 message.error({
-                    content: `Failed to save Test! Please review your test definition.`,
-                    duration: 3,
+                    content: errorMessage,
+                    duration: 5,
                 });
             });
     };
@@ -113,11 +115,14 @@ export const TestCardDetails = ({ test, onEdited, onDeleted, index }: Props) => 
                 onDeleted?.();
                 removeFromListTestsCache(client, urn, DEFAULT_TESTS_PAGE_SIZE);
             })
-            .catch((e: unknown) => {
+            .catch((error) => {
                 message.destroy();
-                if (e instanceof Error) {
-                    message.error({ content: `Failed to remove test! An unexpected error occurred.`, duration: 3 });
-                }
+                const errorMessage =
+                    error.graphQLErrors?.[0]?.message || 'Failed to remove test! An unexpected error occurred.';
+                message.error({
+                    content: errorMessage,
+                    duration: 5,
+                });
             });
     };
 
