@@ -7,8 +7,7 @@ import TabItem from '@theme/TabItem';
 <FeatureAvailability/>
 
 **🤝 Version compatibility**
-
-> Open Source DataHub: **0.10.4** | Acryl: **0.2.8**
+> DataHub Core: **0.10.4** | DataHug Cloud: **0.2.8**
 
 ## What are Custom Ownership Types?
 

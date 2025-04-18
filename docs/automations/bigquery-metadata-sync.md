@@ -6,14 +6,14 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 :::info
 
-This feature is currently in open beta in Acryl Cloud. Reach out to your Acryl representative to get access.
+This feature is currently in open beta in DataHub Cloud. Reach out to your DataHub Cloud representative to get access.
 
 :::
 
 ## Introduction
 
 BigQuery Metadata Sync is an automation that synchronizes DataHub Tags, Table and Column descriptions, and Column Glossary Terms with
-BigQuery. This automation is exclusively available in DataHub Cloud (Acryl).
+BigQuery. This automation is exclusively available in DataHub Cloud.
 
 ## Use-Cases
 
