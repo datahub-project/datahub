@@ -824,7 +824,7 @@ patching is activated if `arrayPrimaryKeys` is non-empty or `forceGenericPatch` 
 
 #### Advanced JSON Patch for Arrays
 
-**Standard JSON Patch Limitations**
+Standard JSON Patch Limitations:
 
 The JSON Patch standard allows for array modifications primarily through index-based operations:
 
@@ -838,7 +838,7 @@ This approach becomes problematic when:
 * Multiple clients are modifying the same resource concurrently
 * The client doesn't have knowledge of current array indexes
 
-**Key Concept: Array Primary Keys**
+Key Concept: Array Primary Keys:
 
 DataHub extends the JSON Patch standard with the `arrayPrimaryKeys` field that transforms array operations into map-like 
 operations:
@@ -857,10 +857,10 @@ This approach allows for:
 
 #### Primary Key Definition and Path Construction
 
-In this section lets take a look at a common patch use-case, adding/removing global tags while considering
-attribution.
+In this section lets take a look at a common patch use-case, adding/removing global tags while considering an
+attribution source for the tag. The following examples are specifically modifying the `globalTags` aspect.
 
-**Defining Primary Keys**
+Defining Primary Keys:
 
 The `arrayPrimaryKeys` property specifies which fields uniquely identify each array element:
 
@@ -895,7 +895,7 @@ In this example:
 * The primary key is a composite of attribution.source and tag
 * The `␟`, "Unit Separator" (U+241F), delimiter indicates a nested path in the first key component
 
-**Path Construction**
+Path Construction:
 
 When the backend processes a patch operation, it:
 
@@ -909,14 +909,14 @@ For example, with the path:
 /tags/urn:li:platformResource:source1/urn:li:tag:tag1
 ```
 
-**The system:**
+The system:
 
 * Identifies tags as the target array
 * Uses `urn:li:platformResource:source1` as the value for `attribution.source`
 * Uses `urn:li:tag:tag1` as the value for the tag
 * Finds the matching array element(s) with these key values
 
-**Supported Operations**
+Supported Operations:
 
 The implementation supports standard JSON Patch operations:
 
@@ -927,7 +927,7 @@ The implementation supports standard JSON Patch operations:
 
 #### Patch Operation Examples
 
-**Adding Tagged Elements with Attribution**
+Adding Tagged Elements with Attribution:
 
 ```json
 {
@@ -950,7 +950,7 @@ This operation:
 * If not found, adds the new element
 * If found, replaces the existing element
 
-**Selective Removal**
+Selective Removal:
 
 ```json
 {

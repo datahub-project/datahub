@@ -320,15 +320,14 @@ class DatahubAIClient:
         dpi_urn = f"urn:li:dataProcessInstance:{run_id}"
 
         # Create basic properties and aspects
-        aspects = [
-            (
-                properties
-                or self._create_properties_class(
-                    models.DataProcessInstancePropertiesClass, kwargs
-                )
-            ),
-            models.SubTypesClass(typeNames=["ML Training Run"]),
-        ]
+        aspects: List[Any] = []
+
+        # Only add properties if they are provided
+        if properties is not None:
+            aspects.append(properties)
+
+        # Always add the subtype
+        aspects.append(models.SubTypesClass(typeNames=["ML Training Run"]))
 
         # Add training run properties if provided
         if training_run_properties:

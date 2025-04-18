@@ -1,9 +1,8 @@
-import { StyledTag } from '@src/app/entity/shared/components/styled/StyledTag';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { ActionRequest, ActionRequestResult, EntityType } from '@src/types.generated';
-import { BookmarkSimple } from 'phosphor-react';
 import React from 'react';
 import { Link } from 'react-router-dom';
+import ProposedTermPill from '@src/app/sharedV2/tags/term/ProposedTermPill';
 import AddContentView from './AddContentView';
 
 interface Props {
@@ -20,19 +19,13 @@ const TermAssociationRequestItem = ({ actionRequest }: Props) => {
     const termView = terms && (
         <>
             {terms.map((term) => {
-                const termName = term && entityRegistry.getDisplayName(EntityType.GlossaryTerm, term);
-
                 return (
                     <Link to={`/${entityRegistry.getPathName(EntityType.GlossaryTerm)}/${term.urn}`}>
-                        <StyledTag
-                            noMargin
-                            $color={null}
-                            style={{ marginRight: 2, marginLeft: 2 }}
-                            $isApproved={actionRequest.result === ActionRequestResult.Accepted}
-                        >
-                            {termName}
-                            <BookmarkSimple style={{ marginLeft: '2%' }} />
-                        </StyledTag>
+                        <ProposedTermPill
+                            term={term}
+                            isApproved={actionRequest.result === ActionRequestResult.Accepted}
+                            showClockIcon={false}
+                        />
                     </Link>
                 );
             })}

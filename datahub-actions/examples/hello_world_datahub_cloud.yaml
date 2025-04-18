@@ -1,0 +1,13 @@
+# hello_world.yaml
+name: "hello_world_datahub_cloud"
+# 1. DataHub Cloud Connection: Configure how to talk to DataHub Cloud
+datahub:
+  server: "https://<your-organization>.acryl.io"
+  token: "<your-datahub-cloud-token>"
+# 2. Event Source: Where to source event from.
+source:
+  type: "datahub-cloud"
+# 3. Action: What action to take on events. 
+# To learn how to develop a custom Action, see https://datahubproject.io/docs/actions/guides/developing-an-action	
+action:
+  type: "hello_world"

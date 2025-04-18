@@ -1,4 +1,4 @@
-import DataProcessInstanceRightColumn from '@app/preview/DataProcessInstanceRightColumn';
+import DataProcessInstanceInfo from '@src/app/preview/DataProcessInstanceInfo';
 import React, { ReactNode, useState } from 'react';
 import { Divider, Typography } from 'antd';
 import { Tooltip } from '@components';
@@ -21,6 +21,7 @@ import {
     DataProduct,
     Health,
     Entity,
+    DataProcessRunEvent,
 } from '../../types.generated';
 import TagTermGroup from '../shared/tags/TagTermGroup';
 import { ANTD_GRAY } from '../entity/shared/constants';
@@ -229,11 +230,7 @@ interface Props {
     paths?: EntityPath[];
     health?: Health[];
     parentDataset?: Dataset;
-    dataProcessInstanceProps?: {
-        startTime?: number;
-        duration?: number;
-        status?: string;
-    };
+    lastRunEvent?: DataProcessRunEvent | null;
 }
 
 export default function DefaultPreviewCard({
@@ -277,7 +274,7 @@ export default function DefaultPreviewCard({
     paths,
     health,
     parentDataset,
-    dataProcessInstanceProps,
+    lastRunEvent,
 }: Props) {
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
@@ -309,9 +306,9 @@ export default function DefaultPreviewCard({
     const shouldShowRightColumn =
         (topUsers && topUsers.length > 0) ||
         (owners && owners.length > 0) ||
-        dataProcessInstanceProps?.startTime ||
-        dataProcessInstanceProps?.duration ||
-        dataProcessInstanceProps?.status;
+        lastRunEvent?.timestampMillis ||
+        lastRunEvent?.durationMillis ||
+        lastRunEvent?.result?.resultType;
     const uniqueOwners = getUniqueOwners(owners);
 
     const previewEnum = previewType && PreviewType[previewType];
@@ -430,7 +427,7 @@ export default function DefaultPreviewCard({
             </LeftColumn>
             {shouldShowRightColumn && (
                 <RightColumn key="right-column">
-                    <DataProcessInstanceRightColumn {...dataProcessInstanceProps} />
+                    <DataProcessInstanceInfo timestampMillis={lastRunEvent?.timestampMillis || 0} {...lastRunEvent} />
                     {topUsers && topUsers?.length > 0 && (
                         <>
                             <UserListContainer>

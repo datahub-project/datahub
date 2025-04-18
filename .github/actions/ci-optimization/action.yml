@@ -41,6 +41,10 @@ outputs:
   smoke-test-change:
     description: "Smoke test change"
     value: ${{ steps.filter.outputs.smoke-test == 'true' }}
+  actions-change:
+    description: "Actions code has changed"
+    value: ${{ steps.filter.outputs.actions == 'true' }}
+
   # Saas Only
   integrations-service-change:
     description: "Integrations Service code has changed"
@@ -107,6 +111,9 @@ runs:
             - "docker/elasticsearch-setup/**"
           smoke-test:
             - "smoke-test/**"
+          actions:
+            - "datahub-actions/**"
+            - "docker/datahub-actions/**"
 
           integrations-service:
             - "datahub-integrations-service/**"

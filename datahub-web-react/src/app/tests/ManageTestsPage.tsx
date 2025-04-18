@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { PageTitle, Input } from '@src/alchemy-components';
+import { PageTitle, SearchBar } from '@src/alchemy-components';
 import { message } from 'antd';
 import { useLocation } from 'react-router';
 import * as QueryString from 'query-string';
@@ -66,13 +66,11 @@ export const ManageTestsPage = () => {
                     <NewTestButton />
                 </ButtonContainer>
             </HeaderContainer>
-            <Input
-                label=""
+            <SearchBar
                 placeholder="Search..."
-                icon={{ icon: 'MagnifyingGlass', source: 'phosphor' }}
                 value={searchValue}
-                setValue={setSearchValue}
-                style={{ maxWidth: '330px' }}
+                onChange={setSearchValue}
+                style={{ width: '330px' }}
             />
             <Tests tests={filteredTests} />
         </PageContainer>

@@ -11,6 +11,8 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.urns import (
     ContainerUrn,
     DatasetUrn,
+    MlModelGroupUrn,
+    MlModelUrn,
     Urn,
 )
 from datahub.sdk._all_entities import ENTITY_CLASSES
@@ -18,6 +20,8 @@ from datahub.sdk._shared import UrnOrStr
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity
+from datahub.sdk.mlmodel import MLModel
+from datahub.sdk.mlmodelgroup import MLModelGroup
 
 if TYPE_CHECKING:
     from datahub.sdk.main_client import DataHubClient
@@ -48,6 +52,10 @@ class EntityClient:
     def get(self, urn: ContainerUrn) -> Container: ...
     @overload
     def get(self, urn: DatasetUrn) -> Dataset: ...
+    @overload
+    def get(self, urn: MlModelUrn) -> MLModel: ...
+    @overload
+    def get(self, urn: MlModelGroupUrn) -> MLModelGroup: ...
     @overload
     def get(self, urn: Union[Urn, str]) -> Entity: ...
     def get(self, urn: UrnOrStr) -> Entity:

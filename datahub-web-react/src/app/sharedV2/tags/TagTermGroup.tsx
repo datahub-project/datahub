@@ -8,7 +8,7 @@ import ProposedIcon from '@src/app/entityV2/shared/sidebarSection/ProposedIcon';
 import { colors } from '@src/alchemy-components';
 import { useAcceptProposalsMutation, useRejectProposalsMutation } from '../../../graphql/actionRequest.generated';
 import { ActionRequest, Domain as DomainEntity, EntityType, GlobalTags, GlossaryTerms } from '../../../types.generated';
-import { ANTD_GRAY, EMPTY_MESSAGES } from '../../entity/shared/constants';
+import { EMPTY_MESSAGES } from '../../entity/shared/constants';
 import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
 import ProposalModal from '../../shared/tags/ProposalModal';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -16,8 +16,7 @@ import { DomainLink } from './DomainLink';
 import Tag from './tag/Tag';
 import Term from './term/Term';
 import AddTagTerm from './AddTagTerm';
-import { TermRibbon } from './term/TermContent';
-import { generateColorFromPalette } from '../../glossaryV2/colorUtils';
+import ProposedTermPill from './term/ProposedTermPill';
 
 type Props = {
     uneditableTags?: GlobalTags | null;
@@ -74,16 +73,6 @@ const TagText = styled.span`
     line-height: 8px;
 `;
 
-const ProposedTermContainer = styled.div`
-    display: flex;
-    max-width: inherit;
-
-    .ant-tag.ant-tag {
-        border-radius: 5px;
-        border: 1px dashed ${colors.gray[200]};
-    }
-`;
-
 export const ProposedTerm = styled(AntTag)`
     margin: 0;
     padding: 3px 8px;
@@ -102,12 +91,6 @@ export const ProposedTag = styled(StyledTag)`
 
 export const ProposedTagContent = styled.span`
     display: flex;
-`;
-
-const ProposedTermText = styled.span`
-    margin-left: 8px;
-    text-overflow: ellipsis;
-    overflow: hidden;
 `;
 
 const StyledPlusOutlined = styled(PlusOutlined)`
@@ -312,49 +295,29 @@ export default function TagTermGroup({
                             }
                             if (showOneAndCount && renderedTerms > 2) return null;
 
-                            const urn = proposedTerm?.urn;
-                            const parentNodes = proposedTerm?.parentNodes;
-                            const lastParentNode =
-                                parentNodes && parentNodes.count > 0 && parentNodes.nodes[parentNodes.count - 1];
-                            const proposedTermColor = lastParentNode
-                                ? lastParentNode.displayProperties?.colorHex ||
-                                  generateColorFromPalette(lastParentNode.urn)
-                                : (urn && generateColorFromPalette(urn)) || ANTD_GRAY[6];
                             return (
                                 <>
                                     {proposedTerm && (
-                                        <ProposedTermContainer>
-                                            <ProposedTerm
-                                                closable={false}
-                                                data-testid={`proposed-term-${proposedTerm?.name}`}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setShowProposalDecisionModal(true);
-                                                }}
-                                            >
-                                                <TermRibbon opacity={0.5} color={proposedTermColor} />
-                                                <ProposedTermText>
-                                                    {entityRegistry.getDisplayName(
-                                                        EntityType.GlossaryTerm,
-                                                        proposedTerm,
-                                                    )}
-                                                </ProposedTermText>
-                                                <ProposalModal
-                                                    actionRequest={actionRequest}
-                                                    showProposalDecisionModal={showProposalDecisionModal}
-                                                    onCloseProposalDecisionModal={onCloseProposalDecisionModal}
-                                                    onProposalAcceptance={onProposalAcceptance}
-                                                    onProposalRejection={onProposalRejection}
-                                                    onActionRequestUpdate={onActionRequestUpdate}
-                                                    elementName={entityRegistry.getDisplayName(
-                                                        EntityType.GlossaryTerm,
-                                                        proposedTerm,
-                                                    )}
-                                                />
-                                                <ProposedIcon propertyName="Term" />
-                                            </ProposedTerm>
-                                        </ProposedTermContainer>
+                                        <ProposedTermPill
+                                            term={proposedTerm}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setShowProposalDecisionModal(true);
+                                            }}
+                                        />
                                     )}
+                                    <ProposalModal
+                                        actionRequest={actionRequest}
+                                        showProposalDecisionModal={showProposalDecisionModal}
+                                        onCloseProposalDecisionModal={onCloseProposalDecisionModal}
+                                        onProposalAcceptance={onProposalAcceptance}
+                                        onProposalRejection={onProposalRejection}
+                                        onActionRequestUpdate={onActionRequestUpdate}
+                                        elementName={entityRegistry.getDisplayName(
+                                            EntityType.GlossaryTerm,
+                                            proposedTerm,
+                                        )}
+                                    />
                                 </>
                             );
                         })}

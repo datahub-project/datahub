@@ -25,7 +25,7 @@ function getPillColorStyles(variant: PillVariantOptions, color: ColorOptions): C
         primaryColor: getColor(color, 500),
         bgColor: color === 'gray' ? getColor(color, 100) : getColor(color, 0),
         hoverColor: color === 'gray' ? getColor(color, 100) : getColor(color, 1100),
-        borderColor: getColor('gray', 1400),
+        borderColor: getColor('gray', 1800),
     };
 }
 

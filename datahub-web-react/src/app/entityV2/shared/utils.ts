@@ -175,6 +175,7 @@ export function getFineGrainedLineageWithSiblings(
     });
     return fineGrainedLineages;
 }
+
 export function getDataProduct(dataProductResult: Maybe<EntityRelationshipsResult> | undefined) {
     if (dataProductResult?.relationships && dataProductResult.relationships.length > 0) {
         return dataProductResult.relationships[0].entity as DataProduct;
@@ -266,6 +267,7 @@ export type DatasetLastUpdatedMs = {
     property: 'lastModified' | 'lastUpdated' | undefined;
     lastUpdatedMs: number | undefined;
 };
+
 export function getDatasetLastUpdatedMs(
     properties: Pick<DatasetProperties, 'lastModified'> | null | undefined,
     operations: Pick<Operation, 'lastUpdatedTimestamp'>[] | null | undefined,
@@ -311,6 +313,16 @@ export const toProperTitleCase = (str: string) => {
         )
         .join(' ');
 };
+
+/**
+ * Type guard for entity type
+ */
+export function isEntityType(entityType?: string): entityType is EntityType {
+    if (entityType === undefined) return false;
+
+    const possibleValues: Array<string> = Array.from(Object.values(EntityType));
+    return possibleValues.includes(entityType);
+}
 
 /**
  * Attempts to extract a description for a sub-resource of an entity, if it exists.

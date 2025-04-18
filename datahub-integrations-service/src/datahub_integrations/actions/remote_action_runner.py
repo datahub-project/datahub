@@ -172,7 +172,7 @@ class RemoteActionRunner:
                         "value": f'["{self.base_url}/integrations/dist/integrations/acryl_datahub_integrations-{__version__}-py3-none-any.whl"]',
                     }
                 ],  # Assuming no extra arguments are required,
-                "version": f"{self.base_url}/integrations/dist/datahub/acryl_datahub-{__version__}-py3-none-any.whl",
+                # "version": f"{self.base_url}/integrations/dist/datahub/acryl_datahub-{__version__}-py3-none-any.whl",
             },
             "source": {
                 "type": "SYSTEM"  # System source, so it is hidden from the UI by default.

@@ -601,7 +601,10 @@ function write_markdown_file(
   const pathname = path.dirname(output_filepath);
   fs.mkdirSync(pathname, { recursive: true });
   try {
-    fs.writeFileSync(output_filepath, contents.stringify(""));
+    fs.writeFileSync(
+      output_filepath,
+      matter.stringify(contents.content, contents.data)
+    );
   } catch (error) {
     console.log(`Failed to write file ${output_filepath}`);
     console.log(`contents = ${contents}`);

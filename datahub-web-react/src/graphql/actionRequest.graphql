@@ -155,6 +155,9 @@ fragment actionRequestFields on ActionRequest {
                 properties {
                     name
                 }
+                parentNodes {
+                    ...parentNodesFields
+                }
             }
             glossaryTerms {
                 urn
@@ -162,6 +165,9 @@ fragment actionRequestFields on ActionRequest {
                 name
                 properties {
                     name
+                }
+                parentNodes {
+                    ...parentNodesFields
                 }
             }
         }
