@@ -36,8 +36,8 @@ RUN existing_group=$(getent group 1000 | cut -d: -f1) && \
     fi && \
     # Create and set proper permissions for datahub directories
     mkdir -p $HOME && \
-    chown -R datahub:datahub $HOME
-
+    chown -R datahub:datahub $HOME && \
+    chmod g-s $HOME
 
 # Setup the PPA for alternative Python versions.
 # TODO: Eventually we should switch to using uv's support for python-build-standalone.
