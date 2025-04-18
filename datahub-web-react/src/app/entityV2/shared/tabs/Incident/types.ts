@@ -1,3 +1,5 @@
+import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
+import { BaseItemType } from '@src/alchemy-components/components/Timeline/types';
 import {
     AuditStamp,
     CorpUser,
@@ -11,8 +13,6 @@ import {
     IncidentType,
     OwnerType,
 } from '@src/types.generated';
-import { BaseItemType } from '@src/alchemy-components/components/Timeline/types';
-import { IncidentAction } from './constant';
 
 export type IncidentListFilter = {
     sortBy: string;
@@ -92,14 +92,13 @@ export type IncidentTableRow = {
 };
 
 export type IncidentEditorProps = {
+    entity: EntityStagedForIncident;
     incidentUrn?: string;
     refetch?: () => void;
     onSubmit?: (incident?: Incident) => void;
     onClose?: () => void;
     data?: IncidentTableRow;
     mode?: IncidentAction;
-    entity?: EntityStagedForIncident;
-    urn?: string;
 };
 
 export type IncidentLinkedAssetsListProps = {
@@ -129,7 +128,7 @@ export enum IncidentConstant {
 export type EntityStagedForIncident = {
     urn: string;
     platform?: DataPlatform;
-    entityType?: EntityType;
+    entityType?: EntityType; // TODO remove this.
 };
 
 export type IncidentBuilderSiblingOptions = {

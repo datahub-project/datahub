@@ -1,9 +1,11 @@
-import { message, Modal } from 'antd';
+import { Modal, message } from 'antd';
 import React, { useState } from 'react';
-import { useBatchSetDomainMutation } from '../../../../../../../graphql/mutations.generated';
-import { SetDomainModal } from '../../../../containers/profile/sidebar/Domain/SetDomainModal';
-import ActionDropdown from './ActionDropdown';
-import { handleBatchError } from '../../../../utils';
+
+import ActionDropdown from '@app/entityV2/shared/components/styled/search/action/ActionDropdown';
+import { SetDomainModal } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SetDomainModal';
+import { handleBatchError } from '@app/entityV2/shared/utils';
+
+import { useBatchSetDomainMutation } from '@graphql/mutations.generated';
 
 type Props = {
     urns: Array<string>;

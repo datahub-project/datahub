@@ -1,18 +1,20 @@
+import { SearchOutlined } from '@ant-design/icons';
+import { Alert, Divider, Input, Select } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Alert, Divider, Input, Select } from 'antd';
-import { SearchOutlined } from '@ant-design/icons';
+
+import { ChartGroup } from '@app/analyticsDashboard/components/ChartGroup';
+import { Highlight } from '@app/analyticsDashboard/components/Highlight';
+import { useUserContext } from '@app/context/useUserContext';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import filterSearchQuery from '@app/search/utils/filterSearchQuery';
+import { Message } from '@app/shared/Message';
+import { useIsThemeV2 } from '@app/useIsThemeV2';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { ChartGroup } from './ChartGroup';
-import { useGetAnalyticsChartsQuery, useGetMetadataAnalyticsChartsQuery } from '../../../graphql/analytics.generated';
-import { useGetHighlightsQuery } from '../../../graphql/highlights.generated';
-import { Highlight } from './Highlight';
-import { Message } from '../../shared/Message';
-import { useListDomainsQuery } from '../../../graphql/domain.generated';
-import filterSearchQuery from '../../search/utils/filterSearchQuery';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { useUserContext } from '../../context/useUserContext';
-import { useIsThemeV2 } from '../../useIsThemeV2';
+
+import { useGetAnalyticsChartsQuery, useGetMetadataAnalyticsChartsQuery } from '@graphql/analytics.generated';
+import { useListDomainsQuery } from '@graphql/domain.generated';
+import { useGetHighlightsQuery } from '@graphql/highlights.generated';
 
 const PageContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolean }>`
     background-color: ${(props) => (props.isV2 ? '#fff' : 'inherit')};
@@ -132,9 +134,7 @@ export const AnalyticsPage = () => {
                 )}
                 {chartData?.getAnalyticsCharts
                     ?.filter((chartGroup) => chartGroup.groupId === 'GlobalMetadataAnalytics')
-                    .map((chartGroup) => (
-                        <ChartGroup chartGroup={chartGroup} key={chartGroup.title} />
-                    ))}
+                    .map((chartGroup) => <ChartGroup chartGroup={chartGroup} key={chartGroup.title} />)}
             </>
             <>
                 {domainError && (

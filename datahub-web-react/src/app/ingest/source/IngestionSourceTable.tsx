@@ -1,14 +1,21 @@
 import { Empty } from 'antd';
+import { SorterResult } from 'antd/lib/table/interface';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { SorterResult } from 'antd/lib/table/interface';
+
+import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import {
+    ActionsColumn,
+    LastStatusColumn,
+    ScheduleColumn,
+    TypeColumn,
+} from '@app/ingest/source/IngestionSourceTableColumns';
+import { IngestionSourceExecutionList } from '@app/ingest/source/executions/IngestionSourceExecutionList';
+import { CLI_EXECUTOR_ID, getIngestionSourceStatus } from '@app/ingest/source/utils';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { CLI_EXECUTOR_ID, getIngestionSourceStatus } from './utils';
-import { LastStatusColumn, TypeColumn, ActionsColumn, ScheduleColumn } from './IngestionSourceTableColumns';
-import { IngestionSource } from '../../../types.generated';
-import { IngestionSourceExecutionList } from './executions/IngestionSourceExecutionList';
+
+import { IngestionSource } from '@types';
 
 const PAGE_HEADER_HEIGHT = 395;
 

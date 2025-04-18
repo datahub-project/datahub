@@ -1,7 +1,8 @@
-import React from 'react';
 import { Input } from '@components';
+import React from 'react';
 import styled from 'styled-components';
-import { SelectSizeOptions } from '../types';
+
+import { SelectSizeOptions } from '@components/components/Select/types';
 
 const SearchInputContainer = styled.div({
     position: 'relative',

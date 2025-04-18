@@ -3,21 +3,23 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { useUpdateDescriptionMutation } from '../../../../../../../../graphql/mutations.generated';
-import { EditableSchemaFieldInfo, SchemaField, SubResourceType } from '../../../../../../../../types.generated';
-import analytics, { EntityActionType, EventType } from '../../../../../../../analytics';
-import SchemaEditableContext from '../../../../../../../shared/SchemaEditableContext';
-import { useEntityData, useMutationUrn, useRefetch } from '../../../../../../../entity/shared/EntityContext';
-import UpdateDescriptionModal from '../../../../../components/legacy/DescriptionModal';
-import { REDESIGN_COLORS } from '../../../../../constants';
-import DescriptionSection from '../../../../../containers/profile/sidebar/AboutSection/DescriptionSection';
-import SectionActionButton from '../../../../../containers/profile/sidebar/SectionActionButton';
-import { SidebarSection } from '../../../../../containers/profile/sidebar/SidebarSection';
-import { useSchemaRefetch } from '../../SchemaContext';
-import { StyledDivider } from './components';
-import { sanitizeRichText } from '../../../../Documentation/components/editor/utils';
-import { getFieldDescriptionDetails } from '../../utils/getFieldDescriptionDetails';
-import DocumentationPropagationDetails from '../../../../../../../sharedV2/propagation/DocumentationPropagationDetails';
+
+import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
+import UpdateDescriptionModal from '@app/entityV2/shared/components/legacy/DescriptionModal';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import DescriptionSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/DescriptionSection';
+import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { useSchemaRefetch } from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaContext';
+import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
+import { getFieldDescriptionDetails } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/getFieldDescriptionDetails';
+import { sanitizeRichText } from '@app/entityV2/shared/tabs/Documentation/components/editor/utils';
+import SchemaEditableContext from '@app/shared/SchemaEditableContext';
+import DocumentationPropagationDetails from '@app/sharedV2/propagation/DocumentationPropagationDetails';
+
+import { useUpdateDescriptionMutation } from '@graphql/mutations.generated';
+import { EditableSchemaFieldInfo, SchemaField, SubResourceType } from '@types';
 
 const AddNewDescription = styled.div`
     margin: 0px;

@@ -13,7 +13,7 @@ import {
     StyledHeaderActions,
     StyledHeaderTitleContainer,
     StyledTitle,
-} from './styledComponents';
+} from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
 
 type IncidentDrawerHeaderProps = {
     mode: IncidentAction;

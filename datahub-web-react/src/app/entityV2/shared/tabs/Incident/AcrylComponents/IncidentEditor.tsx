@@ -1,12 +1,20 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { CorpUser, IncidentStage, IncidentState, IncidentType } from '@src/types.generated';
-import { Input } from '@src/alchemy-components';
-import colors from '@src/alchemy-components/theme/foundations/colors';
-import { Editor } from '@src/alchemy-components/components/Editor/Editor';
-import { useUserContext } from '@src/app/context/useUserContext';
 import { Form } from 'antd';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
+import { IncidentAssigneeSelector } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentAssigneeSelector';
+import { IncidentLinkedAssetsList } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentLinkedAssetsList';
+import { IncidentSelectField } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentSelectedField';
+import { useIncidentHandler } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/hooks/useIncidentHandler';
+import {
+    IncidentFooter,
+    InputFormItem,
+    SaveButton,
+    SelectFormItem,
+    StyledForm,
+    StyledFormElements,
+    StyledSpinner,
+} from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
 import {
     INCIDENT_CATEGORIES,
     INCIDENT_OPTION_LABEL_MAPPING,
@@ -14,34 +22,25 @@ import {
     INCIDENT_STAGES,
     INCIDENT_STATES,
     IncidentAction,
-} from '../constant';
-import { getAssigneeWithURN, getLinkedAssetsData, validateForm } from '../utils';
-import {
-    IncidentFooter,
-    SelectFormItem,
-    SaveButton,
-    StyledForm,
-    StyledFormElements,
-    InputFormItem,
-    StyledSpinner,
-} from './styledComponents';
-import { IncidentEditorProps } from '../types';
-import { IncidentLinkedAssetsList } from './IncidentLinkedAssetsList';
-import { IncidentSelectField } from './IncidentSelectedField';
-import { IncidentAssigneeSelector } from './IncidentAssigneeSelector';
-import { useIncidentHandler } from './hooks/useIncidentHandler';
+} from '@app/entityV2/shared/tabs/Incident/constant';
+import { IncidentEditorProps } from '@app/entityV2/shared/tabs/Incident/types';
+import { getAssigneeWithURN, getLinkedAssetsData, validateForm } from '@app/entityV2/shared/tabs/Incident/utils';
+import { Input } from '@src/alchemy-components';
+import { Editor } from '@src/alchemy-components/components/Editor/Editor';
+import colors from '@src/alchemy-components/theme/foundations/colors';
+import { useUserContext } from '@src/app/context/useUserContext';
+import { CorpUser, IncidentStage, IncidentState, IncidentType } from '@src/types.generated';
 
 const HalfWidthInput = styled(Input)`
     width: 50%;
 `;
 
 export const IncidentEditor = ({
+    entity,
     incidentUrn,
     onSubmit,
     data,
     mode = IncidentAction.CREATE,
-    entity,
-    urn,
 }: IncidentEditorProps) => {
     const isFormValid = Boolean(
         data?.title?.length &&
@@ -80,7 +79,6 @@ export const IncidentEditor = ({
         if (formValues?.type === IncidentType.Custom) {
             if (form.getFieldValue('customType') === '') form.setFieldValue('customType', data?.customType || '');
         }
-
         // Ensure we don't override user's choice if they manually change the state
         if (
             mode === IncidentAction.EDIT &&
@@ -128,19 +126,19 @@ export const IncidentEditor = ({
         actionButtonLabel
     );
 
-    const resolutionInput = form.getFieldValue('state') === IncidentState.Resolved && (
-        <SelectFormItem
-            label="Resolution Note"
-            name="message"
-            rules={[{ required: false }]}
-            customStyle={{
-                color: colors.gray[600],
-            }}
-        >
-            <HalfWidthInput label="" placeholder="Add a resolution note......" id="incident-message" />
-        </SelectFormItem>
-    );
-
+    const resolutionInput =
+        form.getFieldValue('state') === IncidentState.Resolved ? (
+            <SelectFormItem
+                label="Resolution Note"
+                name="message"
+                rules={[{ required: false }]}
+                customStyle={{
+                    color: colors.gray[600],
+                }}
+            >
+                <HalfWidthInput label="" placeholder="Add a resolution note......" id="incident-message" />
+            </SelectFormItem>
+        ) : null;
     return (
         <StyledForm
             form={form}
@@ -228,7 +226,6 @@ export const IncidentEditor = ({
                         mode={mode}
                         setCachedLinkedAssets={setCachedLinkedAssets}
                         setIsLinkedAssetsLoading={setIsLoadingAssigneeOrAssets}
-                        urn={urn}
                     />
                 </SelectFormItem>
                 {mode === IncidentAction.EDIT && (
