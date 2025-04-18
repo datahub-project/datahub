@@ -13,7 +13,7 @@ export default function MultiSelectCustom<OptionType extends SelectOption>({
     placeholder,
     isMultiSelect,
     renderCustomSelectedValue,
-    selectedOptionListStyle
+    selectedOptionListStyle,
 }: SelectLabelVariantProps<OptionType>) {
     return (
         <LabelsWrapper shouldShowGap={selectedOptions.length > 1} style={selectedOptionListStyle}>
