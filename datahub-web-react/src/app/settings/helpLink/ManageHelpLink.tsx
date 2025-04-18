@@ -1,9 +1,10 @@
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
-import { PageContainer, PageHeaderContainer, PageTitle } from '../posts/ManagePosts';
-import { useGlobalSettingsContext } from '../../context/GlobalSettings/GlobalSettingsContext';
-import HelpLinkForm from './HelpLinkForm';
-import HelpLinkExample from './HelpLinkExample';
+
+import { useGlobalSettingsContext } from '@app/context/GlobalSettings/GlobalSettingsContext';
+import HelpLinkExample from '@app/settings/helpLink/HelpLinkExample';
+import HelpLinkForm from '@app/settings/helpLink/HelpLinkForm';
+import { PageContainer, PageHeaderContainer, PageTitle } from '@app/settings/posts/ManagePosts';
 
 const PageContentWrapper = styled.div`
     display: flex;

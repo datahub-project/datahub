@@ -1,9 +1,4 @@
-import {
-    AssertionStdOperator,
-    AssertionStdParameters,
-    AssertionValueChangeType,
-    SqlAssertionType,
-} from '../../../../../../../../../../types.generated';
+import { AssertionStdOperator, AssertionStdParameters, AssertionValueChangeType, SqlAssertionType } from '@types';
 
 export type SqlOperationOption = {
     label: string;

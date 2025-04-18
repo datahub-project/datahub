@@ -1,7 +1,7 @@
-import React from 'react';
-import Typography from 'antd/lib/typography';
-import styled from 'styled-components';
 import { Input } from 'antd';
+import Typography from 'antd/lib/typography';
+import React from 'react';
+import styled from 'styled-components';
 
 const Section = styled.div``;
 

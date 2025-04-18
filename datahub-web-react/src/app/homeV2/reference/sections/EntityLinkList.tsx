@@ -1,14 +1,16 @@
+import { Tooltip } from '@components';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
-import { Tooltip } from '@components';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { DefaultEmptyEntityList } from '@app/homeV2/reference/sections/DefaultEmptyEntityList';
+import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
+import { EntityLinkListSkeleton } from '@app/homeV2/reference/sections/EntityLinkListSkeleton';
+import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { Entity, EntityType } from '../../../../types.generated';
-import { EntityLink } from './EntityLink';
-import { EntityLinkListSkeleton } from './EntityLinkListSkeleton';
-import { DefaultEmptyEntityList } from './DefaultEmptyEntityList';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
-import { GenericEntityProperties } from '../../../entity/shared/types';
-import OnboardingContext from '../../../onboarding/OnboardingContext';
+
+import { Entity, EntityType } from '@types';
 
 const Title = styled.div<{ hasAction: boolean }>`
     ${(props) => props.hasAction && `:hover { cursor: pointer; }`}

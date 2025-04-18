@@ -1,5 +1,6 @@
-import { GlossaryTerm, Maybe, PromptCardinality } from '@src/types.generated';
 import { mergeWith } from 'lodash';
+
+import { GlossaryTerm, Maybe, PromptCardinality } from '@src/types.generated';
 
 // Get default value of glossary terms based on different conditions to show in the form
 export const getDefaultTermEntities = (

@@ -1,10 +1,9 @@
-import React from 'react';
 import { Select } from 'antd';
+import React from 'react';
 
-import type { EntityType } from '@src/types.generated';
 import type { ComponentBaseProps } from '@app/automations/types';
-
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import type { EntityType } from '@src/types.generated';
 
 // State Type (ensures the state is correctly applied across templates)
 export type EntityTypeSelectorStateType = {

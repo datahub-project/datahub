@@ -1,7 +1,7 @@
+import { Button, ButtonProps, Icon } from '@components';
 import React, { useState } from 'react';
 
-import { Icon, Button, ButtonProps } from '@components';
-import { IconGrid, IconGridItem, IconDisplayBlock } from './components';
+import { IconDisplayBlock, IconGrid, IconGridItem } from './components';
 
 interface Props {
     icons: string[];

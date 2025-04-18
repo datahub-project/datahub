@@ -1,25 +1,21 @@
 import { Button } from 'antd';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
+
+import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
+import BulkSubmissionButton from '@app/entity/shared/entityForm/prompts/BulkSubmissionButton';
+import ColumnSelector from '@app/entity/shared/entityForm/prompts/ColumnSelector';
+import CompletedPromptAuditStamp from '@app/entity/shared/entityForm/prompts/CompletedPromptAuditStamp';
+import useOwnershipPrompt from '@app/entity/shared/entityForm/prompts/OwnershipPrompt/useOwnershipPrompt';
+import PromptHeader from '@app/entity/shared/entityForm/prompts/PromptHeader';
+import UrnInput from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/UrnInput/UrnInput';
+import { ColumnSelectorProps } from '@app/entity/shared/entityForm/prompts/types';
+import usePromptCompletionInfo from '@app/entity/shared/entityForm/prompts/usePromptCompletionInfo';
+import { applyOpacity } from '@app/shared/styleUtils';
 import OwnershipTypesSelect from '@src/app/entityV2/shared/containers/profile/sidebar/Ownership/OwnershipTypesSelect';
 import { useListOwnershipTypesQuery } from '@src/graphql/ownership.generated';
-import {
-    EntityType,
-    FormPrompt,
-    PromptCardinality,
-    SchemaField,
-    SubmitFormPromptInput,
-} from '../../../../../../types.generated';
-import CompletedPromptAuditStamp from '../CompletedPromptAuditStamp';
-import { applyOpacity } from '../../../../../shared/styleUtils';
-import { useEntityFormContext } from '../../EntityFormContext';
-import BulkSubmissionButton from '../BulkSubmissionButton';
-import usePromptCompletionInfo from '../usePromptCompletionInfo';
-import { ColumnSelectorProps } from '../types';
-import ColumnSelector from '../ColumnSelector';
-import useOwnershipPrompt from './useOwnershipPrompt';
-import UrnInput from '../StructuredPropertyPrompt/UrnInput/UrnInput';
-import PromptHeader from '../PromptHeader';
+
+import { EntityType, FormPrompt, PromptCardinality, SchemaField, SubmitFormPromptInput } from '@types';
 
 const PromptWrapper = styled.div<{ displayBulkStyles?: boolean }>`
     display: flex;

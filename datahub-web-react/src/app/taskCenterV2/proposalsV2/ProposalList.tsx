@@ -1,28 +1,24 @@
+import { Typography, message } from 'antd';
 import React, { useMemo, useState } from 'react';
-import { message, Typography } from 'antd';
 import styled from 'styled-components';
-import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { Pagination } from '@src/alchemy-components';
-import FilterSection from '@src/app/sharedV2/filters/FilterSection';
-import usePagination from '@src/app/sharedV2/pagination/usePagination';
-import ProposalsTable from './proposalsTable/ProposalsTable';
-import {
-    ActionRequest,
-    ActionRequestAssignee,
-    EntityType,
-    FacetFilterInput,
-    FilterOperator,
-} from '../../../types.generated';
-import { useListActionRequestsQuery } from '../../../graphql/actionRequest.generated';
-import ActionsBar from './ActionsBar';
+
+import ActionsBar from '@app/taskCenterV2/proposalsV2/ActionsBar';
+import { ProposalsEntitySelect } from '@app/taskCenterV2/proposalsV2/ProposalsEntitySelect';
+import ProposalsTable from '@app/taskCenterV2/proposalsV2/proposalsTable/ProposalsTable';
+import useGetActionRequestsQueryInputs from '@app/taskCenterV2/proposalsV2/useGetActionRequestsQueryInputs';
+import useGetEntitySuggestions from '@app/taskCenterV2/proposalsV2/useGetEntitySuggestions';
 import {
     ACTION_REQUEST_DEFAULT_FACETS,
     ACTION_REQUEST_DISPLAY_FACETS,
     PROPOSALS_FILTER_LABELS,
-} from '../utils/constants';
-import useGetActionRequestsQueryInputs from './useGetActionRequestsQueryInputs';
-import { ProposalsEntitySelect } from './ProposalsEntitySelect';
-import useGetEntitySuggestions from './useGetEntitySuggestions';
+} from '@app/taskCenterV2/utils/constants';
+import { Pagination } from '@src/alchemy-components';
+import FilterSection from '@src/app/sharedV2/filters/FilterSection';
+import usePagination from '@src/app/sharedV2/pagination/usePagination';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+
+import { useListActionRequestsQuery } from '@graphql/actionRequest.generated';
+import { ActionRequest, ActionRequestAssignee, EntityType, FacetFilterInput, FilterOperator } from '@types';
 
 const DEFAULT_PAGE_SIZE = 25;
 

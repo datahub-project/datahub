@@ -1,4 +1,4 @@
-import { FilterComponent, FieldName } from '../types';
+import { FieldName, FilterComponent } from '@app/searchV2/filtersV2/types';
 
 export default class FiltersRegistry {
     registry: Map<string, FilterComponent> = new Map<FieldName, FilterComponent>();

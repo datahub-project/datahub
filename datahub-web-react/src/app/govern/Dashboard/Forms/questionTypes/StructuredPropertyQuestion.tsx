@@ -1,10 +1,11 @@
-import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
-import { EntityType } from '@src/types.generated';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { Form } from 'antd';
 import React, { useEffect, useState } from 'react';
+
+import { FieldLabel } from '@app/govern/Dashboard/Forms/styledComponents';
 import { SimpleSelect } from '@src/alchemy-components';
-import { FieldLabel } from '../styledComponents';
+import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
+import { EntityType } from '@src/types.generated';
 
 const STRUCTURED_PROP_FIELD = ['structuredPropertyParams', 'structuredProperty', 'urn'];
 

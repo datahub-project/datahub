@@ -1,11 +1,19 @@
 import Link from 'antd/lib/typography/Link';
 import React from 'react';
 import styled from 'styled-components';
-import GreenVerificationLogo from '../../../../../../../images/verificationGreen.svg?react';
-import PurpleVerificationLogo from '../../../../../../../images/verificationPurple.svg?react';
-import { CTAWrapper, FlexWrapper, StyledIcon, StyledReadOutlined, Title } from './components';
-import OptionalPromptsRemaining from './OptionalPromptsRemaining';
-import VerificationAuditStamp from './VerificationAuditStamp';
+
+import OptionalPromptsRemaining from '@app/entity/shared/containers/profile/sidebar/FormInfo/OptionalPromptsRemaining';
+import VerificationAuditStamp from '@app/entity/shared/containers/profile/sidebar/FormInfo/VerificationAuditStamp';
+import {
+    CTAWrapper,
+    FlexWrapper,
+    StyledIcon,
+    StyledReadOutlined,
+    Title,
+} from '@app/entity/shared/containers/profile/sidebar/FormInfo/components';
+
+import GreenVerificationLogo from '@images/verificationGreen.svg?react';
+import PurpleVerificationLogo from '@images/verificationPurple.svg?react';
 
 const StyledLink = styled(Link)`
     margin-top: 8px;

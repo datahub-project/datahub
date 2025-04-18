@@ -1,9 +1,8 @@
+import { Input, Select, Typography } from 'antd';
 import React from 'react';
-
-import { Select, Input, Typography } from 'antd';
 import styled from 'styled-components';
 
-import { AutomationCategory, DEFAULT_AUTOMATION_CATEGORY, AUTOMATION_CATEGORIES } from '@app/automations/constants';
+import { AUTOMATION_CATEGORIES, AutomationCategory, DEFAULT_AUTOMATION_CATEGORY } from '@app/automations/constants';
 import { isSupportedCategory } from '@app/automations/utils';
 
 const OptionDescription = styled(Typography.Paragraph)`

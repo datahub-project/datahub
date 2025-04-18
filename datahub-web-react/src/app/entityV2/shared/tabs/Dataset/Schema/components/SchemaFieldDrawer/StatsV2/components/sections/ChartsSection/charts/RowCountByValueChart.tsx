@@ -1,10 +1,11 @@
+import React, { useCallback, useMemo } from 'react';
+import styled from 'styled-components';
+
+import RowCountByValuePopover from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/components/sections/ChartsSection/charts/components/RowCountByValuePopover';
+import useStatsTabContext from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/hooks/useStatsTabContext';
 import { BarChart, GraphCard } from '@src/alchemy-components';
 import { COLOR_SCHEMES } from '@src/alchemy-components/components/BarChart/constants';
 import { abbreviateNumber } from '@src/alchemy-components/components/dataviz/utils';
-import React, { useCallback, useMemo } from 'react';
-import styled from 'styled-components';
-import RowCountByValuePopover from './components/RowCountByValuePopover';
-import useStatsTabContext from '../../../../hooks/useStatsTabContext';
 
 const BOTTOM_AXIS_NUMBER_OF_TICKS = 5;
 const LEFT_AXIS_MAX_LENGTH_OF_LABEL = 5;

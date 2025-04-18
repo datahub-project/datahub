@@ -1,6 +1,7 @@
-import { useHistory, useLocation } from 'react-router';
 import { useEffect, useMemo } from 'react';
-import updateQueryParams from './updateQueryParams';
+import { useHistory, useLocation } from 'react-router';
+
+import updateQueryParams from '@app/shared/updateQueryParams';
 
 export const useUrlQueryParam = (paramKey: string, defaultValue?: string) => {
     const location = useLocation();

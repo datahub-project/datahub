@@ -1,9 +1,14 @@
+import { Button, Checkbox, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Button, Checkbox, Typography } from 'antd';
-import { StepProps } from '../types';
-import { AssertionActionType } from '../../../../../../../../../types.generated';
-import { toggleRaiseIncidentState, toggleResolveIncidentState } from './utils';
+
+import {
+    toggleRaiseIncidentState,
+    toggleResolveIncidentState,
+} from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/utils';
+import { StepProps } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/types';
+
+import { AssertionActionType } from '@types';
 
 const Step = styled.div`
     height: 100%;

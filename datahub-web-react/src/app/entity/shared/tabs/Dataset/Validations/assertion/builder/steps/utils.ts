@@ -1,7 +1,9 @@
 import { Form } from 'antd';
 import { useState } from 'react';
-import { AssertionActionType, AssertionType } from '../../../../../../../../../types.generated';
-import { AssertionMonitorBuilderState } from '../types';
+
+import { AssertionMonitorBuilderState } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/types';
+
+import { AssertionActionType, AssertionType } from '@types';
 
 export const toggleRaiseIncidentState = (state: AssertionMonitorBuilderState, newValue: boolean) => {
     let newFailureActions = state?.assertion?.actions?.onFailure || [];

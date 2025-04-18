@@ -1,23 +1,27 @@
+import { Table } from 'antd';
 import React, { useEffect } from 'react';
 
-import { Table } from 'antd';
-import { ChartCard, HorizontalBarChart } from '../../../dataviz';
-import { ChartGroup, Row, SecondaryHeading, ChartPerformanceItems, ChartPerformanceItem } from '../components';
-
+import { ChartCard, HorizontalBarChart } from '@app/dataviz';
+import DomainIcon from '@app/domain/DomainIcon';
+import { useFormAnalyticsContext } from '@app/govern/Dashboard/FormAnalyticsContext';
+import { ChartNoData, ChartNotEnoughData, ChartState, SectionWaiting } from '@app/govern/Dashboard/charts/AuxViews';
 import {
-    statusOrdinalScale,
-    mergeRowAndHeaderData,
+    ChartGroup,
+    ChartPerformanceItem,
+    ChartPerformanceItems,
+    Row,
+    SecondaryHeading,
+} from '@app/govern/Dashboard/components';
+import {
+    columnSorterFunction,
     formatPercentage,
     getEntityInfo,
+    mergeRowAndHeaderData,
+    statusOrdinalScale,
     truncateString,
-    columnSorterFunction,
-} from '../utils';
-import { useFormAnalyticsQuery } from '../../../../graphql/analytics.generated';
-import { useFormAnalyticsContext } from '../FormAnalyticsContext';
+} from '@app/govern/Dashboard/utils';
 
-import DomainIcon from '../../../domain/DomainIcon';
-
-import { SectionWaiting, ChartState, ChartNoData, ChartNotEnoughData } from './AuxViews';
+import { useFormAnalyticsQuery } from '@graphql/analytics.generated';
 
 // March/2024 launch decision: hide performance cards
 const hidePerformanceCards = true;

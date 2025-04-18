@@ -1,8 +1,9 @@
-import React from 'react';
 import { Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components/macro';
-import EmailNotificationRecipientSection from './EmailNotificationRecipientsSection';
-import SlackNotificationRecipientSection from './SlackNotificationRecipientsSection';
+
+import EmailNotificationRecipientSection from '@app/shared/subscribe/drawer/section/EmailNotificationRecipientsSection';
+import SlackNotificationRecipientSection from '@app/shared/subscribe/drawer/section/SlackNotificationRecipientsSection';
 
 const NotificationRecipientContainer = styled.div`
     margin-top: 32px;

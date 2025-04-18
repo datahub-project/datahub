@@ -1,12 +1,14 @@
-import React from 'react';
 import { Form } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
+
+import { DescriptionBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/details/DescriptionBuilder';
+import { EvaluationScheduleBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/common/EvaluationScheduleBuilder';
+import { SqlEvaluationBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/sql/SqlEvaluationBuilder';
+import { SqlQueryBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/sql/SqlQueryBuilder';
 import { nullsToUndefined } from '@src/app/entityV2/shared/utils';
-import { Assertion, AssertionType, Monitor } from '../../../../../../../../../types.generated';
-import { EvaluationScheduleBuilder } from '../steps/common/EvaluationScheduleBuilder';
-import { DescriptionBuilder } from './DescriptionBuilder';
-import { SqlEvaluationBuilder } from '../steps/sql/SqlEvaluationBuilder';
-import { SqlQueryBuilder } from '../steps/sql/SqlQueryBuilder';
+
+import { Assertion, AssertionType, Monitor } from '@types';
 
 const Section = styled.div`
     margin-bottom: 24px;

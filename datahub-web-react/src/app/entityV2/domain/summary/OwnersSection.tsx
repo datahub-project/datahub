@@ -1,13 +1,15 @@
+import { UserOutlined } from '@ant-design/icons';
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Typography } from 'antd';
-import { UserOutlined } from '@ant-design/icons';
-import { useEntityData } from '../../../entity/shared/EntityContext';
-import { Owner, OwnershipTypeEntity } from '../../../../types.generated';
-import { getOwnershipTypeName } from '../../shared/containers/profile/sidebar/Ownership/ownershipUtils';
-import { REDESIGN_COLORS } from '../../shared/constants';
-import OwnerDetail from './OwnerDetail';
-import { SummaryTabHeaderTitle } from '../../shared/summary/HeaderComponents';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import OwnerDetail from '@app/entityV2/domain/summary/OwnerDetail';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { getOwnershipTypeName } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/ownershipUtils';
+import { SummaryTabHeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
+
+import { Owner, OwnershipTypeEntity } from '@types';
 
 const OwnershipTypeNameText = styled(Typography.Text)`
     font-weight: 500;

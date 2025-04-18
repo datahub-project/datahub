@@ -1,6 +1,7 @@
-import { Input, TextArea } from '@src/alchemy-components';
 import { Form } from 'antd';
 import React from 'react';
+
+import { Input, TextArea } from '@src/alchemy-components';
 
 interface Props {
     isFormDisabled: boolean;

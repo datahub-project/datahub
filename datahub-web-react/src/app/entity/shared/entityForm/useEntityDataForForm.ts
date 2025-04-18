@@ -1,7 +1,7 @@
+import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { Entity } from '@src/types.generated';
 import { useGetEntityQuery } from '@src/graphql/entity.generated';
-import { useEntityContext } from '../EntityContext';
+import { Entity } from '@src/types.generated';
 
 interface Props {
     selectedEntity?: Entity;

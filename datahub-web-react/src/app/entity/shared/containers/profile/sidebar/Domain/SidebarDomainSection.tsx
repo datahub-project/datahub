@@ -1,14 +1,16 @@
-import { Typography, Button, Modal, message } from 'antd';
-import React, { useState } from 'react';
 import { EditOutlined } from '@ant-design/icons';
+import { Button, Modal, Typography, message } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components';
-import { EMPTY_MESSAGES } from '../../../../constants';
-import { useEntityData, useMutationUrn, useRefetch } from '../../../../EntityContext';
-import { SidebarHeader } from '../SidebarHeader';
-import { SetDomainModal } from './SetDomainModal';
-import { useUnsetDomainMutation } from '../../../../../../../graphql/mutations.generated';
-import { DomainLink } from '../../../../../../shared/tags/DomainLink';
-import { ENTITY_PROFILE_DOMAINS_ID } from '../../../../../../onboarding/config/EntityProfileOnboardingConfig';
+
+import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
+import { EMPTY_MESSAGES } from '@app/entity/shared/constants';
+import { SetDomainModal } from '@app/entity/shared/containers/profile/sidebar/Domain/SetDomainModal';
+import { SidebarHeader } from '@app/entity/shared/containers/profile/sidebar/SidebarHeader';
+import { ENTITY_PROFILE_DOMAINS_ID } from '@app/onboarding/config/EntityProfileOnboardingConfig';
+import { DomainLink } from '@app/shared/tags/DomainLink';
+
+import { useUnsetDomainMutation } from '@graphql/mutations.generated';
 
 const StyledButton = styled(Button)`
     display: block;

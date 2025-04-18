@@ -1,7 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
+
 import { Button } from '@src/alchemy-components';
-import DeprecatedIcon from '../../../../../images/deprecated-status.svg?react';
+
+import DeprecatedIcon from '@images/deprecated-status.svg?react';
 
 const StyledButton = styled(Button)`
     padding: 4px;

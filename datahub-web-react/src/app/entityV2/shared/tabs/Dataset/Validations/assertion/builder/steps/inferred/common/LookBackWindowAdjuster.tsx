@@ -1,6 +1,7 @@
-import { InputNumber, Form } from 'antd';
+import { Form, InputNumber } from 'antd';
 import React from 'react';
-import { AssertionFormTitleAndTooltip } from './AssertionFormTitleAndTooltip';
+
+import { AssertionFormTitleAndTooltip } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/common/AssertionFormTitleAndTooltip';
 
 type Props = {
     trainingDataLookbackWindowDays?: number;

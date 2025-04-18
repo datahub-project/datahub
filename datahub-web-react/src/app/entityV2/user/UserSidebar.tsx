@@ -1,14 +1,16 @@
 import { message } from 'antd';
 import React from 'react';
-import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
-import { DataHubRole } from '../../../types.generated';
-import { SideBar, Content } from '../shared/SidebarStyledComponents';
-import { useUserContext } from '../../context/useUserContext';
-import { UserOwnershipSidebarSection } from '../shared/sidebarSection/UserOwnershipSideBarSection';
-import { AboutSidebarSection } from '../shared/sidebarSection/AboutSidebarSection';
-import { UserGroupSideBarSection } from '../shared/sidebarSection/UserGroupSidebarSection';
-import { SidebarData, UserProfileInfoCard } from './UserProfileInfoCard';
-import { UserSubscriptions } from './UserSubscriptions';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { Content, SideBar } from '@app/entityV2/shared/SidebarStyledComponents';
+import { AboutSidebarSection } from '@app/entityV2/shared/sidebarSection/AboutSidebarSection';
+import { UserGroupSideBarSection } from '@app/entityV2/shared/sidebarSection/UserGroupSidebarSection';
+import { UserOwnershipSidebarSection } from '@app/entityV2/shared/sidebarSection/UserOwnershipSideBarSection';
+import { SidebarData, UserProfileInfoCard } from '@app/entityV2/user/UserProfileInfoCard';
+import { UserSubscriptions } from '@app/entityV2/user/UserSubscriptions';
+
+import { useUpdateCorpUserPropertiesMutation } from '@graphql/user.generated';
+import { DataHubRole } from '@types';
 
 type Props = {
     sidebarData: SidebarData;

@@ -1,7 +1,8 @@
+import { useEffect, useState } from 'react';
+
 import { buildEntityCache } from '@src/app/entityV2/view/builder/utils';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { Entity, EntityType, GlossaryNode, GlossaryTerm } from '@src/types.generated';
-import { useEffect, useState } from 'react';
 
 type Option = {
     value: string;

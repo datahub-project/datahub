@@ -1,16 +1,18 @@
+import { useApolloClient } from '@apollo/client';
+import { Tooltip, colors } from '@components';
+import { Modal, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { message, Modal, Typography } from 'antd';
-import { Tooltip, colors } from '@components';
-import { useApolloClient } from '@apollo/client';
-import { TestCardActions } from './TestCardActions';
-import { Test, TestDefinitionInput } from '../../../types.generated';
-import analytics, { EventType } from '../../analytics';
-import { removeFromListTestsCache, updateListTestsCache } from '../cacheUtils';
-import { DEFAULT_TESTS_PAGE_SIZE } from '../constants';
-import { TestBuilderState } from '../builder/types';
-import { useDeleteTestMutation, useUpdateTestMutation } from '../../../graphql/test.generated';
-import { TestBuilderModal } from '../builder/TestBuilderModal';
+
+import analytics, { EventType } from '@app/analytics';
+import { TestBuilderModal } from '@app/tests/builder/TestBuilderModal';
+import { TestBuilderState } from '@app/tests/builder/types';
+import { removeFromListTestsCache, updateListTestsCache } from '@app/tests/cacheUtils';
+import { TestCardActions } from '@app/tests/card/TestCardActions';
+import { DEFAULT_TESTS_PAGE_SIZE } from '@app/tests/constants';
+
+import { useDeleteTestMutation, useUpdateTestMutation } from '@graphql/test.generated';
+import { Test, TestDefinitionInput } from '@types';
 
 const Details = styled.div`
     height: 120px;

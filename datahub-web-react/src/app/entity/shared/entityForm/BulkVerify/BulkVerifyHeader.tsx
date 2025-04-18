@@ -1,18 +1,15 @@
-import React, { useState } from 'react';
-
 import { Button } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { useEntityData } from '../../EntityContext';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
-import { useEntityFormContext } from '../EntityFormContext';
-
-import { PromptSubTitle } from '../prompts/StructuredPropertyPrompt/StructuredPropertyPrompt';
-import { BulkNavigationWrapper } from '../FormHeader/components';
-import { pluralize } from '../../../../shared/textUtil';
-
-import BulkVerifyModal from './BulkVerifyModal';
-import { FORM_BULK_VERIFY_ID } from '../../../../onboarding/config/FormOnboardingConfig';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import BulkVerifyModal from '@app/entity/shared/entityForm/BulkVerify/BulkVerifyModal';
+import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
+import { BulkNavigationWrapper } from '@app/entity/shared/entityForm/FormHeader/components';
+import { PromptSubTitle } from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/StructuredPropertyPrompt';
+import { FORM_BULK_VERIFY_ID } from '@app/onboarding/config/FormOnboardingConfig';
+import { pluralize } from '@app/shared/textUtil';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const BulkVerifyWrapper = styled(BulkNavigationWrapper)`
     justify-content: space-between;

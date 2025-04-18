@@ -1,6 +1,10 @@
 import { MockedProvider } from '@apollo/client/testing';
 import { fireEvent, render } from '@testing-library/react';
 import React from 'react';
+
+import StructuredPropertyAsssociationRequestItem from '@app/actionrequest/item/StructuredPropertyAsssociationRequestItem';
+import TestPageContainer from '@utils/test-utils/TestPageContainer';
+
 import {
     ActionRequest,
     ActionRequestOrigin,
@@ -8,9 +12,7 @@ import {
     ActionRequestType,
     EntityType,
     StructuredPropertyDefinition,
-} from '../../../../types.generated';
-import TestPageContainer from '../../../../utils/test-utils/TestPageContainer';
-import StructuredPropertyAsssociationRequestItem from '../StructuredPropertyAsssociationRequestItem';
+} from '@types';
 
 describe('StructuredPropertyAsssociationRequestItem', () => {
     const defaultProps = {

@@ -1,12 +1,14 @@
+import { Button, Modal, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Button, message, Modal, Typography } from 'antd';
-import { useCreateQueryMutation, useUpdateQueryMutation } from '../../../../../../graphql/query.generated';
-import { QueryLanguage } from '../../../../../../types.generated';
-import { QueryBuilderState } from './types';
-import ClickOutside from '../../../../../shared/ClickOutside';
-import QueryBuilderForm from './QueryBuilderForm';
-import analytics, { EventType } from '../../../../../analytics';
+
+import analytics, { EventType } from '@app/analytics';
+import QueryBuilderForm from '@app/entity/shared/tabs/Dataset/Queries/QueryBuilderForm';
+import { QueryBuilderState } from '@app/entity/shared/tabs/Dataset/Queries/types';
+import ClickOutside from '@app/shared/ClickOutside';
+
+import { useCreateQueryMutation, useUpdateQueryMutation } from '@graphql/query.generated';
+import { QueryLanguage } from '@types';
 
 const StyledModal = styled(Modal)`
     top: 4vh;

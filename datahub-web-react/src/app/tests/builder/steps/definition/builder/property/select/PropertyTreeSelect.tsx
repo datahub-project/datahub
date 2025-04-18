@@ -1,11 +1,12 @@
-import React from 'react';
-import styled from 'styled-components';
 import { TreeSelect, Typography } from 'antd';
 import { TreeNode } from 'antd/lib/tree-select';
-import { Property } from '../types/properties';
-import { PropertyTreeNodeLabel } from './PropertyTreeNodeLabel';
-import { PropertyTreeNodeTitle } from './PropertyTreeNodeTitle';
-import { VALUE_TYPE_ID_TO_DETAILS } from '../types/values';
+import React from 'react';
+import styled from 'styled-components';
+
+import { PropertyTreeNodeLabel } from '@app/tests/builder/steps/definition/builder/property/select/PropertyTreeNodeLabel';
+import { PropertyTreeNodeTitle } from '@app/tests/builder/steps/definition/builder/property/select/PropertyTreeNodeTitle';
+import { Property } from '@app/tests/builder/steps/definition/builder/property/types/properties';
+import { VALUE_TYPE_ID_TO_DETAILS } from '@app/tests/builder/steps/definition/builder/property/types/values';
 
 const CUSTOM_ID = 'custom';
 

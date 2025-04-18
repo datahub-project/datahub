@@ -1,49 +1,51 @@
-import DataProcessInstanceInfo from '@src/app/preview/DataProcessInstanceInfo';
-import React, { ReactNode, useState } from 'react';
-import { Divider, Typography } from 'antd';
-import { Tooltip } from '@components';
 import { ArrowRightOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
+import { Divider, Typography } from 'antd';
+import React, { ReactNode, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+
+import { PreviewType } from '@app/entity/Entity';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import ExternalUrlButton from '@app/entity/shared/ExternalUrlButton';
+import { usePreviewData } from '@app/entity/shared/PreviewContext';
+import { DeprecationPill } from '@app/entity/shared/components/styled/DeprecationPill';
+import { ExpandedActorGroup } from '@app/entity/shared/components/styled/ExpandedActorGroup';
+import NoMarkdownViewer from '@app/entity/shared/components/styled/StripMarkdownText';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import EntityCount from '@app/entity/shared/containers/profile/header/EntityCount';
+import { EntityHealth } from '@app/entity/shared/containers/profile/header/EntityHealth';
+import PlatformContentView from '@app/entity/shared/containers/profile/header/PlatformContent/PlatformContentView';
+import { getNumberWithOrdinal } from '@app/entity/shared/utils';
+import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
+import { FORM_CHECK_RESPONSES_ID } from '@app/onboarding/config/FormOnboardingConfig';
+import EntityPaths from '@app/preview/EntityPaths/EntityPaths';
+import { getUniqueOwners } from '@app/preview/utils';
+import SearchTextHighlighter from '@app/search/matches/SearchTextHighlighter';
+import { DataProductLink } from '@app/shared/tags/DataProductLink';
+import TagTermGroup from '@app/shared/tags/TagTermGroup';
+import useContentTruncation from '@app/shared/useContentTruncation';
+import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
+import DataProcessInstanceInfo from '@src/app/preview/DataProcessInstanceInfo';
+
 import {
-    GlobalTags,
-    Owner,
-    GlossaryTerms,
-    SearchInsight,
     Container,
-    Dataset,
-    ParentContainersResult,
-    Maybe,
     CorpUser,
+    DataProcessRunEvent,
+    DataProduct,
+    Dataset,
     Deprecation,
     Domain,
-    EntityPath,
-    DataProduct,
-    Health,
     Entity,
-    DataProcessRunEvent,
-} from '../../types.generated';
-import TagTermGroup from '../shared/tags/TagTermGroup';
-import { ANTD_GRAY } from '../entity/shared/constants';
-import NoMarkdownViewer from '../entity/shared/components/styled/StripMarkdownText';
-import { getNumberWithOrdinal } from '../entity/shared/utils';
-import { useEntityData } from '../entity/shared/EntityContext';
-import PlatformContentView from '../entity/shared/containers/profile/header/PlatformContent/PlatformContentView';
-import useContentTruncation from '../shared/useContentTruncation';
-import EntityCount from '../entity/shared/containers/profile/header/EntityCount';
-import { ExpandedActorGroup } from '../entity/shared/components/styled/ExpandedActorGroup';
-import { DeprecationPill } from '../entity/shared/components/styled/DeprecationPill';
-import { PreviewType } from '../entity/Entity';
-import ExternalUrlButton from '../entity/shared/ExternalUrlButton';
-import EntityPaths from './EntityPaths/EntityPaths';
-import { DataProductLink } from '../shared/tags/DataProductLink';
-import { EntityHealth } from '../entity/shared/containers/profile/header/EntityHealth';
-import SearchTextHighlighter from '../search/matches/SearchTextHighlighter';
-import { getUniqueOwners } from './utils';
-import StructuredPropertyBadge from '../entityV2/shared/containers/profile/header/StructuredPropertyBadge';
-import { usePreviewData } from '../entity/shared/PreviewContext';
-import { FORM_CHECK_RESPONSES_ID } from '../onboarding/config/FormOnboardingConfig';
-import { useEmbeddedProfileLinkProps } from '../shared/useEmbeddedProfileLinkProps';
+    EntityPath,
+    GlobalTags,
+    GlossaryTerms,
+    Health,
+    Maybe,
+    Owner,
+    ParentContainersResult,
+    SearchInsight,
+} from '@types';
 
 const PreviewContainer = styled.div`
     display: flex;

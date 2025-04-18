@@ -1,15 +1,14 @@
-import React from 'react';
-
 import { CloseOutlined } from '@ant-design/icons';
 import { Modal } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { colors } from '@src/alchemy-components';
 
-import EntityForm from './EntityForm';
-import FormPageHeader from './FormHeader/FormPageHeader';
-import EntityFormContextProvider from './EntityFormContextProvider';
-import { useUserContext } from '../../../context/useUserContext';
-import { FormView } from './EntityFormContext';
+import { useUserContext } from '@app/context/useUserContext';
+import EntityForm from '@app/entity/shared/entityForm/EntityForm';
+import { FormView } from '@app/entity/shared/entityForm/EntityFormContext';
+import EntityFormContextProvider from '@app/entity/shared/entityForm/EntityFormContextProvider';
+import FormPageHeader from '@app/entity/shared/entityForm/FormHeader/FormPageHeader';
+import { colors } from '@src/alchemy-components';
 
 const StyledModal = styled(Modal)`
     &&& .ant-modal-content {

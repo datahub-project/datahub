@@ -1,18 +1,19 @@
-import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
+import { ListChecks } from '@phosphor-icons/react';
+import { Tooltip, Typography } from 'antd';
 import React, { useContext, useState } from 'react';
 import styled from 'styled-components';
-import { Tooltip, Typography } from 'antd';
-import { useAppConfig } from '@src/app/useAppConfig';
+
+import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import MoreOptionsMenuAction from '@app/entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
+import { TitleAction } from '@app/entityV2/shared/containers/profile/sidebar/TitleAction';
+import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
+import { EntitySidebarTab } from '@app/entityV2/shared/types';
+import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import { Modal, colors } from '@src/alchemy-components';
 import { ProposalList } from '@src/app/taskCenterV2/proposalsV2/ProposalList';
-import { ListChecks } from '@phosphor-icons/react';
-import { colors, Modal } from '@src/alchemy-components';
 import { entityHasProposals } from '@src/app/taskCenterV2/proposalsV2/utils';
-import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
-import { EntitySidebarTab } from '../../../types';
-import { TitleAction } from './TitleAction';
-import MoreOptionsMenuAction from '../../../EntityDropdown/MoreOptionsMenuAction';
-import { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
-import { useEntityData, useRefetch } from '../../../../../entity/shared/EntityContext';
+import { useAppConfig } from '@src/app/useAppConfig';
 
 const Controls = styled.div<{ isCollapsed: boolean }>`
     display: flex;

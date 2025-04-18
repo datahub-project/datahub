@@ -1,14 +1,17 @@
 import { ArrowDownOutlined, ArrowUpOutlined, MoreOutlined } from '@ant-design/icons';
+import { Popover, Tooltip } from '@components';
 import { Dropdown } from 'antd';
-import { Tooltip, Popover } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import FocusIcon from '../../../images/focus.svg';
-import { Direction, UpdatedLineages } from '../types';
-import { EntityType } from '../../../types.generated';
-import ManageLineageModal from './ManageLineageModal';
-import { ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '../../entity/shared/constants';
-import { MenuItemStyle } from '../../entity/view/menu/item/styledComponent';
+
+import { ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '@app/entity/shared/constants';
+import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
+import ManageLineageModal from '@app/lineage/manage/ManageLineageModal';
+import { Direction, UpdatedLineages } from '@app/lineage/types';
+
+import { EntityType } from '@types';
+
+import FocusIcon from '@images/focus.svg';
 
 const DROPDOWN_Z_INDEX = 100;
 const POPOVER_Z_INDEX = 101;

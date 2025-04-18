@@ -3,13 +3,13 @@ import dayjs from 'dayjs';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 import localeData from 'dayjs/plugin/localeData';
-import weekday from 'dayjs/plugin/weekday';
 import weekOfYear from 'dayjs/plugin/weekOfYear';
 import weekYear from 'dayjs/plugin/weekYear';
+import weekday from 'dayjs/plugin/weekday';
 
-import * as Browse from './Browse';
-import * as Global from './Global';
-import * as Search from './Search';
+import * as Browse from '@conf/Browse';
+import * as Global from '@conf/Global';
+import * as Search from '@conf/Search';
 
 dayjs.extend(customParseFormat);
 dayjs.extend(advancedFormat);

@@ -1,4 +1,4 @@
-import { TestCategoryType } from './types';
+import { TestCategoryType } from '@app/tests/types';
 
 export const METADATA_TESTS_DOC_URL = 'https://datahubproject.io/docs/tests/metadata-tests/';
 export const DEFAULT_TESTS_PAGE_SIZE = 1000; // Max Tests size is 1000. If a company has more than 1000 tests this will break.

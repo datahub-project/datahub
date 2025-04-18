@@ -1,5 +1,6 @@
-import { SourceConfig } from '../types';
-import hiveLogo from '../../../../../images/hivelogo.png';
+import { SourceConfig } from '@app/ingest/source/conf/types';
+
+import hiveLogo from '@images/hivelogo.png';
 
 const placeholderRecipe = `\
 source: 

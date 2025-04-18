@@ -1,9 +1,10 @@
 import * as cronParser from 'cron-parser';
 
-import { AssertionRunEventDetailsFragment } from '../../../../../../../../../../../graphql/assertion.generated';
-import { CronSchedule, Monitor } from '../../../../../../../../../../../types.generated';
-import { LOOKBACK_WINDOWS, LookbackWindow } from '../../../../../../Stats/lookbackWindows';
-import { tryGetScheduleFromMonitor } from '../../../shared/utils';
+import { LOOKBACK_WINDOWS, LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
+import { tryGetScheduleFromMonitor } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/utils';
+
+import { AssertionRunEventDetailsFragment } from '@graphql/assertion.generated';
+import { CronSchedule, Monitor } from '@types';
 
 const ONE_HOUR_IN_MS = 60 * 60 * 1000; // Milliseconds in one hour
 const ONE_DAY_IN_MS = 24 * ONE_HOUR_IN_MS; // Milliseconds in one day

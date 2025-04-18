@@ -1,11 +1,13 @@
-import React from 'react';
 import { List, Pagination, Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { PreviewType } from '../../../../Entity';
-import { EntityType } from '../../../../../../types.generated';
-import { SearchCfg } from '../../../../../../conf';
-import { Message } from '../../../../../shared/Message';
+
+import { PreviewType } from '@app/entityV2/Entity';
+import { Message } from '@app/shared/Message';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { SearchCfg } from '@src/conf';
+
+import { EntityType } from '@types';
 
 const ScrollWrapper = styled.div`
     overflow: auto;

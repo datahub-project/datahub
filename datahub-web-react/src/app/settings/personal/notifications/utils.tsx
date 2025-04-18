@@ -1,17 +1,15 @@
 import { message } from 'antd';
 import difference from 'lodash/difference';
-import { useAppConfig } from '../../../useAppConfig';
+
+import { EventType } from '@app/analytics';
+import analytics from '@app/analytics/analytics';
+import { useAppConfig } from '@app/useAppConfig';
+
 import {
     useUpdateGroupNotificationSettingsMutation,
     useUpdateUserNotificationSettingsMutation,
-} from '../../../../graphql/settings.generated';
-import {
-    EmailNotificationSettingsInput,
-    NotificationSinkType,
-    SlackNotificationSettingsInput,
-} from '../../../../types.generated';
-import analytics from '../../../analytics/analytics';
-import { EventType } from '../../../analytics';
+} from '@graphql/settings.generated';
+import { EmailNotificationSettingsInput, NotificationSinkType, SlackNotificationSettingsInput } from '@types';
 
 export const updateUserNotificationSettingsFunction = ({
     emailSettings,

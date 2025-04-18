@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
-
-import styled from 'styled-components';
 import { Button } from 'antd';
+import React, { useState } from 'react';
+import styled from 'styled-components';
 
-import { StepProps } from '../types';
-import { FinishUpBuilder } from './finish/FinishUpBuilder';
-import { AssertionType } from '../../../../../../../../../types.generated';
+import { FinishUpBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/finish/FinishUpBuilder';
+import { StepProps } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/types';
+
+import { AssertionType } from '@types';
 
 const Step = styled.div`
     height: 100%;

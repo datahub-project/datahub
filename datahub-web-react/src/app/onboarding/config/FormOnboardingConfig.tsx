@@ -1,9 +1,11 @@
 import { SmileOutlined } from '@ant-design/icons';
-import React from 'react';
 import { Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { OnboardingStep } from '../OnboardingStep';
-import BulkTypeComparions from '../../../images/bulk-form-type-comparison.svg';
+
+import { OnboardingStep } from '@app/onboarding/OnboardingStep';
+
+import BulkTypeComparions from '@images/bulk-form-type-comparison.svg';
 
 const DiagramHeader = styled.div`
     display: flex;

@@ -1,4 +1,4 @@
-import { ListTestsDocument, ListTestsQuery } from '../../graphql/test.generated';
+import { ListTestsDocument, ListTestsQuery } from '@graphql/test.generated';
 
 const addOrUpdateTestInList = (existingTests, newTest) => {
     const newTests = [...existingTests];

@@ -1,5 +1,5 @@
-import { NestedSelectOption } from '../types';
-import { getChainOfParents } from '../utils';
+import { NestedSelectOption } from '@components/components/Select/Nested/types';
+import { getChainOfParents } from '@components/components/Select/Nested/utils';
 
 describe('getChainOfParents', () => {
     const options: NestedSelectOption[] = [

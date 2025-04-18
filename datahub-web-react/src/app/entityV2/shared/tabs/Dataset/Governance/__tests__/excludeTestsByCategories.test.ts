@@ -1,5 +1,5 @@
+import { excludeTestsByCategories } from '@app/entityV2/shared/tabs/Dataset/Governance/testUtils';
 import { EntityType, TestResult, TestResultType } from '@src/types.generated';
-import { excludeTestsByCategories } from '../testUtils';
 
 const SAMPLE_TEST_RESULT_1: TestResult = {
     test: {

@@ -1,16 +1,16 @@
-import React, { useEffect } from 'react';
-
-import styled from 'styled-components';
 import { Typography } from 'antd';
 import TextArea from 'antd/lib/input/TextArea';
+import React, { useEffect } from 'react';
+import styled from 'styled-components';
 
 import {
     AssertionMonitorBuilderState,
     FieldMetricAssertionBuilderOperatorOptions,
     FreshnessAssertionScheduleBuilderTypeOptions,
     VolumeAssertionBuilderTypeOptions,
-} from '../../types';
-import { AssertionType, FieldAssertionType } from '../../../../../../../../../../types.generated';
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
+
+import { AssertionType, FieldAssertionType } from '@types';
 
 const Section = styled.div`
     display: flex;

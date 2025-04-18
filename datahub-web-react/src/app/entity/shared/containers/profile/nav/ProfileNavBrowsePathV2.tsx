@@ -1,21 +1,23 @@
+import { Breadcrumb } from 'antd';
 import React from 'react';
 import { useHistory } from 'react-router';
-import { Breadcrumb } from 'antd';
 import styled from 'styled-components';
-import { BreadcrumbItem, BrowseRow } from './ProfileNavBrowsePath';
-import { useEntityData } from '../../../EntityContext';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { navigateToSearchUrl } from '../../../../../search/utils/navigateToSearchUrl';
-import { BrowsePathV2, EntityType, FabricType, FacetFilterInput } from '../../../../../../types.generated';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { LineageSelector } from '@app/entity/shared/containers/profile/nav/LineageSelector';
+import { BreadcrumbItem, BrowseRow } from '@app/entity/shared/containers/profile/nav/ProfileNavBrowsePath';
+import useHasMultipleEnvironmentsQuery from '@app/entity/shared/containers/profile/nav/useHasMultipleEnvironmentsQuery';
+import { createBrowseV2SearchFilter } from '@app/search/filters/utils';
 import {
     BROWSE_PATH_V2_FILTER_NAME,
     ENTITY_SUB_TYPE_FILTER_NAME,
     ORIGIN_FILTER_NAME,
     PLATFORM_FILTER_NAME,
-} from '../../../../../search/utils/constants';
-import useHasMultipleEnvironmentsQuery from './useHasMultipleEnvironmentsQuery';
-import { createBrowseV2SearchFilter } from '../../../../../search/filters/utils';
-import { LineageSelector } from './LineageSelector';
+} from '@app/search/utils/constants';
+import { navigateToSearchUrl } from '@app/search/utils/navigateToSearchUrl';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { BrowsePathV2, EntityType, FabricType, FacetFilterInput } from '@types';
 
 const StyledBreadcrumb = styled(Breadcrumb)`
     font-size: 16px;

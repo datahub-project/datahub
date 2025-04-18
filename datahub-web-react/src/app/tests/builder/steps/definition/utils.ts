@@ -1,9 +1,9 @@
+import { ACTION_TYPES } from '@app/tests/builder/steps/definition/builder/property/types/action';
+import { ValueTypeId } from '@app/tests/builder/steps/definition/builder/property/types/values';
+import { AND, CONDITIONS, MATCH, NOT, ON, OR, RULES, TYPES } from '@app/tests/builder/steps/definition/constants';
+import { DEFAULT_TEST_DEFINITION } from '@app/tests/builder/types';
+import { SelectPredicate, TestDefinition, TestPredicate } from '@app/tests/types';
 import { TestAction, TestActions } from '@src/app/automations/types';
-import { SelectPredicate, TestDefinition, TestPredicate } from '../../../types';
-import { DEFAULT_TEST_DEFINITION } from '../../types';
-import { AND, CONDITIONS, MATCH, NOT, ON, OR, RULES, TYPES } from './constants';
-import { ACTION_TYPES } from './builder/property/types/action';
-import { ValueTypeId } from './builder/property/types/values';
 
 /**
  * Recursively transforms a raw predicate block into the latest

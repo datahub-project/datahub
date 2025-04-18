@@ -1,10 +1,11 @@
 import React from 'react';
 import styled from 'styled-components';
-import LinkButton from '../LinkButton';
-import { useEntityData, useRefetch } from '../../../../EntityContext';
-import { AddLinkModal } from '../../../../components/styled/AddLinkModal';
-import { shouldTryLinkPreview } from '../../../../../../integration/linkPreviews';
-import LinkPreview from '../../../../../../integration/LinkPreview';
+
+import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { AddLinkModal } from '@app/entity/shared/components/styled/AddLinkModal';
+import LinkButton from '@app/entity/shared/containers/profile/sidebar/LinkButton';
+import LinkPreview from '@app/integration/LinkPreview';
+import { shouldTryLinkPreview } from '@app/integration/linkPreviews';
 
 const AddLinksWrapper = styled.div`
     margin-left: -15px;

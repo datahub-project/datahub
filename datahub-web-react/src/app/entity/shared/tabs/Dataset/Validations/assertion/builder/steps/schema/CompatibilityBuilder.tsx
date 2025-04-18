@@ -1,8 +1,10 @@
-import React from 'react';
 import { Select, Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { SchemaAssertionCompatibility } from '../../../../../../../../../../types.generated';
-import { compatibilityLevels } from './utils';
+
+import { compatibilityLevels } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/schema/utils';
+
+import { SchemaAssertionCompatibility } from '@types';
 
 const Section = styled.div`
     margin-bottom: 20px;

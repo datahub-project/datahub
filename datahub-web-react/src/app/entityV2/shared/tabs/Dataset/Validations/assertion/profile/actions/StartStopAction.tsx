@@ -1,14 +1,15 @@
+import { Modal, message } from 'antd';
+import { Play, Stop } from 'phosphor-react';
 import React from 'react';
 
-import { Modal, message } from 'antd';
-import { ActionMenuItem } from '@src/app/entityV2/shared/EntityDropdown/styledComponents';
-import { Tooltip2 } from '@src/alchemy-components/components/Tooltip2';
-import { Play, Stop } from 'phosphor-react';
+import analytics, { EventType } from '@app/analytics';
+import { isMonitorActive } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { colors } from '@src/alchemy-components';
-import analytics, { EventType } from '../../../../../../../../analytics';
-import { useUpdateMonitorStatusMutation } from '../../../../../../../../../graphql/monitor.generated';
-import { Assertion, Monitor, MonitorMode } from '../../../../../../../../../types.generated';
-import { isMonitorActive } from '../../../acrylUtils';
+import { Tooltip2 } from '@src/alchemy-components/components/Tooltip2';
+import { ActionMenuItem } from '@src/app/entityV2/shared/EntityDropdown/styledComponents';
+
+import { useUpdateMonitorStatusMutation } from '@graphql/monitor.generated';
+import { Assertion, Monitor, MonitorMode } from '@types';
 
 type Props = {
     assertion: Assertion;

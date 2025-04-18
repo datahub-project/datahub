@@ -1,12 +1,17 @@
+import { Radio, RadioChangeEvent, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Radio, RadioChangeEvent, Typography } from 'antd';
+
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/constants';
+import { FixedIntervalScheduleBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/freshness/FixedIntervalSchedulerBuilder';
+import {
+    FreshnessAssertionBuilderSchedule,
+    FreshnessAssertionScheduleBuilderTypeOptions,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
 import { useAppConfig } from '@src/app/useAppConfig';
-import { FreshnessAssertionScheduleType } from '../../../../../../../../../../types.generated';
-import { ANTD_GRAY } from '../../../../../../../constants';
-import { FixedIntervalScheduleBuilder } from './FixedIntervalSchedulerBuilder';
-import { DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE } from '../../constants';
-import { FreshnessAssertionBuilderSchedule, FreshnessAssertionScheduleBuilderTypeOptions } from '../../types';
+
+import { FreshnessAssertionScheduleType } from '@types';
 
 const Form = styled.div`
     margin: 16px 0 24px;

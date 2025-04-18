@@ -1,6 +1,7 @@
-import styled from 'styled-components';
-import { colors } from '@src/alchemy-components';
 import { ArrowLeft as ArrowLeftIcon, ArrowRight as ArrowRightIcon } from 'phosphor-react';
+import styled from 'styled-components';
+
+import { colors } from '@src/alchemy-components';
 
 export const BulkNavigationWrapper = styled.div<{ $hideBackground?: boolean }>`
     padding: 16px 68px 16px 24px;

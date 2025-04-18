@@ -1,9 +1,10 @@
-import React from 'react';
 import { Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
+
+import { EntityStagedForAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
+import { CreateAssertionButton } from '@app/entityV2/shared/tabs/Dataset/Validations/CreateAssertionButton';
 import { EntityPrivileges } from '@src/types.generated';
-import { CreateAssertionButton } from '../CreateAssertionButton';
-import { EntityStagedForAssertion } from './types';
 
 const AssertionTitleContainer = styled.div`
     display: flex;

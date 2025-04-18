@@ -1,7 +1,8 @@
+import React, { useMemo } from 'react';
+
 import StructuredPropValues from '@src/app/entity/dataset/profile/schema/components/StructuredPropValues';
 import { getDisplayName } from '@src/app/govern/structuredProperties/utils';
 import { SearchResult, StructuredPropertyEntity } from '@src/types.generated';
-import React, { useMemo } from 'react';
 
 export const useGetStructuredPropColumns = (properties: SearchResult[] | undefined) => {
     const columns = useMemo(() => {

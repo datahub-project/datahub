@@ -2,32 +2,32 @@
  * Condition Selector
  * User can select a set of conditions to filter the entities
  */
-
-import React from 'react';
-
+import { Add, Delete } from '@mui/icons-material';
 import { Input, Select } from 'antd';
-import { Delete, Add } from '@mui/icons-material';
+import React from 'react';
 import uniqid from 'uniqid';
 
-import { PrimaryButton, SecondaryButton, TextButton, DeleteButton } from '@app/automations/sharedComponents';
-import { SortableList } from './SortableList';
-
-import { predicateOptions, operatorOptions, transformConditions } from './utils';
-
+import { SortableList } from '@app/automations/fields/ConditionSelector/SortableList';
 // import { OPERATORS } from './operators';
 // import { entityProperties } from './properties';
 
 import {
-    EmptyStateContainer,
-    ConditionsContainer,
-    RuleSelectorContainer,
-    OperatorSelectorContainer,
-    ConditionsActionsContainer,
     ConditionGroupContainer,
-    RuleSelectorActionsContainer,
+    ConditionsActionsContainer,
+    ConditionsContainer,
+    EmptyStateContainer,
     GroupAddContainer,
     MatchingAssetText,
-} from './components';
+    OperatorSelectorContainer,
+    RuleSelectorActionsContainer,
+    RuleSelectorContainer,
+} from '@app/automations/fields/ConditionSelector/components';
+import {
+    operatorOptions,
+    predicateOptions,
+    transformConditions,
+} from '@app/automations/fields/ConditionSelector/utils';
+import { DeleteButton, PrimaryButton, SecondaryButton, TextButton } from '@app/automations/sharedComponents';
 
 type ConditionType = {
     id: number;

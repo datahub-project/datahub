@@ -1,4 +1,4 @@
-import { SlackMessagePreview } from './types';
+import { SlackMessagePreview } from '@app/integration/types';
 
 export const decodeSlackMessagePreview = (json: string): SlackMessagePreview | null => {
     const parsedJson = JSON.parse(json);

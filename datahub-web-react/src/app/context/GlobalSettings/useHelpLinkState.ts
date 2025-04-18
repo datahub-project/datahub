@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { GlobalSettings } from '../../../types.generated';
+
+import { GlobalSettings } from '@types';
 
 const DEFAULT_LABEL = 'Contact Admin';
 

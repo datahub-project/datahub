@@ -1,5 +1,5 @@
-import { getWrappedGAPlugin } from './googleAnalytics';
-import { getMixpanelPlugin } from './mixpanel';
+import { getWrappedGAPlugin } from '@app/analytics/plugin/googleAnalytics';
+import { getMixpanelPlugin } from '@app/analytics/plugin/mixpanel';
 
 export const createPluginsFromSettings = (settings: any) => {
     const plugins: any[] = [];

@@ -1,8 +1,12 @@
-import { AndFilterInput, FilterOperator } from '@src/types.generated';
+import {
+    LogicalOperatorType,
+    LogicalPredicate,
+    PropertyPredicate,
+} from '@app/tests/builder/steps/definition/builder/types';
+import { AND, NOT, OR } from '@app/tests/builder/steps/definition/constants';
+import { AndPredicate, NotPredicate, OrPredicate, Predicate, TestPredicate } from '@app/tests/types';
 import { combineOrFilters } from '@src/app/searchV2/utils/filterUtils';
-import { LogicalOperatorType, LogicalPredicate, PropertyPredicate } from './types';
-import { AndPredicate, NotPredicate, OrPredicate, Predicate, TestPredicate } from '../../../../types';
-import { AND, NOT, OR } from '../constants';
+import { AndFilterInput, FilterOperator } from '@src/types.generated';
 
 const LOGICAL_OPERATORS = new Set(Object.values(LogicalOperatorType));
 

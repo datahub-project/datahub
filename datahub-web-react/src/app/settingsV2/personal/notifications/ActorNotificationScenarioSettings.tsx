@@ -1,40 +1,42 @@
+import { Alert, Image } from 'antd';
 import React, { useMemo, useState } from 'react';
-import { Image, Alert } from 'antd';
+
+import { NotificationTypeOptionsModal } from '@app/settingsV2/notifications/NotificationTypeOptionsModal';
+import { NotificationSettingsGroup } from '@app/settingsV2/notifications/NotificationsSettingsGroup';
+import {
+    NotificationSinkHeader,
+    NotificationSinkHeaders,
+    NotificationSinkName,
+    OptionsPlaceholder,
+    ScenarioSettingsContainer,
+    ScenarioSettingsHeader,
+    ScenarioSettingsTitle,
+    ThinDivider,
+} from '@app/settingsV2/notifications/styledComponents';
+import { NOTIFICATION_SINKS, NotificationTypeOptions } from '@app/settingsV2/notifications/types';
+import {
+    EMAIL_ADDRESS_PARAM_NAME,
+    SLACK_CHANNEL_PARAM_NAME,
+    buildNotificationSettingsMap,
+    updateNotificationTypeParams,
+} from '@app/settingsV2/notifications/utils';
+import { GROUP_NOTIFICATION_GROUPS, USER_NOTIFICATION_GROUPS } from '@app/settingsV2/personal/notifications/types';
+import { isSinkEnabled } from '@app/settingsV2/personal/notifications/utils';
+import { Message } from '@app/shared/Message';
+import { useAppConfig } from '@app/useAppConfig';
 import { useGlobalSettingsContext } from '@src/app/context/GlobalSettings/GlobalSettingsContext';
-import { Message } from '../../../shared/Message';
-import { NotificationTypeOptionsModal } from '../../notifications/NotificationTypeOptionsModal';
+
 import {
     useUpdateGroupNotificationSettingsMutation,
     useUpdateUserNotificationSettingsMutation,
-} from '../../../../graphql/settings.generated';
+} from '@graphql/settings.generated';
 import {
     EntityType,
     NotificationScenarioType,
     NotificationSetting,
     NotificationSettings,
     StringMapEntry,
-} from '../../../../types.generated';
-import {
-    updateNotificationTypeParams,
-    SLACK_CHANNEL_PARAM_NAME,
-    EMAIL_ADDRESS_PARAM_NAME,
-    buildNotificationSettingsMap,
-} from '../../notifications/utils';
-import { useAppConfig } from '../../../useAppConfig';
-import { USER_NOTIFICATION_GROUPS, GROUP_NOTIFICATION_GROUPS } from './types';
-import { isSinkEnabled } from './utils';
-import { NOTIFICATION_SINKS, NotificationTypeOptions } from '../../notifications/types';
-import {
-    ScenarioSettingsContainer,
-    NotificationSinkHeader,
-    NotificationSinkHeaders,
-    NotificationSinkName,
-    OptionsPlaceholder,
-    ScenarioSettingsHeader,
-    ScenarioSettingsTitle,
-    ThinDivider,
-} from '../../notifications/styledComponents';
-import { NotificationSettingsGroup } from '../../notifications/NotificationsSettingsGroup';
+} from '@types';
 
 type Props = {
     actorType: EntityType.CorpUser | EntityType.CorpGroup;

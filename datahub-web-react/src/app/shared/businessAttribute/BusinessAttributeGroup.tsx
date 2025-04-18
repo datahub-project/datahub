@@ -1,11 +1,13 @@
-import styled from 'styled-components';
+import { PlusOutlined } from '@ant-design/icons';
 import { Button, Typography } from 'antd';
 import React, { useState } from 'react';
-import { PlusOutlined } from '@ant-design/icons';
-import { EMPTY_MESSAGES } from '../../entity/shared/constants';
-import { BusinessAttributeAssociation, EntityType } from '../../../types.generated';
-import EditBusinessAttributeModal from './AddBusinessAttributeModal';
-import StyledAttribute from './StyledAttribute';
+import styled from 'styled-components';
+
+import { EMPTY_MESSAGES } from '@app/entity/shared/constants';
+import EditBusinessAttributeModal from '@app/shared/businessAttribute/AddBusinessAttributeModal';
+import StyledAttribute from '@app/shared/businessAttribute/StyledAttribute';
+
+import { BusinessAttributeAssociation, EntityType } from '@types';
 
 type Props = {
     businessAttribute?: BusinessAttributeAssociation;

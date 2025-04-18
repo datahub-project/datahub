@@ -1,28 +1,23 @@
+import { Dropdown, Menu } from 'antd';
+import { DotsThreeVertical } from 'phosphor-react';
 import React from 'react';
 import styled from 'styled-components';
-import { Dropdown, Menu } from 'antd';
+
+import { useConnectionWithRunAssertionCapabilitiesForEntityExists } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { ContractAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/ContractAction';
+import { CopyLinkAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/CopyLinkAction';
+import { CopyUrnAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/CopyUrnAction';
+import { DeleteAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/DeleteAction';
+import { ExternalUrlAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/ExternalUrlAction';
+import { RunAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/RunAction';
+import { StartStopAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/StartStopAction';
+import { SubscribeAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/SubscribeAction';
+import { useIsOnSiblingsView } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
+import { Button, colors } from '@src/alchemy-components';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { useAppConfig } from '@src/app/useAppConfig';
-import { Button, colors } from '@src/alchemy-components';
-import { DotsThreeVertical } from 'phosphor-react';
 
-import { StartStopAction } from './StartStopAction';
-import {
-    Assertion,
-    AssertionRunStatus,
-    AssertionSourceType,
-    DataContract,
-    Monitor,
-} from '../../../../../../../../../types.generated';
-import { DeleteAction } from './DeleteAction';
-import { ContractAction } from './ContractAction';
-import { CopyLinkAction } from './CopyLinkAction';
-import { CopyUrnAction } from './CopyUrnAction';
-import { SubscribeAction } from './SubscribeAction';
-import { RunAction } from './RunAction';
-import { ExternalUrlAction } from './ExternalUrlAction';
-import { useIsOnSiblingsView } from '../../../../../../useIsSeparateSiblingsMode';
-import { useConnectionWithRunAssertionCapabilitiesForEntityExists } from '../../../acrylUtils';
+import { Assertion, AssertionRunStatus, AssertionSourceType, DataContract, Monitor } from '@types';
 
 const ActionList = styled.div<{ $shouldRightAlign?: boolean }>`
     display: flex;

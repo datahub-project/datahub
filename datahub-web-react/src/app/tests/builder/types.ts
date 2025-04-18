@@ -1,4 +1,4 @@
-import { DEFAULT_TEST_CATEGORY } from '../constants';
+import { DEFAULT_TEST_CATEGORY } from '@app/tests/constants';
 
 export const DEFAULT_TEST_DEFINITION = {
     on: {

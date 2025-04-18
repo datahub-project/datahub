@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
 import { Col } from 'antd';
-import { SubscriptionContainer } from '../shared/SidebarStyledComponents';
-import { EntityLink } from '../../homeV2/reference/sections/EntityLink';
-import { GenericEntityProperties } from '../../entity/shared/types';
-import { ShowMoreSection } from '../shared/sidebarSection/ShowMoreSection';
-import { DataHubSubscription } from '../../../types.generated';
+import React, { useState } from 'react';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { SubscriptionContainer } from '@app/entityV2/shared/SidebarStyledComponents';
+import { ShowMoreSection } from '@app/entityV2/shared/sidebarSection/ShowMoreSection';
+import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
+
+import { DataHubSubscription } from '@types';
 
 const DEFAULT_MAX_ENTITIES_TO_SHOW = 4;
 

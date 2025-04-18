@@ -1,21 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { EntityType } from '../../types.generated';
-import { BrowsableEntityPage } from '../browse/BrowsableEntityPage';
-import LineageExplorer from '../lineage/LineageExplorer';
-import useIsLineageMode from '../lineage/utils/useIsLineageMode';
-import { useLineageV2 } from '../lineageV2/useLineageV2';
-import useSidebarWidth from '../sharedV2/sidebar/useSidebarWidth';
-import { useEntityRegistry } from '../useEntityRegistry';
-import analytics, { EventType } from '../analytics';
-import { decodeUrn } from './shared/utils';
-import { useGetGrantedPrivilegesQuery } from '../../graphql/policy.generated';
-import { UnauthorizedPage } from '../authorization/UnauthorizedPage';
-import { ErrorSection } from '../shared/error/ErrorSection';
-import { VIEW_ENTITY_PAGE } from './shared/constants';
-import { useUserContext } from '../context/useUserContext';
-import EntitySidebarContext from '../sharedV2/EntitySidebarContext';
-import TabFullSizedContext from '../shared/TabFullsizedContext';
+
+import analytics, { EventType } from '@app/analytics';
+import { UnauthorizedPage } from '@app/authorization/UnauthorizedPage';
+import { BrowsableEntityPage } from '@app/browse/BrowsableEntityPage';
+import { useUserContext } from '@app/context/useUserContext';
+import { VIEW_ENTITY_PAGE } from '@app/entityV2/shared/constants';
+import { decodeUrn } from '@app/entityV2/shared/utils';
+import LineageExplorer from '@app/lineage/LineageExplorer';
+import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
+import { useLineageV2 } from '@app/lineageV2/useLineageV2';
+import TabFullSizedContext from '@app/shared/TabFullsizedContext';
+import { ErrorSection } from '@app/shared/error/ErrorSection';
+import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetGrantedPrivilegesQuery } from '@graphql/policy.generated';
+import { EntityType } from '@types';
 
 interface RouteParams {
     urn: string;

@@ -1,18 +1,16 @@
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Typography } from 'antd';
-import { SlackSinkSettingsSection } from './section/SlackSinkSettingsSection';
-import { useGetGlobalSettingsQuery } from '../../../../graphql/settings.generated';
-import { EMAIL_SINK, NOTIFICATION_SINKS, SLACK_SINK } from '../../platform/types';
-import { isSinkEnabled } from '../../utils';
-import useActorSinkSettings from '../../../shared/subscribe/drawer/useSinkSettings';
-import {
-    EmailNotificationSettingsInput,
-    NotificationSinkType,
-    SlackNotificationSettingsInput,
-} from '../../../../types.generated';
-import { EmailSinkSettingsSection } from './section/EmailSinkSettingsSection';
-import { useAppConfig } from '../../../useAppConfig';
+
+import { EmailSinkSettingsSection } from '@app/settings/personal/notifications/section/EmailSinkSettingsSection';
+import { SlackSinkSettingsSection } from '@app/settings/personal/notifications/section/SlackSinkSettingsSection';
+import { EMAIL_SINK, NOTIFICATION_SINKS, SLACK_SINK } from '@app/settings/platform/types';
+import { isSinkEnabled } from '@app/settings/utils';
+import useActorSinkSettings from '@app/shared/subscribe/drawer/useSinkSettings';
+import { useAppConfig } from '@app/useAppConfig';
+
+import { useGetGlobalSettingsQuery } from '@graphql/settings.generated';
+import { EmailNotificationSettingsInput, NotificationSinkType, SlackNotificationSettingsInput } from '@types';
 
 const NotificationSettingsTitle = styled(Typography.Text)`
     font-family: 'Manrope', sans-serif;

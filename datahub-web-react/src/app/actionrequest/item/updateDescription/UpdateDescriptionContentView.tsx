@@ -4,11 +4,16 @@ import MDEditor from '@uiw/react-md-editor';
 import { Button, Modal, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { ActionRequest, ActionRequestStatus } from '../../../../types.generated';
-import CreatedByView from '../CreatedByView';
-import RequestTargetEntityView from '../RequestTargetEntityView';
-import DescriptionDifferenceModal from './DescriptionDifferenceModal';
-import { useGetDescriptionDiffFromActionRequest, useGetEntityNameFromActionRequest } from './utils';
+
+import CreatedByView from '@app/actionrequest/item/CreatedByView';
+import RequestTargetEntityView from '@app/actionrequest/item/RequestTargetEntityView';
+import DescriptionDifferenceModal from '@app/actionrequest/item/updateDescription/DescriptionDifferenceModal';
+import {
+    useGetDescriptionDiffFromActionRequest,
+    useGetEntityNameFromActionRequest,
+} from '@app/actionrequest/item/updateDescription/utils';
+
+import { ActionRequest, ActionRequestStatus } from '@types';
 
 export const ViewDocumentationButton = styled(Button)`
     color: ${blue[5]};

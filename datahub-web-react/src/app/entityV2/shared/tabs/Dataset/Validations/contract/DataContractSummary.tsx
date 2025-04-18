@@ -1,12 +1,18 @@
-import React from 'react';
-import styled from 'styled-components';
+import { Tooltip } from '@components';
 import EditIcon from '@mui/icons-material/Edit';
 import { Button, Typography } from 'antd';
-import { Tooltip } from '@components';
-import { DataContractState } from '../../../../../../../types.generated';
-import { AssertionStatusSummary } from '../acrylTypes';
-import { getContractSummaryIcon, getContractSummaryTitle, getContractSummaryMessage } from './utils';
-import { ANTD_GRAY } from '../../../../constants';
+import React from 'react';
+import styled from 'styled-components';
+
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { AssertionStatusSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
+import {
+    getContractSummaryIcon,
+    getContractSummaryMessage,
+    getContractSummaryTitle,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/contract/utils';
+
+import { DataContractState } from '@types';
 
 const SummaryHeader = styled.div`
     width: 100%;

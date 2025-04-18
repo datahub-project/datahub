@@ -1,7 +1,8 @@
+import { Form, Select } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Form, Select } from 'antd';
-import { FreshnessFieldSpec } from '../../../../../../../../../../types.generated';
+
+import { FreshnessFieldSpec } from '@types';
 
 const StyledFormItem = styled(Form.Item)`
     display: flex;

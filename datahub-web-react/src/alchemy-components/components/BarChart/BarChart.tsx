@@ -1,20 +1,30 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { colors } from '@src/alchemy-components/theme';
 import { LinearGradient } from '@visx/gradient';
+import { Group } from '@visx/group';
 import { ParentSize } from '@visx/responsive';
 import { Axis, AxisScale, BarSeries, Grid, Margin, Tooltip, XYChart } from '@visx/xychart';
-import { Group } from '@visx/group';
-import { Popover } from '../Popover';
-import { ChartWrapper, StyledBarSeries } from './components';
-import { AxisProps, BarChartProps, ColorAccessor, Datum, GridProps, XAccessor, YAccessor } from './types';
-import { getMockedProps } from './utils';
-import useMergedProps from './hooks/useMergedProps';
-import usePrepareScales from './hooks/usePrepareScales';
-import usePrepareAccessors from './hooks/usePrepareAccessors';
-import { COLOR_SCHEME_TO_PARAMS, DEFAULT_COLOR_SCHEME } from './constants';
-import TruncatableTick from './components/TruncatableTick';
-import { barChartDefault } from './defaults';
-import DynamicMarginSetter from './components/DynamicMarginSetter';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+
+import { ChartWrapper, StyledBarSeries } from '@components/components/BarChart/components';
+import DynamicMarginSetter from '@components/components/BarChart/components/DynamicMarginSetter';
+import TruncatableTick from '@components/components/BarChart/components/TruncatableTick';
+import { COLOR_SCHEME_TO_PARAMS, DEFAULT_COLOR_SCHEME } from '@components/components/BarChart/constants';
+import { barChartDefault } from '@components/components/BarChart/defaults';
+import useMergedProps from '@components/components/BarChart/hooks/useMergedProps';
+import usePrepareAccessors from '@components/components/BarChart/hooks/usePrepareAccessors';
+import usePrepareScales from '@components/components/BarChart/hooks/usePrepareScales';
+import {
+    AxisProps,
+    BarChartProps,
+    ColorAccessor,
+    Datum,
+    GridProps,
+    XAccessor,
+    YAccessor,
+} from '@components/components/BarChart/types';
+import { getMockedProps } from '@components/components/BarChart/utils';
+import { Popover } from '@components/components/Popover';
+
+import { colors } from '@src/alchemy-components/theme';
 
 export function BarChart({
     data,

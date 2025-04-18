@@ -1,36 +1,37 @@
 import { CloseCircleFilled, SearchOutlined } from '@ant-design/icons';
-import { colors, radius, spacing, transition } from '@src/alchemy-components';
-import { AutoComplete } from '@src/alchemy-components/components/AutoComplete';
 import { Input, Skeleton } from 'antd';
 import { debounce } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
-import analytics, { Event, EventType } from '../../analytics';
-import { ANTD_GRAY_V2 } from '../../entity/shared/constants';
-import { getEntityPath } from '../../entity/shared/containers/profile/utils';
-import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
-import { ViewSelect } from '../../entityV2/view/select/ViewSelect';
-import { V2_SEARCH_BAR_VIEWS } from '../../onboarding/configV2/HomePageOnboardingConfig';
-import { useAppConfig, useIsShowSeparateSiblingsEnabled } from '../../useAppConfig';
-import { CommandK } from '../CommandK';
-import useAppliedFilters from '../filtersV2/context/useAppliedFilters';
-import filterSearchQuery from '../utils/filterSearchQuery';
-import AutocompleteFooter from './components/AutocompleteFooter';
-import AutocompletePlaceholder from './components/AutocompletePlaceholder';
-import Filters from './components/Filters';
+
+import analytics, { Event, EventType } from '@app/analytics';
+import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { ViewSelect } from '@app/entityV2/view/select/ViewSelect';
+import { V2_SEARCH_BAR_VIEWS } from '@app/onboarding/configV2/HomePageOnboardingConfig';
+import { CommandK } from '@app/searchV2/CommandK';
+import { SearchBarProps } from '@app/searchV2/SearchBar';
+import useAppliedFilters from '@app/searchV2/filtersV2/context/useAppliedFilters';
+import AutocompleteFooter from '@app/searchV2/searchBarV2/components/AutocompleteFooter';
+import AutocompletePlaceholder from '@app/searchV2/searchBarV2/components/AutocompletePlaceholder';
+import Filters from '@app/searchV2/searchBarV2/components/Filters';
 import {
     AUTOCOMPLETE_DROPDOWN_ALIGN_WITH_NEW_NAV_BAR,
     DEBOUNCE_ON_SEARCH_TIMEOUT_MS,
     EXACT_AUTOCOMPLETE_OPTION_TYPE,
     RELEVANCE_QUERY_OPTION_TYPE,
-} from './constants';
-import useAutocompleteSuggestionsOptions from './hooks/useAutocompleteSuggestionsOptions';
-import useFocusElementByCommandK from './hooks/useFocusSearchBarByCommandK';
-import useRecentlySearchedQueriesOptions from './hooks/useRecentlySearchedQueriesOptions';
-import useRecentlyViewedEntitiesOptions from './hooks/useRecentlyViewedEntitiesOptions';
-import useViewAllResultsOptions from './hooks/useViewAllResultsOptions';
-import { SearchBarProps } from '../SearchBar';
+} from '@app/searchV2/searchBarV2/constants';
+import useAutocompleteSuggestionsOptions from '@app/searchV2/searchBarV2/hooks/useAutocompleteSuggestionsOptions';
+import useFocusElementByCommandK from '@app/searchV2/searchBarV2/hooks/useFocusSearchBarByCommandK';
+import useRecentlySearchedQueriesOptions from '@app/searchV2/searchBarV2/hooks/useRecentlySearchedQueriesOptions';
+import useRecentlyViewedEntitiesOptions from '@app/searchV2/searchBarV2/hooks/useRecentlyViewedEntitiesOptions';
+import useViewAllResultsOptions from '@app/searchV2/searchBarV2/hooks/useViewAllResultsOptions';
+import filterSearchQuery from '@app/searchV2/utils/filterSearchQuery';
+import { useAppConfig, useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
+import { colors, radius, spacing, transition } from '@src/alchemy-components';
+import { AutoComplete } from '@src/alchemy-components/components/AutoComplete';
 
 const BOX_SHADOW = `0px -3px 12px 0px rgba(236, 240, 248, 0.5) inset,
 0px 3px 12px 0px rgba(255, 255, 255, 0.5) inset,

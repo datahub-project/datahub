@@ -1,15 +1,12 @@
-import React from 'react';
 import { Form, InputNumber, Select } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { AssertionMonitorBuilderState } from '../../types';
-import {
-    AssertionStdOperator,
-    AssertionStdParameterType,
-    AssertionValueChangeType,
-    SqlAssertionType,
-} from '../../../../../../../../../../types.generated';
-import { SQL_CHANGE_TYPE_OPTIONS } from './utils';
-import { SqlParametersRangeBuilder } from './SqlParametersRangeBuilder';
+
+import { SqlParametersRangeBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/sql/SqlParametersRangeBuilder';
+import { SQL_CHANGE_TYPE_OPTIONS } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/sql/utils';
+import { AssertionMonitorBuilderState } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
+
+import { AssertionStdOperator, AssertionStdParameterType, AssertionValueChangeType, SqlAssertionType } from '@types';
 
 const StyledSelect = styled(Select)`
     width: 120px;

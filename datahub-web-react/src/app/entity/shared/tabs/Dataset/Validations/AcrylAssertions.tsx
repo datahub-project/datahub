@@ -1,25 +1,29 @@
-import React, { useState } from 'react';
 import { PlusOutlined } from '@ant-design/icons';
-import { Button } from 'antd';
 import { Tooltip } from '@components';
-import { TableLoadingSkeleton } from '@src/app/entityV2/shared/TableLoadingSkeleton';
+import { Button } from 'antd';
+import React, { useState } from 'react';
 
-import { useGetDatasetAssertionsWithMonitorsQuery } from '../../../../../../graphql/monitor.generated';
-import { useEntityData } from '../../../EntityContext';
-import { DatasetAssertionsSummary } from './DatasetAssertionsSummary';
-import { useAppConfig } from '../../../../../useAppConfig';
-import { AssertionMonitorBuilderDrawer } from './assertion/builder/AssertionMonitorBuilderDrawer';
-import TabToolbar from '../../../components/styled/TabToolbar';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
+import { AssertionGroupTable } from '@app/entity/shared/tabs/Dataset/Validations/AssertionGroupTable';
+import { DatasetAssertionsSummary } from '@app/entity/shared/tabs/Dataset/Validations/DatasetAssertionsSummary';
+import {
+    createCachedAssertionWithMonitor,
+    updateDatasetAssertionsCache,
+} from '@app/entity/shared/tabs/Dataset/Validations/acrylCacheUtils';
 import {
     AssertionWithMonitorDetails,
     createAssertionGroups,
     getLegacyAssertionsSummary,
     tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery,
-} from './acrylUtils';
-import { AssertionGroupTable } from './AssertionGroupTable';
-import { updateDatasetAssertionsCache, createCachedAssertionWithMonitor } from './acrylCacheUtils';
-import { useGetDatasetContractQuery } from '../../../../../../graphql/contract.generated';
-import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '../../../siblingUtils';
+} from '@app/entity/shared/tabs/Dataset/Validations/acrylUtils';
+import { AssertionMonitorBuilderDrawer } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/AssertionMonitorBuilderDrawer';
+import { useAppConfig } from '@app/useAppConfig';
+import { TableLoadingSkeleton } from '@src/app/entityV2/shared/TableLoadingSkeleton';
+
+import { useGetDatasetContractQuery } from '@graphql/contract.generated';
+import { useGetDatasetAssertionsWithMonitorsQuery } from '@graphql/monitor.generated';
 
 /**
  * Component used for rendering the Assertions Sub Tab on the Validations Tab

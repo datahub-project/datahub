@@ -1,11 +1,13 @@
 import { Button, Modal, Table, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { DatasetProfile } from '../../../../../../../../types.generated';
-import { formatBytes, formatNumberWithoutAbbreviation } from '../../../../../../../shared/formatNumber';
-import { FULL_TABLE_PARTITION_KEYS } from '../../constants';
-import ColumnStats from '../../snapshot/ColumnStats';
-import TableStats from '../../snapshot/TableStats';
+
+import { FULL_TABLE_PARTITION_KEYS } from '@app/entityV2/shared/tabs/Dataset/Stats/constants';
+import ColumnStats from '@app/entityV2/shared/tabs/Dataset/Stats/snapshot/ColumnStats';
+import TableStats from '@app/entityV2/shared/tabs/Dataset/Stats/snapshot/TableStats';
+import { formatBytes, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+
+import { DatasetProfile } from '@types';
 
 export const ChartTable = styled(Table)`
     margin-top: 16px;

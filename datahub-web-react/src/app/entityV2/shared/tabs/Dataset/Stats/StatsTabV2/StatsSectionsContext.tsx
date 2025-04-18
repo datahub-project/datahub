@@ -1,10 +1,11 @@
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+
+import useGetTimeseriesCapabilities from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/hooks/useGetTimeseriesCapabilities';
+import { SectionKeys, getSiblingEntityWithStats } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
 import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import { GetDatasetQuery } from '@src/graphql/dataset.generated';
 import { Entity } from '@src/types.generated';
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import useGetTimeseriesCapabilities from './graphs/hooks/useGetTimeseriesCapabilities';
-import { getSiblingEntityWithStats, SectionKeys } from './utils';
 
 export interface Section {
     hasData: boolean;

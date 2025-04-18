@@ -1,7 +1,8 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import CompactMarkdownViewer from '../../../../tabs/Documentation/components/CompactMarkdownViewer';
-import { REDESIGN_COLORS } from '../../../../constants';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 
 const ContentWrapper = styled.div`
     font-size: 12px;

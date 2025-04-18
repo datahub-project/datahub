@@ -1,9 +1,10 @@
-import React from 'react';
 import LaunchIcon from '@mui/icons-material/Launch';
+import React from 'react';
 import styled from 'styled-components';
-import { colors, Popover } from '@src/alchemy-components';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { Popover, colors } from '@src/alchemy-components';
 import useMeasureIfTrancated from '@src/app/shared/useMeasureIfTruncated';
-import { REDESIGN_COLORS } from '../constants';
 
 const Link = styled.a`
     display: flex;

@@ -1,7 +1,15 @@
 import { Button } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { FacetFilterInput, FacetMetadata } from '../../types.generated';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { ViewBuilder } from '@app/entity/view/builder/ViewBuilder';
+import { ViewBuilderMode } from '@app/entity/view/builder/types';
+import { buildInitialViewState, fromUnionType } from '@app/entity/view/builder/utils';
+import { SEARCH_RESULTS_ADVANCED_SEARCH_ID } from '@app/onboarding/config/SearchOnboardingConfig';
+import { AdvancedSearchFilters } from '@app/search/AdvancedSearchFilters';
+import { SaveAsViewButton } from '@app/search/SaveAsViewButton';
+import { SimpleSearchFilters } from '@app/search/SimpleSearchFilters';
 import {
     COMPLETED_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME,
     COMPLETED_FORMS_FILTER_NAME,
@@ -9,16 +17,10 @@ import {
     INCOMPLETE_FORMS_FILTER_NAME,
     UnionType,
     VERIFIED_FORMS_FILTER_NAME,
-} from './utils/constants';
-import { hasAdvancedFilters } from './utils/hasAdvancedFilters';
-import { AdvancedSearchFilters } from './AdvancedSearchFilters';
-import { SimpleSearchFilters } from './SimpleSearchFilters';
-import { SEARCH_RESULTS_ADVANCED_SEARCH_ID } from '../onboarding/config/SearchOnboardingConfig';
-import { ViewBuilder } from '../entity/view/builder/ViewBuilder';
-import { buildInitialViewState, fromUnionType } from '../entity/view/builder/utils';
-import { SaveAsViewButton } from './SaveAsViewButton';
-import { useUserContext } from '../context/useUserContext';
-import { ViewBuilderMode } from '../entity/view/builder/types';
+} from '@app/search/utils/constants';
+import { hasAdvancedFilters } from '@app/search/utils/hasAdvancedFilters';
+
+import { FacetFilterInput, FacetMetadata } from '@types';
 
 type Props = {
     filters?: Array<FacetMetadata> | null;

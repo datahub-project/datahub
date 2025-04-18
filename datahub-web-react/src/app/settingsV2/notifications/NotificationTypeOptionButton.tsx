@@ -1,6 +1,7 @@
-import React from 'react';
 import { EditOutlined } from '@ant-design/icons';
+import React from 'react';
 import styled from 'styled-components';
+
 import { Button } from '@src/alchemy-components';
 
 type Props = {

@@ -2,11 +2,12 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { DataProduct, EntityType } from '../../../../types.generated';
-import EntityCount from '../containers/profile/header/EntityCount';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { HoverEntityTooltip } from '../../../recommendations/renderer/component/HoverEntityTooltip';
-import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '../../../entity/shared/constants';
+import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '@app/entity/shared/constants';
+import EntityCount from '@app/entityV2/shared/containers/profile/header/EntityCount';
+import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { DataProduct, EntityType } from '@types';
 
 const DomainInfoContainer = styled.div`
     display: flex;

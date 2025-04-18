@@ -1,30 +1,25 @@
-import React from 'react';
-import styled from 'styled-components';
-import { Tooltip } from '@components';
 import { AuditOutlined } from '@ant-design/icons';
-import { Link } from 'react-router-dom';
-import moment from 'moment';
 import WarningIcon from '@ant-design/icons/WarningFilled';
-import {
-    Assertion,
-    EntityType,
-    DataContract,
-    AssertionSourceType,
-    AssertionRunEvent,
-    Monitor,
-} from '../../../../../../types.generated';
-import { InferredAssertionPopover } from './InferredAssertionPopover';
-import { InferredAssertionBadge } from './InferredAssertionBadge';
-import { REDESIGN_COLORS } from '../../../constants';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { isMonitorActive, extractLatestGeneratedAt } from './acrylUtils';
-import { isAssertionPartOfContract } from './contract/utils';
-import { AssertionDescription } from './assertion/profile/summary/AssertionDescription';
-import { AssertionResultDot } from './assertion/profile/shared/AssertionResultDot';
-import { AssertionResultPopover } from './assertion/profile/shared/result/AssertionResultPopover';
-import { ResultStatusType } from './assertion/profile/summary/shared/resultMessageUtils';
-import { useEntityData } from '../../../../../entity/shared/EntityContext';
-import { AssertionListItemActions } from './assertion/profile/actions/AssertionListItemActions';
+import { Tooltip } from '@components';
+import moment from 'moment';
+import React from 'react';
+import { Link } from 'react-router-dom';
+import styled from 'styled-components';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { InferredAssertionBadge } from '@app/entityV2/shared/tabs/Dataset/Validations/InferredAssertionBadge';
+import { InferredAssertionPopover } from '@app/entityV2/shared/tabs/Dataset/Validations/InferredAssertionPopover';
+import { extractLatestGeneratedAt, isMonitorActive } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { AssertionListItemActions } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/AssertionListItemActions';
+import { AssertionResultDot } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/AssertionResultDot';
+import { AssertionResultPopover } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopover';
+import { AssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/AssertionDescription';
+import { ResultStatusType } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultMessageUtils';
+import { isAssertionPartOfContract } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Assertion, AssertionRunEvent, AssertionSourceType, DataContract, EntityType, Monitor } from '@types';
 
 const DetailsContainer = styled.div`
     display: flex;

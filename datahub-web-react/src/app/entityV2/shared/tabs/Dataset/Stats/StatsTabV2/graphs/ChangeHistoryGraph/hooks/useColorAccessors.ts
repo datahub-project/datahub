@@ -1,7 +1,11 @@
-import { CalendarData } from '@src/alchemy-components/components/CalendarChart/types';
 import { useMemo } from 'react';
-import { AnyOperationType, OperationsData } from '../types';
-import { createColorAccessors } from '../utils';
+
+import {
+    AnyOperationType,
+    OperationsData,
+} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/types';
+import { createColorAccessors } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/utils';
+import { CalendarData } from '@src/alchemy-components/components/CalendarChart/types';
 
 export default function useColorAccessors(
     summary: OperationsData | undefined,

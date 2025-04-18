@@ -1,20 +1,16 @@
-import { useShouldShowInferDocumentationButton } from '@src/app/entityV2/shared/components/inferredDocs/utils';
-import usePrevious from '@src/app/shared/usePrevious';
 import { isEqual } from 'lodash';
 import { useEffect, useMemo, useState } from 'react';
-import {
-    EditableSchemaFieldInfo,
-    FormPrompt,
-    FormPromptType,
-    SchemaField,
-    SubmitFormPromptInput,
-} from '../../../../../../types.generated';
-import { useEntityData } from '../../../EntityContext';
-import { getPromptAssociation } from '../../../containers/profile/sidebar/FormInfo/utils';
-import { useGetEntityWithSchema } from '../../../tabs/Dataset/Schema/useGetEntitySchema';
-import { FormView, useEntityFormContext } from '../../EntityFormContext';
-import { SCHEMA_FIELD_PROMPT_TYPES } from '../../constants';
-import { getInitialDocumentationValues } from './utils';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { getPromptAssociation } from '@app/entity/shared/containers/profile/sidebar/FormInfo/utils';
+import { FormView, useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
+import { SCHEMA_FIELD_PROMPT_TYPES } from '@app/entity/shared/entityForm/constants';
+import { getInitialDocumentationValues } from '@app/entity/shared/entityForm/prompts/DocumentationPrompt/utils';
+import { useGetEntityWithSchema } from '@app/entity/shared/tabs/Dataset/Schema/useGetEntitySchema';
+import { useShouldShowInferDocumentationButton } from '@src/app/entityV2/shared/components/inferredDocs/utils';
+import usePrevious from '@src/app/shared/usePrevious';
+
+import { EditableSchemaFieldInfo, FormPrompt, FormPromptType, SchemaField, SubmitFormPromptInput } from '@types';
 
 interface Props {
     prompt: FormPrompt;

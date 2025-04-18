@@ -1,13 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import { PlusOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
 import { DeleteOutline } from '@mui/icons-material';
 import { Button, Input, Select, Table } from 'antd';
-import { Tooltip } from '@components';
-import { PlusOutlined } from '@ant-design/icons';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { SchemaAssertionField, SchemaFieldDataType } from '../../../../../../../../../../types.generated';
-import { EditButton } from '../../details/EditButton';
-import { SaveButton } from '../../details/SaveButton';
-import { areExpectedColumnsValid, supportedSchemaFieldTypes } from './utils';
+
+import { EditButton } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/details/EditButton';
+import { SaveButton } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/details/SaveButton';
+import {
+    areExpectedColumnsValid,
+    supportedSchemaFieldTypes,
+} from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/schema/utils';
+
+import { SchemaAssertionField, SchemaFieldDataType } from '@types';
 
 const ButtonWrapper = styled.div`
     max-width: 100px;

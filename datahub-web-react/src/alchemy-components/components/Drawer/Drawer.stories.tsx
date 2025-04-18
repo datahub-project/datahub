@@ -1,10 +1,11 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
 import React, { useState } from 'react';
-import { Button } from '../Button';
-import { Drawer } from './Drawer';
-import { DrawerProps } from './types';
-import { drawerDefault } from './defaults';
+
+import { Button } from '@components/components/Button';
+import { Drawer } from '@components/components/Drawer/Drawer';
+import { drawerDefault } from '@components/components/Drawer/defaults';
+import { DrawerProps } from '@components/components/Drawer/types';
 
 // Auto Docs
 const meta = {

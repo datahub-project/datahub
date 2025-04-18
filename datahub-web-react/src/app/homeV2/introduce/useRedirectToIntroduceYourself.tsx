@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { useHistory } from 'react-router';
-import { PageRoutes } from '../../../conf/Global';
-import { useLoadUserPersona } from '../persona/useLoadUserPersona';
+
+import { useLoadUserPersona } from '@app/homeV2/persona/useLoadUserPersona';
+import { PageRoutes } from '@conf/Global';
 
 const SKIP_INTRODUCE_PAGE_KEY = 'skipAcrylIntroducePage';
 

@@ -1,6 +1,10 @@
-import { DatePicker, DatePickerVariant, DatePickerValue } from '@components';
+import { DatePicker, DatePickerValue, DatePickerVariant } from '@components';
 import React, { useEffect, useState } from 'react';
-import { dateStringToMoment, momentToDateString } from '../utils';
+
+import {
+    dateStringToMoment,
+    momentToDateString,
+} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/utils';
 
 type DateSwitcherProps = {
     value?: string | null;

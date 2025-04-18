@@ -1,16 +1,16 @@
 import {
-    AssertionType,
     AssertionEvaluationParametersType,
-    DateInterval,
-    EntityType,
-    SchemaFieldDataType,
-    FreshnessAssertionScheduleType,
-    FreshnessAssertionType,
-    VolumeAssertionType,
-    SqlAssertionType,
     AssertionStdOperator,
     AssertionStdParameterType,
-} from '../../../../../../../../types.generated';
+    AssertionType,
+    DateInterval,
+    EntityType,
+    FreshnessAssertionScheduleType,
+    FreshnessAssertionType,
+    SchemaFieldDataType,
+    SqlAssertionType,
+    VolumeAssertionType,
+} from '@types';
 
 // Every 6 hours.
 export const DEFAULT_ASSERTION_EVALUATION_SCHEDULE = '0 */6 * * *';

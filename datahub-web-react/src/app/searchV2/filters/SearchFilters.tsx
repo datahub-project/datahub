@@ -1,26 +1,28 @@
 import React from 'react';
 import styled from 'styled-components';
-import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
-import { SEARCH_RESULTS_FILTERS_ID } from '../../onboarding/config/SearchOnboardingConfig';
-import SearchFilterOptions from './SearchFilterOptions';
-import SelectedSearchFilters from './SelectedSearchFilters';
+
+import { SEARCH_RESULTS_FILTERS_ID } from '@app/onboarding/config/SearchOnboardingConfig';
+import SearchFilterOptions from '@app/searchV2/filters/SearchFilterOptions';
+import SelectedSearchFilters from '@app/searchV2/filters/SelectedSearchFilters';
 import {
-    ENTITY_INDEX_FILTER_NAME,
-    TYPE_NAMES_FILTER_NAME,
-    UnionType,
-    LEGACY_ENTITY_FILTER_NAME,
     BROWSE_PATH_V2_FILTER_NAME,
-    COMPLETED_FORMS_FILTER_NAME,
-    INCOMPLETE_FORMS_FILTER_NAME,
-    VERIFIED_FORMS_FILTER_NAME,
     COMPLETED_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME,
-    INCOMPLETE_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME,
+    COMPLETED_FORMS_FILTER_NAME,
+    ENTITY_INDEX_FILTER_NAME,
     ENTITY_SUB_TYPE_FILTER_NAME,
+    INCOMPLETE_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME,
+    INCOMPLETE_FORMS_FILTER_NAME,
+    LEGACY_ENTITY_FILTER_NAME,
     PROPOSED_GLOSSARY_TERMS_FILTER_NAME,
     PROPOSED_SCHEMA_GLOSSARY_TERMS_FILTER_NAME,
     PROPOSED_SCHEMA_TAGS_FILTER_NAME,
-} from '../utils/constants';
+    TYPE_NAMES_FILTER_NAME,
+    UnionType,
+    VERIFIED_FORMS_FILTER_NAME,
+} from '@app/searchV2/utils/constants';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+
+import { FacetFilterInput, FacetMetadata } from '@types';
 
 const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     background-color: #ffffff;

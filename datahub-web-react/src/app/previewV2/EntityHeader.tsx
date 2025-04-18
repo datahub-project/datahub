@@ -1,18 +1,20 @@
-import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
+import { Tooltip } from '@components';
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Tooltip } from '@components';
 import styled from 'styled-components';
-import { Deprecation, Health, Maybe } from '../../types.generated';
-import { GenericEntityProperties } from '../entity/shared/types';
-import { PreviewType } from '../entityV2/Entity';
-import { DeprecationIcon } from '../entityV2/shared/components/styled/DeprecationIcon';
-import { REDESIGN_COLORS, SEARCH_COLORS } from '../entityV2/shared/constants';
-import StructuredPropertyBadge from '../entityV2/shared/containers/profile/header/StructuredPropertyBadge';
-import { getNumberWithOrdinal } from '../entityV2/shared/utils';
-import SearchTextHighlighter from '../searchV2/matches/SearchTextHighlighter';
-import { useEmbeddedProfileLinkProps } from '../shared/useEmbeddedProfileLinkProps';
-import HealthIcon from './HealthIcon';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { PreviewType } from '@app/entityV2/Entity';
+import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
+import { REDESIGN_COLORS, SEARCH_COLORS } from '@app/entityV2/shared/constants';
+import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
+import { getNumberWithOrdinal } from '@app/entityV2/shared/utils';
+import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
+import HealthIcon from '@app/previewV2/HealthIcon';
+import SearchTextHighlighter from '@app/searchV2/matches/SearchTextHighlighter';
+import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
+
+import { Deprecation, Health, Maybe } from '@types';
 
 const EntityTitleContainer = styled.div`
     display: flex;

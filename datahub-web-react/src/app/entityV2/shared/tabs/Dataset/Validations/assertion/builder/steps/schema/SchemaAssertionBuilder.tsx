@@ -1,18 +1,20 @@
 import React, { useEffect } from 'react';
+
+import { EvaluationScheduleBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/common/EvaluationScheduleBuilder';
+import { convertSchemaMetadataToAssertionFields } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/utils';
+import { CompatibilityBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/schema/CompatibilityBuilder';
+import { SchemaBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/schema/SchemaBuilder';
+import { AssertionMonitorBuilderState } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
 import { nullsToUndefined } from '@src/app/entityV2/shared/utils';
-import { AssertionMonitorBuilderState } from '../../types';
+
+import { useGetDatasetSchemaQuery } from '@graphql/dataset.generated';
 import {
     AssertionType,
     CronSchedule,
     SchemaAssertionCompatibility,
     SchemaAssertionField,
     SchemaMetadata,
-} from '../../../../../../../../../../types.generated';
-import { CompatibilityBuilder } from './CompatibilityBuilder';
-import { SchemaBuilder } from './SchemaBuilder';
-import { useGetDatasetSchemaQuery } from '../../../../../../../../../../graphql/dataset.generated';
-import { convertSchemaMetadataToAssertionFields } from '../field/utils';
-import { EvaluationScheduleBuilder } from '../common/EvaluationScheduleBuilder';
+} from '@types';
 
 type Props = {
     state: AssertionMonitorBuilderState;

@@ -1,6 +1,7 @@
 import { Select, Tag } from 'antd';
 import React from 'react';
-import { SelectOption } from '../types/values';
+
+import { SelectOption } from '@app/tests/builder/steps/definition/builder/property/types/values';
 
 type Props = {
     options: SelectOption[];

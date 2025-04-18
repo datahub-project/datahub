@@ -1,16 +1,18 @@
+import { Form, Modal, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { message, Modal, Typography, Form } from 'antd';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+
+import { useRefetch } from '@app/entity/shared/EntityContext';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import NodeParentSelect from '@app/entityV2/shared/EntityDropdown/NodeParentSelect';
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
+import { getGlossaryRootToUpdate, getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button } from '@src/alchemy-components';
-import { useRefetch } from '../../../entity/shared/EntityContext';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useUpdateParentNodeMutation } from '../../../../graphql/glossary.generated';
-import NodeParentSelect from './NodeParentSelect';
-import { useGlossaryEntityData } from '../GlossaryEntityContext';
-import { getGlossaryRootToUpdate, getParentNodeToUpdate, updateGlossarySidebar } from '../../../glossary/utils';
-import { GenericEntityProperties } from '../../../entity/shared/types';
-import { EntityType } from '../../../../types.generated';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+
+import { useUpdateParentNodeMutation } from '@graphql/glossary.generated';
+import { EntityType } from '@types';
 
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;

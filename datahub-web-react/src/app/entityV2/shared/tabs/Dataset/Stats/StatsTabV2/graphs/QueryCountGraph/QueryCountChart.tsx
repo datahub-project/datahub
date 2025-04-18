@@ -1,19 +1,25 @@
 import { BarChart, GraphCard } from '@components';
+import React, { useEffect, useState } from 'react';
+
+import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
+import NoPermission from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/NoPermission';
+import useQueryCountData, {
+    ChartData,
+} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/QueryCountGraph/useQueryCountData';
+import GraphPopover from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/GraphPopover';
+import MonthOverMonthPill from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/MonthOverMonthPill';
+import MoreInfoModalContent from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/MoreInfoModalContent';
+import TimeRangeSelect from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/TimeRangeSelect';
+import { AGGRAGATION_TIME_RANGE_OPTIONS } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/constants';
+import useGetTimeRangeOptionsByTimeRange from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/hooks/useGetTimeRangeOptionsByTimeRange';
+import {
+    getPopoverTimeFormat,
+    getXAxisTickFormat,
+} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/utils';
+import { SectionKeys } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
+import { formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
 import { pluralize } from '@src/app/shared/textUtil';
 import { TimeRange } from '@src/types.generated';
-import React, { useEffect, useState } from 'react';
-import { formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
-import { useStatsSectionsContext } from '../../StatsSectionsContext';
-import GraphPopover from '../components/GraphPopover';
-import MonthOverMonthPill from '../components/MonthOverMonthPill';
-import MoreInfoModalContent from '../components/MoreInfoModalContent';
-import TimeRangeSelect from '../components/TimeRangeSelect';
-import { AGGRAGATION_TIME_RANGE_OPTIONS } from '../constants';
-import useGetTimeRangeOptionsByTimeRange from '../hooks/useGetTimeRangeOptionsByTimeRange';
-import NoPermission from '../NoPermission';
-import { getPopoverTimeFormat, getXAxisTickFormat } from '../utils';
-import useQueryCountData, { ChartData } from './useQueryCountData';
-import { SectionKeys } from '../../utils';
 
 const QueryCountChart = () => {
     const {

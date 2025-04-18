@@ -1,18 +1,20 @@
-import React, { CSSProperties, useEffect, useRef, useState } from 'react';
-import { useHistory } from 'react-router';
 import { Select } from 'antd';
-import styled from 'styled-components';
+import React, { CSSProperties, useEffect, useRef, useState } from 'react';
 import { VscTriangleDown } from 'react-icons/vsc';
-import { useListMyViewsQuery, useListGlobalViewsQuery } from '../../../../graphql/view.generated';
-import { useUserContext } from '../../../context/useUserContext';
-import { DataHubView, DataHubViewType } from '../../../../types.generated';
-import { ViewBuilder } from '../builder/ViewBuilder';
-import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '../utils';
-import { PageRoutes } from '../../../../conf/Global';
-import { ViewBuilderMode } from '../builder/types';
-import { ViewSelectDropdown } from './ViewSelectDropdown';
-import { renderViewOptionGroup } from './renderViewOptionGroup';
-import { ANTD_GRAY_V2 } from '../../shared/constants';
+import { useHistory } from 'react-router';
+import styled from 'styled-components';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+import { ViewBuilder } from '@app/entity/view/builder/ViewBuilder';
+import { ViewBuilderMode } from '@app/entity/view/builder/types';
+import { ViewSelectDropdown } from '@app/entity/view/select/ViewSelectDropdown';
+import { renderViewOptionGroup } from '@app/entity/view/select/renderViewOptionGroup';
+import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '@app/entity/view/utils';
+import { PageRoutes } from '@conf/Global';
+
+import { useListGlobalViewsQuery, useListMyViewsQuery } from '@graphql/view.generated';
+import { DataHubView, DataHubViewType } from '@types';
 
 type ViewBuilderDisplayState = {
     mode: ViewBuilderMode;

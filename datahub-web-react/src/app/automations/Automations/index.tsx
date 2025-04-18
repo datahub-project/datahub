@@ -1,30 +1,26 @@
-import React, { useMemo, useState } from 'react';
-import { uniq, orderBy } from 'lodash';
-import { PageTitle } from '@src/alchemy-components/components/PageTitle';
 import { Button } from '@components';
-import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import { orderBy, uniq } from 'lodash';
+import React, { useMemo, useState } from 'react';
+
+import { AutomationContextProvider } from '@app/automations/Automations/AutomationProvider';
+import { AutomationsContextProvider, useAutomationsContext } from '@app/automations/Automations/AutomationsProvider';
+import { AutomationCreateModal } from '@app/automations/Automations/CreateModal';
+import { EmptyState } from '@app/automations/Automations/EmptyState';
+import { AutomationsListCard } from '@app/automations/Automations/ListCard';
 import {
+    AutomationsBody,
+    AutomationsContent,
+    AutomationsContentBody,
+    AutomationsContentHeader,
+    AutomationsContentTab,
+    AutomationsContentTabs,
     AutomationsPageContainer,
     AutomationsSidebar,
-    AutomationsContent,
-    AutomationsContentHeader,
-    AutomationsContentBody,
-    AutomationsContentTabs,
-    AutomationsContentTab,
-    AutomationsBody,
     ScrollableContent,
-} from './components';
-
-import { env } from '../constants';
-
-import { AutomationsContextProvider, useAutomationsContext } from './AutomationsProvider';
-
-import { AutomationsListCard } from './ListCard';
-
-import { AutomationContextProvider } from './AutomationProvider';
-import { AutomationCreateModal } from './CreateModal';
-
-import { EmptyState } from './EmptyState';
+} from '@app/automations/Automations/components';
+import { env } from '@app/automations/constants';
+import { PageTitle } from '@src/alchemy-components/components/PageTitle';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 const AutomationPage = React.memo(() => {
     // Rollout Variables (UI only)

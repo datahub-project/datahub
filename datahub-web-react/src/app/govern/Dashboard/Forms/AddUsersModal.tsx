@@ -1,14 +1,20 @@
+import { Form, Select } from 'antd';
+import React, { useContext, useState } from 'react';
+
+import ManageFormContext from '@app/govern/Dashboard/Forms/ManageFormContext';
+import UserOrGroupSelect from '@app/govern/Dashboard/Forms/UserOrGroupSelect';
+import {
+    FieldLabel,
+    FooterButtonsContainer,
+    FormFieldsContainer,
+    StyledModal,
+} from '@app/govern/Dashboard/Forms/styledComponents';
 import { Button, Text } from '@src/alchemy-components';
 import { OwnerLabel } from '@src/app/shared/OwnerLabel';
 import { useGetRecommendations } from '@src/app/shared/recommendation';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useGetAutoCompleteResultsLazyQuery } from '@src/graphql/search.generated';
 import { CorpGroup, CorpUser, Entity, EntityType } from '@src/types.generated';
-import { Form, Select } from 'antd';
-import React, { useContext, useState } from 'react';
-import ManageFormContext from './ManageFormContext';
-import UserOrGroupSelect from './UserOrGroupSelect';
-import { FieldLabel, FooterButtonsContainer, FormFieldsContainer, StyledModal } from './styledComponents';
 
 interface Props {
     showUsersModal: boolean;

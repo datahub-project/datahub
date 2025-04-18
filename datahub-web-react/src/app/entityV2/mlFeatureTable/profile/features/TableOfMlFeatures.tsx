@@ -1,17 +1,18 @@
-import React, { useState } from 'react';
-import { Table, Typography } from 'antd';
 import { CheckSquareOutlined } from '@ant-design/icons';
+import { Table, Typography } from 'antd';
 import { AlignType } from 'rc-table/lib/interface';
-import styled from 'styled-components';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import styled from 'styled-components';
 
-import MlFeatureDataTypeIcon from './MlFeatureDataTypeIcon';
-import { MlFeatureDataType, MlPrimaryKey, MlFeature } from '../../../../../types.generated';
-import { useRefetch } from '../../../../entity/shared/EntityContext';
-import TagTermGroup from '../../../../sharedV2/tags/TagTermGroup';
-import SchemaDescriptionField from '../../../dataset/profile/schema/components/SchemaDescriptionField';
-import { useUpdateDescriptionMutation } from '../../../../../graphql/mutations.generated';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
+import { useRefetch } from '@app/entity/shared/EntityContext';
+import SchemaDescriptionField from '@app/entityV2/dataset/profile/schema/components/SchemaDescriptionField';
+import MlFeatureDataTypeIcon from '@app/entityV2/mlFeatureTable/profile/features/MlFeatureDataTypeIcon';
+import TagTermGroup from '@app/sharedV2/tags/TagTermGroup';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useUpdateDescriptionMutation } from '@graphql/mutations.generated';
+import { MlFeature, MlFeatureDataType, MlPrimaryKey } from '@types';
 
 const FeaturesContainer = styled.div`
     margin-bottom: 100px;

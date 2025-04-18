@@ -1,9 +1,11 @@
 import { MoreOutlined } from '@ant-design/icons';
-import { LineageDisplayContext, onClickPreventSelect } from '@app/lineageV2/common';
-import Colors from '@components/theme/foundations/colors';
 import { Button, Dropdown } from 'antd';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
+
+import Colors from '@components/theme/foundations/colors';
+
+import { LineageDisplayContext, onClickPreventSelect } from '@app/lineageV2/common';
 
 const DROPDOWN_Z_INDEX = 100;
 

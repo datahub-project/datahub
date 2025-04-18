@@ -1,10 +1,11 @@
-import { StyledTable } from '@src/app/entityV2/shared/components/styled/StyledTable';
-import { ListRemoteExecutorsResult, Maybe } from '@src/types.generated';
 import { Button, Empty, Pagination, Typography } from 'antd';
+import { ArrowClockwise } from 'phosphor-react';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { ArrowClockwise } from 'phosphor-react';
-import { ActiveTasksColumn, DetailsColumn, StatusColumn, TimeColumn } from './Columns';
+
+import { ActiveTasksColumn, DetailsColumn, StatusColumn, TimeColumn } from '@app/ingest/executor_saas/Columns';
+import { StyledTable } from '@src/app/entityV2/shared/components/styled/StyledTable';
+import { ListRemoteExecutorsResult, Maybe } from '@src/types.generated';
 
 const PaginationInfoContainer = styled.span`
     padding: 8px;

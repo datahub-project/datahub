@@ -1,11 +1,13 @@
-import React, { useCallback, useRef, useState } from 'react';
-import styled, { css, CSSObject } from 'styled-components/macro';
 import ColorThief from 'colorthief';
-import { DataPlatform, EntityType } from '../../../types.generated';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { IconStyleType } from '../../entityV2/Entity';
-import { getLighterRGBColor } from './colorUtils';
-import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
+import React, { useCallback, useRef, useState } from 'react';
+import styled, { CSSObject, css } from 'styled-components/macro';
+
+import { IconStyleType } from '@app/entityV2/Entity';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { getLighterRGBColor } from '@app/sharedV2/icons/colorUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { DataPlatform, EntityType } from '@types';
 
 type PlatformIconProps = {
     platform: DataPlatform | null | undefined;

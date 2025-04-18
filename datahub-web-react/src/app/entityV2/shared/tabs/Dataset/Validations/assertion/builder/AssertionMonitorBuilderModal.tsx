@@ -1,11 +1,13 @@
+import { ExpandAltOutlined, ShrinkOutlined } from '@ant-design/icons';
+import { Button, Modal, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Button, Modal, Typography } from 'antd';
-import { ExpandAltOutlined, ShrinkOutlined } from '@ant-design/icons';
-import { AssertionMonitorBuilder } from './AssertionMonitorBuilder';
-import { AssertionMonitorBuilderState } from './types';
-import { EntityType, Monitor, Assertion } from '../../../../../../../../types.generated';
-import ClickOutside from '../../../../../../../shared/ClickOutside';
+
+import { AssertionMonitorBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/AssertionMonitorBuilder';
+import { AssertionMonitorBuilderState } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
+import ClickOutside from '@app/shared/ClickOutside';
+
+import { Assertion, EntityType, Monitor } from '@types';
 
 const modalStyle = {};
 const modalBodyStyle = { paddingRight: 48, paddingLeft: 48, paddingBottom: 20 };

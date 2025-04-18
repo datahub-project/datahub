@@ -1,10 +1,12 @@
 import { Form } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router';
-import { useGetFormQuery } from '../../../../graphql/form.generated';
-import { FormPrompt, FormState, FormType } from '../../../../types.generated';
-import { FormActors, FormFields, FormMode } from './formUtils';
-import ManageFormContext from './ManageFormContext';
+
+import ManageFormContext from '@app/govern/Dashboard/Forms/ManageFormContext';
+import { FormActors, FormFields, FormMode } from '@app/govern/Dashboard/Forms/formUtils';
+
+import { useGetFormQuery } from '@graphql/form.generated';
+import { FormPrompt, FormState, FormType } from '@types';
 
 export const ManageFormContextProvider = ({ children }: { children: React.ReactNode }) => {
     const defaultValues: FormFields = {

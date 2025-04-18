@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-
 import { useLocation, useParams } from 'react-router';
 
 type UserPageParams = {

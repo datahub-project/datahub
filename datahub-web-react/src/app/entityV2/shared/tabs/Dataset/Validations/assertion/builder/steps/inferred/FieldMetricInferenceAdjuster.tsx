@@ -1,13 +1,17 @@
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Typography } from 'antd';
-import { AssertionType, CronSchedule } from '@src/types.generated';
+
+import { EvaluationScheduleBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/common/EvaluationScheduleBuilder';
+import { ExclusionWindowAdjuster } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/common/ExclusionWindowAdjuster';
+import { InferenceSensitivityAdjuster } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/common/InferenceSensitivityAdjuster';
+import { LookBackWindowAdjuster } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/common/LookBackWindowAdjuster';
+import {
+    AssertionMonitorBuilderExclusionWindow,
+    AssertionMonitorBuilderState,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
 import { useAppConfig } from '@src/app/useAppConfig';
-import { AssertionMonitorBuilderExclusionWindow, AssertionMonitorBuilderState } from '../../types';
-import { InferenceSensitivityAdjuster } from './common/InferenceSensitivityAdjuster';
-import { LookBackWindowAdjuster } from './common/LookBackWindowAdjuster';
-import { EvaluationScheduleBuilder } from '../common/EvaluationScheduleBuilder';
-import { ExclusionWindowAdjuster } from './common/ExclusionWindowAdjuster';
+import { AssertionType, CronSchedule } from '@src/types.generated';
 
 const Row = styled.div`
     display: flex;

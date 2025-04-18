@@ -1,4 +1,3 @@
-import { EntityType, SchemaField } from '../../../types.generated';
 import {
     COLUMN_HEIGHT,
     CURVE_PADDING,
@@ -7,10 +6,12 @@ import {
     NUM_COLUMNS_PER_PAGE,
     VERTICAL_SPACE_BETWEEN_NODES,
     width as nodeWidth,
-} from '../constants';
-import { Direction, NodeData, VizEdge, VizNode } from '../types';
-import { convertInputFieldsToSchemaFields } from './columnLineageUtils';
-import { getTitleHeight, nodeHeightFromTitleLength } from './titleUtils';
+} from '@app/lineage/constants';
+import { Direction, NodeData, VizEdge, VizNode } from '@app/lineage/types';
+import { convertInputFieldsToSchemaFields } from '@app/lineage/utils/columnLineageUtils';
+import { getTitleHeight, nodeHeightFromTitleLength } from '@app/lineage/utils/titleUtils';
+
+import { EntityType, SchemaField } from '@types';
 
 type ProcessArray = {
     parent: VizNode | null;

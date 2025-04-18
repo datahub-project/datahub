@@ -1,23 +1,25 @@
 /* eslint-disable no-param-reassign */
-import React, { useContext, useState, useEffect, useMemo, ReactNode, useCallback, useRef } from 'react';
-import {
-    useCreateActionPipelineMutation,
-    useUpsertActionPipelineMutation,
-    useDeleteActionPipelineMutation,
-} from '@graphql/actionPipeline.generated';
-import { ActionPipelineState, EntityType } from '@src/types.generated';
 import { useApolloClient } from '@apollo/client';
-import { EMBEDDED_EXECUTOR_POOL_NAME } from '@src/app/shared/constants';
-import { mapRecipeToFormState } from './utils/mapRecipeToFormState';
-import { openSuccessNotification, openErrorNotification } from './Notifications';
-import { mapFormStateToRecipe } from './utils/mapFormStateToRecipe';
-import { configMaps } from '../recipes';
-import { getTemplate } from '../utils';
+import React, { ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+
+import { openErrorNotification, openSuccessNotification } from '@app/automations/Automations/Notifications';
 import {
     removeFromListAutomationsCache,
     updateGetActionPipelineStatusCache,
     updateListAutomationsCache,
-} from './utils/cacheUtils';
+} from '@app/automations/Automations/utils/cacheUtils';
+import { mapFormStateToRecipe } from '@app/automations/Automations/utils/mapFormStateToRecipe';
+import { mapRecipeToFormState } from '@app/automations/Automations/utils/mapRecipeToFormState';
+import { configMaps } from '@app/automations/recipes';
+import { getTemplate } from '@app/automations/utils';
+import { EMBEDDED_EXECUTOR_POOL_NAME } from '@src/app/shared/constants';
+import { ActionPipelineState, EntityType } from '@src/types.generated';
+
+import {
+    useCreateActionPipelineMutation,
+    useDeleteActionPipelineMutation,
+    useUpsertActionPipelineMutation,
+} from '@graphql/actionPipeline.generated';
 
 export interface AutomationContextType {
     // For edits, we pass in the following information.

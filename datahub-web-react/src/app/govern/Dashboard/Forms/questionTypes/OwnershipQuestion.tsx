@@ -1,11 +1,12 @@
-import { Form } from 'antd';
 import { Tooltip } from '@components';
+import { Form } from 'antd';
 import { CheckboxChangeEvent } from 'antd/lib/checkbox';
 import React, { useState } from 'react';
-import { AllowedItemsWrapper, StyledCheckbox, StyledLabel } from '../styledComponents';
-import CardinalityField from './CardinalityField';
-import OwnershipSelector from './OwnershipSelector';
-import OwnershipTypeSelector from './OwnershipTypeSelector';
+
+import CardinalityField from '@app/govern/Dashboard/Forms/questionTypes/CardinalityField';
+import OwnershipSelector from '@app/govern/Dashboard/Forms/questionTypes/OwnershipSelector';
+import OwnershipTypeSelector from '@app/govern/Dashboard/Forms/questionTypes/OwnershipTypeSelector';
+import { AllowedItemsWrapper, StyledCheckbox, StyledLabel } from '@app/govern/Dashboard/Forms/styledComponents';
 
 const OwnershipQuestion = () => {
     const form = Form.useFormInstance();

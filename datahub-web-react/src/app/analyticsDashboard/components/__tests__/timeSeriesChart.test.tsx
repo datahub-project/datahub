@@ -1,5 +1,6 @@
-import { DateInterval, TimeSeriesChart } from '../../../../types.generated';
-import { computeLines } from '../TimeSeriesChart';
+import { computeLines } from '@app/analyticsDashboard/components/TimeSeriesChart';
+
+import { DateInterval, TimeSeriesChart } from '@types';
 
 describe('timeSeriesChart', () => {
     describe('computeLines', () => {

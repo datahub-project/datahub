@@ -1,16 +1,21 @@
-import React from 'react';
-import { fireEvent, render, waitFor } from '@testing-library/react';
 import { MockedProvider } from '@apollo/client/testing';
-import SchemaDescriptionField from '../schema/components/SchemaDescriptionField';
-import TestPageContainer from '../../../../../utils/test-utils/TestPageContainer';
-import { mocks } from '../../../../../Mocks';
+import { fireEvent, render, waitFor } from '@testing-library/react';
+import React from 'react';
+
+import SchemaDescriptionField from '@app/entity/dataset/profile/schema/components/SchemaDescriptionField';
+import { mocks } from '@src/Mocks';
+import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 describe('SchemaDescriptionField', () => {
     it('renders editable description', async () => {
         const { getByText, getByRole, queryByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
-                    <SchemaDescriptionField description="test description updated" isEdited onUpdate={async () => {}} />{' '}
+                    <SchemaDescriptionField
+                        description="test description updated"
+                        isEdited
+                        onUpdate={async () => {}}
+                    />{' '}
                 </TestPageContainer>
             </MockedProvider>,
         );

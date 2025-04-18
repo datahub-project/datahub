@@ -1,8 +1,9 @@
+import { Dropdown, Menu, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Dropdown, Menu, Typography } from 'antd';
-import { LogicalOperatorType } from './types';
-import { ANTD_GRAY } from '../../../../../entity/shared/constants';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { LogicalOperatorType } from '@app/tests/builder/steps/definition/builder/types';
 
 const DropdownWrapper = styled.div<{
     disabled: boolean;

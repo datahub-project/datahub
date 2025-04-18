@@ -1,10 +1,12 @@
+import { Tooltip } from '@components';
+import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Divider } from 'antd';
-import { Tooltip } from '@components';
-import { OwnershipTypeEntity } from '../../../../../../../../../types.generated';
-import { getOwnershipTypeDisplayName } from './utils';
-import { ANTD_GRAY } from '../../../../../../../../entity/shared/constants';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { getOwnershipTypeDisplayName } from '@app/tests/builder/steps/definition/builder/property/select/ownership/utils';
+
+import { OwnershipTypeEntity } from '@types';
 
 const Container = styled.div`
     display: flex;

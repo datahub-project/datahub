@@ -1,21 +1,27 @@
-import React from 'react';
-import { message, Button } from 'antd';
 import { Tooltip } from '@components';
-import styled from 'styled-components';
+import { Button, message } from 'antd';
 import lodash from 'lodash';
-import { DataContract, AssertionType } from '../../../../../../../../types.generated';
-import { DataContractBuilderState, DataContractCategoryType, DEFAULT_BUILDER_STATE } from './types';
-import { buildUpsertDataContractMutationVariables } from './utils';
-import { useUpsertDataContractMutation } from '../../../../../../../../graphql/contract.generated';
-import { useGetDatasetAssertionsWithMonitorsQuery } from '../../../../../../../../graphql/monitor.generated';
+import React from 'react';
+import styled from 'styled-components';
+
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import {
     AssertionWithMonitorDetails,
     createAssertionGroups,
     tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery,
-} from '../../acrylUtils';
-import { DataContractAssertionGroupSelect } from './DataContractAssertionGroupSelect';
-import { ANTD_GRAY } from '../../../../../constants';
-import { DATA_QUALITY_ASSERTION_TYPES } from '../utils';
+} from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { DataContractAssertionGroupSelect } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/DataContractAssertionGroupSelect';
+import {
+    DEFAULT_BUILDER_STATE,
+    DataContractBuilderState,
+    DataContractCategoryType,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/types';
+import { buildUpsertDataContractMutationVariables } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/utils';
+import { DATA_QUALITY_ASSERTION_TYPES } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/utils';
+
+import { useUpsertDataContractMutation } from '@graphql/contract.generated';
+import { useGetDatasetAssertionsWithMonitorsQuery } from '@graphql/monitor.generated';
+import { AssertionType, DataContract } from '@types';
 
 const AssertionsSection = styled.div`
     border: 0.5px solid ${ANTD_GRAY[4]};

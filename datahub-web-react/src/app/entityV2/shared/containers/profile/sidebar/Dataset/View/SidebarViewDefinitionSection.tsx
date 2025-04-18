@@ -1,11 +1,13 @@
+import { Button, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Button, Typography } from 'antd';
-import { GetDatasetQuery } from '../../../../../../../../graphql/dataset.generated';
-import { InfoItem } from '../../../../../components/styled/InfoItem';
-import { ANTD_GRAY } from '../../../../../constants';
-import { useBaseEntity, useRouteToTab } from '../../../../../../../entity/shared/EntityContext';
-import { SidebarSection } from '../../SidebarSection';
+
+import { useBaseEntity, useRouteToTab } from '@app/entity/shared/EntityContext';
+import { InfoItem } from '@app/entityV2/shared/components/styled/InfoItem';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+
+import { GetDatasetQuery } from '@graphql/dataset.generated';
 
 const HeaderInfoBody = styled(Typography.Text)`
     font-size: 16px;

@@ -1,26 +1,26 @@
-import React from 'react';
-
 import { Collapse } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
 
-import { AssertionMonitorBuilderState } from '../../types';
+import { EvaluationScheduleBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/common/EvaluationScheduleBuilder';
+import { FieldColumnBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/field/FieldColumnBuilder';
+import { FieldErrorThresholdBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/field/FieldErrorThresholdBuilder';
+import { FieldFilterBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/field/FieldFilterBuilder';
+import { FieldMetricBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/field/FieldMetricBuilder';
+import { FieldMetricSourceBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/field/FieldMetricSourceBuilder';
+import { FieldNullCheckBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/field/FieldNullCheckBuilder';
+import { FieldRowCheckBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/field/FieldRowCheckBuilder';
+import { FieldTypeBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/field/FieldTypeBuilder';
+import { FieldValuesParameterBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/field/FieldValuesParameterBuilder';
+import { AssertionMonitorBuilderState } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/types';
+
 import {
     AssertionType,
     CronSchedule,
     DatasetFieldAssertionSourceType,
     DatasetFilter,
     FieldAssertionType,
-} from '../../../../../../../../../../types.generated';
-import { EvaluationScheduleBuilder } from '../common/EvaluationScheduleBuilder';
-import { FieldTypeBuilder } from './FieldTypeBuilder';
-import { FieldColumnBuilder } from './FieldColumnBuilder';
-import { FieldValuesParameterBuilder } from './FieldValuesParameterBuilder';
-import { FieldNullCheckBuilder } from './FieldNullCheckBuilder';
-import { FieldMetricBuilder } from './FieldMetricBuilder';
-import { FieldRowCheckBuilder } from './FieldRowCheckBuilder';
-import { FieldMetricSourceBuilder } from './FieldMetricSourceBuilder';
-import { FieldFilterBuilder } from './FieldFilterBuilder';
-import { FieldErrorThresholdBuilder } from './FieldErrorThresholdBuilder';
+} from '@types';
 
 const Section = styled.div`
     padding-bottom: 20px;

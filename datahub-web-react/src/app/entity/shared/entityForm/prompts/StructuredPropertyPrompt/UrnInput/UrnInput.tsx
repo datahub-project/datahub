@@ -1,13 +1,15 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Select } from 'antd';
 import React, { useRef } from 'react';
+import styled from 'styled-components';
+
+import SelectedEntity from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/UrnInput/SelectedEntity';
+import useUrnInput from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/UrnInput/useUrnInput';
 import GlossaryBrowser from '@src/app/glossary/GlossaryBrowser/GlossaryBrowser';
 import ClickOutside from '@src/app/shared/ClickOutside';
 import { BrowserWrapper } from '@src/app/shared/tags/AddTagsTermsModal';
-import styled from 'styled-components';
-import { Entity, EntityType, FormPromptType } from '../../../../../../../types.generated';
-import SelectedEntity from './SelectedEntity';
-import useUrnInput from './useUrnInput';
+
+import { Entity, EntityType, FormPromptType } from '@types';
 
 const EntitySelect = styled(Select)`
     width: 100%;

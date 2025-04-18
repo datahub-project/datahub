@@ -1,4 +1,4 @@
-import { HelpLinkRoutes } from './Global';
+import { HelpLinkRoutes } from '@conf/Global';
 
 /**
  *

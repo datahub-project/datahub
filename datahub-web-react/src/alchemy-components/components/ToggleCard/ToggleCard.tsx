@@ -1,8 +1,15 @@
 import React from 'react';
-import { ToggleCardProps } from './types';
-import { CardContainer, SubTitle, SubTitleContainer, Title, TitleContainer } from '../Card/components';
-import { Switch } from '../Switch';
-import { Header } from './components';
+
+import {
+    CardContainer,
+    SubTitle,
+    SubTitleContainer,
+    Title,
+    TitleContainer,
+} from '@components/components/Card/components';
+import { Switch } from '@components/components/Switch';
+import { Header } from '@components/components/ToggleCard/components';
+import { ToggleCardProps } from '@components/components/ToggleCard/types';
 
 export const ToggleCard = ({
     title,

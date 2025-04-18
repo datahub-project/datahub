@@ -1,6 +1,6 @@
-import { DataFlow, DataFlowUpdateInput } from '../../types.generated';
-import { findDataFlowByURN } from '../fixtures/searchResult/dataFlowSearchResult';
-import { updateEntityOwners, updateEntityTag } from '../mutationHelper';
+import { findDataFlowByURN } from '@graphql-mock/fixtures/searchResult/dataFlowSearchResult';
+import { updateEntityOwners, updateEntityTag } from '@graphql-mock/mutationHelper';
+import { DataFlow, DataFlowUpdateInput } from '@types';
 
 type UpdateDataFlow = {
     data: { updateDataFlow: DataFlow };

@@ -1,8 +1,10 @@
-import React from 'react';
 import { Button } from '@components';
-import { colors, spacing } from '@src/alchemy-components/theme';
+import React from 'react';
 import styled from 'styled-components';
-import { SelectSizeOptions } from '../types';
+
+import { SelectSizeOptions } from '@components/components/Select/types';
+
+import { colors, spacing } from '@src/alchemy-components/theme';
 
 const FooterBase = styled.div({
     display: 'flex',

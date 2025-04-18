@@ -1,6 +1,8 @@
-import React, { useContext, useState, ReactNode, useMemo, useCallback } from 'react';
-import { useListActionPipelinesQuery } from '@graphql/actionPipeline.generated';
+import React, { ReactNode, useCallback, useContext, useMemo, useState } from 'react';
+
 import { ActionPipeline } from '@src/types.generated';
+
+import { useListActionPipelinesQuery } from '@graphql/actionPipeline.generated';
 
 export interface AutomationsContextType {
     automations: ActionPipeline[];

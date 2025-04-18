@@ -1,11 +1,12 @@
 import { Tooltip } from '@components';
-import { Maybe } from 'graphql/jsutils/Maybe';
 import OutputIcon from '@mui/icons-material/Output';
+import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';
-import ImageWithColoredBackground, { Icon } from './ImageWIthColoredBackground';
-import { ANTD_GRAY } from '../entityV2/shared/constants';
-import { useIsShowSeparateSiblingsEnabled } from '../useAppConfig';
+
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import ImageWithColoredBackground, { Icon } from '@app/previewV2/ImageWIthColoredBackground';
+import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 
 const LogoIcon = styled.span`
     display: flex;

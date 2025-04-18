@@ -1,9 +1,8 @@
-import React from 'react';
-
-import styled from 'styled-components';
 import { Divider } from 'antd';
+import React from 'react';
+import styled from 'styled-components';
 
-import { DescriptionBuilder } from './DescriptionBuilder';
+import { DescriptionBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/details/DescriptionBuilder';
 
 const Container = styled.div`
     display: flex;

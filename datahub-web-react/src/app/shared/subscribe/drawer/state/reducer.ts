@@ -1,7 +1,9 @@
 import uniq from 'lodash/uniq';
-import { NotificationSinkType, SubscriptionType } from '../../../../../types.generated';
-import { ENABLE_UPSTREAM_NOTIFICATIONS } from '../../../../settings/personal/notifications/constants';
-import { Action, ActionTypes, ChannelSelections, State } from './types';
+
+import { ENABLE_UPSTREAM_NOTIFICATIONS } from '@app/settings/personal/notifications/constants';
+import { Action, ActionTypes, ChannelSelections, State } from '@app/shared/subscribe/drawer/state/types';
+
+import { NotificationSinkType, SubscriptionType } from '@types';
 
 export const createInitialState = (): State => ({
     edited: false,

@@ -12,21 +12,22 @@ import {
     SolutionOutlined,
     UnorderedListOutlined,
 } from '@ant-design/icons';
-import { Button, Dropdown, Menu } from 'antd';
 import { Tooltip } from '@components';
 import { BookBookmark } from '@phosphor-icons/react';
+import { Button, Dropdown, Menu } from 'antd';
 import * as React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
-import { PageRoutes } from '../../../conf/Global';
-import { useUserContext } from '../../context/useUserContext';
-import DomainIcon from '../../domain/DomainIcon';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { HOME_PAGE_INGESTION_ID } from '../../onboarding/config/HomePageOnboardingConfig';
-import { useToggleEducationStepIdsAllowList } from '../../onboarding/useToggleEducationStepIdsAllowList';
-import { useAppConfig, useBusinessAttributesFlag, useIsDocumentationFormsEnabled } from '../../useAppConfig';
-import HelpDropdown from './HelpDropdown';
-import { TaskCenterLink } from './TaskCenterLink';
+
+import { useUserContext } from '@app/context/useUserContext';
+import DomainIcon from '@app/domain/DomainIcon';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { HOME_PAGE_INGESTION_ID } from '@app/onboarding/config/HomePageOnboardingConfig';
+import { useToggleEducationStepIdsAllowList } from '@app/onboarding/useToggleEducationStepIdsAllowList';
+import HelpDropdown from '@app/shared/admin/HelpDropdown';
+import { TaskCenterLink } from '@app/shared/admin/TaskCenterLink';
+import { useAppConfig, useBusinessAttributesFlag, useIsDocumentationFormsEnabled } from '@app/useAppConfig';
+import { PageRoutes } from '@conf/Global';
 
 const LinkWrapper = styled.span`
     margin-right: 0px;

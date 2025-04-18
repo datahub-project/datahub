@@ -1,9 +1,9 @@
+import { Drawer } from 'antd';
 import React from 'react';
 
-import { Drawer } from 'antd';
+import { AssertionProfile } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfile';
 
-import { AssertionProfile } from './AssertionProfile';
-import { DataContract, Entity } from '../../../../../../../../types.generated';
+import { DataContract, Entity } from '@types';
 
 type Props = {
     urn: string;

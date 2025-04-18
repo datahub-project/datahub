@@ -2,12 +2,13 @@ import { CheckCircleFilled, CloseCircleFilled } from '@ant-design/icons';
 import { Typography } from 'antd';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
-import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '../../../../entity/shared/tabs/Incident/incidentUtils';
-import { ACTION_TYPES } from '../definition/builder/property/types/action';
-import { deserializeTestDefinition, serializeTestDefinition } from '../definition/utils';
-import { ActionsBuilder } from '../definition/builder/action/ActionsBuilder';
-import { Action } from './types';
-import { TestBuilderState } from '../../types';
+
+import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@app/entity/shared/tabs/Incident/incidentUtils';
+import { Action } from '@app/tests/builder/steps/actions/types';
+import { ActionsBuilder } from '@app/tests/builder/steps/definition/builder/action/ActionsBuilder';
+import { ACTION_TYPES } from '@app/tests/builder/steps/definition/builder/property/types/action';
+import { deserializeTestDefinition, serializeTestDefinition } from '@app/tests/builder/steps/definition/utils';
+import { TestBuilderState } from '@app/tests/builder/types';
 
 const ActionSection = styled.div`
     margin-bottom: 20px;

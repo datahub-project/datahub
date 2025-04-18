@@ -1,13 +1,14 @@
+import { CodeOutlined, FormOutlined } from '@ant-design/icons';
+import { Button, Tooltip } from '@components';
+import { message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { CodeOutlined, FormOutlined } from '@ant-design/icons';
-import { message } from 'antd';
-import { Button, Tooltip } from '@components';
-import { jsonToYaml, yamlToJson } from '../../../../../ingest/source/utils';
-import { ANTD_GRAY } from '../../../../../entity/shared/constants';
-import { YamlBuilder } from './YamlBuilder';
-import { validateJsonDefinition } from '../utils';
-import { TestBuilderState } from '../../../types';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { jsonToYaml, yamlToJson } from '@app/ingest/source/utils';
+import { validateJsonDefinition } from '@app/tests/builder/steps/definition/utils';
+import { YamlBuilder } from '@app/tests/builder/steps/definition/yaml/YamlBuilder';
+import { TestBuilderState } from '@app/tests/builder/types';
 
 const Container = styled.div`
     display: flex;

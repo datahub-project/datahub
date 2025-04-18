@@ -1,5 +1,6 @@
-import { SourceConfig } from '../types';
-import sacLogo from '../../../../../images/saclogo.svg';
+import { SourceConfig } from '@app/ingest/source/conf/types';
+
+import sacLogo from '@images/saclogo.svg';
 
 const placeholderRecipe = `\
 source:

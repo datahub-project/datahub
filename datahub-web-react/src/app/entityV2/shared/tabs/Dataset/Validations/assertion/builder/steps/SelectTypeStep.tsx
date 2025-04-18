@@ -1,12 +1,16 @@
 import React from 'react';
+import styled from 'styled-components';
+
+import {
+    getAssertionTypesForEntityType,
+    useConnectionForEntityExists,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { AssertionTypeOption } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/AssertionTypeOption';
+import getInitBuilderStateByAssertionType from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/utils';
+import { AssertionBuilderStep, StepProps } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
+import { isEntityEligibleForAssertionMonitoring } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/utils';
 import { useAppConfig } from '@src/app/useAppConfig';
 import { AssertionType, EntityType } from '@src/types.generated';
-import styled from 'styled-components';
-import { getAssertionTypesForEntityType, useConnectionForEntityExists } from '../../../acrylUtils';
-import { AssertionBuilderStep, StepProps } from '../types';
-import { isEntityEligibleForAssertionMonitoring } from '../utils';
-import { AssertionTypeOption } from './AssertionTypeOption';
-import getInitBuilderStateByAssertionType from './utils';
 
 const Step = styled.div`
     height: 100%;

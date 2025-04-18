@@ -1,11 +1,13 @@
 import { MoreOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
+import { Button, Form, Input, Modal, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { message, Button, Input, Modal, Typography, Form } from 'antd';
-import { Tooltip } from '@components';
-import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
-import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
-import { useAppConfig } from '../../useAppConfig';
+
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useAppConfig } from '@app/useAppConfig';
+
+import { useUpdateCorpUserPropertiesMutation } from '@graphql/user.generated';
 
 const StyledInput = styled(Input)`
     margin-bottom: 4px;

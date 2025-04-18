@@ -1,13 +1,14 @@
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { countFormatter, needsFormatting } from '../../../../utils/formatter';
-import LastUpdated from '../../../shared/LastUpdated';
-import { formatNumber, formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
-import { StatsSummary } from '../../shared/components/styled/StatsSummary';
-import { ANTD_GRAY } from '../../shared/constants';
-import { PercentileLabel } from '../../shared/stats/PercentileLabel';
-import ExpandingStat from './ExpandingStat';
+
+import ExpandingStat from '@app/entityV2/dataset/shared/ExpandingStat';
+import { StatsSummary } from '@app/entityV2/shared/components/styled/StatsSummary';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { PercentileLabel } from '@app/entityV2/shared/stats/PercentileLabel';
+import LastUpdated from '@app/shared/LastUpdated';
+import { formatNumber, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { countFormatter, needsFormatting } from '@utils/formatter';
 
 const StatText = styled.span<{ color: string }>`
     color: ${(props) => props.color};
@@ -54,7 +55,7 @@ export const DatasetStatsSummary = ({
     mode = 'normal',
 }: Props) => {
     const isTooltipMode = mode === 'tooltip-content';
-    const displayedColor = isTooltipMode ? '' : color ?? ANTD_GRAY[7];
+    const displayedColor = isTooltipMode ? '' : (color ?? ANTD_GRAY[7]);
 
     const statsViews = [
         !!rowCount && (

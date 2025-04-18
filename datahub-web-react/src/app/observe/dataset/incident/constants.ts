@@ -1,4 +1,4 @@
-import { IncidentType } from '../../../../types.generated';
+import { IncidentType } from '@types';
 
 export const ACTIVE_INCIDENT_TYPES_FILTER_FIELD = 'activeIncidentTypes';
 export const HAS_ACTIVE_INCIDENTS_FILTER_FIELD = 'hasActiveIncidents';

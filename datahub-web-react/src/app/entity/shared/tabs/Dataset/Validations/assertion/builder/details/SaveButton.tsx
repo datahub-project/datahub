@@ -1,7 +1,7 @@
+import { SaveOutlined } from '@ant-design/icons';
 import React from 'react';
 
-import { SaveOutlined } from '@ant-design/icons';
-import { PrimaryButton } from './PrimaryButton';
+import { PrimaryButton } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/details/PrimaryButton';
 
 type Props = {
     title?: string;

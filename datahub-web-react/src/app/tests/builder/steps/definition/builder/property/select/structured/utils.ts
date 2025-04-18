@@ -1,4 +1,4 @@
-import { StructuredPropertyEntity } from '../../../../../../../../../types.generated';
+import { StructuredPropertyEntity } from '@types';
 
 export const getPropertyDisplayName = (property: StructuredPropertyEntity) => {
     return property.definition?.displayName || property.definition?.qualifiedName || property.urn;

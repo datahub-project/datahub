@@ -1,7 +1,8 @@
-import React from 'react';
 import { Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components/macro';
-import { OwnershipTypeEntity } from '../../../../types.generated';
+
+import { OwnershipTypeEntity } from '@types';
 
 const DescriptionText = styled(Typography.Text)`
     font-size: 14px;

@@ -1,5 +1,5 @@
+import { ModeTypes } from '@app/automations/fields/ModeSelector/constants';
 import type { AutomationCategoryType } from '@app/automations/types';
-import { ModeTypes } from './fields/ModeSelector/constants';
 
 export const env = {
     hideSidebar: true,

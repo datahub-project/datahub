@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { EntityType, FacetFilterInput, FacetMetadata } from '@src/types.generated';
-import { convertToAvailableFilterPredictes } from '@src/app/searchV2/filters/utils';
-import { FilterPredicate } from '@src/app/searchV2/filters/types';
+
+import Filter, { FilterLabels } from '@app/sharedV2/filters/Filter';
 import FiltersLoadingSection from '@src/app/searchV2/filters/SearchFiltersLoadingSection';
-import Filter, { FilterLabels } from './Filter';
+import { FilterPredicate } from '@src/app/searchV2/filters/types';
+import { convertToAvailableFilterPredictes } from '@src/app/searchV2/filters/utils';
+import { EntityType, FacetFilterInput, FacetMetadata } from '@src/types.generated';
 
 const Section = styled.div<{ removePadding?: boolean }>`
     margin-bottom: 10px;

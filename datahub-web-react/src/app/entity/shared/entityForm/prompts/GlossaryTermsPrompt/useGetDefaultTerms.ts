@@ -1,3 +1,5 @@
+import { getDefaultTermEntities, mergeObjects } from '@app/entity/shared/entityForm/prompts/GlossaryTermsPrompt/utils';
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import useExtractFieldGlossaryTermsInfo from '@src/app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldGlossaryTermsInfo';
 import {
     EditableSchemaMetadata,
@@ -7,8 +9,6 @@ import {
     PromptCardinality,
     SchemaField,
 } from '@src/types.generated';
-import { GenericEntityProperties } from '../../../types';
-import { getDefaultTermEntities, mergeObjects } from './utils';
 
 export const useGetDefaultTerms = (
     entityData: GenericEntityProperties | null,

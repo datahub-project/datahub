@@ -1,26 +1,32 @@
 import React from 'react';
-
 import styled from 'styled-components';
 
-import { AssertionTypeOption } from './AssertionTypeOption';
-import { AssertionBuilderStep, StepProps } from '../types';
-import { getAssertionTypesForEntityType, useConnectionForEntityExists } from '../../../acrylUtils';
-import { AssertionType, EntityType } from '../../../../../../../../../types.generated';
+import {
+    getAssertionTypesForEntityType,
+    useConnectionForEntityExists,
+} from '@app/entity/shared/tabs/Dataset/Validations/acrylUtils';
 import {
     DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE,
     DEFAULT_DATASET_SQL_ASSERTION_PARAMETERS_STATE,
     DEFAULT_DATASET_SQL_ASSERTION_STATE,
     DEFAULT_DATASET_VOLUME_ASSERTION_STATE,
-} from '../constants';
-import { getDefaultDatasetFreshnessAssertionParametersState, isEntityEligibleForAssertionMonitoring } from '../utils';
-import { getDefaultDatasetVolumeAssertionParametersState } from './volume/utils';
+} from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/constants';
+import { AssertionTypeOption } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/AssertionTypeOption';
 import {
     getDefaultDatasetFieldAssertionParametersState,
     getDefaultDatasetFieldAssertionState,
     getDefaultDatasetSchemaAssertionParametersState,
     getDefaultDatasetSchemaAssertionState,
-} from './field/utils';
-import { useAppConfig } from '../../../../../../../../useAppConfig';
+} from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/field/utils';
+import { getDefaultDatasetVolumeAssertionParametersState } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/volume/utils';
+import { AssertionBuilderStep, StepProps } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/types';
+import {
+    getDefaultDatasetFreshnessAssertionParametersState,
+    isEntityEligibleForAssertionMonitoring,
+} from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/utils';
+import { useAppConfig } from '@app/useAppConfig';
+
+import { AssertionType, EntityType } from '@types';
 
 const Step = styled.div`
     height: 100%;

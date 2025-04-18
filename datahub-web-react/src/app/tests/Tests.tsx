@@ -1,10 +1,12 @@
 import React from 'react';
 import styled from 'styled-components';
-import { groupTestsByCategory } from './utils';
-import { TestsSection } from './TestsSection';
-import { Test } from '../../types.generated';
-import EmptyTests from './EmptyTests';
-import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
+
+import EmptyTests from '@app/tests/EmptyTests';
+import { TestsSection } from '@app/tests/TestsSection';
+import { groupTestsByCategory } from '@app/tests/utils';
+import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+
+import { Test } from '@types';
 
 const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     background-color: ${(props) => (props.$isShowNavBarRedesign ? 'white' : 'white')};

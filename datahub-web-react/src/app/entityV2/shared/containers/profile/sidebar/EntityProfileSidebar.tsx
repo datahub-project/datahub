@@ -1,12 +1,13 @@
 /* eslint-disable prefer-template */
 import React, { useContext, useState } from 'react';
 import styled from 'styled-components';
+
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { EntitySidebarTabs } from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebarTabs';
+import SidebarCollapsibleHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarCollapsibleHeader';
+import { EntitySidebarTab, TabContextType, TabRenderType } from '@app/entityV2/shared/types';
+import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
-import { EntitySidebarTab, TabContextType, TabRenderType } from '../../../types';
-import { EntitySidebarTabs } from './EntitySidebarTabs';
-import { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
-import SidebarCollapsibleHeader from './SidebarCollapsibleHeader';
 
 export const StyledEntitySidebarContainer = styled.div<{
     isCollapsed: boolean;

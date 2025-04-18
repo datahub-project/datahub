@@ -1,9 +1,11 @@
 import React from 'react';
-import { FilterScenarioType } from '../types';
-import { BooleanSimpleSearchFilter } from '../shared/BooleanSimpleSearchFilter';
-import BooleanMoreFilter from '../shared/BooleanMoreFilter';
-import { FacetFilterInput, FacetMetadata, FacetFilter } from '../../../../../types.generated';
-import BooleanSearchFilter from '../shared/BooleanSearchFilter';
+
+import BooleanMoreFilter from '@app/search/filters/render/shared/BooleanMoreFilter';
+import BooleanSearchFilter from '@app/search/filters/render/shared/BooleanSearchFilter';
+import { BooleanSimpleSearchFilter } from '@app/search/filters/render/shared/BooleanSimpleSearchFilter';
+import { FilterScenarioType } from '@app/search/filters/render/types';
+
+import { FacetFilter, FacetFilterInput, FacetMetadata } from '@types';
 
 export interface Props {
     scenario: FilterScenarioType;

@@ -1,10 +1,11 @@
 import React from 'react';
-import RowCountGraph from '../../../../graphs/RowCountGraph';
-import { useQualityTabContext } from '../QualityTabContextProvider';
-import useRowCountData from '../../../../useRowCountData';
-import { GRAPH_LOOKBACK_WINDOWS } from '../../Stats/StatsTabV2/graphs/constants';
-import { useStatsSectionsContext } from '../../Stats/StatsTabV2/StatsSectionsContext';
-import AssertionDataPreviewMoreInfoModalContent from './AssertionDataPreviewMoreInfoModalContent';
+
+import RowCountGraph from '@app/entityV2/shared/graphs/RowCountGraph';
+import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
+import { GRAPH_LOOKBACK_WINDOWS } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/constants';
+import { useQualityTabContext } from '@app/entityV2/shared/tabs/Dataset/Validations/QualityTabContextProvider';
+import AssertionDataPreviewMoreInfoModalContent from '@app/entityV2/shared/tabs/Dataset/Validations/shared/AssertionDataPreviewMoreInfoModalContent';
+import useRowCountData from '@app/entityV2/shared/useRowCountData';
 
 // Hardcode the lookback window to 1 month by default
 const DEFAULT_GRAPH_LOOKBACK_WINDOW = GRAPH_LOOKBACK_WINDOWS.MONTH;

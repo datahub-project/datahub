@@ -1,11 +1,8 @@
+import { Input, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Input, Typography } from 'antd';
-import {
-    DatasetFilter,
-    DatasetFilterType,
-    DatasetFreshnessSourceType,
-} from '../../../../../../../../../../types.generated';
+
+import { DatasetFilter, DatasetFilterType, DatasetFreshnessSourceType } from '@types';
 
 const Form = styled.div`
     margin-top: 16px;

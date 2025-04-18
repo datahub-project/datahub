@@ -1,30 +1,24 @@
-import { Tag as AntTag, Typography, Button, message } from 'antd';
-import { Tooltip } from '@components';
-import React, { useState } from 'react';
-import styled from 'styled-components';
 import { ClockCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
 import { BookmarkSimple } from '@phosphor-icons/react';
+import { Tag as AntTag, Button, Typography, message } from 'antd';
+import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
+import styled from 'styled-components';
 
-import { useEntityRegistry } from '../../useEntityRegistry';
-import {
-    Domain,
-    ActionRequest,
-    EntityType,
-    GlobalTags,
-    GlossaryTerms,
-    SubResourceType,
-} from '../../../types.generated';
-import { StyledTag } from '../../entity/shared/components/styled/StyledTag';
-import analytics, { EntityActionType, EventType } from '../../analytics';
-import { EMPTY_MESSAGES, ANTD_GRAY } from '../../entity/shared/constants';
-import { DomainLink } from './DomainLink';
-import { useAcceptProposalsMutation, useRejectProposalsMutation } from '../../../graphql/actionRequest.generated';
-import ProposalModal from './ProposalModal';
-import EditTagTermsModal from './AddTagsTermsModal';
-import StyledTerm from './term/StyledTerm';
-import Tag from './tag/Tag';
-import { shouldShowProposeButton } from './utils/proposalUtils';
+import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { StyledTag } from '@app/entity/shared/components/styled/StyledTag';
+import { ANTD_GRAY, EMPTY_MESSAGES } from '@app/entity/shared/constants';
+import EditTagTermsModal from '@app/shared/tags/AddTagsTermsModal';
+import { DomainLink } from '@app/shared/tags/DomainLink';
+import ProposalModal from '@app/shared/tags/ProposalModal';
+import Tag from '@app/shared/tags/tag/Tag';
+import StyledTerm from '@app/shared/tags/term/StyledTerm';
+import { shouldShowProposeButton } from '@app/shared/tags/utils/proposalUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useAcceptProposalsMutation, useRejectProposalsMutation } from '@graphql/actionRequest.generated';
+import { ActionRequest, Domain, EntityType, GlobalTags, GlossaryTerms, SubResourceType } from '@types';
 
 type Props = {
     uneditableTags?: GlobalTags | null;

@@ -1,13 +1,13 @@
-import React from 'react';
-
-import styled from 'styled-components';
-import { Popover } from '@components';
 import { InfoCircleOutlined } from '@ant-design/icons';
+import { Popover } from '@components';
 import { TooltipPlacement } from 'antd/lib/tooltip';
+import React from 'react';
+import styled from 'styled-components';
 
-import { ANTD_GRAY } from '../../../../../../../constants';
-import { AssertionRunEvent } from '../../../../../../../../../../types.generated';
-import { DetailedErrorMessage } from './DetailedErrorMessage';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { DetailedErrorMessage } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/DetailedErrorMessage';
+
+import { AssertionRunEvent } from '@types';
 
 const StyledInfoCircleOutlined = styled(InfoCircleOutlined)`
     margin-left: 8px;

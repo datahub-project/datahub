@@ -1,7 +1,14 @@
+import { Collapse } from 'antd';
+import React, { useMemo, useState } from 'react';
+
+import GroupHeader from '@app/govern/Dashboard/Forms/filters/GroupHeader';
+/* eslint-disable import/no-cycle */
+import Operands from '@app/govern/Dashboard/Forms/filters/Operands';
+import { CardIcons, StyledCollapse } from '@app/govern/Dashboard/Forms/filters/styledComponents';
 import { Icon } from '@src/alchemy-components';
 import {
-    convertToLogicalPredicate,
     EMPTY_PROPERTY_PREDICATE,
+    convertToLogicalPredicate,
 } from '@src/app/tests/builder/steps/definition/builder/LogicalPredicateBuilder';
 import { Property } from '@src/app/tests/builder/steps/definition/builder/property/types/properties';
 import {
@@ -9,12 +16,6 @@ import {
     LogicalPredicate,
     PropertyPredicate,
 } from '@src/app/tests/builder/steps/definition/builder/types';
-import { Collapse } from 'antd';
-import React, { useMemo, useState } from 'react';
-import GroupHeader from './GroupHeader';
-/* eslint-disable import/no-cycle */
-import Operands from './Operands';
-import { CardIcons, StyledCollapse } from './styledComponents';
 
 interface Props {
     selectedPredicate: LogicalPredicate | PropertyPredicate;

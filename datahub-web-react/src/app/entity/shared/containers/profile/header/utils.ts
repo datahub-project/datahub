@@ -1,7 +1,8 @@
-import { EntityType, StructuredPropertiesEntry } from '../../../../../../types.generated';
-import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
-import EntityRegistry from '../../../../EntityRegistry';
-import { GenericEntityProperties } from '../../../types';
+import EntityRegistry from '@app/entity/EntityRegistry';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+
+import { EntityType, StructuredPropertiesEntry } from '@types';
 
 export function getDisplayedEntityType(
     entityData: GenericEntityProperties | null,

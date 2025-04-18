@@ -1,5 +1,6 @@
 import React, { useContext } from 'react';
-import { GlobalSettings } from '../../../types.generated';
+
+import { GlobalSettings } from '@types';
 
 interface HelpLinkState {
     isEnabled: boolean;

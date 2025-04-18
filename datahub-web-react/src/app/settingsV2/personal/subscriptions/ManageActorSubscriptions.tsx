@@ -1,21 +1,24 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import React, { useState } from 'react';
-import styled from 'styled-components/macro';
 import { Pagination, Table, Typography } from 'antd';
 import { ColumnsType } from 'antd/lib/table';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
-import { useListSubscriptionsQuery } from '../../../../graphql/subscriptions.generated';
-import EmptySimpleSvg from '../../../../images/empty-simple.svg?react';
-import { EntityColumn } from './table/EntityColumn';
-import { UpstreamsColumn } from './table/UpstreamsColumn';
-import { EditSubscriptionColumn } from './table/EditSubscriptionColumn';
-import { SubscribedSinceColumn } from './table/SubscribedSinceColumn';
-import { scrollToTop } from '../../../shared/searchUtils';
-import { ENABLE_UPSTREAM_NOTIFICATIONS } from '../notifications/constants';
-import ChannelColumn from './table/ChannelColumn';
-import useActorSinkSettings from '../../../shared/subscribe/drawer/useSinkSettings';
-import { DataHubSubscription } from '../../../../types.generated';
-import { useUserContext } from '../../../context/useUserContext';
+import React, { useState } from 'react';
+import styled from 'styled-components/macro';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { ENABLE_UPSTREAM_NOTIFICATIONS } from '@app/settingsV2/personal/notifications/constants';
+import ChannelColumn from '@app/settingsV2/personal/subscriptions/table/ChannelColumn';
+import { EditSubscriptionColumn } from '@app/settingsV2/personal/subscriptions/table/EditSubscriptionColumn';
+import { EntityColumn } from '@app/settingsV2/personal/subscriptions/table/EntityColumn';
+import { SubscribedSinceColumn } from '@app/settingsV2/personal/subscriptions/table/SubscribedSinceColumn';
+import { UpstreamsColumn } from '@app/settingsV2/personal/subscriptions/table/UpstreamsColumn';
+import { scrollToTop } from '@app/shared/searchUtils';
+import useActorSinkSettings from '@app/shared/subscribe/drawer/useSinkSettings';
+
+import { useListSubscriptionsQuery } from '@graphql/subscriptions.generated';
+import { DataHubSubscription } from '@types';
+
+import EmptySimpleSvg from '@images/empty-simple.svg?react';
 
 const PAGE_SIZE = 10;
 

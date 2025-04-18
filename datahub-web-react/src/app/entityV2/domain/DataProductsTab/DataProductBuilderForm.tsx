@@ -1,9 +1,10 @@
 import { Form, Input, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Editor as MarkdownEditor } from '../../shared/tabs/Documentation/components/editor/Editor';
-import { ANTD_GRAY } from '../../shared/constants';
-import { DataProductBuilderState } from './types';
+
+import { DataProductBuilderState } from '@app/entityV2/domain/DataProductsTab/types';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { Editor as MarkdownEditor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
 
 const StyledEditor = styled(MarkdownEditor)`
     border: 1px solid ${ANTD_GRAY[4]};

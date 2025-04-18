@@ -1,16 +1,14 @@
+import { Button, Form, message } from 'antd';
 import React, { useState } from 'react';
-
 import styled from 'styled-components';
-import { Form, Button, message } from 'antd';
 
-import FormField from '../../../ingest/source/builder/RecipeForm/FormField';
+import FormField from '@app/ingest/source/builder/RecipeForm/FormField';
+import { TestConnection } from '@app/settings/platform/snowflake/TestConnection';
+import { fields } from '@app/settings/platform/snowflake/constants';
 
-import { useConnectionQuery, useUpsertConnectionMutation } from '../../../../graphql/connection.generated';
-import { useListSecretsQuery } from '../../../../graphql/ingestion.generated';
-import { DataHubConnectionDetailsType } from '../../../../types.generated';
-
-import { fields } from './constants';
-import { TestConnection } from './TestConnection';
+import { useConnectionQuery, useUpsertConnectionMutation } from '@graphql/connection.generated';
+import { useListSecretsQuery } from '@graphql/ingestion.generated';
+import { DataHubConnectionDetailsType } from '@types';
 
 const Wrapper = styled.div`
     font-family: 'Mulish', sans-serif;

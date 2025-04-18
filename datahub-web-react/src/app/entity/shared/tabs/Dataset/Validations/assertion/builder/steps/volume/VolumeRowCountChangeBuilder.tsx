@@ -1,15 +1,17 @@
-import React from 'react';
 import { Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
+
+import { VolumeNumberInput } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/volume/VolumeNumberInput';
+import { getPropertyFromVolumeType } from '@app/entity/shared/tabs/Dataset/Validations/utils';
+
 import {
     AssertionStdOperator,
     AssertionStdParameterType,
     AssertionStdParameters,
     AssertionValueChangeType,
     VolumeAssertionInfo,
-} from '../../../../../../../../../../types.generated';
-import { VolumeNumberInput } from './VolumeNumberInput';
-import { getPropertyFromVolumeType } from '../../../../utils';
+} from '@types';
 
 const Container = styled.div`
     display: flex;

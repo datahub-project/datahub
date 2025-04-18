@@ -1,13 +1,15 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
-import { DisplayProperties, EntityType, PlatformPrivileges } from '../../../../../../types.generated';
-import { EntityActionItem } from '../../../entity/EntityActions';
-import { useUserContext } from '../../../../../context/useUserContext';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { DefaultEntityHeader } from './DefaultEntityHeader';
-import { useEntityData, useRefetch } from '../../../../../entity/shared/EntityContext';
-import { EntitySubHeaderSection, GenericEntityProperties } from '../../../../../entity/shared/types';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { EntitySubHeaderSection, GenericEntityProperties } from '@app/entity/shared/types';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { DefaultEntityHeader } from '@app/entityV2/shared/containers/profile/header/DefaultEntityHeader';
+import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { DisplayProperties, EntityType, PlatformPrivileges } from '@types';
 
 const Container = styled.div``;
 

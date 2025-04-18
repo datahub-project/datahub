@@ -1,18 +1,22 @@
-import { Tabs } from 'antd';
-import { PageTitle, Button } from '@components';
-import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
 import { PlusOutlined } from '@ant-design/icons';
+import { Button, PageTitle } from '@components';
+import { Tabs } from 'antd';
+import React, { useEffect, useState } from 'react';
 import { useHistory } from 'react-router';
-import { IngestionSourceList } from './source/IngestionSourceList';
-import { useAppConfig } from '../useAppConfig';
-import { useUserContext } from '../context/useUserContext';
-import { SecretsList } from './secret/SecretsList';
-import { OnboardingTour } from '../onboarding/OnboardingTour';
-import { INGESTION_CREATE_SOURCE_ID } from '../onboarding/config/IngestionOnboardingConfig';
-import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
-import { REMOTE_EXECUTORS_CREATE_SOURCE_ID, RemoteExecutorPoolsList } from './executor_saas/RemoteExecutorPoolsList';
-import { TabType } from './types';
+import styled from 'styled-components';
+
+import { useUserContext } from '@app/context/useUserContext';
+import {
+    REMOTE_EXECUTORS_CREATE_SOURCE_ID,
+    RemoteExecutorPoolsList,
+} from '@app/ingest/executor_saas/RemoteExecutorPoolsList';
+import { SecretsList } from '@app/ingest/secret/SecretsList';
+import { IngestionSourceList } from '@app/ingest/source/IngestionSourceList';
+import { TabType } from '@app/ingest/types';
+import { OnboardingTour } from '@app/onboarding/OnboardingTour';
+import { INGESTION_CREATE_SOURCE_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
+import { useAppConfig } from '@app/useAppConfig';
+import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 16px;

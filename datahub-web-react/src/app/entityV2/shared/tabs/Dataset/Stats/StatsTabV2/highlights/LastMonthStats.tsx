@@ -1,14 +1,20 @@
 import { Card, Text } from '@components';
-import { capitalizeFirstLetter, pluralize } from '@src/app/shared/textUtil';
 import React from 'react';
+
+import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
+import { ViewButton } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/highlights/ViewButton';
+import {
+    CARD_HEIGHT,
+    CARD_WIDTH,
+    LastMonthStatsContainer,
+    StatCards,
+} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/highlights/styledComponents';
+import { useGetStatsData } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/useGetStatsData';
+import { useGetStatsSections } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/useGetStatsSections';
+import { SectionKeys } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
 import { formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
+import { capitalizeFirstLetter, pluralize } from '@src/app/shared/textUtil';
 import { countFormatter } from '@src/utils/formatter';
-import { useStatsSectionsContext } from '../StatsSectionsContext';
-import { useGetStatsData } from '../useGetStatsData';
-import { useGetStatsSections } from '../useGetStatsSections';
-import { SectionKeys } from '../utils';
-import { CARD_HEIGHT, CARD_WIDTH, LastMonthStatsContainer, StatCards } from './styledComponents';
-import { ViewButton } from './ViewButton';
 
 const LastMonthStats = () => {
     const { users, queryCount, totalOperations } = useGetStatsData();

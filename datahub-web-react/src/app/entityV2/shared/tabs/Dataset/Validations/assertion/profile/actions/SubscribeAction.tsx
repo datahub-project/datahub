@@ -1,15 +1,17 @@
+import { Dropdown } from 'antd';
+import { BellSimple } from 'phosphor-react';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { BellSimple } from 'phosphor-react';
-import { ActionMenuItem } from '@src/app/entityV2/shared/EntityDropdown/styledComponents';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import SubscriptionDrawer from '@app/shared/subscribe/drawer/SubscriptionDrawer';
+import { checkIsAssetLevelAssertionSubscription } from '@app/shared/subscribe/drawer/section/utils';
+import useGroupRelationships from '@app/shared/subscribe/useGroupRelationships';
+import useSubscription from '@app/shared/subscribe/useSubscription';
 import { colors } from '@src/alchemy-components';
-import { Dropdown } from 'antd';
-import useSubscription from '../../../../../../../../shared/subscribe/useSubscription';
-import SubscriptionDrawer from '../../../../../../../../shared/subscribe/drawer/SubscriptionDrawer';
-import { Assertion, EntityType } from '../../../../../../../../../types.generated';
-import useGroupRelationships from '../../../../../../../../shared/subscribe/useGroupRelationships';
-import { checkIsAssetLevelAssertionSubscription } from '../../../../../../../../shared/subscribe/drawer/section/utils';
-import { useEntityData } from '../../../../../../../../entity/shared/EntityContext';
+import { ActionMenuItem } from '@src/app/entityV2/shared/EntityDropdown/styledComponents';
+
+import { Assertion, EntityType } from '@types';
 
 const StyledDropdown = styled(Dropdown)`
     && {

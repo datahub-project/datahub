@@ -1,5 +1,5 @@
+import { LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
 import { DateInterval, TimeRange } from '@src/types.generated';
-import { LookbackWindow } from '../../lookbackWindows';
 
 export enum LookbackWindowType {
     Week = 'WEEK',

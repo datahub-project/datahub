@@ -1,12 +1,13 @@
-import { colors, Text } from '@components';
+import { Text, colors } from '@components';
+import { Swap } from 'phosphor-react';
+import React, { useState } from 'react';
+
+import CreatedByView from '@app/actionrequestV2/item/CreatedByView';
+import RequestTargetEntityView from '@app/actionrequestV2/item/RequestTargetEntityView';
+import { ContentWrapper } from '@app/actionrequestV2/item/styledComponents';
+import { ViewDocumentationButton } from '@app/actionrequestV2/item/updateDescription/UpdateDescriptionRequestItem';
 import { DataContractProposalModal } from '@src/app/entity/shared/tabs/Dataset/Validations/contract/proposal/DataContractProposalModal';
 import { ActionRequest } from '@src/types.generated';
-import React, { useState } from 'react';
-import { Swap } from 'phosphor-react';
-import CreatedByView from './CreatedByView';
-import { ContentWrapper } from './styledComponents';
-import RequestTargetEntityView from './RequestTargetEntityView';
-import { ViewDocumentationButton } from './updateDescription/UpdateDescriptionRequestItem';
 
 interface Props {
     actionRequest: ActionRequest;

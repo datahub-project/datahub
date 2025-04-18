@@ -1,15 +1,14 @@
+import { Alert, Select } from 'antd';
 import React from 'react';
-import { Select, Alert } from 'antd';
 import styled from 'styled-components';
 
-import type { DataPlatform } from '@types';
+import { ContainerSelector } from '@app/automations/fields/ContainerSelector';
+import { StepHeader } from '@app/automations/fields/components';
 import type { ComponentBaseProps } from '@app/automations/types';
-
+import { PreviewImage } from '@src/app/entity/shared/containers/profile/header/PlatformContent/PlatformContentView';
 import { useGetDataPlatformsQuery } from '@src/graphql/dataPlatform.generated';
 
-import { ContainerSelector } from '@app/automations/fields/ContainerSelector';
-import { PreviewImage } from '@src/app/entity/shared/containers/profile/header/PlatformContent/PlatformContentView';
-import { StepHeader } from '../components';
+import type { DataPlatform } from '@types';
 
 // State Type (ensures the state is correctly applied across templates)
 export type PlatformSelectorStateType = {

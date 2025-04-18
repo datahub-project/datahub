@@ -1,18 +1,19 @@
+import { Button, Divider, Form, Input, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { Button, Divider, Form, Input, Typography } from 'antd';
-import { useConnectionQuery, useUpsertConnectionMutation } from '../../../../graphql/connection.generated';
-import { DataHubConnectionDetailsType } from '../../../../types.generated';
-import { PlatformIntegrationBreadcrumb } from '../PlatformIntegrationBreadcrumb';
 
+import { PlatformIntegrationBreadcrumb } from '@app/settings/platform/PlatformIntegrationBreadcrumb';
 import {
     TEAMS_CONNECTION_ID,
     TEAMS_CONNECTION_URN,
     TEAMS_PLATFORM_URN,
     getTeamsConnection,
     getWebhookURL,
-} from './utils';
-import { ToastType, showToastMessage } from '../../../sharedV2/toastMessageUtils';
+} from '@app/settings/platform/teams/utils';
+import { ToastType, showToastMessage } from '@app/sharedV2/toastMessageUtils';
+
+import { useConnectionQuery, useUpsertConnectionMutation } from '@graphql/connection.generated';
+import { DataHubConnectionDetailsType } from '@types';
 
 const Page = styled.div`
     width: 100%;

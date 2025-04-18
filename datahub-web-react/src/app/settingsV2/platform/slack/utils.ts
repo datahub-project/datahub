@@ -1,6 +1,7 @@
-import { useLocation } from 'react-router';
 import * as QueryString from 'query-string';
-import { SlackConnection } from './types';
+import { useLocation } from 'react-router';
+
+import { SlackConnection } from '@app/settingsV2/platform/slack/types';
 
 export const SLACK_INSTALL_REDIRECT_PATH = '/integrations/slack/install';
 export const SLACK_REFRESH_INSTALLATION_REDIRECT_PATH = '/integrations/slack/refresh-installation';

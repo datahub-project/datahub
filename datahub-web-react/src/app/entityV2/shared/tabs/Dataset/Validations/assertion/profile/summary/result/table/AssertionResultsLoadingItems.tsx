@@ -1,12 +1,12 @@
-import React from 'react';
-
-import styled from 'styled-components';
 import { Skeleton, Timeline } from 'antd';
+import React from 'react';
 import { range } from 'remirror';
+import styled from 'styled-components';
 
-import { AssertionResultType } from '../../../../../../../../../../../types.generated';
-import { getResultDotIcon } from '../../../../../assertionUtils';
-import { ANTD_GRAY } from '../../../../../../../../constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { getResultDotIcon } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
+
+import { AssertionResultType } from '@types';
 
 const ItemSkeleton = styled(Skeleton.Input)`
     && {

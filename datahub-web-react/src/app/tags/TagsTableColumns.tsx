@@ -1,19 +1,20 @@
-import React from 'react';
+import { Icon, Text, colors, typography } from '@components';
 import { Dropdown } from 'antd';
-import { colors, Text, Icon, typography } from '@components';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { useGetTagQuery } from '@src/graphql/tag.generated';
-import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
-import { navigateToSearchUrl } from '@src/app/search/utils/navigateToSearchUrl';
-import { Entity, EntityType } from '@src/types.generated';
+import React from 'react';
+import Highlight from 'react-highlighter';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
-import Highlight from 'react-highlighter';
-import { generateOrFilters } from '@src/app/search/utils/generateOrFilters';
-import { UnionType } from '@src/app/search/utils/constants';
+
+import { CardIcons } from '@app/govern/structuredProperties/styledComponents';
+import { getTagColor } from '@app/tags/utils';
 import { ExpandedOwner } from '@src/app/entity/shared/components/styled/ExpandedOwner/ExpandedOwner';
-import { CardIcons } from '../govern/structuredProperties/styledComponents';
-import { getTagColor } from './utils';
+import { UnionType } from '@src/app/search/utils/constants';
+import { generateOrFilters } from '@src/app/search/utils/generateOrFilters';
+import { navigateToSearchUrl } from '@src/app/search/utils/navigateToSearchUrl';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
+import { useGetTagQuery } from '@src/graphql/tag.generated';
+import { Entity, EntityType } from '@src/types.generated';
 
 const TagName = styled.div`
     font-size: 14px;

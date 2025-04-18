@@ -1,8 +1,9 @@
+import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
 import React from 'react';
 import styled from 'styled-components';
-import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
-import { ModalTitle, StyledButton, StyledModal } from '../../shared/share/v2/styledComponents';
-import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { ModalTitle, StyledButton, StyledModal } from '@app/shared/share/v2/styledComponents';
 
 const Container = styled.div`
     display: flex;

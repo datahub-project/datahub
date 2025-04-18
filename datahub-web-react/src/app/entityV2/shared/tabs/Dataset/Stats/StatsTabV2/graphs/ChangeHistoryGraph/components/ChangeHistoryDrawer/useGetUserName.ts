@@ -1,6 +1,7 @@
+import { useCallback } from 'react';
+
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { CorpUser } from '@src/types.generated';
-import { useCallback } from 'react';
 
 export default function useGetUserName() {
     const entityRegistry = useEntityRegistryV2();

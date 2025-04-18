@@ -1,9 +1,16 @@
 import _ from 'lodash';
 import { Key } from 'react';
+
+import { checkIsAssetLevelAssertionSubscription } from '@app/shared/subscribe/drawer/section/utils';
+import { useDrawerState } from '@app/shared/subscribe/drawer/state/context';
 import {
-    useCreateSubscriptionMutation,
-    useUpdateSubscriptionMutation,
-} from '../../../../graphql/subscriptions.generated';
+    createSubscriptionFunction,
+    getEntityChangeTypesFromCheckedKeys,
+    removeNestedTypeNames,
+    updateSubscriptionFunction,
+} from '@app/shared/subscribe/drawer/utils';
+
+import { useCreateSubscriptionMutation, useUpdateSubscriptionMutation } from '@graphql/subscriptions.generated';
 import {
     Assertion,
     DataHubSubscription,
@@ -12,15 +19,7 @@ import {
     EntityType,
     NotificationSettingsInput,
     SubscriptionType,
-} from '../../../../types.generated';
-import { useDrawerState } from './state/context';
-import {
-    createSubscriptionFunction,
-    getEntityChangeTypesFromCheckedKeys,
-    removeNestedTypeNames,
-    updateSubscriptionFunction,
-} from './utils';
-import { checkIsAssetLevelAssertionSubscription } from './section/utils';
+} from '@types';
 
 type UseUpsertSubScriptionParams = {
     entityUrn: string;

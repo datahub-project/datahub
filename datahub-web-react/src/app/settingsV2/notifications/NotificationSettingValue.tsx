@@ -1,11 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { Checkbox } from 'antd';
 import { Tooltip } from '@components';
-import { EMAIL_SINK } from '@src/app/settings/platform/types';
+import { Checkbox } from 'antd';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { NotificationScenarioType, NotificationSetting } from '../../../types.generated';
-import { FormattedNotificationSetting, NotificationSink } from './types';
-import { isSinkNotificationTypeEnabled, updateSinkNotificationTypeEnabled } from './utils';
+
+import { FormattedNotificationSetting, NotificationSink } from '@app/settingsV2/notifications/types';
+import { isSinkNotificationTypeEnabled, updateSinkNotificationTypeEnabled } from '@app/settingsV2/notifications/utils';
+import { EMAIL_SINK } from '@src/app/settings/platform/types';
+
+import { NotificationScenarioType, NotificationSetting } from '@types';
 
 const SettingValue = styled.div`
     width: 64px;

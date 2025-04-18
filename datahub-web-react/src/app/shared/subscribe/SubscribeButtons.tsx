@@ -1,18 +1,20 @@
+import { CaretDownFilled, StarFilled, StarOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
+import { Dropdown, MenuProps } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { Dropdown, MenuProps } from 'antd';
-import { Tooltip } from '@components';
-import { CaretDownFilled, StarFilled, StarOutlined } from '@ant-design/icons';
-import SubscriptionDrawer from './drawer/SubscriptionDrawer';
-import { useEntityData, useMutationUrn } from '../../entity/shared/EntityContext';
-import SubscriptionStarTooltip from './drawer/section/SubscriptionStarTooltip';
-import useSubscription from './useSubscription';
-import useDeleteSubscription from './useDeleteSubscription';
-import useSubscriptionSummary from './useSubscriptionSummary';
-import useGroupRelationships from './useGroupRelationships';
-import { ENTITY_PROFILE_SUBSCRIPTION_ID } from '../../onboarding/config/EntityProfileOnboardingConfig';
-import { useIsSeparateSiblingsMode } from '../../entity/shared/siblingUtils';
-import { EntityType } from '../../../types.generated';
+
+import { useEntityData, useMutationUrn } from '@app/entity/shared/EntityContext';
+import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
+import { ENTITY_PROFILE_SUBSCRIPTION_ID } from '@app/onboarding/config/EntityProfileOnboardingConfig';
+import SubscriptionDrawer from '@app/shared/subscribe/drawer/SubscriptionDrawer';
+import SubscriptionStarTooltip from '@app/shared/subscribe/drawer/section/SubscriptionStarTooltip';
+import useDeleteSubscription from '@app/shared/subscribe/useDeleteSubscription';
+import useGroupRelationships from '@app/shared/subscribe/useGroupRelationships';
+import useSubscription from '@app/shared/subscribe/useSubscription';
+import useSubscriptionSummary from '@app/shared/subscribe/useSubscriptionSummary';
+
+import { EntityType } from '@types';
 
 const StyledStarFilled = styled(StarFilled)`
     color: ${(props) => props.theme.styles['primary-color']};

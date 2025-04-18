@@ -1,15 +1,15 @@
+import { Affix, Row, Select, Typography } from 'antd';
 import React, { ReactNode, useEffect, useState } from 'react';
 import styled from 'styled-components';
 
-import { Affix, Row, Select, Typography } from 'antd';
-import { useGetDataProfilesLazyQuery } from '../../../../../../graphql/dataset.generated';
-import { DatasetProfile, DateInterval } from '../../../../../../types.generated';
-import { Message } from '../../../../../shared/Message';
-import { getFixedLookbackWindow, TimeWindowSize } from '../../../../../shared/time/timeUtils';
+import StatsSection from '@app/entity/dataset/profile/stats/StatsSection';
+import ProfilingRunsChart from '@app/entity/dataset/profile/stats/historical/charts/ProfilingRunsChart';
+import StatChart from '@app/entity/dataset/profile/stats/historical/charts/StatChart';
+import { Message } from '@app/shared/Message';
+import { TimeWindowSize, getFixedLookbackWindow } from '@app/shared/time/timeUtils';
 
-import ProfilingRunsChart from './charts/ProfilingRunsChart';
-import StatsSection from '../StatsSection';
-import StatChart from './charts/StatChart';
+import { useGetDataProfilesLazyQuery } from '@graphql/dataset.generated';
+import { DatasetProfile, DateInterval } from '@types';
 
 const HeaderRow = styled(Row)`
     padding-top: 24px;

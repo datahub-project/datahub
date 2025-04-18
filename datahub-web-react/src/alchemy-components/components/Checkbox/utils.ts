@@ -1,4 +1,5 @@
 import theme, { colors } from '@components/theme';
+
 import { SizeOptions } from '@src/alchemy-components/theme/config';
 
 const checkboxBackgroundDefault = {

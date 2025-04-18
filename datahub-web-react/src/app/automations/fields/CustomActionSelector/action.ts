@@ -1,5 +1,5 @@
+import { SelectInputMode, ValueTypeId } from '@app/automations/fields/types/values';
 import { EntityType } from '@src/types.generated';
-import { SelectInputMode, ValueTypeId } from '../types/values';
 
 /**
  * An action to be taken on failure or success of a passing test

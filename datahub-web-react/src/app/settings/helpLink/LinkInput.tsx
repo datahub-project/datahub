@@ -1,8 +1,9 @@
 import { Select } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { InputLabel, InputWrapper, RequiredIcon, StyledInput } from './components';
-import useHelpLinkForm from './useHelpLinkForm';
+
+import { InputLabel, InputWrapper, RequiredIcon, StyledInput } from '@app/settings/helpLink/components';
+import useHelpLinkForm from '@app/settings/helpLink/useHelpLinkForm';
 
 const InputWithSelect = styled(StyledInput)`
     &&& {

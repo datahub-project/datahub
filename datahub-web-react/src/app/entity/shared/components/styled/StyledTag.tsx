@@ -1,8 +1,9 @@
 import { Tag } from 'antd';
-import styled, { css } from 'styled-components';
 import ColorHash from 'color-hash';
+import styled, { css } from 'styled-components';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { colors } from '@src/alchemy-components';
-import { REDESIGN_COLORS } from '../../../../entityV2/shared/constants';
 
 export const generateColor = new ColorHash({
     saturation: 0.9,

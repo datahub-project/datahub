@@ -1,23 +1,25 @@
-import { colors, Modal } from '@src/alchemy-components';
+import { Modal as AntModal, message } from 'antd';
+import React, { useContext, useEffect, useState } from 'react';
+import styled from 'styled-components/macro';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { useOnClickExpandLineage } from '@app/lineageV2/LineageEntityNode/useOnClickExpandLineage';
+import { FetchStatus, LineageEntity, LineageNodesContext } from '@app/lineageV2/common';
+import LineageEdges from '@app/lineageV2/manualLineage/LineageEdges';
+import { buildUpdateLineagePayload } from '@app/lineageV2/manualLineage/buildUpdateLineagePayload';
+import { recordAnalyticsEvents } from '@app/lineageV2/manualLineage/recordManualLineageAnalyticsEvent';
+import updateNodeContext from '@app/lineageV2/manualLineage/updateNodeContext';
+import { getValidEntityTypes } from '@app/lineageV2/manualLineage/utils';
+import { useEntityRegistryV2 as useEntityRegistry } from '@app/useEntityRegistry';
+import { Modal, colors } from '@src/alchemy-components';
 import { EntityAndType } from '@src/app/entity/shared/types';
 import { extractTypeFromUrn } from '@src/app/entity/shared/utils';
 import { SearchSelect } from '@src/app/entityV2/shared/components/styled/search/SearchSelect';
 import ClickOutside from '@src/app/shared/ClickOutside';
-import { Modal as AntModal, message } from 'antd';
-import React, { useContext, useEffect, useState } from 'react';
-import styled from 'styled-components/macro';
-import { toTitleCase } from '../../../graphql-mock/helper';
-import { useUpdateLineageMutation } from '../../../graphql/mutations.generated';
-import { Entity, EntityType, LineageDirection } from '../../../types.generated';
-import { useUserContext } from '../../context/useUserContext';
-import { useEntityRegistryV2 as useEntityRegistry } from '../../useEntityRegistry';
-import { useOnClickExpandLineage } from '../LineageEntityNode/useOnClickExpandLineage';
-import { FetchStatus, LineageEntity, LineageNodesContext } from '../common';
-import LineageEdges from './LineageEdges';
-import { buildUpdateLineagePayload } from './buildUpdateLineagePayload';
-import { recordAnalyticsEvents } from './recordManualLineageAnalyticsEvent';
-import updateNodeContext from './updateNodeContext';
-import { getValidEntityTypes } from './utils';
+
+import { toTitleCase } from '@graphql-mock/helper';
+import { useUpdateLineageMutation } from '@graphql/mutations.generated';
+import { Entity, EntityType, LineageDirection } from '@types';
 
 const MODAL_WIDTH_PX = 1400;
 
@@ -94,7 +96,7 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
     const entitiesToAdd = selectedEntities.filter((entity) => !initialSetOfRelationshipsUrns.has(entity.urn));
     const entitiesToRemove = Array.from(initialSetOfRelationshipsUrns)
         .filter((urn) => !selectedEntities.map((entity) => entity.urn).includes(urn))
-        .map((urn) => ({ urn } as Entity));
+        .map((urn) => ({ urn }) as Entity);
 
     // save lineage changes will disable the button while its processing
     function saveLineageChanges() {

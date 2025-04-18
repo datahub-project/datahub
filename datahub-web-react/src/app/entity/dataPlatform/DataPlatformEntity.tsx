@@ -1,9 +1,11 @@
-import * as React from 'react';
 import { DatabaseOutlined } from '@ant-design/icons';
-import { DataPlatform, EntityType, SearchResult } from '../../../types.generated';
-import { Entity, IconStyleType, PreviewType } from '../Entity';
-import { GenericEntityProperties } from '../shared/types';
-import { useGetDataPlatformQuery } from '../../../graphql/dataPlatform.generated';
+import * as React from 'react';
+
+import { Entity, IconStyleType, PreviewType } from '@app/entity/Entity';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+
+import { useGetDataPlatformQuery } from '@graphql/dataPlatform.generated';
+import { DataPlatform, EntityType, SearchResult } from '@types';
 
 const getDisplayName = (data?: DataPlatform): string => {
     return data?.properties?.displayName || data?.name || '';

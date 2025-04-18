@@ -1,6 +1,7 @@
 import React from 'react';
-import { CalendarProps } from '../../types';
-import { Month } from './Month';
+
+import { Month } from '@components/components/CalendarChart/private/components/Month';
+import { CalendarProps } from '@components/components/CalendarChart/types';
 
 export function Calendar<ValueType>({ data }: CalendarProps<ValueType>) {
     return (

@@ -1,20 +1,21 @@
-import { PageTitle } from '@src/alchemy-components';
-import { Badge } from '@src/alchemy-components/components/Badge';
 import { Badge as BadgeAntd } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import CompactContext from '@app/shared/CompactContext';
+import { RoutedTabs } from '@app/shared/RoutedTabs';
+import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
+import { Proposals } from '@app/taskCenterV2/proposalsV2/Proposals';
+import { Requests } from '@app/taskCenterV2/requests/Requests';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useIsThemeV2 } from '@app/useIsThemeV2';
+import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+import { PageTitle } from '@src/alchemy-components';
+import { Badge } from '@src/alchemy-components/components/Badge';
 import { ActionRequest } from '@src/types.generated';
-import { useUserContext } from '../context/useUserContext';
-import { useIsThemeV2 } from '../useIsThemeV2';
-import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
-import { Proposals } from './proposalsV2/Proposals';
-import { useEntityRegistryV2 } from '../useEntityRegistry';
-import CompactContext from '../shared/CompactContext';
-import EntitySidebarContext from '../sharedV2/EntitySidebarContext';
-import useSidebarWidth from '../sharedV2/sidebar/useSidebarWidth';
-import { Requests } from './requests/Requests';
-import { RoutedTabs } from '../shared/RoutedTabs';
-import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 
 const ProposalsContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;

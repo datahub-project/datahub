@@ -1,16 +1,18 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
-import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
-import { useAppConfig } from '@app/useAppConfig';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React, { Dispatch, SetStateAction } from 'react';
-import { Entity, EntityType, LineageDirection, SchemaFieldRef } from '../../types.generated';
-import EntityRegistry from '../entityV2/EntityRegistry';
-import { DBT_CLOUD_URN } from '../ingest/source/builder/constants';
-import { hashString } from '../shared/avatar/getAvatarColor';
-import { FineGrainedOperation } from '../sharedV2/EntitySidebarContext';
-import { getEntityTypeFromEntityUrn } from './lineageUtils';
-import { FetchedEntityV2 } from './types';
-import { getPlatformUrnFromEntityUrn } from '../entityV2/shared/utils';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import EntityRegistry from '@app/entityV2/EntityRegistry';
+import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
+import { getPlatformUrnFromEntityUrn } from '@app/entityV2/shared/utils';
+import { DBT_CLOUD_URN } from '@app/ingest/source/builder/constants';
+import { getEntityTypeFromEntityUrn } from '@app/lineageV2/lineageUtils';
+import { FetchedEntityV2 } from '@app/lineageV2/types';
+import { hashString } from '@app/shared/avatar/getAvatarColor';
+import { FineGrainedOperation } from '@app/sharedV2/EntitySidebarContext';
+import { useAppConfig } from '@app/useAppConfig';
+
+import { Entity, EntityType, LineageDirection, SchemaFieldRef } from '@types';
 
 export const TRANSITION_DURATION_MS = 200;
 export const LINEAGE_FILTER_PAGINATION = 4;

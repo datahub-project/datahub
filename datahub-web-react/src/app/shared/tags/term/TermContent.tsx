@@ -1,14 +1,16 @@
 import { ThunderboltOutlined } from '@ant-design/icons';
-import { message, Modal, Tag } from 'antd';
+import { BookmarkSimple } from '@phosphor-icons/react';
+import { Modal, Tag, message } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
-import { BookmarkSimple } from '@phosphor-icons/react';
-import { useRemoveTermMutation } from '../../../../graphql/mutations.generated';
-import { EntityType, GlossaryTermAssociation, SubResourceType } from '../../../../types.generated';
-import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
-import { useHasMatchedFieldByUrn } from '../../../search/context/SearchResultContext';
-import { useEntityRegistry } from '../../../useEntityRegistry';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useRemoveTermMutation } from '@graphql/mutations.generated';
+import { EntityType, GlossaryTermAssociation, SubResourceType } from '@types';
 
 const PROPAGATOR_URN = 'urn:li:corpuser:__datahub_propagator';
 

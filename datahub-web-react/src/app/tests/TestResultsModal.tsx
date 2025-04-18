@@ -1,9 +1,11 @@
+import { Modal, Tabs } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Modal, Tabs } from 'antd';
-import { UnionType } from '../search/utils/constants';
-import { FacetFilterInput, TestResultType } from '../../types.generated';
-import { EmbeddedListSearch } from '../entity/shared/components/styled/search/EmbeddedListSearch';
+
+import { EmbeddedListSearch } from '@app/entity/shared/components/styled/search/EmbeddedListSearch';
+import { UnionType } from '@app/search/utils/constants';
+
+import { FacetFilterInput, TestResultType } from '@types';
 
 const Container = styled.div`
     display: flex;

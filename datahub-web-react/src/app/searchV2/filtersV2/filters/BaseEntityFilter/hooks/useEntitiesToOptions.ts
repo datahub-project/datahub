@@ -1,7 +1,8 @@
+import { useCallback } from 'react';
+
+import { BaseEntitySelectOption } from '@app/searchV2/filtersV2/filters/BaseEntityFilter/types';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { Entity } from '@src/types.generated';
-import { useCallback } from 'react';
-import { BaseEntitySelectOption } from '../types';
 
 export default function useConvertEntitiesToOptions() {
     const entityRegistry = useEntityRegistryV2();

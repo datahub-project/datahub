@@ -1,12 +1,14 @@
 import { Modal } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+
+import { SearchSelect } from '@app/entity/shared/components/styled/search/SearchSelect';
+import { EntityAndType } from '@app/entity/shared/types';
+import ClickOutside from '@app/shared/ClickOutside';
 import { Button } from '@src/alchemy-components';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
-import { EntityType } from '../../../../../../types.generated';
-import ClickOutside from '../../../../../shared/ClickOutside';
-import { EntityAndType } from '../../../types';
-import { SearchSelect } from './SearchSelect';
+
+import { EntityType } from '@types';
 
 const StyledModal = styled(Modal)`
     top: 30px;

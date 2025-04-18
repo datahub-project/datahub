@@ -1,6 +1,7 @@
-import { EntityType } from '../../../../../../../../types.generated';
-import { entityProperties } from '../types/properties';
-import { getPropertiesForEntityTypes } from '../utils';
+import { entityProperties } from '@app/tests/builder/steps/definition/builder/property/types/properties';
+import { getPropertiesForEntityTypes } from '@app/tests/builder/steps/definition/builder/property/utils';
+
+import { EntityType } from '@types';
 
 describe('utils', () => {
     describe('getPropertiesForEntityTypes', () => {

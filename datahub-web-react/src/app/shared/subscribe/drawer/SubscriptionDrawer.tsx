@@ -1,40 +1,42 @@
+import { Alert, Drawer, Typography } from 'antd';
 import React, { useEffect } from 'react';
 import styled from 'styled-components/macro';
-import { Alert, Drawer, Typography } from 'antd';
-import NotificationTypesSection from './section/NotificationTypesSection';
-import UpstreamSection from './section/UpstreamSection';
-import NotificationRecipientSection from './section/NotificationRecipientSection';
-import Footer from './section/Footer';
-import SelectGroupSection from './section/SelectGroupSection';
-import { Assertion, DataHubSubscription, EntityType, NotificationSinkType } from '../../../../types.generated';
+
+import { ENABLE_UPSTREAM_NOTIFICATIONS } from '@app/settings/personal/notifications/constants';
+import { EMAIL_SINK, NOTIFICATION_SINKS, SLACK_SINK } from '@app/settings/platform/types';
+import { isSinkEnabled } from '@app/settings/utils';
+import Footer from '@app/shared/subscribe/drawer/section/Footer';
+import NotificationRecipientSection from '@app/shared/subscribe/drawer/section/NotificationRecipientSection';
+import NotificationTypesSection from '@app/shared/subscribe/drawer/section/NotificationTypesSection';
+import SelectGroupSection from '@app/shared/subscribe/drawer/section/SelectGroupSection';
+import UpstreamSection from '@app/shared/subscribe/drawer/section/UpstreamSection';
+import useDrawerActions from '@app/shared/subscribe/drawer/state/actions';
+import SubscriptionDrawerProvider from '@app/shared/subscribe/drawer/state/context';
+import {
+    selectEmailSaveAsDefault,
+    selectEmailSubscriptionChannel,
+    selectIsEmailEnabled,
+    selectIsSlackEnabled,
+    selectShouldTurnOnEmailInSettings,
+    selectShouldTurnOnSlackInSettings,
+    selectSlackSaveAsDefault,
+    selectSlackSubscriptionChannel,
+    useDrawerSelector,
+} from '@app/shared/subscribe/drawer/state/selectors';
+import useDelayedKey from '@app/shared/subscribe/drawer/useDelayedKey';
+import useActorSinkSettings from '@app/shared/subscribe/drawer/useSinkSettings';
+import useUpsertSubscription from '@app/shared/subscribe/drawer/useUpsertSubscription';
 import {
     getEmailSettingsChannel,
     getEmailSubscriptionChannel,
     getSlackSettingsChannel,
     getSlackSubscriptionChannel,
-} from './utils';
-import { useGetGlobalSettingsQuery } from '../../../../graphql/settings.generated';
-import { useGetLineageCountsQuery } from '../../../../graphql/lineage.generated';
-import { EMAIL_SINK, NOTIFICATION_SINKS, SLACK_SINK } from '../../../settings/platform/types';
-import { isSinkEnabled } from '../../../settings/utils';
-import { ENABLE_UPSTREAM_NOTIFICATIONS } from '../../../settings/personal/notifications/constants';
-import SubscriptionDrawerProvider from './state/context';
-import useDrawerActions from './state/actions';
-import useActorSinkSettings from './useSinkSettings';
-import useUpsertSubscription from './useUpsertSubscription';
-import useDelayedKey from './useDelayedKey';
-import {
-    selectIsSlackEnabled,
-    selectShouldTurnOnSlackInSettings,
-    selectSlackSubscriptionChannel,
-    selectSlackSaveAsDefault,
-    useDrawerSelector,
-    selectShouldTurnOnEmailInSettings,
-    selectIsEmailEnabled,
-    selectEmailSaveAsDefault,
-    selectEmailSubscriptionChannel,
-} from './state/selectors';
-import { useAppConfig } from '../../../useAppConfig';
+} from '@app/shared/subscribe/drawer/utils';
+import { useAppConfig } from '@app/useAppConfig';
+
+import { useGetLineageCountsQuery } from '@graphql/lineage.generated';
+import { useGetGlobalSettingsQuery } from '@graphql/settings.generated';
+import { Assertion, DataHubSubscription, EntityType, NotificationSinkType } from '@types';
 
 const SubscribeDrawer = styled(Drawer)`
     .ant-drawer-body {

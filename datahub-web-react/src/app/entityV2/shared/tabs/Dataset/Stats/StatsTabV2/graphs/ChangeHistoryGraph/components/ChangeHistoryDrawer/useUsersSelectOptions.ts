@@ -1,7 +1,8 @@
 import { SelectOption } from '@components';
-import { CorpUser } from '@src/types.generated';
 import { useEffect, useState } from 'react';
-import useGetUserName from './useGetUserName';
+
+import useGetUserName from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/useGetUserName';
+import { CorpUser } from '@src/types.generated';
 
 export default function useUsersSelectOptions(
     users: CorpUser[],

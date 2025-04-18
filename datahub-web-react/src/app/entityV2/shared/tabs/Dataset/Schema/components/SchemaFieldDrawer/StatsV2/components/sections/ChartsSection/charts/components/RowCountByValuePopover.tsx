@@ -1,10 +1,11 @@
+import React from 'react';
+import styled from 'styled-components';
+
 import { Text } from '@src/alchemy-components';
 import { COLOR_SCHEME_TO_PARAMS, DEFAULT_COLOR_SCHEME } from '@src/alchemy-components/components/BarChart/constants';
 import { Datum } from '@src/alchemy-components/components/BarChart/types';
 import { formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
 import { pluralize } from '@src/app/shared/textUtil';
-import React from 'react';
-import styled from 'styled-components';
 
 interface RowCountByValuePopoverProps {
     datum: Datum;

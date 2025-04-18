@@ -1,9 +1,11 @@
 import { message } from 'antd';
-import { useUpdateAssertionMetadataMutation } from '../../../../../../../../graphql/assertion.generated';
-import { Assertion } from '../../../../../../../../types.generated';
-import { builderStateToUpdateAssertionMetadataVariables } from './utils';
-import { AssertionMonitorBuilderState } from './types';
-import analytics, { EventType } from '../../../../../../../analytics';
+
+import analytics, { EventType } from '@app/analytics';
+import { AssertionMonitorBuilderState } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/types';
+import { builderStateToUpdateAssertionMetadataVariables } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/utils';
+
+import { useUpdateAssertionMetadataMutation } from '@graphql/assertion.generated';
+import { Assertion } from '@types';
 
 export const useUpdateAssertionMetadataWithBuilderState = (
     builderState: AssertionMonitorBuilderState,

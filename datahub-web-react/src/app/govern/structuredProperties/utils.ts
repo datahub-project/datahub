@@ -1,6 +1,5 @@
 import EntityRegistry from '@src/app/entity/EntityRegistry';
 import { mapStructuredPropertyToPropertyRow } from '@src/app/entity/shared/tabs/Properties/useStructuredProperties';
-
 import {
     ENTITY_TYPES_FILTER_NAME,
     IS_HIDDEN_PROPERTY_FILTER_NAME,

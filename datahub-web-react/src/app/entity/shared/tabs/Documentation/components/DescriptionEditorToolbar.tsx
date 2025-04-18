@@ -1,9 +1,11 @@
 import Icon, { CheckOutlined, MailOutlined } from '@ant-design/icons';
-import styled from 'styled-components';
 import { Button } from 'antd';
 import React from 'react';
-import TabToolbar from '../../../components/styled/TabToolbar';
-import SparklesIcon from '../../../../../../images/sparkles.svg?react';
+import styled from 'styled-components';
+
+import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+
+import SparklesIcon from '@images/sparkles.svg?react';
 
 const ProposeButton = styled(Button)`
     margin-right: 10px;

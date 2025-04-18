@@ -1,20 +1,22 @@
-import React from 'react';
-import { Typography } from 'antd';
-import styled from 'styled-components';
 import { MailOutlined, SlackCircleFilled } from '@ant-design/icons';
-import {
-    DataHubSubscription,
-    EmailNotificationSettings,
-    NotificationSinkType,
-    SlackNotificationSettings,
-} from '../../../../../types.generated';
+import { Typography } from 'antd';
+import React from 'react';
+import styled from 'styled-components';
+
 import {
     getEmailSettingsChannel,
     getEmailSubscriptionChannel,
     getSinkTypesForSubscription,
     getSlackSettingsChannel,
     getSlackSubscriptionChannel,
-} from '../../../../shared/subscribe/drawer/utils';
+} from '@app/shared/subscribe/drawer/utils';
+
+import {
+    DataHubSubscription,
+    EmailNotificationSettings,
+    NotificationSinkType,
+    SlackNotificationSettings,
+} from '@types';
 
 const ChannelsContainer = styled.div`
     display: flex;

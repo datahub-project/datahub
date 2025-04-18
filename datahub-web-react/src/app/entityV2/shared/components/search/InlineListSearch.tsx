@@ -1,6 +1,7 @@
 import React from 'react';
+
+import { MatchLabelText, SearchContainer, StyledInput } from '@app/entityV2/shared/components/search/styledComponents';
 import { pluralize } from '@src/app/shared/textUtil';
-import { MatchLabelText, SearchContainer, StyledInput } from './styledComponents';
 
 interface InlineListSearchProps {
     searchText: string;

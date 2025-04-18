@@ -1,17 +1,26 @@
-import React, { useMemo } from 'react';
-
-import _ from 'lodash';
 import { Popover } from '@components';
-import { AreaClosed, LinePath } from '@visx/shape';
-import { Group } from '@visx/group';
 import { AxisBottom, AxisLeft } from '@visx/axis';
-import { scaleUtc } from '@visx/scale';
 import { GlyphCircle } from '@visx/glyph';
 import { LinearGradient } from '@visx/gradient';
+import { Group } from '@visx/group';
+import { scaleUtc } from '@visx/scale';
+import { AreaClosed, LinePath } from '@visx/shape';
 import { scaleLinear } from 'd3-scale';
+import _ from 'lodash';
+import React, { useMemo } from 'react';
 
-import { ANTD_GRAY } from '../../../../../../../../../constants';
-import { LinkWrapper } from '../../../../../../../../../../../shared/LinkWrapper';
+import {
+    calculateOverlapBetweenTwoMarkers,
+    calculateYScaleExtentForChart,
+    truncateNumberForDisplay,
+} from '@app/dataviz/utils';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { AssertionResultPopoverContent } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopoverContent';
+import {
+    AssertionDataPoint,
+    AssertionResultChartData,
+    TimeRange,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/types';
 import {
     ACCENT_COLOR_HEX,
     EXPECTED_RANGE_SHADE_COLOR,
@@ -20,17 +29,12 @@ import {
     getCustomTimeScaleTickValue,
     getFillColor,
     tryGetUpperAndLowerYRangeFromAssertionRunEvent,
-} from './utils';
-import { AssertionDataPoint, AssertionResultChartData, TimeRange } from './types';
-import { AssertionResultPopoverContent } from '../../../../shared/result/AssertionResultPopoverContent';
-import {
-    calculateOverlapBetweenTwoMarkers,
-    calculateYScaleExtentForChart,
-    truncateNumberForDisplay,
-} from '../../../../../../../../../../../dataviz/utils';
-import { getTimeRangeDisplay } from '../utils';
-import { INTERVAL_TO_MS } from '../../../../../../../../../../../shared/time/timeUtils';
-import { DateInterval } from '../../../../../../../../../../../../types.generated';
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/utils';
+import { getTimeRangeDisplay } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/utils';
+import { LinkWrapper } from '@app/shared/LinkWrapper';
+import { INTERVAL_TO_MS } from '@app/shared/time/timeUtils';
+
+import { DateInterval } from '@types';
 
 type Props = {
     data: AssertionResultChartData;

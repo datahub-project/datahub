@@ -1,7 +1,8 @@
 import React, { useContext } from 'react';
-import ManageFormContext from './ManageFormContext';
-import { ListContainer } from './styledComponents';
-import UserOrGroupItem from './UserOrGroupItem';
+
+import ManageFormContext from '@app/govern/Dashboard/Forms/ManageFormContext';
+import UserOrGroupItem from '@app/govern/Dashboard/Forms/UserOrGroupItem';
+import { ListContainer } from '@app/govern/Dashboard/Forms/styledComponents';
 
 const UsersList = () => {
     const { formValues } = useContext(ManageFormContext);

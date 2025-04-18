@@ -1,13 +1,12 @@
+import { AVAILABLE_ICONS } from '@components';
+import { BADGE } from '@geometricpanda/storybook-addon-badges';
+import type { Meta, StoryObj } from '@storybook/react';
+import React from 'react';
+
+import { GridList } from '@components/.docs/mdx-components';
 import { ButtonVariantValues } from '@components/components/Button/types';
 import { MATERIAL_UI_ICONS, PHOSPHOR_ICONS } from '@components/components/Icon/constants';
 import { SizeValues } from '@components/theme/config';
-import React from 'react';
-
-import type { Meta, StoryObj } from '@storybook/react';
-import { BADGE } from '@geometricpanda/storybook-addon-badges';
-
-import { GridList } from '@components/.docs/mdx-components';
-import { AVAILABLE_ICONS } from '@components';
 
 import { Button, buttonDefaults } from '.';
 

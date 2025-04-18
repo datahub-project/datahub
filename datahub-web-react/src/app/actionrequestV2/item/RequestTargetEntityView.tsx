@@ -1,8 +1,10 @@
 import { Text } from '@components';
 import React from 'react';
-import { ActionRequest } from '../../../types.generated';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { ContentWrapper, StyledLink } from './styledComponents';
+
+import { ContentWrapper, StyledLink } from '@app/actionrequestV2/item/styledComponents';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { ActionRequest } from '@types';
 
 interface Props {
     actionRequest: ActionRequest;

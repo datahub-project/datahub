@@ -1,12 +1,13 @@
-import React from 'react';
 import { List } from 'antd';
-import styled from 'styled-components';
+import React from 'react';
 import VisiblitySensor from 'react-visibility-sensor';
+import styled from 'styled-components';
 
-import { useEntityRegistry } from '../../../../useEntityRegistry';
-import { PreviewType } from '../../../Entity';
-import { Entity } from '../../../../../types.generated';
-import { ANTD_GRAY } from '../../constants';
+import { PreviewType } from '@app/entityV2/Entity';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Entity } from '@types';
 
 const LineageList = styled(List)`
     padding-left: 40px;

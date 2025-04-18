@@ -1,11 +1,12 @@
-import { FileMarkdownOutlined, FileTextOutlined } from '@ant-design/icons';
 import { blue } from '@ant-design/colors';
+import { FileMarkdownOutlined, FileTextOutlined } from '@ant-design/icons';
+import MDEditor from '@uiw/react-md-editor';
 import { Button, Modal } from 'antd';
 import React, { useState } from 'react';
 import ReactDiffViewer, { DiffMethod } from 'react-diff-viewer';
 import styled from 'styled-components/macro';
-import MDEditor from '@uiw/react-md-editor';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 const ButtonsWrapper = styled.div`
     display: flex;

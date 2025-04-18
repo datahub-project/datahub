@@ -1,11 +1,12 @@
 import { ExclamationCircleOutlined } from '@ant-design/icons';
-import { colors, Icon } from '@src/alchemy-components';
+import { Checkbox, Divider, Modal, Radio, Select, Spin, Tag, Typography } from 'antd';
+import styled from 'styled-components';
+
+import { Icon, colors } from '@src/alchemy-components';
 import theme from '@src/alchemy-components/theme';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { WARNING_COLOR_HEX } from '@src/app/entityV2/shared/tabs/Incident/incidentUtils';
 import { applyOpacity } from '@src/app/shared/styleUtils';
-import { Checkbox, Divider, Modal, Radio, Select, Spin, Tag, Typography } from 'antd';
-import styled from 'styled-components';
 
 export const CreateFormContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     display: flex;

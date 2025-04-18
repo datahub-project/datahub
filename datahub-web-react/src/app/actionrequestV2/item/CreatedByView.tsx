@@ -1,9 +1,10 @@
 import { Avatar } from '@components';
+import React from 'react';
+import { Link } from 'react-router-dom';
+
 import { HoverEntityTooltip } from '@src/app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { ActionRequest, Entity, EntityType } from '@src/types.generated';
-import React from 'react';
-import { Link } from 'react-router-dom';
 
 interface Props {
     actionRequest: ActionRequest;
