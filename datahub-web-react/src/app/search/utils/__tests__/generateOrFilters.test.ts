@@ -1,11 +1,11 @@
 import {
     DOMAINS_FILTER_NAME,
-    ENTITY_SUB_TYPE_FILTER_NAME,
     ENTITY_FILTER_NAME,
+    ENTITY_SUB_TYPE_FILTER_NAME,
     TAGS_FILTER_NAME,
     UnionType,
-} from '../constants';
-import { generateOrFilters } from '../generateOrFilters';
+} from '@app/search/utils/constants';
+import { generateOrFilters } from '@app/search/utils/generateOrFilters';
 
 describe('generateOrFilters', () => {
     it('should generate orFilters with UnionType.AND', () => {

@@ -1,19 +1,21 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
-import { useGetEntitiesLazyQuery } from '../../../../graphql/entity.generated';
-import { Entity, FacetFilter, FacetFilterInput, LogicalOperator } from '../../../../types.generated';
-import { AdvancedSearchFilters, LayoutDirection } from '../../../search/AdvancedSearchFilters';
-import { ENTITY_FILTER_NAME } from '../../../search/utils/constants';
-import { ANTD_GRAY } from '../../shared/constants';
-import { ViewBuilderState } from '../types';
-import { ViewBuilderMode } from './types';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { ViewBuilderMode } from '@app/entity/view/builder/types';
 import {
     buildEntityCache,
     extractEntityTypesFilterValues,
     fromUnionType,
     isResolutionRequired,
     toUnionType,
-} from './utils';
+} from '@app/entity/view/builder/utils';
+import { ViewBuilderState } from '@app/entity/view/types';
+import { AdvancedSearchFilters, LayoutDirection } from '@app/search/AdvancedSearchFilters';
+import { ENTITY_FILTER_NAME } from '@app/search/utils/constants';
+
+import { useGetEntitiesLazyQuery } from '@graphql/entity.generated';
+import { Entity, FacetFilter, FacetFilterInput, LogicalOperator } from '@types';
 
 const Container = styled.div`
     border-radius: 4px;

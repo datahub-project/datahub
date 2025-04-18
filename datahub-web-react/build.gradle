@@ -1,3 +1,6 @@
+import java.nio.file.FileSystems
+import java.nio.file.Paths
+
 plugins {
   id 'java'
   id 'distribution'
@@ -135,6 +138,55 @@ task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
     file('tsconfig.json'),
   )
   outputs.dir('dist')
+}
+
+// Define a list of configurations for prettier tasks
+def externalPrettierConfigs = [
+    [
+        name: 'graphql',
+        pattern: 'datahub-graphql-core/src/main/resources/**/*.graphql'
+    ],
+    [
+        name: 'githubActions',
+        pattern: '.github/**/*.{yml,yaml}'
+    ],
+    [
+        name: 'md',
+        pattern: '**/*.md'
+    ]
+]
+
+// Iterate through the configurations to create check and write tasks
+externalPrettierConfigs.each { config ->
+  tasks.register("${config.name}PrettierCheck", YarnTask) {
+    dependsOn(tasks.named('yarnInstall'))
+    args = ['run', 'prettier', '--check', "../${config.pattern}"]
+  }
+
+  tasks.register("${config.name}PrettierWrite", YarnTask) {
+    dependsOn(tasks.named('yarnInstall'))
+    args = ['run', 'prettier', '--write', "../${config.pattern}"]
+  }
+
+  tasks.register("${config.name}PrettierWriteChanged", YarnTask) {
+    // Get the list of changed Markdown files using Git
+    def changedFiles = new ByteArrayOutputStream()
+    exec {
+      commandLine 'git', 'diff', '--name-only', '--diff-filter=ACMRT', 'HEAD'
+      standardOutput = changedFiles
+    }
+    def allChangedFiles = changedFiles.toString().trim().split('\n').findAll { it != '' }
+    def matcher = FileSystems.getDefault().getPathMatcher("glob:${config.pattern}")
+    def matchingFiles = allChangedFiles.findAll { file -> matcher.matches(Paths.get(file)) }
+
+    if (matchingFiles.isEmpty()) {
+      logger.lifecycle("No changed files found matching ${config.pattern}.")
+      return
+    }
+
+    logger.lifecycle("Running Prettier on ${matchingFiles.size()} changed ${config.name} files")
+    args = ['run', 'prettier', '--write'] + matchingFiles.collect { "../${it}" }
+  }
 }
 
 clean {

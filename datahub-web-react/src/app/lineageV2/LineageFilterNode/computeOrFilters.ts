@@ -1,5 +1,6 @@
 import { DBT_URN } from '@app/ingest/source/builder/constants';
 import { ENTITY_FILTER_NAME, PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
+
 import { AndFilterInput, EntityType, FacetFilterInput } from '@types';
 
 /**

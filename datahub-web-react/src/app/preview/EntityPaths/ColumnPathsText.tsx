@@ -1,11 +1,13 @@
 import { Tooltip } from 'antd';
 import React, { useContext } from 'react';
 import styled from 'styled-components/macro';
-import { EntityPath, EntityType, LineageDirection, SchemaFieldEntity } from '../../../types.generated';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { LineageTabContext } from '../../entity/shared/tabs/Lineage/LineageTabContext';
-import ColumnsRelationshipText from './ColumnsRelationshipText';
-import DisplayedColumns from './DisplayedColumns';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { LineageTabContext } from '@app/entity/shared/tabs/Lineage/LineageTabContext';
+import ColumnsRelationshipText from '@app/preview/EntityPaths/ColumnsRelationshipText';
+import DisplayedColumns from '@app/preview/EntityPaths/DisplayedColumns';
+
+import { EntityPath, EntityType, LineageDirection, SchemaFieldEntity } from '@types';
 
 export const ResultText = styled.span`
     &:hover {

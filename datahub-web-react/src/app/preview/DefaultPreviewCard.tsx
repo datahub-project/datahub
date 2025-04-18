@@ -1,44 +1,47 @@
-import DataProcessInstanceRightColumn from '@app/preview/DataProcessInstanceRightColumn';
-import React, { ReactNode, useState } from 'react';
 import { Divider, Tooltip, Typography } from 'antd';
+import React, { ReactNode, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+
+import { PreviewType } from '@app/entity/Entity';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import ExternalUrlButton from '@app/entity/shared/ExternalUrlButton';
+import { usePreviewData } from '@app/entity/shared/PreviewContext';
+import { DeprecationPill } from '@app/entity/shared/components/styled/DeprecationPill';
+import { ExpandedActorGroup } from '@app/entity/shared/components/styled/ExpandedActorGroup';
+import NoMarkdownViewer from '@app/entity/shared/components/styled/StripMarkdownText';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import EntityCount from '@app/entity/shared/containers/profile/header/EntityCount';
+import { EntityHealth } from '@app/entity/shared/containers/profile/header/EntityHealth';
+import PlatformContentView from '@app/entity/shared/containers/profile/header/PlatformContent/PlatformContentView';
+import StructuredPropertyBadge from '@app/entity/shared/containers/profile/header/StructuredPropertyBadge';
+import { getNumberWithOrdinal } from '@app/entity/shared/utils';
+import EntityPaths from '@app/preview/EntityPaths/EntityPaths';
+import { getUniqueOwners } from '@app/preview/utils';
+import SearchTextHighlighter from '@app/search/matches/SearchTextHighlighter';
+import { DataProductLink } from '@app/shared/tags/DataProductLink';
+import TagTermGroup from '@app/shared/tags/TagTermGroup';
+import useContentTruncation from '@app/shared/useContentTruncation';
+import DataProcessInstanceInfo from '@src/app/preview/DataProcessInstanceInfo';
+
 import {
-    GlobalTags,
-    Owner,
-    GlossaryTerms,
-    SearchInsight,
     Container,
-    Dataset,
-    ParentContainersResult,
-    Maybe,
     CorpUser,
+    DataProcessRunEvent,
+    DataProduct,
+    Dataset,
     Deprecation,
     Domain,
-    EntityPath,
-    DataProduct,
-    Health,
     Entity,
-} from '../../types.generated';
-import TagTermGroup from '../shared/tags/TagTermGroup';
-import { ANTD_GRAY } from '../entity/shared/constants';
-import NoMarkdownViewer from '../entity/shared/components/styled/StripMarkdownText';
-import { getNumberWithOrdinal } from '../entity/shared/utils';
-import { useEntityData } from '../entity/shared/EntityContext';
-import PlatformContentView from '../entity/shared/containers/profile/header/PlatformContent/PlatformContentView';
-import useContentTruncation from '../shared/useContentTruncation';
-import EntityCount from '../entity/shared/containers/profile/header/EntityCount';
-import { ExpandedActorGroup } from '../entity/shared/components/styled/ExpandedActorGroup';
-import { DeprecationPill } from '../entity/shared/components/styled/DeprecationPill';
-import { PreviewType } from '../entity/Entity';
-import ExternalUrlButton from '../entity/shared/ExternalUrlButton';
-import EntityPaths from './EntityPaths/EntityPaths';
-import { DataProductLink } from '../shared/tags/DataProductLink';
-import { EntityHealth } from '../entity/shared/containers/profile/header/EntityHealth';
-import SearchTextHighlighter from '../search/matches/SearchTextHighlighter';
-import { getUniqueOwners } from './utils';
-import StructuredPropertyBadge from '../entity/shared/containers/profile/header/StructuredPropertyBadge';
-import { usePreviewData } from '../entity/shared/PreviewContext';
+    EntityPath,
+    GlobalTags,
+    GlossaryTerms,
+    Health,
+    Maybe,
+    Owner,
+    ParentContainersResult,
+    SearchInsight,
+} from '@types';
 
 const PreviewContainer = styled.div`
     display: flex;
@@ -200,11 +203,7 @@ interface Props {
     paths?: EntityPath[];
     health?: Health[];
     parentDataset?: Dataset;
-    dataProcessInstanceProps?: {
-        startTime?: number;
-        duration?: number;
-        status?: string;
-    };
+    lastRunEvent?: DataProcessRunEvent | null;
 }
 
 export default function DefaultPreviewCard({
@@ -248,7 +247,7 @@ export default function DefaultPreviewCard({
     paths,
     health,
     parentDataset,
-    dataProcessInstanceProps,
+    lastRunEvent,
 }: Props) {
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
@@ -279,9 +278,9 @@ export default function DefaultPreviewCard({
     const shouldShowRightColumn =
         (topUsers && topUsers.length > 0) ||
         (owners && owners.length > 0) ||
-        dataProcessInstanceProps?.startTime ||
-        dataProcessInstanceProps?.duration ||
-        dataProcessInstanceProps?.status;
+        lastRunEvent?.timestampMillis ||
+        lastRunEvent?.durationMillis ||
+        lastRunEvent?.result?.resultType;
     const uniqueOwners = getUniqueOwners(owners);
 
     return (
@@ -391,7 +390,7 @@ export default function DefaultPreviewCard({
             </LeftColumn>
             {shouldShowRightColumn && (
                 <RightColumn key="right-column">
-                    <DataProcessInstanceRightColumn {...dataProcessInstanceProps} />
+                    <DataProcessInstanceInfo timestampMillis={lastRunEvent?.timestampMillis || 0} {...lastRunEvent} />
                     {topUsers && topUsers?.length > 0 && (
                         <>
                             <UserListContainer>

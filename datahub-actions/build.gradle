@@ -1,0 +1,177 @@
+/** 
+* Copyright 2021 Acryl Data, Inc.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+plugins {
+  id 'scala'
+  id 'org.gradle.playframework'
+}
+
+apply from: "../gradle/versioning/versioning.gradle"
+apply from: "../gradle/coverage/python-coverage.gradle"
+apply from: '../gradle/docker/docker.gradle'
+
+ext {
+  python_executable = 'python3'
+  venv_name = 'venv'
+  docker_registry = 'acryldata'
+  docker_repo = 'datahub-actions'
+  docker_target = project.getProperties().getOrDefault("dockerTarget", "slim")
+  docker_version = "v${version}${docker_target == 'slim' ? '-slim' : ''}"
+  python_docker_version = project.getProperties().getOrDefault("pythonDockerVersion", "1!0.0.0+docker.${version}")
+}
+
+if (!project.hasProperty("extra_pip_requirements")) {
+  ext.extra_pip_requirements = ""
+}
+
+def pip_install_command = "VIRTUAL_ENV=${venv_name} ${venv_name}/bin/uv pip install -e ../metadata-ingestion"
+
+task checkPythonVersion(type: Exec) {
+  commandLine python_executable, '-c',
+          'import sys; sys.version_info >= (3, 8), f"Python version {sys.version_info[:2]} not allowed"'
+}
+
+task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
+  def sentinel_file = "${venv_name}/.venv_environment_sentinel"
+  inputs.file file('setup.py')
+  outputs.file(sentinel_file)
+  commandLine 'bash', '-c',
+      "${python_executable} -m venv ${venv_name} && " +
+      "${venv_name}/bin/python -m pip install --upgrade uv && " +
+      "touch ${sentinel_file}"
+}
+
+task installPackage(type: Exec, dependsOn: [environmentSetup, ':metadata-ingestion:codegen']) {
+  def sentinel_file = "${venv_name}/.build_install_package_sentinel"
+  inputs.file file('setup.py')
+  outputs.file(sentinel_file)
+  commandLine 'bash', '-c',
+      "source ${venv_name}/bin/activate && set -x && " +
+          "${pip_install_command} -e . ${extra_pip_requirements} && " +
+          "touch ${sentinel_file}"
+}
+
+task install(dependsOn: [installPackage])
+
+task installDev(type: Exec, dependsOn: [install]) {
+  def sentinel_file = "${venv_name}/.build_install_dev_sentinel"
+  inputs.file file('setup.py')
+  outputs.file(sentinel_file)
+  commandLine 'bash', '-c',
+      "source ${venv_name}/bin/activate && set -x && " +
+      "${pip_install_command} -e .[dev] ${extra_pip_requirements} && " +
+      "touch ${sentinel_file}"
+}
+
+task lint(type: Exec, dependsOn: installDev) {
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    "ruff check src/ tests/ && " +
+    "ruff format --check src/ tests/ && " +
+    "mypy --show-traceback --show-error-codes src/ tests/"
+}
+
+task lintFix(type: Exec, dependsOn: installDev) {
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    "ruff check --fix src/ tests/ && " +
+    "ruff format src/ tests/ "
+}
+
+task installDevTest(type: Exec, dependsOn: [installDev]) {
+  def sentinel_file = "${venv_name}/.build_install_dev_test_sentinel"
+  inputs.file file('setup.py')
+  outputs.dir("${venv_name}")
+  outputs.file(sentinel_file)
+  commandLine 'bash', '-c',
+      "source ${venv_name}/bin/activate && set -x && " +
+          "${pip_install_command} -e .[dev,integration-tests] ${extra_pip_requirements} && " +
+          "touch ${sentinel_file}"
+}
+
+task testQuick(type: Exec, dependsOn: installDevTest) {
+  // We can't enforce the coverage requirements if we run a subset of the tests.
+  inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
+  inputs.files(project.fileTree(dir: "tests/"))
+  outputs.dir("${venv_name}")
+  commandLine 'bash', '-c',
+      "source ${venv_name}/bin/activate && set -x && " +
+          "pytest -vv ${get_coverage_args('quick')} --continue-on-collection-errors --junit-xml=junit.quick.xml"
+}
+
+def testFile = hasProperty('testFile') ? testFile : 'unknown'
+task testSingle(dependsOn: [installDevTest]) {
+  doLast {
+  if (testFile != 'unknown')  {
+  exec {
+    commandLine 'bash', '-x', '-c',
+     "source ${venv_name}/bin/activate && pytest ${testFile}"
+    }
+  } else {
+   throw new GradleException("No file provided. Use -PtestFile=<test_file>")
+    }
+  }
+}
+
+task testFull(type: Exec, dependsOn: [testQuick, installDevTest]) {
+  commandLine 'bash', '-x', '-c',
+    "source ${venv_name}/bin/activate && pytest -vv ${get_coverage_args('full')} --continue-on-collection-errors --junit-xml=junit.full.xml"
+}
+
+task buildWheel(type: Exec, dependsOn: [environmentSetup]) {
+  commandLine 'bash', '-c', "source ${venv_name}/bin/activate && " +
+  'uv pip install build && RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_INSTALL=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
+}
+
+
+task cleanPythonCache(type: Exec) {
+  commandLine 'bash', '-x', '-c',
+    "find src -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete -o -type d -empty -delete"
+}
+
+docker {
+  //dependsOn(build)
+  name "${docker_registry}/${docker_repo}:${versionTag}${docker_target == 'slim' ? '-slim' : ''}"
+  dockerfile file("${rootProject.projectDir}/docker/datahub-actions/Dockerfile")
+  files fileTree(rootProject.projectDir) {
+    exclude "datahub-actions/scripts/**"
+    exclude "datahub-actions/build/**"
+    exclude "datahub-actions/venv/**"
+    exclude "datahub-actions/tests/**"
+    exclude "**/*.xml"
+    include ".dockerignore"
+    include "docker/datahub-actions/**"
+    include "docker/snippets/**"
+    include "datahub-actions/**"
+    include "python-build/**"
+  }.exclude {
+    i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
+  }
+  buildArgs([APP_ENV: docker_target, RELEASE_VERSION: python_docker_version])
+
+  additionalTag("Debug", "${docker_registry}/${docker_repo}:debug")
+
+}
+
+build.dependsOn install
+check.dependsOn lint
+check.dependsOn testQuick
+
+clean {
+  delete venv_name
+  delete 'build'
+  delete 'dist'
+}
+clean.dependsOn cleanPythonCache

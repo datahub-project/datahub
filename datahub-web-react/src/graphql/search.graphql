@@ -1275,6 +1275,7 @@ fragment searchAcrossRelationshipResults on SearchAcrossLineageResults {
     facets {
         ...facetFields
     }
+    lineageSearchPath
 }
 
 query getSearchResults($input: SearchInput!) {

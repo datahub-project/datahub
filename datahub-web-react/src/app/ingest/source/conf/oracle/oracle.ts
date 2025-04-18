@@ -1,5 +1,6 @@
-import { SourceConfig } from '../types';
-import oracleLogo from '../../../../../images/oraclelogo.png';
+import { SourceConfig } from '@app/ingest/source/conf/types';
+
+import oracleLogo from '@images/oraclelogo.png';
 
 const placeholderRecipe = `\
 source: 

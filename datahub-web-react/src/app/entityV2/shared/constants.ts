@@ -1,4 +1,4 @@
-import { EntityType } from '../../../types.generated';
+import { EntityType } from '@types';
 
 // TODO(Gabe): integrate this w/ the theme
 export const REDESIGN_COLORS = {
@@ -231,3 +231,7 @@ export const UNKNOWN_DATA_PLATFORM = 'urn:li:dataPlatform:unknown';
 export const SMART_ASSERTION_STALE_IN_DAYS = 3;
 
 export const TITLE_CASE_EXCEPTION_WORDS = ['of', 'the', 'in', 'on', 'and', 'a', 'an', 'to', 'for', 'at', 'by'];
+
+export const RECOMMENDATION_MODULE_ID_RECENTLY_VIEWED_ENTITIES = 'RecentlyViewedEntities';
+export const RECOMMENDATION_MODULE_ID_RECENTLY_EDITED_ENTITIES = 'RecentlyEditedEntities';
+export const RECOMMENDATION_MODULE_ID_RECENT_SEARCHES = 'RecentSearches';

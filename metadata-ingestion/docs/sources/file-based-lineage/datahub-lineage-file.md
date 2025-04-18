@@ -23,12 +23,13 @@ is `1`.
 - **platform_instance**: optional string specifying the platform instance of this entity
 
 For example if dataset URN is `urn:li:dataset:(urn:li:dataPlatform:redshift,userdb.public.customer_table,DEV)` then **EntityConfig** will look like:
-  ```yml
-  name : userdb.public.customer_table
-  type: dataset
-  env: DEV
-  platform: redshift
-  ```
+
+```yml
+name: userdb.public.customer_table
+type: dataset
+env: DEV
+platform: redshift
+```
 
 **FineGrainedLineageConfig**:
 

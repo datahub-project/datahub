@@ -1,7 +1,9 @@
 import React from 'react';
-import { useBaseEntity } from '../../../../entity/shared/EntityContext';
-import { EntityType } from '../../../../../types.generated';
-import { EntityList } from './components/EntityList';
+
+import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { EntityList } from '@app/entityV2/shared/tabs/Entity/components/EntityList';
+
+import { EntityType } from '@types';
 
 export const DashboardChartsTab = () => {
     const entity = useBaseEntity() as any;
