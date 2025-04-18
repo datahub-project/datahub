@@ -232,8 +232,13 @@ project.afterEvaluate {
       def bake_spec_target = [
         context: "${buildContext}",
         dockerfile: "${extension.dockerfile.get().toPath()}",
-        tags: extension.tags.get().values()
       ]
+      if (project.hasProperty("tag")) {
+        def dockerTag = project.property("tag")
+        bake_spec_target.tags = extension.tags.get().values().findAll { tag -> tag.contains(dockerTag) }
+      } else {
+        bake_spec_target.tags = extension.tags.get().values()
+      }
       if (extension.buildArgs.get()) {
         bake_spec_target.args = extension.buildArgs.get()
       }
