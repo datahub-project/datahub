@@ -203,6 +203,7 @@ project.ext.externalDependency = [
     'kafkaAvroSerializer': "io.confluent:kafka-avro-serializer:$kafkaVersion",
     'kafkaClients': "org.apache.kafka:kafka-clients:$kafkaVersion-ccs",
     'snappy': 'org.xerial.snappy:snappy-java:1.1.10.7',
+    'iq80Snappy': 'org.iq80.snappy:snappy:0.5',
     'logbackClassic': "ch.qos.logback:logback-classic:$logbackClassic",
     'logbackClassicJava8' : "ch.qos.logback:logback-classic:$logbackClassicJava8",
     'slf4jApi': "org.slf4j:slf4j-api:$slf4jVersion",
