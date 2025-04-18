@@ -11,7 +11,9 @@ WORKDIR /go/src/github.com/jwilder
 # Optionally set corporate mirror for apk
 RUN if [ "${ALPINE_REPO_URL}" != "http://dl-cdn.alpinelinux.org/alpine" ] ; then sed -i "s#http.*://dl-cdn.alpinelinux.org/alpine#${ALPINE_REPO_URL}#g" /etc/apk/repositories ; fi
 
-RUN apk --no-cache --update add openssl git tar curl
+RUN apk --no-cache --update-cache --available upgrade \
+    && apk --no-cache add 'c-ares>1.34.5'  --repository=${ALPINE_REPO_URL}/edge/main \
+    && apk --no-cache add  openssl git tar curl
 
 WORKDIR /go/src/github.com/jwilder/dockerize
 
