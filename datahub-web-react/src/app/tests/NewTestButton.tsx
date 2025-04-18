@@ -48,11 +48,13 @@ export const NewTestButton = ({ onCreated }: Props) => {
                 onCreated?.(newTest);
                 setShowCreateTestModal(false);
             })
-            .catch((_) => {
+            .catch((error) => {
                 message.destroy();
+                const errorMessage =
+                    error.graphQLErrors?.[0]?.message || 'Failed to save Test! Please review your test definition.';
                 message.error({
-                    content: `Failed to save Test! Please review your test definition.`,
-                    duration: 3,
+                    content: errorMessage,
+                    duration: 5,
                 });
             });
     };
