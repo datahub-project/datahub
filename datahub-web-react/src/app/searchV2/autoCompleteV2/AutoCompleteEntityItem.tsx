@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import EntityIcon from '@app/searchV2/autoCompleteV2/components/icon/EntityIcon';
 import Matches from '@app/searchV2/autoCompleteV2/components/matches/Matches';
 import EntitySubtitle from '@app/searchV2/autoCompleteV2/components/subtitle/EntitySubtitle';
+import { NAME_COLOR, NAME_COLOR_LEVEL, TYPE_COLOR, TYPE_COLOR_LEVEL } from '@app/searchV2/autoCompleteV2/constants';
 import { getEntityDisplayType } from '@app/searchV2/autoCompleteV2/utils';
 import { Text } from '@src/alchemy-components';
 import { MatchText } from '@src/alchemy-components/components/MatchText';
@@ -72,7 +73,12 @@ export default function AutoCompleteEntityItem({
 
                 <DescriptionContainer>
                     <EntityTitleContainer>
-                        <MatchText text={displayName} highlight={query ?? ''} />
+                        <MatchText
+                            color={NAME_COLOR}
+                            colorLevel={NAME_COLOR_LEVEL}
+                            text={displayName}
+                            highlight={query ?? ''}
+                        />
                     </EntityTitleContainer>
 
                     <EntitySubtitle entity={entity} />
@@ -82,7 +88,7 @@ export default function AutoCompleteEntityItem({
             </ContentContainer>
 
             <TypeContainer>
-                <Text color="gray" size="sm">
+                <Text color={TYPE_COLOR} colorLevel={TYPE_COLOR_LEVEL} size="sm">
                     {displayType}
                 </Text>
             </TypeContainer>

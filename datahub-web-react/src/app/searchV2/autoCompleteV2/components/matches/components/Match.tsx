@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
+import { MATCH_COLOR, MATCH_COLOR_LEVEL } from '@app/searchV2/autoCompleteV2/constants';
 import { MatchText, Text } from '@src/alchemy-components';
 import { MatchesGroupedByFieldName } from '@src/app/search/matches/constants';
 import { getMatchedFieldLabel } from '@src/app/search/matches/utils';
@@ -31,7 +32,7 @@ export default function Match({ query, entityType, match }: Props) {
 
     return (
         <TextWrapper>
-            <Text color="gray" type="span">
+            <Text color={MATCH_COLOR} colorLevel={MATCH_COLOR_LEVEL} type="span">
                 {label}: <MatchText type="span" text={value} highlight={query} />
             </Text>
         </TextWrapper>
