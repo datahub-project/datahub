@@ -6,6 +6,7 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "customProperties": {},
                         "dataType": "TEXT",
                         "sources": [
                             "urn:li:dataset:(urn:li:dataPlatform:s3,datahub-sagemaker-outputs,PROD)",
@@ -29,6 +30,7 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties": {
+                        "customProperties": {},
                         "dataType": "ORDINAL",
                         "sources": [
                             "urn:li:dataset:(urn:li:dataPlatform:s3,datahub-sagemaker-outputs,PROD)",
@@ -52,6 +54,7 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "customProperties": {},
                         "dataType": "CONTINUOUS",
                         "sources": [
                             "urn:li:dataset:(urn:li:dataPlatform:s3,datahub-sagemaker-outputs,PROD)",
@@ -107,6 +110,22 @@
     }
 },
 {
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:sagemaker,test-2)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "sagemaker-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
             "urn": "urn:li:mlFeature:(test-1,name)",
@@ -134,6 +153,7 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties": {
+                        "customProperties": {},
                         "dataType": "ORDINAL",
                         "sources": []
                     }
@@ -154,6 +174,7 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "customProperties": {},
                         "dataType": "CONTINUOUS",
                         "sources": []
                     }
@@ -174,6 +195,7 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "customProperties": {},
                         "dataType": "TEXT",
                         "sources": []
                     }
@@ -227,12 +249,29 @@
     }
 },
 {
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:sagemaker,test-1)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "sagemaker-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot": {
             "urn": "urn:li:mlPrimaryKey:(test,feature_1)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties": {
+                        "customProperties": {},
                         "dataType": "TEXT",
                         "sources": []
                     }
@@ -253,6 +292,7 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "customProperties": {},
                         "dataType": "ORDINAL",
                         "sources": []
                     }
@@ -273,6 +313,7 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "customProperties": {},
                         "dataType": "CONTINUOUS",
                         "sources": []
                     }
@@ -315,6 +356,22 @@
                     }
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "sagemaker-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:sagemaker,test)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
         }
     },
     "systemMetadata": {
@@ -861,6 +918,26 @@
     }
 },
 {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,auto_ml:an-auto-ml-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "auto_ml"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "sagemaker-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
             "urn": "urn:li:dataFlow:(sagemaker,compilation:a-compilation-job,PROD)",
@@ -942,6 +1019,26 @@
     }
 },
 {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,compilation:a-compilation-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:compilation-job/a-compilation-job)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "compilation"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "sagemaker-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
             "urn": "urn:li:dataFlow:(sagemaker,hyper_parameter_tuning:a-hyper-parameter-tuning-job,PROD)",
@@ -1007,6 +1104,26 @@
                         "outputDatasets": [],
                         "inputDatajobs": []
                     }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "sagemaker-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,hyper_parameter_tuning:a-hyper-parameter-tuning-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:hyper-parameter-tuning-job/a-hyper-parameter-tuning-job)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "hyper_parameter_tuning"
                 }
             ]
         }
@@ -1103,6 +1220,26 @@
     }
 },
 {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,labeling:a-labeling-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:labeling-job/a-labeling-job)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "labeling"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "sagemaker-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
             "urn": "urn:li:dataFlow:(sagemaker,processing:a-processing-job,PROD)",
@@ -1179,6 +1316,26 @@
                             "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
                         ]
                     }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "sagemaker-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,processing:a-processing-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:processing-job/a-processing-job)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "processing"
                 }
             ]
         }
@@ -1301,6 +1458,26 @@
     }
 },
 {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "training"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "sagemaker-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
             "urn": "urn:li:dataFlow:(sagemaker,transform:a-transform-job,PROD)",
@@ -1378,6 +1555,26 @@
                             "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,labeling:a-labeling-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:labeling-job/a-labeling-job)"
                         ]
                     }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "sagemaker-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,transform:a-transform-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:transform-job/a-transform-job)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "transform"
                 }
             ]
         }
@@ -1499,6 +1696,22 @@
     }
 },
 {
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,a-model-package-group,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "sagemaker-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot": {
             "urn": "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-first-model,PROD)",
@@ -1515,6 +1728,9 @@
                             "EnableNetworkIsolation": "True"
                         },
                         "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/models/the-first-model",
+                        "trainingJobs": [
+                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
+                        ],
                         "downstreamJobs": [],
                         "date": 1420070400000,
                         "hyperParams": [
@@ -1541,9 +1757,6 @@
                         "deployments": [
                             "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-first-endpoint,PROD)"
                         ],
-                        "trainingJobs": [
-                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
-                        ],
                         "groups": [
                             "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,a-model-package-group,PROD)"
                         ]
@@ -1555,6 +1768,26 @@
                             "/sagemaker/a-model-package-group"
                         ]
                     }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "sagemaker-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-first-model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "a-model-package-group"
                 }
             ]
         }
@@ -1582,6 +1815,12 @@
                             "EnableNetworkIsolation": "False"
                         },
                         "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/models/the-second-model",
+                        "trainingJobs": [
+                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
+                        ],
+                        "downstreamJobs": [
+                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,transform:a-transform-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:transform-job/a-transform-job)"
+                        ],
                         "date": 1420070400000,
                         "hyperParams": [
                             {
@@ -1607,12 +1846,6 @@
                         "deployments": [
                             "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-second-endpoint,PROD)"
                         ],
-                        "trainingJobs": [
-                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
-                        ],
-                        "downstreamJobs": [
-                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,transform:a-transform-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:transform-job/a-transform-job)"
-                        ],
                         "groups": [
                             "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,a-model-package-group,PROD)"
                         ]
@@ -1624,6 +1857,26 @@
                             "/sagemaker/a-model-package-group"
                         ]
                     }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "sagemaker-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-second-model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "a-model-package-group"
                 }
             ]
         }
