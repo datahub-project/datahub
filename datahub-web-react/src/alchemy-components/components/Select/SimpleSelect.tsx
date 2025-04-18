@@ -14,35 +14,13 @@ import {
     SelectLabel,
     SelectLabelContainer,
     StyledCheckbox,
-    StyledClearButton,
     StyledIcon,
 } from '@components/components/Select/components';
 import DropdownSearchBar from '@components/components/Select/private/DropdownSearchBar';
 import DropdownSelectAllOption from '@components/components/Select/private/DropdownSelectAllOption';
+import SelectActionButtons from '@components/components/Select/private/SelectActionButtons';
 import SelectLabelRenderer from '@components/components/Select/private/SelectLabelRenderer/SelectLabelRenderer';
-import { ActionButtonsProps, SelectOption, SelectProps } from '@components/components/Select/types';
-
-const SelectActionButtons = ({
-    selectedValues,
-    isOpen,
-    isDisabled,
-    isReadOnly,
-    showClear,
-    handleClearSelection,
-}: ActionButtonsProps) => {
-    return (
-        <ActionButtonsContainer>
-            {showClear && selectedValues.length > 0 && !isDisabled && !isReadOnly && (
-                <StyledClearButton
-                    icon={{ icon: 'Close', source: 'material', size: 'lg' }}
-                    isCircle
-                    onClick={handleClearSelection}
-                />
-            )}
-            <StyledIcon icon="CaretDown" source="phosphor" rotate={isOpen ? '180' : '0'} size="md" color="gray" />
-        </ActionButtonsContainer>
-    );
-};
+import { SelectOption, SelectProps } from '@components/components/Select/types';
 
 export const selectDefaults: SelectProps = {
     options: [],
@@ -305,7 +283,7 @@ export const SimpleSelect = ({
                         />
                     </SelectLabelContainer>
                     <SelectActionButtons
-                        selectedValues={selectedValues}
+                        hasSelectedValues={selectedValues.length > 0}
                         isOpen={isOpen}
                         isDisabled={!!isDisabled}
                         isReadOnly={!!isReadOnly}
