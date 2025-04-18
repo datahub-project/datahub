@@ -16,6 +16,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -76,7 +77,7 @@ public class EntityRelationshipsResultResolverTest {
     // always expected INCOMING, and "SomeType" in all tests
     when(_graphClient.getRelatedEntities(
             eq(source.getUrn()),
-            eq(input.getTypes()),
+            eq(new HashSet<>(input.getTypes())),
             same(com.linkedin.metadata.query.filter.RelationshipDirection.INCOMING),
             eq(input.getStart()),
             eq(input.getCount()),

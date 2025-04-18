@@ -5,6 +5,7 @@ import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationshipArray;
 import com.linkedin.common.EntityRelationships;
@@ -42,7 +43,7 @@ public class EntityHealthResolverTest {
     Mockito.when(
             graphClient.getRelatedEntities(
                 Mockito.eq(TEST_DATASET_URN),
-                Mockito.eq(ImmutableList.of("Asserts")),
+                Mockito.eq(ImmutableSet.of("Asserts")),
                 Mockito.eq(RelationshipDirection.INCOMING),
                 Mockito.eq(0),
                 Mockito.eq(500),
@@ -106,7 +107,7 @@ public class EntityHealthResolverTest {
     Mockito.when(
             graphClient.getRelatedEntities(
                 Mockito.eq(TEST_DATASET_URN),
-                Mockito.eq(ImmutableList.of("Asserts")),
+                Mockito.eq(ImmutableSet.of("Asserts")),
                 Mockito.eq(RelationshipDirection.INCOMING),
                 Mockito.eq(0),
                 Mockito.eq(500),
@@ -147,7 +148,7 @@ public class EntityHealthResolverTest {
     Mockito.when(
             graphClient.getRelatedEntities(
                 Mockito.eq(TEST_DATASET_URN),
-                Mockito.eq(ImmutableList.of("Asserts")),
+                Mockito.eq(ImmutableSet.of("Asserts")),
                 Mockito.eq(RelationshipDirection.INCOMING),
                 Mockito.eq(0),
                 Mockito.eq(500),

@@ -8,6 +8,7 @@ import static org.testng.Assert.assertTrue;
 
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.FormAssociation;
 import com.linkedin.common.FormAssociationArray;
@@ -40,9 +41,9 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.sql.Timestamp;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -85,11 +86,11 @@ public class DeleteEntityServiceTest {
     Mockito.when(
             _graphService.findRelatedEntities(
                 any(OperationContext.class),
-                nullable(List.class),
+                nullable(Set.class),
                 eq(newFilter("urn", container.toString())),
-                nullable(List.class),
+                nullable(Set.class),
                 eq(EMPTY_FILTER),
-                eq(ImmutableList.of()),
+                eq(ImmutableSet.of()),
                 eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
                 eq(0),
                 eq((10000))))
@@ -202,11 +203,11 @@ public class DeleteEntityServiceTest {
     Mockito.when(
             _graphService.findRelatedEntities(
                 any(OperationContext.class),
-                nullable(List.class),
+                nullable(Set.class),
                 eq(newFilter("urn", form.toString())),
-                nullable(List.class),
+                nullable(Set.class),
                 eq(EMPTY_FILTER),
-                eq(ImmutableList.of()),
+                eq(ImmutableSet.of()),
                 eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
                 eq(0),
                 eq((10000))))
@@ -257,11 +258,11 @@ public class DeleteEntityServiceTest {
     Mockito.when(
             _graphService.findRelatedEntities(
                 any(OperationContext.class),
-                nullable(List.class),
+                nullable(Set.class),
                 eq(newFilter("urn", form.toString())),
-                nullable(List.class),
+                nullable(Set.class),
                 eq(EMPTY_FILTER),
-                eq(ImmutableList.of()),
+                eq(ImmutableSet.of()),
                 eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
                 eq(0),
                 eq((10000))))
@@ -317,11 +318,11 @@ public class DeleteEntityServiceTest {
     Mockito.when(
             _graphService.findRelatedEntities(
                 any(OperationContext.class),
-                nullable(List.class),
+                nullable(Set.class),
                 eq(newFilter("urn", form.toString())),
-                nullable(List.class),
+                nullable(Set.class),
                 eq(EMPTY_FILTER),
-                eq(ImmutableList.of()),
+                eq(ImmutableSet.of()),
                 eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
                 eq(0),
                 eq((10000))))
