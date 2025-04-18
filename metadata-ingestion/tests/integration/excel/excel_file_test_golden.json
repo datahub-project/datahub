@@ -94,28 +94,6 @@
     }
 },
 {
-    "entityType": "container",
-    "entityUrn": "urn:li:container:8e1304fd558ab65a938a585ffdd64b0d",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "excel",
-                "env": "PROD",
-                "folder_abs_path": ""
-            },
-            "name": "",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,business_report.Business_Report,PROD)",
     "changeType": "UPSERT",
@@ -138,89 +116,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:8e1304fd558ab65a938a585ffdd64b0d",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:8e1304fd558ab65a938a585ffdd64b0d",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:excel"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:8e1304fd558ab65a938a585ffdd64b0d",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Folder"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:8e1304fd558ab65a938a585ffdd64b0d",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:806fa1d99ac03aa202e8cdfc8d3dc542",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:8e1304fd558ab65a938a585ffdd64b0d"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:806fa1d99ac03aa202e8cdfc8d3dc542",
+    "entityUrn": "urn:li:container:113c066ec5c8cfffa38f98937aaa2768",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -228,7 +124,7 @@
             "customProperties": {
                 "platform": "excel",
                 "env": "PROD",
-                "folder_abs_path": "/Users"
+                "folder_abs_path": "Users"
             },
             "name": "Users",
             "env": "PROD"
@@ -242,942 +138,12 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:806fa1d99ac03aa202e8cdfc8d3dc542",
+    "entityUrn": "urn:li:container:113c066ec5c8cfffa38f98937aaa2768",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
         "json": {
             "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:806fa1d99ac03aa202e8cdfc8d3dc542",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:excel"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:806fa1d99ac03aa202e8cdfc8d3dc542",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Folder"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:806fa1d99ac03aa202e8cdfc8d3dc542",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:8e1304fd558ab65a938a585ffdd64b0d",
-                    "urn": "urn:li:container:8e1304fd558ab65a938a585ffdd64b0d"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:5610638c34b880a3d8fc199be0d111b1",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:806fa1d99ac03aa202e8cdfc8d3dc542"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:5610638c34b880a3d8fc199be0d111b1",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "excel",
-                "env": "PROD",
-                "folder_abs_path": "/Users/michael"
-            },
-            "name": "michael",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:5610638c34b880a3d8fc199be0d111b1",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:5610638c34b880a3d8fc199be0d111b1",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:excel"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:5610638c34b880a3d8fc199be0d111b1",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Folder"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:5610638c34b880a3d8fc199be0d111b1",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:8e1304fd558ab65a938a585ffdd64b0d",
-                    "urn": "urn:li:container:8e1304fd558ab65a938a585ffdd64b0d"
-                },
-                {
-                    "id": "urn:li:container:806fa1d99ac03aa202e8cdfc8d3dc542",
-                    "urn": "urn:li:container:806fa1d99ac03aa202e8cdfc8d3dc542"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:afc0a5367f99e7d1020a068b4c97ff3b",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:5610638c34b880a3d8fc199be0d111b1"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:afc0a5367f99e7d1020a068b4c97ff3b",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "excel",
-                "env": "PROD",
-                "folder_abs_path": "/Users/michael/IdeaProjects"
-            },
-            "name": "IdeaProjects",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:afc0a5367f99e7d1020a068b4c97ff3b",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:afc0a5367f99e7d1020a068b4c97ff3b",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:excel"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:afc0a5367f99e7d1020a068b4c97ff3b",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Folder"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:afc0a5367f99e7d1020a068b4c97ff3b",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:8e1304fd558ab65a938a585ffdd64b0d",
-                    "urn": "urn:li:container:8e1304fd558ab65a938a585ffdd64b0d"
-                },
-                {
-                    "id": "urn:li:container:806fa1d99ac03aa202e8cdfc8d3dc542",
-                    "urn": "urn:li:container:806fa1d99ac03aa202e8cdfc8d3dc542"
-                },
-                {
-                    "id": "urn:li:container:5610638c34b880a3d8fc199be0d111b1",
-                    "urn": "urn:li:container:5610638c34b880a3d8fc199be0d111b1"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:b5efd91b4d91982a8b09942842b07350",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:afc0a5367f99e7d1020a068b4c97ff3b"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:b5efd91b4d91982a8b09942842b07350",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "excel",
-                "env": "PROD",
-                "folder_abs_path": "/Users/michael/IdeaProjects/datahub-fork"
-            },
-            "name": "datahub-fork",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:b5efd91b4d91982a8b09942842b07350",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:b5efd91b4d91982a8b09942842b07350",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:excel"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:b5efd91b4d91982a8b09942842b07350",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Folder"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:b5efd91b4d91982a8b09942842b07350",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:8e1304fd558ab65a938a585ffdd64b0d",
-                    "urn": "urn:li:container:8e1304fd558ab65a938a585ffdd64b0d"
-                },
-                {
-                    "id": "urn:li:container:806fa1d99ac03aa202e8cdfc8d3dc542",
-                    "urn": "urn:li:container:806fa1d99ac03aa202e8cdfc8d3dc542"
-                },
-                {
-                    "id": "urn:li:container:5610638c34b880a3d8fc199be0d111b1",
-                    "urn": "urn:li:container:5610638c34b880a3d8fc199be0d111b1"
-                },
-                {
-                    "id": "urn:li:container:afc0a5367f99e7d1020a068b4c97ff3b",
-                    "urn": "urn:li:container:afc0a5367f99e7d1020a068b4c97ff3b"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:0f76e9d8c635e9b86a674dd65d485942",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:b5efd91b4d91982a8b09942842b07350"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:0f76e9d8c635e9b86a674dd65d485942",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "excel",
-                "env": "PROD",
-                "folder_abs_path": "/Users/michael/IdeaProjects/datahub-fork/metadata-ingestion"
-            },
-            "name": "metadata-ingestion",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:0f76e9d8c635e9b86a674dd65d485942",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:0f76e9d8c635e9b86a674dd65d485942",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:excel"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:0f76e9d8c635e9b86a674dd65d485942",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Folder"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:0f76e9d8c635e9b86a674dd65d485942",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:8e1304fd558ab65a938a585ffdd64b0d",
-                    "urn": "urn:li:container:8e1304fd558ab65a938a585ffdd64b0d"
-                },
-                {
-                    "id": "urn:li:container:806fa1d99ac03aa202e8cdfc8d3dc542",
-                    "urn": "urn:li:container:806fa1d99ac03aa202e8cdfc8d3dc542"
-                },
-                {
-                    "id": "urn:li:container:5610638c34b880a3d8fc199be0d111b1",
-                    "urn": "urn:li:container:5610638c34b880a3d8fc199be0d111b1"
-                },
-                {
-                    "id": "urn:li:container:afc0a5367f99e7d1020a068b4c97ff3b",
-                    "urn": "urn:li:container:afc0a5367f99e7d1020a068b4c97ff3b"
-                },
-                {
-                    "id": "urn:li:container:b5efd91b4d91982a8b09942842b07350",
-                    "urn": "urn:li:container:b5efd91b4d91982a8b09942842b07350"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:48a4513b4fc6c013de77166e14b92afc",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:0f76e9d8c635e9b86a674dd65d485942"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:48a4513b4fc6c013de77166e14b92afc",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "excel",
-                "env": "PROD",
-                "folder_abs_path": "/Users/michael/IdeaProjects/datahub-fork/metadata-ingestion/tests"
-            },
-            "name": "tests",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:48a4513b4fc6c013de77166e14b92afc",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:48a4513b4fc6c013de77166e14b92afc",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:excel"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:48a4513b4fc6c013de77166e14b92afc",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Folder"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:48a4513b4fc6c013de77166e14b92afc",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:8e1304fd558ab65a938a585ffdd64b0d",
-                    "urn": "urn:li:container:8e1304fd558ab65a938a585ffdd64b0d"
-                },
-                {
-                    "id": "urn:li:container:806fa1d99ac03aa202e8cdfc8d3dc542",
-                    "urn": "urn:li:container:806fa1d99ac03aa202e8cdfc8d3dc542"
-                },
-                {
-                    "id": "urn:li:container:5610638c34b880a3d8fc199be0d111b1",
-                    "urn": "urn:li:container:5610638c34b880a3d8fc199be0d111b1"
-                },
-                {
-                    "id": "urn:li:container:afc0a5367f99e7d1020a068b4c97ff3b",
-                    "urn": "urn:li:container:afc0a5367f99e7d1020a068b4c97ff3b"
-                },
-                {
-                    "id": "urn:li:container:b5efd91b4d91982a8b09942842b07350",
-                    "urn": "urn:li:container:b5efd91b4d91982a8b09942842b07350"
-                },
-                {
-                    "id": "urn:li:container:0f76e9d8c635e9b86a674dd65d485942",
-                    "urn": "urn:li:container:0f76e9d8c635e9b86a674dd65d485942"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:4cd76ec3ff25c871f0e0e56ff2e99007",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:48a4513b4fc6c013de77166e14b92afc"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:4cd76ec3ff25c871f0e0e56ff2e99007",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "excel",
-                "env": "PROD",
-                "folder_abs_path": "/Users/michael/IdeaProjects/datahub-fork/metadata-ingestion/tests/integration"
-            },
-            "name": "integration",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:4cd76ec3ff25c871f0e0e56ff2e99007",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:4cd76ec3ff25c871f0e0e56ff2e99007",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:excel"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:4cd76ec3ff25c871f0e0e56ff2e99007",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Folder"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:4cd76ec3ff25c871f0e0e56ff2e99007",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:8e1304fd558ab65a938a585ffdd64b0d",
-                    "urn": "urn:li:container:8e1304fd558ab65a938a585ffdd64b0d"
-                },
-                {
-                    "id": "urn:li:container:806fa1d99ac03aa202e8cdfc8d3dc542",
-                    "urn": "urn:li:container:806fa1d99ac03aa202e8cdfc8d3dc542"
-                },
-                {
-                    "id": "urn:li:container:5610638c34b880a3d8fc199be0d111b1",
-                    "urn": "urn:li:container:5610638c34b880a3d8fc199be0d111b1"
-                },
-                {
-                    "id": "urn:li:container:afc0a5367f99e7d1020a068b4c97ff3b",
-                    "urn": "urn:li:container:afc0a5367f99e7d1020a068b4c97ff3b"
-                },
-                {
-                    "id": "urn:li:container:b5efd91b4d91982a8b09942842b07350",
-                    "urn": "urn:li:container:b5efd91b4d91982a8b09942842b07350"
-                },
-                {
-                    "id": "urn:li:container:0f76e9d8c635e9b86a674dd65d485942",
-                    "urn": "urn:li:container:0f76e9d8c635e9b86a674dd65d485942"
-                },
-                {
-                    "id": "urn:li:container:48a4513b4fc6c013de77166e14b92afc",
-                    "urn": "urn:li:container:48a4513b4fc6c013de77166e14b92afc"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:1509cd34071c37087253217a1c0f7986",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:4cd76ec3ff25c871f0e0e56ff2e99007"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:1509cd34071c37087253217a1c0f7986",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "excel",
-                "env": "PROD",
-                "folder_abs_path": "/Users/michael/IdeaProjects/datahub-fork/metadata-ingestion/tests/integration/excel"
-            },
-            "name": "excel",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:1509cd34071c37087253217a1c0f7986",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:1509cd34071c37087253217a1c0f7986",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:excel"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:1509cd34071c37087253217a1c0f7986",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Folder"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:1509cd34071c37087253217a1c0f7986",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:8e1304fd558ab65a938a585ffdd64b0d",
-                    "urn": "urn:li:container:8e1304fd558ab65a938a585ffdd64b0d"
-                },
-                {
-                    "id": "urn:li:container:806fa1d99ac03aa202e8cdfc8d3dc542",
-                    "urn": "urn:li:container:806fa1d99ac03aa202e8cdfc8d3dc542"
-                },
-                {
-                    "id": "urn:li:container:5610638c34b880a3d8fc199be0d111b1",
-                    "urn": "urn:li:container:5610638c34b880a3d8fc199be0d111b1"
-                },
-                {
-                    "id": "urn:li:container:afc0a5367f99e7d1020a068b4c97ff3b",
-                    "urn": "urn:li:container:afc0a5367f99e7d1020a068b4c97ff3b"
-                },
-                {
-                    "id": "urn:li:container:b5efd91b4d91982a8b09942842b07350",
-                    "urn": "urn:li:container:b5efd91b4d91982a8b09942842b07350"
-                },
-                {
-                    "id": "urn:li:container:0f76e9d8c635e9b86a674dd65d485942",
-                    "urn": "urn:li:container:0f76e9d8c635e9b86a674dd65d485942"
-                },
-                {
-                    "id": "urn:li:container:48a4513b4fc6c013de77166e14b92afc",
-                    "urn": "urn:li:container:48a4513b4fc6c013de77166e14b92afc"
-                },
-                {
-                    "id": "urn:li:container:4cd76ec3ff25c871f0e0e56ff2e99007",
-                    "urn": "urn:li:container:4cd76ec3ff25c871f0e0e56ff2e99007"
-                }
-            ]
         }
     },
     "systemMetadata": {
@@ -1195,40 +161,40 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:8e1304fd558ab65a938a585ffdd64b0d",
-                    "urn": "urn:li:container:8e1304fd558ab65a938a585ffdd64b0d"
+                    "id": "urn:li:container:113c066ec5c8cfffa38f98937aaa2768",
+                    "urn": "urn:li:container:113c066ec5c8cfffa38f98937aaa2768"
                 },
                 {
-                    "id": "urn:li:container:806fa1d99ac03aa202e8cdfc8d3dc542",
-                    "urn": "urn:li:container:806fa1d99ac03aa202e8cdfc8d3dc542"
+                    "id": "urn:li:container:77ebea21f18f352b1dbec036503bad78",
+                    "urn": "urn:li:container:77ebea21f18f352b1dbec036503bad78"
                 },
                 {
-                    "id": "urn:li:container:5610638c34b880a3d8fc199be0d111b1",
-                    "urn": "urn:li:container:5610638c34b880a3d8fc199be0d111b1"
+                    "id": "urn:li:container:8f02c4bdf293b5f6880649fcf0ab4f94",
+                    "urn": "urn:li:container:8f02c4bdf293b5f6880649fcf0ab4f94"
                 },
                 {
-                    "id": "urn:li:container:afc0a5367f99e7d1020a068b4c97ff3b",
-                    "urn": "urn:li:container:afc0a5367f99e7d1020a068b4c97ff3b"
+                    "id": "urn:li:container:29babaefcf8b8c8e1ca94e5fc691fae5",
+                    "urn": "urn:li:container:29babaefcf8b8c8e1ca94e5fc691fae5"
                 },
                 {
-                    "id": "urn:li:container:b5efd91b4d91982a8b09942842b07350",
-                    "urn": "urn:li:container:b5efd91b4d91982a8b09942842b07350"
+                    "id": "urn:li:container:425c446947fa1bed6a86eb098d53a3db",
+                    "urn": "urn:li:container:425c446947fa1bed6a86eb098d53a3db"
                 },
                 {
-                    "id": "urn:li:container:0f76e9d8c635e9b86a674dd65d485942",
-                    "urn": "urn:li:container:0f76e9d8c635e9b86a674dd65d485942"
+                    "id": "urn:li:container:2f3f54242cbfe15da93417dfcf928c64",
+                    "urn": "urn:li:container:2f3f54242cbfe15da93417dfcf928c64"
                 },
                 {
-                    "id": "urn:li:container:48a4513b4fc6c013de77166e14b92afc",
-                    "urn": "urn:li:container:48a4513b4fc6c013de77166e14b92afc"
+                    "id": "urn:li:container:21cda2e5d8b6687acd931563065836e0",
+                    "urn": "urn:li:container:21cda2e5d8b6687acd931563065836e0"
                 },
                 {
-                    "id": "urn:li:container:4cd76ec3ff25c871f0e0e56ff2e99007",
-                    "urn": "urn:li:container:4cd76ec3ff25c871f0e0e56ff2e99007"
+                    "id": "urn:li:container:0cdbdebc181e1f78c902fd05edff2012",
+                    "urn": "urn:li:container:0cdbdebc181e1f78c902fd05edff2012"
                 },
                 {
-                    "id": "urn:li:container:1509cd34071c37087253217a1c0f7986",
-                    "urn": "urn:li:container:1509cd34071c37087253217a1c0f7986"
+                    "id": "urn:li:container:8fa281000bab5ac221699210a16affed",
+                    "urn": "urn:li:container:8fa281000bab5ac221699210a16affed"
                 }
             ]
         }
@@ -1246,7 +212,41 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:1509cd34071c37087253217a1c0f7986"
+            "container": "urn:li:container:8fa281000bab5ac221699210a16affed"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:113c066ec5c8cfffa38f98937aaa2768",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:113c066ec5c8cfffa38f98937aaa2768",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:excel"
         }
     },
     "systemMetadata": {
@@ -1367,6 +367,1006 @@
                     ]
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:113c066ec5c8cfffa38f98937aaa2768",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:77ebea21f18f352b1dbec036503bad78",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:113c066ec5c8cfffa38f98937aaa2768",
+                    "urn": "urn:li:container:113c066ec5c8cfffa38f98937aaa2768"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:77ebea21f18f352b1dbec036503bad78",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:113c066ec5c8cfffa38f98937aaa2768"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:77ebea21f18f352b1dbec036503bad78",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "excel",
+                "env": "PROD",
+                "folder_abs_path": "Users/michael"
+            },
+            "name": "michael",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:77ebea21f18f352b1dbec036503bad78",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:77ebea21f18f352b1dbec036503bad78",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:excel"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:77ebea21f18f352b1dbec036503bad78",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:21cda2e5d8b6687acd931563065836e0",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:113c066ec5c8cfffa38f98937aaa2768",
+                    "urn": "urn:li:container:113c066ec5c8cfffa38f98937aaa2768"
+                },
+                {
+                    "id": "urn:li:container:77ebea21f18f352b1dbec036503bad78",
+                    "urn": "urn:li:container:77ebea21f18f352b1dbec036503bad78"
+                },
+                {
+                    "id": "urn:li:container:8f02c4bdf293b5f6880649fcf0ab4f94",
+                    "urn": "urn:li:container:8f02c4bdf293b5f6880649fcf0ab4f94"
+                },
+                {
+                    "id": "urn:li:container:29babaefcf8b8c8e1ca94e5fc691fae5",
+                    "urn": "urn:li:container:29babaefcf8b8c8e1ca94e5fc691fae5"
+                },
+                {
+                    "id": "urn:li:container:425c446947fa1bed6a86eb098d53a3db",
+                    "urn": "urn:li:container:425c446947fa1bed6a86eb098d53a3db"
+                },
+                {
+                    "id": "urn:li:container:2f3f54242cbfe15da93417dfcf928c64",
+                    "urn": "urn:li:container:2f3f54242cbfe15da93417dfcf928c64"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8f02c4bdf293b5f6880649fcf0ab4f94",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:77ebea21f18f352b1dbec036503bad78"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8f02c4bdf293b5f6880649fcf0ab4f94",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "excel",
+                "env": "PROD",
+                "folder_abs_path": "Users/michael/IdeaProjects"
+            },
+            "name": "IdeaProjects",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8f02c4bdf293b5f6880649fcf0ab4f94",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:21cda2e5d8b6687acd931563065836e0",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:2f3f54242cbfe15da93417dfcf928c64"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:21cda2e5d8b6687acd931563065836e0",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:excel"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8f02c4bdf293b5f6880649fcf0ab4f94",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:29babaefcf8b8c8e1ca94e5fc691fae5",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:8f02c4bdf293b5f6880649fcf0ab4f94"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:29babaefcf8b8c8e1ca94e5fc691fae5",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "excel",
+                "env": "PROD",
+                "folder_abs_path": "Users/michael/IdeaProjects/datahub-fork"
+            },
+            "name": "datahub-fork",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:29babaefcf8b8c8e1ca94e5fc691fae5",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8f02c4bdf293b5f6880649fcf0ab4f94",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:excel"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:21cda2e5d8b6687acd931563065836e0",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "excel",
+                "env": "PROD",
+                "folder_abs_path": "Users/michael/IdeaProjects/datahub-fork/metadata-ingestion/tests/integration"
+            },
+            "name": "integration",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:29babaefcf8b8c8e1ca94e5fc691fae5",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:29babaefcf8b8c8e1ca94e5fc691fae5",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:excel"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2f3f54242cbfe15da93417dfcf928c64",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:425c446947fa1bed6a86eb098d53a3db"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2f3f54242cbfe15da93417dfcf928c64",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "excel",
+                "env": "PROD",
+                "folder_abs_path": "Users/michael/IdeaProjects/datahub-fork/metadata-ingestion/tests"
+            },
+            "name": "tests",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2f3f54242cbfe15da93417dfcf928c64",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:21cda2e5d8b6687acd931563065836e0",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:21cda2e5d8b6687acd931563065836e0",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2f3f54242cbfe15da93417dfcf928c64",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2f3f54242cbfe15da93417dfcf928c64",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:excel"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8f02c4bdf293b5f6880649fcf0ab4f94",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:113c066ec5c8cfffa38f98937aaa2768",
+                    "urn": "urn:li:container:113c066ec5c8cfffa38f98937aaa2768"
+                },
+                {
+                    "id": "urn:li:container:77ebea21f18f352b1dbec036503bad78",
+                    "urn": "urn:li:container:77ebea21f18f352b1dbec036503bad78"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:29babaefcf8b8c8e1ca94e5fc691fae5",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:113c066ec5c8cfffa38f98937aaa2768",
+                    "urn": "urn:li:container:113c066ec5c8cfffa38f98937aaa2768"
+                },
+                {
+                    "id": "urn:li:container:77ebea21f18f352b1dbec036503bad78",
+                    "urn": "urn:li:container:77ebea21f18f352b1dbec036503bad78"
+                },
+                {
+                    "id": "urn:li:container:8f02c4bdf293b5f6880649fcf0ab4f94",
+                    "urn": "urn:li:container:8f02c4bdf293b5f6880649fcf0ab4f94"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:425c446947fa1bed6a86eb098d53a3db",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:113c066ec5c8cfffa38f98937aaa2768",
+                    "urn": "urn:li:container:113c066ec5c8cfffa38f98937aaa2768"
+                },
+                {
+                    "id": "urn:li:container:77ebea21f18f352b1dbec036503bad78",
+                    "urn": "urn:li:container:77ebea21f18f352b1dbec036503bad78"
+                },
+                {
+                    "id": "urn:li:container:8f02c4bdf293b5f6880649fcf0ab4f94",
+                    "urn": "urn:li:container:8f02c4bdf293b5f6880649fcf0ab4f94"
+                },
+                {
+                    "id": "urn:li:container:29babaefcf8b8c8e1ca94e5fc691fae5",
+                    "urn": "urn:li:container:29babaefcf8b8c8e1ca94e5fc691fae5"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2f3f54242cbfe15da93417dfcf928c64",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:113c066ec5c8cfffa38f98937aaa2768",
+                    "urn": "urn:li:container:113c066ec5c8cfffa38f98937aaa2768"
+                },
+                {
+                    "id": "urn:li:container:77ebea21f18f352b1dbec036503bad78",
+                    "urn": "urn:li:container:77ebea21f18f352b1dbec036503bad78"
+                },
+                {
+                    "id": "urn:li:container:8f02c4bdf293b5f6880649fcf0ab4f94",
+                    "urn": "urn:li:container:8f02c4bdf293b5f6880649fcf0ab4f94"
+                },
+                {
+                    "id": "urn:li:container:29babaefcf8b8c8e1ca94e5fc691fae5",
+                    "urn": "urn:li:container:29babaefcf8b8c8e1ca94e5fc691fae5"
+                },
+                {
+                    "id": "urn:li:container:425c446947fa1bed6a86eb098d53a3db",
+                    "urn": "urn:li:container:425c446947fa1bed6a86eb098d53a3db"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:425c446947fa1bed6a86eb098d53a3db",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:29babaefcf8b8c8e1ca94e5fc691fae5"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:425c446947fa1bed6a86eb098d53a3db",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:excel"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:425c446947fa1bed6a86eb098d53a3db",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "excel",
+                "env": "PROD",
+                "folder_abs_path": "Users/michael/IdeaProjects/datahub-fork/metadata-ingestion"
+            },
+            "name": "metadata-ingestion",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:425c446947fa1bed6a86eb098d53a3db",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:425c446947fa1bed6a86eb098d53a3db",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0cdbdebc181e1f78c902fd05edff2012",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:113c066ec5c8cfffa38f98937aaa2768",
+                    "urn": "urn:li:container:113c066ec5c8cfffa38f98937aaa2768"
+                },
+                {
+                    "id": "urn:li:container:77ebea21f18f352b1dbec036503bad78",
+                    "urn": "urn:li:container:77ebea21f18f352b1dbec036503bad78"
+                },
+                {
+                    "id": "urn:li:container:8f02c4bdf293b5f6880649fcf0ab4f94",
+                    "urn": "urn:li:container:8f02c4bdf293b5f6880649fcf0ab4f94"
+                },
+                {
+                    "id": "urn:li:container:29babaefcf8b8c8e1ca94e5fc691fae5",
+                    "urn": "urn:li:container:29babaefcf8b8c8e1ca94e5fc691fae5"
+                },
+                {
+                    "id": "urn:li:container:425c446947fa1bed6a86eb098d53a3db",
+                    "urn": "urn:li:container:425c446947fa1bed6a86eb098d53a3db"
+                },
+                {
+                    "id": "urn:li:container:2f3f54242cbfe15da93417dfcf928c64",
+                    "urn": "urn:li:container:2f3f54242cbfe15da93417dfcf928c64"
+                },
+                {
+                    "id": "urn:li:container:21cda2e5d8b6687acd931563065836e0",
+                    "urn": "urn:li:container:21cda2e5d8b6687acd931563065836e0"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0cdbdebc181e1f78c902fd05edff2012",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:21cda2e5d8b6687acd931563065836e0"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0cdbdebc181e1f78c902fd05edff2012",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:excel"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0cdbdebc181e1f78c902fd05edff2012",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "excel",
+                "env": "PROD",
+                "folder_abs_path": "Users/michael/IdeaProjects/datahub-fork/metadata-ingestion/tests/integration/excel"
+            },
+            "name": "excel",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0cdbdebc181e1f78c902fd05edff2012",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0cdbdebc181e1f78c902fd05edff2012",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8fa281000bab5ac221699210a16affed",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:113c066ec5c8cfffa38f98937aaa2768",
+                    "urn": "urn:li:container:113c066ec5c8cfffa38f98937aaa2768"
+                },
+                {
+                    "id": "urn:li:container:77ebea21f18f352b1dbec036503bad78",
+                    "urn": "urn:li:container:77ebea21f18f352b1dbec036503bad78"
+                },
+                {
+                    "id": "urn:li:container:8f02c4bdf293b5f6880649fcf0ab4f94",
+                    "urn": "urn:li:container:8f02c4bdf293b5f6880649fcf0ab4f94"
+                },
+                {
+                    "id": "urn:li:container:29babaefcf8b8c8e1ca94e5fc691fae5",
+                    "urn": "urn:li:container:29babaefcf8b8c8e1ca94e5fc691fae5"
+                },
+                {
+                    "id": "urn:li:container:425c446947fa1bed6a86eb098d53a3db",
+                    "urn": "urn:li:container:425c446947fa1bed6a86eb098d53a3db"
+                },
+                {
+                    "id": "urn:li:container:2f3f54242cbfe15da93417dfcf928c64",
+                    "urn": "urn:li:container:2f3f54242cbfe15da93417dfcf928c64"
+                },
+                {
+                    "id": "urn:li:container:21cda2e5d8b6687acd931563065836e0",
+                    "urn": "urn:li:container:21cda2e5d8b6687acd931563065836e0"
+                },
+                {
+                    "id": "urn:li:container:0cdbdebc181e1f78c902fd05edff2012",
+                    "urn": "urn:li:container:0cdbdebc181e1f78c902fd05edff2012"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8fa281000bab5ac221699210a16affed",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0cdbdebc181e1f78c902fd05edff2012"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8fa281000bab5ac221699210a16affed",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:excel"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8fa281000bab5ac221699210a16affed",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "excel",
+                "env": "PROD",
+                "folder_abs_path": "Users/michael/IdeaProjects/datahub-fork/metadata-ingestion/tests/integration/excel/data"
+            },
+            "name": "data",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8fa281000bab5ac221699210a16affed",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8fa281000bab5ac221699210a16affed",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     },
     "systemMetadata": {

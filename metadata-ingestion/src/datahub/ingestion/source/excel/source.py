@@ -217,6 +217,13 @@ class ExcelSource(StatefulIngestionSourceBase):
     def create_s3_path(bucket_name: str, key: str) -> str:
         return f"s3://{bucket_name}/{key}"
 
+    @staticmethod
+    def strip_file_prefix(path: str) -> str:
+        if path.startswith("/"):
+            return path[1:]
+        else:
+            return path
+
     def s3_browser(self, path_spec: str) -> Iterable[BrowsePath]:
         if self.config.aws_config is None:
             raise ValueError("aws_config not set. Cannot browse s3")
@@ -397,7 +404,7 @@ class ExcelSource(StatefulIngestionSourceBase):
                             continue
 
                         basename = os.path.basename(browse_path.file)
-                        path = os.path.dirname(browse_path.file)
+                        file_path = self.strip_file_prefix(browse_path.file)
                         filename = os.path.splitext(basename)[0]
 
                         logger.debug(f"Processing {filename}")
@@ -405,7 +412,7 @@ class ExcelSource(StatefulIngestionSourceBase):
                             file_content = f.read()
                         bytes_io = io.BytesIO(file_content)
 
-                        yield from self.process_file(bytes_io, path, filename)
+                        yield from self.process_file(bytes_io, file_path, filename)
 
                 elif uri_type == UriType.S3 or uri_type == UriType.S3A:
                     logger.debug(f"Searching S3 path: {path}")
