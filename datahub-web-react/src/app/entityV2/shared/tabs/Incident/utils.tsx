@@ -126,14 +126,15 @@ const orderedIncidents = (priorityIncidentGroups) => {
     return newOrderedIncidents;
 };
 
+export const getIncidentType = (incident: Incident) =>
+    incident.incidentType === IncidentType.Custom ? incident.customType : incident.incidentType;
+
 export const createIncidentGroups = (incidents: Array<Incident>): IncidentGroupBy => {
     // Pre-sort the list of incidents based on which has been most recently created.
     incidents?.sort((a, b) => a?.created?.time - b?.created?.time);
 
     // Group incidents by type, stage, and priority
-    const typeToIncidents = groupIncidentsBy(incidents, (incident) =>
-        incident?.incidentType === IncidentType.Custom ? incident?.customType : incident?.incidentType,
-    );
+    const typeToIncidents = groupIncidentsBy(incidents, (incident) => getIncidentType(incident));
     const stageToIncidents = groupIncidentsBy(incidents, (incident) => incident?.status?.stage);
     const stateToIncidents = groupIncidentsBy(incidents, (incident) => incident?.status?.state);
     const priorityToIncidents = groupIncidentsBy(incidents, (incident) => incident.priority);
@@ -308,9 +309,10 @@ const extractFilterOptionListFromIncidents = (incidents: Incident[]) => {
             if (index > -1) {
                 remainingIncidentTypes.splice(index, 1);
             }
-            const categoryName =
-                category === IncidentType.Custom && incident.customType ? incident.customType : incident.incidentType;
-            filterGroupCounts.category[categoryName] = (filterGroupCounts.category[categoryName] || 0) + 1;
+            const categoryName = getIncidentType(incident);
+            if (categoryName) {
+                filterGroupCounts.category[categoryName] = (filterGroupCounts.category[categoryName] || 0) + 1;
+            }
         }
 
         // filter out tracked stages
@@ -390,8 +392,7 @@ const getFilteredIncidents = (incidents: Incident[], filter: IncidentListFilter)
 
     // Apply cateory, priority, and stage
     return incidents.filter((incident: Incident) => {
-        const categoryName =
-            incident.incidentType === IncidentType.Custom ? incident.customType : incident.incidentType;
+        const categoryName = getIncidentType(incident);
         const matchesCategory = category.length === 0 || (categoryName ? category.includes(categoryName) : false);
         const matchesPriority = priority.length === 0 || priority.includes(incident.priority || 'None');
         const matchesStage = stage.length === 0 || stage.includes(incident.status.stage || 'None');
@@ -509,10 +510,7 @@ export const getSortedIncidents = (record: any, sortedOptions: { sortColumn: str
 };
 
 export const getExistingIncidents = (currData) => {
-    return [
-        ...(currData?.entity?.incidents?.incidents || []),
-        ...(currData?.entity?.siblingsSearch?.searchResults[0]?.entity?.incidents?.incidents || []),
-    ];
+    return [...(currData?.entity?.incidents?.incidents || [])];
 };
 
 /**
