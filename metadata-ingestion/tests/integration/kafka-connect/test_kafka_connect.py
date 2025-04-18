@@ -1,3 +1,4 @@
+import logging
 import subprocess
 from typing import Any, Dict, List, Optional, cast
 from unittest import mock
@@ -13,7 +14,6 @@ from datahub.ingestion.source.kafka_connect.kafka_connect import SinkTopicFilter
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
-from tests.test_helpers.docker_helpers import wait_for_port
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
     validate_all_providers_have_committed_successfully,
@@ -27,22 +27,92 @@ KAFKA_CONNECT_SERVER = "http://localhost:28083"
 KAFKA_CONNECT_ENDPOINT = f"{KAFKA_CONNECT_SERVER}/connectors"
 
 
-def is_mysql_up(container_name: str, port: int) -> bool:
-    """A cheap way to figure out if mysql is responsive on a container"""
-
-    cmd = f"docker logs {container_name} 2>&1 | grep '/var/run/mysqld/mysqld.sock' | grep {port}"
-    ret = subprocess.run(
-        cmd,
-        shell=True,
-    )
-    return ret.returncode == 0
+logger = logging.getLogger(__name__)
 
 
-def have_connectors_processed(container_name: str) -> bool:
-    """A cheap way to figure out if postgres is responsive on a container"""
+def check_connectors_ready(
+    server_url: str = "http://localhost:28083", only_plugins: bool = False
+) -> bool:
+    """
+    Check if Kafka Connect is fully initialized with plugins installed and all connectors are in a RUNNING state.
 
-    cmd = f"docker logs {container_name} 2>&1 | grep 'Session key updated'"
-    return subprocess.run(cmd, shell=True).returncode == 0
+    Args:
+        server_url: The base URL of the Kafka Connect REST API
+        only_plugins: If True, only check if the connector plugins are installed
+
+    Returns:
+        bool: True if all connectors are running, False otherwise
+    """
+    try:
+        # First check if the API is responsive
+        response = requests.get(f"{server_url}/connector-plugins")
+        logger.debug(
+            f"check-connectors-ready: connector-plugins: {response.status_code} {response.json()}"
+        )
+        if response.status_code != 200:
+            return False
+
+        if not response.json():
+            return False
+
+        if only_plugins:
+            return True
+
+        # Get list of all connectors
+        connectors_response = requests.get(f"{server_url}/connectors")
+        logger.debug(
+            f"check-connectors-ready: connector: {connectors_response.status_code} {connectors_response.json()}"
+        )
+        if connectors_response.status_code != 200:
+            return False
+
+        connectors = connectors_response.json()
+        if not connectors:  # Empty list means no connectors yet
+            return False
+
+        # Check status of each connector
+        all_running = True
+        for connector in connectors:
+            # These connectors can be in FAILED state and still work for tests:
+            if connector in ["mysql_sink", "bigquery-sink-connector"]:
+                logger.debug(
+                    f"check-connectors-ready: skipping validation for {connector} as it can be in FAILED state for tests"
+                )
+                continue
+
+            status_response = requests.get(
+                f"{server_url}/connectors/{connector}/status"
+            )
+            logger.debug(
+                f"check-connectors-ready: connector {connector}: {status_response.status_code} {status_response.json()}"
+            )
+            if status_response.status_code != 200:
+                return False
+
+            status = status_response.json()
+            if status.get("connector", {}).get("state") != "RUNNING":
+                logger.debug(
+                    f"check-connectors-ready: connector {connector} is not running"
+                )
+                all_running = False
+                break
+
+            # Check all tasks are running
+            for task in status.get("tasks", []):
+                if task.get("state") != "RUNNING":
+                    logger.debug(
+                        f"check-connectors-ready: connector {connector} task {task} is not running"
+                    )
+                    all_running = False
+                    break
+
+            if not all_running:
+                break
+
+        return all_running
+    except Exception as e:  # This will catch any exception and return False
+        logger.debug(f"check-connectors-ready: exception: {e}")
+        return False
 
 
 @pytest.fixture(scope="module")
@@ -55,30 +125,20 @@ def kafka_connect_runner(docker_compose_runner, pytestconfig, test_resources_dir
         str(test_resources_dir_kafka / "docker-compose.yml"),
         str(test_resources_dir / "docker-compose.override.yml"),
     ]
-    with docker_compose_runner(
-        docker_compose_file, "kafka-connect", cleanup=False
-    ) as docker_services:
-        wait_for_port(
-            docker_services,
-            "test_mysql",
-            3306,
-            timeout=120,
-            checker=lambda: is_mysql_up("test_mysql", 3306),
-        )
 
     with docker_compose_runner(docker_compose_file, "kafka-connect") as docker_services:
-        # We sometimes run into issues where the broker fails to come up on the first try because
-        # of all the other processes that are running. By running docker compose twice, we can
-        # avoid some test flakes. How does this work? The "key" is the same between both
-        # calls to the docker_compose_runner and the first one sets cleanup=False.
+        # We rely on Docker health checks to confirm all services are up & healthy
 
-        wait_for_port(docker_services, "test_broker", 29092, timeout=120)
-        wait_for_port(docker_services, "test_connect", 28083, timeout=120)
+        # However healthcheck for test_connect service is not very trustable, so
+        # a double and more robust check here is needed
         docker_services.wait_until_responsive(
-            timeout=30,
-            pause=1,
-            check=lambda: requests.get(KAFKA_CONNECT_ENDPOINT).status_code == 200,
+            timeout=300,
+            pause=10,
+            check=lambda: check_connectors_ready(
+                KAFKA_CONNECT_SERVER, only_plugins=True
+            ),
         )
+
         yield docker_services
 
 
@@ -89,7 +149,7 @@ def test_resources_dir(pytestconfig):
 
 @pytest.fixture(scope="module")
 def loaded_kafka_connect(kafka_connect_runner):
-    # # Setup mongo cluster
+    print("Initializing MongoDB replica set...")
     command = "docker exec test_mongo mongosh test_db -f /scripts/mongo-init.js"
     ret = subprocess.run(command, shell=True, capture_output=True)
     assert ret.returncode == 0
@@ -298,6 +358,7 @@ def loaded_kafka_connect(kafka_connect_runner):
     r.raise_for_status()
     assert r.status_code == 201  # Created
 
+    print("Populating MongoDB with test data...")
     command = "docker exec test_mongo mongosh test_db -f /scripts/mongo-populate.js"
     ret = subprocess.run(command, shell=True, capture_output=True)
     assert ret.returncode == 0
@@ -360,12 +421,15 @@ def loaded_kafka_connect(kafka_connect_runner):
     )
     assert r.status_code == 201  # Created
 
-    # Give time for connectors to process the table data
+    # Connectors should be ready to process data thanks to Docker health checks
+    print("Waiting for Kafka Connect connectors to initialize and process data...")
     kafka_connect_runner.wait_until_responsive(
-        timeout=30,
-        pause=1,
-        check=lambda: have_connectors_processed("test_connect"),
+        timeout=120,
+        pause=10,
+        check=lambda: check_connectors_ready(KAFKA_CONNECT_SERVER, only_plugins=False),
     )
+
+    print("Kafka Connect connectors are ready!")
 
 
 @freeze_time(FROZEN_TIME)
