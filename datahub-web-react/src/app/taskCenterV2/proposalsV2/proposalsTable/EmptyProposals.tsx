@@ -1,7 +1,8 @@
 import React from 'react';
-import EmptyFormsImage from '@src/images/empty-forms.svg?react';
-import { EmptyContainer } from '@src/app/govern/Dashboard/Forms/styledComponents';
+
 import { Text } from '@src/alchemy-components';
+import { EmptyContainer } from '@src/app/govern/Dashboard/Forms/styledComponents';
+import EmptyFormsImage from '@src/images/empty-forms.svg?react';
 
 const EmptyProposals = () => {
     return (

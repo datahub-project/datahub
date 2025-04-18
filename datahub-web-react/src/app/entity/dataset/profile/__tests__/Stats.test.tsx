@@ -1,10 +1,15 @@
-import React from 'react';
-import { render } from '@testing-library/react';
 import { MockedProvider } from '@apollo/client/testing';
-import SnapshotStatsView from '../stats/snapshot/SnapshotStatsView';
-import TestPageContainer from '../../../../../utils/test-utils/TestPageContainer';
-import { completeSampleProfile, missingFieldStatsProfile, missingTableStatsProfile } from '../stories/stats';
-import { mocks } from '../../../../../Mocks';
+import { render } from '@testing-library/react';
+import React from 'react';
+
+import SnapshotStatsView from '@app/entity/dataset/profile/stats/snapshot/SnapshotStatsView';
+import {
+    completeSampleProfile,
+    missingFieldStatsProfile,
+    missingTableStatsProfile,
+} from '@app/entity/dataset/profile/stories/stats';
+import { mocks } from '@src/Mocks';
+import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 describe('SnapshotStatsView', () => {
     it('renders complete profile', () => {

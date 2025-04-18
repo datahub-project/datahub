@@ -1,7 +1,8 @@
-import { Button, colors } from '@src/alchemy-components';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { Collapse, Select } from 'antd';
 import styled from 'styled-components/macro';
+
+import { Button, colors } from '@src/alchemy-components';
+import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 
 export const ConditionContainer = styled.div<{ depth: number }>`
     display: flex;

@@ -1,11 +1,13 @@
-import { Select, Tag } from 'antd';
 import { Tooltip } from '@components';
+import { Select, Tag } from 'antd';
 import React from 'react';
-import { useGetSearchResultsForMultipleLazyQuery } from '../../../../../../../../graphql/search.generated';
-import { EntityType } from '../../../../../../../../types.generated';
-import { useEntityRegistry } from '../../../../../../../useEntityRegistry';
-import { SelectInputMode } from '../types/values';
-import { EntitySearchInputResult } from './EntitySearchInputResult';
+
+import { EntitySearchInputResult } from '@app/tests/builder/steps/definition/builder/property/input/EntitySearchInputResult';
+import { SelectInputMode } from '@app/tests/builder/steps/definition/builder/property/types/values';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetSearchResultsForMultipleLazyQuery } from '@graphql/search.generated';
+import { EntityType } from '@types';
 
 type Props = {
     selectedUrns: string[];

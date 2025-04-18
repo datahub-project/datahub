@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { useHistory } from 'react-router';
-import { useUserContext } from '../../../../context/useUserContext';
-import { EntityLinkList } from '../EntityLinkList';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
-import { EntityType } from '../../../../../types.generated';
-import { useGetAssetsYouSubscribeTo } from './useGetAssetsYouSubscribeTo';
-import { EmptyAssetsYouSubscribeTo } from './EmptyAssetsYouSubscribeTo';
-import { ReferenceSectionProps } from '../../types';
-import { ReferenceSection } from '../../../layout/shared/styledComponents';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { ReferenceSection } from '@app/homeV2/layout/shared/styledComponents';
+import { EntityLinkList } from '@app/homeV2/reference/sections/EntityLinkList';
+import { EmptyAssetsYouSubscribeTo } from '@app/homeV2/reference/sections/subscriptions/EmptyAssetsYouSubscribeTo';
+import { useGetAssetsYouSubscribeTo } from '@app/homeV2/reference/sections/subscriptions/useGetAssetsYouSubscribeTo';
+import { ReferenceSectionProps } from '@app/homeV2/reference/types';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType } from '@types';
 
 const DEFAULT_MAX_ENTITIES_TO_SHOW = 5;
 

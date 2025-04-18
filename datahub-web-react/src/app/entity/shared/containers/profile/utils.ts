@@ -1,14 +1,15 @@
+import { isEqual } from 'lodash';
+import queryString from 'query-string';
 import { useEffect } from 'react';
 import { useLocation } from 'react-router';
-import queryString from 'query-string';
-import { isEqual } from 'lodash';
-import { AppConfig, EntityType, ShareResult } from '../../../../../types.generated';
-import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
-import EntityRegistry from '../../../EntityRegistry';
-import EntityRegistryV2 from '../../../../entityV2/EntityRegistry';
-import { EntityTab, GenericEntityProperties } from '../../types';
-import { useIsSeparateSiblingsMode, SEPARATE_SIBLINGS_URL_PARAM } from '../../siblingUtils';
+
+import EntityRegistry from '@app/entity/EntityRegistry';
+import { useGlossaryEntityData } from '@app/entity/shared/GlossaryEntityContext';
+import { GLOSSARY_ENTITY_TYPES } from '@app/entity/shared/constants';
+import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
+import { EntityTab, GenericEntityProperties } from '@app/entity/shared/types';
+import EntityRegistryV2 from '@app/entityV2/EntityRegistry';
+import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
 import {
     ENTITY_PROFILE_DOCUMENTATION_ID,
     ENTITY_PROFILE_DOMAINS_ID,
@@ -20,10 +21,11 @@ import {
     ENTITY_PROFILE_SCHEMA_ID,
     ENTITY_PROFILE_SUBSCRIPTION_ID,
     ENTITY_PROFILE_TAGS_ID,
-} from '../../../../onboarding/config/EntityProfileOnboardingConfig';
-import { useGlossaryEntityData } from '../../GlossaryEntityContext';
-import usePrevious from '../../../../shared/usePrevious';
-import { GLOSSARY_ENTITY_TYPES } from '../../constants';
+} from '@app/onboarding/config/EntityProfileOnboardingConfig';
+import usePrevious from '@app/shared/usePrevious';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { AppConfig, EntityType, ShareResult } from '@types';
 
 /**
  * The structure of our path will be

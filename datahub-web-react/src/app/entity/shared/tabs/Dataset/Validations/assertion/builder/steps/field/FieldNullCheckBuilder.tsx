@@ -1,12 +1,14 @@
-import React from 'react';
-import Typography from 'antd/lib/typography';
-import styled from 'styled-components';
-import { Switch } from 'antd';
-import { Tooltip } from '@components';
 import { InfoCircleOutlined } from '@ant-design/icons';
-import { AssertionMonitorBuilderState } from '../../types';
-import { AssertionStdOperator } from '../../../../../../../../../../types.generated';
-import { ANTD_GRAY } from '../../../../../../../constants';
+import { Tooltip } from '@components';
+import { Switch } from 'antd';
+import Typography from 'antd/lib/typography';
+import React from 'react';
+import styled from 'styled-components';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { AssertionMonitorBuilderState } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/types';
+
+import { AssertionStdOperator } from '@types';
 
 const Section = styled.div`
     margin-top: 16px;

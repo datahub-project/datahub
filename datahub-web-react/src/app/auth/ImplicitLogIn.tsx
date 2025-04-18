@@ -1,14 +1,15 @@
+import { useReactiveVar } from '@apollo/client';
 import { message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { Redirect } from 'react-router';
+
+import analytics, { EventType } from '@app/analytics';
+import { isLoggedInVar } from '@app/auth/checkAuthStatus';
+import styles from '@app/auth/login.module.css';
+import useGetImplicitTokensFromUrlParams from '@app/auth/useGetImplicitTokensFromUrlParams';
+import { Message } from '@app/shared/Message';
+import { useAppConfig } from '@app/useAppConfig';
 import { PageRoutes } from '@src/conf/Global';
-import { useReactiveVar } from '@apollo/client';
-import useGetImplicitTokensFromUrlParams from './useGetImplicitTokensFromUrlParams';
-import { Message } from '../shared/Message';
-import styles from './login.module.css';
-import { isLoggedInVar } from './checkAuthStatus';
-import { useAppConfig } from '../useAppConfig';
-import analytics, { EventType } from '../analytics';
 
 export const ImplicitLogIn = () => {
     const isLoggedIn = useReactiveVar(isLoggedInVar);

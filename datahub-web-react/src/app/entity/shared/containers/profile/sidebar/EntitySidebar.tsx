@@ -1,11 +1,11 @@
+import { Divider, Skeleton } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Divider, Skeleton } from 'antd';
 
-import { ANTD_GRAY } from '../../../constants';
-import { useBaseEntity, useEntityData } from '../../../EntityContext';
-import { EntitySidebarSection } from '../../../types';
-import LastIngested from './LastIngested';
+import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import LastIngested from '@app/entity/shared/containers/profile/sidebar/LastIngested';
+import { EntitySidebarSection } from '@app/entity/shared/types';
 
 const ContentContainer = styled.div`
     position: relative;

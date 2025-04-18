@@ -1,10 +1,11 @@
-import { DeleteOutlined } from '@ant-design/icons';
 import { red } from '@ant-design/colors';
+import { DeleteOutlined } from '@ant-design/icons';
 import { Button, Input } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY_V2 } from '../../../constants';
-import { useEntityFormContext } from '../../../entityForm/EntityFormContext';
+
+import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
 
 const MultiStringWrapper = styled.div<{ $displayBulkStyles?: boolean }>`
     ${(props) =>

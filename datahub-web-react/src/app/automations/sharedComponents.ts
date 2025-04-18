@@ -1,10 +1,9 @@
+import { CheckCircleFilled, CloseCircleFilled } from '@ant-design/icons';
+import { Button } from 'antd';
 import styled from 'styled-components';
 
-import { Button } from 'antd';
-import { CheckCircleFilled, CloseCircleFilled } from '@ant-design/icons';
-
-import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '../entity/shared/tabs/Incident/incidentUtils';
-import { REDESIGN_COLORS } from '../entityV2/shared/constants';
+import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@app/entity/shared/tabs/Incident/incidentUtils';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 export const sharedStyles = {
     gap: '8px',

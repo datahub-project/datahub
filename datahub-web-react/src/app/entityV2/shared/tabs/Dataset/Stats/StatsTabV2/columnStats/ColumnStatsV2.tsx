@@ -1,10 +1,11 @@
-import { PageTitle, SearchBar } from '@src/alchemy-components';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { useStatsSectionsContext } from '../StatsSectionsContext';
-import { useGetStatsData } from '../useGetStatsData';
-import { SectionKeys } from '../utils';
-import ColumnStatsTable from './ColumnStatsTable';
+
+import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
+import ColumnStatsTable from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/columnStats/ColumnStatsTable';
+import { useGetStatsData } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/useGetStatsData';
+import { SectionKeys } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
+import { PageTitle, SearchBar } from '@src/alchemy-components';
 
 const ColumnStatsContainer = styled.div`
     display: flex;

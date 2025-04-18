@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
-import { message, Button as AntButton } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
+import { Button as AntButton, message } from 'antd';
+import React, { useState } from 'react';
+
+import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
+import { useEntityData, useMutationUrn } from '@app/entity/shared/EntityContext';
+import { FormData, LinkFormModal } from '@app/entityV2/shared/components/styled/LinkFormModal';
 import { Button } from '@src/alchemy-components';
-import { useEntityData, useMutationUrn } from '../../../../entity/shared/EntityContext';
-import { useAddLinkMutation } from '../../../../../graphql/mutations.generated';
-import analytics, { EventType, EntityActionType } from '../../../../analytics';
-import { useUserContext } from '../../../../context/useUserContext';
-import { FormData, LinkFormModal } from './LinkFormModal';
+
+import { useAddLinkMutation } from '@graphql/mutations.generated';
 
 interface Props {
     buttonProps?: Record<string, unknown>;

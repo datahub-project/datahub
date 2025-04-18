@@ -1,9 +1,10 @@
-import React from 'react';
 import { Divider, List, Typography } from 'antd';
+import React from 'react';
 import { Route, Switch, useHistory, useRouteMatch } from 'react-router';
 import styled from 'styled-components';
-import { PlatformIntegrationItem } from './PlatformIntegrationCard';
-import { SUPPORTED_SSO_INTEGRATIONS } from './types';
+
+import { PlatformIntegrationItem } from '@app/settingsV2/platform/PlatformIntegrationCard';
+import { SUPPORTED_SSO_INTEGRATIONS } from '@app/settingsV2/platform/types';
 
 const Page = styled.div`
     width: 100%;

@@ -1,7 +1,8 @@
-import React from 'react';
 import { CheckCircleFilled, StopOutlined } from '@ant-design/icons';
+import React from 'react';
 import styled from 'styled-components/macro';
-import { DataHubSubscription, SubscriptionType } from '../../../../../types.generated';
+
+import { DataHubSubscription, SubscriptionType } from '@types';
 
 const UpstreamsColumnContainer = styled.div`
     display: flex;

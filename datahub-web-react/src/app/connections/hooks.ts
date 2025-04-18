@@ -1,24 +1,23 @@
 /*
  * Hooks for managing connections
  */
-
 import { message } from 'antd';
-import { EntityType, DataHubConnectionDetailsType } from '@types';
 
-import { useListSecretsQuery } from '@graphql/ingestion.generated';
-import {
-    useGetSearchResultsForMultipleQuery,
-    GetSearchResultsForMultipleDocument,
-    GetSearchResultsForMultipleQuery,
-} from '@graphql/search.generated';
+import { transformDotNotationToNested } from '@app/connections/utils';
+import { PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
+
 import {
     useConnectionQuery,
-    useUpsertConnectionMutation,
     useDeleteConnectionMutation,
+    useUpsertConnectionMutation,
 } from '@graphql/connection.generated';
-
-import { PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
-import { transformDotNotationToNested } from '@app/connections/utils';
+import { useListSecretsQuery } from '@graphql/ingestion.generated';
+import {
+    GetSearchResultsForMultipleDocument,
+    GetSearchResultsForMultipleQuery,
+    useGetSearchResultsForMultipleQuery,
+} from '@graphql/search.generated';
+import { DataHubConnectionDetailsType, EntityType } from '@types';
 
 /*
  * Hook to get connections for a given platform

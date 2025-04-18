@@ -1,13 +1,14 @@
-import React, { useMemo, useState } from 'react';
 import { QuestionCircleOutlined } from '@ant-design/icons';
-import SearchFilterView from './SearchFilterView';
+import React, { useMemo, useState } from 'react';
+
 import {
     FORM_RESPONSES_FILTER,
     FormResponsesFilter,
     useEntityFormContext,
-} from '../../entity/shared/entityForm/EntityFormContext';
-import { FilterOptionType } from './types';
-import FilterOption from './FilterOption';
+} from '@app/entity/shared/entityForm/EntityFormContext';
+import FilterOption from '@app/search/filters/FilterOption';
+import SearchFilterView from '@app/search/filters/SearchFilterView';
+import { FilterOptionType } from '@app/search/filters/types';
 
 export default function FormPromptFilter() {
     const {

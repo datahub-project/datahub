@@ -1,8 +1,19 @@
-import { OperationsAggregationsResult, OperationType } from '@src/types.generated';
+import {
+    AGGREGATION_GROUPS,
+    AGGREGATION_GROUP_TO_COLORS_MAPPING,
+    CUSTOM_KEY_PREFIX,
+    DEFAULT_COLOR,
+} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/constants';
+import {
+    AggregationGroup,
+    AnyOperationType,
+    CustomOperationType,
+    CustomOperations,
+    OperationsData,
+} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/types';
 import { CalendarData } from '@src/alchemy-components/components/CalendarChart/types';
 import { getColorAccessor } from '@src/alchemy-components/components/CalendarChart/utils';
-import { AGGREGATION_GROUP_TO_COLORS_MAPPING, AGGREGATION_GROUPS, CUSTOM_KEY_PREFIX, DEFAULT_COLOR } from './constants';
-import { AnyOperationType, CustomOperations, CustomOperationType, OperationsData, AggregationGroup } from './types';
+import { OperationType, OperationsAggregationsResult } from '@src/types.generated';
 
 export function getCustomOperationsFromAggregations(
     aggregations: OperationsAggregationsResult | undefined | null,

@@ -1,14 +1,15 @@
 import { Text, Timeline } from '@components';
-import { CorpUser, Operation } from '@src/types.generated';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
+
+import TimelineSkeleton from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/components/TimeLineSkeleton';
+import TimelineContent from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/components/TimelineContent';
+import TimelineDot from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/components/TimelineDot';
+import TimelineHeader from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/components/TimelineHeader';
+import { OPERATIONS_LIMIT } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/constants';
+import usePrepareOperations from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/usePrepareOperations';
 import { pluralize } from '@src/app/shared/textUtil';
-import { OPERATIONS_LIMIT } from '../constants';
-import TimelineContent from './TimelineContent';
-import TimelineDot from './TimelineDot';
-import TimelineHeader from './TimelineHeader';
-import TimelineSkeleton from './TimeLineSkeleton';
-import usePrepareOperations from '../usePrepareOperations';
+import { CorpUser, Operation } from '@src/types.generated';
 
 const TimelineWrapper = styled.div`
     margin-top: 20px;

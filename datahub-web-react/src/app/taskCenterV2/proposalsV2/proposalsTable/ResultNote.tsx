@@ -1,7 +1,8 @@
-import { Avatar, colors, Popover, Text } from '@src/alchemy-components';
 import { FileText } from 'phosphor-react';
 import React from 'react';
 import styled from 'styled-components';
+
+import { Avatar, Popover, Text, colors } from '@src/alchemy-components';
 
 const PopoverContainer = styled.div`
     display: flex;

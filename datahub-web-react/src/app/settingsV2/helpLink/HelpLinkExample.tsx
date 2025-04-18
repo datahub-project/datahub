@@ -1,7 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
-import HelpExampleImage from '../../../images/customHelpExample.svg';
-import { ANTD_GRAY_V2 } from '../../entity/shared/constants';
+
+import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+
+import HelpExampleImage from '@images/customHelpExample.svg';
 
 const HelpExampleWrapper = styled.div`
     flex: 1;

@@ -1,12 +1,14 @@
-import React from 'react';
-import { Empty, Typography } from 'antd';
-import { Popover } from '@components';
-import styled from 'styled-components';
 import { InfoCircleOutlined } from '@ant-design/icons';
+import { Popover } from '@components';
+import { Empty, Typography } from 'antd';
 import { TooltipPlacement } from 'antd/es/tooltip';
-import NoDocs from '../../../../../../images/no-docs.svg';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../../constants';
-import AddButton from './AddButton';
+import React from 'react';
+import styled from 'styled-components';
+
+import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import AddButton from '@app/entityV2/shared/tabs/Dataset/Queries/AddButton';
+
+import NoDocs from '@images/no-docs.svg';
 
 const StyledEmpty = styled(Empty)`
     display: flex;

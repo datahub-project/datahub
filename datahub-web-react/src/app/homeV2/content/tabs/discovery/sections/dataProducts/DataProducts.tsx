@@ -2,13 +2,14 @@ import { Skeleton } from 'antd';
 import React from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
-import { Section } from '../Section';
-import { DataProductCard } from './DataProductCard';
-import { useGetDataProducts } from './useGetDataProducts';
-import { PageRoutes } from '../../../../../../../conf/Global';
-import { HOME_PAGE_DATA_PRODUCTS_ID } from '../../../../../../onboarding/config/HomePageOnboardingConfig';
-import { Carousel } from '../../../../../../sharedV2/carousel/Carousel';
-import { HorizontalListSkeletons } from '../../../../HorizontalListSkeletons';
+
+import { HorizontalListSkeletons } from '@app/homeV2/content/HorizontalListSkeletons';
+import { Section } from '@app/homeV2/content/tabs/discovery/sections/Section';
+import { DataProductCard } from '@app/homeV2/content/tabs/discovery/sections/dataProducts/DataProductCard';
+import { useGetDataProducts } from '@app/homeV2/content/tabs/discovery/sections/dataProducts/useGetDataProducts';
+import { HOME_PAGE_DATA_PRODUCTS_ID } from '@app/onboarding/config/HomePageOnboardingConfig';
+import { Carousel } from '@app/sharedV2/carousel/Carousel';
+import { PageRoutes } from '@conf/Global';
 
 const SkeletonCard = styled(Skeleton.Button)<{ width: string }>`
     &&& {

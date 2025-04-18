@@ -1,4 +1,4 @@
-import { CorpUser, Entity, SchemaFieldEntity } from '../../../../../../types.generated';
+import { CorpUser, Entity, SchemaFieldEntity } from '@types';
 
 export type QueryBuilderState = {
     urn?: string;

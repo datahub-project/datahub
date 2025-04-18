@@ -1,8 +1,9 @@
-import { Checkbox, Divider, Select, Input } from 'antd';
+import { Checkbox, Divider, Input, Select } from 'antd';
+import { debounce } from 'lodash';
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
-import { debounce } from 'lodash';
-import { ANTD_GRAY } from '../../constants';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 const StyledSelect = styled(Select)`
     display: flex;

@@ -1,11 +1,16 @@
 import React from 'react';
 import styled from 'styled-components';
-import { PropertyPredicate } from '../types';
-import { Property } from './types/properties';
-import { getValueOptions, getOperatorOptions, getPropertyById } from './utils';
-import { PropertyTreeSelect } from './select/PropertyTreeSelect';
-import { OperatorSelect } from './select/OperatorSelect';
-import { ValueSelect } from './select/ValueSelect';
+
+import { OperatorSelect } from '@app/tests/builder/steps/definition/builder/property/select/OperatorSelect';
+import { PropertyTreeSelect } from '@app/tests/builder/steps/definition/builder/property/select/PropertyTreeSelect';
+import { ValueSelect } from '@app/tests/builder/steps/definition/builder/property/select/ValueSelect';
+import { Property } from '@app/tests/builder/steps/definition/builder/property/types/properties';
+import {
+    getOperatorOptions,
+    getPropertyById,
+    getValueOptions,
+} from '@app/tests/builder/steps/definition/builder/property/utils';
+import { PropertyPredicate } from '@app/tests/builder/steps/definition/builder/types';
 
 const PredicateContainer = styled.div`
     display: flex;

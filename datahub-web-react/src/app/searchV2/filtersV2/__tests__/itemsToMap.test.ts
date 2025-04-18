@@ -1,4 +1,4 @@
-import { itemsToMap } from '../utils';
+import { itemsToMap } from '@app/searchV2/filtersV2/utils';
 
 describe('itemsToMap', () => {
     it('creates a map without a keyAccessor (uses item as key)', () => {

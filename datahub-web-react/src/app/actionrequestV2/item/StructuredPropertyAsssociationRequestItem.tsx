@@ -1,18 +1,19 @@
 import { Text } from '@components';
-import { colors } from '@src/alchemy-components';
-import StructuredPropertyValue from '@src/app/entityV2/shared/tabs/Properties/StructuredPropertyValue';
-import { mapStructuredPropertyValues } from '@src/app/entityV2/shared/tabs/Properties/useStructuredProperties';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { ActionRequest, ActionRequestOrigin, ActionRequestResult, EntityType, StdDataType } from '@src/types.generated';
 import { Popover } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+
+import AiActorLabel from '@app/actionrequestV2/item/AiActorLabel';
+import CreatedByView from '@app/actionrequestV2/item/CreatedByView';
+import RequestTargetEntityView from '@app/actionrequestV2/item/RequestTargetEntityView';
+import { ContentWrapper } from '@app/actionrequestV2/item/styledComponents';
+import { colors } from '@src/alchemy-components';
+import StructuredPropertyValue from '@src/app/entityV2/shared/tabs/Properties/StructuredPropertyValue';
 import { useHydratedEntityMap } from '@src/app/entityV2/shared/tabs/Properties/useHydratedEntityMap';
+import { mapStructuredPropertyValues } from '@src/app/entityV2/shared/tabs/Properties/useStructuredProperties';
 import { pluralize } from '@src/app/shared/textUtil';
-import AiActorLabel from './AiActorLabel';
-import CreatedByView from './CreatedByView';
-import RequestTargetEntityView from './RequestTargetEntityView';
-import { ContentWrapper } from './styledComponents';
+import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { ActionRequest, ActionRequestOrigin, ActionRequestResult, EntityType, StdDataType } from '@src/types.generated';
 
 const ValuesContainer = styled.div`
     display: inline-block;

@@ -1,7 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
+
+import getAvatarColor from '@app/shared/avatar/getAvatarColor';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import getAvatarColor from '../../../shared/avatar/getAvatarColor';
 
 const PreviewImage = styled.img<{ $isShowNavBarRedesign?: boolean }>`
     color: white;

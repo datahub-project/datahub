@@ -1,13 +1,15 @@
+import { DownOutlined, RightOutlined } from '@ant-design/icons';
+import { Empty } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Empty } from 'antd';
-import { DownOutlined, RightOutlined } from '@ant-design/icons';
-import { DataContract } from '../../../../../../types.generated';
-import { AssertionGroup } from './acrylTypes';
-import { AssertionGroupHeader } from './AssertionGroupHeader';
-import { AcrylDatasetAssertionsList } from './AcrylAssertionsList';
-import { StyledTable } from '../../../components/styled/StyledTable';
-import { useExpandedRowKeys } from './assertion/builder/hooks';
+
+import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
+import { AcrylDatasetAssertionsList } from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylAssertionsList';
+import { AssertionGroupHeader } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionGroupHeader';
+import { AssertionGroup } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
+import { useExpandedRowKeys } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/hooks';
+
+import { DataContract } from '@types';
 
 const StyledStyledTable = styled(StyledTable)`
     &&&& {

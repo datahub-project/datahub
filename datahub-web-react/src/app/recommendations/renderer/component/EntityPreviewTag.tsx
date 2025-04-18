@@ -1,12 +1,13 @@
-import { colors, Tooltip } from '@components';
-import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
+import { Tooltip, colors } from '@components';
 import { Divider, Image, Tag } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
 import ProposedIcon from '@src/app/entityV2/shared/sidebarSection/ProposedIcon';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
+import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
 
 const EntityTag = styled(Tag)<{ $isProposed?: boolean }>`
     margin: 4px;

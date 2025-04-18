@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { Form, Input, Modal, Typography } from 'antd';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { Typography, Modal, Form, Input } from 'antd';
+
+import { EMAIL_SINK, NotificationSink, NotificationTypeOptions, SLACK_SINK } from '@app/settingsV2/notifications/types';
 import { Button } from '@src/alchemy-components';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
-import { EMAIL_SINK, NotificationSink, NotificationTypeOptions, SLACK_SINK } from './types';
 
 type Props = {
     initialState?: NotificationTypeOptions;

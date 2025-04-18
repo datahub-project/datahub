@@ -1,27 +1,29 @@
+import { LoadingOutlined } from '@ant-design/icons';
 import { Empty } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
-import styled from 'styled-components';
-import { LoadingOutlined } from '@ant-design/icons';
 import { useLocation } from 'react-router';
-import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
-import { useGetSchemaBlameQuery, useGetSchemaVersionListQuery } from '../../../../../../graphql/schemaBlame.generated';
-import SchemaEditableContext from '../../../../../shared/SchemaEditableContext';
-import SchemaHeader from '../../../../dataset/profile/schema/components/SchemaHeader';
-import SchemaRawView from '../../../../dataset/profile/schema/components/SchemaRawView';
-import { KEY_SCHEMA_PREFIX } from '../../../../dataset/profile/schema/utils/constants';
-import { groupByFieldPath } from '../../../../dataset/profile/schema/utils/utils';
-import { ANTD_GRAY } from '../../../constants';
-import { useBaseEntity } from '../../../EntityContext';
-import { SchemaFieldBlame, SemanticVersionStruct } from '../../../../../../types.generated';
-import SchemaTable from './SchemaTable';
-import useGetSemanticVersionFromUrlParams from './utils/useGetSemanticVersionFromUrlParams';
-import { useGetVersionedDatasetQuery } from '../../../../../../graphql/versionedDataset.generated';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { filterSchemaRows } from './utils/filterSchemaRows';
-import getSchemaFilterFromQueryString from './utils/getSchemaFilterFromQueryString';
-import useUpdateSchemaFilterQueryString from './utils/updateSchemaFilterQueryString';
-import { useGetEntityWithSchema } from './useGetEntitySchema';
-import SchemaContext from './SchemaContext';
+import styled from 'styled-components';
+
+import SchemaHeader from '@app/entity/dataset/profile/schema/components/SchemaHeader';
+import SchemaRawView from '@app/entity/dataset/profile/schema/components/SchemaRawView';
+import { KEY_SCHEMA_PREFIX } from '@app/entity/dataset/profile/schema/utils/constants';
+import { groupByFieldPath } from '@app/entity/dataset/profile/schema/utils/utils';
+import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import SchemaContext from '@app/entity/shared/tabs/Dataset/Schema/SchemaContext';
+import SchemaTable from '@app/entity/shared/tabs/Dataset/Schema/SchemaTable';
+import { useGetEntityWithSchema } from '@app/entity/shared/tabs/Dataset/Schema/useGetEntitySchema';
+import { filterSchemaRows } from '@app/entity/shared/tabs/Dataset/Schema/utils/filterSchemaRows';
+import getSchemaFilterFromQueryString from '@app/entity/shared/tabs/Dataset/Schema/utils/getSchemaFilterFromQueryString';
+import useUpdateSchemaFilterQueryString from '@app/entity/shared/tabs/Dataset/Schema/utils/updateSchemaFilterQueryString';
+import useGetSemanticVersionFromUrlParams from '@app/entity/shared/tabs/Dataset/Schema/utils/useGetSemanticVersionFromUrlParams';
+import SchemaEditableContext from '@app/shared/SchemaEditableContext';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { GetDatasetQuery } from '@graphql/dataset.generated';
+import { useGetSchemaBlameQuery, useGetSchemaVersionListQuery } from '@graphql/schemaBlame.generated';
+import { useGetVersionedDatasetQuery } from '@graphql/versionedDataset.generated';
+import { SchemaFieldBlame, SemanticVersionStruct } from '@types';
 
 const NoSchema = styled(Empty)`
     color: ${ANTD_GRAY[6]};

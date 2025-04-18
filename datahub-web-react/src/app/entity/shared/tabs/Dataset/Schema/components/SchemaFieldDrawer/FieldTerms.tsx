@@ -1,8 +1,13 @@
 import React from 'react';
-import { EditableSchemaMetadata, GlobalTags, SchemaField } from '../../../../../../../../types.generated';
-import useTagsAndTermsRenderer from '../../utils/useTagsAndTermsRenderer';
-import { SectionHeader, StyledDivider } from './components';
-import SchemaEditableContext from '../../../../../../../shared/SchemaEditableContext';
+
+import {
+    SectionHeader,
+    StyledDivider,
+} from '@app/entity/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
+import useTagsAndTermsRenderer from '@app/entity/shared/tabs/Dataset/Schema/utils/useTagsAndTermsRenderer';
+import SchemaEditableContext from '@app/shared/SchemaEditableContext';
+
+import { EditableSchemaMetadata, GlobalTags, SchemaField } from '@types';
 
 interface Props {
     expandedField: SchemaField;

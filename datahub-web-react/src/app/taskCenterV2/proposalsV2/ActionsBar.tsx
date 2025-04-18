@@ -1,11 +1,12 @@
-import { Button, colors, Text, Modal } from '@src/alchemy-components';
-import analytics, { EventType, EntityActionType } from '@src/app/analytics';
-import { useAcceptProposalsMutation, useRejectProposalsMutation } from '@src/graphql/actionRequest.generated';
 import { Divider, Form, Input, message } from 'antd';
+import { useForm } from 'antd/lib/form/Form';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { useForm } from 'antd/lib/form/Form';
-import { ProposalModalType } from './utils';
+
+import { ProposalModalType } from '@app/taskCenterV2/proposalsV2/utils';
+import { Button, Modal, Text, colors } from '@src/alchemy-components';
+import analytics, { EntityActionType, EventType } from '@src/app/analytics';
+import { useAcceptProposalsMutation, useRejectProposalsMutation } from '@src/graphql/actionRequest.generated';
 
 const ActionsContainer = styled.div<{ $hasPagination?: boolean }>`
     display: flex;

@@ -1,4 +1,4 @@
-import { getUniqueItemsByKeyFromArrrays } from '../utils';
+import { getUniqueItemsByKeyFromArrrays } from '@app/searchV2/filtersV2/utils';
 
 describe('getUniqueItemsByKeyFromArrrays', () => {
     it('deduplicates items across multiple arrays based on a keyAccessor', () => {

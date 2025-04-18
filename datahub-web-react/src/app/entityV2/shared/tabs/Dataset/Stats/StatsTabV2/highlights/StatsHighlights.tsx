@@ -1,14 +1,19 @@
+import React from 'react';
+
+import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
+import LastMonthStats from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/highlights/LastMonthStats';
+import LatestStats from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/highlights/LatestStats';
+import SelectSiblingDropdown from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/highlights/SelectSiblingDropdown';
+import {
+    Header,
+    StatsContainer,
+    VerticalDivider,
+} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/highlights/styledComponents';
+import { useGetStatsData } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/useGetStatsData';
 import { PageTitle } from '@src/alchemy-components';
 import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
 import { GetDatasetQuery } from '@src/graphql/dataset.generated';
 import { Dataset } from '@src/types.generated';
-import React from 'react';
-import { useStatsSectionsContext } from '../StatsSectionsContext';
-import { useGetStatsData } from '../useGetStatsData';
-import LastMonthStats from './LastMonthStats';
-import LatestStats from './LatestStats';
-import SelectSiblingDropdown from './SelectSiblingDropdown';
-import { Header, StatsContainer, VerticalDivider } from './styledComponents';
 
 const StatsHighlights = () => {
     const baseEntity = useBaseEntity<GetDatasetQuery>();

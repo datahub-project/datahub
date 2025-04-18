@@ -1,13 +1,15 @@
-import React from 'react';
-import styled from 'styled-components';
 import { Typography } from 'antd';
 import { SelectValue } from 'antd/lib/select';
-import { AssertionResultType, AssertionRunEventsResult } from '../../../../../../types.generated';
-import { formatNumber } from '../../../../../shared/formatNumber';
-import PrefixedSelect from '../Stats/historical/shared/PrefixedSelect';
-import { LookbackWindow, LOOKBACK_WINDOWS } from '../Stats/lookbackWindows';
-import { getResultColor } from './assertionUtils';
-import { TimeRange } from './AssertionResultTimeline';
+import React from 'react';
+import styled from 'styled-components';
+
+import PrefixedSelect from '@app/entityV2/shared/tabs/Dataset/Stats/historical/shared/PrefixedSelect';
+import { LOOKBACK_WINDOWS, LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
+import { TimeRange } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionResultTimeline';
+import { getResultColor } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
+import { formatNumber } from '@app/shared/formatNumber';
+
+import { AssertionResultType, AssertionRunEventsResult } from '@types';
 
 const Header = styled.div`
     display: flex;

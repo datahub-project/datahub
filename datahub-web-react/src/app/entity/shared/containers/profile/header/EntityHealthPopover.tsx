@@ -1,15 +1,13 @@
+import { Popover } from '@components';
+import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Divider } from 'antd';
-import { Popover } from '@components';
-import {
-    getHealthSummaryIcon,
-    getHealthSummaryMessage,
-    HealthSummaryIconType,
-} from '../../../../../shared/health/healthUtils';
-import { EntityHealthStatus } from './EntityHealthStatus';
-import { Health } from '../../../../../../types.generated';
-import { ANTD_GRAY } from '../../../constants';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { EntityHealthStatus } from '@app/entity/shared/containers/profile/header/EntityHealthStatus';
+import { HealthSummaryIconType, getHealthSummaryIcon, getHealthSummaryMessage } from '@app/shared/health/healthUtils';
+
+import { Health } from '@types';
 
 const Header = styled.span`
     display: flex;

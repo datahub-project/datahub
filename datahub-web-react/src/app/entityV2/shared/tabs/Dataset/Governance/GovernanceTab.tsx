@@ -1,14 +1,15 @@
-import React, { useEffect } from 'react';
+import { FileDoneOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
+import React, { useEffect } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
-import { FileDoneOutlined } from '@ant-design/icons';
+
+import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { AcrylTestResults } from '@app/entityV2/shared/tabs/Dataset/Governance/AcrylTestResults';
+import { useGetValidationsTab } from '@app/entityV2/shared/tabs/Dataset/Validations/useGetValidationsTab';
+import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import TabToolbar from '../../../components/styled/TabToolbar';
-import { ANTD_GRAY } from '../../../constants';
-import { AcrylTestResults } from './AcrylTestResults';
-import { useGetValidationsTab } from '../Validations/useGetValidationsTab';
-import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '../../../useIsSeparateSiblingsMode';
 
 const TabTitle = styled.span`
     margin-left: 4px;

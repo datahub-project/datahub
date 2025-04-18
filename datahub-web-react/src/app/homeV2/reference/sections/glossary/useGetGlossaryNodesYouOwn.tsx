@@ -1,7 +1,8 @@
-import { useGetSearchResultsForMultipleQuery } from '../../../../../graphql/search.generated';
-import { CorpUser, EntityType } from '../../../../../types.generated';
-import { OWNERS_FILTER_NAME } from '../../../../searchV2/utils/constants';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
+import { OWNERS_FILTER_NAME } from '@app/searchV2/utils/constants';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
+import { CorpUser, EntityType } from '@types';
 
 const MAX_ASSETS_TO_FETCH = 50;
 

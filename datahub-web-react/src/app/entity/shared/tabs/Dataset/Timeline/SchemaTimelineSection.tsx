@@ -1,8 +1,9 @@
 import React from 'react';
 
-import { useEntityData } from '../../../EntityContext';
-import { useGetTimelineQuery } from '../../../../../../graphql/timeline.generated';
-import { ChangeCategoryType } from '../../../../../../types.generated';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+
+import { useGetTimelineQuery } from '@graphql/timeline.generated';
+import { ChangeCategoryType } from '@types';
 
 export const SchemaTimelineSection = () => {
     const { urn } = useEntityData();

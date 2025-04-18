@@ -1,13 +1,15 @@
+import { CheckCircleFilled, CloseOutlined, StopOutlined } from '@ant-design/icons';
+import { Button, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { CheckCircleFilled, CloseOutlined, StopOutlined } from '@ant-design/icons';
-import { Button, message, Typography } from 'antd';
-import { useRunTestDefinitionMutation } from '../../../../../graphql/test.generated';
-import { RunTestDefinitionStatus } from '../../../../../types.generated';
-import { ANTD_GRAY } from '../../../../entity/shared/constants';
-import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '../../../../entity/shared/tabs/Incident/incidentUtils';
-import { EntityActionProps } from '../../../../entity/shared/components/styled/search/EntitySearchResults';
-import { TestBuilderState } from '../../types';
+
+import { EntityActionProps } from '@app/entity/shared/components/styled/search/EntitySearchResults';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@app/entity/shared/tabs/Incident/incidentUtils';
+import { TestBuilderState } from '@app/tests/builder/types';
+
+import { useRunTestDefinitionMutation } from '@graphql/test.generated';
+import { RunTestDefinitionStatus } from '@types';
 
 const StatusContainer = styled.div<{ color?: string }>`
     display: flex;

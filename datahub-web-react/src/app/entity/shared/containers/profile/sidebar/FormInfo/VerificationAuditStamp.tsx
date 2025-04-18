@@ -1,8 +1,9 @@
 import dayjs from 'dayjs';
 import React from 'react';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { getVerificationAuditStamp } from './utils';
-import { useEntityData } from '../../../../EntityContext';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { getVerificationAuditStamp } from '@app/entity/shared/containers/profile/sidebar/FormInfo/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 interface Props {
     formUrn?: string;

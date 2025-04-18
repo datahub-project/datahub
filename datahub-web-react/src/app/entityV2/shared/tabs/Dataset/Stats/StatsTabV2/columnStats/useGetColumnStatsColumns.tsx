@@ -1,12 +1,13 @@
-import { Button, colors } from '@src/alchemy-components';
-import { AlignmentOptions } from '@src/alchemy-components/theme/config';
-import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
 import { Typography } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
-import { percentStrToDecimal } from '../../../Schema/utils/statsUtil';
-import { getItemKeySet } from '../utils';
+
+import { percentStrToDecimal } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/statsUtil';
+import { getItemKeySet } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
+import { Button, colors } from '@src/alchemy-components';
+import { AlignmentOptions } from '@src/alchemy-components/theme/config';
+import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
 
 const ColumnName = styled(Typography.Text)`
     color: ${colors.gray[600]};

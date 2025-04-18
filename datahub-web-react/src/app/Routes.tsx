@@ -1,17 +1,18 @@
-import React from 'react';
-import { Switch, Route, RouteProps } from 'react-router-dom';
 import { useReactiveVar } from '@apollo/client';
-import AppProviders from './AppProviders';
-import AcrylApp from './AcrylApp';
-import { LogIn } from './auth/LogIn';
-import { SignUp } from './auth/SignUp';
-import { ResetCredentials } from './auth/ResetCredentials';
-import { NoPageFound } from './shared/NoPageFound';
-import { PageRoutes } from '../conf/Global';
-import { isLoggedInVar } from './auth/checkAuthStatus';
-import { useTrackPageView } from './analytics';
-import { ProtectedRoutes } from './ProtectedRoutes';
-import { ImplicitLogIn } from './auth/ImplicitLogIn';
+import React from 'react';
+import { Route, RouteProps, Switch } from 'react-router-dom';
+
+import AcrylApp from '@app/AcrylApp';
+import AppProviders from '@app/AppProviders';
+import { ProtectedRoutes } from '@app/ProtectedRoutes';
+import { useTrackPageView } from '@app/analytics';
+import { ImplicitLogIn } from '@app/auth/ImplicitLogIn';
+import { LogIn } from '@app/auth/LogIn';
+import { ResetCredentials } from '@app/auth/ResetCredentials';
+import { SignUp } from '@app/auth/SignUp';
+import { isLoggedInVar } from '@app/auth/checkAuthStatus';
+import { NoPageFound } from '@app/shared/NoPageFound';
+import { PageRoutes } from '@conf/Global';
 
 const ProtectedRoute = ({
     isLoggedIn,

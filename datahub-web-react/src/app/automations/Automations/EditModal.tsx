@@ -1,17 +1,18 @@
+import { Modal } from 'antd';
 import React, { useState } from 'react';
 
-import { Modal } from 'antd';
+import { useAutomationContext } from '@app/automations/Automations/AutomationProvider';
+import {
+    AutomationLogo,
+    AutomationsDescription,
+    AutomationsModalHeader,
+} from '@app/automations/Automations/components';
+import { useIsFormDisabled } from '@app/automations/Automations/hooks';
+import { Configure } from '@app/automations/fields/configure';
+import { getYaml } from '@app/automations/utils';
+import { YamlEditor } from '@app/ingest/source/builder/YamlEditor';
 import { Button } from '@src/alchemy-components';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
-import { YamlEditor } from '../../ingest/source/builder/YamlEditor';
-
-import { Configure } from '../fields/configure';
-import { getYaml } from '../utils';
-
-import { useAutomationContext } from './AutomationProvider';
-
-import { AutomationsModalHeader, AutomationsDescription, AutomationLogo } from './components';
-import { useIsFormDisabled } from './hooks';
 
 type AutomationEditModalProps = {
     isOpen: boolean;

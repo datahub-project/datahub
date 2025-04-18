@@ -1,8 +1,4 @@
-import {
-    SchemaAssertionCompatibility,
-    SchemaAssertionField,
-    SchemaFieldDataType,
-} from '../../../../../../../../../../types.generated';
+import { SchemaAssertionCompatibility, SchemaAssertionField, SchemaFieldDataType } from '@types';
 
 export const compatibilityLevels = [
     {

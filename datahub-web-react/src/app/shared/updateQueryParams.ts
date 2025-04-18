@@ -1,5 +1,5 @@
+import { History, Location } from 'history';
 import * as QueryString from 'query-string';
-import { Location, History } from 'history';
 
 type QueryParam = {
     [key: string]: string | undefined;

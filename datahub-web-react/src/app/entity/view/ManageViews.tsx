@@ -1,7 +1,8 @@
+import { PageTitle } from '@components';
 import React from 'react';
 import styled from 'styled-components';
-import { PageTitle } from '@components';
-import { ViewsList } from './ViewsList';
+
+import { ViewsList } from '@app/entity/view/ViewsList';
 
 const PageContainer = styled.div`
     padding-top: 16px;

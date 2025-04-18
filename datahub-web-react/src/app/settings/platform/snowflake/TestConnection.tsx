@@ -1,16 +1,16 @@
+import { CheckCircleOutlined } from '@ant-design/icons';
+import { message } from 'antd';
 import React, { useState } from 'react';
 
-import { message } from 'antd';
-import { CheckCircleOutlined } from '@ant-design/icons';
+import TestConnectionModal from '@app/ingest/source/builder/RecipeForm/TestConnection/TestConnectionModal';
+import { SourceConfig } from '@app/ingest/source/builder/types';
+import { FAILURE, RUNNING, getSourceConfigs } from '@app/ingest/source/utils';
 import { Button } from '@src/alchemy-components';
-import TestConnectionModal from '../../../ingest/source/builder/RecipeForm/TestConnection/TestConnectionModal';
-import { FAILURE, RUNNING, getSourceConfigs } from '../../../ingest/source/utils';
-import { SourceConfig } from '../../../ingest/source/builder/types';
 
 import {
     useCreateTestConnectionRequestMutation,
     useGetIngestionExecutionRequestQuery,
-} from '../../../../graphql/ingestion.generated';
+} from '@graphql/ingestion.generated';
 
 interface Props {
     configValues: {

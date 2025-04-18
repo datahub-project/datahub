@@ -1,11 +1,10 @@
+import { ArrowRightOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
+import { Button, Card, Divider, Switch, Typography } from 'antd';
 import React from 'react';
-
 import styled from 'styled-components';
 
-import { Divider, Typography, Switch, Card, Button } from 'antd';
-import { Tooltip } from '@components';
-import { ArrowRightOutlined } from '@ant-design/icons';
-import { ANTD_GRAY } from '../../entity/shared/constants';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 const Title = styled(Typography.Title)`
     && {

@@ -1,9 +1,10 @@
+import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Divider } from 'antd';
-import { EntityLinkList } from '@src/app/homeV2/reference/sections/EntityLinkList';
+
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
-import { ANTD_GRAY } from '../../constants';
+import { EntityLinkList } from '@src/app/homeV2/reference/sections/EntityLinkList';
 
 type Props = {
     directEntities: GenericEntityProperties[];

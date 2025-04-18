@@ -1,15 +1,16 @@
-import React, { useCallback, useState } from 'react';
-import * as QueryString from 'query-string';
-import { Input, Button, Form, message, Image, Divider } from 'antd';
-import { UserOutlined, LockOutlined, LoginOutlined } from '@ant-design/icons';
+import { LockOutlined, LoginOutlined, UserOutlined } from '@ant-design/icons';
 import { useReactiveVar } from '@apollo/client';
-import styled, { useTheme } from 'styled-components/macro';
+import { Button, Divider, Form, Image, Input, message } from 'antd';
+import * as QueryString from 'query-string';
+import React, { useCallback, useState } from 'react';
 import { Redirect, useLocation } from 'react-router';
-import styles from './login.module.css';
-import { Message } from '../shared/Message';
-import { isLoggedInVar } from './checkAuthStatus';
-import analytics, { EventType } from '../analytics';
-import { useAppConfig } from '../useAppConfig';
+import styled, { useTheme } from 'styled-components/macro';
+
+import analytics, { EventType } from '@app/analytics';
+import { isLoggedInVar } from '@app/auth/checkAuthStatus';
+import styles from '@app/auth/login.module.css';
+import { Message } from '@app/shared/Message';
+import { useAppConfig } from '@app/useAppConfig';
 
 type FormValues = {
     username: string;

@@ -1,23 +1,24 @@
-import React from 'react';
 import { FormOutlined } from '@ant-design/icons';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
-import bigqueryConfig from './bigquery/bigquery';
-import redshiftConfig from './redshift/redshift';
-import snowflakeConfig from './snowflake/snowflake';
-import lookerConfig from './looker/looker';
-import mysqlConfig from './mysql/mysql';
-import postgresConfig from './postgres/postgres';
-import kafkaConfig from './kafka/kafka';
-import azureAdConfig from './azure/azure';
-import glueConfig from './glue/glue';
-import mongoConfig from './mongodb/mongodb';
-import oktaConfig from './okta/okta';
-import { SourceConfig } from './types';
-import hiveConfig from './hive/hive';
-import oracleConfig from './oracle/oracle';
-import tableauConfig from './tableau/tableau';
-import csvConfig from './csv/csv';
-import sacConfig from './sac/sac';
+import React from 'react';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import azureAdConfig from '@app/ingest/source/conf/azure/azure';
+import bigqueryConfig from '@app/ingest/source/conf/bigquery/bigquery';
+import csvConfig from '@app/ingest/source/conf/csv/csv';
+import glueConfig from '@app/ingest/source/conf/glue/glue';
+import hiveConfig from '@app/ingest/source/conf/hive/hive';
+import kafkaConfig from '@app/ingest/source/conf/kafka/kafka';
+import lookerConfig from '@app/ingest/source/conf/looker/looker';
+import mongoConfig from '@app/ingest/source/conf/mongodb/mongodb';
+import mysqlConfig from '@app/ingest/source/conf/mysql/mysql';
+import oktaConfig from '@app/ingest/source/conf/okta/okta';
+import oracleConfig from '@app/ingest/source/conf/oracle/oracle';
+import postgresConfig from '@app/ingest/source/conf/postgres/postgres';
+import redshiftConfig from '@app/ingest/source/conf/redshift/redshift';
+import sacConfig from '@app/ingest/source/conf/sac/sac';
+import snowflakeConfig from '@app/ingest/source/conf/snowflake/snowflake';
+import tableauConfig from '@app/ingest/source/conf/tableau/tableau';
+import { SourceConfig } from '@app/ingest/source/conf/types';
 
 const baseUrl = window.location.origin;
 

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import styled from 'styled-components/macro';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { Button, Modal } from 'antd';
-import { REDESIGN_COLORS } from '../../shared/constants';
+import React, { useState } from 'react';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import styled from 'styled-components/macro';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 const PreviewSyntax = styled(SyntaxHighlighter)`
     max-height: 68px;

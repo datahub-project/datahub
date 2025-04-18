@@ -1,4 +1,4 @@
-import analyticsConfig from '../../../conf/analytics';
+import analyticsConfig from '@conf/analytics';
 
 /**
  * Analytics plugin that logs tracking events + page views to console.s

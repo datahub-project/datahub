@@ -1,15 +1,17 @@
+import { useApolloClient } from '@apollo/client';
+import { message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { useApolloClient } from '@apollo/client';
+
+import analytics, { EventType } from '@app/analytics';
+import { TestBuilderModal } from '@app/tests/builder/TestBuilderModal';
+import { TestBuilderState } from '@app/tests/builder/types';
+import { updateListTestsCache } from '@app/tests/cacheUtils';
+import { DEFAULT_TESTS_PAGE_SIZE } from '@app/tests/constants';
 import { Button } from '@src/alchemy-components';
-import { message } from 'antd';
-import { useCreateTestMutation } from '../../graphql/test.generated';
-import { TestBuilderModal } from './builder/TestBuilderModal';
-import { DEFAULT_TESTS_PAGE_SIZE } from './constants';
-import { TestBuilderState } from './builder/types';
-import analytics, { EventType } from '../analytics';
-import { updateListTestsCache } from './cacheUtils';
-import { TestDefinitionInput } from '../../types.generated';
+
+import { useCreateTestMutation } from '@graphql/test.generated';
+import { TestDefinitionInput } from '@types';
 
 const ButtonContainer = styled.div`
     display: flex;

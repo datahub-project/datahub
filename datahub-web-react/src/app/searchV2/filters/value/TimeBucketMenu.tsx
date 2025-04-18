@@ -1,11 +1,12 @@
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import OptionsDropdownMenu from '@app/searchV2/filters/OptionsDropdownMenu';
-import { FilterValue, TimeBucketFilterField } from '@app/searchV2/filters/types';
-import { OptionMenu } from '@app/searchV2/filters/value/styledComponents';
 import type { ItemType } from 'antd/lib/menu/hooks/useItems';
 import moment from 'moment';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import OptionsDropdownMenu from '@app/searchV2/filters/OptionsDropdownMenu';
+import { FilterValue, TimeBucketFilterField } from '@app/searchV2/filters/types';
+import { OptionMenu } from '@app/searchV2/filters/value/styledComponents';
 
 const FilterOptionWrapper = styled.div`
     display: flex;

@@ -1,9 +1,11 @@
+import { Empty, List } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Empty, List } from 'antd';
-import { Test } from '../../types.generated';
-import { TestCard } from './card/TestCard';
-import { TestsSectionTitle } from './TestsSectionTitle';
+
+import { TestsSectionTitle } from '@app/tests/TestsSectionTitle';
+import { TestCard } from '@app/tests/card/TestCard';
+
+import { Test } from '@types';
 
 const Container = styled.div``;
 

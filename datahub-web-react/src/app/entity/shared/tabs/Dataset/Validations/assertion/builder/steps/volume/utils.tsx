@@ -1,19 +1,16 @@
 import React from 'react';
+
+import { getIsRowCountChange, getVolumeTypeInfo } from '@app/entity/shared/tabs/Dataset/Validations/utils';
+import { BIGQUERY_URN, DATABRICKS_URN, REDSHIFT_URN, SNOWFLAKE_URN } from '@app/ingest/source/builder/constants';
+
 import {
+    AssertionEvaluationParametersType,
     AssertionStdOperator,
     AssertionStdParameterType,
+    DatasetVolumeSourceType,
     VolumeAssertionInfo,
     VolumeAssertionType,
-    DatasetVolumeSourceType,
-    AssertionEvaluationParametersType,
-} from '../../../../../../../../../../types.generated';
-import {
-    BIGQUERY_URN,
-    REDSHIFT_URN,
-    SNOWFLAKE_URN,
-    DATABRICKS_URN,
-} from '../../../../../../../../../ingest/source/builder/constants';
-import { getIsRowCountChange, getVolumeTypeInfo } from '../../../../utils';
+} from '@types';
 
 // Source type config
 export type VolumeSourceType = {
@@ -343,7 +340,7 @@ export const getVolumeSourceTypeOptions = (
     connectionForEntityExists: boolean,
 ): DatasetVolumeSourceType[] => {
     return connectionForEntityExists
-        ? PLATFORM_ASSERTION_CONFIGS[platformUrn]?.sourceTypes ?? [DatasetVolumeSourceType.DatahubDatasetProfile]
+        ? (PLATFORM_ASSERTION_CONFIGS[platformUrn]?.sourceTypes ?? [DatasetVolumeSourceType.DatahubDatasetProfile])
         : [DatasetVolumeSourceType.DatahubDatasetProfile];
 };
 
@@ -357,7 +354,7 @@ export const getVolumeSourceTypeDetails = (
 
 export const getDefaultVolumeSourceType = (platformUrn: string, connectionForEntityExists: boolean) => {
     return connectionForEntityExists
-        ? PLATFORM_ASSERTION_CONFIGS[platformUrn]?.defaultSourceType ?? DatasetVolumeSourceType.DatahubDatasetProfile
+        ? (PLATFORM_ASSERTION_CONFIGS[platformUrn]?.defaultSourceType ?? DatasetVolumeSourceType.DatahubDatasetProfile)
         : DatasetVolumeSourceType.DatahubDatasetProfile;
 };
 

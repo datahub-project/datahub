@@ -1,13 +1,15 @@
-import React from 'react';
 import { CloseOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
+import React from 'react';
 import styled from 'styled-components/macro';
-import { useGetGlossaryTermQuery } from '../../../../graphql/glossaryTerm.generated';
-import { EntityType, TermRelationshipType } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { PreviewType } from '../../Entity';
-import useRemoveRelatedTerms from './useRemoveRelatedTerms';
-import { REDESIGN_COLORS } from '../../shared/constants';
+
+import { PreviewType } from '@app/entityV2/Entity';
+import useRemoveRelatedTerms from '@app/entityV2/glossaryTerm/profile/useRemoveRelatedTerms';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetGlossaryTermQuery } from '@graphql/glossaryTerm.generated';
+import { EntityType, TermRelationshipType } from '@types';
 
 const TransparentButton = styled(Button)`
     color: ${REDESIGN_COLORS.TITLE_PURPLE};

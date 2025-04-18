@@ -1,16 +1,18 @@
-import React, { useEffect, useRef, useState } from 'react';
-import styled from 'styled-components';
 import { colors } from '@components';
 import { Button, Tag, Typography } from 'antd';
-import { SUCCESS_COLOR_HEX } from '../entity/shared/tabs/Incident/incidentUtils';
-import { useGetTestResultsSummaryQuery } from '../../graphql/test.generated';
-import { formatNumberWithoutAbbreviation } from '../shared/formatNumber';
-import { NoResultsSummary } from './NoResultsSummary';
-import { PLACEHOLDER_TEST_URN } from './constants';
-import TestResultsModal from './TestResultsModal';
-import { TestResultType } from '../../types.generated';
-import { toRelativeTimeString } from '../shared/time/timeUtils';
-import Loading from '../shared/Loading';
+import React, { useEffect, useRef, useState } from 'react';
+import styled from 'styled-components';
+
+import { SUCCESS_COLOR_HEX } from '@app/entity/shared/tabs/Incident/incidentUtils';
+import Loading from '@app/shared/Loading';
+import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { toRelativeTimeString } from '@app/shared/time/timeUtils';
+import { NoResultsSummary } from '@app/tests/NoResultsSummary';
+import TestResultsModal from '@app/tests/TestResultsModal';
+import { PLACEHOLDER_TEST_URN } from '@app/tests/constants';
+
+import { useGetTestResultsSummaryQuery } from '@graphql/test.generated';
+import { TestResultType } from '@types';
 
 const Container = styled.div`
     display: flex;

@@ -1,4 +1,5 @@
 import { message } from 'antd';
+
 import { FormattedNotificationSetting, SLACK_SINK } from '@src/app/settings/platform/types';
 import {
     NotificationScenarioType,

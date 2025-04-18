@@ -1,3 +1,7 @@
+import { ASSERTION_OPERATOR_TO_DESCRIPTION } from '@app/entity/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/constants';
+import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { parseMaybeStringAsFloatOrDefault } from '@app/shared/numberUtil';
+
 import {
     AssertionStdOperator,
     AssertionStdParameters,
@@ -5,10 +9,7 @@ import {
     FieldAssertionType,
     FieldMetricType,
     FieldTransformType,
-} from '../../../../../../types.generated';
-import { formatNumberWithoutAbbreviation } from '../../../../../shared/formatNumber';
-import { parseMaybeStringAsFloatOrDefault } from '../../../../../shared/numberUtil';
-import { ASSERTION_OPERATOR_TO_DESCRIPTION } from './assertion/profile/summary/shared/constants';
+} from '@types';
 
 const SUPPORTED_OPERATORS_FOR_FIELD_DESCRIPTION = [
     AssertionStdOperator.EqualTo,

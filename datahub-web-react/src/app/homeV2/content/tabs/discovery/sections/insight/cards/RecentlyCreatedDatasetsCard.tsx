@@ -1,7 +1,12 @@
 import React from 'react';
-import { SearchListInsightCard } from './SearchListInsightCard';
-import { EntityType } from '../../../../../../../../types.generated';
-import { buildRecentlyCreatedDatasetsFilters, buildRecentlyCreatedDatasetsSort } from './useRecentlyCreatedDatasets';
+
+import { SearchListInsightCard } from '@app/homeV2/content/tabs/discovery/sections/insight/cards/SearchListInsightCard';
+import {
+    buildRecentlyCreatedDatasetsFilters,
+    buildRecentlyCreatedDatasetsSort,
+} from '@app/homeV2/content/tabs/discovery/sections/insight/cards/useRecentlyCreatedDatasets';
+
+import { EntityType } from '@types';
 
 const MAX_AGE_DAYS = 14;
 

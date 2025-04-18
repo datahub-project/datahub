@@ -1,17 +1,19 @@
-import React from 'react';
-import Typography from 'antd/lib/typography';
-import styled from 'styled-components';
-import { Select } from 'antd';
 import { Tooltip } from '@components';
-import { AssertionMonitorBuilderState } from '../../types';
-import { DatasetFieldAssertionSourceType } from '../../../../../../../../../../types.generated';
+import { Select } from 'antd';
+import Typography from 'antd/lib/typography';
+import React from 'react';
+import styled from 'styled-components';
+
+import { useConnectionForEntityExists } from '@app/entity/shared/tabs/Dataset/Validations/acrylUtils';
 import {
     getDatasetProfileDisabledMessage,
     getFieldMetricSourceTypeOptions,
     getInvalidMetricMessage,
     getSelectedFieldMetricTypeOption,
-} from './utils';
-import { useConnectionForEntityExists } from '../../../../acrylUtils';
+} from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/field/utils';
+import { AssertionMonitorBuilderState } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/types';
+
+import { DatasetFieldAssertionSourceType } from '@types';
 
 const StyledSelect = styled(Select)`
     width: 340px;

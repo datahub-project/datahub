@@ -1,4 +1,7 @@
 import { Dispatch, SetStateAction } from 'react';
+
+import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
+import { BaseItemType } from '@src/alchemy-components/components/Timeline/types';
 import {
     AuditStamp,
     CorpUser,
@@ -13,8 +16,6 @@ import {
     IncidentType,
     OwnerType,
 } from '@src/types.generated';
-import { BaseItemType } from '@src/alchemy-components/components/Timeline/types';
-import { IncidentAction } from './constant';
 
 export type IncidentListFilter = {
     sortBy: string;

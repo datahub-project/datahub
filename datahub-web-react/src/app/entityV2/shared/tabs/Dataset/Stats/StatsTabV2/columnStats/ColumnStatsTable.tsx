@@ -1,14 +1,15 @@
 import { Table, Text } from '@components';
-import { downgradeV2FieldPath, groupByFieldPath } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
-import { DatasetFieldProfile } from '@src/types.generated';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
-import SchemaFieldDrawer from '../../../Schema/components/SchemaFieldDrawer/SchemaFieldDrawer';
-import { useGetEntityWithSchema } from '../../../Schema/useGetEntitySchema';
-import useKeyboardControls from '../../../Schema/useKeyboardControls';
-import { decimalToPercentStr } from '../../../Schema/utils/statsUtil';
-import { isPresent } from '../utils';
-import { useGetColumnStatsColumns } from './useGetColumnStatsColumns';
+
+import SchemaFieldDrawer from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawer';
+import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
+import useKeyboardControls from '@app/entityV2/shared/tabs/Dataset/Schema/useKeyboardControls';
+import { decimalToPercentStr } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/statsUtil';
+import { useGetColumnStatsColumns } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/columnStats/useGetColumnStatsColumns';
+import { isPresent } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
+import { downgradeV2FieldPath, groupByFieldPath } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
+import { DatasetFieldProfile } from '@src/types.generated';
 
 const EmptyContainer = styled.div`
     display: flex;

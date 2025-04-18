@@ -1,5 +1,14 @@
 import _ from 'lodash';
 
+import { getPreviousScheduleEvaluationTimeMs } from '@app/entity/shared/tabs/Dataset/Validations/acrylUtils';
+import {
+    AssertionChartType,
+    AssertionDataPoint,
+} from '@app/entity/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/types';
+import { ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE } from '@app/entity/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/constants';
+import { tryGetExpectedRangeFromAssertionRunEvent } from '@app/entity/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultExtractionUtils';
+import { INTERVAL_TO_MS } from '@app/shared/time/timeUtils';
+
 import {
     AssertionInfo,
     AssertionResultType,
@@ -8,12 +17,7 @@ import {
     FreshnessAssertionInfo,
     FreshnessAssertionScheduleType,
     Maybe,
-} from '../../../../../../../../../../../../types.generated';
-import { INTERVAL_TO_MS } from '../../../../../../../../../../../shared/time/timeUtils';
-import { tryGetExpectedRangeFromAssertionRunEvent } from '../../../shared/resultExtractionUtils';
-import { AssertionChartType, AssertionDataPoint } from './types';
-import { getPreviousScheduleEvaluationTimeMs } from '../../../../../../acrylUtils';
-import { ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE } from '../../../shared/constants';
+} from '@types';
 
 export const ACCENT_COLOR_HEX = '#222222';
 export const EXTRA_HIGHLIGHT_COLOR_HEX = '#4050E7';

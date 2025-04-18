@@ -1,22 +1,24 @@
-import React, { useEffect } from 'react';
-import { Button } from 'antd';
+import { AuditOutlined, FileProtectOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { Button } from 'antd';
+import React, { useEffect } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
-import { AuditOutlined, FileProtectOutlined } from '@ant-design/icons';
-import { useEntityData } from '../../../EntityContext';
-import TabToolbar from '../../../components/styled/TabToolbar';
-import { useGetValidationsTab } from './useGetValidationsTab';
-import { ANTD_GRAY } from '../../../constants';
-import { useGetDatasetAssertionsQuery } from '../../../../../../graphql/dataset.generated';
-import { AcrylAssertions } from './AcrylAssertions';
-import { useAppConfig } from '../../../../../useAppConfig';
-import { DataContractTab } from './contract/DataContractTab';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
 import {
     SEPARATE_SIBLINGS_URL_PARAM,
     combineEntityDataWithSiblings,
     useIsSeparateSiblingsMode,
-} from '../../../siblingUtils';
+} from '@app/entity/shared/siblingUtils';
+import { AcrylAssertions } from '@app/entity/shared/tabs/Dataset/Validations/AcrylAssertions';
+import { DataContractTab } from '@app/entity/shared/tabs/Dataset/Validations/contract/DataContractTab';
+import { useGetValidationsTab } from '@app/entity/shared/tabs/Dataset/Validations/useGetValidationsTab';
+import { useAppConfig } from '@app/useAppConfig';
+
+import { useGetDatasetAssertionsQuery } from '@graphql/dataset.generated';
 
 const TabTitle = styled.span`
     margin-left: 4px;

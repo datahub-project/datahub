@@ -2,8 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import type { ComponentBaseProps } from '@app/automations/types';
-
-import { Snowflake, BigQuery } from '@app/connections';
+import { BigQuery, Snowflake } from '@app/connections';
 
 // Get select components for each connection type
 const SnowflakeSelect = Snowflake.components.SelectOrCreate;

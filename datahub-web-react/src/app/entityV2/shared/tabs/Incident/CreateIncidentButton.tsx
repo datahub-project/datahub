@@ -1,15 +1,14 @@
-import React from 'react';
-import { Dropdown, message } from 'antd';
-
-import { Tooltip } from '@src/alchemy-components';
 import { PlusOutlined } from '@ant-design/icons';
-import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
+import { Dropdown, message } from 'antd';
+import React from 'react';
 
-import { useSiblingOptionsForIncidentBuilder } from './utils';
-import { CreateIncidentButtonProps, EntityStagedForIncident } from './types';
-import { CreateButton, SiblingSelectionDropdownLink } from './styledComponents';
+import { CreateButton, SiblingSelectionDropdownLink } from '@app/entityV2/shared/tabs/Incident/styledComponents';
+import { CreateIncidentButtonProps, EntityStagedForIncident } from '@app/entityV2/shared/tabs/Incident/types';
+import { useSiblingOptionsForIncidentBuilder } from '@app/entityV2/shared/tabs/Incident/utils';
+import { Tooltip } from '@src/alchemy-components';
+import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
+import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
 
 export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEntity }: CreateIncidentButtonProps) => {
     const { entityData, urn: entityUrn, entityType: dataEntityType } = useEntityData();

@@ -1,17 +1,23 @@
-import analytics, { EventType } from '@src/app/analytics';
-import { getFieldPathFromSchemaFieldUrn, getSourceUrnFromSchemaFieldUrn } from '@src/app/entityV2/schemaField/utils';
 import { message } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import ProposalDescriptionModal from '@src/app/entityV2/shared/containers/profile/sidebar/ProposalDescriptionModal';
+
+import { useEntityContext, useEntityData, useMutationUrn } from '@app/entity/shared/EntityContext';
+import StructuredPropertyInput from '@app/entity/shared/components/styled/StructuredProperty/StructuredPropertyInput';
+import { useEditStructuredProperty } from '@app/entity/shared/components/styled/StructuredProperty/useEditStructuredProperty';
+import handleGraphQLError from '@app/shared/handleGraphQLError';
 import { Modal } from '@src/alchemy-components';
+import analytics, { EventType } from '@src/app/analytics';
+import { getFieldPathFromSchemaFieldUrn, getSourceUrnFromSchemaFieldUrn } from '@src/app/entityV2/schemaField/utils';
+import ProposalDescriptionModal from '@src/app/entityV2/shared/containers/profile/sidebar/ProposalDescriptionModal';
 import { useAppConfig } from '@src/app/useAppConfig';
+import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+
 import {
     // Saas-only mutation
     useProposeStructuredPropetiesMutation,
     useUpsertStructuredPropertiesMutation,
-} from '../../../../../../graphql/structuredProperties.generated';
+} from '@graphql/structuredProperties.generated';
 import {
     EntityType,
     Maybe,
@@ -20,11 +26,7 @@ import {
     StdDataType,
     StructuredPropertyEntity,
     SubResourceType,
-} from '../../../../../../types.generated';
-import handleGraphQLError from '../../../../../shared/handleGraphQLError';
-import { useEntityContext, useEntityData, useMutationUrn } from '../../../EntityContext';
-import StructuredPropertyInput from '../../../components/styled/StructuredProperty/StructuredPropertyInput';
-import { useEditStructuredProperty } from '../../../components/styled/StructuredProperty/useEditStructuredProperty';
+} from '@types';
 
 const Description = styled.div`
     font-size: 14px;

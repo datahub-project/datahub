@@ -1,15 +1,18 @@
 import { ArrowLeftOutlined, ArrowRightOutlined, MoreOutlined } from '@ant-design/icons';
 import { Popover } from '@components';
-import Colors from '@components/theme/foundations/colors';
 import { Button, Dropdown, Menu } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useCallback, useContext, useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
-import { EntityType, LineageDirection } from '../../../types.generated';
-import { ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '../../entityV2/shared/constants';
-import { LineageDisplayContext, LineageEntity, onClickPreventSelect } from '../common';
-import ManageLineageModal from '../manualLineage/ManageLineageModal';
+
+import Colors from '@components/theme/foundations/colors';
+
+import { ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '@app/entityV2/shared/constants';
+import { LineageDisplayContext, LineageEntity, onClickPreventSelect } from '@app/lineageV2/common';
+import ManageLineageModal from '@app/lineageV2/manualLineage/ManageLineageModal';
+
+import { EntityType, LineageDirection } from '@types';
 
 const DROPDOWN_Z_INDEX = 100;
 const POPOVER_Z_INDEX = 101;

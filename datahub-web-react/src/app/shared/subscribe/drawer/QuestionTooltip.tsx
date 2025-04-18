@@ -1,7 +1,8 @@
-import React from 'react';
 import { QuestionCircleOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
+import React from 'react';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 interface Props {
     tooltipTitle: string;

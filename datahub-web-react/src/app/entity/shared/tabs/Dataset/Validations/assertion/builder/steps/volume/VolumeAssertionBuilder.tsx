@@ -1,9 +1,14 @@
-import React from 'react';
-
 import { Collapse } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
 
-import { AssertionMonitorBuilderState } from '../../types';
+import { EvaluationScheduleBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/common/EvaluationScheduleBuilder';
+import { VolumeFilterBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/volume/VolumeFilterBuilder';
+import { VolumeParametersBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/volume/VolumeParametersBuilder';
+import { VolumeSourceTypeBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/volume/VolumeSourceTypeBuilder';
+import { VolumeTypeBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/volume/VolumeTypeBuilder';
+import { AssertionMonitorBuilderState } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/types';
+
 import {
     AssertionStdParameters,
     AssertionType,
@@ -11,12 +16,7 @@ import {
     DatasetFilter,
     DatasetVolumeSourceType,
     VolumeAssertionInfo,
-} from '../../../../../../../../../../types.generated';
-import { EvaluationScheduleBuilder } from '../common/EvaluationScheduleBuilder';
-import { VolumeTypeBuilder } from './VolumeTypeBuilder';
-import { VolumeParametersBuilder } from './VolumeParametersBuilder';
-import { VolumeSourceTypeBuilder } from './VolumeSourceTypeBuilder';
-import { VolumeFilterBuilder } from './VolumeFilterBuilder';
+} from '@types';
 
 const Section = styled.div`
     display: flex;

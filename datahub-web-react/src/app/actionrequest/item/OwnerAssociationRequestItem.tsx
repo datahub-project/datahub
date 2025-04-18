@@ -1,14 +1,16 @@
-import React from 'react';
-import styled from 'styled-components';
-import { CreatedByContainer } from '@src/app/govern/structuredProperties/styledComponents';
 import { UsersThree } from 'phosphor-react';
-import { colors } from '@src/alchemy-components';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import CustomAvatar from '@src/app/shared/avatar/CustomAvatar';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import MetadataAssociationRequestItem from './MetadataAssociationRequestItem';
-import AddContentView from './AddContentView';
-import { ActionRequest, EntityType } from '../../../types.generated';
+import styled from 'styled-components';
+
+import AddContentView from '@app/actionrequest/item/AddContentView';
+import MetadataAssociationRequestItem from '@app/actionrequest/item/MetadataAssociationRequestItem';
+import { colors } from '@src/alchemy-components';
+import { CreatedByContainer } from '@src/app/govern/structuredProperties/styledComponents';
+import CustomAvatar from '@src/app/shared/avatar/CustomAvatar';
+import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+
+import { ActionRequest, EntityType } from '@types';
 
 type Props = {
     actionRequest: ActionRequest;

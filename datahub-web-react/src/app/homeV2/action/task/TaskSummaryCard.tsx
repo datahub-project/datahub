@@ -1,8 +1,9 @@
+import { ExclamationCircleOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
-import { ExclamationCircleOutlined } from '@ant-design/icons';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
-import { TaskSummaryCardLoading } from './TaskSummaryCardLoading';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { TaskSummaryCardLoading } from '@app/homeV2/action/task/TaskSummaryCardLoading';
 
 const Card = styled.div`
     border: 1px solid ${ANTD_GRAY[4]};

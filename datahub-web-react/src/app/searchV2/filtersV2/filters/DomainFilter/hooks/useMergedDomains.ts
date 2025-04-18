@@ -1,7 +1,8 @@
-import { Domain } from '@src/types.generated';
 import { useMemo } from 'react';
-import { getUniqueItemsByKeyFromArrrays } from '../../../utils';
-import { domainKeyAccessor } from '../utils';
+
+import { domainKeyAccessor } from '@app/searchV2/filtersV2/filters/DomainFilter/utils';
+import { getUniqueItemsByKeyFromArrrays } from '@app/searchV2/filtersV2/utils';
+import { Domain } from '@src/types.generated';
 
 export default function useMergedDomains(
     domainsFromAppliedFilters: Domain[],

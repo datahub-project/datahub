@@ -1,7 +1,8 @@
-import { PromptCardinality } from '@src/types.generated';
 import { Form } from 'antd';
 import React, { useState } from 'react';
-import { StyledCheckbox, StyledLabel } from '../styledComponents';
+
+import { StyledCheckbox, StyledLabel } from '@app/govern/Dashboard/Forms/styledComponents';
+import { PromptCardinality } from '@src/types.generated';
 
 interface Props {
     paramsField: string;

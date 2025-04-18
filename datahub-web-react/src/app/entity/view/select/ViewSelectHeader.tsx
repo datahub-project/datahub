@@ -1,7 +1,8 @@
 import React, { useRef } from 'react';
 import styled from 'styled-components';
-import { NoMarginButton } from './styledComponents';
-import { ANTD_GRAY_V2 } from '../../shared/constants';
+
+import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+import { NoMarginButton } from '@app/entity/view/select/styledComponents';
 
 const ButtonContainer = styled.div`
     display: flex;

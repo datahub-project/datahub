@@ -1,6 +1,6 @@
+import { ColorPicker, Input } from '@components';
 import React from 'react';
 import styled from 'styled-components';
-import { Input, ColorPicker } from '@components';
 
 // Tag details section props
 export interface TagDetailsProps {

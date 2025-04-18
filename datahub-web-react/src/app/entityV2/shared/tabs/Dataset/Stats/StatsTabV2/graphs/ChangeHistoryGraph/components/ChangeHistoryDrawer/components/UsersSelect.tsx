@@ -1,6 +1,7 @@
 import React from 'react';
+
+import { SelectSkeleton } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/SelectSkeleton';
 import { SelectOption, SimpleSelect } from '@src/alchemy-components';
-import { SelectSkeleton } from '../../SelectSkeleton';
 
 type UsersSelectProps = {
     options: SelectOption[];

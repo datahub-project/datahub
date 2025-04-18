@@ -1,10 +1,11 @@
 import { Button, Popover, SearchBar } from '@components';
 import React from 'react';
 import styled from 'styled-components';
-import { pluralize } from '../../../../../shared/textUtil';
-import { REDESIGN_COLORS } from '../../../../shared/constants';
-import { SchemaFilterType } from '../../../../shared/tabs/Dataset/Schema/utils/filterSchemaRows';
-import SchemaFilterSelectContent from './SchemaFilterSelectContent';
+
+import SchemaFilterSelectContent from '@app/entityV2/dataset/profile/schema/components/SchemaFilterSelectContent';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { SchemaFilterType } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/filterSchemaRows';
+import { pluralize } from '@app/shared/textUtil';
 
 const MatchLabelText = styled.span`
     font-size: 12px;

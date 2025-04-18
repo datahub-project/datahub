@@ -1,5 +1,6 @@
 import React from 'react';
-import { AssertionTooltip } from './AssertionTooltip';
+
+import { AssertionTooltip } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/common/AssertionTooltip';
 
 export interface AssertionFormTitleAndTooltipProps {
     formTitle: string;

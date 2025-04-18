@@ -1,7 +1,7 @@
-import React from 'react';
-import styled from 'styled-components';
 import { EditOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
+import React from 'react';
+import styled from 'styled-components';
 
 const EditQueryActionButton = styled(Button)`
     && {

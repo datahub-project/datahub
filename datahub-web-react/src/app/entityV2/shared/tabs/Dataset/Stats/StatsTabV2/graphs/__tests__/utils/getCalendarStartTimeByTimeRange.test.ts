@@ -1,5 +1,5 @@
+import { getCalendarStartTimeByTimeRange } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/utils';
 import { TimeRange } from '@src/types.generated';
-import { getCalendarStartTimeByTimeRange } from '../../utils';
 
 const MOCKED_NOW = 1739791888317;
 

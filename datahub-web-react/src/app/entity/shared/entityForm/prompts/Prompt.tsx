@@ -1,21 +1,18 @@
 import { message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import {
-    FormPrompt as PromptEntity,
-    FormPromptType,
-    SubmitFormPromptInput,
-    SchemaField,
-} from '../../../../../types.generated';
-import StructuredPropertyPrompt from './StructuredPropertyPrompt/StructuredPropertyPrompt';
-import { useSubmitFormPromptMutation } from '../../../../../graphql/form.generated';
-import { useEntityContext, useMutationUrn } from '../../EntityContext';
-import analytics, { EventType, DocRequestView } from '../../../../analytics';
-import useColumnSelector from './useColumnSelector';
-import OwnershipPrompt from './OwnershipPrompt/OwnershipPrompt';
-import DocumentationPrompt from './DocumentationPrompt/DocumentationPrompt';
-import GlossaryTermsPrompt from './GlossaryTermsPrompt/GlossaryTermsPrompt';
-import DomainPrompt from './DomainPrompt/DomainPrompt';
+
+import analytics, { DocRequestView, EventType } from '@app/analytics';
+import { useEntityContext, useMutationUrn } from '@app/entity/shared/EntityContext';
+import DocumentationPrompt from '@app/entity/shared/entityForm/prompts/DocumentationPrompt/DocumentationPrompt';
+import DomainPrompt from '@app/entity/shared/entityForm/prompts/DomainPrompt/DomainPrompt';
+import GlossaryTermsPrompt from '@app/entity/shared/entityForm/prompts/GlossaryTermsPrompt/GlossaryTermsPrompt';
+import OwnershipPrompt from '@app/entity/shared/entityForm/prompts/OwnershipPrompt/OwnershipPrompt';
+import StructuredPropertyPrompt from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/StructuredPropertyPrompt';
+import useColumnSelector from '@app/entity/shared/entityForm/prompts/useColumnSelector';
+
+import { useSubmitFormPromptMutation } from '@graphql/form.generated';
+import { FormPromptType, FormPrompt as PromptEntity, SchemaField, SubmitFormPromptInput } from '@types';
 
 export const PromptWrapper = styled.div`
     background-color: white;

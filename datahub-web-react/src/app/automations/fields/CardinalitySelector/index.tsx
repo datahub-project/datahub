@@ -1,11 +1,11 @@
+import { InfoCircleOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
+import { Checkbox } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
+import { CARDINALITY_TYPE_OPTIONS, CardinalityType } from '@app/automations/constants';
 import type { ComponentBaseProps } from '@app/automations/types';
-import { CardinalityType, CARDINALITY_TYPE_OPTIONS } from '@app/automations/constants';
-import { Checkbox } from 'antd';
-import { Tooltip } from '@components';
-import { InfoCircleOutlined } from '@ant-design/icons';
 
 const RadiosContainer = styled.div`
     display: grid;

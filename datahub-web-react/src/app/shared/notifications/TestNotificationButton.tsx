@@ -1,21 +1,21 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Button, message } from 'antd';
 import { blue } from '@ant-design/colors';
 import { SendOutlined } from '@ant-design/icons';
+import { Button, message } from 'antd';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
-import {
-    useCreateNotificationConnectionTestMutation,
-    useGetNotificationConnectionTestResultLazyQuery,
-} from '@src/graphql/connection.generated';
 
-import { TestNotificationModal } from './TestNotificationModal';
-import { getDestinationId } from './utils';
+import { TestNotificationModal } from '@app/shared/notifications/TestNotificationModal';
 import {
     NotificationConnectionTestResult,
     NotificationConnectionTestStructuredReport,
     TestNotificationConfig,
-} from './types';
-import { usePollForData } from '../polling/utils';
+} from '@app/shared/notifications/types';
+import { getDestinationId } from '@app/shared/notifications/utils';
+import { usePollForData } from '@app/shared/polling/utils';
+import {
+    useCreateNotificationConnectionTestMutation,
+    useGetNotificationConnectionTestResultLazyQuery,
+} from '@src/graphql/connection.generated';
 
 const SendButton = styled(Button)`
     margin-top: 8px;

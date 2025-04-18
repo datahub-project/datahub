@@ -1,51 +1,50 @@
 import React from 'react';
 import { Redirect, Route, Switch } from 'react-router-dom';
-import { PageRoutes } from '../conf/Global';
-import { ActionRequestsPage } from './actionrequest/ActionRequestsPage';
-import { ActionRequestsPage as ActionRequestsPageV2 } from './actionrequestV2/ActionRequestsPage';
-import { AnalyticsPage } from './analyticsDashboard/components/AnalyticsPage';
-import { Automations } from './automations/Automations';
-import { BrowseResultsPage } from './browse/BrowseResultsPage';
-import { BusinessAttributes } from './businessAttribute/BusinessAttributes';
-import { useUserContext } from './context/useUserContext';
-import DomainRoutes from './domain/DomainRoutes';
-import { ManageDomainsPage } from './domain/ManageDomainsPage';
-import StructuredProperties from './govern/structuredProperties/StructuredProperties';
+
+import { ActionRequestsPage } from '@app/actionrequest/ActionRequestsPage';
+import { ActionRequestsPage as ActionRequestsPageV2 } from '@app/actionrequestV2/ActionRequestsPage';
+import { AnalyticsPage } from '@app/analyticsDashboard/components/AnalyticsPage';
+import { Automations } from '@app/automations/Automations';
+import { BrowseResultsPage } from '@app/browse/BrowseResultsPage';
+import { BusinessAttributes } from '@app/businessAttribute/BusinessAttributes';
+import { useUserContext } from '@app/context/useUserContext';
+import DomainRoutes from '@app/domain/DomainRoutes';
+import { ManageDomainsPage } from '@app/domain/ManageDomainsPage';
+import DomainRoutesV2 from '@app/domainV2/DomainRoutes';
+import { ManageDomainsPage as ManageDomainsPageV2 } from '@app/domainV2/ManageDomainsPage';
+import { EntityPage } from '@app/entity/EntityPage';
+import { EntityPage as EntityPageV2 } from '@app/entityV2/EntityPage';
+import GlossaryRoutes from '@app/glossary/GlossaryRoutes';
+import GlossaryRoutesV2 from '@app/glossaryV2/GlossaryRoutes';
+import AnalyticsTab from '@app/govern/Dashboard/AnalyticsTab';
+import { GovernDashboard } from '@app/govern/Dashboard/Dashboard';
+import { FormAnalyticsProvider } from '@app/govern/Dashboard/FormAnalyticsContext';
+import CreateForm from '@app/govern/Dashboard/Forms/CreateForm';
+import { LoadingPermissions } from '@app/govern/Dashboard/charts/AuxViews';
+import StructuredProperties from '@app/govern/structuredProperties/StructuredProperties';
+import { ManageIngestionPage } from '@app/ingest/ManageIngestionPage';
+import { DatasetHealthPage } from '@app/observe/dataset/DatasetHealthPage';
+import { SearchPage } from '@app/search/SearchPage';
+import { SearchablePage } from '@app/search/SearchablePage';
+import { SearchPage as SearchPageV2 } from '@app/searchV2/SearchPage';
+import { SearchablePage as SearchablePageV2 } from '@app/searchV2/SearchablePage';
+import { SettingsPage } from '@app/settings/SettingsPage';
+import { SettingsPage as SettingsPageV2 } from '@app/settingsV2/SettingsPage';
+import { NoPageFound } from '@app/shared/NoPageFound';
+import { ManageTags } from '@app/tags/ManageTags';
+import { TaskCenter } from '@app/taskCenter/TaskCenter';
+import { TaskCenter as TaskCenterV2 } from '@app/taskCenterV2/TaskCenter';
+import { ManageTestsPage } from '@app/tests/ManageTestsPage';
 import {
     useAppConfig,
     useBusinessAttributesFlag,
     useIsAppConfigContextLoaded,
     useIsDocumentationFormsEnabled,
     useIsNestedDomainsEnabled,
-} from './useAppConfig';
-
-import { EntityPage } from './entity/EntityPage';
-import { EntityPage as EntityPageV2 } from './entityV2/EntityPage';
-import GlossaryRoutes from './glossary/GlossaryRoutes';
-import GlossaryRoutesV2 from './glossaryV2/GlossaryRoutes';
-import { ManageIngestionPage } from './ingest/ManageIngestionPage';
-import { DatasetHealthPage } from './observe/dataset/DatasetHealthPage';
-import { SearchPage } from './search/SearchPage';
-import { SearchablePage } from './search/SearchablePage';
-import { SearchPage as SearchPageV2 } from './searchV2/SearchPage';
-import { SearchablePage as SearchablePageV2 } from './searchV2/SearchablePage';
-import { SettingsPage } from './settings/SettingsPage';
-import { SettingsPage as SettingsPageV2 } from './settingsV2/SettingsPage';
-import { NoPageFound } from './shared/NoPageFound';
-import { ManageTestsPage } from './tests/ManageTestsPage';
-import { useEntityRegistry } from './useEntityRegistry';
-
-import DomainRoutesV2 from './domainV2/DomainRoutes';
-import { ManageDomainsPage as ManageDomainsPageV2 } from './domainV2/ManageDomainsPage';
-import AnalyticsTab from './govern/Dashboard/AnalyticsTab';
-import { GovernDashboard } from './govern/Dashboard/Dashboard';
-import { FormAnalyticsProvider } from './govern/Dashboard/FormAnalyticsContext';
-import CreateForm from './govern/Dashboard/Forms/CreateForm';
-import { LoadingPermissions } from './govern/Dashboard/charts/AuxViews';
-import { TaskCenter } from './taskCenter/TaskCenter';
-import { TaskCenter as TaskCenterV2 } from './taskCenterV2/TaskCenter';
-import { useIsThemeV2 } from './useIsThemeV2';
-import { ManageTags } from './tags/ManageTags';
+} from '@app/useAppConfig';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useIsThemeV2 } from '@app/useIsThemeV2';
+import { PageRoutes } from '@conf/Global';
 
 /**
  * Container for all searchable page routes

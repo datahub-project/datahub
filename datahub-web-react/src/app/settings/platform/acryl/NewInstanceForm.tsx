@@ -1,4 +1,15 @@
 import { useApolloClient } from '@apollo/client';
+import { Button, Divider, Form, Input, Typography, message } from 'antd';
+import React, { useState } from 'react';
+import styled from 'styled-components';
+
+import { updateInstancesList } from '@app/settings/platform/acryl/cacheUtils';
+import {
+    HeaderContainer,
+    HeaderSubtext,
+    HeaderTitle,
+    LeftContainer,
+} from '@app/settings/platform/acryl/styledComponents';
 import {
     ACRYL_PLATFORM_URN,
     getConnectionBlob,
@@ -6,18 +17,9 @@ import {
     getURLFromJson,
     showToken,
 } from '@src/app/settingsV2/platform/acryl/utils';
-import { Button, Divider, Form, Input, Typography, message } from 'antd';
-import React, { useState } from 'react';
-import styled from 'styled-components';
-import { useUpdateConnectionMutation, useUpsertConnectionMutation } from '../../../../graphql/connection.generated';
-import {
-    DataHubConnection,
-    DataHubConnectionDetailsType,
-    SearchAcrossEntitiesInput,
-    SearchResults,
-} from '../../../../types.generated';
-import { updateInstancesList } from './cacheUtils';
-import { HeaderContainer, HeaderSubtext, HeaderTitle, LeftContainer } from './styledComponents';
+
+import { useUpdateConnectionMutation, useUpsertConnectionMutation } from '@graphql/connection.generated';
+import { DataHubConnection, DataHubConnectionDetailsType, SearchAcrossEntitiesInput, SearchResults } from '@types';
 
 const Container = styled.div`
     display: flex;

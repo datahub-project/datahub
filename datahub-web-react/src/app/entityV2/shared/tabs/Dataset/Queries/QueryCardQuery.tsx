@@ -1,7 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../../constants';
-import { StyledSyntaxHighlighter } from '../../../StyledSyntaxHighlighter';
+
+import { StyledSyntaxHighlighter } from '@app/entityV2/shared/StyledSyntaxHighlighter';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 
 const Statement = styled.div<{ fullHeight?: boolean; isCompact?: boolean }>`
     background-color: ${ANTD_GRAY[2]};

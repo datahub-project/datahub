@@ -1,9 +1,14 @@
 import React from 'react';
-import { ActionType } from '../property/types/action';
-import { Action } from '../../../actions/types';
-import { getActionType, getValueOptions, getActionTypeForName } from './utils';
-import { ValueSelect } from '../property/select/ValueSelect';
-import { ActionTypeSelect } from './select/ActionTypeSelect';
+
+import { Action } from '@app/tests/builder/steps/actions/types';
+import { ActionTypeSelect } from '@app/tests/builder/steps/definition/builder/action/select/ActionTypeSelect';
+import {
+    getActionType,
+    getActionTypeForName,
+    getValueOptions,
+} from '@app/tests/builder/steps/definition/builder/action/utils';
+import { ValueSelect } from '@app/tests/builder/steps/definition/builder/property/select/ValueSelect';
+import { ActionType } from '@app/tests/builder/steps/definition/builder/property/types/action';
 
 type Props = {
     selectedAction: Action;

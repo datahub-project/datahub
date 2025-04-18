@@ -1,8 +1,9 @@
+import { Divider } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Divider } from 'antd';
-import { useEntityFormContext } from './EntityFormContext';
-import Task from './Task';
+
+import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
+import Task from '@app/entity/shared/entityForm/Task';
 
 const ActiveTasksWrapper = styled.div`
     position: absolute;

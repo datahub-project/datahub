@@ -1,24 +1,26 @@
 import React, { useEffect, useState } from 'react';
-import { SearchResults } from './SearchResults';
-import analytics, { EventType } from '../analytics';
-import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
-import { SearchCfg } from '../../conf';
-import { ENTITY_SUB_TYPE_FILTER_FIELDS } from './utils/constants';
-import { EntityAndType } from '../entity/shared/types';
-import { OnboardingTour } from '../onboarding/OnboardingTour';
+
+import analytics, { EventType } from '@app/analytics';
+import { EntityAndType } from '@app/entity/shared/types';
+import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import {
     SEARCH_RESULTS_ADVANCED_SEARCH_ID,
     SEARCH_RESULTS_BROWSE_SIDEBAR_ID,
     SEARCH_RESULTS_FILTERS_ID,
     SEARCH_RESULTS_FILTERS_V2_INTRO,
-} from '../onboarding/config/SearchOnboardingConfig';
-import { SearchFilters } from './filters/SearchFilters';
-import useGetSearchQueryInputs from './useGetSearchQueryInputs';
-import useSearchFilterAnalytics from './filters/useSearchFilterAnalytics';
-import { useIsBrowseV2, useIsSearchV2, useSearchVersion } from './useSearchAndBrowseVersion';
-import useFilterMode from './filters/useFilterMode';
-import { useToggleEducationStepIdsAllowList } from '../onboarding/useToggleEducationStepIdsAllowList';
-import useSearchPage from './useSearchPage';
+} from '@app/onboarding/config/SearchOnboardingConfig';
+import { useToggleEducationStepIdsAllowList } from '@app/onboarding/useToggleEducationStepIdsAllowList';
+import { SearchResults } from '@app/search/SearchResults';
+import { SearchFilters } from '@app/search/filters/SearchFilters';
+import useFilterMode from '@app/search/filters/useFilterMode';
+import useSearchFilterAnalytics from '@app/search/filters/useSearchFilterAnalytics';
+import useGetSearchQueryInputs from '@app/search/useGetSearchQueryInputs';
+import { useIsBrowseV2, useIsSearchV2, useSearchVersion } from '@app/search/useSearchAndBrowseVersion';
+import useSearchPage from '@app/search/useSearchPage';
+import { ENTITY_SUB_TYPE_FILTER_FIELDS } from '@app/search/utils/constants';
+import { SearchCfg } from '@src/conf';
+
+import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 
 /**
  * A search results page.

@@ -1,6 +1,7 @@
 import React from 'react';
-import NoResultsFoundPlaceholder from './NoResultsFoundPlaceholder';
-import NoSearchingPlaceholder from './NoSearchingPlaceholder';
+
+import NoResultsFoundPlaceholder from '@app/searchV2/searchBarV2/components/NoResultsFoundPlaceholder';
+import NoSearchingPlaceholder from '@app/searchV2/searchBarV2/components/NoSearchingPlaceholder';
 
 interface Props {
     isSearching?: boolean;

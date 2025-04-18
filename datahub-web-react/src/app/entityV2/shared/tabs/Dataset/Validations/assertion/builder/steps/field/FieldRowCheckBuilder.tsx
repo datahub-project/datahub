@@ -1,14 +1,16 @@
-import React from 'react';
-import Typography from 'antd/lib/typography';
-import styled from 'styled-components';
-import { Radio, RadioChangeEvent } from 'antd';
 import { Tooltip } from '@components';
-import { AssertionMonitorBuilderState } from '../../types';
-import { DatasetFieldAssertionSourceType } from '../../../../../../../../../../types.generated';
-import { ANTD_GRAY } from '../../../../../../../constants';
-import { FieldChangedRowsBuilder } from './FieldChangedRowsBuilder';
-import { getDatasetProfileDisabledMessage } from './utils';
-import { useConnectionForEntityExists } from '../../../../acrylUtils';
+import { Radio, RadioChangeEvent } from 'antd';
+import Typography from 'antd/lib/typography';
+import React from 'react';
+import styled from 'styled-components';
+
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { useConnectionForEntityExists } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { FieldChangedRowsBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/FieldChangedRowsBuilder';
+import { getDatasetProfileDisabledMessage } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/utils';
+import { AssertionMonitorBuilderState } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
+
+import { DatasetFieldAssertionSourceType } from '@types';
 
 const Section = styled.div`
     margin: 16px 0 24px;

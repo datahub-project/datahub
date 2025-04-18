@@ -1,6 +1,7 @@
 import React, { memo } from 'react';
 import styled from 'styled-components';
-import { FiltersRendererProps } from '../types';
+
+import { FiltersRendererProps } from '@app/searchV2/filtersV2/types';
 
 const Container = styled.div`
     display: flex;

@@ -1,11 +1,11 @@
-import React from 'react';
-
-import styled from 'styled-components';
 import { LinkOutlined } from '@ant-design/icons';
+import React from 'react';
+import styled from 'styled-components';
 
-import { ActionItem } from './ActionItem';
-import { Assertion } from '../../../../../../../../../types.generated';
-import { useAssertionURNCopyLink } from '../../builder/hooks';
+import { useAssertionURNCopyLink } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/hooks';
+import { ActionItem } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/ActionItem';
+
+import { Assertion } from '@types';
 
 const StyledLinkOutlined = styled(LinkOutlined)`
     && {

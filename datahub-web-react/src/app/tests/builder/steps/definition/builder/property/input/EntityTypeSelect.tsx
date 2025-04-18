@@ -1,7 +1,9 @@
 import { Select } from 'antd';
 import React from 'react';
-import { EntityType } from '../../../../../../../../types.generated';
-import { useEntityRegistry } from '../../../../../../../useEntityRegistry';
+
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType } from '@types';
 
 const selectStyle = { width: 340 };
 

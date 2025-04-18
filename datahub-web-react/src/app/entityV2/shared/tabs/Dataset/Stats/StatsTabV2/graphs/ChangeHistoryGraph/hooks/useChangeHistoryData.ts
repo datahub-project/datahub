@@ -1,14 +1,21 @@
-import { CALENDAR_DATE_FORMAT } from '@src/alchemy-components';
-import { useGetOperationsStatsBucketsLazyQuery } from '@src/graphql/dataset.generated';
-import { OperationsQueryResult, OperationType, TimeRange } from '@src/types.generated';
 import dayjs from 'dayjs';
-import { useEffect, useMemo, useState } from 'react';
 import moment from 'moment';
+import { useEffect, useMemo, useState } from 'react';
+
+import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
+import {
+    CustomOperationType,
+    OperationsData,
+} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/types';
+import {
+    convertAggregationsToOperationsData,
+    getCustomOperationsFromAggregations,
+} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/utils';
+import { addMonthOverMonthValue } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/utils';
+import { CALENDAR_DATE_FORMAT } from '@src/alchemy-components';
 import { CalendarData } from '@src/alchemy-components/components/CalendarChart/types';
-import { useStatsSectionsContext } from '../../../StatsSectionsContext';
-import { addMonthOverMonthValue } from '../../utils';
-import { CustomOperationType, OperationsData } from '../types';
-import { convertAggregationsToOperationsData, getCustomOperationsFromAggregations } from '../utils';
+import { useGetOperationsStatsBucketsLazyQuery } from '@src/graphql/dataset.generated';
+import { OperationType, OperationsQueryResult, TimeRange } from '@src/types.generated';
 
 type ResponseType = {
     buckets: CalendarData<OperationsData>[];

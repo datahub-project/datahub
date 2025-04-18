@@ -1,5 +1,6 @@
 import { renderHook } from '@testing-library/react-hooks';
-import useNestedSelectOptionChildren from '../useNestedSelectOptionChildren';
+
+import useNestedSelectOptionChildren from '@components/components/Select/Nested/useNestedSelectOptionChildren';
 
 const option1 = { value: '1', label: '1', isParent: true };
 const option2 = { value: '5', label: '5', isParent: true };

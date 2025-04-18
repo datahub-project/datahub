@@ -4,12 +4,12 @@
 
 	Action: TBD
 */
-
-import { AutomationRecipe, AutomationTemplate } from '@app/automations/types';
-import AcrylLogo from '@images/acryl-logo.svg';
-import { AppConfig, EntityType } from '@src/types.generated';
-import { commonFieldsMapping, DEFAULT_APPLY_TYPE, DEFAULT_CARDINALITY } from '@app/automations/constants';
+import { DEFAULT_APPLY_TYPE, DEFAULT_CARDINALITY, commonFieldsMapping } from '@app/automations/constants';
 import { getField } from '@app/automations/fields';
+import { AutomationRecipe, AutomationTemplate } from '@app/automations/types';
+import { AppConfig, EntityType } from '@src/types.generated';
+
+import AcrylLogo from '@images/acryl-logo.svg';
 
 // Common unique ID for the action
 // Used to identify the action in the backend & provide common key between template <> recipe

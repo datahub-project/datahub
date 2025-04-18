@@ -1,15 +1,17 @@
+import { Tooltip } from '@components';
+import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Button } from 'antd';
-import { Tooltip } from '@components';
-import { AssertionBuilderStep, StepProps } from '../types';
-import { AssertionType, CreateSqlAssertionInput } from '../../../../../../../../../types.generated';
-import { TestAssertionModal } from './preview/TestAssertionModal';
-import { builderStateToTestSqlAssertionVariables } from '../utils';
-import { useTestAssertionModal } from './utils';
-import { SqlAssertionBuilder } from './sql/SqlAssertionBuilder';
-import { useConnectionWithRunAssertionCapabilitiesForEntityExists } from '../../../acrylUtils';
-import { AssertionActionsSection } from './actions/AssertionActionsSection';
+
+import { useConnectionWithRunAssertionCapabilitiesForEntityExists } from '@app/entity/shared/tabs/Dataset/Validations/acrylUtils';
+import { AssertionActionsSection } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/actions/AssertionActionsSection';
+import { TestAssertionModal } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/preview/TestAssertionModal';
+import { SqlAssertionBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/sql/SqlAssertionBuilder';
+import { useTestAssertionModal } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/utils';
+import { AssertionBuilderStep, StepProps } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/types';
+import { builderStateToTestSqlAssertionVariables } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/utils';
+
+import { AssertionType, CreateSqlAssertionInput } from '@types';
 
 const Step = styled.div`
     height: 100%;

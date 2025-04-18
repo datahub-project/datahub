@@ -1,13 +1,15 @@
-import { Modal, Typography } from 'antd';
-import React, { useState } from 'react';
 import { FileTextOutlined } from '@ant-design/icons';
 import MDEditor from '@uiw/react-md-editor';
+import { Modal, Typography } from 'antd';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
-import { ActionRequest, EntityType, GlossaryNode } from '../../../types.generated';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import CreatedByView from './CreatedByView';
-import { ViewDocumentationButton } from './updateDescription/UpdateDescriptionContentView';
+
+import CreatedByView from '@app/actionrequest/item/CreatedByView';
+import { ViewDocumentationButton } from '@app/actionrequest/item/updateDescription/UpdateDescriptionContentView';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { ActionRequest, EntityType, GlossaryNode } from '@types';
 
 const NameWrapper = styled.span`
     font-weight: bold;

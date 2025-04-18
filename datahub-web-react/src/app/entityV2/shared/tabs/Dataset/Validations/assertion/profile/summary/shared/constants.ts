@@ -1,4 +1,4 @@
-import { AssertionStdOperator } from '../../../../../../../../../../types.generated';
+import { AssertionStdOperator } from '@types';
 
 // We hard code this here because there's no set schema NativeResults on the AssertionResult document
 // - it's a generic map.

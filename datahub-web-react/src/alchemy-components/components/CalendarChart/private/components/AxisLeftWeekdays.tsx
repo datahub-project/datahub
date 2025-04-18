@@ -1,8 +1,9 @@
 import React from 'react';
-import { DAYS_IN_WEEK } from '../constants';
-import { AxisLeftWeekdaysProps } from '../../types';
-import { useCalendarState } from '../context';
-import { TickLabel } from './TickLabel';
+
+import { TickLabel } from '@components/components/CalendarChart/private/components/TickLabel';
+import { DAYS_IN_WEEK } from '@components/components/CalendarChart/private/constants';
+import { useCalendarState } from '@components/components/CalendarChart/private/context';
+import { AxisLeftWeekdaysProps } from '@components/components/CalendarChart/types';
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thur', 'Fri', 'Sat', 'Sun'];
 

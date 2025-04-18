@@ -1,18 +1,20 @@
+import { Button, Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
-import { Button, Tooltip } from '@components';
-import { AssertionBuilderStep, FreshnessAssertionScheduleBuilderTypeOptions, StepProps } from '../types';
+
+import { useConnectionWithRunAssertionCapabilitiesForEntityExists } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { AssertionActionsSection } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/actions/AssertionActionsSection';
+import { DatasetFreshnessAssertionBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/freshness/DatasetFreshnessAssertionBuilder';
+import { TestAssertionModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/preview/TestAssertionModal';
+import { useTestAssertionModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/utils';
 import {
-    AssertionEvaluationParametersInput,
-    AssertionType,
-    CreateFreshnessAssertionInput,
-} from '../../../../../../../../../types.generated';
-import { TestAssertionModal } from './preview/TestAssertionModal';
-import { builderStateToTestFreshnessAssertionVariables } from '../utils';
-import { useTestAssertionModal } from './utils';
-import { DatasetFreshnessAssertionBuilder } from './freshness/DatasetFreshnessAssertionBuilder';
-import { useConnectionWithRunAssertionCapabilitiesForEntityExists } from '../../../acrylUtils';
-import { AssertionActionsSection } from './actions/AssertionActionsSection';
+    AssertionBuilderStep,
+    FreshnessAssertionScheduleBuilderTypeOptions,
+    StepProps,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
+import { builderStateToTestFreshnessAssertionVariables } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/utils';
+
+import { AssertionEvaluationParametersInput, AssertionType, CreateFreshnessAssertionInput } from '@types';
 
 const Step = styled.div`
     height: 100%;

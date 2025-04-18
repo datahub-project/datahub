@@ -2,12 +2,14 @@ import { DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { Button, Dropdown, Modal, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { DataProduct, EntityType } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { PreviewType } from '../../Entity';
-import EditDataProductModal from './EditDataProductModal';
-import { MenuIcon } from '../../shared/EntityDropdown/EntityDropdown';
-import { useDeleteDataProductMutation } from '../../../../graphql/dataProduct.generated';
+
+import { PreviewType } from '@app/entity/Entity';
+import EditDataProductModal from '@app/entity/domain/DataProductsTab/EditDataProductModal';
+import { MenuIcon } from '@app/entity/shared/EntityDropdown/EntityDropdown';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useDeleteDataProductMutation } from '@graphql/dataProduct.generated';
+import { DataProduct, EntityType } from '@types';
 
 const ResultWrapper = styled.div`
     background-color: white;

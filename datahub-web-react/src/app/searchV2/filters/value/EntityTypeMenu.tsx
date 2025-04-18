@@ -1,13 +1,18 @@
 /* eslint-disable import/no-cycle */
 import React, { useState } from 'react';
+
+import OptionsDropdownMenu from '@app/searchV2/filters/OptionsDropdownMenu';
+import { mapFilterOption } from '@app/searchV2/filters/mapFilterOption';
+import { FilterField, FilterValue, FilterValueOption } from '@app/searchV2/filters/types';
+import { OptionMenu } from '@app/searchV2/filters/value/styledComponents';
+import {
+    deduplicateOptions,
+    useFilterOptionsBySearchQuery,
+    useLoadAggregationOptions,
+} from '@app/searchV2/filters/value/utils';
+import { ENTITY_SUB_TYPE_FILTER_NAME, FILTER_DELIMITER } from '@app/searchV2/utils/constants';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { EntityType } from '@src/types.generated';
-import { FilterField, FilterValue, FilterValueOption } from '../types';
-import { mapFilterOption } from '../mapFilterOption';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import OptionsDropdownMenu from '../OptionsDropdownMenu';
-import { deduplicateOptions, useFilterOptionsBySearchQuery, useLoadAggregationOptions } from './utils';
-import { ENTITY_SUB_TYPE_FILTER_NAME, FILTER_DELIMITER } from '../../utils/constants';
-import { OptionMenu } from './styledComponents';
 
 interface Props {
     field: FilterField;

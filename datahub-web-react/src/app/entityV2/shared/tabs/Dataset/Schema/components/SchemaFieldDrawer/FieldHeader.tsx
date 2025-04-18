@@ -1,17 +1,22 @@
 import { CloseOutlined } from '@ant-design/icons';
-import { useAppConfig } from '@app/useAppConfig';
 import { Divider } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+
+import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/translateFieldPath';
+import NullableLabel, {
+    PartitioningKeyLabel,
+    PrimaryKeyLabel,
+} from '@app/entityV2/shared/tabs/Dataset/Schema/components/ConstraintLabels';
+import MenuColumn from '@app/entityV2/shared/tabs/Dataset/Schema/components/MenuColumn';
+import FieldPath from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldPath';
+import TypeLabel from '@app/entityV2/shared/tabs/Dataset/Schema/components/TypeLabel';
+import { useAppConfig } from '@app/useAppConfig';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import colors from '@src/alchemy-components/theme/foundations/colors';
-import { SchemaField } from '../../../../../../../../types.generated';
-import translateFieldPath from '../../../../../../dataset/profile/schema/utils/translateFieldPath';
-import NullableLabel, { PartitioningKeyLabel, PrimaryKeyLabel } from '../ConstraintLabels';
-import MenuColumn from '../MenuColumn';
-import TypeLabel from '../TypeLabel';
-import FieldPath from './FieldPath';
-import { useEntityRegistry } from '../../../../../../../useEntityRegistry';
+
+import { SchemaField } from '@types';
 
 const FieldHeaderWrapper = styled.div`
     padding: 16px;

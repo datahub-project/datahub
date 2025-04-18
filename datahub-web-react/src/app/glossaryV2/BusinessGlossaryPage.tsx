@@ -1,22 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
-import { useGetRootGlossaryNodesQuery, useGetRootGlossaryTermsQuery } from '../../graphql/glossary.generated';
-import CreateGlossaryEntityModal from '../entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
-import { EntityType } from '../../types.generated';
-import { Message } from '../shared/Message';
-import { sortGlossaryTerms } from '../entityV2/glossaryTerm/utils';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { sortGlossaryNodes } from '../entityV2/glossaryNode/utils';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { sortGlossaryNodes } from '@app/entityV2/glossaryNode/utils';
+import { sortGlossaryTerms } from '@app/entityV2/glossaryTerm/utils';
+import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
+import GlossaryContentProvider from '@app/glossaryV2/GlossaryContentProvider';
+import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import {
-    BUSINESS_GLOSSARY_INTRO_ID,
-    BUSINESS_GLOSSARY_CREATE_TERM_ID,
     BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID,
-} from '../onboarding/config/BusinessGlossaryOnboardingConfig';
-import { OnboardingTour } from '../onboarding/OnboardingTour';
-import { useGlossaryEntityData } from '../entityV2/shared/GlossaryEntityContext';
-import { useUserContext } from '../context/useUserContext';
-import GlossaryContentProvider from './GlossaryContentProvider';
-import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
+    BUSINESS_GLOSSARY_CREATE_TERM_ID,
+    BUSINESS_GLOSSARY_INTRO_ID,
+} from '@app/onboarding/config/BusinessGlossaryOnboardingConfig';
+import { Message } from '@app/shared/Message';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+
+import { useGetRootGlossaryNodesQuery, useGetRootGlossaryTermsQuery } from '@graphql/glossary.generated';
+import { EntityType } from '@types';
 
 const GlossaryWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     display: flex;

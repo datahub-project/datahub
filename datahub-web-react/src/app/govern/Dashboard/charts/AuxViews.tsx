@@ -1,11 +1,10 @@
-import React from 'react';
-
 import { Skeleton } from 'antd';
+import React from 'react';
 import { FcHighPriority, FcLeave, FcMediumPriority } from 'react-icons/fc';
 import styled from 'styled-components';
-import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
-import { Body, PrimaryHeading } from '../components';
+import { Body, PrimaryHeading } from '@app/govern/Dashboard/components';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 const Container = styled.div`
     flex: 1;

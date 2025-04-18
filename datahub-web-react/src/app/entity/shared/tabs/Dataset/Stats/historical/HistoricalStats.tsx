@@ -1,22 +1,24 @@
+import { Divider, Typography } from 'antd';
+import React, { useEffect, useState } from 'react';
+import styled from 'styled-components';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { FULL_TABLE_PARTITION_KEYS } from '@app/entity/shared/tabs/Dataset/Stats/constants';
+import ProfilingRunsChart from '@app/entity/shared/tabs/Dataset/Stats/historical/charts/ProfilingRunsChart';
+import StatChart from '@app/entity/shared/tabs/Dataset/Stats/historical/charts/StatChart';
+import PrefixedSelect from '@app/entity/shared/tabs/Dataset/Stats/historical/shared/PrefixedSelect';
+import { LookbackWindow } from '@app/entity/shared/tabs/Dataset/Stats/lookbackWindows';
+import { Message } from '@app/shared/Message';
+import { formatBytes } from '@app/shared/formatNumber';
+import { getFixedLookbackWindow } from '@app/shared/time/timeUtils';
 import {
     computeAllFieldPaths,
     computeChartTickInterval,
     extractChartValuesFromFieldProfiles,
     extractChartValuesFromTableProfiles,
 } from '@src/app/entityV2/shared/utils';
-import { Divider, Typography } from 'antd';
-import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
-import { useGetDataProfilesLazyQuery } from '../../../../../../../graphql/dataset.generated';
-import { Message } from '../../../../../../shared/Message';
-import { formatBytes } from '../../../../../../shared/formatNumber';
-import { getFixedLookbackWindow } from '../../../../../../shared/time/timeUtils';
-import { ANTD_GRAY } from '../../../../constants';
-import { FULL_TABLE_PARTITION_KEYS } from '../constants';
-import { LookbackWindow } from '../lookbackWindows';
-import ProfilingRunsChart from './charts/ProfilingRunsChart';
-import StatChart from './charts/StatChart';
-import PrefixedSelect from './shared/PrefixedSelect';
+
+import { useGetDataProfilesLazyQuery } from '@graphql/dataset.generated';
 
 // TODO: Reuse stat sections.
 const StatSection = styled.div`

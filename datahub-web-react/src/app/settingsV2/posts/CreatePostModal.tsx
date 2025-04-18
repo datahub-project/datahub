@@ -1,21 +1,23 @@
+import { Form, Modal, message } from 'antd';
 import React, { useEffect, useState } from 'react';
-import { Form, message, Modal } from 'antd';
-import { Button } from '@src/alchemy-components';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
-import CreatePostForm from './CreatePostForm';
+
+import CreatePostForm from '@app/settingsV2/posts/CreatePostForm';
+import { PostEntry } from '@app/settingsV2/posts/PostsListColumns';
 import {
     CREATE_POST_BUTTON_ID,
     DESCRIPTION_FIELD_NAME,
     LINK_FIELD_NAME,
     LOCATION_FIELD_NAME,
-    TYPE_FIELD_NAME,
     TITLE_FIELD_NAME,
-} from './constants';
-import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
-import { MediaType, PostContentType, PostType } from '../../../types.generated';
-import { useCreatePostMutation, useUpdatePostMutation } from '../../../graphql/mutations.generated';
-import { PostEntry } from './PostsListColumns';
-import handleGraphQLError from '../../shared/handleGraphQLError';
+    TYPE_FIELD_NAME,
+} from '@app/settingsV2/posts/constants';
+import handleGraphQLError from '@app/shared/handleGraphQLError';
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { Button } from '@src/alchemy-components';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+
+import { useCreatePostMutation, useUpdatePostMutation } from '@graphql/mutations.generated';
+import { MediaType, PostContentType, PostType } from '@types';
 
 type Props = {
     editData: PostEntry;

@@ -1,21 +1,22 @@
-import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
-import { useHistory, useLocation } from 'react-router';
-import { Tabs } from 'antd';
 import { Button, Tooltip } from '@components';
+import { Tabs } from 'antd';
+import React, { useEffect, useState } from 'react';
+import { useHistory, useLocation } from 'react-router';
+import styled from 'styled-components';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import AnalyticsTab from '@app/govern/Dashboard/AnalyticsTab';
+import FormsTab from '@app/govern/Dashboard/Forms/FormsTab';
+import { useGetFormsData } from '@app/govern/Dashboard/Forms/useGetFormsData';
+import { MissingPermissions } from '@app/govern/Dashboard/charts/AuxViews';
+import { Header, Layout } from '@app/govern/Dashboard/components';
+import { useAppConfig } from '@app/useAppConfig';
+import { useIsThemeV2 } from '@app/useIsThemeV2';
+import { PageRoutes } from '@conf/Global';
 import { PageTitle } from '@src/alchemy-components/components/PageTitle';
 import analytics, { EventType } from '@src/app/analytics';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { useUserContext } from '../../context/useUserContext';
-import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
-import { useAppConfig } from '../../useAppConfig';
-import { useIsThemeV2 } from '../../useIsThemeV2';
-import AnalyticsTab from './AnalyticsTab';
-import { MissingPermissions } from './charts/AuxViews';
-import { Header, Layout } from './components';
-import FormsTab from './Forms/FormsTab';
-import { PageRoutes } from '../../../conf/Global';
-import { useGetFormsData } from './Forms/useGetFormsData';
 
 const StyledTabs = styled(Tabs)<{ isThemeV2: boolean }>`
     flex: 1;

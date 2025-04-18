@@ -1,19 +1,20 @@
 import {
+    updateGroupNotificationSettingsFunction,
+    updateUserNotificationSettingsFunction,
+} from '@app/settings/personal/notifications/utils';
+
+import {
     useGetGroupNotificationSettingsQuery,
     useGetUserNotificationSettingsQuery,
     useUpdateGroupNotificationSettingsMutation,
     useUpdateUserNotificationSettingsMutation,
-} from '../../../../graphql/settings.generated';
+} from '@graphql/settings.generated';
 import {
     EmailNotificationSettingsInput,
     NotificationSinkType,
     SlackNotificationSettings,
     SlackNotificationSettingsInput,
-} from '../../../../types.generated';
-import {
-    updateGroupNotificationSettingsFunction,
-    updateUserNotificationSettingsFunction,
-} from '../../../settings/personal/notifications/utils';
+} from '@types';
 
 export interface UpdateSettingsInput {
     slackSettings?: SlackNotificationSettingsInput;

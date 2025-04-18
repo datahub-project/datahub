@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+
+import { Announcements } from '@app/homeV2/action/announcement/Announcements';
+import { PendingTasks } from '@app/homeV2/action/task/PendingTasks';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { Announcements } from '../action/announcement/Announcements';
-import { PendingTasks } from '../action/task/PendingTasks';
 
 const Container = styled.div<{ $isHidden?: boolean; $isShowNavBarRedesign?: boolean }>`
     overflow-y: auto;

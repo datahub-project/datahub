@@ -1,13 +1,14 @@
 import React from 'react';
-import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
-import { useEntityData } from '../../../../../../entity/shared/EntityContext';
-import { SidebarSection } from '../SidebarSection';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { navigateToDomainDataProducts } from './utils';
-import { pluralize } from '../../../../../../shared/textUtil';
-import EmptySectionText from '../EmptySectionText';
-import { REDESIGN_COLORS } from '../../../../constants';
+import styled from 'styled-components/macro';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { navigateToDomainDataProducts } from '@app/entityV2/shared/containers/profile/sidebar/Domain/utils';
+import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { pluralize } from '@app/shared/textUtil';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const Section = styled.div`
     display: flex;

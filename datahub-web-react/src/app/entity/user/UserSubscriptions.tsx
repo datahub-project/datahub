@@ -1,11 +1,13 @@
+import { Pagination } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Pagination } from 'antd';
-import { useListSubscriptionsQuery } from '../../../graphql/subscriptions.generated';
-import { scrollToTop } from '../../shared/searchUtils';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { ListItem, StyledList, ThinDivider } from '../../recommendations/renderer/component/EntityNameList';
-import { PreviewType } from '../Entity';
+
+import { PreviewType } from '@app/entity/Entity';
+import { ListItem, StyledList, ThinDivider } from '@app/recommendations/renderer/component/EntityNameList';
+import { scrollToTop } from '@app/shared/searchUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useListSubscriptionsQuery } from '@graphql/subscriptions.generated';
 
 const UserSubscriptionsWrapper = styled.div`
     height: calc(100vh - 114px);

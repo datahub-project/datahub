@@ -1,10 +1,11 @@
 import React from 'react';
 
-import { EvaluationScheduleBuilder } from '../common/EvaluationScheduleBuilder';
-import { SqlQueryBuilder } from './SqlQueryBuilder';
-import { SqlEvaluationBuilder } from './SqlEvaluationBuilder';
-import { AssertionMonitorBuilderState } from '../../types';
-import { AssertionType, CronSchedule } from '../../../../../../../../../../types.generated';
+import { EvaluationScheduleBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/common/EvaluationScheduleBuilder';
+import { SqlEvaluationBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/sql/SqlEvaluationBuilder';
+import { SqlQueryBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/sql/SqlQueryBuilder';
+import { AssertionMonitorBuilderState } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/types';
+
+import { AssertionType, CronSchedule } from '@types';
 
 type Props = {
     state: AssertionMonitorBuilderState;

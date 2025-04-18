@@ -1,11 +1,12 @@
 import { DndContext, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
-import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { FormPrompt } from '@src/types.generated';
+import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import React, { useContext } from 'react';
-import ManageFormContext from './ManageFormContext';
-import QuestionCard from './QuestionCard';
-import { CardsList } from './styledComponents';
+
+import ManageFormContext from '@app/govern/Dashboard/Forms/ManageFormContext';
+import QuestionCard from '@app/govern/Dashboard/Forms/QuestionCard';
+import { CardsList } from '@app/govern/Dashboard/Forms/styledComponents';
+import { FormPrompt } from '@src/types.generated';
 
 interface Props {
     setShowQuestionModal: React.Dispatch<React.SetStateAction<boolean>>;

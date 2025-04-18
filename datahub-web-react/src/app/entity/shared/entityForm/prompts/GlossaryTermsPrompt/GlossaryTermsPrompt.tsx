@@ -1,23 +1,19 @@
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import {
-    EntityType,
-    FormPrompt,
-    PromptCardinality,
-    SchemaField,
-    SubmitFormPromptInput,
-} from '../../../../../../types.generated';
-import CompletedPromptAuditStamp from '../CompletedPromptAuditStamp';
-import { applyOpacity } from '../../../../../shared/styleUtils';
-import { useEntityFormContext } from '../../EntityFormContext';
-import BulkSubmissionButton from '../BulkSubmissionButton';
-import usePromptCompletionInfo from '../usePromptCompletionInfo';
-import { ColumnSelectorProps } from '../types';
-import ColumnSelector from '../ColumnSelector';
-import PromptHeader from '../PromptHeader';
-import UrnInput from '../StructuredPropertyPrompt/UrnInput/UrnInput';
-import useGlossaryTermsPrompt from './useGlossaryTermsPrompt';
+
+import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
+import BulkSubmissionButton from '@app/entity/shared/entityForm/prompts/BulkSubmissionButton';
+import ColumnSelector from '@app/entity/shared/entityForm/prompts/ColumnSelector';
+import CompletedPromptAuditStamp from '@app/entity/shared/entityForm/prompts/CompletedPromptAuditStamp';
+import useGlossaryTermsPrompt from '@app/entity/shared/entityForm/prompts/GlossaryTermsPrompt/useGlossaryTermsPrompt';
+import PromptHeader from '@app/entity/shared/entityForm/prompts/PromptHeader';
+import UrnInput from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/UrnInput/UrnInput';
+import { ColumnSelectorProps } from '@app/entity/shared/entityForm/prompts/types';
+import usePromptCompletionInfo from '@app/entity/shared/entityForm/prompts/usePromptCompletionInfo';
+import { applyOpacity } from '@app/shared/styleUtils';
+
+import { EntityType, FormPrompt, PromptCardinality, SchemaField, SubmitFormPromptInput } from '@types';
 
 const PromptWrapper = styled.div<{ displayBulkStyles?: boolean }>`
     display: flex;

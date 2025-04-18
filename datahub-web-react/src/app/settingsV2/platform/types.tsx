@@ -1,16 +1,20 @@
 import React from 'react';
-import oidcLogo from '../../../images/oidclogo.png';
-import slackLogo from '../../../images/slacklogo.png';
-import acrylLogo from '../../../images/acryl-dark-mark.svg';
+
+import AcrylInstances from '@app/settingsV2/platform/acryl/AcrylInstances';
+import { BigQueryIntegration } from '@app/settingsV2/platform/integrations/BigQueryIntegration';
+import { SnowflakeIntegration } from '@app/settingsV2/platform/integrations/SnowflakeIntegration';
+import { SlackIntegration } from '@app/settingsV2/platform/slack/SlackIntegration';
+import { OidcIntegration } from '@app/settingsV2/platform/sso/OidcIntegration';
+
+import { NotificationScenarioType } from '@types';
+
+import acrylLogo from '@images/acryl-dark-mark.svg';
+import bigqueryLogo from '@images/bigquerylogo.png';
+import oidcLogo from '@images/oidclogo.png';
+import slackLogo from '@images/slacklogo.png';
 // import teamsLogo from '../../../images/teamslogo.png';
-import snowflakeLogo from '../../../images/snowflakelogo.png';
-import bigqueryLogo from '../../../images/bigquerylogo.png';
-import { NotificationScenarioType } from '../../../types.generated';
-import { SlackIntegration } from './slack/SlackIntegration';
-import { OidcIntegration } from './sso/OidcIntegration';
-import AcrylInstances from './acryl/AcrylInstances';
-import { SnowflakeIntegration } from './integrations/SnowflakeIntegration';
-import { BigQueryIntegration } from './integrations/BigQueryIntegration';
+import snowflakeLogo from '@images/snowflakelogo.png';
+
 // import { TeamsIntegration } from './teams/TeamsIntegration';
 
 /**

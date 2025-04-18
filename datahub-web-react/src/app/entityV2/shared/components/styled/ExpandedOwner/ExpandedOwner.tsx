@@ -1,17 +1,22 @@
-import { message, Modal, Tag } from 'antd';
+import { Modal, Tag, message } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { StyledLink } from '@src/app/previewV2/EntityHeader';
+
+import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import OwnerContent from '@app/entityV2/shared/components/styled/ExpandedOwner/OwnerContent';
+import {
+    ExtendedOwner,
+    getNameFromType,
+} from '@app/entityV2/shared/containers/profile/sidebar/Ownership/ownershipUtils';
+import ProposedIcon from '@app/entityV2/shared/sidebarSection/ProposedIcon';
+import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { colors } from '@src/alchemy-components';
-import { useRemoveOwnerMutation } from '../../../../../../graphql/mutations.generated';
-import { EntityType } from '../../../../../../types.generated';
-import { ExtendedOwner, getNameFromType } from '../../../containers/profile/sidebar/Ownership/ownershipUtils';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import analytics, { EventType, EntityActionType } from '../../../../../analytics';
-import { useEntityData } from '../../../../../entity/shared/EntityContext';
-import OwnerContent from './OwnerContent';
-import { useEmbeddedProfileLinkProps } from '../../../../../shared/useEmbeddedProfileLinkProps';
-import ProposedIcon from '../../../sidebarSection/ProposedIcon';
+import { StyledLink } from '@src/app/previewV2/EntityHeader';
+
+import { useRemoveOwnerMutation } from '@graphql/mutations.generated';
+import { EntityType } from '@types';
 
 const OwnerTag = styled(Tag)<{ $isProposedOwner?: boolean }>`
     padding: 1px;

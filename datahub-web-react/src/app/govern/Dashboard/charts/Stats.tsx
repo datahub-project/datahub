@@ -1,17 +1,20 @@
+import { sortBy } from 'lodash';
 import React, { useEffect } from 'react';
 
-import { sortBy } from 'lodash';
+import { ChartCard } from '@app/dataviz';
+import { SimpleLineChart } from '@app/dataviz/line/SimpleLineChart';
+import { useFormAnalyticsContext } from '@app/govern/Dashboard/FormAnalyticsContext';
+import { ChartNoData, ChartNotEnoughData, ChartState } from '@app/govern/Dashboard/charts/AuxViews';
+import {
+    ChartGroup,
+    Row,
+    StatusSeriesDescription,
+    StatusSeriesHeading,
+    StatusSeriesWrapper,
+} from '@app/govern/Dashboard/components';
+import { formatPercentage, mergeRowAndHeaderData } from '@app/govern/Dashboard/utils';
 
-import { SimpleLineChart } from '../../../dataviz/line/SimpleLineChart';
-import { ChartCard } from '../../../dataviz';
-
-import { mergeRowAndHeaderData, formatPercentage } from '../utils';
-import { useFormAnalyticsQuery } from '../../../../graphql/analytics.generated';
-import { useFormAnalyticsContext } from '../FormAnalyticsContext';
-
-import { ChartGroup, Row, StatusSeriesWrapper, StatusSeriesHeading, StatusSeriesDescription } from '../components';
-
-import { ChartNoData, ChartNotEnoughData, ChartState } from './AuxViews';
+import { useFormAnalyticsQuery } from '@graphql/analytics.generated';
 
 const getTabType = (selectedTab) => {
     let dataType = '';

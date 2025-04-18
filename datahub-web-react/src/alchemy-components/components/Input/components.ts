@@ -1,16 +1,14 @@
 import styled from 'styled-components';
 
-import theme, { borders, colors, radius, spacing, typography } from '@components/theme';
-import { getStatusColors } from '@components/theme/utils';
-
+import type { InputProps } from '@components/components/Input/types';
 import {
     INPUT_MAX_HEIGHT,
     formLabelTextStyles,
-    inputValueTextStyles,
     inputPlaceholderTextStyles,
-} from '../commonStyles';
-
-import type { InputProps } from './types';
+    inputValueTextStyles,
+} from '@components/components/commonStyles';
+import theme, { borders, colors, radius, spacing, typography } from '@components/theme';
+import { getStatusColors } from '@components/theme/utils';
 
 const defaultFlexStyles = {
     display: 'flex',

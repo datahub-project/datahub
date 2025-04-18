@@ -1,9 +1,10 @@
 import React from 'react';
 import styled from 'styled-components';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { SharedEntityInfo } from '@app/entity/shared/containers/profile/sidebar/SharedEntityInfo';
+import { useAppConfig } from '@app/useAppConfig';
 import SharedByInfo from '@src/app/shared/share/items/MetadataShareItem/SharedByInfo';
-import { useAppConfig } from '../../../../../useAppConfig';
-import { useEntityData } from '../../../EntityContext';
-import { SharedEntityInfo } from './SharedEntityInfo';
 
 const Container = styled.div``;
 

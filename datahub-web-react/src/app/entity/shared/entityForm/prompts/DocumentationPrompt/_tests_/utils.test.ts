@@ -1,4 +1,3 @@
-import { getInitialDocumentationValues } from '../utils';
 import {
     editableFieldInfo,
     entityDataWithEditableDescription,
@@ -9,7 +8,8 @@ import {
     noDocumentationField,
     promptAssociation,
     schemaField,
-} from './mocks';
+} from '@app/entity/shared/entityForm/prompts/DocumentationPrompt/_tests_/mocks';
+import { getInitialDocumentationValues } from '@app/entity/shared/entityForm/prompts/DocumentationPrompt/utils';
 
 describe('get initial documentation values', () => {
     test('get default documentation of the entity', () => {

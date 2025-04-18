@@ -1,10 +1,11 @@
-import React from 'react';
-import { render, waitFor, fireEvent, screen } from '@testing-library/react';
 import { MockedProvider } from '@apollo/client/testing';
-import TestPageContainer from '@src/utils/test-utils/TestPageContainer';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import React from 'react';
+
+import GlossaryTermsSelector from '@app/govern/Dashboard/Forms/questionTypes/GlossaryTermsSelector';
 import { GetSearchResultsForMultipleDocument } from '@src/graphql/search.generated';
 import { EntityType } from '@src/types.generated';
-import GlossaryTermsSelector from '../GlossaryTermsSelector';
+import TestPageContainer from '@src/utils/test-utils/TestPageContainer';
 
 const mocks = [
     {

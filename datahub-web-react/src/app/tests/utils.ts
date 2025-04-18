@@ -1,6 +1,7 @@
-import { Test } from '../../types.generated';
-import { TestCategory, TEST_CATEGORY_NAME_TO_INFO } from './constants';
-import { TestCategoryGroupType } from './types';
+import { TEST_CATEGORY_NAME_TO_INFO, TestCategory } from '@app/tests/constants';
+import { TestCategoryGroupType } from '@app/tests/types';
+
+import { Test } from '@types';
 
 /**
  * Filter tests by a search string. Compares name, description, category.

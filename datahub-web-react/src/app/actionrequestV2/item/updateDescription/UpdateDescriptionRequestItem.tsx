@@ -1,15 +1,17 @@
-import { Button, colors, Modal, Text } from '@components';
+import { Button, Modal, Text, colors } from '@components';
 import MDEditor from '@uiw/react-md-editor';
 import DOMPurify from 'dompurify';
+import { GitDiff } from 'phosphor-react';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { GitDiff } from 'phosphor-react';
-import { ActionRequest, ActionRequestStatus } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import CreatedByView from '../CreatedByView';
-import RequestTargetEntityView from '../RequestTargetEntityView';
-import DescriptionDifferenceModal from './DescriptionDifferenceModal';
-import { ContentWrapper } from '../styledComponents';
+
+import CreatedByView from '@app/actionrequestV2/item/CreatedByView';
+import RequestTargetEntityView from '@app/actionrequestV2/item/RequestTargetEntityView';
+import { ContentWrapper } from '@app/actionrequestV2/item/styledComponents';
+import DescriptionDifferenceModal from '@app/actionrequestV2/item/updateDescription/DescriptionDifferenceModal';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { ActionRequest, ActionRequestStatus } from '@types';
 
 export const ViewDocumentationButton = styled(Button)`
     padding: 4px 8px;

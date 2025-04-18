@@ -1,13 +1,14 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Pagination, Typography } from 'antd';
-import { Tooltip } from '@components';
 import { InfoCircleOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
+import { Pagination, Typography } from 'antd';
+import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
-import QueriesList from './QueriesList';
-import { Query } from './types';
-import { DEFAULT_PAGE_SIZE } from './utils/constants';
-import { getQueriesForPage } from './utils/getCurrentPage';
-import { ANTD_GRAY } from '../../../constants';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import QueriesList from '@app/entity/shared/tabs/Dataset/Queries/QueriesList';
+import { Query } from '@app/entity/shared/tabs/Dataset/Queries/types';
+import { DEFAULT_PAGE_SIZE } from '@app/entity/shared/tabs/Dataset/Queries/utils/constants';
+import { getQueriesForPage } from '@app/entity/shared/tabs/Dataset/Queries/utils/getCurrentPage';
 
 const QueriesTitleSection = styled.div`
     display: flex;

@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
 import { Typography } from 'antd';
-import { SchemaSummaryModal } from './SchemaSummaryModal';
-import { SchemaAssertionInfo, SchemaAssertionCompatibility } from '../../../../../../types.generated';
+import React, { useState } from 'react';
+
+import { SchemaSummaryModal } from '@app/entityV2/shared/tabs/Dataset/Validations/SchemaSummaryModal';
+
+import { SchemaAssertionCompatibility, SchemaAssertionInfo } from '@types';
 
 type Props = {
     assertionInfo: SchemaAssertionInfo;

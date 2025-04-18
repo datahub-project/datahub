@@ -1,10 +1,12 @@
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { ActionRequest, ActionRequestOrigin } from '../../../types.generated';
-import CreatedByView from './CreatedByView';
-import RequestTargetEntityView from './RequestTargetEntityView';
-import AiActorLabel from './AiActorLabel';
+
+import AiActorLabel from '@app/actionrequest/item/AiActorLabel';
+import CreatedByView from '@app/actionrequest/item/CreatedByView';
+import RequestTargetEntityView from '@app/actionrequest/item/RequestTargetEntityView';
+
+import { ActionRequest, ActionRequestOrigin } from '@types';
 
 const ContentWrapper = styled.span`
     font-size: 14px;

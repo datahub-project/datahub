@@ -1,9 +1,10 @@
 import { Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { DomainsList } from './DomainsList';
-import { DomainsContext } from './DomainsContext';
-import { GenericEntityProperties } from '../entity/shared/types';
+
+import { DomainsContext } from '@app/domainV2/DomainsContext';
+import { DomainsList } from '@app/domainV2/DomainsList';
+import { GenericEntityProperties } from '@app/entity/shared/types';
 
 const PageContainer = styled.div`
     padding-top: 20px;

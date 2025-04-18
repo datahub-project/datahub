@@ -1,8 +1,10 @@
 import React from 'react';
-import { ActionRequest, EntityType } from '../../../types.generated';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import CreateGlossaryEntityContentView from './CreateGlossaryEntityContentView';
-import MetadataAssociationRequestItem from './MetadataAssociationRequestItem';
+
+import CreateGlossaryEntityContentView from '@app/actionrequest/item/CreateGlossaryEntityContentView';
+import MetadataAssociationRequestItem from '@app/actionrequest/item/MetadataAssociationRequestItem';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { ActionRequest, EntityType } from '@types';
 
 type Props = {
     actionRequest: ActionRequest;

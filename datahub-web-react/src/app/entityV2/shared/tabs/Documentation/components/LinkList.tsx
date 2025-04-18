@@ -1,19 +1,21 @@
+import { DeleteOutlined, LinkOutlined } from '@ant-design/icons';
+import { Pencil } from '@phosphor-icons/react';
+import { Button, List, Typography, message } from 'antd';
 import React, { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
-import { message, Button, List, Typography } from 'antd';
-import { LinkOutlined, DeleteOutlined } from '@ant-design/icons';
-import { Pencil } from '@phosphor-icons/react';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { FormData, LinkFormModal } from '@app/entityV2/shared/components/styled/LinkFormModal';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
+import LinkPreview from '@app/integration/LinkPreview';
+import { shouldTryLinkPreview } from '@app/integration/linkPreviews';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { colors } from '@src/alchemy-components';
-import { InstitutionalMemoryMetadata } from '../../../../../../types.generated';
-import { useEntityData } from '../../../../../entity/shared/EntityContext';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { ANTD_GRAY } from '../../../constants';
-import { formatDateString } from '../../../containers/profile/utils';
-import { useRemoveLinkMutation, useUpdateLinkMutation } from '../../../../../../graphql/mutations.generated';
-import { shouldTryLinkPreview } from '../../../../../integration/linkPreviews';
-import LinkPreview from '../../../../../integration/LinkPreview';
-import { FormData, LinkFormModal } from '../../../components/styled/LinkFormModal';
+
+import { useRemoveLinkMutation, useUpdateLinkMutation } from '@graphql/mutations.generated';
+import { InstitutionalMemoryMetadata } from '@types';
 
 const LinkButtonsContainer = styled.div`
     display: flex;

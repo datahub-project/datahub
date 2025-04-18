@@ -1,10 +1,11 @@
+import { useMemo } from 'react';
+
+import { EntityTypeOption } from '@app/searchV2/filtersV2/filters/EntityTypeFilter/types';
+import { getUniqueItemsByKeyFromArrrays } from '@app/searchV2/filtersV2/utils';
 import { isEntityType } from '@src/app/entityV2/shared/utils';
 import { FILTER_DELIMITER } from '@src/app/search/utils/constants';
 import { FeildFacetState } from '@src/app/searchV2/filtersV2/types';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { useMemo } from 'react';
-import { getUniqueItemsByKeyFromArrrays } from '../../../utils';
-import { EntityTypeOption } from '../types';
 
 export default function useOptions(facetState: FeildFacetState | undefined, values: string[]) {
     const entityRegistry = useEntityRegistryV2();

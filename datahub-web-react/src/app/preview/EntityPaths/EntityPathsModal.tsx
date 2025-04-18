@@ -1,12 +1,14 @@
 import { Modal } from 'antd';
 import React, { useContext } from 'react';
 import styled from 'styled-components/macro';
-import { Entity, EntityPath, LineageDirection } from '../../../types.generated';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { CompactEntityNameList } from '../../recommendations/renderer/component/CompactEntityNameList';
-import { getDisplayedColumns } from './ColumnPathsText';
-import ColumnsRelationshipText from './ColumnsRelationshipText';
-import { LineageTabContext } from '../../entity/shared/tabs/Lineage/LineageTabContext';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { LineageTabContext } from '@app/entity/shared/tabs/Lineage/LineageTabContext';
+import { getDisplayedColumns } from '@app/preview/EntityPaths/ColumnPathsText';
+import ColumnsRelationshipText from '@app/preview/EntityPaths/ColumnsRelationshipText';
+import { CompactEntityNameList } from '@app/recommendations/renderer/component/CompactEntityNameList';
+
+import { Entity, EntityPath, LineageDirection } from '@types';
 
 const StyledModal = styled(Modal)`
     width: 70vw;

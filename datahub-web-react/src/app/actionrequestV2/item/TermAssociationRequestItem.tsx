@@ -1,9 +1,10 @@
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { ActionRequest, ActionRequestResult, EntityType } from '@src/types.generated';
 import React from 'react';
 import { Link } from 'react-router-dom';
+
+import AddContentView from '@app/actionrequestV2/item/AddContentView';
 import ProposedTermPill from '@src/app/sharedV2/tags/term/ProposedTermPill';
-import AddContentView from './AddContentView';
+import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { ActionRequest, ActionRequestResult, EntityType } from '@src/types.generated';
 
 interface Props {
     actionRequest: ActionRequest;

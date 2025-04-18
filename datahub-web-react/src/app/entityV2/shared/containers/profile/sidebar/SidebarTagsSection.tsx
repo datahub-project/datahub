@@ -1,17 +1,19 @@
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import TagTermGroup from '../../../../../sharedV2/tags/TagTermGroup';
-import { useEntityData, useMutationUrn, useRefetch } from '../../../../../entity/shared/EntityContext';
-import { findTopLevelProposals } from '../../../../../shared/tags/utils/proposalUtils';
-import { ENTITY_PROFILE_TAGS_ID } from '../../../../../onboarding/config/EntityProfileOnboardingConfig';
-import { SidebarSection } from './SidebarSection';
-import { ActionRequestType, EntityType } from '../../../../../../types.generated';
-import SectionActionButton from './SectionActionButton';
-import AddTagTerm from '../../../../../sharedV2/tags/AddTagTerm';
-import EmptySectionText from './EmptySectionText';
-import { EMPTY_MESSAGES } from '../../../constants';
-import { getProposedItemsByType } from '../../../utils';
+
+import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
+import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
+import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
+import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { getProposedItemsByType } from '@app/entityV2/shared/utils';
+import { ENTITY_PROFILE_TAGS_ID } from '@app/onboarding/config/EntityProfileOnboardingConfig';
+import { findTopLevelProposals } from '@app/shared/tags/utils/proposalUtils';
+import AddTagTerm from '@app/sharedV2/tags/AddTagTerm';
+import TagTermGroup from '@app/sharedV2/tags/TagTermGroup';
+
+import { ActionRequestType, EntityType } from '@types';
 
 const Content = styled.div`
     display: flex;

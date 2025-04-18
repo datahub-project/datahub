@@ -1,16 +1,14 @@
-import React, { useEffect } from 'react';
-import { Modal, Typography } from 'antd';
-import styled from 'styled-components';
 import { LoadingOutlined } from '@ant-design/icons';
+import { Modal, Typography } from 'antd';
+import React, { useEffect } from 'react';
+import styled from 'styled-components';
+
+import { AssertionStatusTag } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/preview/AssertionStatusTag';
+import { RunAssertionResult } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/preview/RunAssertionResult';
 import { Button } from '@src/alchemy-components';
-import {
-    AssertionResult,
-    AssertionResultType,
-    TestAssertionInput,
-} from '../../../../../../../../../../types.generated';
-import { AssertionStatusTag } from './AssertionStatusTag';
-import { RunAssertionResult } from './RunAssertionResult';
-import { useTestAssertionMutation } from '../../../../../../../../../../graphql/assertion.generated';
+
+import { useTestAssertionMutation } from '@graphql/assertion.generated';
+import { AssertionResult, AssertionResultType, TestAssertionInput } from '@types';
 
 const LoadingIcon = styled(LoadingOutlined)`
     font-size: 22px;

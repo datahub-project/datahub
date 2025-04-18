@@ -1,4 +1,4 @@
-import { getLinkPrefix, getLinkWithoutPrefix } from '../LinkInput';
+import { getLinkPrefix, getLinkWithoutPrefix } from '@app/settings/helpLink/LinkInput';
 
 describe('link prefix regex', () => {
     it('should get the link prefix properly with https://', () => {

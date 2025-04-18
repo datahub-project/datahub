@@ -1,11 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
-
 import { Select } from 'antd';
+import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
-import { useGetSearchResultsQuery } from '@graphql/search.generated';
+import type { SelectDropdownProps } from '@app/automations/fields/TermSelector/types';
 import { TagTermLabel } from '@app/shared/tags/TagTermLabel';
-import type { SelectDropdownProps } from './types';
+
+import { useGetSearchResultsQuery } from '@graphql/search.generated';
 
 export const Label = styled.div`
     font-size: 12px;

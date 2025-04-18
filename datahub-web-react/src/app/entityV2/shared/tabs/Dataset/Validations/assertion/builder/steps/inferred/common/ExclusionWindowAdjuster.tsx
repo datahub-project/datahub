@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { AssertionExclusionWindowType } from '@src/types.generated';
-import { List, Dropdown, DatePicker, Form } from 'antd';
-import { Pill } from '@src/alchemy-components';
+import { DatePicker, Dropdown, Form, List } from 'antd';
 import dayjs from 'dayjs';
-import { AssertionMonitorBuilderExclusionWindow } from '../../../types';
-import { AssertionFormTitleAndTooltip } from './AssertionFormTitleAndTooltip';
+import React, { useState } from 'react';
+
+import { AssertionFormTitleAndTooltip } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/common/AssertionFormTitleAndTooltip';
+import { AssertionMonitorBuilderExclusionWindow } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
+import { Pill } from '@src/alchemy-components';
+import { AssertionExclusionWindowType } from '@src/types.generated';
 
 type Props = {
     exclusionWindows: AssertionMonitorBuilderExclusionWindow;

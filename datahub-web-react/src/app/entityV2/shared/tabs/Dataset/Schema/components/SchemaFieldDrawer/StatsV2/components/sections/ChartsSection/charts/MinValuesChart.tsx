@@ -1,7 +1,8 @@
 import React from 'react';
+
+import MetricLineChart from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/components/sections/ChartsSection/charts/components/MetricLineChart';
+import useStatsTabContext from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/hooks/useStatsTabContext';
 import { SchemaFieldDataType } from '@src/types.generated';
-import MetricLineChart from './components/MetricLineChart';
-import useStatsTabContext from '../../../../hooks/useStatsTabContext';
 
 export default function MinValuesChart() {
     const { properties } = useStatsTabContext();

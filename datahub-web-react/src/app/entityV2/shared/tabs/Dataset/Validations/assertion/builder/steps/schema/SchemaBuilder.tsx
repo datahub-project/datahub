@@ -1,10 +1,12 @@
-import React from 'react';
-import { Typography } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
+import { Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { SchemaAssertionField } from '../../../../../../../../../../types.generated';
-import { SchemaBuilderTable } from './SchemaBuilderTable';
-import { ANTD_GRAY } from '../../../../../../../constants';
+
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { SchemaBuilderTable } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/schema/SchemaBuilderTable';
+
+import { SchemaAssertionField } from '@types';
 
 const Tip = styled.div`
     margin-top: 12px;

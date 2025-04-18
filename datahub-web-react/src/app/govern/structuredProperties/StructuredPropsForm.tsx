@@ -1,15 +1,21 @@
+import { Tooltip } from '@components';
+import { Form, FormInstance } from 'antd';
+import React from 'react';
+
+import AdvancedOptions from '@app/govern/structuredProperties/AdvancedOptions';
+import DisplayPreferences from '@app/govern/structuredProperties/DisplayPreferences';
+import RequiredAsterisk from '@app/govern/structuredProperties/RequiredAsterisk';
+import StructuredPropsFormSection from '@app/govern/structuredProperties/StructuredPropsFormSection';
+import {
+    FieldLabel,
+    FlexContainer,
+    GridFormItem,
+    RowContainer,
+} from '@app/govern/structuredProperties/styledComponents';
+import useStructuredProp from '@app/govern/structuredProperties/useStructuredProp';
+import { PropValueField, StructuredProp, valueTypes } from '@app/govern/structuredProperties/utils';
 import { Icon, Input, SimpleSelect, TextArea } from '@src/alchemy-components';
 import { AllowedValue, PropertyCardinality, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
-import { Form, FormInstance } from 'antd';
-import { Tooltip } from '@components';
-import React from 'react';
-import AdvancedOptions from './AdvancedOptions';
-import RequiredAsterisk from './RequiredAsterisk';
-import DisplayPreferences from './DisplayPreferences';
-import StructuredPropsFormSection from './StructuredPropsFormSection';
-import { FieldLabel, FlexContainer, GridFormItem, RowContainer } from './styledComponents';
-import useStructuredProp from './useStructuredProp';
-import { PropValueField, StructuredProp, valueTypes } from './utils';
 
 interface Props {
     selectedProperty: SearchResult | undefined;

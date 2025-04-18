@@ -1,10 +1,11 @@
 import { Icon } from '@components';
 import MoreVertOutlinedIcon from '@mui/icons-material/MoreVertOutlined';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { Dropdown, Typography } from 'antd';
 import React from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
+
+import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 
 const FormName = styled(Typography.Text)`
     font-size: 14px;

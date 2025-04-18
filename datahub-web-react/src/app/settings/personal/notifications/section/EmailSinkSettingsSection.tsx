@@ -1,8 +1,10 @@
+import { Button, Form, Input, Switch, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
-import { Typography, Switch, Input, Button, Form } from 'antd';
-import { ANTD_GRAY } from '../../../../entity/shared/constants';
-import { EmailNotificationSettings, EmailNotificationSettingsInput } from '../../../../../types.generated';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+
+import { EmailNotificationSettings, EmailNotificationSettingsInput } from '@types';
 
 const SinkSettings = styled.div`
     margin-top: 12px;

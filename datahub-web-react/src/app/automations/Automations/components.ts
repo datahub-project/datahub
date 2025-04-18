@@ -1,10 +1,12 @@
-import styled from 'styled-components';
 import { Divider, Typography } from 'antd';
+import styled from 'styled-components';
+
 import { colors } from '@components/theme';
-import { sharedStyles } from '../sharedComponents';
-import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
-import { AutomationStatus } from '../constants';
-import { ANTD_GRAY } from '../../entity/shared/constants';
+
+import { AutomationStatus } from '@app/automations/constants';
+import { sharedStyles } from '@app/automations/sharedComponents';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 const sidebarWidth = '250px';
 

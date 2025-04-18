@@ -1,3 +1,6 @@
+import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
+import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
+import { getIsSiblingsMode } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
 import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
 import { useIsSeparateSiblingsMode } from '@src/app/entityV2/shared/useIsSeparateSiblingsMode';
 import {
@@ -6,9 +9,6 @@ import {
     useGetOperationsStatsQuery,
 } from '@src/graphql/dataset.generated';
 import { TimeRange, UsageQueryResult } from '@src/types.generated';
-import { useGetEntityWithSchema } from '../../Schema/useGetEntitySchema';
-import { useStatsSectionsContext } from './StatsSectionsContext';
-import { getIsSiblingsMode } from './utils';
 
 export const useGetStatsData = () => {
     const baseEntity = useBaseEntity<GetDatasetQuery>();

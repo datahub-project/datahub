@@ -1,7 +1,8 @@
-import { Column, Table } from '@src/alchemy-components';
 import React, { useMemo } from 'react';
+
+import SampleValueCell from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/components/sections/Samples/components/SampleValueCell';
+import { Column, Table } from '@src/alchemy-components';
 import { SchemaFieldDataType } from '@src/types.generated';
-import SampleValueCell from './SampleValueCell';
 
 interface SamplesTableProps {
     samples: string[];

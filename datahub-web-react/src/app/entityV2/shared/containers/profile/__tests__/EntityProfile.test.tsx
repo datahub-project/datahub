@@ -1,25 +1,23 @@
 import { MockedProvider } from '@apollo/client/testing';
 import { fireEvent, render, waitFor } from '@testing-library/react';
 import React from 'react';
-import { mocks } from '../../../../../../Mocks';
-import {
-    GetDatasetQuery,
-    useGetDatasetQuery,
-    useUpdateDatasetMutation,
-} from '../../../../../../graphql/dataset.generated';
-import { EntityType } from '../../../../../../types.generated';
-import TestPageContainer from '../../../../../../utils/test-utils/TestPageContainer';
-import QueriesTab from '../../../tabs/Dataset/Queries/QueriesTab';
-import { SchemaTab } from '../../../tabs/Dataset/Schema/SchemaTab';
-import StatsTab from '../../../tabs/Dataset/Stats/StatsTab';
-import { DocumentationTab } from '../../../tabs/Documentation/DocumentationTab';
-import { LineageTab } from '../../../tabs/Lineage/LineageTab';
-import { PropertiesTab } from '../../../tabs/Properties/PropertiesTab';
-import { EntityProfile } from '../EntityProfile';
-import { SidebarAboutSection } from '../sidebar/AboutSection/SidebarAboutSection';
-import { SidebarStatsSection } from '../sidebar/Dataset/StatsSidebarSection';
-import { SidebarOwnerSection } from '../sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { SidebarTagsSection } from '../sidebar/SidebarTagsSection';
+
+import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import { SidebarStatsSection } from '@app/entityV2/shared/containers/profile/sidebar/Dataset/StatsSidebarSection';
+import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
+import QueriesTab from '@app/entityV2/shared/tabs/Dataset/Queries/QueriesTab';
+import { SchemaTab } from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTab';
+import StatsTab from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTab';
+import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
+import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
+import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { mocks } from '@src/Mocks';
+import TestPageContainer from '@utils/test-utils/TestPageContainer';
+
+import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '@graphql/dataset.generated';
+import { EntityType } from '@types';
 
 describe('EntityProfile', () => {
     it('renders dataset page', async () => {

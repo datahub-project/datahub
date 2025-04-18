@@ -1,12 +1,11 @@
-import React, { useContext, useState, useEffect, ReactNode } from 'react';
-
 import dayjs from 'dayjs';
+import React, { ReactNode, useContext, useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 
-import { useFormAnalyticsQuery } from '../../../graphql/analytics.generated';
-import { sqlQueries } from './charts/queries';
+import { sqlQueries } from '@app/govern/Dashboard/charts/queries';
+import { setUrlParams } from '@app/govern/Dashboard/utils';
 
-import { setUrlParams } from './utils';
+import { useFormAnalyticsQuery } from '@graphql/analytics.generated';
 
 // Define the time series options
 const timeSeries = [

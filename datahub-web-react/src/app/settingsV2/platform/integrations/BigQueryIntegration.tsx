@@ -1,10 +1,9 @@
-import React from 'react';
-
-import styled from 'styled-components';
 import { Divider, Typography } from 'antd';
+import React from 'react';
+import styled from 'styled-components';
 
 import { BigQuery, useGetConnections } from '@app/connections';
-import { PlatformIntegrationBreadcrumb } from '../PlatformIntegrationBreadcrumb';
+import { PlatformIntegrationBreadcrumb } from '@app/settingsV2/platform/PlatformIntegrationBreadcrumb';
 
 const Page = styled.div`
     width: 100%;

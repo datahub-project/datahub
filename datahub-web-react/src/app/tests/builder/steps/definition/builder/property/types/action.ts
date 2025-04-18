@@ -1,5 +1,6 @@
-import { EntityType } from '../../../../../../../../types.generated';
-import { SelectInputMode, ValueTypeId } from './values';
+import { SelectInputMode, ValueTypeId } from '@app/tests/builder/steps/definition/builder/property/types/values';
+
+import { EntityType } from '@types';
 
 /**
  * An action to be taken on failure or success of a passing test

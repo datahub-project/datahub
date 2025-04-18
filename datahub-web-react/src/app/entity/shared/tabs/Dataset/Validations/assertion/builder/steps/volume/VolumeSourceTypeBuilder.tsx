@@ -1,11 +1,17 @@
-import React from 'react';
-import { Select, Typography } from 'antd';
-import styled from 'styled-components';
 import { InfoCircleOutlined } from '@ant-design/icons';
-import { DatasetVolumeSourceType } from '../../../../../../../../../../types.generated';
-import { VOLUME_SOURCE_TYPES, getVolumeSourceTypeDetails, getVolumeSourceTypeOptions } from './utils';
-import { ANTD_GRAY } from '../../../../../../../constants';
-import { useConnectionForEntityExists } from '../../../../acrylUtils';
+import { Select, Typography } from 'antd';
+import React from 'react';
+import styled from 'styled-components';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { useConnectionForEntityExists } from '@app/entity/shared/tabs/Dataset/Validations/acrylUtils';
+import {
+    VOLUME_SOURCE_TYPES,
+    getVolumeSourceTypeDetails,
+    getVolumeSourceTypeOptions,
+} from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/volume/utils';
+
+import { DatasetVolumeSourceType } from '@types';
 
 const StyledSelect = styled(Select)`
     width: 300px;

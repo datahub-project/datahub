@@ -1,11 +1,13 @@
-import { Button } from 'antd';
 import { LoadingOutlined } from '@ant-design/icons';
 import Icon from '@ant-design/icons/lib/components/Icon';
+import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import PurpleVerificationLogo from '../../../../../images/verificationPurpleWhite.svg?react';
-import { FormView, useEntityFormContext } from '../EntityFormContext';
-import { pluralize } from '../../../../shared/textUtil';
+
+import { FormView, useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
+import { pluralize } from '@app/shared/textUtil';
+
+import PurpleVerificationLogo from '@images/verificationPurpleWhite.svg?react';
 
 const StyledButton = styled(Button)`
     margin-top: 16px;

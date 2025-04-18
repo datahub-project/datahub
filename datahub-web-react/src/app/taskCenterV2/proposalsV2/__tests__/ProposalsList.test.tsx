@@ -1,9 +1,10 @@
-import React from 'react';
-import { render, waitFor, screen } from '@testing-library/react';
 import { MockedProvider } from '@apollo/client/testing';
+import { render, screen, waitFor } from '@testing-library/react';
+import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
+
+import { ProposalList } from '@app/taskCenterV2/proposalsV2/ProposalList';
 import { ListActionRequestsDocument } from '@src/graphql/actionRequest.generated';
-import { ProposalList } from '../ProposalList';
 
 const mocks = [
     {

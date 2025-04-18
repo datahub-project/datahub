@@ -1,14 +1,15 @@
-import { colors, Text } from '@components';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { ActionRequest, EntityType, GlossaryNode } from '@src/types.generated';
+import { Text, colors } from '@components';
 import MDEditor from '@uiw/react-md-editor';
 import { Modal } from 'antd';
+import { FileText } from 'phosphor-react';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { FileText } from 'phosphor-react';
-import CreatedByView from './CreatedByView';
-import { ViewDocumentationButton } from './updateDescription/UpdateDescriptionRequestItem';
-import { ContentWrapper, StyledLink } from './styledComponents';
+
+import CreatedByView from '@app/actionrequestV2/item/CreatedByView';
+import { ContentWrapper, StyledLink } from '@app/actionrequestV2/item/styledComponents';
+import { ViewDocumentationButton } from '@app/actionrequestV2/item/updateDescription/UpdateDescriptionRequestItem';
+import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { ActionRequest, EntityType, GlossaryNode } from '@src/types.generated';
 
 const NameWrapper = styled.span`
     font-weight: bold;

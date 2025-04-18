@@ -1,13 +1,18 @@
 import React from 'react';
 import styled from 'styled-components';
+
 /* eslint-disable import/no-cycle */
-import { ANTD_GRAY } from '../../../../../entity/shared/constants';
-import { AddPredicateButton } from './AddPredicateButton';
-import { LogicalOperatorDropdown } from './LogicalOperatorDropdown';
-import { LogicalOperatorOperands } from './LogicalOperatorOperands';
-import { Property } from './property/types/properties';
-import { LogicalOperatorType, LogicalPredicate, PropertyPredicate } from './types';
-import { isLogicalPredicate } from './utils';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { AddPredicateButton } from '@app/tests/builder/steps/definition/builder/AddPredicateButton';
+import { LogicalOperatorDropdown } from '@app/tests/builder/steps/definition/builder/LogicalOperatorDropdown';
+import { LogicalOperatorOperands } from '@app/tests/builder/steps/definition/builder/LogicalOperatorOperands';
+import { Property } from '@app/tests/builder/steps/definition/builder/property/types/properties';
+import {
+    LogicalOperatorType,
+    LogicalPredicate,
+    PropertyPredicate,
+} from '@app/tests/builder/steps/definition/builder/types';
+import { isLogicalPredicate } from '@app/tests/builder/steps/definition/builder/utils';
 
 /**
  * The maximum number of sub-predicates supported in a single

@@ -1,8 +1,10 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import { EntityType } from '../../../types.generated';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { useEntityRegistry } from '../../useEntityRegistry';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType } from '@types';
 
 export const EntityTypeLabel = styled.div<{ showBorder?: boolean }>`
     font-size: 14px;

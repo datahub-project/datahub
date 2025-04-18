@@ -1,7 +1,8 @@
-import React from 'react';
 import { Button } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../../../../../entity/shared/constants';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 const StyledButton = styled(Button)`
     &&& {

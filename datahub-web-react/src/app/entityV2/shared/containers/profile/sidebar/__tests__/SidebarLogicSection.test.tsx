@@ -1,16 +1,18 @@
 import { MockedProvider } from '@apollo/client/testing';
 import { fireEvent, render } from '@testing-library/react';
 import React from 'react';
-import { dataset3, mocks } from '../../../../../../../Mocks';
-import { EntityType } from '../../../../../../../types.generated';
-import TestPageContainer from '../../../../../../../utils/test-utils/TestPageContainer';
-import { EntityContext } from '../../../../../../entity/shared/EntityContext';
-import { getDataForEntityType } from '../../utils';
+
+import { EntityContext } from '@app/entity/shared/EntityContext';
 import {
     SidebarDataJobTransformationLogicSection,
     SidebarDatasetViewDefinitionSection,
     SidebarQueryLogicSection,
-} from '../SidebarLogicSection';
+} from '@app/entityV2/shared/containers/profile/sidebar/SidebarLogicSection';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import { dataset3, mocks } from '@src/Mocks';
+import TestPageContainer from '@utils/test-utils/TestPageContainer';
+
+import { EntityType } from '@types';
 
 const datasetWithViewProperties = {
     ...dataset3,

@@ -1,20 +1,25 @@
-import React, { useMemo, useRef } from 'react';
-import styled from 'styled-components';
-import cronstrue from 'cronstrue';
-import { Typography } from 'antd';
-import { Tooltip } from '@components';
 import { ClockCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
+import { Typography } from 'antd';
+import cronstrue from 'cronstrue';
+import React, { useMemo, useRef } from 'react';
 import { Cron, PeriodType, SetValueFunctionExtra } from 'react-js-cron';
-import { AssertionType, CronSchedule } from '../../../../../../../../../../types.generated';
-import { lowerFirstLetter } from '../../../../../../../../../shared/textUtil';
-import { ANTD_GRAY } from '../../../../../../../constants';
-import { TimezoneSelect } from '../../../../../../../../../ingest/source/builder/TimezoneSelect';
-import { DEFAULT_ASSERTION_EVALUATION_SCHEDULE } from '../../constants';
-import { adjustCronText } from '../../utils';
-import { getPlatformName } from '../../../../../../../utils';
-import { TruncatedTextWithTooltip } from '../../../../../../../../../shared/TruncatedTextWithTooltip';
-import { getEvaluationScheduleTitle, getEvaluationScheduleTooltipDescription } from '../utils';
-import { useEntityData } from '../../../../../../../../../entity/shared/EntityContext';
+import styled from 'styled-components';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { DEFAULT_ASSERTION_EVALUATION_SCHEDULE } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/constants';
+import {
+    getEvaluationScheduleTitle,
+    getEvaluationScheduleTooltipDescription,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/utils';
+import { adjustCronText } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/utils';
+import { getPlatformName } from '@app/entityV2/shared/utils';
+import { TimezoneSelect } from '@app/ingest/source/builder/TimezoneSelect';
+import { TruncatedTextWithTooltip } from '@app/shared/TruncatedTextWithTooltip';
+import { lowerFirstLetter } from '@app/shared/textUtil';
+
+import { AssertionType, CronSchedule } from '@types';
 
 const TitleSection = styled.div`
     display: flex;

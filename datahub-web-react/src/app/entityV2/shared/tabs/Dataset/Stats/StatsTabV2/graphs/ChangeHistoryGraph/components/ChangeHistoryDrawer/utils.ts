@@ -1,6 +1,7 @@
-import { Operation } from '@src/types.generated';
 import { uniq } from 'lodash';
 import moment, { Moment } from 'moment';
+
+import { Operation } from '@src/types.generated';
 
 export const getUniqueActorsFromOperations = (operations: Omit<Operation, 'lastUpdatedTimestamp'>[]): string[] => {
     return uniq(operations.filter((operation) => operation.actor).map((operation) => operation.actor || ''));

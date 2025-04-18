@@ -1,4 +1,4 @@
-import { ActionRequest, EntityType } from '../../../../types.generated';
+import { ActionRequest, EntityType } from '@types';
 
 export const ENTITY_TYPES_WITH_PROPOSALS = [
     EntityType.Chart,

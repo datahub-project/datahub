@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
+import React, { useState } from 'react';
+
 import { GridList } from '@components/.docs/mdx-components';
-import { SearchBar, searchBarDefaults } from './SearchBar';
-import { SearchBarProps } from './types';
+import { SearchBar, searchBarDefaults } from '@components/components/SearchBar/SearchBar';
+import { SearchBarProps } from '@components/components/SearchBar/types';
 
 const meta = {
     title: 'Components / Search Bar',

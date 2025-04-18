@@ -1,8 +1,3 @@
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
-import React, { useContext, useEffect, useState } from 'react';
-import { Panel, useReactFlow } from 'reactflow';
-import styled from 'styled-components';
 import {
     ArrowsAltOutlined,
     CalendarOutlined,
@@ -12,14 +7,19 @@ import {
     VerticalLeftOutlined,
 } from '@ant-design/icons';
 import { Button, Divider } from 'antd';
-import { LineageNodesContext, TRANSITION_DURATION_MS } from '../common';
+import React, { useContext, useEffect, useState } from 'react';
+import { Panel, useReactFlow } from 'reactflow';
+import styled from 'styled-components';
 
-import LineageSearchFilters from './LineageSearchFilters';
-import { StyledPanelButton } from './StyledPanelButton';
-import DownloadLineageScreenshotButton from './DownloadLineageScreenshotButton';
-import LineageTimeRangeControls from './LineageTimeRangeControls';
-import TabFullsizedContext from '../../shared/TabFullsizedContext';
-import { ControlPanel } from './common';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
+import { LineageNodesContext, TRANSITION_DURATION_MS } from '@app/lineageV2/common';
+import DownloadLineageScreenshotButton from '@app/lineageV2/controls/DownloadLineageScreenshotButton';
+import LineageSearchFilters from '@app/lineageV2/controls/LineageSearchFilters';
+import LineageTimeRangeControls from '@app/lineageV2/controls/LineageTimeRangeControls';
+import { StyledPanelButton } from '@app/lineageV2/controls/StyledPanelButton';
+import { ControlPanel } from '@app/lineageV2/controls/common';
+import TabFullsizedContext from '@app/shared/TabFullsizedContext';
 
 const StyledPanel = styled(Panel)`
     margin-top: 80px;

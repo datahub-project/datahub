@@ -1,9 +1,9 @@
 import React, { createContext, useContext } from 'react';
 
-import { GetDatasetQuery } from '@src/graphql/dataset.generated';
+import { getSiblingEntityWithStats } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
 import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
-import { getSiblingEntityWithStats } from '../Stats/StatsTabV2/utils';
+import { GetDatasetQuery } from '@src/graphql/dataset.generated';
 
 interface QualityTabContextProps {
     qualityEntityUrn: string | undefined;

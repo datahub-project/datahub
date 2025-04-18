@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { useUserContext } from '../../context/useUserContext';
+
+import { useUserContext } from '@app/context/useUserContext';
 
 export const useUserTitle = () => {
     const user = useUserContext();

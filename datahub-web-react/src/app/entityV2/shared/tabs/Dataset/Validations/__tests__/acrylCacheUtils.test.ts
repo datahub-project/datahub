@@ -1,5 +1,9 @@
 import { ApolloClient } from '@apollo/client';
-import { updateDatasetAssertionsCache, removeFromDatasetAssertionsCache } from '../acrylCacheUtils';
+
+import {
+    removeFromDatasetAssertionsCache,
+    updateDatasetAssertionsCache,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/acrylCacheUtils';
 
 describe('test cache add, update, removal', () => {
     const mockAssertion = { urn: 'test:assertion:urn', field: 'value' };

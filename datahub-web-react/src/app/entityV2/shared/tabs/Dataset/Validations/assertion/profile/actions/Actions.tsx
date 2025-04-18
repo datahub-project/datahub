@@ -1,17 +1,17 @@
 import React from 'react';
-
 import styled from 'styled-components';
 
-import { StartStopAction } from './StartStopAction';
-import { Assertion, DataContract, Monitor } from '../../../../../../../../../types.generated';
-import { DeleteAction } from './DeleteAction';
-import { ContractAction } from './ContractAction';
-import { CopyLinkAction } from './CopyLinkAction';
-import { CopyUrnAction } from './CopyUrnAction';
-import { SubscribeAction } from './SubscribeAction';
-import { RunAction } from './RunAction';
-import { ExternalUrlAction } from './ExternalUrlAction';
-import { useIsOnSiblingsView } from '../../../../../../useIsSeparateSiblingsMode';
+import { ContractAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/ContractAction';
+import { CopyLinkAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/CopyLinkAction';
+import { CopyUrnAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/CopyUrnAction';
+import { DeleteAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/DeleteAction';
+import { ExternalUrlAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/ExternalUrlAction';
+import { RunAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/RunAction';
+import { StartStopAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/StartStopAction';
+import { SubscribeAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/SubscribeAction';
+import { useIsOnSiblingsView } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
+
+import { Assertion, DataContract, Monitor } from '@types';
 
 const ActionList = styled.div`
     display: flex;

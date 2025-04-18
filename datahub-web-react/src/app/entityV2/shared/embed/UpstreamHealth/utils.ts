@@ -1,4 +1,4 @@
-import { Dataset, EntityType, FilterOperator, LineageDirection } from '../../../../../types.generated';
+import { Dataset, EntityType, FilterOperator, LineageDirection } from '@types';
 
 export function getNumAssertionsFailing(dataset: Dataset) {
     let numFailing = 0;

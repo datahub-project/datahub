@@ -1,7 +1,8 @@
 import DOMPurify from 'dompurify';
+
+import { getFieldDescriptionDetails } from '@app/entity/shared/tabs/Dataset/Schema/utils/getFieldDescriptionDetails';
 import { pathMatchesNewPath } from '@src/app/entity/dataset/profile/schema/utils/utils';
 import { EditableSchemaMetadata, SchemaField } from '@src/types.generated';
-import { getFieldDescriptionDetails } from './getFieldDescriptionDetails';
 
 export default function useExtractFieldDescriptionInfo(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,

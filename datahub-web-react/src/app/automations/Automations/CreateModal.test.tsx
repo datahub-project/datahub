@@ -1,8 +1,9 @@
-import { AppConfigContext, DEFAULT_APP_CONFIG } from '@src/appConfigContext';
-import React from 'react';
 import { render } from '@testing-library/react';
-import { AutomationCreateModal } from './CreateModal';
-import * as SnowflakeTagPropagation from '../recipes/snowflake/tagPropagation';
+import React from 'react';
+
+import { AutomationCreateModal } from '@app/automations/Automations/CreateModal';
+import * as SnowflakeTagPropagation from '@app/automations/recipes/snowflake/tagPropagation';
+import { AppConfigContext, DEFAULT_APP_CONFIG } from '@src/appConfigContext';
 
 describe('CreateModal', () => {
     it('should display Snowflake automation when enabled', () => {

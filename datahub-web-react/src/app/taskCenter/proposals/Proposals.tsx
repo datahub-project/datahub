@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-
 import { Tabs } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components';
+
+import { ProposalGroupTab } from '@app/taskCenter/proposals/ProposalGroupTab';
+import { useGetAuthenticatedUser } from '@app/useGetAuthenticatedUser';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
-import { ActionRequestAssignee, AssigneeType, CorpGroup } from '../../../types.generated';
-import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
-import { ProposalGroupTab } from './ProposalGroupTab';
+
+import { ActionRequestAssignee, AssigneeType, CorpGroup } from '@types';
 
 const StyledTabs = styled(Tabs)`
     &&& .ant-tabs-nav {

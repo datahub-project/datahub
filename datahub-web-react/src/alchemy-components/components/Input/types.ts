@@ -1,5 +1,6 @@
-import { IconProps } from '@components/components/Icon/types';
 import React, { InputHTMLAttributes } from 'react';
+
+import { IconProps } from '@components/components/Icon/types';
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
     value?: string | number | readonly string[] | undefined;

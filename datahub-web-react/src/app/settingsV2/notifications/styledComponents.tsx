@@ -1,7 +1,7 @@
+import { Divider } from 'antd';
 import styled from 'styled-components';
 
 import { colors } from '@src/alchemy-components';
-import { Divider } from 'antd';
 
 export const ScenarioSettingsContainer = styled.div`
     padding: 0px 8px;

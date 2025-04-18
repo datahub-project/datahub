@@ -1,7 +1,7 @@
+import { buildNotificationSettingsMap } from '@app/settingsV2/notifications/utils';
 import { FormattedNotificationSetting } from '@src/app/settings/platform/types';
 
-import { GlobalNotificationSettings, NotificationScenarioType } from '../../../../types.generated';
-import { buildNotificationSettingsMap } from '../../notifications/utils';
+import { GlobalNotificationSettings, NotificationScenarioType } from '@types';
 
 export const buildGlobalNotificationSettingsMap = (
     settings?: GlobalNotificationSettings | null,

@@ -1,9 +1,10 @@
+import React from 'react';
+import { Link } from 'react-router-dom';
+
+import AddContentView from '@app/actionrequestV2/item/AddContentView';
 import { StyledTag } from '@src/app/entity/shared/components/styled/StyledTag';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { ActionRequest, ActionRequestResult, EntityType } from '@src/types.generated';
-import React from 'react';
-import { Link } from 'react-router-dom';
-import AddContentView from './AddContentView';
 
 interface Props {
     actionRequest: ActionRequest;

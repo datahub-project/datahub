@@ -1,5 +1,5 @@
-import * as Snowflake from './platforms/snowflake';
-import * as BigQuery from './platforms/bigquery';
+import * as BigQuery from '@app/connections/platforms/bigquery';
+import * as Snowflake from '@app/connections/platforms/snowflake';
 
 export * from './hooks';
 

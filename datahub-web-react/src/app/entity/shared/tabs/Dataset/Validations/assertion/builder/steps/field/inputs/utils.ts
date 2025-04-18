@@ -1,5 +1,5 @@
-import { AssertionMonitorBuilderState } from '../../../types';
-import { getFieldAssertionTypeKey } from '../utils';
+import { getFieldAssertionTypeKey } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/field/utils';
+import { AssertionMonitorBuilderState } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/types';
 
 /**
  * Updates the assertion state for "value" parameter inputs

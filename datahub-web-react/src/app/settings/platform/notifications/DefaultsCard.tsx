@@ -1,17 +1,18 @@
+import { Card, Form, Typography, message } from 'antd';
 import React, { useMemo } from 'react';
-
 import styled from 'styled-components';
-import { Typography, Card, Form, message } from 'antd';
+
+import { EmailDefaults } from '@app/settings/platform/notifications/EmailDefaults';
+import { SlackDefaults } from '@app/settings/platform/notifications/SlackDefaults';
+import { SLACK_CONNECTION_URN } from '@app/settings/platform/slack/constants';
+import { decodeSlackConnection } from '@app/settings/platform/slack/utils';
+import { EMAIL_SINK } from '@app/settings/platform/types';
+import { isSinkEnabled } from '@app/settings/utils';
+import { useAppConfig } from '@app/useAppConfig';
 import { useConnectionQuery } from '@src/graphql/connection.generated';
-import { useUpdateGlobalIntegrationSettingsMutation } from '../../../../graphql/settings.generated';
-import { EmailDefaults } from './EmailDefaults';
-import { SlackDefaults } from './SlackDefaults';
-import { GlobalSettings } from '../../../../types.generated';
-import { isSinkEnabled } from '../../utils';
-import { EMAIL_SINK } from '../types';
-import { useAppConfig } from '../../../useAppConfig';
-import { SLACK_CONNECTION_URN } from '../slack/constants';
-import { decodeSlackConnection } from '../slack/utils';
+
+import { useUpdateGlobalIntegrationSettingsMutation } from '@graphql/settings.generated';
+import { GlobalSettings } from '@types';
 
 const CardContainer = styled(Card)`
     margin-bottom: 24px;

@@ -1,6 +1,7 @@
-import React from 'react';
 import { get } from 'lodash';
-import { FieldType, RecipeField, setFieldValueOnRecipe } from './common';
+import React from 'react';
+
+import { FieldType, RecipeField, setFieldValueOnRecipe } from '@app/ingest/source/builder/RecipeForm/common';
 
 export const LOOKML = 'lookml';
 

@@ -1,8 +1,9 @@
-import React from 'react';
-import styled from 'styled-components';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { Card, Typography } from 'antd';
-import { REDESIGN_COLORS } from '../../../entity/shared/constants';
+import React from 'react';
+import styled from 'styled-components';
+
+import { REDESIGN_COLORS } from '@app/entity/shared/constants';
 
 const InstructionsCard = styled(Card)`
     padding: 4px;

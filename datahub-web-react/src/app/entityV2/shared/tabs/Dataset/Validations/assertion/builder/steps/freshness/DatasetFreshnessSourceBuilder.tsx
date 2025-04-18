@@ -1,21 +1,26 @@
+import { InfoCircleOutlined } from '@ant-design/icons';
+import { Form, Select, Typography } from 'antd';
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
-import { Form, Typography, Select } from 'antd';
-import { InfoCircleOutlined } from '@ant-design/icons';
-import { DatasetFreshnessSourceType, SchemaField } from '../../../../../../../../../../types.generated';
-import { useGetDatasetSchemaQuery } from '../../../../../../../../../../graphql/dataset.generated';
-import { ANTD_GRAY } from '../../../../../../../constants';
+
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { useConnectionForEntityExists } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { useChangeSourceOptionIf } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/hooks';
+import { AssertionDatasetFieldBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/AssertionDatasetFieldBuilder';
 import {
-    getFreshnessSourceOption,
-    getFreshnessSourceOptions,
-    getFreshnessSourceOptionPlatformDescription,
+    AssertionMonitorBuilderState,
+    FreshnessAssertionBuilderScheduleType,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
+import {
     getDefaultFreshnessSourceOption,
+    getFreshnessSourceOption,
+    getFreshnessSourceOptionPlatformDescription,
+    getFreshnessSourceOptions,
     isStructField,
-} from '../../utils';
-import { useChangeSourceOptionIf } from '../../hooks';
-import { AssertionDatasetFieldBuilder } from '../AssertionDatasetFieldBuilder';
-import { useConnectionForEntityExists } from '../../../../acrylUtils';
-import { AssertionMonitorBuilderState, FreshnessAssertionBuilderScheduleType } from '../../types';
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/utils';
+
+import { useGetDatasetSchemaQuery } from '@graphql/dataset.generated';
+import { DatasetFreshnessSourceType, SchemaField } from '@types';
 
 const FormDiv = styled.div``;
 

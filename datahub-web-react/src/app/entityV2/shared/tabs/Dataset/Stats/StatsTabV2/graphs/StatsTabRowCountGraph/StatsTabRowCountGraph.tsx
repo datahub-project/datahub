@@ -1,15 +1,19 @@
-import { AssertionType, TimeRange } from '@src/types.generated';
 import React, { useEffect, useState } from 'react';
-import { LookbackWindow } from '../../../lookbackWindows';
-import { useStatsSectionsContext } from '../../StatsSectionsContext';
-import { SectionKeys } from '../../utils';
-import { GRAPH_LOOKBACK_WINDOWS, GRAPH_LOOKBACK_WINDOWS_OPTIONS } from '../constants';
-import useGetTimeRangeOptionsByLookbackWindow from '../hooks/useGetTimeRangeOptionsByLookbackWindow';
-import useRowCountData from '../../../../../../useRowCountData';
-import RowCountGraph from '../../../../../../graphs/RowCountGraph';
-import AddAssertionButton from '../components/AddAssertionButton';
-import TimeRangeSelect from '../components/TimeRangeSelect';
-import MoreInfoModalContent from '../components/MoreInfoModalContent';
+
+import RowCountGraph from '@app/entityV2/shared/graphs/RowCountGraph';
+import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
+import AddAssertionButton from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/AddAssertionButton';
+import MoreInfoModalContent from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/MoreInfoModalContent';
+import TimeRangeSelect from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/TimeRangeSelect';
+import {
+    GRAPH_LOOKBACK_WINDOWS,
+    GRAPH_LOOKBACK_WINDOWS_OPTIONS,
+} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/constants';
+import useGetTimeRangeOptionsByLookbackWindow from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/hooks/useGetTimeRangeOptionsByLookbackWindow';
+import { SectionKeys } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
+import { LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
+import useRowCountData from '@app/entityV2/shared/useRowCountData';
+import { AssertionType, TimeRange } from '@src/types.generated';
 
 const DEFAULT_GRAPH_NAME = 'Row Count';
 

@@ -1,18 +1,20 @@
-import { InfoCircleOutlined, WarningOutlined } from '@ant-design/icons';
-import { Divider, Form, Input, message, Switch, Typography, Row, Col, Alert, Collapse, Radio, Space } from 'antd';
-import React, { useEffect, useRef, useState } from 'react';
-import styled from 'styled-components';
-import _ from 'lodash';
-import { getColor } from '@src/alchemy-components/theme/utils';
 import { green, yellow } from '@ant-design/colors';
-import { Button } from '@src/alchemy-components';
+import { InfoCircleOutlined, WarningOutlined } from '@ant-design/icons';
+import { Alert, Col, Collapse, Divider, Form, Input, Radio, Row, Space, Switch, Typography, message } from 'antd';
+import _ from 'lodash';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import styled from 'styled-components';
+
+import { PlatformSsoIntegrationBreadcrumb } from '@app/settingsV2/platform/PlatformSsoIntegrationBreadcrumb';
+import { OidcIntegrationHint } from '@app/settingsV2/platform/sso/OidcIntegrationHint';
+import { Message } from '@app/shared/Message';
+import { Button } from '@src/alchemy-components';
+import { getColor } from '@src/alchemy-components/theme/utils';
 import analytics, { EventType, ObfuscatedOidcSettings } from '@src/app/analytics';
-import { useGetSsoSettingsQuery, useUpdateSsoSettingsMutation } from '../../../../graphql/settings.generated';
-import { OidcSettings } from '../../../../types.generated';
-import { Message } from '../../../shared/Message';
-import { PlatformSsoIntegrationBreadcrumb } from '../PlatformSsoIntegrationBreadcrumb';
-import { OidcIntegrationHint } from './OidcIntegrationHint';
+
+import { useGetSsoSettingsQuery, useUpdateSsoSettingsMutation } from '@graphql/settings.generated';
+import { OidcSettings } from '@types';
 
 const Page = styled.div`
     width: 100%;

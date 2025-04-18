@@ -1,7 +1,8 @@
+import ColorThief from 'colorthief';
 import React, { useCallback } from 'react';
 import styled from 'styled-components';
-import ColorThief from 'colorthief';
-import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 const Wrapper = styled.div<{ background?: string }>`
     align-items: center;

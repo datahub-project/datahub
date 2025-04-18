@@ -1,6 +1,7 @@
 import React from 'react';
+
+import SampleValueDetailed from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/components/sections/Samples/components/SampleValueDetailed';
 import { Drawer } from '@src/alchemy-components';
-import SampleValueDetailed from './SampleValueDetailed';
 
 interface SampleDrawerProps {
     sample: string;

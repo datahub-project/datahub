@@ -1,8 +1,9 @@
-import React from 'react';
 import { PartitionOutlined } from '@ant-design/icons';
-import styled from 'styled-components';
 import { Tooltip } from '@components';
-import { ShareResult } from '../../../../../../../types.generated';
+import React from 'react';
+import styled from 'styled-components';
+
+import { ShareResult } from '@types';
 
 const LineageIcon = styled(PartitionOutlined)<{ size?: number }>`
     font-size: ${(props) => props.size || 18}px;

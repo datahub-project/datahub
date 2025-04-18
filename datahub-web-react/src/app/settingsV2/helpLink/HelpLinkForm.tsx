@@ -1,10 +1,11 @@
 import { Switch } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+
+import LinkInput, { getLinkWithoutPrefix } from '@app/settingsV2/helpLink/LinkInput';
+import { InputLabel, InputWrapper, RequiredIcon, StyledInput } from '@app/settingsV2/helpLink/components';
+import useHelpLinkForm from '@app/settingsV2/helpLink/useHelpLinkForm';
 import { Button } from '@src/alchemy-components';
-import useHelpLinkForm from './useHelpLinkForm';
-import LinkInput, { getLinkWithoutPrefix } from './LinkInput';
-import { InputLabel, InputWrapper, RequiredIcon, StyledInput } from './components';
 
 const ContentWrapper = styled.div`
     display: flex;

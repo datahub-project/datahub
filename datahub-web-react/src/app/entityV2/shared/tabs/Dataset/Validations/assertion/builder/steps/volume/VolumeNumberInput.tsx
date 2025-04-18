@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react';
 import { Form, InputNumber, Select } from 'antd';
-import styled from 'styled-components';
 import { Rule } from 'antd/lib/form';
+import React, { useEffect } from 'react';
+import styled from 'styled-components';
 
 const StyledFormItem = styled(Form.Item)`
     margin: 0;

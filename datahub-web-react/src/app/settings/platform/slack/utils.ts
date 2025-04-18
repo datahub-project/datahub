@@ -1,4 +1,4 @@
-import { SlackConnection } from './types';
+import { SlackConnection } from '@app/settings/platform/slack/types';
 
 export const SLACK_INSTALL_REDIRECT_PATH = '/integrations/slack/install';
 export const SLACK_REFRESH_INSTALLATION_REDIRECT_PATH = '/integrations/slack/refresh-installation';

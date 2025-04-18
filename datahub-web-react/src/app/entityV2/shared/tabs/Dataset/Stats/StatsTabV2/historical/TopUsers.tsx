@@ -1,17 +1,22 @@
 import { Avatar, Table } from '@components';
-import { GraphCard } from '@src/alchemy-components/components/GraphCard';
-import { AlignmentOptions } from '@src/alchemy-components/theme/config';
-import { HoverEntityTooltip } from '@src/app/recommendations/renderer/component/HoverEntityTooltip';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { Maybe, UserUsageCounts } from '@src/types.generated';
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+
+import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
+import NoPermission from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/NoPermission';
+import MoreInfoModalContent from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/MoreInfoModalContent';
+import {
+    SectionKeys,
+    getMockTopUsersData,
+    getUserOrGroupAvatarUrl,
+} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
+import { GraphCard } from '@src/alchemy-components/components/GraphCard';
+import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import analytics, { EventType } from '@src/app/analytics';
-import { useStatsSectionsContext } from '../StatsSectionsContext';
-import NoPermission from '../graphs/NoPermission';
-import MoreInfoModalContent from '../graphs/components/MoreInfoModalContent';
-import { getMockTopUsersData, getUserOrGroupAvatarUrl, SectionKeys } from '../utils';
+import { HoverEntityTooltip } from '@src/app/recommendations/renderer/component/HoverEntityTooltip';
+import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { Maybe, UserUsageCounts } from '@src/types.generated';
 
 const CardWrapper = styled.div`
     display: flex;

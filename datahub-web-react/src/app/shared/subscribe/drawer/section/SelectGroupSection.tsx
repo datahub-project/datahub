@@ -1,9 +1,11 @@
-import React, { useEffect } from 'react';
 import { Select, Typography } from 'antd';
+import React, { useEffect } from 'react';
 import styled from 'styled-components/macro';
-import { CorpGroup, EntityRelationship, EntityType } from '../../../../../types.generated';
-import useGroupRelationships from '../../useGroupRelationships';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
+
+import useGroupRelationships from '@app/shared/subscribe/useGroupRelationships';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { CorpGroup, EntityRelationship, EntityType } from '@types';
 
 const SelectGroupContainer = styled.div`
     margin-top: 32px;

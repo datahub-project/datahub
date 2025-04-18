@@ -1,8 +1,9 @@
 import React from 'react';
+
+import { LogicalOperatorOperand } from '@app/tests/builder/steps/definition/builder/LogicalOperatorOperand';
+import { Property } from '@app/tests/builder/steps/definition/builder/property/types/properties';
 /* eslint-disable import/no-cycle */
-import { LogicalPredicate, PropertyPredicate } from './types';
-import { Property } from './property/types/properties';
-import { LogicalOperatorOperand } from './LogicalOperatorOperand';
+import { LogicalPredicate, PropertyPredicate } from '@app/tests/builder/steps/definition/builder/types';
 
 type Props = {
     operands: (LogicalPredicate | PropertyPredicate)[];

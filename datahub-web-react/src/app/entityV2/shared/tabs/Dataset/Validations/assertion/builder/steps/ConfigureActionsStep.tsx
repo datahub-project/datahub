@@ -1,10 +1,15 @@
+import { Checkbox, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Checkbox, Typography } from 'antd';
+
+import {
+    toggleRaiseIncidentState,
+    toggleResolveIncidentState,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/utils';
+import { StepProps } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
 import { Button } from '@src/alchemy-components';
-import { StepProps } from '../types';
-import { AssertionActionType } from '../../../../../../../../../types.generated';
-import { toggleRaiseIncidentState, toggleResolveIncidentState } from './utils';
+
+import { AssertionActionType } from '@types';
 
 const Step = styled.div`
     height: 100%;

@@ -1,8 +1,9 @@
-import { Typography, Modal, Button, Form } from 'antd';
+import { Button, Form, Modal, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Editor } from '../../tabs/Documentation/components/editor/Editor';
-import { ANTD_GRAY } from '../../constants';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 
 const FormLabel = styled(Typography.Text)`
     font-size: 10px;

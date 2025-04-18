@@ -1,3 +1,8 @@
+import { Button } from 'antd';
+import { CaretDown } from 'phosphor-react';
+import React from 'react';
+import styled, { CSSProperties } from 'styled-components';
+
 import { Pill } from '@src/alchemy-components';
 import { IconWrapper } from '@src/app/searchV2/filters/SearchFilterView';
 import { FilterPredicate } from '@src/app/searchV2/filters/types';
@@ -6,10 +11,6 @@ import { getFilterDropdownIcon, useFilterDisplayName } from '@src/app/searchV2/f
 import ValueSelector from '@src/app/searchV2/filters/value/ValueSelector';
 import { formatNumber } from '@src/app/shared/formatNumber';
 import { EntityType, FacetFilterInput, FacetMetadata } from '@src/types.generated';
-import { Button } from 'antd';
-import { CaretDown } from 'phosphor-react';
-import React from 'react';
-import styled, { CSSProperties } from 'styled-components';
 
 export type FilterLabels = {
     [key: string]: {

@@ -1,5 +1,6 @@
-import { Owner, OwnershipType, OwnershipTypeEntity } from '../../../../../../../types.generated';
-import { forcePluralize } from '../../../../../../shared/textUtil';
+import { forcePluralize } from '@app/shared/textUtil';
+
+import { Owner, OwnershipType, OwnershipTypeEntity } from '@types';
 
 /**
  * A mapping from OwnershipType to it's display name & description. In the future,

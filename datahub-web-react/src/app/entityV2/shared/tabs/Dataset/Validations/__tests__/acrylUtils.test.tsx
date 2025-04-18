@@ -1,38 +1,40 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+
 import {
-    getAssertionGroupName,
-    getAssertionsSummary,
-    getLegacyAssertionsSummary,
-    getAssertionType,
+    AssertionWithMonitorDetails,
+    canManageAssertionMonitor,
     createAssertionGroups,
+    extractLatestGeneratedAt,
+    getAssertionGroupName,
     getAssertionGroupSummaryMessage,
+    getAssertionType,
+    getAssertionTypesForEntityType,
+    getAssertionsSummary,
+    getCronAsText,
+    getEntityUrnForAssertion,
+    getLegacyAssertionsSummary,
     getNextScheduleEvaluationTimeMs,
     getPreviousScheduleEvaluationTimeMs,
-    getAssertionTypesForEntityType,
-    extractLatestGeneratedAt,
-    isMonitorActive,
-    getCronAsText,
-    canManageAssertionMonitor,
-    getEntityUrnForAssertion,
     getSiblingWithUrn,
     getSiblings,
-    AssertionWithMonitorDetails,
-} from '../acrylUtils';
+    isMonitorActive,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+
 import {
     Assertion,
     AssertionResultType,
+    AssertionRunStatus,
+    AssertionStdOperator,
     AssertionType,
     CronSchedule,
+    DatasetAssertionScope,
     DatasetFreshnessSourceType,
     DatasetVolumeSourceType,
     EntityType,
     Monitor,
     MonitorMode,
     MonitorType,
-    AssertionRunStatus,
-    AssertionStdOperator,
-    DatasetAssertionScope,
-} from '../../../../../../../types.generated';
+} from '@types';
 
 describe('acrylUtils', () => {
     describe('getAssertionGroupName', () => {

@@ -2,13 +2,14 @@ import { DeleteOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+
 /* eslint-disable import/no-cycle */
-import { ANTD_GRAY } from '../../../../../entity/shared/constants';
-import { LogicalPredicateBuilder } from './LogicalPredicateBuilder';
-import { PropertyPredicateBuilder } from './property/PropertyPredicateBuilder';
-import { Property } from './property/types/properties';
-import { LogicalPredicate, PropertyPredicate } from './types';
-import { isLogicalPredicate } from './utils';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { LogicalPredicateBuilder } from '@app/tests/builder/steps/definition/builder/LogicalPredicateBuilder';
+import { PropertyPredicateBuilder } from '@app/tests/builder/steps/definition/builder/property/PropertyPredicateBuilder';
+import { Property } from '@app/tests/builder/steps/definition/builder/property/types/properties';
+import { LogicalPredicate, PropertyPredicate } from '@app/tests/builder/steps/definition/builder/types';
+import { isLogicalPredicate } from '@app/tests/builder/steps/definition/builder/utils';
 
 const PredicateContainer = styled.div`
     display: flex;

@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
 import { FolderOpenOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
-import { useUserContext } from '../../../context/useUserContext';
-import MoveGlossaryEntityModal from './MoveGlossaryEntityModal';
-import MoveDomainModal from './MoveDomainModal';
-import { useIsNestedDomainsEnabled } from '../../../useAppConfig';
-import { isMoveDisabled } from './utils';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { EntityType } from '../../../../types.generated';
-import { useEntityData } from '../../../entity/shared/EntityContext';
-import { ActionMenuItem } from './styledComponents';
+import React, { useState } from 'react';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import MoveDomainModal from '@app/entityV2/shared/EntityDropdown/MoveDomainModal';
+import MoveGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/MoveGlossaryEntityModal';
+import { ActionMenuItem } from '@app/entityV2/shared/EntityDropdown/styledComponents';
+import { isMoveDisabled } from '@app/entityV2/shared/EntityDropdown/utils';
+import { useIsNestedDomainsEnabled } from '@app/useAppConfig';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType } from '@types';
 
 export default function MoveEntityMenuAction() {
     const { entityData, entityType, urn } = useEntityData();

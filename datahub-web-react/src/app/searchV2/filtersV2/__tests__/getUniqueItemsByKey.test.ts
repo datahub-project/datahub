@@ -1,4 +1,4 @@
-import { getUniqueItemsByKey } from '../utils';
+import { getUniqueItemsByKey } from '@app/searchV2/filtersV2/utils';
 
 describe('getUniqueItemsByKey', () => {
     it('returns unique items based on a keyAccessor function', () => {

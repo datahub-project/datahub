@@ -1,12 +1,13 @@
-import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
+
+import ExternalLink from '@app/entityV2/shared/externalUrl/ExternalLink';
+import ViewMoreDropdown from '@app/entityV2/shared/externalUrl/components/VeiwMoreDropdown/ViewMoreDropdown';
+import { LinkItem } from '@app/entityV2/shared/externalUrl/types';
+import useExternalLinks from '@app/entityV2/shared/externalUrl/useExternalLinks';
+import usePlatrofmLinks from '@app/entityV2/shared/externalUrl/usePlatformLinks';
+import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import OverflowList from '@src/app/sharedV2/OverflowList';
-import usePlatrofmLinks from './usePlatformLinks';
-import useExternalLinks from './useExternalLinks';
-import ViewMoreDropdown from './components/VeiwMoreDropdown/ViewMoreDropdown';
-import { LinkItem } from './types';
-import ExternalLink from './ExternalLink';
 
 const Links = styled.div<{ $shouldTakeAllAvailableSpace?: boolean }>`
     display: flex;

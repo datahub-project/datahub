@@ -1,6 +1,7 @@
-import { Domain, EntityType } from '@src/types.generated';
 import { renderHook } from '@testing-library/react-hooks';
-import useOptionsFromDomains from '../useOptionsFromDomains';
+
+import useOptionsFromDomains from '@app/searchV2/filtersV2/filters/DomainFilter/hooks/useOptionsFromDomains';
+import { Domain, EntityType } from '@src/types.generated';
 
 function getSampleDomain(urn: string, parents: Domain[] = []): Domain {
     return {
