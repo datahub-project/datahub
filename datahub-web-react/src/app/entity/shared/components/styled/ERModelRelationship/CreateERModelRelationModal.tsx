@@ -1,10 +1,11 @@
+import '@app/entity/shared/components/styled/ERModelRelationship/CreateERModelRelationModal.less';
+
 import { PlusOutlined } from '@ant-design/icons';
 import { Button, Form, Input, Modal, Table, message } from 'antd';
 import TextArea from 'antd/lib/input/TextArea';
 import React, { useState } from 'react';
 
 import { useUserContext } from '@app/context/useUserContext';
-import '@app/entity/shared/components/styled/ERModelRelationship/CreateERModelRelationModal.less';
 import {
     ERModelRelationDataType,
     checkDuplicateERModelRelation,
