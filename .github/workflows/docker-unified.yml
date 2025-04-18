@@ -1231,7 +1231,7 @@ jobs:
       - id: set-runner
         run: |
           if [[ "${{ env.DOCKER_CACHE }}" == "DEPOT" && "${{ env.DEPOT_PROJECT_ID }}" != "" ]]; then
-            echo "runner_type=depot-ubuntu-24.04" >> "$GITHUB_OUTPUT"
+            echo "runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
           else
             echo "runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
           fi
