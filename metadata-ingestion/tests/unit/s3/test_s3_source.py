@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List, Tuple
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 
 import pytest
 
@@ -9,7 +9,23 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
-from datahub.ingestion.source.s3.source import S3Source, partitioned_folder_comparator
+from datahub.ingestion.source.s3.source import (
+    Folder,
+    S3Source,
+    partitioned_folder_comparator,
+)
+
+
+def _get_s3_source(path_spec_: PathSpec) -> S3Source:
+    return S3Source.create(
+        config_dict={
+            "path_spec": {
+                "include": path_spec_.include,
+                "table_name": path_spec_.table_name,
+            },
+        },
+        ctx=PipelineContext(run_id="test-s3"),
+    )
 
 
 def test_partition_comparator_numeric_folder_name():
@@ -245,22 +261,10 @@ def test_container_generation_with_multiple_folders():
     }
 
 
-def test_get_folder_info():
+def test_get_folder_info_returns_latest_file_in_each_folder() -> None:
     """
     Test S3Source.get_folder_info returns the latest file in each folder
     """
-
-    def _get_s3_source(path_spec_: PathSpec) -> S3Source:
-        return S3Source.create(
-            config_dict={
-                "path_spec": {
-                    "include": path_spec_.include,
-                    "table_name": path_spec_.table_name,
-                },
-            },
-            ctx=PipelineContext(run_id="test-s3"),
-        )
-
     # arrange
     path_spec = PathSpec(
         include="s3://my-bucket/{table}/{partition0}/*.csv",
@@ -298,8 +302,102 @@ def test_get_folder_info():
     res = _get_s3_source(path_spec).get_folder_info(
         path_spec, bucket, prefix="/my-folder"
     )
+    res = list(res)
 
     # assert
     assert len(res) == 2
     assert res[0].sample_file == "s3://my-bucket/my-folder/dir1/0002.csv"
     assert res[1].sample_file == "s3://my-bucket/my-folder/dir2/0001.csv"
+
+
+def test_get_folder_info_ignores_disallowed_path(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """
+    Test S3Source.get_folder_info skips disallowed files and logs a message
+    """
+    # arrange
+    path_spec = Mock(
+        spec=PathSpec,
+        include="s3://my-bucket/{table}/{partition0}/*.csv",
+        table_name="{table}",
+    )
+    path_spec.allowed = Mock(return_value=False)
+
+    bucket = Mock()
+    bucket.objects.filter().page_size = Mock(
+        return_value=[
+            Mock(
+                bucket_name="my-bucket",
+                key="my-folder/ignore/this/path/0001.csv",
+                creation_time=datetime(2025, 1, 1, 1),
+                last_modified=datetime(2025, 1, 1, 1),
+                size=100,
+            ),
+        ]
+    )
+
+    s3_source = _get_s3_source(path_spec)
+
+    # act
+    res = s3_source.get_folder_info(path_spec, bucket, prefix="/my-folder")
+    res = list(res)
+
+    # assert
+    expected_called_s3_uri = "s3://my-bucket/my-folder/ignore/this/path/0001.csv"
+
+    assert path_spec.allowed.call_args_list == [call(expected_called_s3_uri)], (
+        "File should be checked if it's allowed"
+    )
+    assert f"File {expected_called_s3_uri} not allowed and skipping" in caplog.text, (
+        "Dropped file should be logged"
+    )
+    assert s3_source.get_report().filtered == [expected_called_s3_uri], (
+        "Dropped file should be in the report.filtered"
+    )
+    assert res == [], "Dropped file should not be in the result"
+
+
+def test_get_folder_info_returns_expected_folder() -> None:
+    # arrange
+    path_spec = PathSpec(
+        include="s3://my-bucket/{table}/{partition0}/*.csv",
+        table_name="{table}",
+    )
+
+    bucket = Mock()
+    bucket.objects.filter().page_size = Mock(
+        return_value=[
+            Mock(
+                bucket_name="my-bucket",
+                key="my-folder/dir1/0001.csv",
+                creation_time=datetime(2025, 1, 1, 1),
+                last_modified=datetime(2025, 1, 1, 1),
+                size=100,
+            ),
+            Mock(
+                bucket_name="my-bucket",
+                key="my-folder/dir1/0002.csv",
+                creation_time=datetime(2025, 1, 1, 2),
+                last_modified=datetime(2025, 1, 1, 2),
+                size=50,
+            ),
+        ]
+    )
+
+    # act
+    res = _get_s3_source(path_spec).get_folder_info(
+        path_spec, bucket, prefix="/my-folder"
+    )
+    res = list(res)
+
+    # assert
+    assert len(res) == 1
+    assert res[0] == Folder(
+        partition_id=[("partition0", "dir1")],
+        is_partition=True,
+        creation_time=datetime(2025, 1, 1, 1),
+        modification_time=datetime(2025, 1, 1, 2),
+        size=150,
+        sample_file="s3://my-bucket/my-folder/dir1/0002.csv",
+    )

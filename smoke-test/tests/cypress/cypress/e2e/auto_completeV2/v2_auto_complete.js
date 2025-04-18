@@ -34,7 +34,7 @@ describe("auto-complete", () => {
   it("should send you to the entity profile after clicking on an auto-complete option", () => {
     cy.get("input[data-testid=search-input]")
       .should("be.visible")
-      .type("SampleCypressHiveDataset");
+      .type("SampleCypressHiveDataset", { delay: 0 });
     cy.get('[data-testid^="auto-complete-option"]').first().click();
     cy.url().should(
       "include",

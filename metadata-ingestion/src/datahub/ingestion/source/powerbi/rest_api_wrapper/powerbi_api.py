@@ -115,7 +115,7 @@ class PowerBiAPI:
         if scan_result is None:
             return results
 
-        for scanned_dashboard in scan_result.get(Constant.DASHBOARDS, []):
+        for scanned_dashboard in scan_result.get(Constant.DASHBOARDS) or []:
             # Iterate through response and create a list of PowerBiAPI.Dashboard
             dashboard_id = scanned_dashboard.get("id")
             tags = self._parse_endorsement(
@@ -133,17 +133,17 @@ class PowerBiAPI:
         if scan_result is None:
             return results
 
-        reports: List[dict] = scan_result.get(Constant.REPORTS, [])
+        reports: List[dict] = scan_result.get(Constant.REPORTS) or []
 
         for report in reports:
-            report_id = report.get(Constant.ID, None)
+            report_id = report.get(Constant.ID)
             if report_id is None:
                 logger.warning(
                     f"Report id is none. Skipping endorsement tag for report instance {report}"
                 )
                 continue
             endorsements = self._parse_endorsement(
-                report.get(Constant.ENDORSEMENT_DETAIL, None)
+                report.get(Constant.ENDORSEMENT_DETAIL)
             )
             results[report_id] = endorsements
 
@@ -339,7 +339,7 @@ class PowerBiAPI:
         if not endorsements:
             return []
 
-        endorsement = endorsements.get(Constant.ENDORSEMENT, None)
+        endorsement = endorsements.get(Constant.ENDORSEMENT)
         if not endorsement:
             return []
 
@@ -396,7 +396,7 @@ class PowerBiAPI:
 
             if self.__config.extract_endorsements_to_tags:
                 dataset_instance.tags = self._parse_endorsement(
-                    dataset_dict.get(Constant.ENDORSEMENT_DETAIL, None)
+                    dataset_dict.get(Constant.ENDORSEMENT_DETAIL)
                 )
 
             dataset_map[dataset_instance.id] = dataset_instance
@@ -407,7 +407,7 @@ class PowerBiAPI:
                 else dataset_instance.id
             )
             logger.debug(f"dataset_dict = {dataset_dict}")
-            for table in dataset_dict.get(Constant.TABLES, []):
+            for table in dataset_dict.get(Constant.TABLES) or []:
                 expression: Optional[str] = (
                     table[Constant.SOURCE][0][Constant.EXPRESSION]
                     if table.get(Constant.SOURCE) is not None
@@ -430,10 +430,10 @@ class PowerBiAPI:
                                 column["dataType"], FIELD_TYPE_MAPPING["Null"]
                             ),
                         )
-                        for column in table.get("columns", [])
+                        for column in table.get("columns") or []
                     ],
                     measures=[
-                        Measure(**measure) for measure in table.get("measures", [])
+                        Measure(**measure) for measure in table.get("measures") or []
                     ],
                     dataset=dataset_instance,
                     row_count=None,
@@ -480,7 +480,7 @@ class PowerBiAPI:
                     )
                 )
                 if app_id is None:  # In PowerBI one workspace can have one app
-                    app_id = report.get(Constant.APP_ID)
+                    app_id = report[Constant.APP_ID]
 
         raw_app_dashboards: List[Dict] = []
         # Filter app dashboards
@@ -488,7 +488,7 @@ class PowerBiAPI:
             if dashboard.get(Constant.APP_ID):
                 raw_app_dashboards.append(dashboard)
                 if app_id is None:  # In PowerBI, one workspace contains one app
-                    app_id = report[Constant.APP_ID]
+                    app_id = dashboard[Constant.APP_ID]
 
         # workspace doesn't have an App. Above two loops can be avoided
         # if app_id is available at root level in workspace_metadata
@@ -625,13 +625,26 @@ class PowerBiAPI:
                 dashboard.tiles = self._get_resolver().get_tiles(
                     workspace, dashboard=dashboard
                 )
-                # set the dataset for tiles
+                # set the dataset and the report for tiles
                 for tile in dashboard.tiles:
+                    # In Power BI, dashboards, reports, and datasets are tightly scoped to the workspace they belong to.
+                    # https://learn.microsoft.com/en-us/power-bi/collaborate-share/service-new-workspaces
+                    if tile.report_id:
+                        tile.report = workspace.reports.get(tile.report_id)
+                        if tile.report is None:
+                            self.reporter.info(
+                                title="Missing Report Lineage For Tile",
+                                message="A Report reference that failed to be resolved. Please ensure that 'extract_reports' is set to True in the configuration.",
+                                context=f"workspace-name: {workspace.name}, tile-name: {tile.title}, report-id: {tile.report_id}",
+                            )
+                    # However, semantic models (aka datasets) can be shared accross workspaces
+                    # https://learn.microsoft.com/en-us/fabric/admin/portal-workspace#use-semantic-models-across-workspaces
+                    # That's why the global 'dataset_registry' is required
                     if tile.dataset_id:
                         tile.dataset = self.dataset_registry.get(tile.dataset_id)
                         if tile.dataset is None:
                             self.reporter.info(
-                                title="Missing Lineage For Tile",
+                                title="Missing Dataset Lineage For Tile",
                                 message="A cross-workspace reference that failed to be resolved. Please ensure that no global workspace is being filtered out due to the workspace_id_pattern.",
                                 context=f"workspace-name: {workspace.name}, tile-name: {tile.title}, dataset-id: {tile.dataset_id}",
                             )
@@ -653,10 +666,10 @@ class PowerBiAPI:
             for dashboard in workspace.dashboards.values():
                 dashboard.tags = workspace.dashboard_endorsements.get(dashboard.id, [])
 
+        # fill reports first since some dashboard may reference a report
+        fill_reports()
         if self.__config.extract_dashboards:
             fill_dashboards()
-
-        fill_reports()
         fill_dashboard_tags()
         self._fill_independent_datasets(workspace=workspace)
 

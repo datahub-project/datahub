@@ -7,6 +7,7 @@ import com.datahub.util.ModelUtils;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.aspect.AspectVersion;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
@@ -32,6 +33,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.validation.constraints.Null;
 import org.apache.commons.collections.CollectionUtils;
 
 public class QueryUtils {
@@ -39,6 +41,26 @@ public class QueryUtils {
   public static final Filter EMPTY_FILTER = new Filter().setOr(new ConjunctiveCriterionArray());
 
   private QueryUtils() {}
+
+  // Creates new Criterion with field and value, using EQUAL condition.
+  @Nullable
+  public static Criterion newCriterion(@Nonnull String field, @Nonnull List<String> values) {
+    return newCriterion(field, values, Condition.EQUAL);
+  }
+
+  // Creates new Criterion with field, value and condition.
+  @Null
+  public static Criterion newCriterion(
+      @Nonnull String field, @Nonnull List<String> values, @Nonnull Condition condition) {
+    if (values.isEmpty()) {
+      return null;
+    }
+    return new Criterion()
+        .setField(field)
+        .setValue(values.get(0)) // Hack! This is due to bad modeling.
+        .setValues(new StringArray(values))
+        .setCondition(condition);
+  }
 
   // Creates new Filter from a map of Criteria by removing null-valued Criteria and using EQUAL
   // condition (default).
@@ -51,6 +73,25 @@ public class QueryUtils {
         params.entrySet().stream()
             .filter(e -> Objects.nonNull(e.getValue()))
             .map(e -> buildCriterion(e.getKey(), Condition.EQUAL, e.getValue()))
+            .collect(Collectors.toCollection(CriterionArray::new));
+    return new Filter()
+        .setOr(
+            new ConjunctiveCriterionArray(
+                ImmutableList.of(new ConjunctiveCriterion().setAnd(criteria))));
+  }
+
+  // Creates new Filter from a map of Criteria by removing null-valued Criteria and using EQUAL
+  // condition (default).
+  @Nonnull
+  public static Filter newListsFilter(@Nullable Map<String, List<String>> params) {
+    if (params == null) {
+      return EMPTY_FILTER;
+    }
+    CriterionArray criteria =
+        params.entrySet().stream()
+            .filter(e -> Objects.nonNull(e.getValue()))
+            .map(e -> newCriterion(e.getKey(), e.getValue()))
+            .filter(Objects::nonNull)
             .collect(Collectors.toCollection(CriterionArray::new));
     return new Filter()
         .setOr(
@@ -84,6 +125,14 @@ public class QueryUtils {
                     criterion ->
                         new ConjunctiveCriterion()
                             .setAnd(new CriterionArray(ImmutableList.of(criterion))))
+                .collect(Collectors.toCollection(ConjunctiveCriterionArray::new)));
+  }
+
+  @Nonnull
+  public static Filter newDisjunctiveFilter(@Nonnull ConjunctiveCriterion... orCriterion) {
+    return new Filter()
+        .setOr(
+            Arrays.stream(orCriterion)
                 .collect(Collectors.toCollection(ConjunctiveCriterionArray::new)));
   }
 

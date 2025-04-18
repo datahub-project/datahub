@@ -17,7 +17,7 @@ from datahub.sql_parsing.sqlglot_utils import (
 
 
 def test_update_from_select():
-    assert _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT == {"returning", "this"}
+    assert {"returning", "this"} == _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT
 
 
 def test_is_dialect_instance():
@@ -197,4 +197,34 @@ def test_redshift_query_fingerprint():
     )
     assert get_query_fingerprint(query1, "redshift", True) != get_query_fingerprint(
         query2, "redshift", True
+    )
+
+
+def test_query_fingerprint_with_secondary_id():
+    query = "SELECT * FROM users WHERE id = 123"
+
+    fingerprint1 = get_query_fingerprint(query, "snowflake")
+
+    fingerprint2 = get_query_fingerprint(
+        query, "snowflake", secondary_id="project_id_123"
+    )
+
+    fingerprint3 = get_query_fingerprint(
+        query, "snowflake", secondary_id="project_id_456"
+    )
+
+    assert fingerprint1 and fingerprint2 and fingerprint3, (
+        "Fingerprint should not be None"
+    )
+    assert fingerprint1 != fingerprint2, "Fingerprint should change with secondary_id"
+    assert fingerprint2 != fingerprint3, (
+        "Different secondary_id should yield different fingerprints"
+    )
+
+    fingerprint4 = get_query_fingerprint(
+        query, "snowflake", secondary_id="project_id_456"
+    )
+
+    assert fingerprint3 == fingerprint4, (
+        "Fingerprints are deterministic for the same secondary_id"
     )

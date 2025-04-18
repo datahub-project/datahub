@@ -141,7 +141,7 @@ class BigQueryV2Report(
     profiling_skipped_invalid_partition_type: Dict[str, str] = field(
         default_factory=TopKDict
     )
-    profiling_skipped_partition_profiling_disabled: List[str] = field(
+    profiling_skipped_partition_profiling_disabled: LossyList[str] = field(
         default_factory=LossyList
     )
     allow_pattern: Optional[str] = None

@@ -4,7 +4,7 @@ export const formatBadgeValue = (value: number, overflowCount?: number): string 
     return `${overflowCount}+`;
 };
 
-export function omitKeys<T extends object, K extends keyof T>(obj: T, keys: K[]): Omit<T, K> {
+export function omitKeys<T extends object, K extends keyof T>(obj: T | undefined, keys: K[]): Omit<T, K> {
     const { ...rest } = obj;
 
     keys.forEach((key) => {

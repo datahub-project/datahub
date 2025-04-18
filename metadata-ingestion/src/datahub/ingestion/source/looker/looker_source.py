@@ -279,6 +279,11 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             return []
         result = []
 
+        if query is not None:
+            logger.debug(
+                f"Processing query: model={query.model}, view={query.view}, input_fields_count={len(query.fields) if query.fields else 0}"
+            )
+
         # query.dynamic_fields can contain:
         # - looker table calculations: https://docs.looker.com/exploring-data/using-table-calculations
         # - looker custom measures: https://docs.looker.com/de/exploring-data/adding-fields/custom-measure
@@ -363,7 +368,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         filters: MutableMapping[str, Any] = (
             query.filters if query.filters is not None else {}
         )
-        for field in filters.keys():
+        for field in filters:
             if field is None:
                 continue
 
@@ -383,7 +388,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         self.reachable_explores[(model, explore)].append(via)
 
-    def _get_looker_dashboard_element(  # noqa: C901
+    def _get_looker_dashboard_element(
         self, element: DashboardElement
     ) -> Optional[LookerDashboardElement]:
         # Dashboard elements can use raw usage_queries against explores
@@ -399,9 +404,12 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             # Get the explore from the view directly
             explores = [element.query.view] if element.query.view is not None else []
             logger.debug(
-                f"Element {element.title}: Explores added via query: {explores}"
+                f"Dashboard element {element.title} (ID: {element.id}): Upstream explores added via query={explores} with model={element.query.model}, explore={element.query.view}"
             )
             for exp in explores:
+                logger.debug(
+                    f"Adding reachable explore: model={element.query.model}, explore={exp}, element_id={element.id}, title={element.title}"
+                )
                 self.add_reachable_explore(
                     model=element.query.model,
                     explore=exp,
@@ -477,12 +485,10 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         # Failing the above two approaches, pick out details from result_maker
         elif element.result_maker is not None:
-            model: str = ""
             input_fields = []
 
             explores = []
             if element.result_maker.query is not None:
-                model = element.result_maker.query.model
                 if element.result_maker.query.view is not None:
                     explores.append(element.result_maker.query.view)
                 input_fields = self._get_input_fields_from_query(
@@ -502,9 +508,15 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
             # In addition to the query, filters can point to fields as well
             assert element.result_maker.filterables is not None
+
+            # Different dashboard elements my reference explores from different models
+            # so we need to create a mapping of explore names to their models to maintain correct associations
+            explore_to_model_map = {}
+
             for filterable in element.result_maker.filterables:
                 if filterable.view is not None and filterable.model is not None:
-                    model = filterable.model
+                    # Store the model for this view/explore in our mapping
+                    explore_to_model_map[filterable.view] = filterable.model
                     explores.append(filterable.view)
                     self.add_reachable_explore(
                         model=filterable.model,
@@ -527,6 +539,18 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
             explores = sorted(list(set(explores)))  # dedup the list of views
 
+            logger.debug(
+                f"Dashboard element {element.id} and their explores with the corresponding model: {explore_to_model_map}"
+            )
+
+            # If we have a query, use its model as the default for any explores that don't have a model in our mapping
+            default_model = ""
+            if (
+                element.result_maker.query is not None
+                and element.result_maker.query.model is not None
+            ):
+                default_model = element.result_maker.query.model
+
             return LookerDashboardElement(
                 id=element.id,
                 title=element.title if element.title is not None else "",
@@ -540,7 +564,11 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     else ""
                 ),
                 upstream_explores=[
-                    LookerExplore(model_name=model, name=exp) for exp in explores
+                    LookerExplore(
+                        model_name=explore_to_model_map.get(exp, default_model),
+                        name=exp,
+                    )
+                    for exp in explores
                 ],
                 input_fields=input_fields,
                 owner=None,
@@ -877,8 +905,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             # fine to set them to None.
             # TODO: Track project names for each explore.
             explores_to_fetch = [
-                (None, model, explore)
-                for (model, explore) in self.reachable_explores.keys()
+                (None, model, explore) for (model, explore) in self.reachable_explores
             ]
         explores_to_fetch.sort()
 
@@ -1271,6 +1298,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         chart_urn = self._make_chart_urn(
             element_id=dashboard_element.get_urn_element_id()
         )
+
         input_fields_aspect = InputFieldsClass(
             fields=self._input_fields_from_dashboard_element(dashboard_element)
         )

@@ -41,8 +41,8 @@ export function pluralizeIfIrregular(noun: string, suffix = 's'): string {
         query: 'queries',
     };
 
-    if (irregularPlurals.hasOwnProperty(noun.toLowerCase())) {
-        return irregularPlurals[noun.toLowerCase()];
+    if (irregularPlurals.hasOwnProperty(noun?.toLowerCase())) {
+        return irregularPlurals[noun?.toLowerCase()];
     }
     return `${noun}${suffix}`;
 }

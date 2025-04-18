@@ -34,6 +34,7 @@ dependencies {
     implementation externalDependency.springKafka
     implementation externalDependency.annotationApi
     implementation externalDependency.opentelemetrySdkTrace
+    implementation externalDependency.opentelemetrySdkMetrics
 
     implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok
@@ -64,5 +65,5 @@ compileJava.dependsOn avroSchemaSources
 processResources.dependsOn avroSchemaSources
 
 clean {
-    project.delete("src/main/resources/avro")
+    delete "src/main/resources/avro"
 }

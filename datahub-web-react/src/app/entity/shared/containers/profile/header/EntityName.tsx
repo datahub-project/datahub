@@ -1,11 +1,13 @@
-import { message, Typography } from 'antd';
-import React, { useState, useEffect } from 'react';
+import { Typography, message } from 'antd';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
-import { useUpdateNameMutation } from '../../../../../../graphql/mutations.generated';
-import { getParentNodeToUpdate, updateGlossarySidebar } from '../../../../../glossary/utils';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { useEntityData, useRefetch } from '../../../EntityContext';
-import { useGlossaryEntityData } from '../../../GlossaryEntityContext';
+
+import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { useGlossaryEntityData } from '@app/entity/shared/GlossaryEntityContext';
+import { getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useUpdateNameMutation } from '@graphql/mutations.generated';
 
 export const EntityTitle = styled(Typography.Title)`
     &&& {

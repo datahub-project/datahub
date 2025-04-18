@@ -1,21 +1,24 @@
 import React from 'react';
+
+import { IconStyleType } from '@app/entity/Entity';
+import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
 import {
+    Container,
+    DataProcessRunEvent,
     DataProduct,
     Deprecation,
     Domain,
-    Entity as GeneratedEntity,
     EntityPath,
     EntityType,
+    Entity as GeneratedEntity,
     GlobalTags,
     Health,
     Owner,
-    SearchInsight,
-    Container,
     ParentContainersResult,
-} from '../../../../types.generated';
-import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType } from '../../Entity';
+    SearchInsight,
+} from '@types';
 
 export const Preview = ({
     urn,
@@ -39,9 +42,7 @@ export const Preview = ({
     health,
     parentEntities,
     parentContainers,
-    duration,
-    status,
-    startTime,
+    lastRunEvent,
 }: {
     urn: string;
     name: string;
@@ -64,9 +65,7 @@ export const Preview = ({
     health?: Health[] | null;
     parentEntities?: Array<GeneratedEntity> | null;
     parentContainers?: ParentContainersResult | null;
-    duration?: number | null;
-    status?: string | null;
-    startTime?: number | null;
+    lastRunEvent?: DataProcessRunEvent | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -95,9 +94,7 @@ export const Preview = ({
             paths={paths}
             health={health || undefined}
             parentEntities={parentEntities}
-            duration={duration}
-            status={status}
-            startTime={startTime}
+            lastRunEvent={lastRunEvent}
         />
     );
 };

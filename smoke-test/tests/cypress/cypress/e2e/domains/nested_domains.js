@@ -77,7 +77,11 @@ const clearAndDelete = () => {
   cy.clickOptionWithTestId("description-editor-save-button");
   cy.waitTextVisible("No documentation");
   cy.mouseover(".ant-list-item-meta-content");
-  cy.get('[aria-label="delete"]').click();
+  cy.get('[aria-label="delete"]').click().wait(1000);
+  cy.get("button")
+    .contains("span", "Yes")
+    .should("be.visible")
+    .click({ force: true });
   cy.waitTextVisible("Link Removed");
 };
 
@@ -86,6 +90,7 @@ describe("Verify nested domains test functionalities", () => {
     cy.setIsThemeV2Enabled(false);
     cy.loginWithCredentials();
     cy.goToDomainList();
+    cy.ignoreResizeObserverLoop();
   });
 
   it("Verify Create a new domain", () => {

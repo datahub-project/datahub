@@ -1,14 +1,16 @@
+import { Alert, Space, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
-import { Alert, Button, message, Space, Typography } from 'antd';
 import styled from 'styled-components';
-import { StepProps } from './types';
-import { getPlaceholderRecipe, getSourceConfigs, jsonToYaml } from '../utils';
-import { YamlEditor } from './YamlEditor';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
-import { IngestionSourceBuilderStep } from './steps';
-import RecipeBuilder from './RecipeBuilder';
-import { CONNECTORS_WITH_FORM } from './RecipeForm/constants';
-import { getRecipeJson } from './RecipeForm/TestConnection/TestConnectionButton';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import RecipeBuilder from '@app/ingest/source/builder/RecipeBuilder';
+import { getRecipeJson } from '@app/ingest/source/builder/RecipeForm/TestConnection/TestConnectionButton';
+import { CONNECTORS_WITH_FORM } from '@app/ingest/source/builder/RecipeForm/constants';
+import { YamlEditor } from '@app/ingest/source/builder/YamlEditor';
+import { IngestionSourceBuilderStep } from '@app/ingest/source/builder/steps';
+import { StepProps } from '@app/ingest/source/builder/types';
+import { getPlaceholderRecipe, getSourceConfigs, jsonToYaml } from '@app/ingest/source/utils';
+import { Button } from '@src/alchemy-components';
 
 const LOOKML_DOC_LINK = 'https://datahubproject.io/docs/generated/ingestion/sources/looker#module-lookml';
 
@@ -140,7 +142,7 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSour
                                 known problem the DataHub team is working to solve!
                                 <br />
                                 <Space direction="horizontal" style={{ width: '100%', justifyContent: 'center' }}>
-                                    <Button type="ghost" size="small" onClick={() => setShowLookerBanner(false)}>
+                                    <Button variant="text" onClick={() => setShowLookerBanner(false)}>
                                         I have set up LookML ingestion!
                                     </Button>
                                 </Space>
@@ -161,10 +163,10 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSour
                 <YamlEditor initialText={displayRecipe} onChange={setStagedRecipeYml} />
             </BorderedSection>
             <ControlsContainer>
-                <Button disabled={isEditing} onClick={prev}>
+                <Button variant="outline" color="gray" disabled={isEditing} onClick={prev}>
                     Previous
                 </Button>
-                <Button type="primary" disabled={!stepComplete} onClick={onClickNext}>
+                <Button disabled={!stepComplete} onClick={onClickNext}>
                     Next
                 </Button>
             </ControlsContainer>

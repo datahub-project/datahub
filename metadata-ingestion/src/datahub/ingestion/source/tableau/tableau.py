@@ -12,6 +12,7 @@ from typing import (
     Dict,
     Iterable,
     List,
+    Literal,
     Optional,
     Set,
     Tuple,
@@ -170,6 +171,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     create_lineage_sql_parsed_result,
 )
 from datahub.utilities import config_clean
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.stats_collections import TopKDict
 from datahub.utilities.urns.dataset_urn import DatasetUrn
@@ -611,10 +613,14 @@ class TableauConfig(
         description="Configuration settings for ingesting Tableau groups and their capabilities as custom properties.",
     )
 
-    ingest_hidden_assets: bool = Field(
-        True,
-        description="When enabled, hidden views and dashboards are ingested into Datahub. "
-        "If a dashboard or view is hidden in Tableau the luid is blank. Default of this config field is True.",
+    ingest_hidden_assets: Union[List[Literal["worksheet", "dashboard"]], bool] = Field(
+        default=["worksheet", "dashboard"],
+        description=(
+            "When enabled, hidden worksheets and dashboards are ingested into Datahub."
+            " If a dashboard or worksheet is hidden in Tableau the luid is blank."
+            " A list of asset types can also be specified, to only ingest those hidden assets."
+            " Current options supported are 'worksheet' and 'dashboard'."
+        ),
     )
 
     tags_for_hidden_assets: List[str] = Field(
@@ -798,7 +804,7 @@ class TableauSourceReport(
     num_upstream_table_lineage_failed_parse_sql: int = 0
     num_upstream_fine_grained_lineage_failed_parse_sql: int = 0
     num_hidden_assets_skipped: int = 0
-    logged_in_user: List[UserInfo] = dataclass_field(default_factory=list)
+    logged_in_user: LossyList[UserInfo] = dataclass_field(default_factory=LossyList)
 
     last_authenticated_at: Optional[datetime] = None
 
@@ -1347,6 +1353,26 @@ class TableauSiteSource:
         # More info here: https://help.tableau.com/current/api/metadata_api/en-us/reference/view.doc.html
         return not dashboard_or_view.get(c.LUID)
 
+    def _should_ingest_worksheet(self, worksheet: Dict) -> bool:
+        return (
+            self.config.ingest_hidden_assets is True
+            or (
+                isinstance(self.config.ingest_hidden_assets, list)
+                and "worksheet" in self.config.ingest_hidden_assets
+            )
+            or not self._is_hidden_view(worksheet)
+        )
+
+    def _should_ingest_dashboard(self, dashboard: Dict) -> bool:
+        return (
+            self.config.ingest_hidden_assets is True
+            or (
+                isinstance(self.config.ingest_hidden_assets, list)
+                and "dashboard" in self.config.ingest_hidden_assets
+            )
+            or not self._is_hidden_view(dashboard)
+        )
+
     def get_connection_object_page(
         self,
         query: str,
@@ -1561,8 +1587,9 @@ class TableauSiteSource:
         query: str,
         connection_type: str,
         page_size: int,
-        query_filter: dict = {},
+        query_filter: Optional[dict] = None,
     ) -> Iterable[dict]:
+        query_filter = query_filter or {}
         query_filter = optimize_query_filter(query_filter)
 
         # Calls the get_connection_object_page function to get the objects,
@@ -1621,7 +1648,7 @@ class TableauSiteSource:
                 # if multiple project has name C. Ideal solution is to use projectLuidWithin to avoid duplicate project,
                 # however Tableau supports projectLuidWithin in Tableau Cloud June 2022 / Server 2022.3 and later.
                 project_luid: Optional[str] = self._get_workbook_project_luid(workbook)
-                if project_luid not in self.tableau_project_registry.keys():
+                if project_luid not in self.tableau_project_registry:
                     wrk_name: Optional[str] = workbook.get(c.NAME)
                     wrk_id: Optional[str] = workbook.get(c.ID)
                     prj_name: Optional[str] = workbook.get(c.PROJECT_NAME)
@@ -1909,11 +1936,7 @@ class TableauSiteSource:
                     if upstream_col.get(c.TABLE)
                     else None
                 )
-                if (
-                    name
-                    and upstream_table_id
-                    and upstream_table_id in table_id_to_urn.keys()
-                ):
+                if name and upstream_table_id and upstream_table_id in table_id_to_urn:
                     parent_dataset_urn = table_id_to_urn[upstream_table_id]
                     if (
                         self.is_snowflake_urn(parent_dataset_urn)
@@ -2189,6 +2212,10 @@ class TableauSiteSource:
                 dataset_snapshot.aspects.append(browse_paths)
             else:
                 logger.debug(f"Browse path not set for Custom SQL table {csql_id}")
+                logger.warning(
+                    f"Skipping Custom SQL table {csql_id} due to filtered downstream"
+                )
+                continue
 
             dataset_properties = DatasetPropertiesClass(
                 name=csql.get(c.NAME),
@@ -2251,7 +2278,7 @@ class TableauSiteSource:
         # It is possible due to https://github.com/tableau/server-client-python/issues/1210
         if (
             ds.get(c.LUID)
-            and ds[c.LUID] not in self.datasource_project_map.keys()
+            and ds[c.LUID] not in self.datasource_project_map
             and self.report.get_all_datasources_query_failed
         ):
             logger.debug(
@@ -2263,7 +2290,7 @@ class TableauSiteSource:
 
         if (
             ds.get(c.LUID)
-            and ds[c.LUID] in self.datasource_project_map.keys()
+            and ds[c.LUID] in self.datasource_project_map
             and self.datasource_project_map[ds[c.LUID]] in self.tableau_project_registry
         ):
             return self.datasource_project_map[ds[c.LUID]]
@@ -2627,6 +2654,15 @@ class TableauSiteSource:
             datasource_info = datasource
 
         browse_path = self._get_project_browse_path_name(datasource)
+        if (
+            not is_embedded_ds
+            and self._get_published_datasource_project_luid(datasource) is None
+        ):
+            logger.warning(
+                f"Skip ingesting published datasource {datasource.get(c.NAME)} because of filtered project"
+            )
+            return
+
         logger.debug(f"datasource {datasource.get(c.NAME)} browse-path {browse_path}")
         datasource_id = datasource[c.ID]
         datasource_urn = builder.make_dataset_urn_with_platform_instance(
@@ -2850,6 +2886,11 @@ class TableauSiteSource:
             query_filter=tables_filter,
             page_size=self.config.effective_database_table_page_size,
         ):
+            if tableau_database_table_id_to_urn_map.get(tableau_table[c.ID]) is None:
+                logger.warning(
+                    f"Skipping table {tableau_table[c.ID]} due to filtered out published datasource"
+                )
+                continue
             database_table = self.database_tables[
                 tableau_database_table_id_to_urn_map[tableau_table[c.ID]]
             ]
@@ -2904,6 +2945,7 @@ class TableauSiteSource:
             dataset_snapshot.aspects.append(browse_paths)
         else:
             logger.debug(f"Browse path not set for table {database_table.urn}")
+            return
 
         schema_metadata = self.get_schema_metadata_for_table(
             tableau_columns, database_table.parsed_columns
@@ -3042,7 +3084,7 @@ class TableauSiteSource:
             query_filter=sheets_filter,
             page_size=self.config.effective_sheet_page_size,
         ):
-            if self.config.ingest_hidden_assets or not self._is_hidden_view(sheet):
+            if self._should_ingest_worksheet(sheet):
                 yield from self.emit_sheets_as_charts(sheet, sheet.get(c.WORKBOOK))
             else:
                 self.report.num_hidden_assets_skipped += 1
@@ -3235,7 +3277,7 @@ class TableauSiteSource:
 
         parent_key = None
         project_luid: Optional[str] = self._get_workbook_project_luid(workbook)
-        if project_luid and project_luid in self.tableau_project_registry.keys():
+        if project_luid and project_luid in self.tableau_project_registry:
             parent_key = self.gen_project_key(project_luid)
         else:
             workbook_id: Optional[str] = workbook.get(c.ID)
@@ -3363,7 +3405,7 @@ class TableauSiteSource:
             query_filter=dashboards_filter,
             page_size=self.config.effective_dashboard_page_size,
         ):
-            if self.config.ingest_hidden_assets or not self._is_hidden_view(dashboard):
+            if self._should_ingest_dashboard(dashboard):
                 yield from self.emit_dashboard(dashboard, dashboard.get(c.WORKBOOK))
             else:
                 self.report.num_hidden_assets_skipped += 1

@@ -40,6 +40,9 @@ query getDomain($urn: String!) {
         forms {
             ...formsFields
         }
+        displayProperties {
+            ...displayPropertiesFields
+        }
         ...domainEntitiesFields
         ...notes
     }
@@ -63,6 +66,9 @@ query listDomains($input: ListDomainsInput!) {
             }
             ownership {
                 ...ownershipFields
+            }
+            displayProperties {
+                ...displayPropertiesFields
             }
             ...domainEntitiesFields
         }

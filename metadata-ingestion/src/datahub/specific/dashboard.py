@@ -161,7 +161,7 @@ class DashboardPatchBuilder(
                 lastModified=self._mint_auditstamp(),
             )
 
-        self._ensure_urn_type("dataset", [chart_edge], "add_chart_edge")
+        self._ensure_urn_type("chart", [chart_edge], "add_chart_edge")
         self._add_patch(
             DashboardInfo.ASPECT_NAME,
             "add",
@@ -269,6 +269,48 @@ class DashboardPatchBuilder(
                     value=urn,
                 )
 
+        return self
+
+    def add_dashboard(
+        self, dashboard: Union[Edge, Urn, str]
+    ) -> "DashboardPatchBuilder":
+        """
+        Adds an dashboard to the DashboardPatchBuilder.
+
+        Args:
+            dashboard: The dashboard, which can be an Edge object, Urn object, or a string.
+
+        Returns:
+            The DashboardPatchBuilder instance.
+
+        Raises:
+            ValueError: If the dashboard is not a Dashboard urn.
+
+        Notes:
+            If `dashboard` is an Edge object, it is used directly. If `dashboard` is a Urn object or string,
+            it is converted to an Edge object and added with default audit stamps.
+        """
+        if isinstance(dashboard, Edge):
+            dashboard_urn: str = dashboard.destinationUrn
+            dashboard_edge: Edge = dashboard
+        elif isinstance(dashboard, (Urn, str)):
+            dashboard_urn = str(dashboard)
+            if not dashboard_urn.startswith("urn:li:dashboard:"):
+                raise ValueError(f"Input {dashboard} is not a Dashboard urn")
+
+            dashboard_edge = Edge(
+                destinationUrn=dashboard_urn,
+                created=self._mint_auditstamp(),
+                lastModified=self._mint_auditstamp(),
+            )
+
+        self._ensure_urn_type("dashboard", [dashboard_edge], "add_dashboard")
+        self._add_patch(
+            DashboardInfo.ASPECT_NAME,
+            "add",
+            path=("dashboards", dashboard_urn),
+            value=dashboard_edge,
+        )
         return self
 
     def set_dashboard_url(

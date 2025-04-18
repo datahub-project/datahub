@@ -1,7 +1,12 @@
-import styled from 'styled-components';
 import { CheckOutlined, ClockCircleOutlined, CloseOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
-import { ANTD_GRAY } from '../../../../constants';
-import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX, WARNING_COLOR_HEX } from '../acrylUtils';
+import styled from 'styled-components';
+
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import {
+    FAILURE_COLOR_HEX,
+    SUCCESS_COLOR_HEX,
+    WARNING_COLOR_HEX,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 
 export const StyledCheckOutlined = styled(CheckOutlined)`
     color: ${SUCCESS_COLOR_HEX};

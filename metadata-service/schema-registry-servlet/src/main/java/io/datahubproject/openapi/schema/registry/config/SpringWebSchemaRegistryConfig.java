@@ -4,9 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
 import com.linkedin.metadata.registry.SchemaRegistryService;
 import io.datahubproject.openapi.schema.registry.SchemaRegistryController;
-import io.swagger.v3.oas.annotations.OpenAPIDefinition;
-import io.swagger.v3.oas.annotations.info.Info;
-import io.swagger.v3.oas.annotations.servers.Server;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -19,9 +16,6 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 @Slf4j
 @EnableWebMvc
-@OpenAPIDefinition(
-    info = @Info(title = "DataHub OpenAPI", version = "1.0.0"),
-    servers = {@Server(url = "/schema-registry/", description = "Schema Registry Server URL")})
 @Order(3)
 @ConditionalOnProperty(
     name = "kafka.schemaRegistry.type",

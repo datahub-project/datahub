@@ -1,21 +1,24 @@
-import { EditColumn } from '@src/app/entity/shared/tabs/Properties/Edit/EditColumn';
-import { Maybe, StructuredProperties } from '@src/types.generated';
 import { Empty, Table } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { useEntityData } from '../../../../entity/shared/EntityContext';
-import TabHeader from '../../../../entity/shared/tabs/Properties/TabHeader';
-import { PropertyRow } from '../../../../entity/shared/tabs/Properties/types';
-import useUpdateExpandedRowsFromFilter from '../../../../entity/shared/tabs/Properties/useUpdateExpandedRowsFromFilter';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import TabHeader from '@app/entity/shared/tabs/Properties/TabHeader';
+import { PropertyRow } from '@app/entity/shared/tabs/Properties/types';
+import useUpdateExpandedRowsFromFilter from '@app/entity/shared/tabs/Properties/useUpdateExpandedRowsFromFilter';
 import {
     getFilteredCustomProperties,
     mapCustomPropertiesToPropertyRows,
-} from '../../../../entity/shared/tabs/Properties/utils';
-import { useEntityRegistryV2 } from '../../../../useEntityRegistry';
-import ExpandIcon from '../Dataset/Schema/components/ExpandIcon';
-import NameColumn from './NameColumn';
-import ValuesColumn from './ValuesColumn';
-import useStructuredProperties from './useStructuredProperties';
+} from '@app/entity/shared/tabs/Properties/utils';
+import ExpandIcon from '@app/entityV2/shared/tabs/Dataset/Schema/components/ExpandIcon';
+import NameColumn from '@app/entityV2/shared/tabs/Properties/NameColumn';
+import ValuesColumn from '@app/entityV2/shared/tabs/Properties/ValuesColumn';
+import { useHydratedEntityMap } from '@app/entityV2/shared/tabs/Properties/useHydratedEntityMap';
+import useStructuredProperties from '@app/entityV2/shared/tabs/Properties/useStructuredProperties';
+import { TabRenderType } from '@app/entityV2/shared/types';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { EditColumn } from '@src/app/entity/shared/tabs/Properties/Edit/EditColumn';
+import { Maybe, StructuredProperties } from '@src/types.generated';
 
 const StyledTable = styled(Table)`
     &&& .ant-table-cell-with-append {
@@ -39,10 +42,13 @@ interface Props {
         fieldUrn?: string;
         fieldProperties?: Maybe<StructuredProperties>;
         refetch?: () => void;
+        disableEdit?: boolean;
+        disableSearch?: boolean;
     };
+    renderType?: TabRenderType;
 }
 
-export const PropertiesTab = ({ properties }: Props) => {
+export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }: Props) => {
     const fieldPath = properties?.fieldPath;
     const fieldUrn = properties?.fieldUrn;
     const fieldProperties = properties?.fieldProperties;
@@ -50,38 +56,8 @@ export const PropertiesTab = ({ properties }: Props) => {
     const [filterText, setFilterText] = useState('');
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistryV2();
-    const propertyTableColumns = [
-        {
-            width: 210,
-            title: 'Name',
-            render: (propertyRow: PropertyRow) => <NameColumn propertyRow={propertyRow} filterText={filterText} />,
-        },
-        {
-            title: 'Value',
-            ellipsis: true,
-            render: (propertyRow: PropertyRow) => <ValuesColumn propertyRow={propertyRow} filterText={filterText} />,
-        },
-    ];
 
-    const canEditProperties =
-        entityData?.parent?.privileges?.canEditProperties || entityData?.privileges?.canEditProperties;
-
-    if (canEditProperties) {
-        propertyTableColumns.push({
-            title: '',
-            width: '10%',
-            render: (propertyRow: PropertyRow) => (
-                <EditColumn
-                    structuredProperty={propertyRow.structuredProperty}
-                    associatedUrn={propertyRow.associatedUrn}
-                    values={propertyRow.values?.map((v) => v.value) || []}
-                    refetch={refetch}
-                />
-            ),
-        } as any);
-    }
-
-    const { structuredPropertyRows, expandedRowsFromFilter } = useStructuredProperties(
+    const { structuredPropertyRows, expandedRowsFromFilter, structuredPropertyRowsRaw } = useStructuredProperties(
         entityRegistry,
         fieldPath || null,
         filterText,
@@ -98,14 +74,61 @@ export const PropertiesTab = ({ properties }: Props) => {
 
     useUpdateExpandedRowsFromFilter({ expandedRowsFromFilter, setExpandedRows });
 
+    const entityUrnsToHydrate = structuredPropertyRowsRaw
+        .flatMap((row) => row?.values?.map((v) => (typeof v?.value === 'string' ? v.value : null)))
+        .filter(Boolean);
+
+    const hydratedEntityMap = useHydratedEntityMap(entityUrnsToHydrate);
+
+    const propertyTableColumns = [
+        {
+            width: 210,
+            title: 'Name',
+            render: (propertyRow: PropertyRow) => <NameColumn propertyRow={propertyRow} filterText={filterText} />,
+        },
+        {
+            title: 'Value',
+            ellipsis: true,
+            render: (propertyRow: PropertyRow) => (
+                <ValuesColumn
+                    propertyRow={propertyRow}
+                    filterText={filterText}
+                    hydratedEntityMap={hydratedEntityMap}
+                    renderType={renderType}
+                />
+            ),
+        },
+    ];
+
+    const canEditProperties =
+        (entityData?.parent?.privileges?.canEditProperties || entityData?.privileges?.canEditProperties) &&
+        !properties?.disableEdit;
+
+    if (canEditProperties) {
+        propertyTableColumns.push({
+            title: '',
+            width: '10%',
+            render: (propertyRow: PropertyRow) => (
+                <EditColumn
+                    structuredProperty={propertyRow.structuredProperty}
+                    associatedUrn={propertyRow.associatedUrn}
+                    values={propertyRow.values?.map((v) => v.value) || []}
+                    refetch={refetch}
+                />
+            ),
+        } as any);
+    }
+
     return (
         <>
-            <TabHeader
-                setFilterText={setFilterText}
-                fieldUrn={fieldUrn}
-                fieldProperties={fieldProperties}
-                refetch={refetch}
-            />
+            {!properties?.disableSearch && (
+                <TabHeader
+                    setFilterText={setFilterText}
+                    fieldUrn={fieldUrn}
+                    fieldProperties={fieldProperties}
+                    refetch={refetch}
+                />
+            )}
             <StyledTable
                 pagination={false}
                 // typescript is complaining that default sort order is not a valid column field- overriding this here

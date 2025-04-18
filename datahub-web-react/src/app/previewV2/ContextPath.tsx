@@ -1,16 +1,18 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';
-import { BrowsePathEntry, BrowsePathV2, Entity, EntityType } from '../../types.generated';
-import { getSubTypeIcon } from '../entityV2/shared/components/subtypes';
-import { REDESIGN_COLORS } from '../entityV2/shared/constants';
-import ParentEntities from '../searchV2/filters/ParentEntities';
-import { capitalizeFirstLetterOnly } from '../shared/textUtil';
-import { useEntityRegistryV2 } from '../useEntityRegistry';
-import { IconStyleType, PreviewType } from '../entityV2/Entity';
-import BrowsePaths from './BrowsePaths';
-import { ANTD_GRAY } from '../entity/shared/constants';
-import { isDefaultBrowsePath } from './utils';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { getSubTypeIcon } from '@app/entityV2/shared/components/subtypes';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import BrowsePaths from '@app/previewV2/BrowsePaths';
+import { isDefaultBrowsePath } from '@app/previewV2/utils';
+import ParentEntities from '@app/searchV2/filters/ParentEntities';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+
+import { BrowsePathEntry, BrowsePathV2, Entity, EntityType } from '@types';
 
 const PlatformContentWrapper = styled.div`
     display: flex;
@@ -82,6 +84,7 @@ const PlatFormTitle = styled.span`
 interface Props {
     // eslint-disable-next-line react/no-unused-prop-types
     entityLogoComponent?: JSX.Element;
+    // eslint-disable-next-line react/no-unused-prop-types
     instanceId?: string;
     // eslint-disable-next-line react/no-unused-prop-types
     typeIcon?: JSX.Element;
@@ -94,6 +97,8 @@ interface Props {
     browsePaths?: Maybe<BrowsePathV2> | undefined;
     contentRef: React.RefObject<HTMLDivElement>;
     isContentTruncated?: boolean;
+    linksDisabled?: boolean;
+    showPlatformText?: boolean;
 }
 
 function ContextPath(props: Props) {
@@ -102,12 +107,13 @@ function ContextPath(props: Props) {
         entityType,
         parentEntities,
         browsePaths,
-        instanceId,
         entityTitleWidth = 200,
         previewType,
         isCompactView,
         contentRef,
         isContentTruncated = false,
+        linksDisabled,
+        showPlatformText = true,
     } = props;
 
     const entityRegistry = useEntityRegistryV2();
@@ -116,28 +122,22 @@ function ContextPath(props: Props) {
 
     const divider = <PlatformDivider>|</PlatformDivider>;
 
-    const hasPlatformInstance = !!instanceId;
     const hasBrowsePath = !!browsePaths?.path?.length && !isDefaultBrowsePath(browsePaths);
     const hasParentEntities = !!parentEntities?.length;
 
-    const showInstanceIdDivider = hasBrowsePath || hasParentEntities;
-    const showEntityTypeDivider = hasPlatformInstance || hasBrowsePath || hasParentEntities;
+    const showEntityTypeDivider = hasBrowsePath || hasParentEntities;
 
     return (
         <PlatformContentWrapper>
-            <PlatformText
-                $maxWidth={entityTitleWidth}
-                $isCompactView={isCompactView}
-                title={capitalizeFirstLetterOnly(type)}
-            >
-                {entityTypeIcon && <TypeIconWrapper>{entityTypeIcon}</TypeIconWrapper>}
-                <PlatFormTitle>{capitalizeFirstLetterOnly(type)}</PlatFormTitle>
-                {showEntityTypeDivider && divider}
-            </PlatformText>
-            {instanceId && (
-                <PlatformText>
-                    {instanceId}
-                    {showInstanceIdDivider && divider}
+            {showPlatformText && (
+                <PlatformText
+                    $maxWidth={entityTitleWidth}
+                    $isCompactView={isCompactView}
+                    title={capitalizeFirstLetterOnly(type)}
+                >
+                    {entityTypeIcon && <TypeIconWrapper>{entityTypeIcon}</TypeIconWrapper>}
+                    <PlatFormTitle>{capitalizeFirstLetterOnly(type)}</PlatFormTitle>
+                    {showEntityTypeDivider && divider}
                 </PlatformText>
             )}
             {hasBrowsePath ? (
@@ -146,9 +146,10 @@ function ContextPath(props: Props) {
                     previewType={previewType}
                     contentRef={contentRef}
                     isContentTruncated={isContentTruncated}
+                    linksDisabled={linksDisabled}
                 />
             ) : (
-                <ParentEntities parentEntities={parentEntities || []} numVisible={3} />
+                <ParentEntities parentEntities={parentEntities || []} numVisible={3} linksDisabled={linksDisabled} />
             )}
         </PlatformContentWrapper>
     );

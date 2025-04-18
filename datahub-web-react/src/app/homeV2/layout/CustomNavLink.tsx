@@ -1,8 +1,9 @@
-import { Pill } from '@src/alchemy-components';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { NavMenuItem } from './types';
+
+import { NavMenuItem } from '@app/homeV2/layout/types';
+import { Pill } from '@src/alchemy-components';
 
 const OptionContainer = styled.div``;
 
@@ -78,7 +79,7 @@ const CustomNavLink: React.FC<Props> = ({
                 <LinkTitle>{title}</LinkTitle>
                 {showNewTag && (
                     <PillWrapper>
-                        <Pill label="New" size="xs" clickable={false} colorScheme="blue" />
+                        <Pill label="New" size="xs" clickable={false} color="blue" />
                     </PillWrapper>
                 )}
             </TitleWrapper>

@@ -1,20 +1,23 @@
-import React, { useEffect, useState } from 'react';
 import { Empty } from 'antd';
+import React, { useEffect, useState } from 'react';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { combineEntityDataWithSiblings } from '@app/entity/shared/siblingUtils';
+import { TableLoadingSkeleton } from '@app/entityV2/shared/TableLoadingSkeleton';
+import { AcrylAssertionListFilters } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionListFilters';
+import { AcrylAssertionListTable } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionListTable';
+import { AssertionListTitleContainer } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AssertionListTitleContainer';
+import {
+    ASSERTION_DEFAULT_FILTERS,
+    ASSERTION_DEFAULT_RAW_DATA,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/constant';
+import { AssertionListFilter, AssertionTable } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
+import { getFilteredTransformedAssertionData } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/utils';
+import { tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { useGetDatasetContractQuery } from '@src/graphql/contract.generated';
-import { Assertion, DataContract } from '@src/types.generated';
 import { useGetDatasetAssertionsWithRunEventsQuery } from '@src/graphql/dataset.generated';
-import { useEntityData } from '../../../../../../entity/shared/EntityContext';
-import { useIsSeparateSiblingsMode } from '../../../../useIsSeparateSiblingsMode';
-import { tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery } from '../acrylUtils';
-import { combineEntityDataWithSiblings } from '../../../../../../entity/shared/siblingUtils';
-import { getFilteredTransformedAssertionData } from './utils';
-import { AcrylAssertionsSummaryLoading } from '../AcrylAssertionsSummaryLoading';
-import { AssertionTable, AssertionListFilter } from './types';
-import { AssertionListTitleContainer } from './AssertionListTitleContainer';
-import { AcrylAssertionListFilters } from './AcrylAssertionListFilters';
-import { AcrylAssertionListTable } from './AcrylAssertionListTable';
-import { useSetFilterFromURLParams } from './hooks';
-import { ASSERTION_DEFAULT_FILTERS, ASSERTION_DEFAULT_RAW_DATA } from './constant';
+import { Assertion, DataContract } from '@src/types.generated';
 
 /**
  * Component used for rendering the Assertions Sub Tab on the Validations Tab
@@ -27,8 +30,7 @@ export const AcrylAssertionList = () => {
         ...ASSERTION_DEFAULT_RAW_DATA,
     });
     // TODO we need to create setter function to set the filter as per the filter component
-    const [filter, setFilters] = useState<AssertionListFilter>(ASSERTION_DEFAULT_FILTERS);
-    useSetFilterFromURLParams(filter, setFilters);
+    const [selectedFilters, setSelectedFilters] = useState<AssertionListFilter>(ASSERTION_DEFAULT_FILTERS);
 
     const [assertionMonitorData, setAssertionMonitorData] = useState<Assertion[]>([]);
 
@@ -45,7 +47,7 @@ export const AcrylAssertionList = () => {
 
     // get filtered Assertion as per the filter object
     const getFilteredAssertions = (assertions: Assertion[]) => {
-        const filteredAssertionData: AssertionTable = getFilteredTransformedAssertionData(assertions, filter);
+        const filteredAssertionData: AssertionTable = getFilteredTransformedAssertionData(assertions, selectedFilters);
         setVisibleAssertions(filteredAssertionData);
     };
 
@@ -64,18 +66,22 @@ export const AcrylAssertionList = () => {
             getFilteredAssertions(assertionMonitorData);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [filter]);
+    }, [selectedFilters]);
+
+    const handleFilterChange = (filter: any) => {
+        setSelectedFilters(filter);
+    };
 
     const renderListTable = () => {
         if (loading) {
-            return <AcrylAssertionsSummaryLoading />;
+            return <TableLoadingSkeleton />;
         }
         if ((visibleAssertions?.assertions || []).length > 0) {
             return (
                 <AcrylAssertionListTable
                     contract={contract}
                     assertionData={visibleAssertions}
-                    filter={filter}
+                    filter={selectedFilters}
                     refetch={() => {
                         refetch();
                         contractRefetch();
@@ -93,12 +99,12 @@ export const AcrylAssertionList = () => {
                 <AcrylAssertionListFilters
                     filterOptions={visibleAssertions?.filterOptions}
                     originalFilterOptions={visibleAssertions?.originalFilterOptions}
-                    setFilters={setFilters}
-                    filter={filter}
                     filteredAssertions={visibleAssertions}
+                    selectedFilters={selectedFilters}
+                    setSelectedFilters={setSelectedFilters}
+                    handleFilterChange={handleFilterChange}
                 />
             )}
-
             {renderListTable()}
         </>
     );

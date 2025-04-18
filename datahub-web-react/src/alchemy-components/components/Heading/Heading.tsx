@@ -1,9 +1,9 @@
 import React from 'react';
 
-import { HeadingProps } from './types';
-import { H1, H2, H3, H4, H5, H6 } from './components';
+import { H1, H2, H3, H4, H5, H6 } from '@components/components/Heading/components';
+import { HeadingProps, HeadingPropsDefaults } from '@components/components/Heading/types';
 
-export const headingDefaults: HeadingProps = {
+export const headingDefaults: HeadingPropsDefaults = {
     type: 'h1',
     color: 'inherit',
     size: '2xl',
@@ -15,9 +15,10 @@ export const Heading = ({
     size = headingDefaults.size,
     color = headingDefaults.color,
     weight = headingDefaults.weight,
+    colorLevel,
     children,
 }: HeadingProps) => {
-    const sharedProps = { size, color, weight };
+    const sharedProps = { size, color, colorLevel, weight };
 
     switch (type) {
         case 'h1':

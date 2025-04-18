@@ -1,6 +1,7 @@
-import React from 'react';
 import { render } from '@testing-library/react';
-import { TruncatedTextWithTooltip } from '../TruncatedTextWithTooltip';
+import React from 'react';
+
+import { TruncatedTextWithTooltip } from '@app/shared/TruncatedTextWithTooltip';
 
 describe('TruncatedTextWithTooltip', () => {
     it('renders truncated text when text is longer than maxLength', () => {

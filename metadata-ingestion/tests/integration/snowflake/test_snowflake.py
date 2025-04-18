@@ -180,7 +180,8 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         cache_info = report.data_dictionary_cache.as_obj()
         assert cache_info["get_tables_for_database"]["misses"] == 1
         assert cache_info["get_views_for_database"]["misses"] == 1
-        assert cache_info["get_columns_for_schema"]["misses"] == 1
+        # When streams query specific tables, the query will not be cached resulting in 2 cache misses
+        assert cache_info["get_columns_for_schema"]["misses"] == 2
         assert cache_info["get_pk_constraints_for_schema"]["misses"] == 1
         assert cache_info["get_fk_constraints_for_schema"]["misses"] == 1
 
@@ -208,6 +209,9 @@ def test_snowflake_tags_as_structured_properties(
                     type="snowflake",
                     config=SnowflakeV2Config(
                         extract_tags_as_structured_properties=True,
+                        structured_property_pattern=AllowDenyPattern(
+                            deny=["test_db.test_schema.my_tag_2"]
+                        ),
                         extract_tags=TagOption.without_lineage,
                         account_id="ABC12345.ap-south-1.aws",
                         username="TST_USR",

@@ -23,10 +23,10 @@ from dagster._core.definitions.repository_definition import (
 )
 from dagster._core.definitions.resource_definition import ResourceDefinition
 from freezegun import freeze_time
-from utils.utils import PytestConfig, check_golden_file
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DatahubClientConfig
+from datahub.testing.compare_metadata_json import assert_metadata_files_equal
 from datahub_dagster_plugin.client.dagster_generator import DatahubDagsterSourceConfig
 from datahub_dagster_plugin.sensors.datahub_sensors import (
     DatahubSensors,
@@ -96,7 +96,7 @@ TEST_UUIDS = ["uuid_{}".format(i) for i in range(10000)]
 @patch.object(uuid, "uuid4", side_effect=TEST_UUIDS)
 @patch("datahub_dagster_plugin.sensors.datahub_sensors.DataHubGraph", autospec=True)
 @freeze_time(FROZEN_TIME)
-def test_emit_metadata(mock_emit: Mock, pytestconfig: PytestConfig) -> None:
+def test_emit_metadata(mock_emit: Mock, mock_uuid: Mock) -> None:
     mock_emitter = Mock()
     mock_emit.return_value = mock_emitter
 
@@ -144,7 +144,7 @@ def test_emit_metadata(mock_emit: Mock, pytestconfig: PytestConfig) -> None:
     dagster_run = result.dagster_run
 
     # retrieve a success event from the completed execution
-    dagster_event = result.get_job_success_event()
+    dagster_event = result.get_run_success_event()
 
     # create the context
     run_status_sensor_context = build_run_status_sensor_context(
@@ -168,8 +168,7 @@ def test_emit_metadata(mock_emit: Mock, pytestconfig: PytestConfig) -> None:
             json_object = json.dumps(mcpws, indent=2)
             f.write(json_object)
 
-        check_golden_file(
-            pytestconfig=pytestconfig,
+        assert_metadata_files_equal(
             output_path=pathlib.Path(f"{tmp_path}/test_emit_metadata_mcps.json"),
             golden_path=pathlib.Path(
                 "tests/unit/golden/golden_test_emit_metadata_mcps.json"

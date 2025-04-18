@@ -1,27 +1,29 @@
-import React, { useEffect, useState } from 'react';
-import { Button, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
+import { Button, Typography } from 'antd';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
-import { useGetRootGlossaryNodesQuery, useGetRootGlossaryTermsQuery } from '../../graphql/glossary.generated';
-import TabToolbar from '../entity/shared/components/styled/TabToolbar';
-import GlossaryEntitiesList from './GlossaryEntitiesList';
-import EmptyGlossarySection from './EmptyGlossarySection';
-import CreateGlossaryEntityModal from '../entity/shared/EntityDropdown/CreateGlossaryEntityModal';
-import { EntityType } from '../../types.generated';
-import { Message } from '../shared/Message';
-import { sortGlossaryTerms } from '../entity/glossaryTerm/utils';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { sortGlossaryNodes } from '../entity/glossaryNode/utils';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { sortGlossaryNodes } from '@app/entity/glossaryNode/utils';
+import { sortGlossaryTerms } from '@app/entity/glossaryTerm/utils';
+import CreateGlossaryEntityModal from '@app/entity/shared/EntityDropdown/CreateGlossaryEntityModal';
+import { useGlossaryEntityData } from '@app/entity/shared/GlossaryEntityContext';
+import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import EmptyGlossarySection from '@app/glossary/EmptyGlossarySection';
+import GlossaryEntitiesList from '@app/glossary/GlossaryEntitiesList';
+import useToggleSidebar from '@app/glossary/useToggleSidebar';
+import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import {
-    BUSINESS_GLOSSARY_INTRO_ID,
-    BUSINESS_GLOSSARY_CREATE_TERM_ID,
     BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID,
-} from '../onboarding/config/BusinessGlossaryOnboardingConfig';
-import { OnboardingTour } from '../onboarding/OnboardingTour';
-import { useGlossaryEntityData } from '../entity/shared/GlossaryEntityContext';
-import { useUserContext } from '../context/useUserContext';
-import useToggleSidebar from './useToggleSidebar';
-import ToggleSidebarButton from '../search/ToggleSidebarButton';
+    BUSINESS_GLOSSARY_CREATE_TERM_ID,
+    BUSINESS_GLOSSARY_INTRO_ID,
+} from '@app/onboarding/config/BusinessGlossaryOnboardingConfig';
+import ToggleSidebarButton from '@app/search/ToggleSidebarButton';
+import { Message } from '@app/shared/Message';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetRootGlossaryNodesQuery, useGetRootGlossaryTermsQuery } from '@graphql/glossary.generated';
+import { EntityType } from '@types';
 
 export const HeaderWrapper = styled(TabToolbar)`
     padding: 15px 45px 10px 24px;

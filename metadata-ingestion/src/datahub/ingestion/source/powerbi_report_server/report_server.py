@@ -14,7 +14,9 @@ from requests_ntlm import HttpNtlmAuth
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import EnvConfigMixin
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -25,7 +27,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.powerbi_report_server.constants import (
     API_ENDPOINTS,
@@ -38,6 +40,14 @@ from datahub.ingestion.source.powerbi_report_server.report_server_domain import 
     OwnershipData,
     PowerBiReport,
     Report,
+)
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
 from datahub.metadata.schema_classes import (
@@ -53,11 +63,12 @@ from datahub.metadata.schema_classes import (
     StatusClass,
 )
 from datahub.utilities.dedup_list import deduplicate_list
+from datahub.utilities.lossy_collections import LossyList
 
 LOGGER = logging.getLogger(__name__)
 
 
-class PowerBiReportServerAPIConfig(EnvConfigMixin):
+class PowerBiReportServerAPIConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     username: str = pydantic.Field(description="Windows account username")
     password: str = pydantic.Field(description="Windows account password")
     workstation_name: str = pydantic.Field(
@@ -185,7 +196,7 @@ class PowerBiReportServerAPI:
         }
 
         reports: List[Any] = []
-        for report_type in report_types_mapping.keys():
+        for report_type in report_types_mapping:
             report_get_endpoint: str = API_ENDPOINTS[report_type]
             # Replace place holders
             report_get_endpoint_http = report_get_endpoint.format(
@@ -474,9 +485,9 @@ class Mapper:
 
 
 @dataclass
-class PowerBiReportServerDashboardSourceReport(SourceReport):
+class PowerBiReportServerDashboardSourceReport(StaleEntityRemovalSourceReport):
     scanned_report: int = 0
-    filtered_reports: List[str] = dataclass_field(default_factory=list)
+    filtered_reports: LossyList[str] = dataclass_field(default_factory=LossyList)
 
     def report_scanned(self, count: int = 1) -> None:
         self.scanned_report += count
@@ -489,7 +500,7 @@ class PowerBiReportServerDashboardSourceReport(SourceReport):
 @config_class(PowerBiReportServerDashboardSourceConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.OWNERSHIP, "Enabled by default")
-class PowerBiReportServerDashboardSource(Source):
+class PowerBiReportServerDashboardSource(StatefulIngestionSourceBase):
     """
     Use this plugin to connect to [PowerBI Report Server](https://powerbi.microsoft.com/en-us/report-server/).
     It extracts the following:
@@ -519,8 +530,9 @@ class PowerBiReportServerDashboardSource(Source):
     def __init__(
         self, config: PowerBiReportServerDashboardSourceConfig, ctx: PipelineContext
     ):
-        super().__init__(ctx)
+        super().__init__(config, ctx)
         self.source_config = config
+        self.ctx = ctx
         self.report = PowerBiReportServerDashboardSourceReport()
         self.auth = PowerBiReportServerAPI(self.source_config).get_auth_credentials
         self.powerbi_client = PowerBiReportServerAPI(self.source_config)
@@ -530,6 +542,14 @@ class PowerBiReportServerDashboardSource(Source):
     def create(cls, config_dict, ctx):
         config = PowerBiReportServerDashboardSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.source_config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """

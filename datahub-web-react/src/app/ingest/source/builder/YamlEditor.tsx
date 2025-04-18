@@ -1,5 +1,5 @@
-import React from 'react';
 import Editor, { loader } from '@monaco-editor/react';
+import React from 'react';
 
 const baseUrl = import.meta.env.BASE_URL;
 loader.config({

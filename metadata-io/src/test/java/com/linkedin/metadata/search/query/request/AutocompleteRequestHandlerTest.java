@@ -49,11 +49,12 @@ import org.opensearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.opensearch.index.query.functionscore.ScoreFunctionBuilders;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.fetch.subphase.highlight.HighlightBuilder;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 public class AutocompleteRequestHandlerTest {
   private static SearchConfiguration testQueryConfig;
-  private static AutocompleteRequestHandler handler;
+  private AutocompleteRequestHandler handler;
   private OperationContext mockOpContext =
       TestOperationContexts.systemContextNoSearchAuthorization(mock(EntityRegistry.class));
   private OperationContext nonMockOpContext =
@@ -83,9 +84,13 @@ public class AutocompleteRequestHandlerTest {
     testQueryConfig.setExactMatch(exactMatchConfiguration);
     testQueryConfig.setWordGram(wordGramConfiguration);
     testQueryConfig.setPartial(partialConfiguration);
+  }
 
+  @BeforeClass
+  public void beforeTest() {
     handler =
         AutocompleteRequestHandler.getBuilder(
+            mockOpContext,
             TestEntitySpecBuilder.getSpec(),
             CustomSearchConfiguration.builder().build(),
             QueryFilterRewriteChain.EMPTY,
@@ -177,9 +182,9 @@ public class AutocompleteRequestHandlerTest {
 
   @Test
   public void testAutocompleteRequestWithField() {
-    // When field is null
+    // The field must be a valid field in the model. Pick from `keyPart1` or `urn`
     SearchRequest autocompleteRequest =
-        handler.getSearchRequest(mockOpContext, "input", "field", null, 10);
+        handler.getSearchRequest(mockOpContext, "input", "keyPart1", null, 10);
     SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
     assertEquals(sourceBuilder.size(), 10);
     BoolQueryBuilder wrapper =
@@ -189,19 +194,19 @@ public class AutocompleteRequestHandlerTest {
     assertEquals(query.should().size(), 3);
 
     MatchQueryBuilder matchQueryBuilder = (MatchQueryBuilder) query.should().get(0);
-    assertEquals("field.keyword", matchQueryBuilder.fieldName());
+    assertEquals("keyPart1.keyword", matchQueryBuilder.fieldName());
 
     MultiMatchQueryBuilder autocompleteQuery = (MultiMatchQueryBuilder) query.should().get(2);
     Map<String, Float> queryFields = autocompleteQuery.fields();
-    assertTrue(queryFields.containsKey("field.ngram"));
-    assertTrue(queryFields.containsKey("field.ngram._2gram"));
-    assertTrue(queryFields.containsKey("field.ngram._3gram"));
-    assertTrue(queryFields.containsKey("field.ngram._4gram"));
+    assertTrue(queryFields.containsKey("keyPart1.ngram"));
+    assertTrue(queryFields.containsKey("keyPart1.ngram._2gram"));
+    assertTrue(queryFields.containsKey("keyPart1.ngram._3gram"));
+    assertTrue(queryFields.containsKey("keyPart1.ngram._4gram"));
     assertEquals(autocompleteQuery.type(), MultiMatchQueryBuilder.Type.BOOL_PREFIX);
 
     MatchPhrasePrefixQueryBuilder prefixQuery =
         (MatchPhrasePrefixQueryBuilder) query.should().get(1);
-    assertEquals("field.delimited", prefixQuery.fieldName());
+    assertEquals("keyPart1.delimited", prefixQuery.fieldName());
 
     TermQueryBuilder removedFilter = (TermQueryBuilder) wrapper.mustNot().get(0);
     assertEquals(removedFilter.fieldName(), "removed");
@@ -209,11 +214,11 @@ public class AutocompleteRequestHandlerTest {
     HighlightBuilder highlightBuilder = sourceBuilder.highlighter();
     List<HighlightBuilder.Field> highlightedFields = highlightBuilder.fields();
     assertEquals(highlightedFields.size(), 5);
-    assertEquals(highlightedFields.get(0).name(), "field");
-    assertEquals(highlightedFields.get(1).name(), "field.*");
-    assertEquals(highlightedFields.get(2).name(), "field.ngram");
-    assertEquals(highlightedFields.get(3).name(), "field.delimited");
-    assertEquals(highlightedFields.get(4).name(), "field.keyword");
+    assertEquals(highlightedFields.get(0).name(), "keyPart1");
+    assertEquals(highlightedFields.get(1).name(), "keyPart1.*");
+    assertEquals(highlightedFields.get(2).name(), "keyPart1.ngram");
+    assertEquals(highlightedFields.get(3).name(), "keyPart1.delimited");
+    assertEquals(highlightedFields.get(4).name(), "keyPart1.keyword");
   }
 
   @Test
@@ -221,6 +226,7 @@ public class AutocompleteRequestHandlerTest {
     // Exclude Default query
     AutocompleteRequestHandler withoutDefaultQuery =
         AutocompleteRequestHandler.getBuilder(
+            mockOpContext,
             TestEntitySpecBuilder.getSpec(),
             CustomSearchConfiguration.builder()
                 .autocompleteConfigurations(
@@ -248,6 +254,7 @@ public class AutocompleteRequestHandlerTest {
     // Include Default query
     AutocompleteRequestHandler withDefaultQuery =
         AutocompleteRequestHandler.getBuilder(
+            mockOpContext,
             TestEntitySpecBuilder.getSpec(),
             CustomSearchConfiguration.builder()
                 .autocompleteConfigurations(
@@ -290,6 +297,7 @@ public class AutocompleteRequestHandlerTest {
     // Pickup scoring functions from non-autocomplete
     AutocompleteRequestHandler withInherit =
         AutocompleteRequestHandler.getBuilder(
+            mockOpContext,
             TestEntitySpecBuilder.getSpec(),
             CustomSearchConfiguration.builder()
                 .queryConfigurations(List.of(TEST_QUERY_CONFIG))
@@ -332,6 +340,7 @@ public class AutocompleteRequestHandlerTest {
     // no search query customization
     AutocompleteRequestHandler noQueryCustomization =
         AutocompleteRequestHandler.getBuilder(
+            mockOpContext,
             TestEntitySpecBuilder.getSpec(),
             CustomSearchConfiguration.builder()
                 .autocompleteConfigurations(
@@ -378,6 +387,7 @@ public class AutocompleteRequestHandlerTest {
     // Scoring functions explicit autocomplete override
     AutocompleteRequestHandler explicitNoInherit =
         AutocompleteRequestHandler.getBuilder(
+            mockOpContext,
             TestEntitySpecBuilder.getSpec(),
             CustomSearchConfiguration.builder()
                 .queryConfigurations(List.of(TEST_QUERY_CONFIG)) // should be ignored
@@ -432,6 +442,7 @@ public class AutocompleteRequestHandlerTest {
     // inherit enabled)
     AutocompleteRequestHandler explicit =
         AutocompleteRequestHandler.getBuilder(
+            mockOpContext,
             TestEntitySpecBuilder.getSpec(),
             CustomSearchConfiguration.builder()
                 .queryConfigurations(List.of(TEST_QUERY_CONFIG)) // should be ignored
@@ -605,6 +616,7 @@ public class AutocompleteRequestHandlerTest {
 
     AutocompleteRequestHandler requestHandler =
         AutocompleteRequestHandler.getBuilder(
+            mockOpContext,
             entitySpec,
             CustomSearchConfiguration.builder().build(),
             QueryFilterRewriteChain.EMPTY,

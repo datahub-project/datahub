@@ -49,6 +49,7 @@ from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownLineageMapping,
+    ObservedQuery,
     PreparsedQuery,
     SqlAggregatorReport,
     SqlParsingAggregator,
@@ -241,7 +242,13 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         use_cached_audit_log = audit_log_file.exists()
 
         queries: FileBackedList[
-            Union[KnownLineageMapping, PreparsedQuery, TableRename, TableSwap]
+            Union[
+                KnownLineageMapping,
+                PreparsedQuery,
+                TableRename,
+                TableSwap,
+                ObservedQuery,
+            ]
         ]
         if use_cached_audit_log:
             logger.info("Using cached audit log")
@@ -252,7 +259,13 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
             shared_connection = ConnectionWrapper(audit_log_file)
             queries = FileBackedList(shared_connection)
-            entry: Union[KnownLineageMapping, PreparsedQuery, TableRename, TableSwap]
+            entry: Union[
+                KnownLineageMapping,
+                PreparsedQuery,
+                TableRename,
+                TableSwap,
+                ObservedQuery,
+            ]
 
             with self.report.copy_history_fetch_timer:
                 for entry in self.fetch_copy_history():
@@ -329,7 +342,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
     def fetch_query_log(
         self, users: UsersMapping
-    ) -> Iterable[Union[PreparsedQuery, TableRename, TableSwap]]:
+    ) -> Iterable[Union[PreparsedQuery, TableRename, TableSwap, ObservedQuery]]:
         query_log_query = _build_enriched_query_log_query(
             start_time=self.config.window.start_time,
             end_time=self.config.window.end_time,
@@ -362,7 +375,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
     def _parse_audit_log_row(
         self, row: Dict[str, Any], users: UsersMapping
-    ) -> Optional[Union[TableRename, TableSwap, PreparsedQuery]]:
+    ) -> Optional[Union[TableRename, TableSwap, PreparsedQuery, ObservedQuery]]:
         json_fields = {
             "DIRECT_OBJECTS_ACCESSED",
             "OBJECTS_MODIFIED",
@@ -390,6 +403,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                     res["session_id"],
                     res["query_start_time"],
                     object_modified_by_ddl,
+                    res["query_type"],
                 )
             if known_ddl_entry:
                 return known_ddl_entry
@@ -398,6 +412,34 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 pass
             else:
                 return None
+
+        user = CorpUserUrn(
+            self.identifiers.get_user_identifier(
+                res["user_name"], users.get(res["user_name"])
+            )
+        )
+
+        # Use direct_objects_accessed instead objects_modified
+        # objects_modified returns $SYS_VIEW_X with no mapping
+        has_stream_objects = any(
+            obj.get("objectDomain") == "Stream" for obj in direct_objects_accessed
+        )
+
+        # If a stream is used, default to query parsing.
+        if has_stream_objects:
+            logger.debug("Found matching stream object")
+            return ObservedQuery(
+                query=res["query_text"],
+                session_id=res["session_id"],
+                timestamp=res["query_start_time"].astimezone(timezone.utc),
+                user=user,
+                default_db=res["default_db"],
+                default_schema=res["default_schema"],
+                query_hash=get_query_fingerprint(
+                    res["query_text"], self.identifiers.platform, fast=True
+                ),
+            )
+
         upstreams = []
         column_usage = {}
 
@@ -460,12 +502,6 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                     )
                 )
 
-        user = CorpUserUrn(
-            self.identifiers.get_user_identifier(
-                res["user_name"], users.get(res["user_name"])
-            )
-        )
-
         timestamp: datetime = res["query_start_time"]
         timestamp = timestamp.astimezone(timezone.utc)
 
@@ -479,7 +515,10 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             # job at eliminating redundant / repetitive queries. As such, we include the fast fingerprint
             # here
             query_id=get_query_fingerprint(
-                res["query_text"], self.identifiers.platform, fast=True
+                res["query_text"],
+                self.identifiers.platform,
+                fast=True,
+                secondary_id=res["query_secondary_fingerprint"],
             ),
             query_text=res["query_text"],
             upstreams=upstreams,
@@ -502,9 +541,27 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         session_id: str,
         timestamp: datetime,
         object_modified_by_ddl: dict,
+        query_type: str,
     ) -> Optional[Union[TableRename, TableSwap]]:
         timestamp = timestamp.astimezone(timezone.utc)
-        if object_modified_by_ddl[
+        if (
+            object_modified_by_ddl["operationType"] == "ALTER"
+            and query_type == "RENAME_TABLE"
+            and object_modified_by_ddl["properties"].get("objectName")
+        ):
+            original_un = self.identifiers.gen_dataset_urn(
+                self.identifiers.get_dataset_identifier_from_qualified_name(
+                    object_modified_by_ddl["objectName"]
+                )
+            )
+
+            new_urn = self.identifiers.gen_dataset_urn(
+                self.identifiers.get_dataset_identifier_from_qualified_name(
+                    object_modified_by_ddl["properties"]["objectName"]["value"]
+                )
+            )
+            return TableRename(original_un, new_urn, query, session_id, timestamp)
+        elif object_modified_by_ddl[
             "operationType"
         ] == "ALTER" and object_modified_by_ddl["properties"].get("swapTargetName"):
             urn1 = self.identifiers.gen_dataset_urn(
@@ -520,22 +577,6 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             )
 
             return TableSwap(urn1, urn2, query, session_id, timestamp)
-        elif object_modified_by_ddl[
-            "operationType"
-        ] == "RENAME_TABLE" and object_modified_by_ddl["properties"].get("objectName"):
-            original_un = self.identifiers.gen_dataset_urn(
-                self.identifiers.get_dataset_identifier_from_qualified_name(
-                    object_modified_by_ddl["objectName"]
-                )
-            )
-
-            new_urn = self.identifiers.gen_dataset_urn(
-                self.identifiers.get_dataset_identifier_from_qualified_name(
-                    object_modified_by_ddl["properties"]["objectName"]["value"]
-                )
-            )
-
-            return TableRename(original_un, new_urn, query, session_id, timestamp)
         else:
             self.report.num_ddl_queries_dropped += 1
             return None
@@ -616,7 +657,17 @@ WITH
 fingerprinted_queries as (
     SELECT *,
         -- TODO: Generate better fingerprints for each query by pushing down regex logic.
-        query_history.query_parameterized_hash as query_fingerprint
+        query_history.query_parameterized_hash as query_fingerprint,
+        -- Optional and additional hash to be used for query deduplication and final query identity
+        CASE 
+            WHEN CONTAINS(query_history.query_text, '-- Hex query metadata:')
+            -- Extract project id and hash it
+            THEN CAST(HASH(
+                REGEXP_SUBSTR(query_history.query_text, '"project_id"\\\\s*:\\\\s*"([^"]+)"', 1, 1, 'e', 1),
+                REGEXP_SUBSTR(query_history.query_text, '"context"\\\\s*:\\\\s*"([^"]+)"', 1, 1, 'e', 1)
+            ) AS VARCHAR)
+            ELSE NULL 
+        END as query_secondary_fingerprint
     FROM
         snowflake.account_usage.query_history
     WHERE
@@ -632,11 +683,11 @@ fingerprinted_queries as (
             {time_bucket_size},
             CONVERT_TIMEZONE('UTC', start_time)
         ) AS bucket_start_time,
-        COUNT(*) OVER (PARTITION BY bucket_start_time, query_fingerprint) AS query_count,
+        COUNT(*) OVER (PARTITION BY bucket_start_time, query_fingerprint, query_secondary_fingerprint) AS query_count,
     FROM
         fingerprinted_queries
     QUALIFY
-        ROW_NUMBER() OVER (PARTITION BY bucket_start_time, query_fingerprint ORDER BY start_time DESC) = 1
+        ROW_NUMBER() OVER (PARTITION BY bucket_start_time, query_fingerprint, query_secondary_fingerprint ORDER BY start_time DESC) = 1
 )
 , raw_access_history AS (
     SELECT
@@ -676,6 +727,7 @@ fingerprinted_queries as (
         q.bucket_start_time,
         q.query_id,
         q.query_fingerprint,
+        q.query_secondary_fingerprint,
         q.query_count,
         q.session_id AS "SESSION_ID",
         q.start_time AS "QUERY_START_TIME",
@@ -696,6 +748,9 @@ fingerprinted_queries as (
     JOIN filtered_access_history a USING (query_id)
 )
 SELECT * FROM query_access_history
+-- Our query aggregator expects the queries to be added in chronological order.
+-- It's easier for us to push down the sorting to Snowflake/SQL instead of doing it in Python.
+ORDER BY QUERY_START_TIME ASC
 """
 
 

@@ -1,14 +1,16 @@
-import { useGetSiblingPlatforms } from '@app/entity/shared/siblingUtils';
-import ChangeTransactionView, {
-    ChangeTransactionEntry,
-} from '@app/entityV2/shared/tabs/Dataset/Schema/history/ChangeTransactionView';
 import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
 import { Drawer } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+
+import { useGetSiblingPlatforms } from '@app/entity/shared/siblingUtils';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import ChangeTransactionView, {
+    ChangeTransactionEntry,
+} from '@app/entityV2/shared/tabs/Dataset/Schema/history/ChangeTransactionView';
+
 import { useGetTimelineQuery } from '@graphql/timeline.generated';
 import { ChangeCategoryType, ChangeTransaction, DataPlatform, SemanticVersionStruct } from '@types';
-import { REDESIGN_COLORS } from '../../../../constants';
 
 const StyledDrawer = styled(Drawer)`
     &&& .ant-drawer-body {
@@ -84,10 +86,10 @@ const HistorySidebar = ({ open, onClose, urn, siblingUrn, versionList, hideSeman
 
     const { entityPlatform, siblingPlatform } = useGetSiblingPlatforms();
     const transactionEntries: ChangeTransactionEntry[] = [
-        ...(entityTimelineData?.getTimeline?.changeTransactions.map((transaction) =>
+        ...(entityTimelineData?.getTimeline?.changeTransactions?.map((transaction) =>
             makeTransactionEntry(transaction, hideSemanticVersions ? [] : versionList, entityPlatform ?? undefined),
         ) || []),
-        ...(siblingTimelineData?.getTimeline?.changeTransactions.map((transaction) =>
+        ...(siblingTimelineData?.getTimeline?.changeTransactions?.map((transaction) =>
             makeTransactionEntry(transaction, [], siblingPlatform ?? undefined),
         ) || []),
     ].sort((a, b) => a.transaction.timestampMillis - b.transaction.timestampMillis);

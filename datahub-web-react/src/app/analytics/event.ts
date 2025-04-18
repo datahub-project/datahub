@@ -1,3 +1,7 @@
+import { EmbedLookupNotFoundReason } from '@app/embed/lookup/constants';
+import { Direction } from '@app/lineage/types';
+import { FilterMode } from '@app/search/utils/constants';
+
 import {
     AllowedValue,
     DataHubViewType,
@@ -7,10 +11,7 @@ import {
     PropertyValueInput,
     RecommendationRenderType,
     ScenarioType,
-} from '../../types.generated';
-import { EmbedLookupNotFoundReason } from '../embed/lookup/constants';
-import { Direction } from '../lineage/types';
-import { FilterMode } from '../search/utils/constants';
+} from '@types';
 
 /**
  * Valid event types.
@@ -111,6 +112,9 @@ export enum EventType {
     SearchLineageColumnsEvent,
     FilterLineageColumnsEvent,
     DrillDownLineageEvent,
+    LinkAssetVersionEvent,
+    UnlinkAssetVersionEvent,
+    ShowAllVersionsEvent,
 }
 
 /**
@@ -816,6 +820,30 @@ export interface RemoveStructuredPropertyEvent extends StructuredPropertyOnAsset
     type: EventType.RemoveStructuredPropertyEvent;
 }
 
+export interface LinkAssetVersionEvent extends BaseEvent {
+    type: EventType.LinkAssetVersionEvent;
+    newAssetUrn: string;
+    oldAssetUrn?: string;
+    versionSetUrn?: string;
+    entityType: EntityType;
+}
+
+export interface UnlinkAssetVersionEvent extends BaseEvent {
+    type: EventType.UnlinkAssetVersionEvent;
+    assetUrn: string;
+    versionSetUrn?: string;
+    entityType: EntityType;
+}
+
+export interface ShowAllVersionsEvent extends BaseEvent {
+    type: EventType.ShowAllVersionsEvent;
+    assetUrn: string;
+    versionSetUrn?: string;
+    entityType: EntityType;
+    numVersions?: number;
+    uiLocation: 'preview' | 'more-options';
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -914,4 +942,7 @@ export type Event =
     | ApplyStructuredPropertyEvent
     | UpdateStructuredPropertyOnAssetEvent
     | RemoveStructuredPropertyEvent
-    | ClickDocRequestCTA;
+    | ClickDocRequestCTA
+    | LinkAssetVersionEvent
+    | UnlinkAssetVersionEvent
+    | ShowAllVersionsEvent;

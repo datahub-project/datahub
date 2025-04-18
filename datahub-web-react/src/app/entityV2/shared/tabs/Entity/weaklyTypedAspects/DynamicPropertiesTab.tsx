@@ -1,10 +1,10 @@
-import React from 'react';
 import { Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
 
-import { StyledTable } from '../../../components/styled/StyledTable';
-import { ANTD_GRAY } from '../../../constants';
-import TableValueElement from './TableValueElement';
+import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import TableValueElement from '@app/entityV2/shared/tabs/Entity/weaklyTypedAspects/TableValueElement';
 
 type Props = {
     payload: string | undefined | null;
@@ -25,7 +25,7 @@ export default function DynamicTabularTab({ payload: rawPayload }: Props) {
             width: 210,
             title: 'Name',
             dataIndex: 'key',
-            sorter: (a, b) => a?.key.localeCompare(b?.key || '') || 0,
+            sorter: (a, b) => a?.key?.localeCompare(b?.key || '') || 0,
             defaultSortOrder: 'ascend',
             render: (name: string) => <NameText>{name}</NameText>,
         },

@@ -3,6 +3,7 @@
 /docs
 /genDocs
 /genStatic
+# note that genStatic is no longer used
 
 # Generated GraphQL
 /graphql/combined.graphql

@@ -1,13 +1,15 @@
 import React from 'react';
-import { useBaseEntity } from '../../../../entity/shared/EntityContext';
-import { EntityType } from '../../../../../types.generated';
-import { EntityList } from './components/EntityList';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
+
+import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { EntityList } from '@app/entityV2/shared/tabs/Entity/components/EntityList';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType } from '@types';
 
 export const DashboardDatasetsTab = () => {
     const entity = useBaseEntity() as any;
     const dashboard = entity && entity.dashboard;
-    const datasets = dashboard?.datasets?.relationships.map((relationship) => relationship.entity);
+    const datasets = dashboard?.datasets?.relationships?.map((relationship) => relationship.entity);
     const entityRegistry = useEntityRegistry();
     const totalDatasets = dashboard?.datasets?.total || 0;
     const title = `Consumes ${totalDatasets} ${

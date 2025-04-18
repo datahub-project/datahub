@@ -33,7 +33,7 @@ class CatalogItem(BaseModel):
     )
 
     @validator("display_name", always=True)
-    def validate_diplay_name(cls, value, values):  # noqa: N805
+    def validate_diplay_name(cls, value, values):
         if values["created_by"]:
             return values["created_by"].split("\\")[-1]
         return ""

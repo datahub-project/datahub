@@ -1,7 +1,9 @@
 package com.linkedin.test.metadata.aspect;
 
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
@@ -59,7 +61,10 @@ public class MockAspectRetriever implements CachingAspectRetriever {
                         .urn(urnEntry.getKey())
                         .version(0)
                         .systemMetadata(new SystemMetadata().setVersion("1"))
-                        .createdOn(Timestamp.from(Instant.now()))
+                        .auditStamp(
+                            new AuditStamp()
+                                .setActor(UrnUtils.getUrn("urn:li:corpuser:test"))
+                                .setTime(Timestamp.from(Instant.now()).getTime()))
                         .build());
       }
     }

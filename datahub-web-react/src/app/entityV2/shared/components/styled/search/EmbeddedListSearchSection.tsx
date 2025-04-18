@@ -1,48 +1,30 @@
-import React from 'react';
-import * as QueryString from 'query-string';
-import { useHistory, useLocation } from 'react-router';
 import { ApolloError } from '@apollo/client';
-import useSortInput from '@src/app/searchV2/sorting/useSortInput';
-import { useSelectedSortOption } from '@src/app/search/context/SearchContext';
-import { EntityType, FacetFilterInput } from '../../../../../../types.generated';
-import useFilters from '../../../../../search/utils/useFilters';
-import { navigateToEntitySearchUrl } from './navigateToEntitySearchUrl';
-import { FilterSet, GetSearchResultsParams, SearchResultsInterface } from './types';
-import { useEntityQueryParams } from '../../../containers/profile/utils';
-import { EmbeddedListSearch } from './EmbeddedListSearch';
-import { UnionType } from '../../../../../search/utils/constants';
+import * as QueryString from 'query-string';
+import React from 'react';
+import { useHistory, useLocation } from 'react-router';
+
+import { EmbeddedListSearch } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearch';
+import { navigateToEntitySearchUrl } from '@app/entityV2/shared/components/styled/search/navigateToEntitySearchUrl';
+import {
+    FilterSet,
+    GetSearchResultsParams,
+    SearchResultsInterface,
+} from '@app/entityV2/shared/components/styled/search/types';
+import { useEntityQueryParams } from '@app/entityV2/shared/containers/profile/utils';
+import { decodeComma } from '@app/entityV2/shared/utils';
+import { EMBEDDED_LIST_SEARCH_ENTITY_TYPES, UnionType } from '@app/search/utils/constants';
 import {
     DownloadSearchResults,
     DownloadSearchResultsInput,
     DownloadSearchResultsParams,
-} from '../../../../../search/utils/types';
-import { decodeComma } from '../../../utils';
+} from '@app/search/utils/types';
+import useFilters from '@app/search/utils/useFilters';
+import { useSelectedSortOption } from '@src/app/search/context/SearchContext';
+import useSortInput from '@src/app/searchV2/sorting/useSortInput';
+
+import { FacetFilterInput } from '@types';
 
 const FILTER = 'filter';
-const SEARCH_ENTITY_TYPES = [
-    EntityType.Dataset,
-    EntityType.Dashboard,
-    EntityType.Chart,
-    EntityType.Mlmodel,
-    EntityType.MlmodelGroup,
-    EntityType.MlfeatureTable,
-    EntityType.Mlfeature,
-    EntityType.MlprimaryKey,
-    EntityType.DataFlow,
-    EntityType.DataJob,
-    EntityType.GlossaryTerm,
-    EntityType.GlossaryNode,
-    EntityType.Tag,
-    EntityType.Role,
-    EntityType.CorpUser,
-    EntityType.CorpGroup,
-    EntityType.Container,
-    EntityType.Domain,
-    EntityType.DataProduct,
-    EntityType.Notebook,
-    EntityType.BusinessAttribute,
-    EntityType.DataProcessInstance,
-];
 
 function getParamsWithoutFilters(params: QueryString.ParsedQuery<string>) {
     const paramsCopy = { ...params };
@@ -170,7 +152,7 @@ export const EmbeddedListSearchSection = ({
 
     return (
         <EmbeddedListSearch
-            entityTypes={SEARCH_ENTITY_TYPES}
+            entityTypes={EMBEDDED_LIST_SEARCH_ENTITY_TYPES}
             query={query || ''}
             page={page}
             unionType={unionType}

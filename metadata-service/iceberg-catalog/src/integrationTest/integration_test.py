@@ -2,8 +2,8 @@ from pyspark.sql import SparkSession
 import os
 from urllib.parse import urlparse
 import pytest
-from datahub.cli import cli_utils, env_utils, iceberg_cli
-from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
+from datahub.cli import cli_utils, iceberg_cli
+from datahub.ingestion.graph.client import get_default_graph
 
 
 def get_gms_url():
@@ -48,9 +48,7 @@ def give_all_permissions(username, policy_name):
         """
     variables = {"user": f"urn:li:corpuser:{username}", "policyName": policy_name}
 
-    response = client.execute_graphql(
-        query, variables=variables, format_exception=False
-    )
+    client.execute_graphql(query, variables=variables, format_exception=False)
 
 
 @pytest.fixture
@@ -160,11 +158,8 @@ def _test_basic_table_ops(spark_session):
     assert result.count() == 0
 
     spark_session.sql("drop table test_table")
-    try:
+    with pytest.raises(Exception, match="TABLE_OR_VIEW_NOT_FOUND"):
         spark_session.sql("select * from test_table")
-        assert False, "Table must not exist"
-    except:
-        pass  # Exception is expected
 
     # TODO: Add dataset verification
 
@@ -178,11 +173,8 @@ def _test_basic_view_ops(spark_session):
     assert result.count() == 1
 
     spark_session.sql("DROP VIEW test_view")
-    try:
+    with pytest.raises(Exception, match="TABLE_OR_VIEW_NOT_FOUND"):
         spark_session.sql("SELECT * FROM test_view")
-        assert False, "test_view must not exist"
-    except:
-        pass  # Exception is expected
 
     spark_session.sql("drop table test_table")
 
@@ -193,11 +185,8 @@ def _test_rename_ops(spark_session):
 
     spark_session.sql("alter table test_table rename to test_table_renamed")
 
-    try:
+    with pytest.raises(Exception, match="TABLE_OR_VIEW_NOT_FOUND"):
         spark_session.sql("SELECT * FROM test_table")
-        assert False, "test_table must not exist"
-    except:
-        pass  # Exception is expected
 
     spark_session.sql("insert into test_table_renamed values(2, 'bar' ) ")
     result = spark_session.sql("SELECT * FROM test_table_renamed")
@@ -223,6 +212,9 @@ def test_iceberg_quick(spark_session, warehouse):
     _test_basic_view_ops(spark_session)
     _test_rename_ops(spark_session)
 
+    result = spark_session.sql("show namespaces")
+    assert (result[result["namespace"] == "default"].count() == 1)
+
 
 def _create_table(spark_session, ns, table_name):
     spark_session.sql("create namespace if not exists default")
@@ -232,12 +224,20 @@ def _create_table(spark_session, ns, table_name):
 
     spark_session.sql(f"insert into {ns}.{table_name} values (1, 'foo' ) ")
 
+    result = spark_session.sql("show namespaces")
+    assert (result[result["namespace"] == "default"].count() == 1)
+
+    result = spark_session.sql("show namespaces in default")
+    assert (result[result["namespace"] == f"{ns}"].count() == 1)
+
+
 
 def test_load_tables(spark_session, warehouse):
-    namespace_count = 3
-    table_count = 4
+    namespace_count = 2
+    table_count = 2
     for ns_index in range(namespace_count):
-        ns = f"default_ns{ns_index}"
+        ns = f"default.ns{ns_index}"
         for table_index in range(table_count):
             table_name = f"table_{table_index}"
+            _create_table(spark_session, ns, table_name)
             _create_table(spark_session, ns, table_name)

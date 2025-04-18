@@ -1,10 +1,12 @@
+import { CheckOutlined, LinkOutlined } from '@ant-design/icons';
+import { Text, Tooltip } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { CheckOutlined, LinkOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import { StyledMenuItem } from '../styledComponents';
-import { EntityType } from '../../../../../types.generated';
-import { useEntityRegistryV2 } from '../../../../useEntityRegistry';
+
+import { StyledMenuItem } from '@app/shared/share/v2/styledComponents';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+
+import { EntityType } from '@types';
 
 interface CopyLinkMenuItemProps {
     key: string;
@@ -47,5 +49,36 @@ export default function CopyLinkMenuItem({ key, urn, entityType }: CopyLinkMenuI
                 </TextSpan>
             </Tooltip>
         </StyledMenuItem>
+    );
+}
+
+const SimpleMenuItem = styled(Text)`
+    display: flex;
+    align-items: center;
+    gap: 12px;
+`;
+
+export function SimpleCopyLinkMenuItem({
+    urn,
+    entityType,
+    text,
+}: Pick<CopyLinkMenuItemProps, 'urn' | 'entityType'> & { text: string }) {
+    const { origin } = window.location;
+    const entityRegistry = useEntityRegistryV2();
+
+    const [isClicked, setIsClicked] = useState(false);
+
+    const copyUrl = `${origin}${entityRegistry.getEntityUrl(entityType, urn)}/`;
+
+    return (
+        <SimpleMenuItem
+            onClick={() => {
+                navigator.clipboard.writeText(copyUrl);
+                setIsClicked(true);
+            }}
+        >
+            {isClicked ? <CheckOutlined /> : <StyledLinkOutlined />}
+            {text}
+        </SimpleMenuItem>
     );
 }

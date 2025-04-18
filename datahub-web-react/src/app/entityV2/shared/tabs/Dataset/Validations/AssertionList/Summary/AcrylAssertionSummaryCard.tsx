@@ -1,25 +1,33 @@
 import React from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
-import { AssertionType, EntityType } from '@src/types.generated';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
+
+import { ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionListConstants';
+import {
+    AcrylAssertionProgressBar,
+    AssertionProgressSummary,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionProgressBar';
+import { AcrylAssertionSummarySection } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/Summary/AcrylAssertionSummarySection';
+import {
+    ASSERTION_SUMMARY_CARD_STATUSES,
+    NO_RUNNING_STATE,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/constant';
+import { buildAssertionUrlSearch } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/utils';
+import { AssertionGroup } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
+import { getAssertionGroupName } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { ASSERTION_TYPE_TO_ICON_MAP } from '@app/entityV2/shared/tabs/Dataset/Validations/shared/constant';
+import { Button } from '@src/alchemy-components';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import { AssertionGroup } from '../../acrylTypes';
-import { getAssertionGroupName } from '../../acrylUtils';
-import { AcrylAssertionProgressBar, AssertionProgressSummary } from '../AcrylAssertionProgressBar';
-import { ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS } from '../AcrylAssertionListConstants';
-import { AcrylAssertionSummarySection } from './AcrylAssertionSummarySection';
-import { ASSERTION_TYPE_TO_ICON_MAP } from '../../shared/constant';
-import { ASSERTION_SUMMARY_CARD_STATUSES, NO_RUNNING_STATE } from '../constant';
-import { buildAssertionUrlSearch } from '../utils';
+import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { AssertionType, EntityType } from '@src/types.generated';
 
 const StyledCard = styled.div`
     display: flex;
     gap: 4px;
     flex-direction: column;
     width: auto;
-    height: 210px;
+    height: 228px;
     box-shadow: 0px 4px 8px 0px #cecece1a;
     border: 1px solid #e5e7ed;
     border-radius: 8px;
@@ -83,18 +91,6 @@ const ChartSectionContainer = styled.div`
     align-items: center;
 `;
 
-const ViewAllWrapper = styled.div`
-    color: ${REDESIGN_COLORS.BODY_TEXT_GREY};
-    font-size: 12px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-weight: 700;
-    cursor: pointer;
-`;
-
-const ViewAllText = styled.div``;
-
 type Props = {
     group: AssertionGroup;
 };
@@ -142,9 +138,7 @@ export const AcrylAssertionSummaryCard: React.FC<Props> = ({ group }) => {
                 <ChartSectionContainer>
                     {/* **********************Render Assertion Summary Card Summary Section**************************** */}
                     <AcrylAssertionSummarySection group={group} visibleStatus={visibleStatuses} />
-                    <ViewAllWrapper>
-                        <ViewAllText>View All</ViewAllText>
-                    </ViewAllWrapper>
+                    <Button variant="text">View All</Button>
                 </ChartSectionContainer>
 
                 {/* **********************Render Progress bar **************************** */}

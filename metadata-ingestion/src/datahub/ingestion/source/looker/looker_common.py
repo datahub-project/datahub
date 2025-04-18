@@ -471,7 +471,10 @@ def get_view_file_path(
     logger.debug("Entered")
 
     for field in lkml_fields:
-        if field.view == view_name:
+        if (
+            LookerUtil.extract_view_name_from_lookml_model_explore_field(field)
+            == view_name
+        ):
             # This path is relative to git clone directory
             logger.debug(f"Found view({view_name}) file-path {field.source_file}")
             return field.source_file
@@ -923,7 +926,7 @@ class LookerExplore:
             tags=cast(List, dict.get("tags")) if dict.get("tags") is not None else [],
         )
 
-    @classmethod  # noqa: C901
+    @classmethod
     def from_api(  # noqa: C901
         cls,
         model: str,
@@ -931,7 +934,7 @@ class LookerExplore:
         client: LookerAPI,
         reporter: SourceReport,
         source_config: LookerDashboardSourceConfig,
-    ) -> Optional["LookerExplore"]:  # noqa: C901
+    ) -> Optional["LookerExplore"]:
         try:
             explore = client.lookml_model_explore(model, explore_name)
             views: Set[str] = set()
@@ -1103,7 +1106,7 @@ class LookerExplore:
                     [column_ref] if column_ref is not None else []
                 )
 
-            return cls(
+            looker_explore = cls(
                 name=explore_name,
                 model_name=model,
                 project_name=explore.project_name,
@@ -1121,6 +1124,8 @@ class LookerExplore:
                 source_file=explore.source_file,
                 tags=list(explore.tags) if explore.tags is not None else [],
             )
+            logger.debug(f"Created LookerExplore from API: {looker_explore}")
+            return looker_explore
         except SDKError as e:
             if "<title>Looker Not Found (404)</title>" in str(e):
                 logger.info(
@@ -1161,6 +1166,9 @@ class LookerExplore:
         dataset_name = config.explore_naming_pattern.replace_variables(
             self.get_mapping(config)
         )
+        logger.debug(
+            f"Generated dataset_name={dataset_name} for explore with model_name={self.model_name}, name={self.name}"
+        )
 
         return builder.make_dataset_urn_with_platform_instance(
             platform=config.platform_name,
@@ -1183,7 +1191,7 @@ class LookerExplore:
         base_url = remove_port_from_url(base_url)
         return f"{base_url}/embed/explore/{self.model_name}/{self.name}"
 
-    def _to_metadata_events(  # noqa: C901
+    def _to_metadata_events(
         self,
         config: LookerCommonConfig,
         reporter: SourceReport,
@@ -1362,6 +1370,7 @@ class LookerExploreRegistry:
 
     @lru_cache(maxsize=200)
     def get_explore(self, model: str, explore: str) -> Optional[LookerExplore]:
+        logger.debug(f"Retrieving explore: model={model}, explore={explore}")
         looker_explore = LookerExplore.from_api(
             model,
             explore,
@@ -1369,6 +1378,12 @@ class LookerExploreRegistry:
             self.report,
             self.source_config,
         )
+        if looker_explore is not None:
+            logger.debug(
+                f"Found explore with model_name={looker_explore.model_name}, name={looker_explore.name}"
+            )
+        else:
+            logger.debug(f"No explore found for model={model}, explore={explore}")
         return looker_explore
 
     def compute_stats(self) -> Dict:
@@ -1673,10 +1688,11 @@ class LookerUserRegistry:
                 primary_key="",
             )
 
-            # Extract user email mappings
+            # Extract user email mappings.
+            # Sort it to ensure the order is deterministic.
             user_email_cache = {
                 user_id: user.email
-                for user_id, user in self._user_cache.items()
+                for user_id, user in sorted(self._user_cache.items())
                 if user.email
             }
 

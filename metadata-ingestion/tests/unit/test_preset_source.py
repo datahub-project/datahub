@@ -1,3 +1,4 @@
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.preset import PresetConfig
 
 
@@ -10,6 +11,9 @@ def test_default_values():
     assert config.env == "PROD"
     assert config.api_key is None
     assert config.api_secret is None
+    assert config.dataset_pattern == AllowDenyPattern.allow_all()
+    assert config.chart_pattern == AllowDenyPattern.allow_all()
+    assert config.dashboard_pattern == AllowDenyPattern.allow_all()
 
 
 def test_set_display_uri():

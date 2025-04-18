@@ -1,12 +1,17 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';
-import { BrowsePathEntry, BrowsePathV2 } from '../../types.generated';
-import { REDESIGN_COLORS } from '../entityV2/shared/constants';
-import { Ellipsis, StyledTooltip } from '../entityV2/shared/containers/profile/header/PlatformContent/ParentNodesView';
-import ContextPathEntityLink from './ContextPathEntityLink';
-import { PreviewType } from '../entityV2/Entity';
-import { ContextPathSeparator } from './ContextPathSeparator';
+
+import { PreviewType } from '@app/entityV2/Entity';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import {
+    Ellipsis,
+    StyledTooltip,
+} from '@app/entityV2/shared/containers/profile/header/PlatformContent/ParentNodesView';
+import ContextPathEntityLink from '@app/previewV2/ContextPathEntityLink';
+import { ContextPathSeparator } from '@app/previewV2/ContextPathSeparator';
+
+import { BrowsePathEntry, BrowsePathV2 } from '@types';
 
 export const PlatformText = styled.div<{
     $maxWidth?: number;
@@ -64,17 +69,29 @@ interface Props {
     browsePaths?: Maybe<BrowsePathV2> | undefined;
     contentRef: React.RefObject<HTMLDivElement>;
     isContentTruncated: boolean;
+    linksDisabled?: boolean;
 }
 
-const BrowsePathSection = ({ path }: { path: BrowsePathEntry }) => {
+const BrowsePathSection = ({ path, linksDisabled }: { path: BrowsePathEntry } & Pick<Props, 'linksDisabled'>) => {
     if (!path.entity) {
         return <PlatFormTitle>{path.name}</PlatFormTitle>;
     }
-    return <ContextPathEntityLink key={path?.entity?.urn} entity={path?.entity} style={{ fontSize: '12px' }} />;
+
+    // Till we have a DataPlatform instance page
+    const hasDataPlatformInstance = path.name?.includes('dataPlatformInstance');
+
+    return (
+        <ContextPathEntityLink
+            key={path?.entity?.urn}
+            entity={path?.entity}
+            style={{ fontSize: '12px' }}
+            linkDisabled={linksDisabled || hasDataPlatformInstance}
+        />
+    );
 };
 
 function BrowsePaths(props: Props) {
-    const { previewType, browsePaths, contentRef, isContentTruncated } = props;
+    const { previewType, browsePaths, contentRef, isContentTruncated, linksDisabled } = props;
 
     const parentPath = browsePaths?.path?.[0];
     const remainingParentPaths = browsePaths?.path && browsePaths.path.slice(1, browsePaths.path.length);
@@ -91,7 +108,7 @@ function BrowsePaths(props: Props) {
                 <ParentNodesWrapper ref={contentRef}>
                     {parentPath && (
                         <PlatformText>
-                            <BrowsePathSection path={parentPath} />
+                            <BrowsePathSection path={parentPath} linksDisabled={linksDisabled} />
                             {remainingParentPaths && remainingParentPaths?.length > 0 && <ContextPathSeparator />}
                         </PlatformText>
                     )}
@@ -99,7 +116,7 @@ function BrowsePaths(props: Props) {
                         remainingParentPaths.map((container, index) => {
                             return (
                                 <PlatformText>
-                                    <BrowsePathSection path={container} />
+                                    <BrowsePathSection path={container} linksDisabled={linksDisabled} />
                                     {index < remainingParentPaths.length - 1 && <ContextPathSeparator />}
                                 </PlatformText>
                             );

@@ -1,50 +1,54 @@
-import { MutationFunctionOptions, FetchResult } from '@apollo/client';
+import { FetchResult, MutationFunctionOptions } from '@apollo/client';
+import React from 'react';
+
+import { FetchedEntity } from '@app/lineage/types';
 
 import {
+    BrowsePathV2,
+    Container,
+    CustomPropertiesEntry,
+    DataJobInputOutput,
     DataPlatform,
+    DataPlatformInstance,
+    DataProcessRunEvent,
     DatasetEditableProperties,
     DatasetEditablePropertiesUpdate,
-    RawAspect,
+    Deprecation,
+    DisplayProperties,
+    Documentation,
+    DomainAssociation,
     EditableSchemaMetadata,
     EditableSchemaMetadataUpdate,
+    Embed,
+    EntityLineageResult,
+    EntityPrivileges,
+    EntityRelationshipsResult,
     EntityType,
+    FabricType,
+    FineGrainedLineage,
+    Forms,
     GlobalTags,
     GlobalTagsUpdate,
     GlossaryTerms,
+    Health,
+    InputFields,
     InstitutionalMemory,
     InstitutionalMemoryUpdate,
     Maybe,
     Ownership,
     OwnershipUpdate,
-    SchemaMetadata,
-    EntityLineageResult,
-    SubTypes,
-    Container,
-    Health,
-    Status,
-    Deprecation,
-    DataPlatformInstance,
     ParentContainersResult,
-    EntityRelationshipsResult,
-    ParentNodesResult,
-    SiblingProperties,
-    CustomPropertiesEntry,
-    DomainAssociation,
-    InputFields,
-    FineGrainedLineage,
-    EntityPrivileges,
-    Embed,
-    FabricType,
-    BrowsePathV2,
-    DataJobInputOutput,
     ParentDomainsResult,
-    StructuredProperties,
-    Forms,
+    ParentNodesResult,
+    RawAspect,
+    SchemaMetadata,
     ScrollResults,
-    Documentation,
-    DisplayProperties,
-} from '../../../types.generated';
-import { FetchedEntity } from '../../lineage/types';
+    SiblingProperties,
+    Status,
+    StructuredProperties,
+    SubTypes,
+    VersionProperties,
+} from '@types';
 
 export type EntityTab = {
     name: string;
@@ -132,6 +136,10 @@ export type GenericEntityProperties = {
     parent?: Maybe<GenericEntityProperties>;
     displayProperties?: Maybe<DisplayProperties>;
     notes?: Maybe<EntityRelationshipsResult>;
+    versionProperties?: Maybe<VersionProperties>;
+
+    // Data process instance
+    lastRunEvent?: Maybe<DataProcessRunEvent>;
 };
 
 export type GenericEntityUpdate = {
@@ -160,6 +168,10 @@ interface EntityState {
     setShouldRefetchContents: (shouldRefetch: boolean) => void;
 }
 
+export enum DrawerType {
+    VERSIONS,
+}
+
 export type EntityContextType = {
     urn: string;
     entityType: EntityType;
@@ -174,6 +186,7 @@ export type EntityContextType = {
     shouldRefetchEmbeddedListSearch?: boolean;
     setShouldRefetchEmbeddedListSearch?: React.Dispatch<React.SetStateAction<boolean>>;
     entityState?: EntityState;
+    setDrawer?: React.Dispatch<React.SetStateAction<DrawerType | undefined>>;
 };
 
 export type SchemaContextType = {

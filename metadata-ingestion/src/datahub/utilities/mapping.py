@@ -171,7 +171,7 @@ class OperationProcessor:
         self.owner_source_type = owner_source_type
         self.match_nested_props = match_nested_props
 
-    def process(self, raw_props: Mapping[str, Any]) -> Dict[str, Any]:  # noqa: C901
+    def process(self, raw_props: Mapping[str, Any]) -> Dict[str, Any]:
         # Defining the following local variables -
         # operations_map - the final resulting map when operations are processed.
         # Against each operation the values to be applied are stored.

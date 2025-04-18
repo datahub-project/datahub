@@ -1,6 +1,7 @@
 package io.datahubproject.metadata.context;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -100,11 +101,12 @@ public class OperationContextTest {
 
   @Test
   public void testWithTraceId_WithTraceContextAndSystemMetadata() {
-    when(mockTraceContext.withTraceId(mockSystemMetadata)).thenReturn(mockSystemMetadata);
+    when(mockTraceContext.withTraceId(eq(mockSystemMetadata), anyBoolean()))
+        .thenReturn(mockSystemMetadata);
 
     SystemMetadata result = buildTraceMock().withTraceId(mockSystemMetadata);
 
-    verify(mockTraceContext).withTraceId(mockSystemMetadata);
+    verify(mockTraceContext).withTraceId(mockSystemMetadata, false);
     assertEquals(result, mockSystemMetadata);
   }
 

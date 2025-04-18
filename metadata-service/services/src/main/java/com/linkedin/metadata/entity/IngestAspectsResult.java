@@ -20,6 +20,10 @@ public class IngestAspectsResult {
   List<UpdateAspectResult> updateAspectResults;
   List<Pair<ChangeMCP, Set<AspectValidationException>>> failedUpdateAspectResults;
 
+  public boolean shouldCommit() {
+    return updateAspectResults.stream().anyMatch(Objects::nonNull);
+  }
+
   public static IngestAspectsResult combine(IngestAspectsResult first, IngestAspectsResult second) {
     if (first == null) {
       return second != null ? second : IngestAspectsResult.builder().build();

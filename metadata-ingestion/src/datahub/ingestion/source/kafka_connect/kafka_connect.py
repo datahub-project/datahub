@@ -1,5 +1,5 @@
 import logging
-from typing import Iterable, List, Optional, Type
+from typing import Dict, Iterable, List, Optional, Type
 
 import jpype
 import jpype.imports
@@ -121,7 +121,11 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                     connector_manifest.config, self.config.provided_configs
                 )
             connector_manifest.url = connector_url
-            connector_manifest.topic_names = self._get_connector_topics(connector_name)
+            connector_manifest.topic_names = self._get_connector_topics(
+                connector_name=connector_name,
+                config=connector_manifest.config,
+                connector_type=connector_manifest.type,
+            )
             connector_class_value = connector_manifest.config.get(CONNECTOR_CLASS) or ""
 
             class_type: Type[BaseConnector] = BaseConnector
@@ -203,7 +207,9 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
         return response.json()
 
-    def _get_connector_topics(self, connector_name: str) -> List[str]:
+    def _get_connector_topics(
+        self, connector_name: str, config: Dict[str, str], connector_type: str
+    ) -> List[str]:
         try:
             response = self.session.get(
                 f"{self.config.connect_uri}/connectors/{connector_name}/topics",
@@ -215,7 +221,21 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             )
             return []
 
-        return response.json()[connector_name]["topics"]
+        processed_topics = response.json()[connector_name]["topics"]
+
+        if connector_type == SINK:
+            try:
+                return SinkTopicFilter().filter_stale_topics(processed_topics, config)
+            except Exception as e:
+                self.report.warning(
+                    title="Error parsing sink conector topics configuration",
+                    message="Some stale lineage tasks might show up for connector",
+                    context=connector_name,
+                    exc=e,
+                )
+                return processed_topics
+        else:
+            return processed_topics
 
     def construct_flow_workunit(self, connector: ConnectorManifest) -> MetadataWorkUnit:
         connector_name = connector.name
@@ -359,3 +379,76 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         return builder.make_dataset_urn_with_platform_instance(
             platform, name, platform_instance, self.config.env
         )
+
+
+class SinkTopicFilter:
+    """Helper class to filter Kafka Connect topics based on configuration."""
+
+    def filter_stale_topics(
+        self,
+        processed_topics: List[str],
+        sink_config: Dict[str, str],
+    ) -> List[str]:
+        """
+        Kafka-connect's /topics API returns the set of topic names the connector has been using
+        since its creation or since the last time its set of active topics was reset. This means-
+        if a topic was ever used by a connector, it will be returned, even if it is no longer used.
+        To remove these stale topics from the list, we double-check the list returned by the API
+        against the sink connector's config.
+        Sink connectors configure exactly one of `topics` or `topics.regex`
+        https://kafka.apache.org/documentation/#sinkconnectorconfigs_topics
+
+        Args:
+            processed_topics: List of topics currently being processed
+            sink_config: Configuration dictionary for the sink connector
+
+        Returns:
+            List of filtered topics that match the configuration
+
+        Raises:
+            ValueError: If sink connector configuration is missing both 'topics' and 'topics.regex' fields
+
+        """
+        # Absence of topics config is a defensive NOOP,
+        # although this should never happen in real world
+        if not self.has_topic_config(sink_config):
+            logger.warning(
+                f"Found sink without topics config {sink_config.get(CONNECTOR_CLASS)}"
+            )
+            return processed_topics
+
+        # Handle explicit topic list
+        if sink_config.get("topics"):
+            return self._filter_by_topic_list(processed_topics, sink_config["topics"])
+        else:
+            # Handle regex pattern
+            return self._filter_by_topic_regex(
+                processed_topics, sink_config["topics.regex"]
+            )
+
+    def has_topic_config(self, sink_config: Dict[str, str]) -> bool:
+        """Check if sink config has either topics or topics.regex."""
+        return bool(sink_config.get("topics") or sink_config.get("topics.regex"))
+
+    def _filter_by_topic_list(
+        self, processed_topics: List[str], topics_config: str
+    ) -> List[str]:
+        """Filter topics based on explicit topic list from config."""
+        config_topics = [
+            topic.strip() for topic in topics_config.split(",") if topic.strip()
+        ]
+        return [topic for topic in processed_topics if topic in config_topics]
+
+    def _filter_by_topic_regex(
+        self, processed_topics: List[str], regex_pattern: str
+    ) -> List[str]:
+        """Filter topics based on regex pattern from config."""
+        from java.util.regex import Pattern
+
+        regex_matcher = Pattern.compile(regex_pattern)
+
+        return [
+            topic
+            for topic in processed_topics
+            if regex_matcher.matcher(topic).matches()
+        ]

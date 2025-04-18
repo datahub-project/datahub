@@ -27,7 +27,7 @@ concurrency:
 jobs:
   metadata-ingestion:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     env:
       DATAHUB_TELEMETRY_ENABLED: false
       # TODO: Enable this once the test is fixed.

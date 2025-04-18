@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { IconLabelProps, IconType } from './types';
-import { IconLabelContainer, ImageContainer, Label } from './component';
-import { isValidImageUrl } from './utils';
 
-export const IconLabel = ({ icon, name, type, style, imageUrl }: IconLabelProps) => {
+import { IconLabelContainer, ImageContainer, Label } from '@components/components/IconLabel/components';
+import { IconLabelProps, IconType } from '@components/components/IconLabel/types';
+import { isValidImageUrl } from '@components/components/IconLabel/utils';
+
+export const IconLabel = ({ icon, name, type, style, imageUrl, testId }: IconLabelProps) => {
     const [isValidImage, setIsValidImage] = useState(false);
 
     useEffect(() => {
@@ -26,8 +27,12 @@ export const IconLabel = ({ icon, name, type, style, imageUrl }: IconLabelProps)
 
     return (
         <IconLabelContainer>
-            <ImageContainer style={style}>{renderIcons()}</ImageContainer>
-            <Label title={name}>{name}</Label>
+            <ImageContainer data-testid={testId} style={style}>
+                {renderIcons()}
+            </ImageContainer>
+            <Label data-testid={name} title={name}>
+                {name}
+            </Label>
         </IconLabelContainer>
     );
 };

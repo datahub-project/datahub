@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { CheckboxProps, CheckboxGroupProps } from './types';
+
 import {
     CheckboxBase,
     CheckboxContainer,
@@ -9,7 +9,8 @@ import {
     Label,
     Required,
     StyledCheckbox,
-} from './components';
+} from '@components/components/Checkbox/components';
+import { CheckboxGroupProps, CheckboxProps } from '@components/components/Checkbox/types';
 
 export const checkboxDefaults: CheckboxProps = {
     error: '',
@@ -18,6 +19,7 @@ export const checkboxDefaults: CheckboxProps = {
     isIntermediate: false,
     isRequired: false,
     setIsChecked: () => {},
+    size: 'md',
 };
 
 export const Checkbox = ({
@@ -28,6 +30,8 @@ export const Checkbox = ({
     isIntermediate = checkboxDefaults.isIntermediate,
     isRequired = checkboxDefaults.isRequired,
     setIsChecked = checkboxDefaults.setIsChecked,
+    size = checkboxDefaults.size,
+    onCheckboxChange,
     ...props
 }: CheckboxProps) => {
     const [checked, setChecked] = useState(isChecked || false);
@@ -51,13 +55,14 @@ export const Checkbox = ({
                     if (!isDisabled) {
                         setChecked(!checked);
                         setIsChecked?.(!checked);
+                        onCheckboxChange?.();
                     }
                 }}
             >
                 <StyledCheckbox
                     type="checkbox"
                     id="checked-input"
-                    checked={checked}
+                    checked={checked || isIntermediate || false}
                     disabled={isDisabled || false}
                     error={error || ''}
                     onChange={() => null}
@@ -70,6 +75,7 @@ export const Checkbox = ({
                     error={error || ''}
                     disabled={isDisabled || false}
                     checked={checked || false}
+                    size={size || 'md'}
                     onMouseOver={() => setIsHovering(true)}
                     onMouseLeave={() => setIsHovering(false)}
                 />

@@ -1,17 +1,20 @@
-import React, { useState, useEffect } from 'react';
 import { LoadingOutlined } from '@ant-design/icons';
+import { colors } from '@components';
 import { KeyboardArrowDownRounded, KeyboardArrowRightRounded } from '@mui/icons-material';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
-import { Entity, EntityType, GlossaryNode, GlossaryTerm } from '../../../types.generated';
-import { GlossaryNodeFragment } from '../../../graphql/fragments.generated';
-import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { useGetGlossaryNodeQuery } from '../../../graphql/glossaryNode.generated';
-import TermItem, { TermLink as NodeLink, NameWrapper } from './TermItem';
-import { sortGlossaryNodes } from '../../entityV2/glossaryNode/utils';
-import { sortGlossaryTerms } from '../../entityV2/glossaryTerm/utils';
-import { useGlossaryEntityData } from '../../entityV2/shared/GlossaryEntityContext';
-import { generateColorFromPalette } from '../colorUtils';
+
+import { sortGlossaryNodes } from '@app/entityV2/glossaryNode/utils';
+import { sortGlossaryTerms } from '@app/entityV2/glossaryTerm/utils';
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import TermItem, { NameWrapper, TermLink as NodeLink } from '@app/glossaryV2/GlossaryBrowser/TermItem';
+import { generateColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { GlossaryNodeFragment } from '@graphql/fragments.generated';
+import { useGetGlossaryNodeQuery } from '@graphql/glossaryNode.generated';
+import { Entity, EntityType, GlossaryNode, GlossaryTerm } from '@types';
 
 interface ItemWrapperProps {
     $isSelected: boolean;
@@ -83,15 +86,18 @@ const LoadingWrapper = styled.div`
 `;
 
 const ChildrenCount = styled.div`
-    padding: 1px 8px;
-    display: flex;
+    padding: 0 8px;
+    display: inline-flex;
+    align-items: center;
     justify-content: center;
-    border-radius: 10px;
-    background-color: #eeecfa;
-    color: #434863;
-    font-size: 10px;
+    border-radius: 20px;
+    background-color: ${colors.gray[100]};
+    color: ${colors.gray[1700]};
+    font-size: 12px;
+    height: 22px;
+    min-width: 28px;
     font-weight: 400;
-    margin-right: 13px;
+    margin-right: 12px;
 `;
 
 const StyledDivider = styled.div<{ depth: number }>`
@@ -141,7 +147,7 @@ function NodeItem(props: Props) {
     });
 
     useEffect(() => {
-        if (openToEntity && entityData && entityData.parentNodes?.nodes.some((parent) => parent.urn === node.urn)) {
+        if (openToEntity && entityData && entityData.parentNodes?.nodes?.some((parent) => parent.urn === node.urn)) {
             setAreChildrenVisible(true);
         }
     }, [entityData, node.urn, openToEntity]);

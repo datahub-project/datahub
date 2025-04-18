@@ -1,14 +1,16 @@
-import { Button, Typography } from 'antd';
+import { Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { TermRelationshipType } from '../../../../types.generated';
-import { Message } from '../../../shared/Message';
-import { EmptyTab } from '../../shared/components/styled/EmptyTab';
-import AddRelatedTermsModal from './AddRelatedTermsModal';
-import RelatedTerm from './RelatedTerm';
-import { CustomIcon } from '../../../sharedV2/icons/customIcons/CustomIcon';
-import addTerm from '../../../sharedV2/icons/customIcons/add-term.svg';
-import { REDESIGN_COLORS } from '../../shared/constants';
+
+import AddRelatedTermsModal from '@app/entityV2/glossaryTerm/profile/AddRelatedTermsModal';
+import RelatedTerm from '@app/entityV2/glossaryTerm/profile/RelatedTerm';
+import { EmptyTab } from '@app/entityV2/shared/components/styled/EmptyTab';
+import { Message } from '@app/shared/Message';
+import { CustomIcon } from '@app/sharedV2/icons/customIcons/CustomIcon';
+import addTerm from '@app/sharedV2/icons/customIcons/add-term.svg';
+import { Button } from '@src/alchemy-components';
+
+import { TermRelationshipType } from '@types';
 
 export enum RelatedTermTypes {
     hasRelatedTerms = 'Contains',
@@ -45,20 +47,6 @@ const TitleContainer = styled.div`
 
 const messageStyle = { marginTop: '10%' };
 
-const ButtonStyle = styled(Button)`
-    border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
-    border-radius: 8px;
-    display: flex;
-    gap: 0.2rem;
-
-    &:hover,
-    &:focus {
-        border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
-    }
-`;
-
 export default function GlossaryRelatedTermsResult({ glossaryRelatedTermType, glossaryRelatedTermResult }: Props) {
     const [isShowingAddModal, setIsShowingAddModal] = useState(false);
     const glossaryRelatedTermUrns: Array<string> = [];
@@ -86,9 +74,9 @@ export default function GlossaryRelatedTermsResult({ glossaryRelatedTermType, gl
                             {glossaryRelatedTermType}
                         </Typography.Title>
                         {canEditRelatedTerms && (
-                            <ButtonStyle type="text" onClick={() => setIsShowingAddModal(true)}>
+                            <Button variant="text" onClick={() => setIsShowingAddModal(true)}>
                                 <CustomIcon iconSvg={addTerm} /> Add Terms
-                            </ButtonStyle>
+                            </Button>
                         )}
                     </TitleContainer>
                     <ListContainer>

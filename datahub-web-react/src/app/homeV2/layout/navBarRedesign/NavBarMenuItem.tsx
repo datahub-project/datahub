@@ -1,9 +1,10 @@
-import React from 'react';
 import { Menu, MenuItemProps, Tooltip } from 'antd';
+import React from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
-import { colors, Badge, Text } from '@src/alchemy-components';
-import { NavBarMenuBaseItem } from './types';
+
+import { NavBarMenuBaseItem } from '@app/homeV2/layout/navBarRedesign/types';
+import { Badge, Text, colors } from '@src/alchemy-components';
 
 const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
     &&& {
@@ -119,7 +120,13 @@ export default function NavBarMenuItem({ item, isCollapsed, isSelected, iconSize
 
     const component = (
         <Tooltip title={isCollapsed ? item.title : null} placement="right" showArrow={false}>
-            <StyledMenuItem isCollapsed={isCollapsed} onClick={onClick} aria-label={item.title} {...props}>
+            <StyledMenuItem
+                isCollapsed={isCollapsed}
+                onClick={onClick}
+                aria-label={item.title}
+                {...props}
+                data-testid={item.dataTestId}
+            >
                 {item.icon || item.selectedIcon ? (
                     <Icon $size={iconSize} $isSelected={isSelected}>
                         {isSelected ? item.selectedIcon || item.icon : item.icon}
@@ -132,7 +139,7 @@ export default function NavBarMenuItem({ item, isCollapsed, isSelected, iconSize
                         <StyledText size="md" type="div" weight="semiBold" $isSelected={isSelected}>
                             {item.title}
                         </StyledText>
-                        {item?.badge?.show && <Badge count={item.badge.count} clickable={false} colorScheme="violet" />}
+                        {item?.badge?.show && <Badge count={item.badge.count} clickable={false} color="violet" />}
                     </ItemTitleContentWrapper>
                 )}
             </StyledMenuItem>

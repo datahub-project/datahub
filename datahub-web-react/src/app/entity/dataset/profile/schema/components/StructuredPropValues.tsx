@@ -1,10 +1,11 @@
+import { Tooltip } from 'antd';
+import React from 'react';
+import styled from 'styled-components';
+
 import StructuredPropertyValue from '@src/app/entity/shared/tabs/Properties/StructuredPropertyValue';
 import { mapStructuredPropertyToPropertyRow } from '@src/app/entity/shared/tabs/Properties/useStructuredProperties';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { SchemaFieldEntity, SearchResult, StdDataType } from '@src/types.generated';
-import { Tooltip } from 'antd';
-import React from 'react';
-import styled from 'styled-components';
 
 const ValuesContainer = styled.span`
     max-width: 120px;
@@ -16,14 +17,14 @@ const MoreIndicator = styled.span`
 `;
 
 interface Props {
-    schemaFieldEntity: SchemaFieldEntity;
+    schemaFieldEntity: SchemaFieldEntity | undefined;
     propColumn: SearchResult | undefined;
 }
 
 const StructuredPropValues = ({ schemaFieldEntity, propColumn }: Props) => {
     const entityRegistry = useEntityRegistry();
 
-    const property = schemaFieldEntity.structuredProperties?.properties?.find(
+    const property = schemaFieldEntity?.structuredProperties?.properties?.find(
         (prop) => prop.structuredProperty.urn === propColumn?.entity?.urn,
     );
     const propRow = property ? mapStructuredPropertyToPropertyRow(property) : undefined;

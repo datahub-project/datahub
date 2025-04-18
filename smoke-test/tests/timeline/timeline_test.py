@@ -15,9 +15,15 @@ def test_all(auth_session, graph_client):
     env = "PROD"
     dataset_urn = f"urn:li:dataset:({platform},{dataset_name},{env})"
 
-    ingest_file_via_rest(auth_session, "tests/timeline/timeline_test_data.json")
-    ingest_file_via_rest(auth_session, "tests/timeline/timeline_test_datav2.json")
-    ingest_file_via_rest(auth_session, "tests/timeline/timeline_test_datav3.json")
+    ingest_file_via_rest(
+        auth_session, "tests/timeline/timeline_test_data.json", mode="ASYNC"
+    )
+    ingest_file_via_rest(
+        auth_session, "tests/timeline/timeline_test_datav2.json", mode="ASYNC"
+    )
+    ingest_file_via_rest(
+        auth_session, "tests/timeline/timeline_test_datav3.json", mode="ASYNC"
+    )
 
     res_data = timeline_cli.get_timeline(
         dataset_urn,

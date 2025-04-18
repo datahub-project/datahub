@@ -1,6 +1,7 @@
 package com.linkedin.metadata.kafka.hook.spring;
 
 import static org.testng.AssertJUnit.assertEquals;
+import static org.testng.AssertJUnit.assertFalse;
 import static org.testng.AssertJUnit.assertNotNull;
 import static org.testng.AssertJUnit.assertTrue;
 
@@ -75,6 +76,6 @@ public class MCLMAESpringTest extends AbstractTestNGSpringContextTests {
 
     assertNotNull(updateIndicesService.getUpdateGraphIndicesService());
     assertTrue(updateIndicesService.getUpdateGraphIndicesService().isGraphDiffMode());
-    assertTrue(updateIndicesService.getUpdateGraphIndicesService().isGraphStatusEnabled());
+    assertFalse(updateIndicesService.getUpdateGraphIndicesService().isGraphStatusEnabled());
   }
 }

@@ -432,7 +432,8 @@ public interface EntityService<U extends ChangeMCP> {
       @Nonnull OperationContext opContext,
       @Nonnull Set<Urn> urns,
       @Nullable Set<String> inputAspectNames,
-      @Nullable Integer inputBatchSize)
+      @Nullable Integer inputBatchSize,
+      boolean createDefaultAspects)
       throws RemoteInvocationException, URISyntaxException;
 
   ListUrnsResult listUrns(
@@ -460,6 +461,38 @@ public interface EntityService<U extends ChangeMCP> {
       @Nonnull final Urn urn,
       AspectSpec aspectSpec,
       @Nonnull final MetadataChangeLog metadataChangeLog);
+
+  /**
+   * Generally should not be necessary, created for delete flow which does not have System Metadata,
+   * so it lacks a way to force through index updates synchronously.
+   *
+   * @param opContext the current operation context
+   * @param urn urn to produce event for
+   * @param aspectSpec aspect of the entity
+   * @param metadataChangeLog the MCL to produce
+   * @return list of the mcl produce future along with a boolean indicating if the event was
+   *     pre-processed
+   */
+  Pair<Future<?>, Boolean> alwaysProduceMCLAsync(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn urn,
+      AspectSpec aspectSpec,
+      @Nonnull final MetadataChangeLog metadataChangeLog,
+      boolean forcePreProcessHooks);
+
+  Pair<Future<?>, Boolean> alwaysProduceMCLAsync(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nullable final AspectSpec aspectSpec,
+      @Nullable final RecordTemplate oldAspectValue,
+      @Nullable final RecordTemplate newAspectValue,
+      @Nullable final SystemMetadata oldSystemMetadata,
+      @Nullable final SystemMetadata newSystemMetadata,
+      @Nonnull AuditStamp auditStamp,
+      @Nonnull final ChangeType changeType,
+      boolean forcePreProcessHooks);
 
   Pair<Future<?>, Boolean> alwaysProduceMCLAsync(
       @Nonnull OperationContext opContext,
@@ -502,9 +535,20 @@ public interface EntityService<U extends ChangeMCP> {
       String aspectName,
       @Nonnull Map<String, String> conditions,
       boolean hardDelete) {
+    return deleteAspect(opContext, urn, aspectName, conditions, hardDelete, false);
+  }
+
+  default Optional<RollbackResult> deleteAspect(
+      @Nonnull OperationContext opContext,
+      String urn,
+      String aspectName,
+      @Nonnull Map<String, String> conditions,
+      boolean hardDelete,
+      boolean preProcessHooks) {
     AspectRowSummary aspectRowSummary =
         new AspectRowSummary().setUrn(urn).setAspectName(aspectName);
-    return rollbackWithConditions(opContext, List.of(aspectRowSummary), conditions, hardDelete)
+    return rollbackWithConditions(
+            opContext, List.of(aspectRowSummary), conditions, hardDelete, preProcessHooks)
         .getRollbackResults()
         .stream()
         .findFirst();
@@ -522,7 +566,8 @@ public interface EntityService<U extends ChangeMCP> {
       @Nonnull OperationContext opContext,
       List<AspectRowSummary> aspectRows,
       Map<String, String> conditions,
-      boolean hardDelete);
+      boolean hardDelete,
+      boolean preProcessHooks);
 
   List<IngestResult> ingestProposal(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch, final boolean async);

@@ -2,12 +2,14 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { Entity } from '@types';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import ContextPathEntityIcon from '@app/previewV2/ContextPathEntityIcon';
+import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { colors } from '@src/alchemy-components';
-import { REDESIGN_COLORS } from '../entityV2/shared/constants';
-import { useEntityRegistry } from '../useEntityRegistry';
-import ContextPathEntityIcon from './ContextPathEntityIcon';
-import { useEmbeddedProfileLinkProps } from '../shared/useEmbeddedProfileLinkProps';
+
+import { Entity } from '@types';
 
 const Path = styled.div`
     white-space: nowrap;
@@ -28,7 +30,7 @@ const ContainerText = styled.span`
     max-width: 150px; // TODO: Remove in favor of smart truncation
 `;
 
-const StyledLink = styled(Link)`
+const StyledLink = styled(Link)<{ $disabled?: boolean }>`
     white-space: nowrap;
     border-radius: 4px;
     overflow: hidden;
@@ -44,21 +46,22 @@ const StyledLink = styled(Link)`
     }
 
     :hover {
-        color: ${colors.violet[500]};
-
+        color: ${({ $disabled }) => ($disabled ? REDESIGN_COLORS.LINK_GREY : colors.violet[500])};
+        cursor: ${({ $disabled }) => ($disabled ? 'default' : 'pointer')};
         && svg {
-            color: ${colors.violet[500]};
+            color: ${({ $disabled }) => ($disabled ? REDESIGN_COLORS.LINK_GREY : colors.violet[500])};
         }
     }
 `;
 
 interface Props {
     entity: Maybe<Entity>;
+    linkDisabled?: boolean;
     style?: React.CSSProperties;
 }
 
 function ContextPathEntityLink(props: Props) {
-    const { entity, style } = props;
+    const { entity, linkDisabled, style } = props;
     const entityRegistry = useEntityRegistry();
     const linkProps = useEmbeddedProfileLinkProps();
 
@@ -69,7 +72,12 @@ function ContextPathEntityLink(props: Props) {
 
     return (
         <Path style={style}>
-            <StyledLink to={containerUrl} data-testid="container" {...linkProps}>
+            <StyledLink
+                to={linkDisabled ? null : containerUrl}
+                data-testid="container"
+                $disabled={linkDisabled}
+                {...linkProps}
+            >
                 <ContextPathEntityIcon entity={entity} />
                 <ContainerText title={containerName}>{containerName}</ContainerText>
             </StyledLink>

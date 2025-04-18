@@ -49,6 +49,43 @@ def pytest_sessionfinish(session, exitstatus):
     send_message(exitstatus)
 
 
+def bin_pack_tasks(tasks, n_buckets):
+    """
+    Bin-pack tasks into n_buckets with roughly equal weights.
+
+    Parameters:
+    tasks (list): List of (task, weight) tuples. If only task is provided, weight defaults to 1.
+    n_buckets (int): Number of buckets to distribute tasks into.
+
+    Returns:
+    list: List of buckets, where each bucket is a list of tasks.
+    """
+    # Normalize the tasks to ensure they're all (task, weight) tuples
+    normalized_tasks = []
+    for task in tasks:
+        if isinstance(task, tuple) and len(task) == 2:
+            normalized_tasks.append(task)
+        else:
+            normalized_tasks.append((task, 1))
+
+    # Sort tasks by weight in descending order
+    sorted_tasks = sorted(normalized_tasks, key=lambda x: x[1], reverse=True)
+
+    # Initialize the buckets with zero weight
+    buckets: List = [[] for _ in range(n_buckets)]
+    bucket_weights: List[int] = [0] * n_buckets
+
+    # Assign each task to the bucket with the lowest current weight
+    for task, weight in sorted_tasks:
+        # Find the bucket with the minimum weight
+        min_bucket_idx = bucket_weights.index(min(bucket_weights))
+
+        # Add the task to this bucket
+        buckets[min_bucket_idx].append(task)
+        bucket_weights[min_bucket_idx] += weight
+
+    return buckets
+
 def get_batch_start_end(num_tests: int) -> Tuple[int, int]:
     batch_count_env = os.getenv("BATCH_COUNT", 1)
     batch_count = int(batch_count_env)
@@ -71,15 +108,14 @@ def get_batch_start_end(num_tests: int) -> Tuple[int, int]:
     batch_end = batch_start + batch_size
     # We must have exactly as many batches as specified by BATCH_COUNT.
     if (
-        num_tests - batch_end < batch_size
-    ):  # We must have exactly as many batches as specified by BATCH_COUNT, put the remaining in the last batch.
+            batch_number == batch_count - 1  # this is the last batch
+    ):  # If ths is last batch put any remaining tests in the last batch.
         batch_end = num_tests
 
     if batch_count > 0:
         print(f"Running tests for batch {batch_number} of {batch_count}")
 
     return batch_start, batch_end
-
 
 def pytest_collection_modifyitems(
     session: pytest.Session, config: pytest.Config, items: List[Item]

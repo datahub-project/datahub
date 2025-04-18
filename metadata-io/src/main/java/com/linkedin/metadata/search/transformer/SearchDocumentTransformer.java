@@ -31,6 +31,8 @@ import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.models.extractor.FieldExtractor;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -92,7 +94,9 @@ public class SearchDocumentTransformer {
     final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
     searchDocument.put("urn", snapshot.data().get("urn").toString());
     extractedSearchableFields.forEach(
-        (key, value) -> setSearchableValue(key, value, searchDocument, forDelete));
+        (key, value) ->
+            setSearchableValue(
+                key, value, searchDocument, forDelete, AuditStampUtils.createDefaultAuditStamp()));
     extractedSearchScoreFields.forEach(
         (key, values) -> setSearchScoreValue(key, values, searchDocument, forDelete));
     return Optional.of(searchDocument.toString());
@@ -149,7 +153,8 @@ public class SearchDocumentTransformer {
       final @Nonnull Urn urn,
       final @Nullable RecordTemplate aspect,
       final @Nonnull AspectSpec aspectSpec,
-      final Boolean forDelete)
+      final Boolean forDelete,
+      final AuditStamp mclCreateAuditStamp)
       throws RemoteInvocationException, URISyntaxException {
     final Map<SearchableFieldSpec, List<Object>> extractedSearchableFields =
         FieldExtractor.extractFields(aspect, aspectSpec.getSearchableFieldSpecs(), maxValueLength);
@@ -168,10 +173,12 @@ public class SearchDocumentTransformer {
       searchDocument.put("urn", urn.toString());
 
       extractedSearchableFields.forEach(
-          (key, values) -> setSearchableValue(key, values, searchDocument, forDelete));
+          (key, values) ->
+              setSearchableValue(key, values, searchDocument, forDelete, mclCreateAuditStamp));
       extractedSearchRefFields.forEach(
           (key, values) ->
-              setSearchableRefValue(opContext, key, values, searchDocument, forDelete));
+              setSearchableRefValue(
+                  opContext, key, values, searchDocument, forDelete, mclCreateAuditStamp));
       extractedSearchScoreFields.forEach(
           (key, values) -> setSearchScoreValue(key, values, searchDocument, forDelete));
       result = Optional.of(searchDocument);
@@ -190,7 +197,8 @@ public class SearchDocumentTransformer {
       final SearchableFieldSpec fieldSpec,
       final List<Object> fieldValues,
       final ObjectNode searchDocument,
-      final Boolean forDelete) {
+      final Boolean forDelete,
+      final AuditStamp mclCreatedAuditStamp) {
     DataSchema.Type valueType = fieldSpec.getPegasusSchema().getType();
     Optional<Object> firstValue = fieldValues.stream().findFirst();
     boolean isArray = fieldSpec.isArray();
@@ -253,6 +261,13 @@ public class SearchDocumentTransformer {
     if (forDelete) {
       searchDocument.set(fieldName, JsonNodeFactory.instance.nullNode());
       return;
+    }
+
+    if (ESUtils.getSystemModifiedAtFieldName(fieldSpec).isPresent()) {
+      String modifiedAtFieldName = ESUtils.getSystemModifiedAtFieldName(fieldSpec).get();
+      searchDocument.set(
+          modifiedAtFieldName,
+          JsonNodeFactory.instance.numberNode((Long) mclCreatedAuditStamp.getTime()));
     }
 
     if (isArray || (valueType == DataSchema.Type.MAP && !OBJECT_FIELD_TYPES.contains(fieldType))) {
@@ -525,7 +540,8 @@ public class SearchDocumentTransformer {
       final SearchableRefFieldSpec searchableRefFieldSpec,
       final List<Object> fieldValues,
       final ObjectNode searchDocument,
-      final Boolean forDelete) {
+      final Boolean forDelete,
+      final AuditStamp mclCreatedAuditStamp) {
     String fieldName = searchableRefFieldSpec.getSearchableRefAnnotation().getFieldName();
     FieldType fieldType = searchableRefFieldSpec.getSearchableRefAnnotation().getFieldType();
     boolean isArray = searchableRefFieldSpec.isArray();
@@ -540,11 +556,13 @@ public class SearchDocumentTransformer {
       fieldValues
           .subList(0, Math.min(fieldValues.size(), maxArrayLength))
           .forEach(
-              value -> getNodeForRef(opContext, depth, value, fieldType).ifPresent(arrayNode::add));
+              value ->
+                  getNodeForRef(opContext, depth, value, fieldType, mclCreatedAuditStamp)
+                      .ifPresent(arrayNode::add));
       searchDocument.set(fieldName, arrayNode);
     } else if (!fieldValues.isEmpty()) {
       String finalFieldName = fieldName;
-      getNodeForRef(opContext, depth, fieldValues.get(0), fieldType)
+      getNodeForRef(opContext, depth, fieldValues.get(0), fieldType, mclCreatedAuditStamp)
           .ifPresent(node -> searchDocument.set(finalFieldName, node));
     } else {
       searchDocument.set(fieldName, JsonNodeFactory.instance.nullNode());
@@ -555,7 +573,8 @@ public class SearchDocumentTransformer {
       @Nonnull OperationContext opContext,
       final int depth,
       final Object fieldValue,
-      final FieldType fieldType) {
+      final FieldType fieldType,
+      final AuditStamp auditStamp) {
     EntityRegistry entityRegistry = opContext.getEntityRegistry();
     AspectRetriever aspectRetriever = opContext.getAspectRetriever();
 
@@ -598,7 +617,7 @@ public class SearchDocumentTransformer {
                 SearchableFieldSpec spec = entry.getKey();
                 List<Object> value = entry.getValue();
                 if (!value.isEmpty()) {
-                  setSearchableValue(spec, value, resultNode, false);
+                  setSearchableValue(spec, value, resultNode, false, auditStamp);
                 }
               }
 
@@ -624,7 +643,8 @@ public class SearchDocumentTransformer {
                                         opContext,
                                         newDepth,
                                         val,
-                                        spec.getSearchableRefAnnotation().getFieldType())
+                                        spec.getSearchableRefAnnotation().getFieldType(),
+                                        auditStamp)
                                     .ifPresent(arrayNode::add));
                     resultNode.set(fieldName, arrayNode);
                   } else {
@@ -633,7 +653,8 @@ public class SearchDocumentTransformer {
                             opContext,
                             newDepth,
                             value.get(0),
-                            spec.getSearchableRefAnnotation().getFieldType());
+                            spec.getSearchableRefAnnotation().getFieldType(),
+                            auditStamp);
                     if (node.isPresent()) {
                       resultNode.set(fieldName, node.get());
                     }

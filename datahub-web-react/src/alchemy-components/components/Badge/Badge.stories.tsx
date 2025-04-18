@@ -1,12 +1,11 @@
-import React from 'react';
-
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
+import React from 'react';
 
 import { GridList } from '@components/.docs/mdx-components';
-import { Badge, badgeDefault } from './Badge';
-import pillMeta from '../Pills/Pill.stories';
-import { omitKeys } from './utils';
+import { Badge, badgeDefault } from '@components/components/Badge/Badge';
+import { omitKeys } from '@components/components/Badge/utils';
+import pillMeta from '@components/components/Pills/Pill.stories';
 
 const pillMetaArgTypes = omitKeys(pillMeta.argTypes, ['label']);
 const pillMetaArgs = omitKeys(pillMeta.args, ['label']);
@@ -85,11 +84,11 @@ export const sizes = () => (
 export const colors = () => (
     <GridList>
         <Badge count={100} />
-        <Badge count={100} colorScheme="violet" />
-        <Badge count={100} colorScheme="green" />
-        <Badge count={100} colorScheme="red" />
-        <Badge count={100} colorScheme="blue" />
-        <Badge count={100} colorScheme="gray" />
+        <Badge count={100} color="violet" />
+        <Badge count={100} color="green" />
+        <Badge count={100} color="red" />
+        <Badge count={100} color="blue" />
+        <Badge count={100} color="gray" />
     </GridList>
 );
 

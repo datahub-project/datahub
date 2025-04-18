@@ -8,7 +8,7 @@ import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 import static com.linkedin.metadata.authorization.ApiOperation.EXISTS;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
-import static com.linkedin.metadata.entity.validation.ValidationApiUtils.validateOrThrow;
+import static com.linkedin.metadata.entity.validation.ValidationApiUtils.validateTrimOrThrow;
 import static com.linkedin.metadata.entity.validation.ValidationUtils.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.search.utils.SearchUtils.*;
@@ -286,7 +286,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     }
 
     try {
-      validateOrThrow(entity);
+      validateTrimOrThrow(entity);
     } catch (ValidationException e) {
       throw new RestLiServiceException(HttpStatus.S_422_UNPROCESSABLE_ENTITY, e);
     }
@@ -333,7 +333,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     for (Entity entity : entities) {
       try {
-        validateOrThrow(entity);
+        validateTrimOrThrow(entity);
       } catch (ValidationException e) {
         throw new RestLiServiceException(HttpStatus.S_422_UNPROCESSABLE_ENTITY, e);
       }
@@ -879,7 +879,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             Map<String, String> conditions = new HashMap();
             conditions.put("registryName", finalRegistryName1);
             conditions.put("registryVersion", finalRegistryVersion1.toString());
-            entityService.rollbackWithConditions(opContext, aspectRowsToDelete, conditions, false);
+            entityService.rollbackWithConditions(opContext, aspectRowsToDelete, conditions, false, false);
           }
           return response;
         },

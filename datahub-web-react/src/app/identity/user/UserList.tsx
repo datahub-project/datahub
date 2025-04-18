@@ -1,29 +1,31 @@
-import React, { useEffect, useState } from 'react';
-import { Button, Empty, List, Pagination } from 'antd';
-import styled from 'styled-components/macro';
-import * as QueryString from 'query-string';
 import { UsergroupAddOutlined } from '@ant-design/icons';
+import { Button, Empty, List, Pagination } from 'antd';
+import * as QueryString from 'query-string';
+import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
-import UserListItem from './UserListItem';
-import { Message } from '../../shared/Message';
-import { useListUsersQuery } from '../../../graphql/user.generated';
-import { CorpUser, DataHubRole } from '../../../types.generated';
-import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
-import { SearchBar } from '../../search/SearchBar';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import ViewInviteTokenModal from './ViewInviteTokenModal';
-import { useListRolesQuery } from '../../../graphql/role.generated';
-import { scrollToTop } from '../../shared/searchUtils';
-import { OnboardingTour } from '../../onboarding/OnboardingTour';
+import styled from 'styled-components/macro';
+
+import { useUserContext } from '@app/context/useUserContext';
+import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import UserListItem from '@app/identity/user/UserListItem';
+import ViewInviteTokenModal from '@app/identity/user/ViewInviteTokenModal';
+import { DEFAULT_USER_LIST_PAGE_SIZE, removeUserFromListUsersCache } from '@app/identity/user/cacheUtils';
+import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import {
     USERS_ASSIGN_ROLE_ID,
     USERS_INTRO_ID,
     USERS_INVITE_LINK_ID,
     USERS_SSO_ID,
-} from '../../onboarding/config/UsersOnboardingConfig';
-import { useToggleEducationStepIdsAllowList } from '../../onboarding/useToggleEducationStepIdsAllowList';
-import { DEFAULT_USER_LIST_PAGE_SIZE, removeUserFromListUsersCache } from './cacheUtils';
-import { useUserContext } from '../../context/useUserContext';
+} from '@app/onboarding/config/UsersOnboardingConfig';
+import { useToggleEducationStepIdsAllowList } from '@app/onboarding/useToggleEducationStepIdsAllowList';
+import { SearchBar } from '@app/search/SearchBar';
+import { Message } from '@app/shared/Message';
+import { scrollToTop } from '@app/shared/searchUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useListRolesQuery } from '@graphql/role.generated';
+import { useListUsersQuery } from '@graphql/user.generated';
+import { CorpUser, DataHubRole } from '@types';
 
 const UserContainer = styled.div`
     display: flex;

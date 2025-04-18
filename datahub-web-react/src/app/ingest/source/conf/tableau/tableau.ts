@@ -1,5 +1,6 @@
-import { SourceConfig } from '../types';
-import tableauLogo from '../../../../../images/tableaulogo.png';
+import { SourceConfig } from '@app/ingest/source/conf/types';
+
+import tableauLogo from '@images/tableaulogo.png';
 
 const placeholderRecipe = `\
 source:

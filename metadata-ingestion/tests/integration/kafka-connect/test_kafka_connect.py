@@ -2,11 +2,14 @@ import subprocess
 from typing import Any, Dict, List, Optional, cast
 from unittest import mock
 
+import jpype
+import jpype.imports
 import pytest
 import requests
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.kafka_connect.kafka_connect import SinkTopicFilter
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
@@ -580,7 +583,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
 
     api_vs_response.update(override_data or {})
 
-    for url in api_vs_response.keys():
+    for url in api_vs_response:
         request_mock.register_uri(
             api_vs_response[url]["method"],
             url,
@@ -624,7 +627,9 @@ def test_kafka_connect_snowflake_sink_ingest(
         "http://localhost:28083/connectors/snowflake_sink1/topics": {
             "method": "GET",
             "status_code": 200,
-            "json": {"snowflake_sink1": {"topics": ["topic1", "_topic+2"]}},
+            "json": {
+                "snowflake_sink1": {"topics": ["topic1", "_topic+2", "extra_old_topic"]}
+            },
         },
     }
 
@@ -682,3 +687,63 @@ def test_kafka_connect_bigquery_sink_ingest(
         golden_path=test_resources_dir / "kafka_connect_bigquery_sink_mces_golden.json",
         ignore_paths=[],
     )
+
+
+def test_filter_stale_topics_topics_list():
+    """
+    Test case for filter_stale_topics method when sink_config has 'topics' key.
+    """
+    # Create an instance of SinkTopicFilter
+    sink_filter = SinkTopicFilter()
+
+    # Set up test data
+    processed_topics = ["topic1", "topic2", "topic3", "topic4"]
+    sink_config = {"topics": "topic1,topic3,topic5"}
+
+    # Call the method under test
+    result = sink_filter.filter_stale_topics(processed_topics, sink_config)
+
+    # Assert the expected result
+    expected_result = ["topic1", "topic3"]
+    assert result == expected_result, f"Expected {expected_result}, but got {result}"
+
+
+def test_filter_stale_topics_regex_filtering():
+    """
+    Test filter_stale_topics when using topics.regex for filtering.
+    """
+    if not jpype.isJVMStarted():
+        jpype.startJVM()
+
+    # Create an instance of SinkTopicFilter
+    sink_filter = SinkTopicFilter()
+
+    # Set up test data
+    processed_topics = ["topic1", "topic2", "other_topic", "test_topic"]
+    sink_config = {"topics.regex": "topic.*"}
+
+    # Call the method under test
+    result = sink_filter.filter_stale_topics(processed_topics, sink_config)
+
+    # Assert the result matches the expected filtered topics
+    assert result == ["topic1", "topic2"]
+
+
+def test_filter_stale_topics_no_topics_config():
+    """
+    Test filter_stale_topics when using neither topics.regex not topics
+    Ideally, this will never happen for kafka-connect sink connector
+    """
+
+    # Create an instance of SinkTopicFilter
+    sink_filter = SinkTopicFilter()
+
+    # Set up test data
+    processed_topics = ["topic1", "topic2", "other_topic", "test_topic"]
+    sink_config = {"X": "Y"}
+
+    # Call the method under test
+    result = sink_filter.filter_stale_topics(processed_topics, sink_config)
+
+    # Assert the result matches the expected filtered topics
+    assert result == processed_topics

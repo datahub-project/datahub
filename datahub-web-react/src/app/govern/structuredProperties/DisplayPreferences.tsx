@@ -1,11 +1,17 @@
-import { Icon, Pill, Switch, Text } from '@src/alchemy-components';
-import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
-import { AllowedValue, StructuredPropertyEntity } from '@src/types.generated';
 import { Collapse } from 'antd';
 import React, { useState } from 'react';
+
+import {
+    CollapseHeader,
+    StyledCollapse,
+    StyledFormItem,
+    TogglesContainer,
+} from '@app/govern/structuredProperties/styledComponents';
+import { StructuredProp, canBeAssetBadge, getDisplayName } from '@app/govern/structuredProperties/utils';
+import { Icon, Pill, Switch, Text } from '@src/alchemy-components';
+import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { useUpdateStructuredPropertyMutation } from '@src/graphql/structuredProperties.generated';
-import { CollapseHeader, StyledCollapse, StyledFormItem, TogglesContainer } from './styledComponents';
-import { getDisplayName, canBeAssetBadge, StructuredProp } from './utils';
+import { AllowedValue, StructuredPropertyEntity } from '@src/types.generated';
 
 const SCHEMA_FIELD_URN = 'urn:li:entityType:datahub.schemaField';
 
@@ -146,14 +152,11 @@ const DisplayPreferences = ({
                     modalText={
                         <p>
                             <span>Another property </span>
-                            <Pill
-                                label={getDisplayName(badgeProperty)}
-                                size="sm"
-                                colorScheme="violet"
-                                clickable={false}
-                            />
+                            <Pill label={getDisplayName(badgeProperty)} size="sm" color="violet" clickable={false} />
                             &nbsp;is already being shown on asset previews, but only one property is allowed at a time.
-                            Do you want to replace the current property? This will hide {getDisplayName(badgeProperty)}{' '}
+                            Do you want to replace the current property? This will hide {getDisplayName(
+                                badgeProperty,
+                            )}{' '}
                             on all asset previews.
                         </p>
                     }

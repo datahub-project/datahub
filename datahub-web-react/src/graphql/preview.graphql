@@ -341,6 +341,9 @@ fragment entityPreview on Entity {
         parentDomains {
             ...parentDomainsFields
         }
+        displayProperties {
+            ...displayPropertiesFields
+        }
         ...domainEntitiesFields
     }
     ... on Container {

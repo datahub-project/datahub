@@ -1,17 +1,31 @@
 import { ButtonHTMLAttributes } from 'react';
 
-import type { IconNames } from '@components';
-import type { SizeOptions, ColorOptions, FontSizeOptions } from '@components/theme/config';
+import { IconProps } from '@components/components/Icon/types';
+import type { ColorOptions, SizeOptions } from '@components/theme/config';
 
-export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-    variant?: 'filled' | 'outline' | 'text';
-    color?: ColorOptions;
-    size?: SizeOptions;
-    icon?: IconNames;
-    iconPosition?: 'left' | 'right';
-    iconSize?: FontSizeOptions;
-    isCircle?: boolean;
-    isLoading?: boolean;
-    isDisabled?: boolean;
-    isActive?: boolean;
+export enum ButtonVariantValues {
+    filled = 'filled',
+    outline = 'outline',
+    text = 'text',
+    secondary = 'secondary',
 }
+export type ButtonVariant = keyof typeof ButtonVariantValues;
+
+export interface ButtonPropsDefaults {
+    variant: ButtonVariant;
+    color: ColorOptions;
+    size: SizeOptions;
+    iconPosition: 'left' | 'right';
+    isCircle: boolean;
+    isLoading: boolean;
+    isDisabled: boolean;
+    isActive: boolean;
+}
+
+export interface ButtonProps
+    extends Partial<ButtonPropsDefaults>,
+        Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'color'> {
+    icon?: IconProps;
+}
+
+export type ButtonStyleProps = Omit<ButtonPropsDefaults, 'iconPosition'> & { hasChildren: boolean };

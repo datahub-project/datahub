@@ -7,7 +7,9 @@ import pandas as pd
 from neo4j import GraphDatabase
 from pydantic.fields import Field
 
-from datahub.configuration.source_common import EnvConfigMixin
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+)
 from datahub.emitter.mce_builder import make_data_platform_urn, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -17,9 +19,19 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import (
+    MetadataWorkUnitProcessor,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionReport,
+    StatefulIngestionSourceBase,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaFieldDataType
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -52,7 +64,7 @@ _type_mapping: Dict[Union[Type, str], Type] = {
 }
 
 
-class Neo4jConfig(EnvConfigMixin):
+class Neo4jConfig(EnvConfigMixin, StatefulIngestionConfigBase):
     username: str = Field(description="Neo4j Username")
     password: str = Field(description="Neo4j Password")
     uri: str = Field(description="The URI for the Neo4j server")
@@ -60,7 +72,7 @@ class Neo4jConfig(EnvConfigMixin):
 
 
 @dataclass
-class Neo4jSourceReport(SourceReport):
+class Neo4jSourceReport(StatefulIngestionReport):
     obj_failures: int = 0
     obj_created: int = 0
 
@@ -68,7 +80,7 @@ class Neo4jSourceReport(SourceReport):
 @platform_name("Neo4j", id="neo4j")
 @config_class(Neo4jConfig)
 @support_status(SupportStatus.CERTIFIED)
-class Neo4jSource(Source):
+class Neo4jSource(StatefulIngestionSourceBase):
     NODE = "node"
     RELATIONSHIP = "relationship"
     PLATFORM = "neo4j"
@@ -76,7 +88,7 @@ class Neo4jSource(Source):
     def __init__(self, ctx: PipelineContext, config: Neo4jConfig):
         self.ctx = ctx
         self.config = config
-        self.report = Neo4jSourceReport()
+        self.report: Neo4jSourceReport = Neo4jSourceReport()
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -280,7 +292,15 @@ class Neo4jSource(Source):
         return record["properties"]
 
     def get_relationships(self, record: dict) -> dict:
-        return record.get("relationships", None)
+        return record.get("relationships", {})
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         df = self.get_neo4j_metadata(

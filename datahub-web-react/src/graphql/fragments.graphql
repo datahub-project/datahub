@@ -229,6 +229,9 @@ fragment parentNodesFields on ParentNodesResult {
         properties {
             name
         }
+        displayProperties {
+            ...displayPropertiesFields
+        }
     }
 }
 
@@ -238,6 +241,9 @@ fragment parentDomainsFields on ParentDomainsResult {
         urn
         type
         ... on Domain {
+            displayProperties {
+                ...displayPropertiesFields
+            }
             properties {
                 name
                 description
@@ -592,6 +598,9 @@ fragment dataJobFields on DataJob {
     }
     activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
         total
+    }
+    dataTransformLogic {
+        ...dataTransformLogicFields
     }
 }
 
@@ -1054,6 +1063,9 @@ fragment nonRecursiveMLModel on MLModel {
             urn
             name
             description
+            properties {
+                name
+            }
         }
         customProperties {
             key
@@ -1144,6 +1156,10 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
         mlModelLineageInfo {
             trainingJobs
             downstreamJobs
+        }
+        customProperties {
+            key
+            value
         }
     }
     browsePathV2 {
@@ -1249,6 +1265,9 @@ fragment entityDomain on DomainAssociation {
             ...parentDomainsFields
         }
         ...domainEntitiesFields
+        displayProperties {
+            ...displayPropertiesFields
+        }
     }
     associatedUrn
 }
@@ -1289,30 +1308,7 @@ fragment browsePathV2Fields on BrowsePathV2 {
         entity {
             urn
             type
-            ... on Container {
-                properties {
-                    name
-                }
-            }
-            ... on DataFlow {
-                properties {
-                    name
-                }
-            }
-            ... on DataPlatformInstance {
-                platform {
-                    name
-                    properties {
-                        displayName
-                    }
-                }
-                instanceId
-            }
-            ... on Dataset {
-                properties {
-                    name
-                }
-            }
+            ...entityDisplayNameFields
         }
     }
 }
@@ -1437,6 +1433,9 @@ fragment entityDisplayNameFields on Entity {
             displayName
             qualifiedName
         }
+    }
+    ... on SchemaFieldEntity {
+        fieldPath
     }
     ... on OwnershipTypeEntity {
         info {
@@ -1784,6 +1783,14 @@ fragment datasetProfileFields on DatasetProfile {
         median
         stdev
         sampleValues
+        quantiles {
+            quantile
+            value
+        }
+        distinctValueFrequencies {
+            value
+            frequency
+        }
     }
 }
 
@@ -1813,6 +1820,15 @@ fragment notes on Entity {
                     }
                 }
             }
+        }
+    }
+}
+
+fragment dataTransformLogicFields on DataTransformLogic {
+    transforms {
+        queryStatement {
+            value
+            language
         }
     }
 }

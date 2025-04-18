@@ -339,6 +339,7 @@ public class Constants {
   public static final String EXECUTION_REQUEST_STATUS_CANCELLED = "CANCELLED";
   public static final String EXECUTION_REQUEST_STATUS_ABORTED = "ABORTED";
   public static final String EXECUTION_REQUEST_STATUS_DUPLICATE = "DUPLICATE";
+  public static final String EXECUTION_REQUEST_STATUS_ROLLING_BACK = "ROLLING_BACK";
 
   // DataHub Access Token
   public static final String ACCESS_TOKEN_KEY_ASPECT_NAME = "dataHubAccessTokenKey";
@@ -455,6 +456,9 @@ public class Constants {
       "dataHubStepStateProperties";
 
   // Authorization
+  // Do not use this env var directly to determine if REST API Auth is to be enabled. Instead, use
+  // the  spring property "authorization.restApiAuthorization" from application.yaml for
+  // consistency. The spring property can be initialized by this env var (among other methods).
   public static final String REST_API_AUTHORIZATION_ENABLED_ENV = "REST_API_AUTHORIZATION_ENABLED";
 
   // Metadata Change Event Parameter Names
@@ -481,6 +485,8 @@ public class Constants {
   public static final String INITIAL_VERSION_SORT_ID = "AAAAAAAA";
   public static final String VERSION_SORT_ID_FIELD_NAME = "versionSortId";
   public static final String IS_LATEST_FIELD_NAME = "isLatest";
+  public static final String VERSION_SET_FIELD_NAME = "versionSet";
+  public static final String VERSION_LABEL_FIELD_NAME = "version";
 
   public static final String DISPLAY_PROPERTIES_ASPECT_NAME = "displayProperties";
 

@@ -140,6 +140,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
         visualConfig.setAppTitle(_visualConfiguration.getAppTitle());
       }
       visualConfig.setHideGlossary(_visualConfiguration.isHideGlossary());
+      visualConfig.setShowFullTitleInLineage(_visualConfiguration.isShowFullTitleInLineage());
     }
     if (_visualConfiguration != null && _visualConfiguration.getQueriesTab() != null) {
       QueriesTabConfig queriesTabConfig = new QueriesTabConfig();
@@ -204,6 +205,10 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setShowNavBarRedesign(_featureFlags.isShowNavBarRedesign())
             .setShowAutoCompleteResults(_featureFlags.isShowAutoCompleteResults())
             .setEntityVersioningEnabled(_featureFlags.isEntityVersioning())
+            .setShowHasSiblingsFilter(_featureFlags.isShowHasSiblingsFilter())
+            .setShowSearchBarAutocompleteRedesign(
+                _featureFlags.isShowSearchBarAutocompleteRedesign())
+            .setShowManageTags(_featureFlags.isShowManageTags())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

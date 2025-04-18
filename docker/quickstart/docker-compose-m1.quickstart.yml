@@ -47,7 +47,7 @@ services:
     - METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME=MetadataChangeLog_Versioned_v1
     - SCHEMA_REGISTRY_URL=http://schema-registry:8081
     hostname: actions
-    image: ${DATAHUB_ACTIONS_IMAGE:-acryldata/datahub-actions}:${ACTIONS_VERSION:-head}
+    image: ${DATAHUB_ACTIONS_IMAGE:-acryldata/datahub-actions}:${DATAHUB_VERSION:-head}-slim
   datahub-frontend-react:
     depends_on:
       datahub-gms:
@@ -103,6 +103,7 @@ services:
     - NEO4J_URI=bolt://neo4j
     - NEO4J_USERNAME=neo4j
     - PE_CONSUMER_ENABLED=true
+    - THEME_V2_DEFAULT=true
     - UI_INGESTION_ENABLED=true
     healthcheck:
       interval: 1s

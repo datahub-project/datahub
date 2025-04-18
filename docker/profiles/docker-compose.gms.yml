@@ -104,6 +104,7 @@ x-datahub-gms-service: &datahub-gms-service
     ALTERNATE_MCP_VALIDATION: ${ALTERNATE_MCP_VALIDATION:-true}
     STRICT_URN_VALIDATION_ENABLED: ${STRICT_URN_VALIDATION_ENABLED:-true}
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
+    THEME_V2_DEFAULT: ${THEME_V2_DEFAULT:-true}
   healthcheck:
     test: curl -sS --fail http://datahub-gms:${DATAHUB_GMS_PORT:-8080}/health
     start_period: 90s
@@ -247,12 +248,11 @@ services:
         condition: service_completed_successfully
       kafka-setup:
         condition: service_completed_successfully
-  system-update-debug:
+  system-update-debug: &system-update-debug
     <<: *datahub-system-update-service-dev
     profiles:
       - debug
       - debug-backend
-      - debug-consumers
     depends_on:
       mysql-setup-dev:
         condition: service_completed_successfully
@@ -260,6 +260,10 @@ services:
         condition: service_completed_successfully
       kafka-setup-dev:
         condition: service_completed_successfully
+  system-update-debug-consumers: # for consistent naming based on profile
+    <<: *system-update-debug
+    profiles:
+      - debug-consumers
   system-update-debug-elasticsearch:
     <<: *datahub-system-update-service-dev
     profiles:
@@ -385,7 +389,7 @@ services:
       MAE_CONSUMER_ENABLED: false
       MCE_CONSUMER_ENABLED: false
     depends_on:
-      system-update-debug:
+      system-update-debug-consumers:
         condition: service_completed_successfully
   datahub-gms-debug-neo4j:
     <<: *datahub-gms-service-dev
@@ -413,7 +417,7 @@ services:
     depends_on:
       datahub-gms-quickstart-consumers:
         condition: service_healthy
-  datahub-mae-consumer-quickstart-consumers-dev:
+  datahub-mae-consumer-debug-consumers:
     <<: *datahub-mae-consumer-service-dev
     profiles:
       - debug-consumers
@@ -430,7 +434,7 @@ services:
     depends_on:
       datahub-gms-quickstart-consumers:
         condition: service_healthy
-  datahub-mce-consumer-quickstart-consumers-dev:
+  datahub-mce-consumer-debug-consumers:
     <<: *datahub-mce-consumer-service-dev
     profiles:
       - debug-consumers

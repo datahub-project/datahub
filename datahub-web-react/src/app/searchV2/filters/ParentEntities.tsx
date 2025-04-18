@@ -1,12 +1,14 @@
-import React from 'react';
-import styled from 'styled-components';
 import { FolderOpenOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
-import { ContextPathSeparator } from '@src/app/previewV2/ContextPathSeparator';
+import React from 'react';
+import styled from 'styled-components';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import ContextPathEntityLink from '@src/app/previewV2/ContextPathEntityLink';
-import { Entity } from '../../../types.generated';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { useEntityRegistry } from '../../useEntityRegistry';
+import { ContextPathSeparator } from '@src/app/previewV2/ContextPathSeparator';
+
+import { Entity } from '@types';
 
 const ParentNodesWrapper = styled.div`
     font-size: 12px;
@@ -28,9 +30,10 @@ const DEFAULT_NUM_VISIBLE = 2;
 interface Props {
     parentEntities: Entity[];
     numVisible?: number;
+    linksDisabled?: boolean; // don't allow links to parent entities
 }
 
-export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NUM_VISIBLE }: Props) {
+export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NUM_VISIBLE, linksDisabled }: Props) {
     const entityRegistry = useEntityRegistry();
 
     // parent nodes/domains are returned with direct parent first
@@ -72,6 +75,7 @@ export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NU
                             <ContextPathEntityLink
                                 key={parentEntity.urn}
                                 entity={parentEntity}
+                                linkDisabled={linksDisabled}
                                 style={{ fontSize: '12px' }}
                             />
                             {index !== visibleNodes.length - 1 && <ContextPathSeparator />}
