@@ -13,6 +13,7 @@ You can look at all aspects supported for users in [CorpUserAspect](../../metada
 ## Using File-Based Ingestion Recipe
 
 Define a JSON File containing your user
+
 ```my-user.json
 [
     {
@@ -49,7 +50,7 @@ Define a JSON File containing your user
 ]
 ```
 
-Define an [ingestion recipe](https://datahubproject.io/docs/metadata-ingestion/#recipes) 
+Define an [ingestion recipe](https://datahubproject.io/docs/metadata-ingestion/#recipes)
 
 ```
 ---
@@ -61,7 +62,7 @@ source:
 
 # see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
-  ... 
+  ...
 
 ```
 
@@ -77,7 +78,7 @@ curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
 				"urn": "urn:li:corpuser:aseem.bansal",
 				"aspects": [{
 					"com.linkedin.identity.CorpUserInfo": {
-                        "active": true, 
+                        "active": true,
 						"displayName": "Aseem Bansal",
 						"email": "aseem+example@acryl.io",
 						"title": "Software Engineer",
@@ -89,4 +90,3 @@ curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
 	}
 }'
 ```
-

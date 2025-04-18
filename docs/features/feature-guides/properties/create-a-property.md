@@ -5,6 +5,7 @@ title: Create and Add a Structured Property
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Create and Add a DataHub Structured Property
+
 <FeatureAvailability/>
 
 This guide walks you through creating a Structured Property via the DataHub UI, including:
@@ -39,7 +40,7 @@ Click **+ Create** to start defining your Property.
 
 First, provide the following details:
 
-1. **Name and Description:** Clearly describe the purpose and meaning of the Structured Property so users understand its role and context.  
+1. **Name and Description:** Clearly describe the purpose and meaning of the Structured Property so users understand its role and context.
 2. **Property Type:** Choose a type that best fits the metadata you want to collect. Available types include **Text**, **Number**, **Date**, **DataHub Entity**, or **Rich Text**. Choosing any of the "List" options allows multiple entries for the Property.
 3. **Allowed Values (Optional):** For **Text**, **Number**, and **DataHub Entity** types, define a set of allowed values to ensure consistent input across assets.
 4. **Applies To:** Specify which DataHub asset types (e.g., Datasets, Dashboards, Pipelines) the Structured Property can be associated with, ensuring relevance and precision.
@@ -65,12 +66,13 @@ When defining a Structured Property, you can customize how it will be visible to
    Use this option if the Structured Property contains sensitive metadata that should not be visible to DataHub users via the UI. This ensures that only users with the necessary permissions can view or interact with the property values.
 
 2. **Customize Visibility:**  
-   Decide where the Structured Property appears across the DataHub UI:  
-   - **Asset Badge:** Display the property value as a badge on Assets to highlight key metadata.  
+   Decide where the Structured Property appears across the DataHub UI:
+
+   - **Asset Badge:** Display the property value as a badge on Assets to highlight key metadata.
    - **Asset Sidebar:** Show the property in the Asset Sidebar for quick visibility while navigating an Asset.
 
 3. **Show in Search Filters:**  
-   Enable this option to allow users to filter Assets by the values of this Structured Property. This improves discoverability and facilitates searches for Assets with specific attributes or classifications.  
+   Enable this option to allow users to filter Assets by the values of this Structured Property. This improves discoverability and facilitates searches for Assets with specific attributes or classifications.
 
 4. **Show in Columns Table:**  
    Use this option to display the Structured Property value in the Dataset Schema view’s Columns Table. This is particularly useful for capturing field-level custom metadata and making it accessible alongside schema details.
@@ -108,9 +110,9 @@ Continuing with the **Lifecycle Stage** example, designate the `pet_profiles` Da
 
 After clicking **Save**, the **Lifecycle Stage** for `pet_profiles` will appear in the following sections of the Asset Page:
 
-1. Properties Tab  
-2. Asset Badge  
-3. Asset Sidebar  
+1. Properties Tab
+2. Asset Badge
+3. Asset Sidebar
 
 <p align="center">
   <img 
@@ -173,16 +175,17 @@ Structured Properties can be applied at the column level, providing deeper conte
 
 Follow these steps to define and configure the **Business Label** Structured Property:
 
-1. **Property Details:**  
-   - **Name:** Business Label  
-   - **Description:** Provide a description to explain its purpose, such as:  
-     *"A user-friendly name for a dataset column, helping business users understand its meaning."*  
-   - **Property Type:** Select **Text**, allowing any valid string to be entered.  
-   - **Applies To:** Set this property to apply exclusively to **Columns**.  
+1. **Property Details:**
 
-2. **Display Preferences:**  
-   - By default, column-level Structured Properties will be enabled for **all columns** on **all datasets** within DataHub, accessible via the Column Sidebar.  
-   - Optionally, enable **Show in Table Columns** to make the **Business Label** visible within the Columns Table on the dataset schema.  
+   - **Name:** Business Label
+   - **Description:** Provide a description to explain its purpose, such as:  
+     _"A user-friendly name for a dataset column, helping business users understand its meaning."_
+   - **Property Type:** Select **Text**, allowing any valid string to be entered.
+   - **Applies To:** Set this property to apply exclusively to **Columns**.
+
+2. **Display Preferences:**
+   - By default, column-level Structured Properties will be enabled for **all columns** on **all datasets** within DataHub, accessible via the Column Sidebar.
+   - Optionally, enable **Show in Table Columns** to make the **Business Label** visible within the Columns Table on the dataset schema.
 
 <p align="center">
   <img 
@@ -199,8 +202,8 @@ Once configured, the **Business Label** Structured Property will automatically b
 
 For example, after assigning the property, it will appear in two key areas of the `pet_profiles` Asset Page:
 
-1. **Columns Table:** The **Business Label** property and its populated values will be displayed directly within the Columns Table on the Dataset Schema, enabling users to view field-level metadata easily.  
-2. **Column Sidebar:** Structured Properties configured for columns, including **Business Label**, will also appear in the column’s sidebar.  
+1. **Columns Table:** The **Business Label** property and its populated values will be displayed directly within the Columns Table on the Dataset Schema, enabling users to view field-level metadata easily.
+2. **Column Sidebar:** Structured Properties configured for columns, including **Business Label**, will also appear in the column’s sidebar.
 
 By applying column-level Structured Properties like **Business Label**, you enhance data discoverability and provide business users with valuable insights while keeping the interface user-friendly.
 
@@ -211,7 +214,7 @@ By applying column-level Structured Properties like **Business Label**, you enha
        alt="Column-level Structured Property in Columns Table"/>
 </p>
 
-### Update the Business Label from the Column Sidebar  
+### Update the Business Label from the Column Sidebar
 
 When selecting a specific column in the UI, the **Business Label** Structured Property will be visible in the column’s sidebar. Users with appropriate permissions can view or update the value directly from this interface.
 
@@ -231,24 +234,29 @@ This setup ensures that column-specific metadata, such as the **Business Label**
 Once a Structured Property has been defined, only certain aspects can be modified:
 
 **You can change:**
+
 - Title and description
 - Add new allowed values
 - Add new supported asset types
 - Update display preferences
 
 **You cannot change:**
+
 - The type of the Structured Property
 - Existing allowed values and their definitions
 
 ### Why can't I configure a Structured Property to appear as an Asset Badge?
+
 - Only **Text** and **Number** types with allowed values can be configured as Asset Badges.
 - Only one Structured Property can be displayed as a Badge for a given Asset.
 
 ### Why can't I filter Search Results by a Structured Property?
+
 - Verify that the Structured Property has been configured to appear in search filters.
 - Ensure the filter is relevant by checking if there are assets associated with the Structured Property's value in your search results. Try different search terms or relax other applied filters.
 
 ### Why can't I add a Structured Property to an Asset?
+
 - Confirm you have the **Edit Properties** privilege.
 - Ensure the Structured Property has already been created and supports the type of Asset you're trying to modify.
 

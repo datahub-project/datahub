@@ -15,53 +15,53 @@ of the table with which they are associated.
 
 ### Permissions
 
-*Permissions required for registering DMFs*
+_Permissions required for registering DMFs_
 
 According to the latest Snowflake docs, here are the permissions the service account performing the
 DMF registration and ingestion must have:
 
-| Privilege                    | Object              | Notes                                                                                       |
-|------------------------------|---------------------|---------------------------------------------------------------------------------------------|
-| USAGE                        | Database, schema    | Database and schema where snowflake DMFs will be created. This is configured in compile command described below. |
-| CREATE FUNCTION              | Schema              | This privilege enables creating new DMF in schema configured in compile command.            |
-| EXECUTE DATA METRIC FUNCTION | Account             | This privilege enables you to control which roles have access to server-agnostic compute resources to call the system DMF. |
-| USAGE                        | Database, schema    | These objects are the database and schema that contain the referenced table in the query.   |
-| OWNERSHIP                    | Table               | This privilege enables you to associate a DMF with a referenced table.                      |
-| USAGE                        | DMF                 | This privilege enables calling the DMF in schema configured in compile command.             |
+| Privilege                    | Object           | Notes                                                                                                                      |
+| ---------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| USAGE                        | Database, schema | Database and schema where snowflake DMFs will be created. This is configured in compile command described below.           |
+| CREATE FUNCTION              | Schema           | This privilege enables creating new DMF in schema configured in compile command.                                           |
+| EXECUTE DATA METRIC FUNCTION | Account          | This privilege enables you to control which roles have access to server-agnostic compute resources to call the system DMF. |
+| USAGE                        | Database, schema | These objects are the database and schema that contain the referenced table in the query.                                  |
+| OWNERSHIP                    | Table            | This privilege enables you to associate a DMF with a referenced table.                                                     |
+| USAGE                        | DMF              | This privilege enables calling the DMF in schema configured in compile command.                                            |
 
 and the roles that must be granted:
 
-| Role                     | Notes                   |
-|--------------------------|-------------------------|
-| SNOWFLAKE.DATA_METRIC_USER | To use System DMFs    |
+| Role                       | Notes              |
+| -------------------------- | ------------------ |
+| SNOWFLAKE.DATA_METRIC_USER | To use System DMFs |
 
-*Permissions required for running DMFs (scheduled DMFs run with table owner's role)*
+_Permissions required for running DMFs (scheduled DMFs run with table owner's role)_
 
 Because scheduled DMFs run with the role of the table owner, the table owner must have the following privileges:
 
-| Privilege                    | Object           | Notes                                                                                       |
-|------------------------------|------------------|---------------------------------------------------------------------------------------------|
-| USAGE                        | Database, schema | Database and schema where snowflake DMFs will be created. This is configured in compile command described below. |
-| USAGE                        | DMF              | This privilege enables calling the DMF in schema configured in compile power.             |
+| Privilege                    | Object           | Notes                                                                                                                      |
+| ---------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| USAGE                        | Database, schema | Database and schema where snowflake DMFs will be created. This is configured in compile command described below.           |
+| USAGE                        | DMF              | This privilege enables calling the DMF in schema configured in compile power.                                              |
 | EXECUTE DATA METRIC FUNCTION | Account          | This privilege enables you to control which roles have access to server-agnostic compute resources to call the system DMF. |
 
 and the roles that must be granted:
 
-| Role                     | Notes                   |
-|--------------------------|-------------------------|
-| SNOWFLAKE.DATA_METRIC_USER | To use System DMFs    |
+| Role                       | Notes              |
+| -------------------------- | ------------------ |
+| SNOWFLAKE.DATA_METRIC_USER | To use System DMFs |
 
-*Permissions required for querying DMF results*
+_Permissions required for querying DMF results_
 
 In addition, the service account that will be executing DataHub Ingestion, and querying the DMF results, must have been granted the following system application roles:
 
 | Role                           | Notes                       |
-|--------------------------------|-----------------------------|
+| ------------------------------ | --------------------------- |
 | DATA_QUALITY_MONITORING_VIEWER | Query the DMF results table |
 
 To learn more about Snowflake DMFs and the privileges required to provision and query them, see the [Snowflake documentation](https://docs.snowflake.com/en/user-guide/data-quality-intro).
 
-*Example: Granting Permissions*
+_Example: Granting Permissions_
 
 ```sql
 -- setup permissions to <assertion-registration-role> to create DMFs and associate DMFs with table
@@ -79,7 +79,7 @@ grant usage on future functions in "<dmf-database>.<dmf-schema>" to role "<table
 grant database role SNOWFLAKE.DATA_METRIC_USER to role "<table-owner-role>"
 grant execute data metric function on account to role "<table-owner-role>"
 
--- setup permissions for <datahub-role> to query DMF results 
+-- setup permissions for <datahub-role> to query DMF results
 grant application role SNOWFLAKE.DATA_QUALITY_MONITORING_VIEWER to role "<datahub_role>"
 ```
 
@@ -99,11 +99,9 @@ Note that Schema Assertions are not currently supported.
 The process for declaring and running assertions backend by Snowflake DMFs consists of a few steps, which will be outlined
 in the following sections.
 
-
 ### Step 1. Define your Data Quality assertions using Assertion YAML files
 
 See the section **Declaring Assertions in YAML** below for examples of how to define assertions in YAML.
-
 
 ### Step 2. Register your assertions with DataHub
 
@@ -112,7 +110,6 @@ Use the DataHub CLI to register your assertions with DataHub, so they become vis
 ```bash
 datahub assertions upsert -f examples/library/assertions_configuration.yml
 ```
-
 
 ### Step 3. Compile the assertions into Snowflake DMFs using the DataHub CLI
 
@@ -123,7 +120,7 @@ which can then be registered in Snowflake.
 datahub assertions compile -f examples/library/assertions_configuration.yml -p snowflake -x DMF_SCHEMA=<db>.<schema-where-DMF-should-live>
 ```
 
-Two files will be generated as output of running this command: 
+Two files will be generated as output of running this command:
 
 - `dmf_definitions.sql`: This file contains the SQL code for the DMFs that will be registered in Snowflake.
 - `dmf_associations.sql`: This file contains the SQL code for associating the DMFs with the target tables in Snowflake.
@@ -172,7 +169,6 @@ along with scheduling the generated DMFs to run on at particular times.
 ....
 ```
 
-
 ### Step 4. Register the compiled DMFs in your Snowflake environment
 
 Next, you'll need to run the generated SQL from the files output in Step 3 in Snowflake.
@@ -186,7 +182,7 @@ snowsql -f dmf_associations.sql
 
 :::NOTE
 Scheduling Data Metric Function on table incurs Serverless Credit Usage in Snowflake. Refer [Billing and Pricing](https://docs.snowflake.com/en/user-guide/data-quality-intro#billing-and-pricing) for more details.
-Please ensure you DROP Data Metric Function created via dmf_associations.sql if the assertion is no longer in use. 
+Please ensure you DROP Data Metric Function created via dmf_associations.sql if the assertion is no longer in use.
 :::
 
 ### Step 5. Run ingestion to report the results back into DataHub
@@ -208,7 +204,7 @@ source:
 ```
 
 During ingestion we will query for the latest DMF results stored in Snowflake, convert them into DataHub Assertion Results, and report the results back into DataHub during your ingestion process
-either via CLI or the UI visible as normal assertions. 
+either via CLI or the UI visible as normal assertions.
 
 `datahub ingest -c snowflake.yml`
 

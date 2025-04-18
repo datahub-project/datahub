@@ -24,19 +24,19 @@ jobs:
     runs-on: depot-ubuntu-22.04
     needs: setup
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.9.9'
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install setuptools wheel twine build    
-    - name: Install dependencies
-      run: ./metadata-ingestion/scripts/install_deps.sh
-    - name: Build and publish   
-      run: |
-        cd metadata-ingestion
-        RELEASE_VERSION=${{ needs.setup.outputs.tag }} RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh
-        twine upload --repository-url https://pypi.fury.io/acryl-data/ dist/* -u ${{ secrets.GEMFURY_PUSH_TOKEN }} -p ""
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9.9"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install setuptools wheel twine build
+      - name: Install dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
+      - name: Build and publish
+        run: |
+          cd metadata-ingestion
+          RELEASE_VERSION=${{ needs.setup.outputs.tag }} RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh
+          twine upload --repository-url https://pypi.fury.io/acryl-data/ dist/* -u ${{ secrets.GEMFURY_PUSH_TOKEN }} -p ""

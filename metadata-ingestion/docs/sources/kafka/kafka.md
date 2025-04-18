@@ -104,7 +104,8 @@ source:
       schema_registry_url: http://localhost:8081
 ```
 
-### OAuth Callback 
+### OAuth Callback
+
 The OAuth callback function can be set up using `config.connection.consumer_config.oauth_cb`.
 
 You need to specify a Python function reference in the format &lt;python-module&gt;:&lt;function-name&gt;.

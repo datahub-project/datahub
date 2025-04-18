@@ -123,8 +123,8 @@ datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yaml -n
 
 #### ingest list-source-runs
 
-The `list-source-runs` option of the `ingest` command lists the previous runs, displaying their run ID, source name, 
-start time, status, and source URN. This command allows you to filter results using the --urn option for URN-based 
+The `list-source-runs` option of the `ingest` command lists the previous runs, displaying their run ID, source name,
+start time, status, and source URN. This command allows you to filter results using the --urn option for URN-based
 filtering or the --source option to filter by source name (partial or complete matches are supported).
 
 ```shell
@@ -285,6 +285,7 @@ DATAHUB_DEBUG=false
 A group of commands to interact with containers in DataHub.
 
 e.g. You can use this to apply a tag to all datasets recursively in this container.
+
 ```shell
 datahub container tag --container-urn "urn:li:container:0e9e46bd6d5cf645f33d5a8f0254bc2d" --tag-urn "urn:li:tag:tag1"
 datahub container domain --container-urn "urn:li:container:3f2effd1fbe154a4d60b597263a41e41" --domain-urn  "urn:li:domain:ajsajo-b832-4ab3-8881-7ed5e991a44c"

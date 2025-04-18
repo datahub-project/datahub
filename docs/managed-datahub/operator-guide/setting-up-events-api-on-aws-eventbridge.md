@@ -3,23 +3,24 @@ description: >-
   This guide will walk through the configuration required to start receiving
   DataHub Cloud events via AWS EventBridge.
 ---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-
 # Setting up Events API on AWS EventBridge
+
 <FeatureAvailability saasOnly />
 
 ## Entity Events API
 
-* See the Entity Events API Docs [here](docs/managed-datahub/datahub-api/entity-events-api.md)
+- See the Entity Events API Docs [here](docs/managed-datahub/datahub-api/entity-events-api.md)
 
 ## Event Structure
 
 As are all AWS EventBridge events, the payload itself will be wrapped by a set of standard fields, outlined [here](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-events.html). The most notable include
 
-* **source:** A unique identifier for the source of the event. We tend to use \`acryl.events\` by default.
-* **account**: The account in which the event originated. This will be the Acryl AWS Account ID provided by your Acryl customer success rep.
-* **detail**: The place where the Entity Event payload will appear.
+- **source:** A unique identifier for the source of the event. We tend to use \`acryl.events\` by default.
+- **account**: The account in which the event originated. This will be the Acryl AWS Account ID provided by your Acryl customer success rep.
+- **detail**: The place where the Entity Event payload will appear.
 
 #### Sample Event
 
@@ -48,8 +49,8 @@ As are all AWS EventBridge events, the payload itself will be wrapped by a set o
 #### Sample Pattern
 
 ```
-{ 
-  "source": ["acryl.events"], 
+{
+  "source": ["acryl.events"],
   "detail": {
     "category": ["TAG"],
     "parameters": {
@@ -98,7 +99,7 @@ When creating your new event bus, you need to create a Policy that allows the Ac
 
 Notice that you'll need to populate the following fields on your own
 
-* **event-bus-arn**: This is the AWS ARN of your new event bus.
+- **event-bus-arn**: This is the AWS ARN of your new event bus.
 
 ## Step 2: Create a Routing Rule
 
@@ -120,23 +121,19 @@ To do so, follow the below steps
 
 7\. For **Event Source**, choose **Other**
 
-8\. **** Optional: Define a Sample Event. You can use the Sample Event defined in the **Event Structure** section above.
+8\. \***\* Optional: Define a Sample Event. You can use the Sample Event defined in the **Event Structure\*\* section above.
 
 9\. Define a matching Rule. This determines which Acryl events will be routed based on the current rule. You can use the Sample Rule defined in the **Event Structure** section above as a reference.
 
 10\. Define a Target: This defines where the events that match the rule should be routed.
 
-
-
 ## Step 3: Configure Acryl to Send Events
 
 Once you've completed these steps, communicate the following information to your Acryl Customer Success rep:
 
-* The ARN of the new Event Bus.
-* The AWS region in which the Event Bus is located.
+- The ARN of the new Event Bus.
+- The AWS region in which the Event Bus is located.
 
 This will enable Acryl to begin sending events to your EventBridge bus.
 
-
-
-__
+\_\_

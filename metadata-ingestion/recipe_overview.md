@@ -9,7 +9,6 @@ A recipe is the main configuration file for metadata ingestion. It tells our ing
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sources-sinks.png"/>
 </p>
 
-
 ## Configuring Recipe
 
 The basic form of the recipe file consists of:
@@ -49,37 +48,39 @@ DataHub supports running recipes via the CLI or UI.
 <TabItem value="cli" label="CLI" default>
 
 Install CLI and the plugin for the ingestion.
+
 ```shell
 python3 -m pip install --upgrade acryl-datahub
 pip install 'acryl-datahub[datahub-rest]'
 ```
+
 Running this recipe is as simple as:
 
 ```shell
 datahub ingest -c recipe.dhub.yaml
 ```
+
 For a detailed guide on running recipes via CLI, please refer to [CLI Ingestion Guide](cli-ingestion.md).
 
 </TabItem>
 
 <TabItem value="ui" label="UI">
 
-You can configure and run the recipe in **Ingestion** tab in DataHub. 
+You can configure and run the recipe in **Ingestion** tab in DataHub.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion-tab.png"/>
 </p>
 
-* Make sure you have the **Manage Metadata Ingestion & Manage Secret** privileges.
-* Navigate to **Ingestion** tab in DataHub.
-* Create an ingestion source & configure the recipe via UI.
-* Hit **Execute**.
+- Make sure you have the **Manage Metadata Ingestion & Manage Secret** privileges.
+- Navigate to **Ingestion** tab in DataHub.
+- Create an ingestion source & configure the recipe via UI.
+- Hit **Execute**.
 
 For a detailed guide on running recipes via UI, please refer to [UI Ingestion Guide](../docs/ui-ingestion.md).
 
 </TabItem>
 </Tabs>
-
 
 ## Advanced Configuration
 
@@ -91,7 +92,6 @@ For details, see [variable-substitution](https://docs.docker.com/compose/compose
 This environment variable substitution should be used to mask sensitive information in recipe files. As long as you can get env variables securely to the ingestion process there would not be any need to store sensitive information in recipes.
 
 ### Loading Sensitive Data as Files in Recipes
-
 
 Some sources (e.g. kafka, bigquery, mysql) require paths to files on a local file system. This doesn't work for UI ingestion, where the recipe needs to be totally self-sufficient. To add files to ingestion processes as part of the necessary configuration, DataHub offers a directive `__DATAHUB_TO_FILE_` which allows recipes to set the contents of files.
 

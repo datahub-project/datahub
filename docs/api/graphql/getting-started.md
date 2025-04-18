@@ -153,4 +153,3 @@ With the following error codes officially supported:
 | 403  | UNAUTHORIZED | The current actor is not authorized to perform the requested action.                          |
 | 404  | NOT_FOUND    | The resource is not found.                                                                    |
 | 500  | SERVER_ERROR | An internal error has occurred. Check your server logs or contact your DataHub administrator. |
-

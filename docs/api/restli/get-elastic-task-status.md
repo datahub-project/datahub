@@ -10,21 +10,23 @@ curl --location --request POST 'https://demo.datahubproject.io/api/gms/operation
     "task": "aB1cdEf2GHIJKLMnoPQr3S:123456"
 }'
 
-curl --location --request POST  http://localhost:8080/operations\?action\=getEsTaskStatus \         
+curl --location --request POST  http://localhost:8080/operations\?action\=getEsTaskStatus \
 --header 'Authorization: Bearer TOKEN'
 --header 'Content-Type: application/json' \
 --data-raw '{
     "nodeId": "aB1cdEf2GHIJKLMnoPQr3S",
     taskId: 12345
-}' 
+}'
 ```
 
 The output will be a string representing a JSON object with the task status.
+
 ```
 {
   "value": "{\"error\":\"Could not get task status for XIAMx5WySACgg9XxBgaKmw:12587\"}"
 }
 ```
+
 ```
 "{
   "completed": true,

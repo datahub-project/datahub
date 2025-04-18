@@ -36,7 +36,7 @@ The `urn` field should only be populated if there is an entity in your DataHub i
 
 ### GraphQL
 
-* [browseV2](../../graphql/queries.md#browsev2)
+- [browseV2](../../graphql/queries.md#browsev2)
 
 ## FAQ and Troubleshooting
 
@@ -48,4 +48,4 @@ Our ingestion sources are also producing `browsePathsV2` aspects since CLI versi
 
 ### Related Features
 
-* [Search](../how/search.md)
+- [Search](../how/search.md)

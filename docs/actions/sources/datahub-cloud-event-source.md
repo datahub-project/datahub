@@ -4,7 +4,7 @@
 
 ### Compatibility
 
-The **DataHub Cloud Event Source** is only compatible with versions of DataHub Cloud above  `v0.3.7`.
+The **DataHub Cloud Event Source** is only compatible with versions of DataHub Cloud above `v0.3.7`.
 
 ### Privileges
 
@@ -27,7 +27,7 @@ you can set `reset_offsets` to `True`.
 
 This event source implements an "ack" function which is invoked if and only if an event is successfully processed
 by the Actions framework, meaning that the event made it through the Transformers and into the Action without
-any errors. Under the hood, the "ack" method synchronously commits DataHub Cloud Consumer Offsets on behalf of the Action. This means that by default, the framework provides *at-least once* processing semantics. That is, in the unusual case that a failure occurs when attempting to commit offsets back to Kafka, that event may be replayed on restart of the Action.
+any errors. Under the hood, the "ack" method synchronously commits DataHub Cloud Consumer Offsets on behalf of the Action. This means that by default, the framework provides _at-least once_ processing semantics. That is, in the unusual case that a failure occurs when attempting to commit offsets back to Kafka, that event may be replayed on restart of the Action.
 
 If you've configured your Action pipeline `failure_mode` to be `CONTINUE` (the default), then events which
 fail to be processed will simply be logged to a `failed_events.log` file for further investigation (dead letter queue). The DataHub Cloud Event Source will continue to make progress against the underlying topics and continue to commit offsets even in the case of failed messages.
@@ -75,11 +75,11 @@ datahub:
 source:
   type: "datahub-cloud"
   config:
-    lookback_days: 7                           # Look back 7 days for events
-    reset_offsets: true                        # Ignore stored offsets and start fresh
-    kill_after_idle_timeout: true              # Enable shutdown after idle period
-    idle_timeout_duration_seconds: 60          # Idle timeout set to 60 seconds
-    event_processing_time_max_duration_seconds: 45  # Max processing time of 45 seconds per batch
+    lookback_days: 7 # Look back 7 days for events
+    reset_offsets: true # Ignore stored offsets and start fresh
+    kill_after_idle_timeout: true # Enable shutdown after idle period
+    idle_timeout_duration_seconds: 60 # Idle timeout set to 60 seconds
+    event_processing_time_max_duration_seconds: 45 # Max processing time of 45 seconds per batch
 action:
   # action configs
 ```
@@ -89,16 +89,16 @@ Note that the `datahub` configuration block is **required** to connect to your D
 <details>
   <summary>View All Configuration Options</summary>
 
-| Field                                 | Required | Default                       | Description                                                                               |
-  | ------------------------------------- | :------: | :---------------------------: | ----------------------------------------------------------------------------------------- |
-| `topic`                               |    ❌    | `PlatformEvent_v1`            | The name of the topic from which events will be consumed. Do not change this unless you know what you're doing!                                |
-| `lookback_days`                       |    ❌    | None                           | Optional number of days to look back when polling for events.                             |
-| `reset_offsets`                       |    ❌    | `False`                       | When set to `True`, the consumer will ignore any stored offsets and start fresh.          |
-| `kill_after_idle_timeout`             |    ❌    | `False`                       | If `True`, stops the consumer after being idle for the specified timeout duration.        |
-| `idle_timeout_duration_seconds`       |    ❌    | `30`                          | Duration in seconds after which, if no events are received, the consumer is considered idle. |
-| `event_processing_time_max_duration_seconds` | ❌  | `30`                          | Maximum allowed time in seconds for processing events before timing out.                  |
-</details>
+| Field                                        | Required |      Default       | Description                                                                                                     |
+| -------------------------------------------- | :------: | :----------------: | --------------------------------------------------------------------------------------------------------------- |
+| `topic`                                      |    ❌    | `PlatformEvent_v1` | The name of the topic from which events will be consumed. Do not change this unless you know what you're doing! |
+| `lookback_days`                              |    ❌    |        None        | Optional number of days to look back when polling for events.                                                   |
+| `reset_offsets`                              |    ❌    |      `False`       | When set to `True`, the consumer will ignore any stored offsets and start fresh.                                |
+| `kill_after_idle_timeout`                    |    ❌    |      `False`       | If `True`, stops the consumer after being idle for the specified timeout duration.                              |
+| `idle_timeout_duration_seconds`              |    ❌    |        `30`        | Duration in seconds after which, if no events are received, the consumer is considered idle.                    |
+| `event_processing_time_max_duration_seconds` |    ❌    |        `30`        | Maximum allowed time in seconds for processing events before timing out.                                        |
 
+</details>
 
 ## FAQ
 
@@ -110,4 +110,3 @@ Yes, simply set `reset_offsets` to True for a single run of the action. Remember
 
 Today, there is undefined behavior deploying multiple actions with the same name using the DataHub Cloud Events Source.
 All events must be processed by a single running action
-

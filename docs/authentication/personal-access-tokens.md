@@ -4,15 +4,16 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability/>
 
-Personal Access Tokens, or PATs for short, allow users to represent themselves in code and programmatically use DataHub's APIs in deployments where security is a concern. 
+Personal Access Tokens, or PATs for short, allow users to represent themselves in code and programmatically use DataHub's APIs in deployments where security is a concern.
 
 Used along-side with [authentication-enabled metadata service](introducing-metadata-service-authentication.md), PATs add a layer of protection to DataHub where only authorized users are able to perform actions in an automated way.
 
 ## Personal Access Tokens Setup, Prerequisites, and Permissions
 
 To use PATs, two things are required:
- 1. Metadata Authentication must have been enabled in GMS. See `Configuring Metadata Service Authentication` in [authentication-enabled metadata service](introducing-metadata-service-authentication.md).
- 2. Users must have been granted the `Generate Personal Access Tokens` or `Manage All Access Tokens` Privilege via a [DataHub Policy](../authorization/policies.md).
+
+1.  Metadata Authentication must have been enabled in GMS. See `Configuring Metadata Service Authentication` in [authentication-enabled metadata service](introducing-metadata-service-authentication.md).
+2.  Users must have been granted the `Generate Personal Access Tokens` or `Manage All Access Tokens` Privilege via a [DataHub Policy](../authorization/policies.md).
 
 Once configured, users should be able to navigate to **'Settings'** > **'Access Tokens'** > **'Generate Personal Access Token'** to generate a token:
 
@@ -54,7 +55,7 @@ Once a token has been generated, the user that created it will subsequently be a
 the generated Access Token as a Bearer token in the `Authorization` header:
 
 ```
-Authorization: Bearer <generated-access-token> 
+Authorization: Bearer <generated-access-token>
 ```
 
 For example, using a curl to the frontend proxy (preferred in production):
@@ -71,11 +72,9 @@ curl 'http://localhost:8080/entities/urn:li:corpuser:datahub' -H 'Authorization:
 
 Since authorization happens at the GMS level, this means that ingestion is also protected behind access tokens, to use them simply add a `token` to the sink config property as seen below:
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion-with-token.png"/>
 </p>
-
 
 :::note
 
@@ -91,8 +90,8 @@ is enabled.
 
 ### GraphQL
 
- - Have a look at [Token Management in GraphQL](../api/graphql/token-management.md) to learn how to manage tokens programatically!
- 
+- Have a look at [Token Management in GraphQL](../api/graphql/token-management.md) to learn how to manage tokens programatically!
+
 ## FAQ and Troubleshooting
 
 **The button to create tokens is greyed out - why can’t I click on it?**
@@ -107,6 +106,3 @@ A PAT represents a user in DataHub, if that user does not have permissions for a
 **Can I create a PAT that represents some other user?**
 
 Yes, although not through the UI correctly, you will have to use the [token management graphQL API](../api/graphql/token-management.md) and the user making the request must have `Manage All Access Tokens` permissions.
-
-
-

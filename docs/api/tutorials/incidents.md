@@ -5,9 +5,9 @@ import TabItem from '@theme/TabItem';
 
 ## Why Would You Use Incidents APIs?
 
-The Incidents APIs allow you to raise, retrieve, update and resolve data incidents via API. This is 
+The Incidents APIs allow you to raise, retrieve, update and resolve data incidents via API. This is
 useful for raising or resolving data incidents programmatically, for example from Airflow, Prefect, or Dagster DAGs.
-Incidents are also useful for conditional Circuit Breaking in these pipelines. 
+Incidents are also useful for conditional Circuit Breaking in these pipelines.
 
 ### Goal Of This Guide
 
@@ -19,7 +19,7 @@ The actor making API calls must have the `Edit Incidents` privileges for the Tab
 
 ## Raise Incident
 
-You can raise a new Data Incident for an existing asset using the following APIs. 
+You can raise a new Data Incident for an existing asset using the following APIs.
 
 <Tabs>
 <TabItem value="graphql" label="GraphQL" default>
@@ -27,17 +27,17 @@ You can raise a new Data Incident for an existing asset using the following APIs
 ```graphql
 mutation raiseIncident {
   raiseIncident(
-      input: { 
-          resourceUrn: "urn:li:dataset:(urn:li:dataPlatform:snowflake,public.prod.purchases,PROD)",
-          type: OPERATIONAL,
-          title: "Data is Delayed",
-          description: "Data is delayed on May 15, 2024 because of downtime in the Spark Cluster.",
-      }
+    input: {
+      resourceUrn: "urn:li:dataset:(urn:li:dataPlatform:snowflake,public.prod.purchases,PROD)"
+      type: OPERATIONAL
+      title: "Data is Delayed"
+      description: "Data is delayed on May 15, 2024 because of downtime in the Spark Cluster."
+    }
   )
 }
 ```
 
-Where `resourceUrn` is the unique identifier for the data asset (dataset, dashboard, chart, data job, or data flow) you want to raise the incident on. 
+Where `resourceUrn` is the unique identifier for the data asset (dataset, dashboard, chart, data job, or data flow) you want to raise the incident on.
 
 Where supported Incident Types include
 
@@ -49,7 +49,7 @@ Where supported Incident Types include
 - `DATA_SCHEMA`
 - `CUSTOM`
 
-If you see the following response, a unique identifier for the new incident will be returned. 
+If you see the following response, a unique identifier for the new incident will be returned.
 
 ```json
 {
@@ -74,35 +74,35 @@ Python SDK support coming soon!
 
 ## Get Incidents For Data Asset
 
-You can use retrieve the incidents and their statuses for a given Data Asset using the following APIs. 
+You can use retrieve the incidents and their statuses for a given Data Asset using the following APIs.
 
 <Tabs>
 <TabItem value="graphql" label="GraphQL" default>
 
 ```graphql
 query getAssetIncidents {
-    dataset(urn: "urn:li:dataset:(urn:li:dataPlatform:snowflake,public.prod.purchases,PROD)") {
-        incidents(
-            state: ACTIVE, start: 0, count: 20
-        ) {
-            start
-            count
-            total
-            incidents {
-                urn
-                incidentType
-                title
-                description
-                status {
-                    state
-                    lastUpdated {
-                        time
-                        actor
-                    }
-                }
-            }
+  dataset(
+    urn: "urn:li:dataset:(urn:li:dataPlatform:snowflake,public.prod.purchases,PROD)"
+  ) {
+    incidents(state: ACTIVE, start: 0, count: 20) {
+      start
+      count
+      total
+      incidents {
+        urn
+        incidentType
+        title
+        description
+        status {
+          state
+          lastUpdated {
+            time
+            actor
+          }
         }
+      }
     }
+  }
 }
 ```
 
@@ -120,22 +120,21 @@ Python SDK support coming soon!
 </TabItem>
 </Tabs>
 
-
 ## Resolve Incidents
 
-You can update the status of an incident using the following APIs. 
+You can update the status of an incident using the following APIs.
 
 <Tabs>
 <TabItem value="graphql" label="GraphQL" default>
 
 ```graphql
 mutation updateIncidentStatus {
-    updateIncidentStatus(
-        input: { 
-            state: RESOLVED,
-            message: "The delayed data issue was resolved at 4:55pm on May 15."
-        }
-    )
+  updateIncidentStatus(
+    input: {
+      state: RESOLVED
+      message: "The delayed data issue was resolved at 4:55pm on May 15."
+    }
+  )
 }
 ```
 
