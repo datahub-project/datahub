@@ -1,5 +1,5 @@
 import { Empty } from 'antd';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import { combineEntityDataWithSiblings } from '@app/entity/shared/siblingUtils';
@@ -54,31 +54,29 @@ export const IncidentList = () => {
         fetchPolicy: 'cache-first',
     });
 
-    // get filtered Incident as per the filter object
-    const getFilteredIncidents = useCallback(
-        (incidents: Incident[]) => {
-            const filteredIncidentData: IncidentTable = getFilteredTransformedIncidentData(incidents, selectedFilters);
-            setVisibleIncidents(filteredIncidentData);
-        },
-        [selectedFilters],
-    );
-
-    useEffect(() => {
+    const allIncidents = useMemo(() => {
         const combinedData = isSeparateSiblingsMode ? data : combineEntityDataWithSiblings(data);
-        const allIncidents =
-            (combinedData &&
-                (combinedData as any).entity?.incidents?.incidents?.map((incident) => incident as Incident)) ||
-            [];
-        setAllIncidentData(allIncidents);
-        getFilteredIncidents(allIncidents);
-    }, [data, isSeparateSiblingsMode, getFilteredIncidents]);
+
+        const incidents =
+            combinedData &&
+            'entity' in combinedData &&
+            combinedData.entity &&
+            'incidents' in combinedData.entity &&
+            Array.isArray(combinedData.entity.incidents?.incidents)
+                ? combinedData.entity.incidents.incidents
+                : [];
+
+        return incidents.map((incident) => incident as Incident);
+    }, [data, isSeparateSiblingsMode]);
+
+    const filteredIncidentTable = useMemo(() => {
+        return getFilteredTransformedIncidentData(allIncidents, selectedFilters);
+    }, [allIncidents, selectedFilters]);
 
     useEffect(() => {
-        // after filter change need to get filtered incidents
-        if (allIncidentData?.length > 0) {
-            getFilteredIncidents(allIncidentData);
-        }
-    }, [selectedFilters, getFilteredIncidents, allIncidentData]);
+        setAllIncidentData(allIncidents);
+        setVisibleIncidents(filteredIncidentTable);
+    }, [allIncidents, filteredIncidentTable]);
 
     const handleFilterChange = (filter) => {
         setSelectedFilters(filter);

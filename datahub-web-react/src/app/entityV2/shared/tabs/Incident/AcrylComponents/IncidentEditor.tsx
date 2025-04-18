@@ -1,5 +1,5 @@
 import { Form } from 'antd';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { IncidentAssigneeSelector } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentAssigneeSelector';
@@ -35,13 +35,13 @@ const HalfWidthInput = styled(Input)`
     width: 50%;
 `;
 
-export const IncidentEditor = ({
+export const IncidentEditor = memo(function IncidentEditor({
     entity,
     incidentUrn,
     onSubmit,
     data,
     mode = IncidentAction.CREATE,
-}: IncidentEditorProps) => {
+}: IncidentEditorProps) {
     const isFormValid = Boolean(
         data?.title?.length &&
             data?.description &&
@@ -247,4 +247,4 @@ export const IncidentEditor = ({
             </IncidentFooter>
         </StyledForm>
     );
-};
+});
