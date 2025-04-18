@@ -1,6 +1,5 @@
 import json
 import logging
-import textwrap
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
@@ -613,6 +612,10 @@ class SlackSource(StatefulIngestionSourceBase):
             ),
         )
 
+    @retry(
+        wait=wait_exponential(multiplier=2, min=4, max=60),
+        before_sleep=before_sleep_log(logger, logging.ERROR, True),
+    )
     def get_user_to_be_updated(
         self,
     ) -> Iterable[Tuple[CorpUser, Optional[CorpUserEditableInfoClass]]]:
@@ -633,57 +636,6 @@ class SlackSource(StatefulIngestionSourceBase):
                     user_obj.email = urn_id
             if user_obj.email is not None:
                 yield (user_obj, editable_properties)
-
-    @retry(
-        wait=wait_exponential(multiplier=2, min=4, max=60),
-        before_sleep=before_sleep_log(logger, logging.ERROR, True),
-    )
-    def get_user_to_be_updated_oss(self) -> Iterable[CorpUser]:
-        graphql_query = textwrap.dedent(
-            """
-            query listUsers($input: ListUsersInput!) {
-                listUsers(input: $input) {
-                    total
-                    users {
-                        urn
-                        editableProperties {
-                            email
-                            slack
-                        }
-                    }
-                }
-            }
-        """
-        )
-        start = 0
-        count = 10
-        total = count
-
-        assert self.ctx.graph is not None
-
-        while start < total:
-            variables = {"input": {"start": start, "count": count}}
-            response = self.ctx.graph.execute_graphql(
-                query=graphql_query, variables=variables
-            )
-            list_users = response.get("listUsers", {})
-            total = list_users.get("total", 0)
-            users = list_users.get("users", [])
-            for user in users:
-                user_obj = CorpUser()
-                editable_properties = user.get("editableProperties", {})
-                user_obj.urn = user.get("urn")
-                if user_obj.urn is None:
-                    continue
-                if editable_properties is not None:
-                    user_obj.email = editable_properties.get("email")
-                if user_obj.email is None:
-                    urn_id = Urn.from_string(user_obj.urn).get_entity_id_as_string()
-                    if "@" in urn_id:
-                        user_obj.email = urn_id
-                if user_obj.email is not None:
-                    yield user_obj
-            start += count
 
     def get_report(self) -> SourceReport:
         return self.report
