@@ -35,6 +35,8 @@ Default GCP Role which contains these permissions [roles/aiplatform.viewer](http
 | `aiplatform.pipelineJobs.get`       | allows a user to view and list all pipeline jobs in a project        |
 | `aiplatform.pipelineJobs.list`      | allows a user to view details of a specific pipeline job             |
 
+To run this ingestion source, you need `roles/aiplatform.viewer` level permissions.
+
 #### Create a service account and assign roles
 
 1. Setup a ServiceAccount as per [GCP docs](https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console) and assign the previously created role to this service account.
