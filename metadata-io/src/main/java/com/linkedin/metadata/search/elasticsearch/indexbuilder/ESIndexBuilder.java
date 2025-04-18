@@ -9,6 +9,7 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.timeseries.BatchWriteOperationsOptions;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
 import io.github.resilience4j.retry.RetryRegistry;
@@ -42,9 +43,7 @@ import org.opensearch.action.admin.indices.settings.get.GetSettingsRequest;
 import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.client.GetAliasesResponse;
-import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
+import org.opensearch.client.*;
 import org.opensearch.client.core.CountRequest;
 import org.opensearch.client.indices.CreateIndexRequest;
 import org.opensearch.client.indices.GetIndexRequest;
@@ -161,6 +160,42 @@ public class ESIndexBuilder {
     this.retryRegistry = RetryRegistry.of(config);
   }
 
+  /**
+   * Utility function to check if the connected server is OpenSearch 2.9 or higher. Returns false if
+   * the server is Elasticsearch or OpenSearch below version 2.9.
+   *
+   * @return true if the server is running OpenSearch 2.9 or higher, false otherwise
+   * @throws IOException if there's an error communicating with the server
+   */
+  public boolean isOpenSearch29OrHigher() throws IOException {
+    try {
+      // We need to use the low-level client to get version information
+      Response response = _searchClient.getLowLevelClient().performRequest(new Request("GET", "/"));
+      Map<String, Object> responseMap =
+          ObjectMapperContext.defaultMapper.readValue(response.getEntity().getContent(), Map.class);
+      // Check if this is Elasticsearch: "You Know, for Search"
+      String tagline = (String) responseMap.get("tagline");
+      if (tagline.toLowerCase().contains("you know")) {
+        return false;
+      }
+      // Get the version information
+      Map<String, Object> versionInfo = (Map<String, Object>) responseMap.get("version");
+      String versionString = (String) versionInfo.get("number");
+      // Parse the version string
+      String[] versionParts = versionString.split("\\.");
+      if (versionParts.length < 2) {
+        throw new IOException("Invalid version format: " + versionString);
+      }
+      int majorVersion = Integer.parseInt(versionParts[0]);
+      int minorVersion = Integer.parseInt(versionParts[1]);
+      // Return true if version is OpenSearch 2.9 or higher
+      return majorVersion > 2 || (majorVersion == 2 && minorVersion >= 9);
+    } catch (Exception e) {
+      // return defensive false
+      return false;
+    }
+  }
+
   public ReindexConfig buildReindexState(
       String indexName, Map<String, Object> mappings, Map<String, Object> settings)
       throws IOException {
@@ -186,6 +221,10 @@ public class ESIndexBuilder {
     baseSettings.put("number_of_shards", numShards);
     baseSettings.put("number_of_replicas", numReplicas);
     baseSettings.put("refresh_interval", String.format("%ss", refreshIntervalSeconds));
+    // use zstd in OS only, in ES we can use it in the future with best_compression
+    if (isOpenSearch29OrHigher()) {
+      baseSettings.put("codec", "zstd_no_dict");
+    }
     baseSettings.putAll(indexSettingOverrides.getOrDefault(indexName, Map.of()));
     Map<String, Object> targetSetting = ImmutableMap.of("index", baseSettings);
     builder.targetSettings(targetSetting);
