@@ -509,16 +509,14 @@ class Dataset(StrictModel):
     def generate_mcp(
         self,
     ) -> Iterable[Union[MetadataChangeProposalClass, MetadataChangeProposalWrapper]]:
-        mcp = MetadataChangeProposalWrapper(
-            entityUrn=self.urn,
-            aspect=DatasetPropertiesClass(
-                description=self.description,
-                name=self.name,
-                customProperties=self.properties,
-                externalUrl=self.external_url,
-            ),
-        )
-        yield mcp
+        patch_builder = self.patch_builder()
+
+        patch_builder.set_custom_properties(self.properties or {})
+        patch_builder.set_description(self.description)
+        patch_builder.set_display_name(self.name)
+        patch_builder.set_external_url(self.external_url)
+
+        yield from patch_builder.build()
 
         if self.schema_metadata:
             schema_fields = set()
@@ -981,7 +979,7 @@ class Dataset(StrictModel):
 
         def model_dump(self, **kwargs):
             """Custom model_dump method for Pydantic v2 to handle YAML serialization properly."""
-            exclude = kwargs.pop("exclude", set())
+            exclude = kwargs.pop("exclude", None) or set()
 
             # If id and name are identical, exclude name from the output
             if self.id == self.name and self.id is not None:
