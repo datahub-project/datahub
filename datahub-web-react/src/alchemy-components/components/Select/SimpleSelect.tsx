@@ -69,6 +69,7 @@ export const SimpleSelect = ({
     values,
     initialValues,
     onUpdate,
+    onClear,
     showSearch = selectDefaults.showSearch,
     isDisabled = selectDefaults.isDisabled,
     isReadOnly = selectDefaults.isReadOnly,
@@ -91,6 +92,7 @@ export const SimpleSelect = ({
     optionListStyle,
     optionSwitchable,
     selectLabelProps,
+    selectedOptionListStyle,
     position,
     applyHoverWidth,
     ignoreMaxHeight = selectDefaults.ignoreMaxHeight,
@@ -165,7 +167,10 @@ export const SimpleSelect = ({
         if (onUpdate) {
             onUpdate([]);
         }
-    }, [onUpdate]);
+        if (onClear) {
+            onClear();
+        }
+    }, [onUpdate, onClear]);
 
     const handleSelectAll = () => {
         if (areAllSelected) {
@@ -301,6 +306,7 @@ export const SimpleSelect = ({
                             disabledValues={disabledValues}
                             showDescriptions={showDescriptions}
                             renderCustomSelectedValue={renderCustomSelectedValue}
+                            selectedOptionListStyle={selectedOptionListStyle}
                             {...(selectLabelProps || {})}
                         />
                     </SelectLabelContainer>
