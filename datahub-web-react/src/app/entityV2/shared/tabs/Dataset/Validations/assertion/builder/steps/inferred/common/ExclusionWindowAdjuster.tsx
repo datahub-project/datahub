@@ -88,6 +88,7 @@ export const ExclusionWindowAdjuster = (props: Props) => {
                                 open={isDropdownOpen}
                                 onOpenChange={setIsDropdownOpen}
                                 dropdownRender={() => dropdownContent}
+                                trigger={['click']}
                             >
                                 <Pill
                                     label="Add"
