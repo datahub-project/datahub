@@ -1,145 +1,151 @@
 extend type Query {
-    """
-    Get a user's Notification Settings. Returns null if the user does not have any Notification Settings.
-    """
-    getUserNotificationSettings: NotificationSettings
+  """
+  Get a user's Notification Settings. Returns null if the user does not have any Notification Settings.
+  """
+  getUserNotificationSettings: NotificationSettings
 
-    """
-    Get a group's Notification Settings. Returns null if the group does not have any Notification Settings.
-    """
-    getGroupNotificationSettings(input: GetGroupNotificationSettingsInput!): NotificationSettings
+  """
+  Get a group's Notification Settings. Returns null if the group does not have any Notification Settings.
+  """
+  getGroupNotificationSettings(
+    input: GetGroupNotificationSettingsInput!
+  ): NotificationSettings
 }
 
 extend type Mutation {
-    """
-    Update a user's Notification Settings.
-    """
-    updateUserNotificationSettings(input: UpdateUserNotificationSettingsInput!): NotificationSettings!
+  """
+  Update a user's Notification Settings.
+  """
+  updateUserNotificationSettings(
+    input: UpdateUserNotificationSettingsInput!
+  ): NotificationSettings!
 
-    """
-    Update a user's Notification Settings.
-    """
-    updateGroupNotificationSettings(input: UpdateGroupNotificationSettingsInput!): NotificationSettings!
+  """
+  Update a user's Notification Settings.
+  """
+  updateGroupNotificationSettings(
+    input: UpdateGroupNotificationSettingsInput!
+  ): NotificationSettings!
 }
 
 input GetGroupNotificationSettingsInput {
-    """
-    The group's Urn.
-    """
-    groupUrn: String!
+  """
+  The group's Urn.
+  """
+  groupUrn: String!
 }
 
 input UpdateUserNotificationSettingsInput {
-    """
-    The user's Notification Settings
-    """
-    notificationSettings: NotificationSettingsInput!
+  """
+  The user's Notification Settings
+  """
+  notificationSettings: NotificationSettingsInput!
 }
 
 input UpdateGroupNotificationSettingsInput {
-    """
-    The group's Urn
-    """
-    groupUrn: String!
+  """
+  The group's Urn
+  """
+  groupUrn: String!
 
-    """
-    The group's Notification Settings
-    """
-    notificationSettings: NotificationSettingsInput!
+  """
+  The group's Notification Settings
+  """
+  notificationSettings: NotificationSettingsInput!
 }
 
 input NotificationSettingsInput {
-    """
-    Sink types that notifications are sent to. If left undefined, the sink types will NOT be changed.
-    """
-    sinkTypes: [NotificationSinkType!]
+  """
+  Sink types that notifications are sent to. If left undefined, the sink types will NOT be changed.
+  """
+  sinkTypes: [NotificationSinkType!]
 
-    """
-    Slack Notification Settings
-    """
-    slackSettings: SlackNotificationSettingsInput
+  """
+  Slack Notification Settings
+  """
+  slackSettings: SlackNotificationSettingsInput
 
-    """
-    Email Notification Settings
-    """
-    emailSettings: EmailNotificationSettingsInput
+  """
+  Email Notification Settings
+  """
+  emailSettings: EmailNotificationSettingsInput
 
-    """
-    Scenario settings, dictating scenarios in which the actor is notified. This may be updated in isolation without impacting sink types, slack settings, or email settings.
+  """
+  Scenario settings, dictating scenarios in which the actor is notified. This may be updated in isolation without impacting sink types, slack settings, or email settings.
 
-    If not provided, these will be unchanged.
-    """
-    settings: [NotificationSettingInput!]
+  If not provided, these will be unchanged.
+  """
+  settings: [NotificationSettingInput!]
 }
 
 type NotificationSettings {
-    """
-    Sink types that notifications are sent to.
-    """
-    sinkTypes: [NotificationSinkType!]!
+  """
+  Sink types that notifications are sent to.
+  """
+  sinkTypes: [NotificationSinkType!]!
 
-    """
-    Slack Notification Settings
-    """
-    slackSettings: SlackNotificationSettings
+  """
+  Slack Notification Settings
+  """
+  slackSettings: SlackNotificationSettings
 
-    """
-    Email Notification Settings
-    """
-    emailSettings: EmailNotificationSettings
+  """
+  Email Notification Settings
+  """
+  emailSettings: EmailNotificationSettings
 
-    """
-    Scenario settings, dictating scenarios in which the actor is notified.
-    """
-    settings: [NotificationSetting!]
+  """
+  Scenario settings, dictating scenarios in which the actor is notified.
+  """
+  settings: [NotificationSetting!]
 }
 
 input SlackNotificationSettingsInput {
-    """
-    The actor's handle. Only filled if the actor is a user.
-    """
-    userHandle: String
+  """
+  The actor's handle. Only filled if the actor is a user.
+  """
+  userHandle: String
 
-    """
-    The actor's list of channels to notify. Only filled if the actor is a group.
-    """
-    channels: [String!]
+  """
+  The actor's list of channels to notify. Only filled if the actor is a group.
+  """
+  channels: [String!]
 }
 
 input EmailNotificationSettingsInput {
-    """
-    The email to send the notification to, either associated with a user or a group.
-    """
-    email: String!
+  """
+  The email to send the notification to, either associated with a user or a group.
+  """
+  email: String!
 }
 
 type SlackNotificationSettings {
-    """
-    The actor's handle. Only filled if the actor is a user. Should be a Slack member UUID.
-    """
-    userHandle: String
+  """
+  The actor's handle. Only filled if the actor is a user. Should be a Slack member UUID.
+  """
+  userHandle: String
 
-    """
-    The actor's list of channels to notify. Only filled if the actor is a group.
-    """
-    channels: [String!]
+  """
+  The actor's list of channels to notify. Only filled if the actor is a group.
+  """
+  channels: [String!]
 }
 
 type EmailNotificationSettings {
-    """
-    The email to send the notification to, either associated with a user or a group.
-    """
-    email: String!
+  """
+  The email to send the notification to, either associated with a user or a group.
+  """
+  email: String!
 }
 
 enum NotificationSinkType {
-    """
-    Slack
-    """
-    SLACK
+  """
+  Slack
+  """
+  SLACK
 
-    """
-    Email
-    """
-    EMAIL
+  """
+  Email
+  """
+  EMAIL
 }

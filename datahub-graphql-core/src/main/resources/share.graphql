@@ -1,187 +1,185 @@
 extend type Mutation {
-    """
-    Share this entity with another Acryl instance
-    """
-    shareEntity(input: ShareEntityInput!): ShareEntityResult!
+  """
+  Share this entity with another Acryl instance
+  """
+  shareEntity(input: ShareEntityInput!): ShareEntityResult!
 
-    """
-    Unshare this entity with another Acryl instance
-    """
-    unshareEntity(input: UnshareEntityInput!): ShareEntityResult!
+  """
+  Unshare this entity with another Acryl instance
+  """
+  unshareEntity(input: UnshareEntityInput!): ShareEntityResult!
 }
 
 """
 Used for keeping track of metadata sharing info for an entity
 """
 type Share {
-    """
-    The last share result for each destination that this entity has been shared with
-    """
-    lastShareResults: [ShareResult!]!
+  """
+  The last share result for each destination that this entity has been shared with
+  """
+  lastShareResults: [ShareResult!]!
 
-    """
-    The last un-share result for each destination that this entity has been un-shared with.
-    This helps us keep status of where this entity has been un-shared from.
-    """
-    lastUnshareResults: [ShareResult!]
+  """
+  The last un-share result for each destination that this entity has been un-shared with.
+  This helps us keep status of where this entity has been un-shared from.
+  """
+  lastUnshareResults: [ShareResult!]
 }
 
 """
 Info about the results from sharing metadata for a given entity
 """
 type ShareResult {
-    """
-    The DataHubConnection related to another Acryl instance that this entity is shared with
-    """
-    destination: DataHubConnection
+  """
+  The DataHubConnection related to another Acryl instance that this entity is shared with
+  """
+  destination: DataHubConnection
 
-    """
-    If this share happened implicitly due to another entity being shared, this field
-    will be populated with that entity urn. Example: if a dataset is shared, its containers
-    will also be shared. The share result for the container will have the dataset urn here.
-    """
-    implicitShareEntity: Entity
+  """
+  If this share happened implicitly due to another entity being shared, this field
+  will be populated with that entity urn. Example: if a dataset is shared, its containers
+  will also be shared. The share result for the container will have the dataset urn here.
+  """
+  implicitShareEntity: Entity
 
-    """
-    Audit stamp for when the first share request for the given destination occurred.
-    """
-    created: ResolvedAuditStamp!
+  """
+  Audit stamp for when the first share request for the given destination occurred.
+  """
+  created: ResolvedAuditStamp!
 
-    """
-    When did we get this share result and who requested the share. This will be the time
-    that we try and execute the share on the backend, regardless of success.
-    """
-    lastAttempt: ResolvedAuditStamp!
+  """
+  When did we get this share result and who requested the share. This will be the time
+  that we try and execute the share on the backend, regardless of success.
+  """
+  lastAttempt: ResolvedAuditStamp!
 
-    """
-    Optional audit stamp for the last time a share to this above destination successfully occurred
-    """
-    lastSuccess: ResolvedAuditStamp
+  """
+  Optional audit stamp for the last time a share to this above destination successfully occurred
+  """
+  lastSuccess: ResolvedAuditStamp
 
-    """
-    Status for this share result - whether or not it succeeded
-    """
-    status: ShareResultState!
+  """
+  Status for this share result - whether or not it succeeded
+  """
+  status: ShareResultState!
 
-    """
-    Optional message for this share result. Error messages will be stored here.
-    """
-    message: String
+  """
+  Optional message for this share result. Error messages will be stored here.
+  """
+  message: String
 
-    """
-    The config for this particular share result
-    """
-    shareConfig: ShareConfig
+  """
+  The config for this particular share result
+  """
+  shareConfig: ShareConfig
 
-    """
-    The last time the status was updated. Timestamp in milliseconds since epoch.
-    """
-    statusLastUpdated: Long
+  """
+  The last time the status was updated. Timestamp in milliseconds since epoch.
+  """
+  statusLastUpdated: Long
 }
 
 """
 The config for this particular share result
 """
 type ShareConfig {
-    """
-    Upstream lineage was shared
-    """
-    enableUpstreamLineage: Boolean
+  """
+  Upstream lineage was shared
+  """
+  enableUpstreamLineage: Boolean
 
-    """
-    Downstream lineage was shared
-    """
-    enableDownstreamLineage: Boolean
+  """
+  Downstream lineage was shared
+  """
+  enableDownstreamLineage: Boolean
 }
 
 """
 Info about the results from sharing metadata for a given entity
 """
 enum ShareResultState {
+  """
+  The share request is still in progress
+  """
+  RUNNING
 
-    """
-    The share request is still in progress
-    """
-    RUNNING
-    
-    """
-    The share was successful
-    """
-    SUCCESS
+  """
+  The share was successful
+  """
+  SUCCESS
 
-    """
-    The share was partially successful. Some, but not all, aspects were shared.
-    """
-    PARTIAL_SUCCESS
+  """
+  The share was partially successful. Some, but not all, aspects were shared.
+  """
+  PARTIAL_SUCCESS
 
-    """
-    The share was a failure
-    """
-    FAILURE
+  """
+  The share was a failure
+  """
+  FAILURE
 }
 
 enum ShareLineageDirection {
-    """
-    Sharing the dataset with the downstream lineage
-    """
-    DOWNSTREAM
+  """
+  Sharing the dataset with the downstream lineage
+  """
+  DOWNSTREAM
 
-    """
-    Sharing the dataset with the upstream lineage
-    """
-    UPSTREAM
+  """
+  Sharing the dataset with the upstream lineage
+  """
+  UPSTREAM
 
-    """
-    Sharing the dataset and all its DOWNSTREAM and UPSTREAM lineage
-    """
-    BOTH
-
+  """
+  Sharing the dataset and all its DOWNSTREAM and UPSTREAM lineage
+  """
+  BOTH
 }
 
 """
 Info about the results from sharing metadata for a given entity
 """
 input ShareEntityInput {
-    """
-    The urn of the entity that is being shared
-    """
-    entityUrn: String!
+  """
+  The urn of the entity that is being shared
+  """
+  entityUrn: String!
 
-    """
-    The direction of the lineage to share. If it is set the entitity will be shared with the lineage
-    """
-    lineageDirection: ShareLineageDirection
-    """
-    The urn of the connection entity where this entity is being shared to
-    Either this field (for individual connection) or connectionUrns must be filled out
-    """
-    connectionUrn: String
+  """
+  The direction of the lineage to share. If it is set the entitity will be shared with the lineage
+  """
+  lineageDirection: ShareLineageDirection
+  """
+  The urn of the connection entity where this entity is being shared to
+  Either this field (for individual connection) or connectionUrns must be filled out
+  """
+  connectionUrn: String
 
-    """
-    The urns of the connection entities where this entity is being shared to.
-    Either this field (for bulk) or connectionUrn must be filled out
-    """
-    connectionUrns: [String!]
+  """
+  The urns of the connection entities where this entity is being shared to.
+  Either this field (for bulk) or connectionUrn must be filled out
+  """
+  connectionUrns: [String!]
 }
 
 """
 Info about the results from unsharing metadata for a given entity
 """
 input UnshareEntityInput {
-    """
-    The urn of the entity that are being shared
-    """
-    entityUrn: String!
+  """
+  The urn of the entity that are being shared
+  """
+  entityUrn: String!
 
-    """
-    The direction of the lineage to share. If it is set the entitity will be shared with the lineage
-    """
-    lineageDirection: ShareLineageDirection
+  """
+  The direction of the lineage to share. If it is set the entitity will be shared with the lineage
+  """
+  lineageDirection: ShareLineageDirection
 
-    """
-    The urns of the connection entities where this entity is being unshared to
-    """
-    connectionUrns: [String!]!
+  """
+  The urns of the connection entities where this entity is being unshared to
+  """
+  connectionUrns: [String!]!
 }
 
 """
@@ -189,13 +187,13 @@ Result object after calling the shareEntity endpoint containing whether the shar
 succeeded and the updated share aspect.
 """
 type ShareEntityResult {
-    """
-    Whether this entity was successfully shared or not
-    """
-    succeeded: Boolean!
+  """
+  Whether this entity was successfully shared or not
+  """
+  succeeded: Boolean!
 
-    """
-    Info about the results from sharing metadata for this entity
-    """
-    share: Share!
+  """
+  Info about the results from sharing metadata for this entity
+  """
+  share: Share!
 }

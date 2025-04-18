@@ -6,42 +6,37 @@ This container is used to automatically apply upgrades from one version of DataH
 
 As of today, there are 2 supported upgrades:
 
-1. **NoCodeDataMigration**: Performs a series of pre-flight qualification checks and then migrates metadata_aspect table data
-to metadata_aspect_v2 table. Arguments:
-    - *batchSize* (Optional): The number of rows to migrate at a time. Defaults to 1000.
-    - *batchDelayMs* (Optional): The number of milliseconds of delay between migrated batches. Used for rate limiting. Defaults to 250. 
-    - *dbType* (optional): The target DB type. Valid values are `MYSQL`, `MARIA`, `POSTGRES`. Defaults to `MYSQL`. 
-   
+1. **NoCodeDataMigration**: Performs a series of pre-flight qualification checks and then migrates metadata*aspect table data
+   to metadata_aspect_v2 table. Arguments: - \_batchSize* (Optional): The number of rows to migrate at a time. Defaults to 1000. - _batchDelayMs_ (Optional): The number of milliseconds of delay between migrated batches. Used for rate limiting. Defaults to 250. - _dbType_ (optional): The target DB type. Valid values are `MYSQL`, `MARIA`, `POSTGRES`. Defaults to `MYSQL`.
 2. **NoCodeDataMigrationCleanup**: Cleanses graph index, search index, and key-value store of legacy DataHub data (metadata_aspect table) once
-the No Code Data Migration has completed successfully. No arguments. 
+   the No Code Data Migration has completed successfully. No arguments.
 
 3. **RestoreIndices**: Restores indices by fetching the latest version of each aspect and producing MAE. Arguments:
-    - *batchSize* (Optional): The number of rows to migrate at a time. Defaults to 1000.
-    - *batchDelayMs* (Optional): The number of milliseconds of delay between migrated batches. Used for rate limiting. Defaults to 250. 
-    - *numThreads* (Optional): The number of threads to use, defaults to 1. Note that this is not used if `urnBasedPagination` is true.
-    - *aspectName* (Optional): The aspect name for producing events.
-    - *urn* (Optional): The urn for producing events.
-    - *urnLike* (Optional): The urn pattern for producing events, using `%` as a wild card
-    - *urnBasedPagination* (Optional): Paginate the SQL results using the urn + aspect string instead of `OFFSET`. Defaults to false,
-        though should improve performance for large amounts of data.
-    
+   - _batchSize_ (Optional): The number of rows to migrate at a time. Defaults to 1000.
+   - _batchDelayMs_ (Optional): The number of milliseconds of delay between migrated batches. Used for rate limiting. Defaults to 250.
+   - _numThreads_ (Optional): The number of threads to use, defaults to 1. Note that this is not used if `urnBasedPagination` is true.
+   - _aspectName_ (Optional): The aspect name for producing events.
+   - _urn_ (Optional): The urn for producing events.
+   - _urnLike_ (Optional): The urn pattern for producing events, using `%` as a wild card
+   - _urnBasedPagination_ (Optional): Paginate the SQL results using the urn + aspect string instead of `OFFSET`. Defaults to false,
+     though should improve performance for large amounts of data.
 4. **RestoreBackup**: Restores the storage stack from a backup of the local database
 
 ## Environment Variables
 
 To run the `datahub-upgrade` container, some environment variables must be provided in order to tell the upgrade CLI
-where the running DataHub containers reside. 
+where the running DataHub containers reside.
 
-Below details the required configurations. By default, these configs are provided for local docker-compose deployments of 
+Below details the required configurations. By default, these configs are provided for local docker-compose deployments of
 DataHub within `docker/datahub-upgrade/env/docker.env`. They assume that there is a Docker network called datahub_network
-where the DataHub containers can be found. 
+where the DataHub containers can be found.
 
 These are also the variables used when the provided `datahub-upgrade.sh` script is executed. To run the upgrade CLI for non-local deployments,
-follow these steps: 
+follow these steps:
 
 1. Define new ".env" variable to hold your environment variables.
 
-The following variables may be provided: 
+The following variables may be provided:
 
 ```aidl
 # Required Environment Variables
@@ -84,6 +79,7 @@ DATAHUB_MAE_CONSUMER_PORT=9091
 # ELASTICSEARCH_SSL_KEYSTORE_TYPE=
 # ELASTICSEARCH_SSL_KEYSTORE_PASSWORD=
 ```
+
 2. Pull (or build) & execute the `datahub-upgrade` container:
 
 ```aidl
@@ -93,7 +89,7 @@ docker pull acryldata/datahub-upgrade:head && docker run --env-file *path-to-cus
 ## Arguments
 
 The primary argument required by the datahub-upgrade container is the name of the upgrade to perform. This argument
-can be specified using the `-u` flag when running the `datahub-upgrade` container. 
+can be specified using the `-u` flag when running the `datahub-upgrade` container.
 
 For example, to run the migration named "NoCodeDataMigration", you would do execute the following:
 
@@ -108,16 +104,16 @@ docker pull acryldata/datahub-upgrade:head && docker run --env-file env/docker.e
 ```
 
 In addition to the required `-u` argument, each upgrade may require specific arguments. You can provide arguments to individual
-upgrades using multiple `-a` arguments. 
+upgrades using multiple `-a` arguments.
 
-For example, the NoCodeDataMigration upgrade provides 2 optional arguments detailed above: *batchSize* and *batchDelayMs*. 
-To specify these, you can use a combination of `-a` arguments and of the form *argumentName=argumentValue* as follows:
+For example, the NoCodeDataMigration upgrade provides 2 optional arguments detailed above: _batchSize_ and _batchDelayMs_.
+To specify these, you can use a combination of `-a` arguments and of the form _argumentName=argumentValue_ as follows:
 
 ```aidl
-./datahub-upgrade.sh -u NoCodeDataMigration -a batchSize=500 -a batchDelayMs=1000 // Small batches with 1 second delay. 
+./datahub-upgrade.sh -u NoCodeDataMigration -a batchSize=500 -a batchDelayMs=1000 // Small batches with 1 second delay.
 ```
 
-OR 
+OR
 
 ```aidl
 docker pull acryldata/datahub-upgrade:head && docker run --env-file env/docker.env acryldata/datahub-upgrade:head -u NoCodeDataMigration -a batchSize=500 -a batchDelayMs=1000

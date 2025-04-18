@@ -1,4 +1,3 @@
-
 ### Path Specs
 
 Path Specs (`path_specs`) is a list of Path Spec (`path_spec`) objects, where each individual `path_spec` represents one or more datasets. The include path (`path_spec.include`) represents a formatted path to the dataset. This path must end with `*.*` or `*.[ext]` to represent the leaf level. If `*.[ext]` is provided, then only files with the specified extension type will be scanned. "`.[ext]`" can be any of the [supported file types](#supported-file-types). Refer to [example 1](#example-1---individual-file-as-dataset) below for more details.
@@ -10,11 +9,12 @@ Exclude paths (`path_spec.exclude`) can be used to ignore paths that are not rel
 Refer to [example 5](#example-5---advanced---either-individual-file-or-folder-of-files-as-dataset) if your container has a more complex dataset representation.
 
 **Additional points to note**
-- Folder names should not contain {, }, *, / in their names.
+
+- Folder names should not contain {, }, \*, / in their names.
 - Named variable {folder} is reserved for internal working. please do not use in named variables.
 
+### Path Specs - Examples
 
-### Path Specs -  Examples
 #### Example 1 - Individual file as Dataset
 
 Container structure:
@@ -27,16 +27,19 @@ test-container
 ```
 
 Path specs config to ingest `employees.csv` and `food_items.csv` as datasets:
+
 ```
 path_specs:
     - include: https://storageaccountname.blob.core.windows.net/test-container/*.csv
 
 ```
+
 This will automatically ignore `departments.json` file. To include it, use `*.*` instead of `*.csv`.
 
 #### Example 2 - Folder of files as Dataset (without Partitions)
 
 Container structure:
+
 ```
 test-container
 └──  offers
@@ -46,16 +49,18 @@ test-container
 ```
 
 Path specs config to ingest folder `offers` as dataset:
+
 ```
 path_specs:
     - include: https://storageaccountname.blob.core.windows.net/test-container/{table}/*.avro
 ```
 
 `{table}` represents folder for which dataset will be created.
- 
+
 #### Example 3 - Folder of files as Dataset (with Partitions)
 
 Container structure:
+
 ```
 test-container
 ├── orders
@@ -71,6 +76,7 @@ test-container
 ```
 
 Path specs config to ingest folders `orders` and `returns` as datasets:
+
 ```
 path_specs:
     - include: https://storageaccountname.blob.core.windows.net/test-container/{table}/{partition_key[0]}={partition[0]}/{partition_key[1]}={partition[1]}/*.parquet
@@ -81,6 +87,7 @@ One can also use `include: https://storageaccountname.blob.core.windows.net/test
 #### Example 4 - Folder of files as Dataset (with Partitions), and Exclude Filter
 
 Container structure:
+
 ```
 test-container
 ├── orders
@@ -97,17 +104,18 @@ test-container
 ```
 
 Path specs config to ingest folder `orders` as dataset but not folder `tmp_orders`:
+
 ```
 path_specs:
     - include: https://storageaccountname.blob.core.windows.net/test-container/{table}/{partition_key[0]}={partition[0]}/{partition_key[1]}={partition[1]}/*.parquet
-      exclude: 
+      exclude:
         - **/tmp_orders/**
 ```
-
 
 #### Example 5 - Advanced - Either Individual file OR Folder of files as Dataset
 
 Container structure:
+
 ```
 test-container
 ├── customers
@@ -128,6 +136,7 @@ test-container
 ```
 
 Path specs config:
+
 ```
 path_specs:
     - include: https://storageaccountname.blob.core.windows.net/test-container/*.csv
@@ -138,6 +147,7 @@ path_specs:
 ```
 
 Above config has 3 path_specs and will ingest following datasets
+
 - `employees.csv` - Single File as Dataset
 - `food_items.csv` - Single File as Dataset
 - `customers` - Folder as Dataset
@@ -147,7 +157,7 @@ Above config has 3 path_specs and will ingest following datasets
 **Valid path_specs.include**
 
 ```python
-https://storageaccountname.blob.core.windows.net/my-container/foo/tests/bar.avro # single file table   
+https://storageaccountname.blob.core.windows.net/my-container/foo/tests/bar.avro # single file table
 https://storageaccountname.blob.core.windows.net/my-container/foo/tests/*.* # mulitple file level tables
 https://storageaccountname.blob.core.windows.net/my-container/foo/tests/{table}/*.avro #table without partition
 https://storageaccountname.blob.core.windows.net/my-container/foo/tests/{table}/*/*.avro #table where partitions are not specified
@@ -161,18 +171,17 @@ https://storageaccountname.blob.core.windows.net/my-container/*/*/{table}/{parti
 ```
 
 **Valid path_specs.exclude**
-- \**/tests/**
+
+- \*\*/tests/\*\*
 - https://storageaccountname.blob.core.windows.net/my-container/hr/**
-- **/tests/*.csv
+- \*_/tests/_.csv
 - https://storageaccountname.blob.core.windows.net/my-container/foo/*/my_table/**
-
-
 
 If you would like to write a more complicated function for resolving file names, then a {transformer} would be a good fit.
 
 :::caution
 
-Specify as long fixed prefix ( with out /*/ ) as possible in `path_specs.include`. This will reduce the scanning time and cost, specifically on AWS S3
+Specify as long fixed prefix ( with out /\*/ ) as possible in `path_specs.include`. This will reduce the scanning time and cost, specifically on AWS S3
 
 :::
 
@@ -199,6 +208,6 @@ For an example guide on setting up PyDeequ on AWS, see [this guide](https://aws.
 
 :::caution
 
-From Spark 3.2.0+, Avro reader fails on column names that don't start with a letter and contains other character than letters, number, and underscore. [https://github.com/apache/spark/blob/72c62b6596d21e975c5597f8fff84b1a9d070a02/connector/avro/src/main/scala/org/apache/spark/sql/avro/AvroFileFormat.scala#L158] 
+From Spark 3.2.0+, Avro reader fails on column names that don't start with a letter and contains other character than letters, number, and underscore. [https://github.com/apache/spark/blob/72c62b6596d21e975c5597f8fff84b1a9d070a02/connector/avro/src/main/scala/org/apache/spark/sql/avro/AvroFileFormat.scala#L158]
 Avro files that contain such columns won't be profiled.
 :::

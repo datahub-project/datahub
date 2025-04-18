@@ -26,12 +26,12 @@
 
    Ingestion attempts to resolve it's value by looking at project manifest files
 
-     ```yml
-     manifest.lkml
-       constant: db {
-           value: "ANALYTICS_PROD"
-       }
-     ```
+   ```yml
+   manifest.lkml
+     constant: db {
+         value: "ANALYTICS_PROD"
+     }
+   ```
 
    - If the constant's value is not resolved or incorrectly resolved, you can specify `lookml_constants` configuration in ingestion recipe as shown below. The constant value in recipe takes precedence over constant values resolved from manifest.
 
@@ -39,7 +39,6 @@
      lookml_constants:
        db: ANALYTICS_PROD
      ```
-
 
 **Additional Notes**
 

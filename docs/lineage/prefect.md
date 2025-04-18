@@ -59,11 +59,11 @@ DatahubEmitter(
 
 Configuration options:
 
-| Config | Type | Default | Description |
-|--------|------|---------|-------------|
-| datahub_rest_url | `str` | `http://localhost:8080` | DataHub GMS REST URL |
-| env | `str` | `PROD` | Environment for assets (see [FabricType](https://datahubproject.io/docs/graphql/enums/#fabrictype)) |
-| platform_instance | `str` | `None` | Platform instance for assets (see [Platform Instances](https://datahubproject.io/docs/platform-instances/)) |
+| Config            | Type  | Default                 | Description                                                                                                 |
+| ----------------- | ----- | ----------------------- | ----------------------------------------------------------------------------------------------------------- |
+| datahub_rest_url  | `str` | `http://localhost:8080` | DataHub GMS REST URL                                                                                        |
+| env               | `str` | `PROD`                  | Environment for assets (see [FabricType](https://datahubproject.io/docs/graphql/enums/#fabrictype))         |
+| platform_instance | `str` | `None`                  | Platform instance for assets (see [Platform Instances](https://datahubproject.io/docs/platform-instances/)) |
 
 ### 3. Using the Block in Prefect Workflows
 
@@ -95,13 +95,13 @@ def etl():
 
 ## Concept Mapping
 
-| Prefect Concept | DataHub Concept |
-|-----------------|-----------------|
-| [Flow](https://docs.prefect.io/latest/concepts/flows/) | [DataFlow](https://datahubproject.io/docs/generated/metamodel/entities/dataflow/) |
+| Prefect Concept                                                      | DataHub Concept                                                                                        |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| [Flow](https://docs.prefect.io/latest/concepts/flows/)               | [DataFlow](https://datahubproject.io/docs/generated/metamodel/entities/dataflow/)                      |
 | [Flow Run](https://docs.prefect.io/latest/concepts/flows/#flow-runs) | [DataProcessInstance](https://datahubproject.io/docs/generated/metamodel/entities/dataprocessinstance) |
-| [Task](https://docs.prefect.io/latest/concepts/tasks/) | [DataJob](https://datahubproject.io/docs/generated/metamodel/entities/datajob/) |
-| [Task Run](https://docs.prefect.io/latest/concepts/tasks/#tasks) | [DataProcessInstance](https://datahubproject.io/docs/generated/metamodel/entities/dataprocessinstance) |
-| [Task Tag](https://docs.prefect.io/latest/concepts/tasks/#tags) | [Tag](https://datahubproject.io/docs/generated/metamodel/entities/tag/) |
+| [Task](https://docs.prefect.io/latest/concepts/tasks/)               | [DataJob](https://datahubproject.io/docs/generated/metamodel/entities/datajob/)                        |
+| [Task Run](https://docs.prefect.io/latest/concepts/tasks/#tasks)     | [DataProcessInstance](https://datahubproject.io/docs/generated/metamodel/entities/dataprocessinstance) |
+| [Task Tag](https://docs.prefect.io/latest/concepts/tasks/#tags)      | [Tag](https://datahubproject.io/docs/generated/metamodel/entities/tag/)                                |
 
 ## Validation and Troubleshooting
 

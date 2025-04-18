@@ -23,28 +23,28 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  DATAHUB_GMS_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-gms'
-  DATAHUB_FRONTEND_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-frontend-react'
-  DATAHUB_MAE_CONSUMER_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-mae-consumer'
-  DATAHUB_MCE_CONSUMER_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-mce-consumer'
-  DATAHUB_KAFKA_SETUP_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-kafka-setup'
-  DATAHUB_ELASTIC_SETUP_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-elasticsearch-setup'
-  DATAHUB_MYSQL_SETUP_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-mysql-setup'
-  DATAHUB_UPGRADE_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-upgrade'
-  DATAHUB_INGESTION_BASE_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-ingestion-base'
-  DATAHUB_INGESTION_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-ingestion'
-  DATAHUB_INTEGRATIONS_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-integrations-service'
-  DATAHUB_EXECUTOR_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-executor'
-  ACRYLIO_DOCKER_GMS_IMAGE: 'acrylio/acryl-gms'
-  ACRYLIO_DOCKER_FRONTEND_IMAGE: 'acrylio/acryl-frontend'
-  ACRYLIO_DOCKER_MAE_CONSUMER_IMAGE: 'acrylio/acryl-mae-consumer'
-  ACRYLIO_DOCKER_MCE_CONSUMER_IMAGE: 'acrylio/acryl-mce-consumer'
-  ACRYLIO_DOCKER_KAFKA_SETUP_IMAGE: 'acrylio/acryl-kafka-setup'
-  ACRYLIO_DOCKER_ELASTIC_SETUP_IMAGE: 'acrylio/acryl-elasticsearch-setup'
-  ACRYLIO_DOCKER_MYSQL_SETUP_IMAGE: 'acrylio/acryl-mysql-setup'
-  ACRYLIO_DOCKER_UPGRADE_IMAGE: 'acrylio/acryl-upgrade'
-  ACRYLIO_DOCKER_INTEGRATIONS_IMAGE: 'acrylio/acryl-integrations-service'
-  ACRYLIO_DOCKER_EXECUTOR_IMAGE: 'acrylio/acryl-executor'
+  DATAHUB_GMS_IMAGE: "795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-gms"
+  DATAHUB_FRONTEND_IMAGE: "795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-frontend-react"
+  DATAHUB_MAE_CONSUMER_IMAGE: "795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-mae-consumer"
+  DATAHUB_MCE_CONSUMER_IMAGE: "795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-mce-consumer"
+  DATAHUB_KAFKA_SETUP_IMAGE: "795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-kafka-setup"
+  DATAHUB_ELASTIC_SETUP_IMAGE: "795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-elasticsearch-setup"
+  DATAHUB_MYSQL_SETUP_IMAGE: "795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-mysql-setup"
+  DATAHUB_UPGRADE_IMAGE: "795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-upgrade"
+  DATAHUB_INGESTION_BASE_IMAGE: "795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-ingestion-base"
+  DATAHUB_INGESTION_IMAGE: "795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-ingestion"
+  DATAHUB_INTEGRATIONS_IMAGE: "795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-integrations-service"
+  DATAHUB_EXECUTOR_IMAGE: "795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-executor"
+  ACRYLIO_DOCKER_GMS_IMAGE: "acrylio/acryl-gms"
+  ACRYLIO_DOCKER_FRONTEND_IMAGE: "acrylio/acryl-frontend"
+  ACRYLIO_DOCKER_MAE_CONSUMER_IMAGE: "acrylio/acryl-mae-consumer"
+  ACRYLIO_DOCKER_MCE_CONSUMER_IMAGE: "acrylio/acryl-mce-consumer"
+  ACRYLIO_DOCKER_KAFKA_SETUP_IMAGE: "acrylio/acryl-kafka-setup"
+  ACRYLIO_DOCKER_ELASTIC_SETUP_IMAGE: "acrylio/acryl-elasticsearch-setup"
+  ACRYLIO_DOCKER_MYSQL_SETUP_IMAGE: "acrylio/acryl-mysql-setup"
+  ACRYLIO_DOCKER_UPGRADE_IMAGE: "acrylio/acryl-upgrade"
+  ACRYLIO_DOCKER_INTEGRATIONS_IMAGE: "acrylio/acryl-integrations-service"
+  ACRYLIO_DOCKER_EXECUTOR_IMAGE: "acrylio/acryl-executor"
 
   DOCKER_CACHE: "DEPOT"
   DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
@@ -195,7 +195,6 @@ jobs:
           distribution: "zulu"
           java-version: 17
 
-
           #- uses: gradle/actions/setup-gradle@v4
       - uses: actions/cache/restore@v3
         with:
@@ -235,7 +234,7 @@ jobs:
         run: |
           pip install jq
           DEPOT_BUILD_ID=$(jq -r '.["depot.build"]?.buildID' ${{ github.workspace }}/build/build-metadata.json)
-          
+
           echo "build_id=${DEPOT_BUILD_ID}" >> "$GITHUB_OUTPUT"
 
       - uses: actions/cache/save@v4
@@ -256,7 +255,6 @@ jobs:
           path: |
             ~/.cache/yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
-
 
   gms_build:
     name: Build and Push DataHub GMS Docker Image
@@ -390,7 +388,7 @@ jobs:
   mae_consumer_scan:
     name: "[Monitoring] Scan MAE consumer images for vulnerabilities"
     runs-on: depot-ubuntu-24.04
-    needs: [setup, smoke_test_lint,mae_consumer_build]
+    needs: [setup, smoke_test_lint, mae_consumer_build]
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -474,7 +472,7 @@ jobs:
   mce_consumer_scan:
     name: "[Monitoring] Scan MCE consumer images for vulnerabilities"
     runs-on: depot-ubuntu-24.04
-    needs: [setup, smoke_test_lint,mce_consumer_build]
+    needs: [setup, smoke_test_lint, mce_consumer_build]
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -558,7 +556,7 @@ jobs:
   datahub_upgrade_scan:
     name: "[Monitoring] Scan DataHub Upgrade images for vulnerabilities"
     runs-on: depot-ubuntu-24.04
-    needs: [setup, smoke_test_lint,datahub_upgrade_build]
+    needs: [setup, smoke_test_lint, datahub_upgrade_build]
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -642,7 +640,7 @@ jobs:
   frontend_scan:
     name: "[Monitoring] Scan Frontend images for vulnerabilities"
     runs-on: depot-ubuntu-24.04
-    needs: [setup, smoke_test_lint,frontend_build]
+    needs: [setup, smoke_test_lint, frontend_build]
     if: ${{ needs.setup.outputs.frontend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -731,7 +729,7 @@ jobs:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: "[Monitoring] Scan Kafka Setup images for vulnerabilities"
     runs-on: depot-ubuntu-24.04
-    needs: [ setup, smoke_test_lint,kafka_setup_build]
+    needs: [setup, smoke_test_lint, kafka_setup_build]
     if: ${{ needs.setup.outputs.kafka_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true') }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
@@ -815,7 +813,7 @@ jobs:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: "[Monitoring] Scan MySQL Setup images for vulnerabilities"
     runs-on: depot-ubuntu-24.04
-    needs: [ setup, smoke_test_lint,mysql_setup_build ]
+    needs: [setup, smoke_test_lint, mysql_setup_build]
     if: ${{ needs.setup.outputs.mysql_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true') }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
@@ -899,7 +897,7 @@ jobs:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: "[Monitoring] Scan ElasticSearch setup images for vulnerabilities"
     runs-on: depot-ubuntu-22.04-small
-    needs: [ setup, elasticsearch_setup_build ]
+    needs: [setup, elasticsearch_setup_build]
     if: ${{ needs.setup.outputs.elasticsearch_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' ) }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
@@ -1107,7 +1105,7 @@ jobs:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: "[Monitoring] Scan Datahub Ingestion Slim images for vulnerabilities"
     runs-on: depot-ubuntu-24.04
-    needs: [setup, smoke_test_lint,datahub_ingestion_slim_build]
+    needs: [setup, smoke_test_lint, datahub_ingestion_slim_build]
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
@@ -1147,7 +1145,8 @@ jobs:
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
       needs_artifact_download: ${{ needs.setup.outputs.ingestion_change == 'true' && ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) }}
-    needs: [setup, smoke_test_lint,datahub_ingestion_base_full_build, base_build]
+    needs:
+      [setup, smoke_test_lint, datahub_ingestion_base_full_build, base_build]
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
       - name: Check out the repo
@@ -1205,7 +1204,7 @@ jobs:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: "[Monitoring] Scan Datahub Ingestion images for vulnerabilities"
     runs-on: depot-ubuntu-24.04
-    needs: [setup, smoke_test_lint,datahub_ingestion_full_build]
+    needs: [setup, smoke_test_lint, datahub_ingestion_full_build]
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
@@ -1267,7 +1266,7 @@ jobs:
           for ((i=1;i<python_batch_count;i++)); do
             python_matrix="$python_matrix"',{"test_strategy":"pytests","batch_count":"'"$python_batch_count"'","batch":"'"$i"'"}'
           done
-          
+
           cypress_batch_count=${{ steps.set-batch-count.outputs.cypress_batch_count }}
           cypress_matrix='{"test_strategy":"cypress","batch":"0","batch_count":"'"$cypress_batch_count"'"}'
           for ((i=1;i<cypress_batch_count;i++)); do
@@ -1286,13 +1285,7 @@ jobs:
   smoke_test:
     name: Run Smoke Tests (${{ matrix.test_strategy }}, Batch ${{ matrix.batch }}/${{ matrix.batch_count }})
     runs-on: depot-ubuntu-24.04-4
-    needs:
-      [
-        setup,
-        smoke_test_matrix,
-        base_build,
-        datahub_ingestion_slim_build,
-      ]
+    needs: [setup, smoke_test_matrix, base_build, datahub_ingestion_slim_build]
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.smoke_test_matrix.outputs.matrix) }}
@@ -1319,7 +1312,6 @@ jobs:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
 
-
       - name: Set up Depot CLI
         if: ${{ env.DOCKER_CACHE == 'DEPOT' && env.DEPOT_PROJECT_ID != '' }}
         uses: depot/setup-action@v1
@@ -1330,7 +1322,7 @@ jobs:
 
       - name: pull images from depot
         if: ${{ env.DOCKER_CACHE == 'DEPOT' && env.DEPOT_PROJECT_ID != '' }}
-        run: | 
+        run: |
           depot pull --project ${{ env.DEPOT_PROJECT_ID }} ${{ needs.base_build.outputs.build_id }}
           docker images
 
@@ -1604,8 +1596,8 @@ jobs:
     runs-on: depot-ubuntu-22.04
     needs: [setup, datahub_ingestion_slim_build]
     if: ${{ always() &&
-            (needs.datahub_ingestion_slim_build.result == 'success' || needs.datahub_ingestion_slim_build.result == 'skipped') &&
-            (needs.setup.outputs.datahub_executor_change == 'true' || ( needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' )) }}
+      (needs.datahub_ingestion_slim_build.result == 'success' || needs.datahub_ingestion_slim_build.result == 'skipped') &&
+      (needs.setup.outputs.datahub_executor_change == 'true' || ( needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' )) }}
     steps:
       - name: Free up disk space
         run: |

@@ -11,7 +11,7 @@ The `docker-compose.dev.yml` file bypasses the need to rebuild docker images by 
 and other data. These dev images, tagged with `debug` will use your _locally built code_ with gradle.
 Building locally and bypassing the need to rebuild the Docker images should be much faster.
 
-We highly recommend you just invoke `./gradlew quickstartDebug` task. 
+We highly recommend you just invoke `./gradlew quickstartDebug` task.
 
 ```shell
 ./gradlew quickstartDebug
@@ -20,12 +20,12 @@ We highly recommend you just invoke `./gradlew quickstartDebug` task.
 This task is defined in `docker/build.gradle` and executes the following steps:
 
 1. Builds all required artifacts to run DataHub. This includes both application code such as the GMS war, the frontend
-distribution zip which contains javascript, as well as secondary support docker containers.
- 
+   distribution zip which contains javascript, as well as secondary support docker containers.
+
 1. Locally builds Docker images with the expected `debug` tag required by the docker compose files.
 
 1. Runs the special `docker-compose.dev.yml` and supporting docker-compose files to mount local files directly in the
-containers with remote debugging ports enabled.
+   containers with remote debugging ports enabled.
 
 Once the `debug` docker images are constructed you'll see images similar to the following:
 
@@ -45,6 +45,7 @@ At this point it is possible to view the DataHub UI at `http://localhost:9002` a
 Next, perform the desired modifications and rebuild the frontend and/or GMS components.
 
 **Builds GMS**
+
 ```shell
 ./gradlew :metadata-service:war:build
 ```
@@ -57,7 +58,7 @@ Including javascript components.
 ./gradlew :datahub-frontend:build
 ```
 
-After building the artifacts only a restart of the container(s) is required to run with the updated code. 
+After building the artifacts only a restart of the container(s) is required to run with the updated code.
 The restart can be performed using a docker UI, the docker cli, or the following gradle task.
 
 ```shell
@@ -69,11 +70,13 @@ The restart can be performed using a docker UI, the docker cli, or the following
 The following commands can pause the debugging environment to release resources when not needed.
 
 Pause containers and free resources.
+
 ```shell
 docker compose -p datahub stop
 ```
 
 Resume containers for further debugging.
+
 ```shell
 docker compose -p datahub start
 ```
@@ -92,12 +95,9 @@ Environment variables control the debugging ports for GMS and the frontend.
 
 The screenshot shows an example configuration for IntelliJ using the default GMS debugging port of 5001.
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/development/intellij-remote-debug.png"/>
 </p>
-
-
 
 ## Tips for People New To Docker
 
@@ -129,9 +129,11 @@ running. If you, for some reason, wish to change this behavior, check out these 
 ```
 docker-compose -p datahub -f docker-compose.yml -f docker-compose.override.yml -f docker-compose-without-neo4j.m1.yml -f docker-compose.dev.yml up datahub-gms
 ```
+
 Will only start `datahub-gms` and its dependencies.
 
 ```
 docker-compose -p datahub -f docker-compose.yml -f docker-compose.override.yml -f docker-compose-without-neo4j.m1.yml -f docker-compose.dev.yml up --no-deps datahub-gms
 ```
+
 Will only start `datahub-gms`, without dependencies.

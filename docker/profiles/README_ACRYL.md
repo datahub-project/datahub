@@ -6,8 +6,9 @@ project name `acryl`. This will allow preserving an OSS quickstart instance and 
 The `acryl` configuration will automatically disable `actions` and run both the `executor` and `integration-service` components.
 
 See the sections below for the following helpful configuration options:
-* Set the `DATAHUB_COMPOSE_PROJECT_NAME` variable when using the python CLI.
-* Disable authentication and authorization for local development.
+
+- Set the `DATAHUB_COMPOSE_PROJECT_NAME` variable when using the python CLI.
+- Disable authentication and authorization for local development.
 
 ## Acryl Environment Variables
 

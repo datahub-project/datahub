@@ -1,6 +1,7 @@
 ---
 title: Setup
 ---
+
 # Snowflake Ingestion Guide: Setup & Prerequisites
 
 In order to configure ingestion from Snowflake, you'll first have to ensure you have a Snowflake user with the `ACCOUNTADMIN` role or `MANAGE GRANTS` privilege.
@@ -65,11 +66,9 @@ In order to configure ingestion from Snowflake, you'll first have to ensure you 
    If you have imported databases in your Snowflake instance that you wish to integrate with DataHub, you'll need to use the below query for them.
 
    ```sql
-   grant IMPORTED PRIVILEGES on database "<your-database>" to role datahub_role;  
+   grant IMPORTED PRIVILEGES on database "<your-database>" to role datahub_role;
    ```
 
 ## Next Steps
 
 Once you've done all of the above in Snowflake, it's time to [move on](configuration.md) to configuring the actual ingestion source within DataHub.
-
-
