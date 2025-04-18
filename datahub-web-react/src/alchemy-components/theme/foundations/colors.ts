@@ -15,14 +15,14 @@ const colors = {
         700: '#2F3657', // should be deprecated
         800: '#272D48', // should be deprecated
         900: '#231A58', // should be deprecated
-        1000: '#F1F3FD', // grays violet 0
+        1000: '#F1F3FD', // violet 0
         1100: '#F1FBFE', // blue 0
         1200: '#FBF3EF', // red 0
         1300: '#F7FBF4', // green 0
-        1400: '#E9EAEE', // border
-        1500: '#F9FAFC', // bg surface
-        1600: '#F5F6FA', // bg of new nav
-        1700: '#5F6685', // secondary text
+        1400: '#E9EAEE', // border and secondary text dark mode
+        1500: '#F9FAFC', // bg surface and tertiary text dark mode
+        1600: '#F5F6FA', // bg of new nav also used for primary text dark mode
+        1700: '#5F6685', // secondary text and border dark mode
         1800: '#8088A3', // tertiary text, disabled text, placeholder text, icon
         1900: '#A3A7B9',
         2000: '#1E2338', // dark bg-suface
@@ -33,7 +33,7 @@ const colors = {
         0: '#F1F3FD',
         100: '#CAC3F1',
         200: '#B0A7EA',
-        300: '#8C7EE0',
+        300: '#8C7EE0', // focus border color
         400: '#7565DA',
         500: '#533FD1',
         600: '#4C39BE', // primary value
