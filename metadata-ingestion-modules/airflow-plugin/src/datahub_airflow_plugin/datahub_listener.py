@@ -17,6 +17,10 @@ from openlineage.client.serde import Serde
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
+from datahub.emitter.mce_builder import (
+    make_data_platform_urn,
+    make_dataplatform_instance_urn,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.graph.client import DataHubGraph
@@ -25,6 +29,7 @@ from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     DataFlowKeyClass,
     DataJobKeyClass,
+    DataPlatformInstanceClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
@@ -255,6 +260,9 @@ class DataHubListener:
         routine is also responsible for converting the lineage to DataHub URNs.
         """
 
+        if not self.config.enable_datajob_lineage:
+            return
+
         input_urns: List[str] = []
         output_urns: List[str] = []
         fine_grained_lineages: List[FineGrainedLineageClass] = []
@@ -445,7 +453,8 @@ class DataHubListener:
         # TODO: Add handling for Airflow mapped tasks using task_instance.map_index
 
         for mcp in datajob.generate_mcp(
-            materialize_iolets=self.config.materialize_iolets
+            generate_lineage=self.config.enable_datajob_lineage,
+            materialize_iolets=self.config.materialize_iolets,
         ):
             self.emitter.emit(mcp, self._make_emit_callback())
         logger.debug(f"Emitted DataHub Datajob start: {datajob}")
@@ -531,7 +540,8 @@ class DataHubListener:
         self._extract_lineage(datajob, dagrun, task, task_instance, complete=True)
 
         for mcp in datajob.generate_mcp(
-            materialize_iolets=self.config.materialize_iolets
+            generate_lineage=self.config.enable_datajob_lineage,
+            materialize_iolets=self.config.materialize_iolets,
         ):
             self.emitter.emit(mcp, self._make_emit_callback())
         logger.debug(f"Emitted DataHub Datajob finish w/ status {status}: {datajob}")
@@ -620,6 +630,20 @@ class DataHubListener:
             )
             self.emitter.emit(event)
 
+        if self.config.platform_instance:
+            instance = make_dataplatform_instance_urn(
+                platform="airflow",
+                instance=self.config.platform_instance,
+            )
+            event = MetadataChangeProposalWrapper(
+                entityUrn=str(dataflow.urn),
+                aspect=DataPlatformInstanceClass(
+                    platform=make_data_platform_urn("airflow"),
+                    instance=instance,
+                ),
+            )
+            self.emitter.emit(event)
+
         # emit tags
         for tag in dataflow.tags:
             tag_urn = builder.make_tag_urn(tag)
@@ -629,11 +653,18 @@ class DataHubListener:
             )
             self.emitter.emit(event)
 
+        browsePaths: List[BrowsePathEntryClass] = []
+        if self.config.platform_instance:
+            urn = make_dataplatform_instance_urn(
+                "airflow", self.config.platform_instance
+            )
+            browsePaths.append(BrowsePathEntryClass(self.config.platform_instance, urn))
+        browsePaths.append(BrowsePathEntryClass(str(dag.dag_id)))
         browse_path_v2_event: MetadataChangeProposalWrapper = (
             MetadataChangeProposalWrapper(
                 entityUrn=str(dataflow.urn),
                 aspect=BrowsePathsV2Class(
-                    path=[BrowsePathEntryClass(str(dag.dag_id))],
+                    path=browsePaths,
                 ),
             )
         )
@@ -649,11 +680,14 @@ class DataHubListener:
                 self.graph.get_urns_by_filter(
                     platform="airflow",
                     entity_types=["dataFlow"],
+                    platform_instance=self.config.platform_instance,
                 )
             )
             ingested_datajob_urns = list(
                 self.graph.get_urns_by_filter(
-                    platform="airflow", entity_types=["dataJob"]
+                    platform="airflow",
+                    entity_types=["dataJob"],
+                    platform_instance=self.config.platform_instance,
                 )
             )
 
@@ -694,6 +728,7 @@ class DataHubListener:
                     orchestrator="airflow",
                     flow_id=dag.dag_id,
                     cluster=self.config.cluster,
+                    platform_instance=self.config.platform_instance,
                 )
                 airflow_flow_urns.append(flow_urn)
 

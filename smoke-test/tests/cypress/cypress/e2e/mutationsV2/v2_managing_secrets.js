@@ -72,7 +72,7 @@ describe("managing secrets for ingestion creation", () => {
       `[data-testid="delete-ingestion-source-${ingestion_source_name}"]`,
     ).click();
     cy.waitTextVisible("Confirm Ingestion Source Removal");
-    cy.get("button").contains("Yes").click();
+    cy.get(`[data-testid="confirm-delete-ingestion-source"]`).click();
     cy.waitTextVisible("Removed ingestion source.");
     cy.ensureTextNotPresent(ingestion_source_name);
 

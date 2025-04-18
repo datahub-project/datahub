@@ -263,7 +263,7 @@ class Mapper:
             for upstream_dpt in lineage.upstreams:
                 if (
                     upstream_dpt.data_platform_pair.powerbi_data_platform_name
-                    not in self.__config.dataset_type_mapping.keys()
+                    not in self.__config.dataset_type_mapping
                 ):
                     logger.debug(
                         f"Skipping upstream table for {ds_urn}. The platform {upstream_dpt.data_platform_pair.powerbi_data_platform_name} is not part of dataset_type_mapping",
@@ -1353,7 +1353,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             for data_platform in SupportedDataPlatform
         ]
 
-        for key in self.source_config.dataset_type_mapping.keys():
+        for key in self.source_config.dataset_type_mapping:
             if key not in powerbi_data_platforms:
                 raise ValueError(f"PowerBI DataPlatform {key} is not supported")
 

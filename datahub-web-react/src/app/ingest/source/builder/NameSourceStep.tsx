@@ -1,10 +1,11 @@
-import { Checkbox, Collapse, Form, Input, Typography } from 'antd';
 import { Button, Tooltip } from '@components';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import { Checkbox, Collapse, Form, Input, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { SourceBuilderState, StepProps, StringMapEntryInput } from './types';
-import { RequiredFieldForm } from '../../../shared/form/RequiredFieldForm';
+
+import { SourceBuilderState, StepProps, StringMapEntryInput } from '@app/ingest/source/builder/types';
+import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 
 const ControlsContainer = styled.div`
     display: flex;
@@ -177,12 +178,13 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                 </Form.Item>
                 <Collapse ghost>
                     <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
+                        {/* NOTE: Executor ID is OSS-only, used by actions pod */}
                         <Form.Item label={<Typography.Text strong>Executor ID</Typography.Text>}>
                             <Typography.Paragraph>
                                 Provide the ID of the executor that should execute this ingestion recipe. This ID is
                                 used to route execution requests of the recipe to the executor of the same ID. The
                                 built-in DataHub executor ID is &apos;default&apos;. Do not change this unless you have
-                                configured a remote or custom executor.
+                                configured a custom executor via actions framework.
                             </Typography.Paragraph>
                             <Input
                                 placeholder="default"

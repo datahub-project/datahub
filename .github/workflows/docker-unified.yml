@@ -32,6 +32,11 @@ env:
   DATAHUB_UPGRADE_IMAGE: "acryldata/datahub-upgrade"
   DATAHUB_INGESTION_BASE_IMAGE: "acryldata/datahub-ingestion-base"
   DATAHUB_INGESTION_IMAGE: "acryldata/datahub-ingestion"
+  DATAHUB_ACTIONS_IMAGE: "acryldata/datahub-actions"
+
+  DOCKER_CACHE: "DEPOT"
+  DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
+  DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
 
 permissions:
   contents: read
@@ -39,7 +44,7 @@ permissions:
 
 jobs:
   setup:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-small
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
       slim_tag: ${{ steps.tag.outputs.slim_tag }}
@@ -55,6 +60,7 @@ jobs:
       branch_name: ${{ steps.tag.outputs.branch_name }}
       repository_name: ${{ steps.tag.outputs.repository_name }}
       frontend_change: ${{ steps.ci-optimize.outputs.frontend-change == 'true' }}
+      actions_change: ${{ steps.ci-optimize.outputs.actions-change == 'true' }}
       ingestion_change: ${{ steps.ci-optimize.outputs.ingestion-change == 'true' }}
       ingestion_base_change: ${{ steps.ci-optimize.outputs.ingestion-base-change == 'true' }}
       backend_change: ${{ steps.ci-optimize.outputs.backend-change == 'true' }}
@@ -75,16 +81,18 @@ jobs:
         id: tag
         run: |
           source .github/scripts/docker_helpers.sh
-          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
-          echo "tag=$(get_tag)" >> "$GITHUB_OUTPUT"
-          echo "slim_tag=$(get_tag_slim)" >> "$GITHUB_OUTPUT"
-          echo "full_tag=$(get_tag_full)" >> "$GITHUB_OUTPUT"
-          echo "unique_tag=$(get_unique_tag)" >> "$GITHUB_OUTPUT"
-          echo "unique_slim_tag=$(get_unique_tag_slim)" >> "$GITHUB_OUTPUT"
-          echo "unique_full_tag=$(get_unique_tag_full)" >> "$GITHUB_OUTPUT"
-          echo "python_release_version=$(get_python_docker_release_v)" >> "$GITHUB_OUTPUT"
-          echo "branch_name=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> "$GITHUB_OUTPUT"
-          echo "repository_name=${GITHUB_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
+          {
+            echo "short_sha=${SHORT_SHA}"
+            echo "tag=$(get_tag)"
+            echo "slim_tag=$(get_tag_slim)"
+            echo "full_tag=$(get_tag_full)"
+            echo "unique_tag=$(get_unique_tag)"
+            echo "unique_slim_tag=$(get_unique_tag_slim)"
+            echo "unique_full_tag=$(get_unique_tag_full)"
+            echo "python_release_version=$(get_python_docker_release_v)"
+            echo "branch_name=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
+            echo "repository_name=${GITHUB_REPOSITORY#*/}"
+          } >> "$GITHUB_OUTPUT"
       - name: Check whether docker login is possible
         id: docker-login
         env:
@@ -96,10 +104,10 @@ jobs:
         id: publish
         env:
           ENABLE_PUBLISH: >-
-             ${{
-                github.event_name != 'pull_request'
-                && ( secrets.ACRYL_DOCKER_PASSWORD != '' )
-             }}
+            ${{
+               github.event_name != 'pull_request'
+               && ( secrets.ACRYL_DOCKER_PASSWORD != '' )
+            }}
         run: |
           echo "Enable publish: ${{ env.ENABLE_PUBLISH }}"
           echo "publish=${{ env.ENABLE_PUBLISH }}" >> "$GITHUB_OUTPUT"
@@ -107,44 +115,104 @@ jobs:
         id: pr-publish
         env:
           ENABLE_PUBLISH: >-
-             ${{
-                (github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'publish') || contains(github.event.pull_request.labels.*.name, 'publish-docker')))
-                && ( secrets.ACRYL_DOCKER_PASSWORD != '' )
-             }}
+            ${{
+               (github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'publish') || contains(github.event.pull_request.labels.*.name, 'publish-docker')))
+               && ( secrets.ACRYL_DOCKER_PASSWORD != '' )
+            }}
         run: |
           echo "Enable PR publish: ${{ env.ENABLE_PUBLISH }}"
           echo "publish=${{ env.ENABLE_PUBLISH }}" >> "$GITHUB_OUTPUT"
       - uses: ./.github/actions/ci-optimization
         id: ci-optimize
+
+  smoke_test_lint:
+    name: Lint on smoke tests
+    runs-on: depot-ubuntu-24.04
+    needs: setup
+    if: ${{ needs.setup.outputs.smoke_test_change }}" == 'true' }}
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@v3
+
       - uses: actions/setup-python@v5
-        if: ${{ steps.ci-optimize.outputs.smoke-test-change == 'true' }}
         with:
           python-version: "3.10"
           cache: "pip"
+
       - uses: actions/cache@v4
-        if: ${{ steps.ci-optimize.outputs.smoke-test-change == 'true' }}
         with:
           path: |
             ~/.cache/uv
           key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        if: ${{ steps.ci-optimize.outputs.smoke-test-change == 'true' }}
+
+      - uses: actions/cache@v4
         with:
-          distribution: "zulu"
-          java-version: 17
-      - uses: gradle/actions/setup-gradle@v4
+          path: |
+            ~/.cache/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+
       - name: Run lint on smoke test
-        if: ${{ steps.ci-optimize.outputs.smoke-test-change == 'true' }}
         run: |
           python ./.github/scripts/check_python_package.py
           ./gradlew :smoke-test:pythonLint
           ./gradlew :smoke-test:cypressLint
 
+  base_build:
+    name: Prepare all images
+    runs-on: depot-ubuntu-24.04-4
+    needs: setup
+    outputs:
+      build_id: ${{ steps.capture-build-id.outputs.build_id }}
+    steps:
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: 17
+
+          #- uses: gradle/actions/setup-gradle@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+
+      - name: Set up Depot CLI
+        if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
+        uses: depot/setup-action@v1
+
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@v3
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+
+      - name: Build all Docker Contexts
+        if: ${{ env.DOCKER_CACHE == 'DEPOT' && env.DEPOT_PROJECT_ID != '' }}
+        run: |
+          ./gradlew :docker:buildImagesQuickstartDebugConsumers -PreleaseVersion=pr-build
+
+      - name: Capture build Id
+        id: capture-build-id
+        if: ${{ env.DOCKER_CACHE == 'DEPOT' && env.DEPOT_PROJECT_ID != '' }}
+        run: |
+          pip install jq
+          DEPOT_BUILD_ID=$(jq -r '.["depot.build"]?.buildID' ${{ github.workspace }}/build/build-metadata.json)
+
+          echo "build_id=${DEPOT_BUILD_ID}" >> "$GITHUB_OUTPUT"
+
   gms_build:
     name: Build and Push DataHub GMS Docker Image
     runs-on: ubuntu-latest
-    needs: setup
+    needs: [setup, base_build]
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Free up disk space
@@ -162,8 +230,8 @@ jobs:
         uses: acryldata/sane-checkout-action@v3
       - name: Pre-build artifacts for docker image
         run: |
-          ./gradlew :metadata-service:war:build -x test --parallel
-          mv ./metadata-service/war/build/libs/war.war .
+          ./gradlew :metadata-service:war:dockerPrepare
+
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -173,7 +241,7 @@ jobs:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
-          context: .
+          context: ./build/dockerBuildContext/metadata-service/war/docker
           file: ./docker/datahub-gms/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
   gms_scan:
@@ -215,7 +283,7 @@ jobs:
   mae_consumer_build:
     name: Build and Push DataHub MAE Consumer Docker Image
     runs-on: ubuntu-latest
-    needs: setup
+    needs: [setup, smoke_test_lint, base_build]
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Free up disk space
@@ -233,8 +301,8 @@ jobs:
         uses: acryldata/sane-checkout-action@v3
       - name: Pre-build artifacts for docker image
         run: |
-          ./gradlew :metadata-jobs:mae-consumer-job:build -x test --parallel
-          mv ./metadata-jobs/mae-consumer-job/build/libs/mae-consumer-job.jar .
+          ./gradlew :metadata-jobs:mae-consumer-job:dockerPrepare
+
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -244,13 +312,13 @@ jobs:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
-          context: .
+          context: ./build/dockerBuildContext/metadata-jobs/mae-consumer-job/docker
           file: ./docker/datahub-mae-consumer/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
   mae_consumer_scan:
     name: "[Monitoring] Scan MAE consumer images for vulnerabilities"
-    runs-on: ubuntu-latest
-    needs: [setup, mae_consumer_build]
+    runs-on: depot-ubuntu-24.04
+    needs: [setup, smoke_test_lint, mae_consumer_build]
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -286,14 +354,9 @@ jobs:
   mce_consumer_build:
     name: Build and Push DataHub MCE Consumer Docker Image
     runs-on: ubuntu-latest
-    needs: setup
+    needs: [setup, base_build]
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
-      - name: Free up disk space
-        run: |
-          sudo apt-get remove 'dotnet-*' azure-cli || true
-          sudo rm -rf /usr/local/lib/android/ || true
-          sudo docker image prune -a -f || true
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -304,8 +367,8 @@ jobs:
         uses: acryldata/sane-checkout-action@v3
       - name: Pre-build artifacts for docker image
         run: |
-          ./gradlew :metadata-jobs:mce-consumer-job:build -x test --parallel
-          mv ./metadata-jobs/mce-consumer-job/build/libs/mce-consumer-job.jar .
+          ./gradlew :metadata-jobs:mce-consumer-job:dockerPrepare
+
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -315,13 +378,13 @@ jobs:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
-          context: .
+          context: ./build/dockerBuildContext/metadata-jobs/mce-consumer-job/docker
           file: ./docker/datahub-mce-consumer/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
   mce_consumer_scan:
     name: "[Monitoring] Scan MCE consumer images for vulnerabilities"
-    runs-on: ubuntu-latest
-    needs: [setup, mce_consumer_build]
+    runs-on: depot-ubuntu-24.04
+    needs: [setup, smoke_test_lint, mce_consumer_build]
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -357,7 +420,7 @@ jobs:
   datahub_upgrade_build:
     name: Build and Push DataHub Upgrade Docker Image
     runs-on: ubuntu-latest
-    needs: setup
+    needs: [setup, base_build]
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Free up disk space
@@ -375,8 +438,8 @@ jobs:
         uses: acryldata/sane-checkout-action@v3
       - name: Pre-build artifacts for docker image
         run: |
-          ./gradlew :datahub-upgrade:build -x test --parallel
-          mv ./datahub-upgrade/build/libs/datahub-upgrade.jar .
+          ./gradlew :datahub-upgrade:dockerPrepare
+
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -386,13 +449,13 @@ jobs:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
-          context: .
+          context: ./build/dockerBuildContext/datahub-upgrade/docker
           file: ./docker/datahub-upgrade/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
   datahub_upgrade_scan:
     name: "[Monitoring] Scan DataHub Upgrade images for vulnerabilities"
     runs-on: ubuntu-latest
-    needs: [setup, datahub_upgrade_build]
+    needs: [setup, smoke_test_lint, datahub_upgrade_build]
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -428,7 +491,7 @@ jobs:
   frontend_build:
     name: Build and Push DataHub Frontend Docker Image
     runs-on: ubuntu-latest
-    needs: setup
+    needs: [setup, base_build]
     if: ${{ needs.setup.outputs.frontend_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true'}}
     steps:
       - name: Free up disk space
@@ -446,8 +509,8 @@ jobs:
         uses: acryldata/sane-checkout-action@v3
       - name: Pre-build artifacts for docker image
         run: |
-          ./gradlew :datahub-frontend:dist -x test -x yarnTest -x yarnLint --parallel
-          mv ./datahub-frontend/build/stage/main .
+          ./gradlew :datahub-frontend:dockerPrepare -x test -x yarnTest -x yarnLint --parallel
+
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -457,13 +520,13 @@ jobs:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
-          context: .
+          context: ./build/dockerBuildContext/datahub-frontend/docker
           file: ./docker/datahub-frontend/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
   frontend_scan:
     name: "[Monitoring] Scan Frontend images for vulnerabilities"
-    runs-on: ubuntu-latest
-    needs: [setup, frontend_build]
+    runs-on: ubuntu-24.04
+    needs: [setup, smoke_test_lint, frontend_build]
     if: ${{ needs.setup.outputs.frontend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -499,7 +562,7 @@ jobs:
   kafka_setup_build:
     name: Build and Push DataHub Kafka Setup Docker Image
     runs-on: ubuntu-latest
-    needs: setup
+    needs: [setup, base_build]
     if: ${{ needs.setup.outputs.kafka_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true') }}
     steps:
       - name: Free up disk space
@@ -528,7 +591,7 @@ jobs:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: "[Monitoring] Scan Kafka Setup images for vulnerabilities"
     runs-on: ubuntu-latest
-    needs: [ setup, kafka_setup_build ]
+    needs: [setup, smoke_test_lint, kafka_setup_build]
     if: ${{ needs.setup.outputs.kafka_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true') }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
@@ -560,8 +623,8 @@ jobs:
   mysql_setup_build:
     name: Build and Push DataHub MySQL Setup Docker Image
     runs-on: ubuntu-latest
-    needs: setup
-    if: ${{ needs.setup.outputs.mysql_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true') }}
+    needs: [setup, base_build]
+    if: ${{ false || needs.setup.outputs.mysql_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true') }}
     steps:
       - name: Free up disk space
         run: |
@@ -570,6 +633,7 @@ jobs:
           sudo docker image prune -a -f || true
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
+
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -589,7 +653,7 @@ jobs:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: "[Monitoring] Scan MySQL Setup images for vulnerabilities"
     runs-on: ubuntu-latest
-    needs: [ setup, mysql_setup_build ]
+    needs: [setup, smoke_test_lint, mysql_setup_build]
     if: ${{ needs.setup.outputs.mysql_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true') }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
@@ -621,7 +685,7 @@ jobs:
   elasticsearch_setup_build:
     name: Build and Push DataHub Elasticsearch Setup Docker Image
     runs-on: ubuntu-latest
-    needs: setup
+    needs: [setup, base_build]
     if: ${{ needs.setup.outputs.elasticsearch_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' ) }}
     steps:
       - name: Free up disk space
@@ -631,6 +695,7 @@ jobs:
           sudo docker image prune -a -f || true
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
+
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -650,7 +715,7 @@ jobs:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: "[Monitoring] Scan ElasticSearch setup images for vulnerabilities"
     runs-on: ubuntu-latest
-    needs: [ setup, elasticsearch_setup_build ]
+    needs: [setup, elasticsearch_setup_build]
     if: ${{ needs.setup.outputs.elasticsearch_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' ) }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
@@ -694,11 +759,11 @@ jobs:
           sudo docker image prune -a -f || true
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
+
       - name: Build and push Base Image
         if: ${{ needs.setup.outputs.ingestion_base_change == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
         with:
-          target: base
           images: |
             ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
           image_tag: ${{ needs.setup.outputs.tag }}
@@ -717,7 +782,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
-    needs: [setup, datahub_ingestion_base_build]
+    needs: [setup, smoke_test_lint, datahub_ingestion_base_build]
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
       - name: Free up disk space
@@ -742,7 +807,6 @@ jobs:
         if: ${{ needs.setup.outputs.ingestion_base_change == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
         with:
-          target: slim-install
           images: |
             ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
           image_tag: ${{ needs.setup.outputs.slim_tag }}
@@ -765,14 +829,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
-    needs: [setup, datahub_ingestion_base_build]
+    needs: [setup, smoke_test_lint, datahub_ingestion_base_build]
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
-      - name: Free up disk space
-        run: |
-          sudo apt-get remove 'dotnet-*' azure-cli || true
-          sudo rm -rf /usr/local/lib/android/ || true
-          sudo docker image prune -a -f || true
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - name: Download Base Image
@@ -790,7 +849,6 @@ jobs:
         if: ${{ needs.setup.outputs.ingestion_base_change == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
         with:
-          target: full-install
           images: |
             ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
           image_tag: ${{ needs.setup.outputs.full_tag }}
@@ -813,14 +871,9 @@ jobs:
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
       needs_artifact_download: ${{ needs.setup.outputs.ingestion_change == 'true' && ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true') }}
-    needs: [setup, datahub_ingestion_base_slim_build]
+    needs: [setup, smoke_test_lint]
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
-      - name: Free up disk space
-        run: |
-          sudo apt-get remove 'dotnet-*' azure-cli || true
-          sudo rm -rf /usr/local/lib/android/ || true
-          sudo docker image prune -a -f || true
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - uses: actions/setup-python@v5
@@ -832,15 +885,9 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/actions/setup-gradle@v4
       - name: Build codegen
         if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish =='true' }}
         run: ./gradlew :metadata-ingestion:codegen
-      - name: Download Base Image
-        uses: ishworkh/container-image-artifact-download@v2.0.0
-        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && needs.setup.outputs.ingestion_base_change == 'true' }}
-        with:
-          image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ needs.setup.outputs.ingestion_base_change == 'true' && needs.setup.outputs.unique_slim_tag || 'head-slim' }}
       - name: Login to DockerHub
         uses: docker/login-action@v3
         if: ${{ needs.setup.outputs.docker-login == 'true' && needs.setup.outputs.publish == 'false' && needs.setup.outputs.pr-publish == 'false' && needs.setup.outputs.ingestion_base_change == 'false' }}
@@ -851,12 +898,9 @@ jobs:
         if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
         with:
-          target: final
           images: |
             ${{ env.DATAHUB_INGESTION_IMAGE }}
           build-args: |
-            BASE_IMAGE=${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
-            DOCKER_VERSION=${{ needs.setup.outputs.ingestion_base_change == 'true' && needs.setup.outputs.unique_slim_tag || 'head-slim' }}
             RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
             APP_ENV=slim
           image_tag: ${{ needs.setup.outputs.slim_tag }}
@@ -879,7 +923,7 @@ jobs:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: "[Monitoring] Scan Datahub Ingestion Slim images for vulnerabilities"
     runs-on: ubuntu-latest
-    needs: [setup, datahub_ingestion_slim_build]
+    needs: [setup, smoke_test_lint, datahub_ingestion_slim_build]
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
@@ -915,14 +959,9 @@ jobs:
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
       needs_artifact_download: ${{ needs.setup.outputs.ingestion_change == 'true' && ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) }}
-    needs: [setup, datahub_ingestion_base_full_build]
+    needs: [setup, smoke_test_lint]
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
-      - name: Free up disk space
-        run: |
-          sudo apt-get remove 'dotnet-*' azure-cli || true
-          sudo rm -rf /usr/local/lib/android/ || true
-          sudo docker image prune -a -f || true
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - uses: actions/setup-python@v5
@@ -938,11 +977,6 @@ jobs:
       - name: Build codegen
         if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         run: ./gradlew :metadata-ingestion:codegen
-      - name: Download Base Image
-        uses: ishworkh/container-image-artifact-download@v2.0.0
-        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && needs.setup.outputs.ingestion_base_change == 'true' }}
-        with:
-          image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ needs.setup.outputs.ingestion_base_change == 'true' && needs.setup.outputs.unique_tag || 'head' }}
       - name: Login to DockerHub
         uses: docker/login-action@v3
         if: ${{ needs.setup.outputs.docker-login == 'true' && needs.setup.outputs.publish == 'false' && needs.setup.outputs.pr-publish == 'false' && needs.setup.outputs.ingestion_base_change == 'false' }}
@@ -953,12 +987,9 @@ jobs:
         if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
         with:
-          target: final
           images: |
             ${{ env.DATAHUB_INGESTION_IMAGE }}
           build-args: |
-            BASE_IMAGE=${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
-            DOCKER_VERSION=${{ needs.setup.outputs.ingestion_base_change == 'true' && needs.setup.outputs.unique_tag || 'head' }}
             RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
           image_tag: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
@@ -978,8 +1009,8 @@ jobs:
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: "[Monitoring] Scan Datahub Ingestion images for vulnerabilities"
-    runs-on: ubuntu-latest
-    needs: [setup, datahub_ingestion_full_build]
+    runs-on: depot-ubuntu-24.04
+    needs: [setup, smoke_test_lint, datahub_ingestion_full_build]
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
@@ -1009,9 +1040,140 @@ jobs:
         with:
           sarif_file: "trivy-results.sarif"
 
+  datahub_actions_build:
+    name: Build and Push DataHub Actions Docker Image
+    runs-on: depot-ubuntu-24.04
+    needs: [setup]
+    if: ${{ needs.setup.outputs.actions_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true'}}
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@v3
+
+      - name: Set up Depot CLI
+        if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
+        uses: depot/setup-action@v1
+
+      - name: Build and push
+        uses: ./.github/actions/docker-custom-build-and-push
+        with:
+          images: |
+            ${{ env.DATAHUB_ACTIONS_IMAGE }}
+          image_tag: ${{ needs.setup.outputs.tag }}
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+          build-args: |
+            RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
+          context: .
+          file: ./docker/datahub-actions/Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
+  datahub_actions_scan:
+    name: "[Monitoring] Scan Datahub Actions images for vulnerabilities"
+    runs-on: depot-ubuntu-24.04
+    needs: [setup, smoke_test_lint, datahub_actions_build]
+    if: ${{ needs.setup.outputs.actions_change == 'true' || needs.setup.outputs.publish == 'true' }}
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
+    steps:
+      - name: Checkout # adding checkout step just to make trivy upload happy
+        uses: actions/checkout@v4
+      - name: Download image
+        uses: ishworkh/container-image-artifact-download@v2.0.0
+        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
+        with:
+          image: ${{ env.DATAHUB_ACTIONS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.29.0
+        env:
+          TRIVY_OFFLINE_SCAN: true
+          TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
+          TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1,ghcr.io/aquasecurity/trivy-java-db:1
+        with:
+          image-ref: ${{ env.DATAHUB_ACTIONS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+          format: "template"
+          template: "@/contrib/sarif.tpl"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: "trivy-results.sarif"
+  datahub_actions_slim_build:
+    name: Build and Push DataHub Actions Slim Docker Image
+    runs-on: depot-ubuntu-24.04
+    needs: [setup]
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      needs_artifact_download: ${{ needs.setup.outputs.actions_change == 'true' && ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true') }}
+    if: ${{ needs.setup.outputs.actions_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true'}}
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@v3
+      - name: Build and push Slim image
+        if: ${{ needs.setup.outputs.actions_change == 'true' }}
+        uses: ./.github/actions/docker-custom-build-and-push
+        with:
+          images: |
+            ${{ env.DATAHUB_ACTIONS_IMAGE }}
+          image_tag: ${{ needs.setup.outputs.slim_tag }}
+          flavor: slim
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+          build-args: |
+            APP_ENV=slim
+            RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
+          context: .
+          file: ./docker/datahub-actions/Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
+          depot-project: ${{ vars.DEPOT_PROJECT_ID }}
+      - name: Compute Tag
+        id: tag
+        run: echo "tag=${{ needs.setup.outputs.actions_change == 'true' && needs.setup.outputs.unique_slim_tag || 'head-slim' }}" >> "$GITHUB_OUTPUT"
+
+  datahub_actions_slim_scan:
+    name: "[Monitoring] Scan Datahub Actions Slim images for vulnerabilities"
+    runs-on: depot-ubuntu-24.04
+    needs: [setup, smoke_test_lint, datahub_actions_slim_build]
+    if: ${{ needs.setup.outputs.actions_change == 'true' || needs.setup.outputs.publish == 'true' }}
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
+    steps:
+      - name: Checkout # adding checkout step just to make trivy upload happy
+        uses: actions/checkout@v4
+      - name: Download image
+        uses: ishworkh/container-image-artifact-download@v2.0.0
+        if: ${{ needs.datahub_actions_slim_build.outputs.needs_artifact_download == 'true' }}
+        with:
+          image: ${{ env.DATAHUB_ACTIONS_IMAGE }}:${{ needs.setup.outputs.slim_tag }}
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.29.0
+        env:
+          TRIVY_OFFLINE_SCAN: true
+          TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
+          TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1,ghcr.io/aquasecurity/trivy-java-db:1
+        with:
+          image-ref: ${{ env.DATAHUB_ACTIONS_IMAGE }}:${{ needs.setup.outputs.slim_tag }}
+          format: "template"
+          template: "@/contrib/sarif.tpl"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: "trivy-results.sarif"
+
   smoke_test_matrix:
-    runs-on: ubuntu-latest
-    needs: setup
+    runs-on: depot-ubuntu-24.04-small
+    needs: [setup, determine_runner]
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       cypress_batch_count: ${{ steps.set-batch-count.outputs.cypress_batch_count }}
@@ -1023,8 +1185,13 @@ jobs:
         # python_batch_count is used to split pytests in the smoke-test (batches of actual test functions)
         # cypress_batch_count is used to split the collection of cypress test specs into batches.
         run: |
-          echo "cypress_batch_count=5" >> "$GITHUB_OUTPUT"
-          echo "python_batch_count=3" >> "$GITHUB_OUTPUT"
+          if [[ "${{ needs.determine_runner.outputs.runner_type }}" == "ubuntu-latest" ]]; then
+            echo "cypress_batch_count=5" >> "$GITHUB_OUTPUT"
+            echo "python_batch_count=3" >> "$GITHUB_OUTPUT"
+          else
+            echo "cypress_batch_count=11" >> "$GITHUB_OUTPUT"
+            echo "python_batch_count=6" >> "$GITHUB_OUTPUT"
+          fi
 
       - id: set-matrix
         # For m batches for python and n batches for cypress, we need a test matrix of python x m + cypress x n.
@@ -1033,11 +1200,17 @@ jobs:
         # to add it to the test matrix.
         run: |
           python_batch_count=${{ steps.set-batch-count.outputs.python_batch_count }}
-          python_matrix=$(printf "{\"test_strategy\":\"pytests\",\"batch\":\"0\",\"batch_count\":\"$python_batch_count\"}"; for ((i=1;i<python_batch_count;i++)); do printf ",{\"test_strategy\":\"pytests\", \"batch_count\":\"$python_batch_count\",\"batch\":\"%d\"}" $i; done)
-          
+          python_matrix='{"test_strategy":"pytests","batch":"0","batch_count":"'"$python_batch_count"'"}'
+          for ((i=1;i<python_batch_count;i++)); do
+            python_matrix="$python_matrix"',{"test_strategy":"pytests","batch_count":"'"$python_batch_count"'","batch":"'"$i"'"}'
+          done
+
           cypress_batch_count=${{ steps.set-batch-count.outputs.cypress_batch_count }}
-          cypress_matrix=$(printf "{\"test_strategy\":\"cypress\",\"batch\":\"0\",\"batch_count\":\"$cypress_batch_count\"}"; for ((i=1;i<cypress_batch_count;i++)); do printf ",{\"test_strategy\":\"cypress\", \"batch_count\":\"$cypress_batch_count\",\"batch\":\"%d\"}" $i; done)
-          
+          cypress_matrix='{"test_strategy":"cypress","batch":"0","batch_count":"'"$cypress_batch_count"'"}'
+          for ((i=1;i<cypress_batch_count;i++)); do
+            cypress_matrix="$cypress_matrix"',{"test_strategy":"cypress","batch_count":"'"$cypress_batch_count"'","batch":"'"$i"'"}'
+          done
+
           includes=''
           if [[ "${{ needs.setup.outputs.backend_change }}" == 'true' || "${{ needs.setup.outputs.smoke_test_change }}" == 'true' || "${{ needs.setup.outputs.publish }}" == 'true' ]]; then
             includes="$python_matrix,$cypress_matrix"
@@ -1048,22 +1221,31 @@ jobs:
           fi
           echo "matrix={\"include\":[$includes] }" >> "$GITHUB_OUTPUT"
 
+  determine_runner:
+    name: Determine Runner Type
+    runs-on: depot-ubuntu-24.04-small
+    needs: setup
+    outputs:
+      runner_type: ${{ steps.set-runner.outputs.runner_type }}
+    steps:
+      - id: set-runner
+        run: |
+          if [[ "${{ env.DOCKER_CACHE }}" == "DEPOT" && "${{ env.DEPOT_PROJECT_ID }}" != "" ]]; then
+            echo "runner_type=depot-ubuntu-24.04" >> "$GITHUB_OUTPUT"
+          else
+            echo "runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
+          fi
+
   smoke_test:
-    name: Run Smoke Tests
-    runs-on: ubuntu-latest
+    name: Run Smoke Tests (${{ matrix.test_strategy }}, Batch ${{ matrix.batch }}/${{ matrix.batch_count }})
+    runs-on: ${{ needs.determine_runner.outputs.runner_type }}
     needs:
       [
         setup,
         smoke_test_matrix,
-        gms_build,
-        frontend_build,
-        kafka_setup_build,
-        mysql_setup_build,
-        elasticsearch_setup_build,
-        mae_consumer_build,
-        mce_consumer_build,
-        datahub_upgrade_build,
-        datahub_ingestion_slim_build,
+        base_build,
+        determine_runner,
+        datahub_actions_slim_build,
       ]
     strategy:
       fail-fast: false
@@ -1071,141 +1253,72 @@ jobs:
     if: ${{ always() && !failure() && !cancelled() && needs.smoke_test_matrix.outputs.matrix != '[]' }}
     steps:
       - name: Free up disk space
+        if: ${{ needs.determine_runner.outputs.runner_type != 'depot-ubuntu-24.04' }}
         run: |
           sudo apt-get remove 'dotnet-*' azure-cli || true
           sudo rm -rf /usr/local/lib/android/ || true
           sudo docker image prune -a -f || true
-      - name: Disk Check
-        run: df -h . && docker images
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            ~/.cache/Cypress
+            ~/.cache/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
+
+      - name: Set up Depot CLI
+        if: ${{ env.DOCKER_CACHE == 'DEPOT' && env.DEPOT_PROJECT_ID != '' }}
+        uses: depot/setup-action@v1
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
           cache: "pip"
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: "zulu"
-          java-version: 17
+
       - uses: gradle/actions/setup-gradle@v4
-      - name: Login to DockerHub
-        uses: docker/login-action@v3
-        if: ${{ needs.setup.outputs.docker-login == 'true' }}
-        with:
-            username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
-            password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-      - name: Disk Check
-        run: df -h . && docker images
-      - name: Remove images
-        run: docker image prune -a -f || true
-      - name: Disk Check
-        run: df -h . && docker images
-      - name: Download GMS image
-        uses: ishworkh/container-image-artifact-download@v2.0.0
-        if: ${{ ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) && needs.gms_build.result == 'success' }}
-        with:
-          image: ${{ env.DATAHUB_GMS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-      - name: Download Frontend image
-        uses: ishworkh/container-image-artifact-download@v2.0.0
-        if: ${{ ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) && needs.frontend_build.result == 'success' }}
-        with:
-          image: ${{ env.DATAHUB_FRONTEND_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-      - name: Download Kafka Setup image
-        uses: ishworkh/container-image-artifact-download@v2.0.0
-        if: ${{ ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) && needs.kafka_setup_build.result == 'success' }}
-        with:
-          image: ${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-      - name: Download Mysql Setup image
-        uses: ishworkh/container-image-artifact-download@v2.0.0
-        if: ${{ ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) && needs.mysql_setup_build.result == 'success' }}
-        with:
-          image: ${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-      - name: Download Elastic Setup image
-        uses: ishworkh/container-image-artifact-download@v2.0.0
-        if: ${{ ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) && needs.elasticsearch_setup_build.result == 'success' }}
-        with:
-          image: ${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-      - name: Download MCE Consumer image
-        uses: ishworkh/container-image-artifact-download@v2.0.0
-        if: ${{ ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) && needs.mce_consumer_build.result == 'success' }}
-        with:
-          image: ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-      - name: Download MAE Consumer image
-        uses: ishworkh/container-image-artifact-download@v2.0.0
-        if: ${{ ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) && needs.mae_consumer_build.result == 'success' }}
-        with:
-          image: ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-      - name: Download upgrade image
-        uses: ishworkh/container-image-artifact-download@v2.0.0
-        if: ${{ ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) && needs.datahub_upgrade_build.result == 'success' }}
-        with:
-          image: ${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-      - name: Download datahub-ingestion-slim image
-        uses: ishworkh/container-image-artifact-download@v2.0.0
-        if: ${{ needs.datahub_ingestion_slim_build.outputs.needs_artifact_download == 'true' && needs.datahub_ingestion_slim_build.result == 'success' }}
-        with:
-          image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.tag }}
-      - name: Disk Check
-        run: df -h . && docker images
-      - name: CI Optimization Head Images
-        # When publishing all tests/images are built (no optimizations)
-        if: ${{ needs.setup.outputs.publish != 'true' }}
+        if: ${{ env.DEPOT_PROJECT_ID == '' }}
+
+      - name: build images
+        if: ${{ env.DEPOT_PROJECT_ID == '' }}
         run: |
-          if [ '${{ needs.setup.outputs.backend_change }}' == 'false' ]; then
-             echo 'GMS/Upgrade/MCE/MAE head images'
-             docker pull '${{ env.DATAHUB_GMS_IMAGE }}:head'
-             docker pull '${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:head'
-             docker pull '${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:head'
-             docker pull '${{ env.DATAHUB_UPGRADE_IMAGE }}:head'
-             docker tag '${{ env.DATAHUB_GMS_IMAGE }}:head' '${{ env.DATAHUB_GMS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
-             docker tag '${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:head' '${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
-             docker tag '${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:head' '${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
-             docker tag '${{ env.DATAHUB_UPGRADE_IMAGE }}:head' '${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
-          fi
-          if [ '${{ needs.setup.outputs.frontend_change }}' == 'false' ]; then
-             echo 'Frontend head images'
-             docker pull '${{ env.DATAHUB_FRONTEND_IMAGE }}:head'
-             docker tag '${{ env.DATAHUB_FRONTEND_IMAGE }}:head' '${{ env.DATAHUB_FRONTEND_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
-          fi
-          if [ '${{ needs.setup.outputs.kafka_setup_change }}' == 'false' ]; then
-            echo 'kafka-setup head images'
-            docker pull '${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}:head'
-            docker tag '${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}:head' '${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
-          fi
-          if [ '${{ needs.setup.outputs.mysql_setup_change }}' == 'false' ]; then
-            echo 'mysql-setup head images'
-            docker pull '${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}:head'
-            docker tag '${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}:head' '${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
-          fi
-          if [ '${{ needs.setup.outputs.elasticsearch_setup_change }}' == 'false' ]; then
-            echo 'elasticsearch-setup head images'
-            docker pull '${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}:head'
-            docker tag '${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}:head' '${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
-          fi
-      - name: CI Slim Head Images
+          docker pull confluentinc/cp-kafka:7.4.0 &
+          docker pull mysql:8.2 &
+          docker pull opensearchproject/opensearch:2.9.0 &
+          docker pull ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:head-slim  &
+          ./gradlew :docker:buildImagesQuickstartDebugConsumers -PreleaseVersion=pr-build &
+
+          wait
+          docker images
+        env:
+          DOCKER_CACHE: GITHUB
+      - name: pull images from depot
+        if: ${{ env.DOCKER_CACHE == 'DEPOT' && env.DEPOT_PROJECT_ID != '' }}
         run: |
-          if [ '${{ needs.setup.outputs.ingestion_change }}' == 'false' ]; then
-            echo 'datahub-ingestion head-slim images'
-            docker pull '${{ env.DATAHUB_INGESTION_IMAGE }}:head-slim'
-            if [ '${{ needs.datahub_ingestion_slim_build.outputs.tag || 'head-slim' }}' != 'head-slim' ]; then
-               docker tag '${{ env.DATAHUB_INGESTION_IMAGE }}:head-slim' '${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
-            fi
-          fi
-      - name: Disk Check
-        run: df -h . && docker images
+          depot pull --project ${{ env.DEPOT_PROJECT_ID }} ${{ needs.base_build.outputs.build_id }}
+          docker images
       - name: run quickstart
         env:
           DATAHUB_TELEMETRY_ENABLED: false
-          DATAHUB_VERSION: ${{ needs.setup.outputs.unique_tag }}
-          DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_INGESTION_IMAGE }}
-          ACTIONS_VERSION: ${{ needs.datahub_ingestion_slim_build.outputs.tag || 'head-slim' }}
+          DATAHUB_VERSION: pr-build
+          DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_ACTIONS_IMAGE }}
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
         run: |
           ./smoke-test/run-quickstart.sh
+
       - name: Disk Check
         run: df -h . && docker images
+
       - name: Disable ES Disk Threshold
         run: |
           curl -XPUT "http://localhost:9200/_cluster/settings" \
@@ -1218,19 +1331,14 @@ jobs:
               }
             }
           }'
-      - name: Disk Check
-        run: df -h . && docker images
+
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
+
       - name: Build datahub cli
         run: |
           ./gradlew :metadata-ingestion:install
-      - name: Disk Check
-        run: df -h . && docker images
-      - name: Remove Source Code
-        run: find ./*/* ! -path "./metadata-ingestion*" ! -path "./smoke-test*" ! -path "./gradle*" -delete
-      - name: Disk Check
-        run: df -h . && docker images
+
       - name: Smoke test
         env:
           RUN_QUICKSTART: false
@@ -1244,8 +1352,10 @@ jobs:
           echo "$DATAHUB_VERSION"
           ./gradlew --stop
           ./smoke-test/smoke.sh
+
       - name: Disk Check
         run: df -h . && docker images
+
       - name: store logs
         if: failure()
         run: |
@@ -1279,10 +1389,11 @@ jobs:
         uses: codecov/test-results-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+
   deploy_datahub_head:
     name: Deploy to Datahub HEAD
     runs-on: ubuntu-latest
-    needs: [setup, smoke_test]
+    needs: [setup, smoke_test_lint, smoke_test]
     steps:
       - uses: aws-actions/configure-aws-credentials@v4
         if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'datahub-project' && needs.setup.outputs.repository_name == 'datahub' }}

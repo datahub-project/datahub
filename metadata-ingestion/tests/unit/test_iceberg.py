@@ -1,4 +1,5 @@
 import uuid
+from collections import defaultdict
 from decimal import Decimal
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 from unittest import TestCase
@@ -63,17 +64,18 @@ from datahub.metadata.schema_classes import (
     TimeTypeClass,
 )
 
-MCPS_PER_TABLE = 6  # assuming no profiling
-MCPS_PER_NAMESPACE = 4
+MCPS_PER_TABLE = 7  # assuming no profiling
+MCPS_PER_NAMESPACE = 5
 
 
 def with_iceberg_source(processing_threads: int = 1, **kwargs: Any) -> IcebergSource:
     catalog = {"test": {"type": "rest"}}
+    config = IcebergSourceConfig(
+        catalog=catalog, processing_threads=processing_threads, **kwargs
+    )
     return IcebergSource(
         ctx=PipelineContext(run_id="iceberg-source-test"),
-        config=IcebergSourceConfig(
-            catalog=catalog, processing_threads=processing_threads, **kwargs
-        ),
+        config=config,
     )
 
 
@@ -539,22 +541,32 @@ def test_avro_decimal_bytes_nullable() -> None:
 
 
 class MockCatalog:
-    def __init__(self, tables: Dict[str, Dict[str, Callable[[], Table]]]):
+    def __init__(
+        self,
+        tables: Dict[str, Dict[str, Callable[[], Table]]],
+        namespace_properties: Optional[Dict[str, Dict[str, str]]] = None,
+    ):
         """
 
         :param tables: Dictionary containing namespaces as keys and dictionaries containing names of tables (keys) and
                        their metadata as values
         """
         self.tables = tables
+        self.namespace_properties = (
+            namespace_properties if namespace_properties else defaultdict(dict)
+        )
 
     def list_namespaces(self) -> Iterable[Tuple[str]]:
-        return [*[(key,) for key in self.tables.keys()]]
+        return [*[(key,) for key in self.tables]]
 
     def list_tables(self, namespace: str) -> Iterable[Tuple[str, str]]:
-        return [(namespace[0], table) for table in self.tables[namespace[0]].keys()]
+        return [(namespace[0], table) for table in self.tables[namespace[0]]]
 
     def load_table(self, dataset_path: Tuple[str, str]) -> Table:
         return self.tables[dataset_path[0]][dataset_path[1]]()
+
+    def load_namespace_properties(self, namespace: Tuple[str, ...]) -> Dict[str, str]:
+        return self.namespace_properties[namespace[0]]
 
 
 class MockCatalogExceptionListingTables(MockCatalog):
@@ -1187,4 +1199,40 @@ def test_handle_unexpected_exceptions() -> None:
                 "('namespaceA', 'table6') <class 'ValueError'>: Other value exception",
                 "('namespaceA', 'table5') <class 'Exception'>: ",
             ],
+        )
+
+
+def test_ingesting_namespace_properties() -> None:
+    source = with_iceberg_source(processing_threads=2)
+    custom_properties = {"prop1": "foo", "prop2": "bar"}
+    mock_catalog = MockCatalog(
+        tables={
+            "namespaceA": {},  # mapped to urn:li:container:390e031441265aae5b7b7ae8d51b0c1f
+            "namespaceB": {},  # mapped to urn:li:container:74727446a56420d80ff3b1abf2a18087
+        },
+        namespace_properties={"namespaceA": {}, "namespaceB": custom_properties},
+    )
+    with patch(
+        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog"
+    ) as get_catalog:
+        get_catalog.return_value = mock_catalog
+        wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
+        aspects: Dict[str, Dict[str, Any]] = defaultdict(dict)
+        for unit in wu:
+            assert isinstance(unit.metadata, MetadataChangeProposalWrapper)
+            mcpw: MetadataChangeProposalWrapper = unit.metadata
+            assert mcpw.entityUrn
+            assert mcpw.aspectName
+            aspects[mcpw.entityUrn][mcpw.aspectName] = mcpw.aspect
+        assert (
+            aspects["urn:li:container:390e031441265aae5b7b7ae8d51b0c1f"][
+                "containerProperties"
+            ].customProperties
+            == {}
+        )
+        assert (
+            aspects["urn:li:container:74727446a56420d80ff3b1abf2a18087"][
+                "containerProperties"
+            ].customProperties
+            == custom_properties
         )

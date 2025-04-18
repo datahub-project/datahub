@@ -1,5 +1,6 @@
-import EntityRegistry from '../entity/EntityRegistry';
-import { Entity, EntityType } from '../../types.generated';
+import EntityRegistry from '@app/entity/EntityRegistry';
+
+import { Entity, EntityType } from '@types';
 
 export function sortBusinessAttributes(entityRegistry: EntityRegistry, nodeA?: Entity | null, nodeB?: Entity | null) {
     const nodeAName = entityRegistry.getDisplayName(EntityType.BusinessAttribute, nodeA) || '';

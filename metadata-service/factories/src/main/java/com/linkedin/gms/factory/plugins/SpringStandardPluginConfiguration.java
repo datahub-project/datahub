@@ -17,6 +17,7 @@ import com.linkedin.metadata.entity.versioning.sideeffects.VersionPropertiesSide
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionSetSideEffect;
 import com.linkedin.metadata.entity.versioning.validation.VersionPropertiesValidator;
 import com.linkedin.metadata.entity.versioning.validation.VersionSetPropertiesValidator;
+import com.linkedin.metadata.forms.validation.FormPromptValidator;
 import com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect;
 import com.linkedin.metadata.structuredproperties.validation.HidePropertyValidator;
 import com.linkedin.metadata.structuredproperties.validation.ShowPropertyAsBadgeValidator;
@@ -189,6 +190,24 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(STRUCTURED_PROPERTY_ENTITY_NAME)
                             .aspectName(STRUCTURED_PROPERTY_SETTINGS_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator formPromptValidator() {
+    return new FormPromptValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(FormPromptValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(
+                    List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE"))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(FORM_ENTITY_NAME)
+                            .aspectName(FORM_INFO_ASPECT_NAME)
                             .build()))
                 .build());
   }

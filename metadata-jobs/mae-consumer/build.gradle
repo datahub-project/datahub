@@ -34,6 +34,7 @@ dependencies {
     implementation externalDependency.springKafka
     implementation externalDependency.annotationApi
     implementation externalDependency.opentelemetrySdkTrace
+    implementation externalDependency.opentelemetrySdkMetrics
 
     implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok
