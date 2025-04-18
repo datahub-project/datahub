@@ -1,5 +1,5 @@
 import { Typography } from 'antd';
-import { Tooltip } from '@components';
+import { colors, Tooltip } from '@components';
 import React, { useEffect, useMemo } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
@@ -14,20 +14,18 @@ import { DomainColoredIcon } from '../../../entityV2/shared/links/DomainColoredI
 import { REDESIGN_COLORS, SEARCH_COLORS } from '../../../entityV2/shared/constants';
 
 const Count = styled.div`
-    color: ${REDESIGN_COLORS.BLACK};
+    color: ${colors.gray[1700]};
     font-size: 12px;
-    padding-left: 8px;
-    padding-right: 8px;
+    padding: 0 8px;
     margin-left: 8px;
-    border-radius: 11px;
-    background-color: ${REDESIGN_COLORS.SIDE_BAR};
-    width: 20%;
+    border-radius: 20px;
+    background-color: ${colors.gray[100]};
     height: 22px;
-    display: flex;
+    min-width: 28px;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    max-width: 32px;
-    transition: opacity 0.3s ease; /* add a smooth transition effect */
+    flex-shrink: 0;
 `;
 
 const NameWrapper = styled(Typography.Text)<{ $isSelected: boolean; $addLeftPadding: boolean }>`

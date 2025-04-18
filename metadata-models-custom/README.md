@@ -544,6 +544,7 @@ INFO  c.l.m.m.r.PluginEntityRegistryLoader:187 - com.linkedin.metadata.models.re
 INFO  c.l.m.m.registry.PatchEntityRegistry:143 - Loading custom config entity file: /etc/datahub/plugins/models/mycompany-dq-model/0.0.0-dev/entity-registry.yaml, dir: /etc/datahub/plugins/models/mycompany-dq-model/0.0.0-dev
 INFO  c.l.m.m.registry.PatchEntityRegistry:143 - Loading custom config entity file: /etc/datahub/plugins/models/mycompany-dq-model/0.0.0-dev/entity-registry.yaml, dir: /etc/datahub/plugins/models/mycompany-dq-model/0.0.0-dev
 Spring injection works!
+INFO  c.l.m.aspect.plugins.PluginFactory:194 - Enabled 5 plugins. [com.linkedin.metadata.aspect.plugins.hooks.CustomDataQualityRulesMCLSideEffect, com.linkedin.metadata.aspect.plugins.hooks.CustomDataQualityRulesMCPSideEffect, com.linkedin.metadata.aspect.plugins.hooks.CustomDataQualityRulesMutator, com.linkedin.metadata.aspect.plugins.spring.validation.CustomDataQualityRulesValidator, com.linkedin.metadata.aspect.plugins.validation.CustomDataQualityRulesValidator]
 ```
 
 

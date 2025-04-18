@@ -33,6 +33,6 @@ const Icons = Object.fromEntries(
 
 export const IncidentPriorityLabel = ({ priority, title, style }: IncidentPriorityLabelProps) => {
     const { icon, type } = Icons[priority] || {};
-    if (!icon) return <Label>{title}</Label>;
-    return <IconLabel style={style} icon={icon} name={title} type={type} />;
+    if (!icon) return <Label data-testid="priority-title">{title}</Label>;
+    return <IconLabel testId="priority-title" style={style} icon={icon} name={title} type={type} />;
 };

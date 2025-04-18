@@ -411,8 +411,7 @@ Each timeseries aspect must be declared "type": "timeseries" and must
 include [TimeseriesAspectBase](https://github.com/datahub-project/datahub/tree/master/metadata-models/src/main/pegasus/com/linkedin/timeseries/TimeseriesAspectBase.pdl)
 , which contains a timestampMillis field.
 
-Timeseries aspect cannot have any fields that have the @Searchable or @Relationship annotation, as it goes through a
-completely different flow.
+Timeseries aspect can also have fields annotated with @Searchable and @Relationship.
 
 Please refer
 to [DatasetProfile](https://github.com/datahub-project/datahub/tree/master/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetProfile.pdl)

@@ -19,6 +19,11 @@
             "qualifiedName": "arn:aws:glue:us-west-2:123412341234:database/flights-database-profiling",
             "env": "PROD"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -30,6 +35,11 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -41,6 +51,11 @@
         "json": {
             "platform": "urn:li:dataPlatform:glue"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -54,6 +69,11 @@
                 "Database"
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -232,6 +252,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -245,6 +270,11 @@
                 "Table"
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -256,6 +286,11 @@
         "json": {
             "container": "urn:li:container:77f8f4c39b47069d3a71191de1333b0e"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -285,6 +320,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

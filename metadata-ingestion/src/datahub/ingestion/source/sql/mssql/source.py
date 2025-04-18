@@ -37,9 +37,6 @@ from datahub.ingestion.source.sql.mssql.job_models import (
     ProcedureParameter,
     StoredProcedure,
 )
-from datahub.ingestion.source.sql.mssql.stored_procedure_lineage import (
-    generate_procedure_lineage,
-)
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     SqlWorkUnit,
@@ -50,6 +47,9 @@ from datahub.ingestion.source.sql.sql_config import (
     make_sqlalchemy_uri,
 )
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
+from datahub.ingestion.source.sql.stored_procedures.base import (
+    generate_procedure_lineage,
+)
 from datahub.utilities.file_backed_collections import FileBackedList
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -65,6 +65,8 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
     # defaults
     host_port: str = Field(default="localhost:1433", description="MSSQL host URL.")
     scheme: str = Field(default="mssql+pytds", description="", hidden_from_docs=True)
+
+    # TODO: rename to include_procedures ?
     include_stored_procedures: bool = Field(
         default=True,
         description="Include ingest of stored procedures. Requires access to the 'sys' schema.",
@@ -763,9 +765,11 @@ class SQLServerSource(SQLAlchemySource):
                 yield from auto_workunit(
                     generate_procedure_lineage(
                         schema_resolver=self.get_schema_resolver(),
-                        procedure=procedure,
+                        procedure=procedure.to_base_procedure(),
                         procedure_job_urn=MSSQLDataJob(entity=procedure).urn,
                         is_temp_table=self.is_temp_table,
+                        default_db=procedure.db,
+                        default_schema=procedure.schema,
                     )
                 )
 

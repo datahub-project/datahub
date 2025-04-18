@@ -1,45 +1,65 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { colors, Modal } from '@src/alchemy-components';
+import { EntityAndType } from '@src/app/entity/shared/types';
+import { extractTypeFromUrn } from '@src/app/entity/shared/utils';
+import { SearchSelect } from '@src/app/entityV2/shared/components/styled/search/SearchSelect';
+import ClickOutside from '@src/app/shared/ClickOutside';
+import { Modal as AntModal, message } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
-import { message, Modal } from 'antd';
 import styled from 'styled-components/macro';
-import { Button } from '@src/alchemy-components';
 import { toTitleCase } from '../../../graphql-mock/helper';
-import { EventType } from '../../analytics';
-import analytics from '../../analytics/analytics';
-import { useUserContext } from '../../context/useUserContext';
-import EntityRegistry from '../../entity/EntityRegistry';
-import { Direction } from '../../lineage/types';
-import { FetchStatus, LineageEntity, LineageNodesContext } from '../common';
-import AddEntityEdge from './AddEntityEdge';
-import LineageEntityView from './LineageEntityView';
-import LineageEdges from './LineageEdges';
-import { Entity, EntityType, LineageDirection, LineageEdge } from '../../../types.generated';
 import { useUpdateLineageMutation } from '../../../graphql/mutations.generated';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import updateNodeContext from './updateNodeContext';
+import { Entity, EntityType, LineageDirection } from '../../../types.generated';
+import { useUserContext } from '../../context/useUserContext';
+import { useEntityRegistryV2 as useEntityRegistry } from '../../useEntityRegistry';
 import { useOnClickExpandLineage } from '../LineageEntityNode/useOnClickExpandLineage';
+import { FetchStatus, LineageEntity, LineageNodesContext } from '../common';
+import LineageEdges from './LineageEdges';
+import { buildUpdateLineagePayload } from './buildUpdateLineagePayload';
+import { recordAnalyticsEvents } from './recordManualLineageAnalyticsEvent';
+import updateNodeContext from './updateNodeContext';
+import { getValidEntityTypes } from './utils';
 
-const ModalFooter = styled.div`
-    display: flex;
-    justify-content: space-between;
-`;
-
-const TitleText = styled.div`
-    font-weight: bold;
-`;
+const MODAL_WIDTH_PX = 1400;
 
 const StyledModal = styled(Modal)`
-    .ant-modal-body {
-        padding: 0;
-    }
+    top: 30px;
+    padding: 0;
 `;
 
-const LoadingWrapper = styled.div`
+const ModalContentContainer = styled.div`
+    height: 75vh;
+    margin: -24px -20px;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 225px;
-    font-size: 30px;
+    flex-direction: row;
+`;
+
+const SearchSection = styled.div`
+    flex: 2;
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+`;
+
+const CurrentSection = styled.div`
+    flex: 1;
+    width: 40%;
+    border-left: 1px solid ${colors.gray[100]};
+    display: flex;
+    flex-direction: column;
+`;
+
+const SectionHeader = styled.div`
+    padding-left: 20px;
+    margin-top: 10px;
+    font-size: 16px;
+    font-weight: 500;
+    color: ${colors.gray[600]};
+`;
+
+const ScrollableContent = styled.div`
+    flex: 1;
+    overflow: auto;
 `;
 
 interface Props {
@@ -54,11 +74,16 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
     const expandOneLevel = useOnClickExpandLineage(node.urn, node.type, direction, false);
     const { user } = useUserContext();
     const entityRegistry = useEntityRegistry();
-    const [entitiesToAdd, setEntitiesToAdd] = useState<Entity[]>([]);
-    const [entitiesToRemove, setEntitiesToRemove] = useState<Entity[]>([]);
     const [updateLineage] = useUpdateLineageMutation();
     const fetchStatus = node.fetchStatus[direction];
-    const loading = node.fetchStatus[direction] === FetchStatus.LOADING;
+    const { adjacencyList } = nodeContext;
+    const validEntityTypes = getValidEntityTypes(direction, node.entity?.type);
+    const initialSetOfRelationshipsUrns = adjacencyList[direction].get(node.urn) || new Set();
+    const [isSaving, setIsSaving] = useState(false);
+
+    const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>(
+        Array.from(initialSetOfRelationshipsUrns).map((urn) => ({ urn, type: extractTypeFromUrn(urn) })) || [],
+    );
 
     useEffect(() => {
         if (fetchStatus === FetchStatus.UNFETCHED) {
@@ -66,8 +91,16 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
         }
     }, [fetchStatus, expandOneLevel]);
 
+    const entitiesToAdd = selectedEntities.filter((entity) => !initialSetOfRelationshipsUrns.has(entity.urn));
+    const entitiesToRemove = Array.from(initialSetOfRelationshipsUrns)
+        .filter((urn) => !selectedEntities.map((entity) => entity.urn).includes(urn))
+        .map((urn) => ({ urn } as Entity));
+
+    // save lineage changes will disable the button while its processing
     function saveLineageChanges() {
+        setIsSaving(true);
         const payload = buildUpdateLineagePayload(direction, entitiesToAdd, entitiesToRemove, node.urn);
+
         updateLineage({ variables: { input: payload } })
             .then((res) => {
                 if (res.data?.updateLineage) {
@@ -84,121 +117,85 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
                         entityType: node.type,
                         entityPlatform: entityRegistry.getDisplayName(EntityType.DataPlatform, node.entity?.platform),
                     });
+                    setIsSaving(false);
                 }
             })
             .catch((error) => {
                 message.error(error.message || 'Error updating lineage');
+                setIsSaving(false);
             });
     }
 
-    const isSaveDisabled = !entitiesToAdd.length && !entitiesToRemove.length;
+    const directionTitle = toTitleCase(direction.toLocaleLowerCase());
+
+    const onCancelSelect = () => {
+        if (entitiesToAdd.length > 0 || entitiesToRemove.length > 0) {
+            AntModal.confirm({
+                title: `Exit Lineage Management`,
+                content: `Are you sure you want to exit? ${
+                    entitiesToAdd.length + entitiesToRemove.length
+                } change(s) will be cleared.`,
+                onOk() {
+                    closeModal();
+                },
+                onCancel() {},
+                okText: 'Yes',
+                maskClosable: true,
+                closable: true,
+            });
+        } else {
+            closeModal();
+        }
+    };
 
     return (
-        <StyledModal
-            title={<TitleText>Manage {toTitleCase(direction.toLocaleLowerCase())} Lineage</TitleText>}
-            onCancel={closeModal}
-            keyboard
-            open
-            footer={
-                <ModalFooter>
-                    <Button onClick={closeModal} variant="text" color="gray">
-                        Cancel
-                    </Button>
-                    <Button onClick={saveLineageChanges} disabled={isSaveDisabled}>
-                        Save
-                    </Button>
-                </ModalFooter>
-            }
-        >
-            {node.entity && <LineageEntityView entity={node.entity} />}
-            <AddEntityEdge
-                direction={direction}
-                setEntitiesToAdd={setEntitiesToAdd}
-                entitiesToAdd={entitiesToAdd}
-                entityUrn={node.urn}
-                entityType={node.type}
-            />
-            {!loading && (
-                <LineageEdges
-                    parentUrn={node.urn}
-                    direction={direction}
-                    entitiesToAdd={entitiesToAdd}
-                    entitiesToRemove={entitiesToRemove}
-                    setEntitiesToAdd={setEntitiesToAdd}
-                    setEntitiesToRemove={setEntitiesToRemove}
-                />
-            )}
-            {loading && (
-                <LoadingWrapper>
-                    <LoadingOutlined />
-                </LoadingWrapper>
-            )}
-        </StyledModal>
+        <ClickOutside onClickOutside={onCancelSelect} wrapperClassName="search-select-modal">
+            <StyledModal
+                title={`Select the ${directionTitle}s to add to ${node.entity?.name}`}
+                width={MODAL_WIDTH_PX}
+                open
+                onCancel={onCancelSelect}
+                style={{ padding: 0 }}
+                buttons={[
+                    {
+                        text: 'Cancel',
+                        variant: 'text',
+                        onClick: onCancelSelect,
+                    },
+                    {
+                        text: isSaving ? 'Saving...' : `Set ${directionTitle}s`,
+                        onClick: saveLineageChanges,
+                        disabled: (entitiesToAdd.length === 0 && entitiesToRemove.length === 0) || isSaving,
+                    },
+                ]}
+            >
+                <ModalContentContainer>
+                    <SearchSection>
+                        <SectionHeader>Search and Add</SectionHeader>
+                        <ScrollableContent>
+                            <SearchSelect
+                                fixedEntityTypes={Array.from(validEntityTypes)}
+                                selectedEntities={selectedEntities}
+                                setSelectedEntities={setSelectedEntities}
+                            />
+                        </ScrollableContent>
+                    </SearchSection>
+                    <CurrentSection>
+                        <SectionHeader>Current {directionTitle}s</SectionHeader>
+                        <ScrollableContent>
+                            <LineageEdges
+                                parentUrn={node.urn}
+                                direction={direction}
+                                entitiesToAdd={entitiesToAdd}
+                                entitiesToRemove={entitiesToRemove}
+                                onRemoveEntity={(entity) => {
+                                    setSelectedEntities(selectedEntities.filter((e) => e.urn !== entity.urn));
+                                }}
+                            />
+                        </ScrollableContent>
+                    </CurrentSection>
+                </ModalContentContainer>
+            </StyledModal>
+        </ClickOutside>
     );
-}
-
-interface AnalyticsEventsProps {
-    direction: LineageDirection;
-    entitiesToAdd: Entity[];
-    entitiesToRemove: Entity[];
-    entityRegistry: EntityRegistry;
-    entityType?: EntityType;
-    entityPlatform?: string;
-}
-
-function recordAnalyticsEvents({
-    direction,
-    entitiesToAdd,
-    entitiesToRemove,
-    entityRegistry,
-    entityType,
-    entityPlatform,
-}: AnalyticsEventsProps) {
-    entitiesToAdd.forEach((entityToAdd) => {
-        const genericProps = entityRegistry.getGenericEntityProperties(entityToAdd.type, entityToAdd);
-        analytics.event({
-            type: EventType.ManuallyCreateLineageEvent,
-            direction: directionFromLineageDirection(direction),
-            sourceEntityType: entityType,
-            sourceEntityPlatform: entityPlatform,
-            destinationEntityType: entityToAdd.type,
-            destinationEntityPlatform: genericProps?.platform?.name,
-        });
-    });
-    entitiesToRemove.forEach((entityToRemove) => {
-        const genericProps = entityRegistry.getGenericEntityProperties(entityToRemove.type, entityToRemove);
-        analytics.event({
-            type: EventType.ManuallyDeleteLineageEvent,
-            direction: directionFromLineageDirection(direction),
-            sourceEntityType: entityType,
-            sourceEntityPlatform: entityPlatform,
-            destinationEntityType: entityToRemove.type,
-            destinationEntityPlatform: genericProps?.platform?.name,
-        });
-    });
-}
-
-function buildUpdateLineagePayload(
-    lineageDirection: LineageDirection,
-    entitiesToAdd: Entity[],
-    entitiesToRemove: Entity[],
-    entityUrn: string,
-) {
-    let edgesToAdd: LineageEdge[] = [];
-    let edgesToRemove: LineageEdge[] = [];
-
-    if (lineageDirection === LineageDirection.Upstream) {
-        edgesToAdd = entitiesToAdd.map((entity) => ({ upstreamUrn: entity.urn, downstreamUrn: entityUrn }));
-        edgesToRemove = entitiesToRemove.map((entity) => ({ upstreamUrn: entity.urn, downstreamUrn: entityUrn }));
-    }
-    if (lineageDirection === LineageDirection.Downstream) {
-        edgesToAdd = entitiesToAdd.map((entity) => ({ upstreamUrn: entityUrn, downstreamUrn: entity.urn }));
-        edgesToRemove = entitiesToRemove.map((entity) => ({ upstreamUrn: entityUrn, downstreamUrn: entity.urn }));
-    }
-
-    return { edgesToAdd, edgesToRemove };
-}
-
-function directionFromLineageDirection(lineageDirection: LineageDirection): Direction {
-    return lineageDirection === LineageDirection.Upstream ? Direction.Upstream : Direction.Downstream;
 }

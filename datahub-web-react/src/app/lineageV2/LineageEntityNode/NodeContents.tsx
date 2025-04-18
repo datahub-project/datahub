@@ -4,11 +4,11 @@ import ContainerPath from '@app/lineageV2/LineageEntityNode/ContainerPath';
 import GhostEntityMenu from '@app/lineageV2/LineageEntityNode/GhostEntityMenu';
 import SchemaFieldNodeContents from '@app/lineageV2/LineageEntityNode/SchemaFieldNodeContents';
 import MatchTextSizeWrapper from '@app/sharedV2/text/MatchTextSizeWrapper';
-import { DeprecationIcon } from '@src/app/entityV2/shared/components/styled/DeprecationIcon';
+import { Tooltip } from '@components';
 import { KeyboardArrowDown, KeyboardArrowUp } from '@mui/icons-material';
+import { DeprecationIcon } from '@src/app/entityV2/shared/components/styled/DeprecationIcon';
 import StructuredPropertyBadge from '@src/app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 import { Skeleton, Spin } from 'antd';
-import { Tooltip } from '@components';
 import React, { Dispatch, SetStateAction, useCallback } from 'react';
 import { Handle, Position } from 'reactflow';
 import styled from 'styled-components';
@@ -482,7 +482,11 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                                 {!showColumns && <KeyboardArrowDown fontSize="inherit" style={{ marginLeft: 3 }} />}
                             </ExpandColumnsWrapper>
                         )}
-                        {isGhost ? <GhostEntityMenu urn={urn} /> : <ManageLineageMenu node={props} refetch={refetch} />}
+                        {isGhost ? (
+                            <GhostEntityMenu urn={urn} />
+                        ) : (
+                            <ManageLineageMenu node={props} refetch={refetch} isRootUrn={urn === rootUrn} />
+                        )}
                         {entity && (
                             <PropertyBadgeWrapper>
                                 <StructuredPropertyBadge structuredProperties={entity.structuredProperties} />

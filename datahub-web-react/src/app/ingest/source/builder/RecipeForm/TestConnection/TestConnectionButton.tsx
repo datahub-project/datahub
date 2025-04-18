@@ -108,7 +108,7 @@ function TestConnectionButton(props: Props) {
 
     return (
         <>
-            <Button variant="outline" onClick={testConnection}>
+            <Button variant="outline" type="button" onClick={testConnection}>
                 <CheckCircleOutlined />
                 Test Connection
             </Button>

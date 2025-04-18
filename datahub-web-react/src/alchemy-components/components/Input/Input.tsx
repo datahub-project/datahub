@@ -47,6 +47,8 @@ export const Input = ({
     errorOnHover = inputDefaults.errorOnHover,
     type = inputDefaults.type,
     id,
+    inputStyles,
+    inputTestId,
     ...props
 }: InputProps) => {
     // Invalid state is always true if error is present
@@ -76,7 +78,7 @@ export const Input = ({
                 </Label>
             )}
             <InputContainer {...inputBaseProps}>
-                {icon && <SearchIcon icon={icon.name} source={icon.source} variant={icon.variant} size="xl" />}
+                {icon && <SearchIcon size="xl" {...icon} />}
                 <InputField
                     value={value}
                     onChange={(e) => setValue?.(e.target.value)}
@@ -86,7 +88,8 @@ export const Input = ({
                     disabled={isDisabled}
                     required={isRequired}
                     id={id}
-                    style={{ paddingLeft: icon ? '8px' : '' }}
+                    style={{ paddingLeft: icon ? '8px' : '', ...inputStyles }}
+                    data-testid={inputTestId}
                 />
                 {!isPassword && (
                     <Tooltip title={errorOnHover ? error : ''} showArrow={false}>

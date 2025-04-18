@@ -193,6 +193,13 @@ def test_entities():
         == "urn:li:dataJob:(urn:li:dataFlow:(airflow,testDag,PROD),testTask)"
     )
 
+    assert (
+        Urn(
+            "urn:li:dataJob:(urn:li:dataFlow:(airflow,platform.testDag,PROD),testTask)"
+        ).urn
+        == "urn:li:dataJob:(urn:li:dataFlow:(airflow,platform.testDag,PROD),testTask)"
+    )
+
     with pytest.raises(ValueError, match="invalid"):
         Urn("not a URN")
 

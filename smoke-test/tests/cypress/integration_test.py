@@ -1,11 +1,13 @@
 import datetime
+import json
 import os
 import subprocess
+import threading
 from typing import List
 
 import pytest
 
-from conftest import get_batch_start_end
+from conftest import bin_pack_tasks
 from tests.setup.lineage.ingest_time_lineage import (
     get_time_lineage_urns,
     ingest_time_lineage,
@@ -196,10 +198,25 @@ def _get_cypress_tests_batch():
     """
     all_tests = _get_js_files("tests/cypress/cypress/e2e")
 
-    batch_start, batch_end = get_batch_start_end(num_tests=len(all_tests))
+    tests_with_weights = []
 
-    return all_tests[batch_start:batch_end]
-    # return test_batches[int(batch_number)]  #if BATCH_NUMBER was set, we this test just runs that one batch.
+    with open("tests/cypress/test_weights.json") as f:
+        weights_data = json.load(f)
+
+    # File has file path relative to cypress/e2e folder and duration in seconds (with s suffix), pulled from codecov report.
+    # Use some other method to automate finding the weights - may be use junits directly
+    test_weights = {
+        item["filePath"]: float(item["duration"][:-1]) for item in weights_data
+    }
+
+    for test in all_tests:
+        if test in test_weights:
+            tests_with_weights.append((test, test_weights[test]))
+        else:
+            tests_with_weights.append(test)
+
+    test_batches = bin_pack_tasks(tests_with_weights, int(os.getenv("BATCH_COUNT", 1)))
+    return test_batches[int(os.getenv("BATCH_NUMBER", 0))]
 
 
 def test_run_cypress(auth_session):
@@ -225,7 +242,8 @@ def test_run_cypress(auth_session):
     test_spec_arg = f" --spec '{specs_str}' "
 
     print("Running Cypress tests with command")
-    command = f"NO_COLOR=1 npx cypress run {record_arg} {test_spec_arg} {tag_arg}"
+    node_options = "--max-old-space-size=6000"
+    command = f'NO_COLOR=1 NODE_OPTIONS="{node_options}" npx cypress run {record_arg} {test_spec_arg} {tag_arg} --config numTestsKeptInMemory=2'
     print(command)
     # Add --headed --spec '**/mutations/mutations.js' (change spec name)
     # in case you want to see the browser for debugging
@@ -236,15 +254,39 @@ def test_run_cypress(auth_session):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         cwd=f"{CYPRESS_TEST_DATA_DIR}",
+        text=True,  # Use text mode for string output
+        bufsize=1,  # Line buffered
     )
     assert proc.stdout is not None
     assert proc.stderr is not None
-    stdout = proc.stdout.read()
-    stderr = proc.stderr.read()
+
+    # Function to read and print output from a pipe
+    def read_and_print(pipe, prefix=""):
+        for line in pipe:
+            print(f"{prefix}{line}", end="")
+
+    # Read and print output in real-time
+
+    stdout_thread = threading.Thread(target=read_and_print, args=(proc.stdout,))
+    stderr_thread = threading.Thread(
+        target=read_and_print, args=(proc.stderr, "stderr: ")
+    )
+
+    # Set threads as daemon so they exit when the main thread exits
+    stdout_thread.daemon = True
+    stderr_thread.daemon = True
+
+    # Start the threads
+    stdout_thread.start()
+    stderr_thread.start()
+
+    # Wait for the process to complete
     return_code = proc.wait()
-    print(stdout.decode("utf-8"))
-    print("stderr output:")
-    print(stderr.decode("utf-8"))
+
+    # Wait for the threads to finish
+    stdout_thread.join()
+    stderr_thread.join()
+
     print("return code", return_code)
     print_now()
     assert return_code == 0

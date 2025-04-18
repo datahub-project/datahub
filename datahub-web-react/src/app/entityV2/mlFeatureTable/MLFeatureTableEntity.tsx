@@ -1,4 +1,4 @@
-import { DotChartOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { ChartScatter, ListBullets, FileText, Database, Table } from '@phosphor-icons/react';
 import * as React from 'react';
 import { useGetMlFeatureTableQuery } from '../../../graphql/mlFeatureTable.generated';
 import { EntityType, MlFeatureTable, SearchResult } from '../../../types.generated';
@@ -36,22 +36,27 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <DotChartOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
+            return <ChartScatter className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} weight="regular" />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
             return (
-                <DotChartOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#9633b9' }} />
+                <ChartScatter
+                    className={TYPE_ICON_CLASS_NAME}
+                    style={{ fontSize, color: color || '#9633b9' }}
+                    weight="regular"
+                />
             );
         }
 
         return (
-            <DotChartOutlined
+            <ChartScatter
                 className={TYPE_ICON_CLASS_NAME}
                 style={{
                     fontSize,
                     color: color || '#BFBFBF',
                 }}
+                weight="regular"
             />
         );
     };
@@ -90,18 +95,22 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
                 {
                     name: 'Features',
                     component: MlFeatureTableFeatures,
+                    icon: Table,
                 },
                 {
                     name: 'Sources',
                     component: Sources,
+                    icon: Database,
                 },
                 {
                     name: 'Documentation',
                     component: DocumentationTab,
+                    icon: FileText,
                 },
                 {
                     name: 'Properties',
                     component: PropertiesTab,
+                    icon: ListBullets,
                 },
             ]}
             sidebarSections={this.getSidebarSections()}
@@ -147,7 +156,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             name: 'Properties',
             component: PropertiesTab,
             description: 'View additional properties about this asset',
-            icon: UnorderedListOutlined,
+            icon: ListBullets,
         },
     ];
 

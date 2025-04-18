@@ -1,4 +1,4 @@
-import { CloseOutlined } from '@ant-design/icons';
+import { Icon } from '@src/alchemy-components';
 import Text from 'antd/lib/typography/Text';
 import React from 'react';
 import styled from 'styled-components/macro';
@@ -25,13 +25,16 @@ const NameAndLogoWrapper = styled.span`
     max-width: 85%;
 `;
 
-const StyledClose = styled(CloseOutlined)`
-    cursor: pointer;
-`;
-
 const EntityName = styled(Text)`
     font-size: 14px;
     font-weight: bold;
+`;
+
+const AvatarWrapper = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
 `;
 
 interface Props {
@@ -56,10 +59,14 @@ export default function EntityEdge({ entity, removeEntity, createdOn, createdAct
                     {entityRegistry.getDisplayName(entity.type, entity)}
                 </EntityName>
             </NameAndLogoWrapper>
-            <span>
-                {shouldDisplayAvatar && <UserAvatar createdActor={createdActor} createdOn={createdOn} />}
-                <StyledClose onClick={() => removeEntity(entity)} />
-            </span>
+            <AvatarWrapper>
+                {shouldDisplayAvatar && (
+                    <div style={{ marginRight: '10px' }}>
+                        <UserAvatar createdActor={createdActor} createdOn={createdOn} />
+                    </div>
+                )}
+                <Icon icon="X" source="phosphor" onClick={() => removeEntity(entity)} />
+            </AvatarWrapper>
         </EntityItem>
     );
 }

@@ -417,6 +417,7 @@ export const withSearch = () => (
         label="Select with Search"
         showSearch
         values={['2']}
+        filterResultsByQuery
     />
 );
 

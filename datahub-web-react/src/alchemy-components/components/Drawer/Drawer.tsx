@@ -26,7 +26,7 @@ export const Drawer = ({
                         {onBack && (
                             <Button
                                 color="gray"
-                                icon="ArrowBack"
+                                icon={{ icon: 'ArrowBack', source: 'material' }}
                                 iconPosition="left"
                                 isCircle
                                 onClick={() => onBack?.()}
@@ -41,7 +41,7 @@ export const Drawer = ({
                     {closable && (
                         <Button
                             color="gray"
-                            icon="Close"
+                            icon={{ icon: 'Close', source: 'material' }}
                             iconPosition="left"
                             isCircle
                             onClick={() => onClose?.()}

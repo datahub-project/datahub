@@ -8,6 +8,8 @@ from pytest import Config
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.integration.vertexai.mock_vertexai import (
     gen_mock_dataset,
+    gen_mock_experiment,
+    gen_mock_experiment_run,
     gen_mock_model,
     gen_mock_models,
     gen_mock_training_automl_job,
@@ -87,6 +89,16 @@ def test_vertexai_source_ingestion(pytestconfig: Config, tmp_path: Path) -> None
             patch("google.cloud.aiplatform.models.Model")
         )
         mock_model.return_value = gen_mock_model()
+
+        mock_exp = exit_stack.enter_context(
+            patch("google.cloud.aiplatform.Experiment.list")
+        )
+        mock_exp.return_value = [gen_mock_experiment()]
+
+        mock_exp_run = exit_stack.enter_context(
+            patch("google.cloud.aiplatform.ExperimentRun.list")
+        )
+        mock_exp_run.return_value = [gen_mock_experiment_run()]
 
         golden_file_path = (
             pytestconfig.rootpath

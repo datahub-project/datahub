@@ -23,10 +23,14 @@ def detailedVersionString = "0.0.0-unknown-SNAPSHOT"
 def cliMajorVersion = "0.15.0" // base default cli major version
 def snapshotVersion = false
 def javaVersion = ""
+// tag for docker images. the prefix v is used in tag only if the tag is computed from a version. If a releaseVersion is supplied, use it as is.
+// This enables pr tags to be used without the v prefix. This variance was previouslyhandled in the CI steps build images without using gradle.
+def versionTag = "" 
 
 if (project.hasProperty("releaseVersion")) {
   version = releaseVersion
   detailedVersionString = releaseVersion
+  versionTag = releaseVersion
 } else {
   try {
       // apply this plugin in a try-catch block so that we can handle cases without .git directory
@@ -35,6 +39,7 @@ if (project.hasProperty("releaseVersion")) {
       detailedVersionString = gitVersion()
       version = details.lastTag
       version = version.startsWith("v")? version.substring(1): version
+      versionTag = "v" + version
       def suffix = details.isCleanTag? "": "-SNAPSHOT"
       snapshotVersion = ! details.isCleanTag
     }
@@ -78,6 +83,7 @@ if (snapshotVersion) {
       // we are unable to part the last token as an integer, so we just append SNAPSHOT to this version
       javaVersion = versionParts[0..versionParts.size()-1].join('.') + '-SNAPSHOT'
     }
+    versionTag = "v" + version
 }
 
 // Note: No task, we want this executed during config phase, once for rootProject.
@@ -85,7 +91,8 @@ def data = [
     fullVersion: detailedVersionString,
     cliMajorVersion: cliMajorVersion,
     version: version,
-    javaVersion: javaVersion
+    javaVersion: javaVersion,
+    versionTag: versionTag
 ]
 
 // Convert to JSON

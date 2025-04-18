@@ -2,6 +2,7 @@ import { CaretDownFilled } from '@ant-design/icons';
 import { Dropdown } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import { useAppConfig } from '@src/app/useAppConfig';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import MoreFilterOption from './MoreFilterOption';
 import { getNumActiveFiltersForGroupOfFilters } from './utils';
@@ -34,6 +35,7 @@ export default function MoreFilters({ filters, filterPredicates, activeFilters, 
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const numActiveFilters = getNumActiveFiltersForGroupOfFilters(activeFilters, filters);
     const filterRendererRegistry = useFilterRendererRegistry();
+    const { config } = useAppConfig();
 
     function updateFiltersAndClose(newFilters: FacetFilterInput[]) {
         onChangeFilters(newFilters);
@@ -57,6 +59,7 @@ export default function MoreFilters({ filters, filterPredicates, activeFilters, 
                                 filter,
                                 activeFilters,
                                 onChangeFilters: updateFiltersAndClose,
+                                config,
                             })
                         ) : (
                             <MoreFilterOption

@@ -5,6 +5,28 @@ import svgr from 'vite-plugin-svgr';
 import macrosPlugin from 'vite-plugin-babel-macros';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 
+const injectMeticulous = () => {
+    if (!process.env.REACT_APP_METICULOUS_PROJECT_TOKEN) {
+        return null;
+    }
+
+    return {
+        name: 'inject-meticulous',
+        transformIndexHtml: {
+            transform(html) {
+                const scriptTag = `
+                    <script
+                        data-recording-token=${process.env.REACT_APP_METICULOUS_PROJECT_TOKEN}
+                        src="https://snippet.meticulous.ai/v1/meticulous.js">
+                    </script>
+                `;
+
+                return html.replace('</head>', `${scriptTag}\n</head>`);
+            },
+        },
+    };
+};
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
     // Via https://stackoverflow.com/a/66389044.
@@ -26,9 +48,12 @@ export default defineConfig(({ mode }) => {
         '/track': frontendProxy,
     };
 
+    const devPlugins = mode === 'development' ? [injectMeticulous()] : [];
+
     return {
         appType: 'spa',
         plugins: [
+            ...devPlugins,
             react(),
             svgr(),
             macrosPlugin(),

@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
+import { FilterSelect } from '@src/app/entityV2/shared/FilterSelect';
 import { GroupBySelect } from '@src/app/entityV2/shared/GroupBySelect';
 import { InlineListSearch } from '@src/app/entityV2/shared/components/search/InlineListSearch';
 import { AcrylAssertionRecommendedFilters } from './AcrylAssertionRecommendedFilters';
 import { AssertionListFilter, AssertionTable } from './types';
-import { AcrylAssertionFilters } from './AcrylAssertionFilters';
-import { ASSERTION_GROUP_BY_FILTER_OPTIONS, ASSERTION_DEFAULT_FILTERS } from './constant';
+import { ASSERTION_GROUP_BY_FILTER_OPTIONS, ASSERTION_DEFAULT_FILTERS, ASSERTION_FILTER_TYPES } from './constant';
 import { useSetFilterFromURLParams } from './hooks';
 
 interface FilterItem {
@@ -18,9 +18,10 @@ interface FilterItem {
 interface AcrylAssertionListFiltersProps {
     filterOptions: any;
     originalFilterOptions: any;
-    setFilters: React.Dispatch<React.SetStateAction<AssertionListFilter>>;
-    filter: AssertionListFilter;
+    setSelectedFilters: React.Dispatch<React.SetStateAction<AssertionListFilter>>;
     filteredAssertions: AssertionTable;
+    selectedFilters: any;
+    handleFilterChange: (filter: any) => void;
 }
 
 const SearchFilterContainer = styled.div`
@@ -50,27 +51,26 @@ const StyledFilterContainer = styled.div`
 export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps> = ({
     filterOptions,
     originalFilterOptions,
-    setFilters,
-    filter,
     filteredAssertions,
+    handleFilterChange,
+    selectedFilters,
+    setSelectedFilters,
 }) => {
-    const [appliedFilters, setAppliedFilters] = useState<FilterItem[]>([]);
-    const [selectedGroupBy, setSelectedGroupBy] = useState<string | undefined>(filter.groupBy || undefined);
+    const [appliedRecommendedFilters, setAppliedRecommendedFilters] = useState([]);
 
     const handleSearchTextChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const searchText = event.target.value;
-        setFilters((prev) => ({
-            ...prev,
-            filterCriteria: { ...prev.filterCriteria, searchText },
-        }));
+        handleFilterChange({
+            ...selectedFilters,
+            filterCriteria: { ...selectedFilters.filterCriteria, searchText },
+        });
     };
 
     const handleAssertionTypeChange = (value: string) => {
-        setSelectedGroupBy(value);
-        setFilters((prev) => ({ ...prev, groupBy: value }));
+        handleFilterChange({ ...selectedFilters, groupBy: value });
     };
 
-    const handleFilterChange = (updatedFilters: FilterItem[]) => {
+    const handleFilterOptionChange = (updatedFilters: FilterItem[]) => {
         /** Set Recommended Filters when there is value in type,status or source if not then set it as empty to clear the filter */
         const selectedRecommendedFilters = updatedFilters.reduce<Record<string, string[]>>(
             (acc, selectedfilter) => {
@@ -81,41 +81,45 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
             { type: [], status: [], source: [], column: [] },
         );
 
-        setFilters((prev) => ({
-            ...prev,
-            filterCriteria: { ...prev.filterCriteria, ...selectedRecommendedFilters },
-        }));
-        setAppliedFilters(updatedFilters);
+        handleFilterChange({
+            ...selectedFilters,
+            filterCriteria: { ...selectedFilters.filterCriteria, ...selectedRecommendedFilters },
+        });
     };
 
     /**
      * This hook is for setting applied filter when we are getting it from selected Filter state
      */
-    useEffect(() => {
-        const { status, type, source, column } = filter.filterCriteria || ASSERTION_DEFAULT_FILTERS.filterCriteria;
+    const initialSelectedOptions = useMemo(() => {
+        const { status, type, source, column } =
+            selectedFilters.filterCriteria || ASSERTION_DEFAULT_FILTERS.filterCriteria;
         const recommendedFilters = originalFilterOptions?.recommendedFilters || [];
         // just set recommended filters for status, type & Others as of right now
-        const appliedRecommendedFilters = recommendedFilters.filter(
+        const selectedRecommendedFilters = recommendedFilters.filter(
             (item) =>
                 status.includes(item.name) ||
                 type.includes(item.name) ||
                 source.includes(item.name) ||
                 column.includes(item.name),
         );
-        setAppliedFilters(appliedRecommendedFilters);
-        setSelectedGroupBy(filter.groupBy);
+        setAppliedRecommendedFilters(selectedRecommendedFilters);
+        return selectedRecommendedFilters?.map((filter) => ({
+            value: filter.name,
+            label: filter.displayName,
+            parentValue: filter.category,
+        }));
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [filter, filterOptions]);
+    }, [selectedFilters]);
 
     // set the filter if there is any url filter object presents
-    useSetFilterFromURLParams(filter, setFilters);
+    useSetFilterFromURLParams(selectedFilters, setSelectedFilters);
 
     return (
         <>
             <SearchFilterContainer>
                 {/* ************Render Search Component ************************* */}
                 <InlineListSearch
-                    searchText={filter.filterCriteria.searchText}
+                    searchText={selectedFilters.filterCriteria?.searchText}
                     debouncedSetFilterText={handleSearchTextChange}
                     matchResultCount={filteredAssertions.searchMatchesCount || 0}
                     numRows={filteredAssertions.totalCount || 0}
@@ -125,17 +129,18 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
                 {/* ************Render Filter Component ************************* */}
                 <FiltersContainer>
                     <StyledFilterContainer>
-                        <AcrylAssertionFilters
+                        <FilterSelect
                             filterOptions={originalFilterOptions?.filterGroupOptions || []}
-                            selectedFilters={appliedFilters}
-                            onFilterChange={handleFilterChange}
+                            onFilterChange={handleFilterOptionChange}
+                            excludedCategories={[ASSERTION_FILTER_TYPES.TAG]}
+                            initialSelectedOptions={initialSelectedOptions}
                         />
                     </StyledFilterContainer>
                     {/* ************Render Group By Component ************************* */}
                     <div>
                         <GroupBySelect
                             options={ASSERTION_GROUP_BY_FILTER_OPTIONS}
-                            selectedValue={selectedGroupBy}
+                            selectedValue={selectedFilters.groupBy}
                             onSelect={handleAssertionTypeChange}
                             width={50}
                         />
@@ -146,8 +151,8 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
                 {/* ************Render Recommended Filter Component ************************* */}
                 <AcrylAssertionRecommendedFilters
                     filters={filterOptions?.recommendedFilters || []}
-                    appliedFilters={appliedFilters}
-                    onFilterChange={handleFilterChange}
+                    appliedFilters={appliedRecommendedFilters}
+                    onFilterChange={handleFilterOptionChange}
                 />
             </div>
         </>

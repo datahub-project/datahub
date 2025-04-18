@@ -16,13 +16,17 @@ import com.linkedin.metadata.graph.GraphServiceTestBase;
 import com.linkedin.metadata.graph.GraphServiceTestBaseNoVia;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
+import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
+import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.models.registry.LineageRegistry;
+import com.linkedin.metadata.models.registry.MergedEntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -55,9 +59,23 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
     _serverBuilder = new Neo4jTestServerBuilder();
     _serverBuilder.newServer();
     _driver = GraphDatabase.driver(_serverBuilder.boltURI());
-    _client =
-        new Neo4jGraphService(
-            operationContext, new LineageRegistry(SnapshotEntityRegistry.getInstance()), _driver);
+
+    ConfigEntityRegistry configEntityRegistry =
+        new ConfigEntityRegistry(
+            SearchCommonTestConfiguration.class
+                .getClassLoader()
+                .getResourceAsStream("entity-registry.yml"));
+    SnapshotEntityRegistry snapshotEntityRegistry = SnapshotEntityRegistry.getInstance();
+    LineageRegistry lineageRegistry;
+    try {
+      MergedEntityRegistry mergedEntityRegistry =
+          new MergedEntityRegistry(snapshotEntityRegistry).apply(configEntityRegistry);
+      lineageRegistry = new LineageRegistry(mergedEntityRegistry);
+    } catch (EntityRegistryException e) {
+      throw new RuntimeException(e);
+    }
+
+    _client = new Neo4jGraphService(operationContext, lineageRegistry, _driver);
     _client.clear();
   }
 

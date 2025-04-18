@@ -3,12 +3,15 @@ import { Divider } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { ErrorRounded } from '@mui/icons-material';
-import { isUnhealthy } from '@src/app/shared/health/healthUtils';
+import { isDeprecated, isUnhealthy } from '@src/app/shared/health/healthUtils';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import { useSearchAcrossLineageQuery } from '../../../../../graphql/search.generated';
-import { Dataset, EntityType, FilterOperator, LineageDirection } from '../../../../../types.generated';
+import { FilterOperator, LineageDirection } from '../../../../../types.generated';
 import {
     HAS_ACTIVE_INCIDENTS_FILTER_NAME,
     HAS_FAILING_ASSERTIONS_FILTER_NAME,
+    IS_DEPRECATED_FILTER_NAME,
 } from '../../../../search/utils/constants';
 import { useAppConfig } from '../../../../useAppConfig';
 import { useEntityData } from '../../../../entity/shared/EntityContext';
@@ -49,10 +52,11 @@ const Container = styled.div`
 
 export default function UpstreamHealth() {
     const { entityData } = useEntityData();
+    const entityRegistry = useEntityRegistry();
 
     const [isOpen, setIsOpen] = useState(false);
-    const [directUpstreamEntities, setDirectUpstreamEntities] = useState<Dataset[]>([]);
-    const [indirectUpstreamEntities, setIndirectUpstreamEntities] = useState<Dataset[]>([]);
+    const [directUpstreamEntities, setDirectUpstreamEntities] = useState<GenericEntityProperties[]>([]);
+    const [indirectUpstreamEntities, setIndirectUpstreamEntities] = useState<GenericEntityProperties[]>([]);
 
     const [directUpstreamsDataStart, setDirectUpstreamsDataStart] = useState(0);
     const [indirectUpstreamsDataStart, setIndirectUpstreamsDataStart] = useState(0);
@@ -71,10 +75,13 @@ export default function UpstreamHealth() {
             skip: !lineageEnabled,
             variables: {
                 input: {
+                    searchFlags: {
+                        skipCache: true,
+                    },
                     urn,
                     query: '*',
                     startTimeMillis,
-                    types: [EntityType.Dataset],
+                    types: [],
                     count: DATASET_COUNT,
                     start,
                     direction: LineageDirection.Upstream,
@@ -107,6 +114,20 @@ export default function UpstreamHealth() {
                                 },
                             ],
                         },
+                        {
+                            and: [
+                                {
+                                    field: 'degree',
+                                    condition: FilterOperator.Equal,
+                                    values: degree,
+                                },
+                                {
+                                    field: IS_DEPRECATED_FILTER_NAME,
+                                    condition: FilterOperator.Equal,
+                                    values: ['true'],
+                                },
+                            ],
+                        },
                     ],
                 },
                 includeAssertions: false,
@@ -126,7 +147,9 @@ export default function UpstreamHealth() {
     useEffect(() => {
         if (directUpstreamData?.searchAcrossLineage?.searchResults?.length && !directUpstreamEntities.length) {
             setDirectUpstreamEntities(
-                directUpstreamData.searchAcrossLineage.searchResults.map((result) => result.entity as Dataset),
+                directUpstreamData.searchAcrossLineage.searchResults
+                    .map((result) => entityRegistry.getGenericEntityProperties(result.entity.type, result.entity))
+                    .filter((e) => e !== null) as GenericEntityProperties[],
             );
             setDirectUpstreamsDataTotal(directUpstreamData.searchAcrossLineage.total);
         }
@@ -134,12 +157,15 @@ export default function UpstreamHealth() {
         directUpstreamData?.searchAcrossLineage?.searchResults,
         directUpstreamEntities.length,
         directUpstreamData?.searchAcrossLineage?.total,
+        entityRegistry,
     ]);
 
     useEffect(() => {
         if (indirectUpstreamData?.searchAcrossLineage?.searchResults?.length && !indirectUpstreamEntities.length) {
             setIndirectUpstreamEntities(
-                indirectUpstreamData.searchAcrossLineage.searchResults.map((result) => result.entity as Dataset),
+                indirectUpstreamData.searchAcrossLineage.searchResults
+                    .map((result) => entityRegistry.getGenericEntityProperties(result.entity.type, result.entity))
+                    .filter((e) => e !== null) as GenericEntityProperties[],
             );
             setIndirectUpstreamsDataTotal(indirectUpstreamData.searchAcrossLineage.total);
         }
@@ -147,6 +173,7 @@ export default function UpstreamHealth() {
         indirectUpstreamData?.searchAcrossLineage?.searchResults,
         indirectUpstreamEntities.length,
         indirectUpstreamData?.searchAcrossLineage?.total,
+        entityRegistry,
     ]);
 
     function loadMoreDirectUpstreamData() {
@@ -160,7 +187,9 @@ export default function UpstreamHealth() {
             if (result.data.searchAcrossLineage?.searchResults) {
                 setDirectUpstreamEntities([
                     ...directUpstreamEntities,
-                    ...result.data.searchAcrossLineage.searchResults.map((r) => r.entity as Dataset),
+                    ...(result.data.searchAcrossLineage.searchResults
+                        .map((r) => entityRegistry.getGenericEntityProperties(r.entity.type, r.entity))
+                        .filter((e) => e !== null) as GenericEntityProperties[]),
                 ]);
             }
         });
@@ -178,15 +207,21 @@ export default function UpstreamHealth() {
             if (result.data.searchAcrossLineage?.searchResults) {
                 setIndirectUpstreamEntities([
                     ...indirectUpstreamEntities,
-                    ...result.data.searchAcrossLineage.searchResults.map((r) => r.entity as Dataset),
+                    ...(result.data.searchAcrossLineage.searchResults
+                        .map((r) => entityRegistry.getGenericEntityProperties(r.entity.type, r.entity))
+                        .filter((e) => e !== null) as GenericEntityProperties[]),
                 ]);
             }
         });
         setIndirectUpstreamsDataStart(newStart);
     }
 
-    const unhealthyDirectUpstreams = directUpstreamEntities.filter((e) => e.health && isUnhealthy(e.health));
-    const unhealthyIndirectUpstreams = indirectUpstreamEntities.filter((e) => e.health && isUnhealthy(e.health));
+    const unhealthyDirectUpstreams = directUpstreamEntities.filter(
+        (e) => (e.health && isUnhealthy(e.health)) || isDeprecated(e),
+    );
+    const unhealthyIndirectUpstreams = indirectUpstreamEntities.filter(
+        (e) => (e.health && isUnhealthy(e.health)) || isDeprecated(e),
+    );
 
     const hasUnhealthyUpstreams = unhealthyDirectUpstreams.length || unhealthyIndirectUpstreams.length;
 
@@ -216,6 +251,8 @@ export default function UpstreamHealth() {
                             indirectUpstreamsDataTotal - (indirectUpstreamsDataStart + DATASET_COUNT),
                             0,
                         )}
+                        showDeprecatedIcon
+                        showHealthIcon
                     />
                 )}
             </CTAWrapper>

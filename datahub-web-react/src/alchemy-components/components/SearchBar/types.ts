@@ -4,4 +4,5 @@ export interface SearchBarProps {
     width?: string;
     onChange?: (value: string) => void;
     allowClear?: boolean;
+    disabled?: boolean;
 }

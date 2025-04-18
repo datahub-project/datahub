@@ -1,0 +1,24 @@
+namespace com.linkedin.dataplatform.slack
+
+/**
+ * Information about a Slack channel.
+ * Namespace for the urn of this entity should be 'slack-channel'. See GenericEntityKey.pdl for details.
+ */
+record SlackChannel {
+
+  /**
+   * The unique ID of the Slack entity. I.e., memberID, or channelID.
+   */
+  id: string
+
+  /**
+   * The display name of the Slack entity. I.e., if this is a member, it would be the member's name.
+   */
+  displayName: string
+
+
+  /**
+   * The topic of this Slack channel, if set.
+   */
+  topic: optional string
+}

@@ -1,7 +1,7 @@
 import { Tooltip } from '@components';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
-import KeyboardTabOutlinedIcon from '@mui/icons-material/KeyboardTabOutlined';
+import { ArrowLeft, ArrowRight } from '@phosphor-icons/react';
 import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
 import { REDESIGN_COLORS, SEARCH_COLORS } from '../../../constants';
 
@@ -13,8 +13,10 @@ const Container = styled.div`
     padding: 8px;
 `;
 
-const StyledKeyboardTabOutlinedIcon = styled(KeyboardTabOutlinedIcon)<{ direction: 'left' | 'right' }>`
-    ${(props) => (props.direction === 'left' && 'transform: scaleX(-1);') || undefined}
+const IconWrapper = styled.div<{ direction: 'left' | 'right' }>`
+    display: flex;
+    align-items: center;
+    justify-content: center;
 `;
 
 const CloseButton = styled.div<{ $isClosed: boolean }>`
@@ -51,7 +53,9 @@ export default function SidebarCollapseIcon() {
                     onClick={() => setSidebarClosed(!isClosed)}
                     data-testid="toggleSidebar"
                 >
-                    <StyledKeyboardTabOutlinedIcon direction={isClosed ? 'left' : 'right'} />
+                    <IconWrapper direction={isClosed ? 'left' : 'right'}>
+                        {isClosed ? <ArrowRight size={20} /> : <ArrowLeft size={20} />}
+                    </IconWrapper>
                 </CloseButton>
             </Tooltip>
         </Container>

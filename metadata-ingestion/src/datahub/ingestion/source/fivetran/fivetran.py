@@ -215,6 +215,7 @@ class FivetranSource(StatefulIngestionSourceBase):
         datajob = DataJob(
             id=connector.connector_id,
             flow_urn=dataflow_urn,
+            platform_instance=self.config.platform_instance,
             name=connector.connector_name,
             owners={owner_email} if owner_email else set(),
         )

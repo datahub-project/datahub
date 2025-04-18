@@ -137,7 +137,7 @@ export const ActionsColumn = ({ ownershipType, setIsOpen, setOwnershipType, refe
 
     return (
         <StyledDropdown menu={menuProps}>
-            <StyledMoreOutlined date-testid={DROPDOWN_TEST_ID} style={{ display: undefined }} />
+            <StyledMoreOutlined data-testid={DROPDOWN_TEST_ID} style={{ display: undefined }} />
         </StyledDropdown>
     );
 };

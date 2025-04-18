@@ -1,12 +1,13 @@
 import { LoadingOutlined } from '@ant-design/icons';
+import { SearchBar } from '@components';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useDebounce } from 'react-use';
 import styled from 'styled-components/macro';
 import { useGetAutoCompleteMultipleResultsQuery } from '../../graphql/search.generated';
 import { EntityType } from '../../types.generated';
 import { IconStyleType } from '../entityV2/Entity';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../entityV2/shared/constants';
-import { SearchBar } from '../searchV2/SearchBar';
 import ClickOutside from '../shared/ClickOutside';
 import { useEntityRegistry } from '../useEntityRegistry';
 
@@ -49,15 +50,21 @@ const SearchResult = styled(Link)`
     }
 `;
 
+const InputWrapper = styled.div`
+    padding: 12px;
+`;
+
 const IconWrapper = styled.span`
     margin-right: 8px;
 `;
 
 function GlossarySearch() {
+    const [searchInput, setSearchInput] = useState('');
     const [query, setQuery] = useState('');
     const [isSearchBarFocused, setIsSearchBarFocused] = useState(false);
     const entityRegistry = useEntityRegistry();
 
+    useDebounce(() => setQuery(searchInput), 200, [searchInput]);
     const { data, loading } = useGetAutoCompleteMultipleResultsQuery({
         variables: {
             input: {
@@ -74,25 +81,14 @@ function GlossarySearch() {
     return (
         <GlossarySearchWrapper>
             <ClickOutside onClickOutside={() => setIsSearchBarFocused(false)}>
-                <SearchBar
-                    initialQuery={query || ''}
-                    placeholderText="Search"
-                    suggestions={[]}
-                    hideRecommendations
-                    style={{ padding: 9 }}
-                    inputStyle={{
-                        height: 30,
-                        fontSize: 10,
-                        fontWeight: 500,
-                        backgroundColor: ANTD_GRAY[3],
-                    }}
-                    textColor={ANTD_GRAY[10]}
-                    placeholderColor={REDESIGN_COLORS.PLACEHOLDER_PURPLE}
-                    onSearch={() => null}
-                    onQueryChange={(q) => setQuery(q)}
-                    entityRegistry={entityRegistry}
-                    onFocus={() => setIsSearchBarFocused(true)}
-                />
+                <InputWrapper>
+                    <SearchBar
+                        placeholder="Search"
+                        value={searchInput}
+                        onChange={setSearchInput}
+                        onFocus={() => setIsSearchBarFocused(true)}
+                    />
+                </InputWrapper>
                 {isSearchBarFocused && (loading || !!searchResults?.length) && (
                     <ResultsWrapper>
                         {loading && (

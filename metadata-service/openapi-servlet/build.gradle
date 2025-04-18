@@ -39,6 +39,7 @@ dependencies {
   implementation externalDependency.opentelemetryApi
   implementation externalDependency.opentelemetrySdk
   implementation externalDependency.opentelemetrySdkTrace
+  implementation externalDependency.opentelemetrySdkMetrics
 
   testImplementation externalDependency.springBootTest
   testImplementation project(':mock-entity-registry')
@@ -51,6 +52,7 @@ dependencies {
   testImplementation externalDependency.jacksonCore
   testImplementation externalDependency.jacksonDataBind
   testImplementation externalDependency.springBootStarterWeb
+  testImplementation externalDependency.swaggerParser
 
   // Openlineage Specific Dependencies
   implementation "io.openlineage:openlineage-java:$openLineageVersion"

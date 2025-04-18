@@ -1,3 +1,4 @@
+import { MATERIAL_UI_ICONS, PHOSPHOR_ICONS } from '@components/components/Icon/constants';
 import React from 'react';
 
 import type { Meta, StoryObj } from '@storybook/react';
@@ -54,6 +55,10 @@ const meta = {
             description: 'The icon to display in the Input.',
             type: 'string',
             options: AVAILABLE_ICONS,
+            mapping: Object.fromEntries([
+                ...MATERIAL_UI_ICONS.map((icon) => [icon, { icon, source: 'material' }]),
+                ...PHOSPHOR_ICONS.map((icon) => [icon, { icon, source: 'phosphor' }]),
+            ]),
             table: {
                 defaultValue: { summary: 'undefined' },
             },

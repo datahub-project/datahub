@@ -33,9 +33,9 @@ Consider `SALES_REPORT` PowerBI Dataset has a table `SALES_ANALYSIS` which is ba
 
 You can control table lineage ingestion using `extract_lineage` configuration parameter, by default it is set to `true`. 
 
-PowerBI Source extracts the lineage information by parsing PowerBI M-Query expression.
+PowerBI Source extracts the lineage information by parsing PowerBI M-Query expressions and from dataset data returned by the PowerBI API.
 
-PowerBI Source supports M-Query expression for below listed PowerBI Data Sources 
+PowerBI Source will extract lineage for the below listed PowerBI Data Sources: 
 
 1.  Snowflake 
 2.  Oracle 
@@ -43,6 +43,7 @@ PowerBI Source supports M-Query expression for below listed PowerBI Data Sources
 4.  Microsoft SQL Server
 5.  Google BigQuery
 6.  Databricks
+7.  MySQL
 
 Native SQL query parsing is supported for `Snowflake` and `Amazon Redshift` data-sources.
 
