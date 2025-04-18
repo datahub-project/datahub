@@ -404,7 +404,11 @@ const EntityDropdown = (props: Props) => {
             {hasBeenDeleted && !onDelete && deleteRedirectPath && <Redirect to={deleteRedirectPath} />}
             {isRaiseIncidentModalVisible && (
                 <IncidentDetailDrawer
-                    urn={urn}
+                    entity={{
+                        urn,
+                        entityType,
+                        platform: entityData?.platform ?? entityData?.dataPlatformInstance?.platform,
+                    }}
                     mode={IncidentAction.CREATE}
                     onSubmit={() => {
                         setIsRaiseIncidentModalVisible(false);
@@ -423,11 +427,6 @@ const EntityDropdown = (props: Props) => {
                         }, 3000);
                     }}
                     onCancel={() => setIsRaiseIncidentModalVisible(false)}
-                    entity={{
-                        urn,
-                        entityType,
-                        platform: entityData?.platform ?? entityData?.dataPlatformInstance?.platform,
-                    }}
                 />
             )}
             {isLinkAssetVersionModalVisible && (

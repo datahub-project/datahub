@@ -30,7 +30,7 @@ import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import ManageLineageMenuForImpactAnalysis from '@src/app/entityV2/shared/tabs/Lineage/ManageLineageMenuFromImpactAnalysis';
 import { Direction } from '@src/app/lineage/types';
 
-import { EntityType, LineageDirection } from '@types';
+import { EntityType, LineageDirection, LineageSearchPath } from '@types';
 
 const StyledTabToolbar = styled(TabToolbar)`
     justify-content: space-between;
@@ -89,6 +89,7 @@ export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode
     const [shouldRefetch, setShouldRefetch] = useState(false);
     const [skipCache, setSkipCache] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [lineageSearchPath, setLineageSearchPath] = useState<LineageSearchPath | null>(null);
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
     const entityName = (entityData && entityRegistry.getDisplayName(entityType, entityData)) || '-';
 
@@ -191,7 +192,15 @@ export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode
                     </Tooltip>
                 </RightButtonsWrapper>
             </StyledTabToolbar>
-            <LineageTabContext.Provider value={{ isColumnLevelLineage, selectedColumn, lineageDirection }}>
+            <LineageTabContext.Provider
+                value={{
+                    isColumnLevelLineage,
+                    selectedColumn,
+                    lineageDirection,
+                    lineageSearchPath,
+                    setLineageSearchPath,
+                }}
+            >
                 <ImpactAnalysis
                     urn={impactAnalysisUrn}
                     direction={lineageDirection as LineageDirection}

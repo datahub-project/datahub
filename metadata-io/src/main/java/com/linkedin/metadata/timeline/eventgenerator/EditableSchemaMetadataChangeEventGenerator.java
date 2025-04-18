@@ -2,6 +2,7 @@ package com.linkedin.metadata.timeline.eventgenerator;
 
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.timeline.eventgenerator.ChangeEventGeneratorUtils.*;
+import static com.linkedin.metadata.utils.SchemaFieldUtils.generateSchemaFieldUrn;
 
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableMap;
@@ -354,7 +355,7 @@ public class EditableSchemaMetadataChangeEventGenerator
       final EditableSchemaFieldInfo latest,
       String entityUrn) {
     return previous != null
-        ? getSchemaFieldUrn(UrnUtils.getUrn(entityUrn), previous.getFieldPath())
-        : getSchemaFieldUrn(UrnUtils.getUrn(entityUrn), latest.getFieldPath());
+        ? generateSchemaFieldUrn(UrnUtils.getUrn(entityUrn), previous.getFieldPath())
+        : generateSchemaFieldUrn(UrnUtils.getUrn(entityUrn), latest.getFieldPath());
   }
 }
