@@ -18,6 +18,9 @@ source:
         table_lineage_mode: stl_scan_based
         include_table_lineage: true
         include_view_lineage: true
+        
+        convert_urns_to_lowercase: true
+
         profiling:
             enabled: true
         stateful_ingestion:

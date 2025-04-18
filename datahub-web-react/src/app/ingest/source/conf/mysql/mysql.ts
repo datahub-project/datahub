@@ -18,7 +18,9 @@ source:
         # Options
         include_tables: True
         include_views: True
-
+        
+        convert_urns_to_lowercase: true
+        
         # Profiling
         profiling:
             enabled: false
