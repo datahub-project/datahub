@@ -19,6 +19,7 @@ import SectionHeader, { EntityTypeLabel } from '@app/searchV2/autoComplete/Secti
 import QuickFilters from '@app/searchV2/autoComplete/quickFilters/QuickFilters';
 import { FiltersAppliedHandler } from '@app/searchV2/filtersV2/types';
 import useFocusElementByCommandK from '@app/searchV2/searchBarV2/hooks/useFocusSearchBarByCommandK';
+import { SearchResponse } from '@app/searchV2/useSearchBarData';
 import useSearchViewAll from '@app/searchV2/useSearchViewAll';
 import { combineSiblingsInAutoComplete } from '@app/searchV2/utils/combineSiblingsInAutoComplete';
 import { EXACT_SEARCH_PREFIX } from '@app/searchV2/utils/constants';
@@ -152,9 +153,6 @@ export interface SearchBarProps {
     initialQuery?: string;
     placeholderText: string;
     suggestions: Array<AutoCompleteResultForEntity>;
-    // Used in SearchBarV2 (both components must have the same props)
-    // eslint-disable-next-line react/no-unused-prop-types
-    isSuggestionsLoading?: boolean;
     onSearch: (query: string, filters?: FacetFilterInput[]) => void;
     onQueryChange?: (query: string) => void;
     style?: React.CSSProperties;
@@ -177,6 +175,9 @@ export interface SearchBarProps {
     // Used in SearchBarV2 (both components must have the same props)
     // eslint-disable-next-line react/no-unused-prop-types
     onFilter?: FiltersAppliedHandler;
+    // Used in SearchBarV2 (both components must have the same props)
+    // eslint-disable-next-line react/no-unused-prop-types
+    searchResponse?: SearchResponse;
 }
 
 const defaultProps = {
