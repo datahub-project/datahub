@@ -106,6 +106,25 @@ const colors = {
         1100: '#FCEDC7',
         1200: '#FFFAEB',
     },
+
+    pink: {
+        0: '#FCF2F2',
+        100: '#FCE4EC',
+        200: '#F8BBD0',
+        300: '#EA5791',
+        400: '#C2185B',
+    },
+
+    orange: {
+        0: '#FFF5F0',
+        100: '#FFE6DA',
+        200: '#FFC0A4',
+        300: '#FF9B6D',
+        400: '#FF8348',
+        500: '#FF6A24',
+        600: '#FF5D13',
+        700: '#FF4F01',
+    },
 };
 
 export default colors;
