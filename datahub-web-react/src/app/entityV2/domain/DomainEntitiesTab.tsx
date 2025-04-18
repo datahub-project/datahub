@@ -1,11 +1,9 @@
-import React from 'react';
-
-import { useEntityData } from '@app/entity/shared/EntityContext';
 import { SearchCardContext } from '@app/entityV2/shared/SearchCardContext';
-import { EmbeddedListSearchSection } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchSection';
-import { UnionType } from '@app/search/utils/constants';
-
-import { EntityType } from '@types';
+import React from 'react';
+import { useEntityData } from '../../entity/shared/EntityContext';
+import { EntityType } from '../../../types.generated';
+import { EmbeddedListSearchSection } from '../shared/components/styled/search/EmbeddedListSearchSection';
+import { UnionType } from '../../search/utils/constants';
 
 export const DomainEntitiesTab = () => {
     const { urn, entityType } = useEntityData();

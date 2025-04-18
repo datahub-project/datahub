@@ -1,31 +1,27 @@
-import { Collapse } from 'antd';
 import React from 'react';
+
+import { Collapse } from 'antd';
 import styled from 'styled-components';
-
-import { EvaluationScheduleBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/common/EvaluationScheduleBuilder';
-import { FieldColumnBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/FieldColumnBuilder';
-import { FieldErrorThresholdBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/FieldErrorThresholdBuilder';
-import { FieldFilterBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/FieldFilterBuilder';
-import { FieldMetricBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/FieldMetricBuilder';
-import { FieldMetricSourceBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/FieldMetricSourceBuilder';
-import { FieldNullCheckBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/FieldNullCheckBuilder';
-import { FieldRowCheckBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/FieldRowCheckBuilder';
-import { FieldTypeBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/FieldTypeBuilder';
-import { FieldValuesParameterBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/FieldValuesParameterBuilder';
-import { FieldMetricInferenceAdjuster } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/FieldMetricInferenceAdjuster';
-import {
-    AssertionMonitorBuilderState,
-    FieldMetricAssertionBuilderOperatorOptions,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
 import { nullsToUndefined } from '@src/app/entityV2/shared/utils';
-
+import { AssertionMonitorBuilderState, FieldMetricAssertionBuilderOperatorOptions } from '../../types';
 import {
     AssertionType,
     CronSchedule,
     DatasetFieldAssertionSourceType,
     DatasetFilter,
     FieldAssertionType,
-} from '@types';
+} from '../../../../../../../../../../types.generated';
+import { EvaluationScheduleBuilder } from '../common/EvaluationScheduleBuilder';
+import { FieldTypeBuilder } from './FieldTypeBuilder';
+import { FieldColumnBuilder } from './FieldColumnBuilder';
+import { FieldValuesParameterBuilder } from './FieldValuesParameterBuilder';
+import { FieldNullCheckBuilder } from './FieldNullCheckBuilder';
+import { FieldMetricBuilder } from './FieldMetricBuilder';
+import { FieldRowCheckBuilder } from './FieldRowCheckBuilder';
+import { FieldMetricSourceBuilder } from './FieldMetricSourceBuilder';
+import { FieldFilterBuilder } from './FieldFilterBuilder';
+import { FieldErrorThresholdBuilder } from './FieldErrorThresholdBuilder';
+import { FieldMetricInferenceAdjuster } from '../inferred/FieldMetricInferenceAdjuster';
 
 const Section = styled.div`
     padding-bottom: 20px;

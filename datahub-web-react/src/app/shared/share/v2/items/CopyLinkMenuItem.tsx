@@ -1,12 +1,10 @@
-import { CheckOutlined, LinkOutlined } from '@ant-design/icons';
-import { Text, Tooltip } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-
-import { StyledMenuItem } from '@app/shared/share/v2/styledComponents';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
-
-import { EntityType } from '@types';
+import { CheckOutlined, LinkOutlined } from '@ant-design/icons';
+import { Text, Tooltip } from '@components';
+import { StyledMenuItem } from '../styledComponents';
+import { EntityType } from '../../../../../types.generated';
+import { useEntityRegistryV2 } from '../../../../useEntityRegistry';
 
 interface CopyLinkMenuItemProps {
     key: string;

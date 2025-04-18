@@ -1,32 +1,30 @@
-import { ConsoleSqlOutlined } from '@ant-design/icons';
 import * as React from 'react';
-
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entity/Entity';
-import { DataFlowEntity } from '@app/entity/dataFlow/DataFlowEntity';
-import { Preview } from '@app/entity/dataJob/preview/Preview';
-import { RunsTab } from '@app/entity/dataJob/tabs/RunsTab';
-import { EntityMenuItems } from '@app/entity/shared/EntityDropdown/EntityDropdown';
-import { EntityProfile } from '@app/entity/shared/containers/profile/EntityProfile';
-import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import DataProductSection from '@app/entity/shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { SidebarDomainSection } from '@app/entity/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { SidebarMetadataSection } from '@app/entity/shared/containers/profile/sidebar/SidebarMetadataSection';
-import { SidebarTagsSection } from '@app/entity/shared/containers/profile/sidebar/SidebarTagsSection';
-import SidebarStructuredPropsSection from '@app/entity/shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
-import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
-import { DocumentationTab } from '@app/entity/shared/tabs/Documentation/DocumentationTab';
-import { DataJobFlowTab } from '@app/entity/shared/tabs/Entity/DataJobFlowTab';
-import { IncidentTab } from '@app/entity/shared/tabs/Incident/IncidentTab';
-import { LineageTab } from '@app/entity/shared/tabs/Lineage/LineageTab';
-import { PropertiesTab } from '@app/entity/shared/tabs/Properties/PropertiesTab';
-import { GenericEntityProperties } from '@app/entity/shared/types';
-import { getDataProduct } from '@app/entity/shared/utils';
-import { EntityAndType } from '@app/lineage/types';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
-
-import { GetDataJobQuery, useGetDataJobQuery, useUpdateDataJobMutation } from '@graphql/dataJob.generated';
-import { DataJob, EntityType, OwnershipType, SearchResult } from '@types';
+import { ConsoleSqlOutlined } from '@ant-design/icons';
+import { DataJob, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
+import { Preview } from './preview/Preview';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
+import { EntityProfile } from '../shared/containers/profile/EntityProfile';
+import { GetDataJobQuery, useGetDataJobQuery, useUpdateDataJobMutation } from '../../../graphql/dataJob.generated';
+import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
+import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { GenericEntityProperties } from '../shared/types';
+import { DataJobFlowTab } from '../shared/tabs/Entity/DataJobFlowTab';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
+import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { EntityAndType } from '../../lineage/types';
+import { RunsTab } from './tabs/RunsTab';
+import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
+import { DataFlowEntity } from '../dataFlow/DataFlowEntity';
+import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
+import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import { getDataProduct } from '../shared/utils';
+import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
+import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
+import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 
 const getDataJobPlatformName = (data?: DataJob): string => {
     return (
@@ -244,11 +242,11 @@ export class DataJobEntity implements Entity<DataJob> {
             icon: entity?.dataFlow?.platform?.properties?.logoUrl || undefined,
             // eslint-disable-next-line @typescript-eslint/dot-notation
             downstreamChildren: entity?.['downstream']?.relationships?.map(
-                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type }) as EntityAndType,
+                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
             ),
             // eslint-disable-next-line @typescript-eslint/dot-notation
             upstreamChildren: entity?.['upstream']?.relationships?.map(
-                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type }) as EntityAndType,
+                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
             ),
             platform: entity?.dataFlow?.platform,
             health: entity?.health || undefined,

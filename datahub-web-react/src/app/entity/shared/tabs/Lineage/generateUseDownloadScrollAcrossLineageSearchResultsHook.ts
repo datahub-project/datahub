@@ -1,11 +1,10 @@
+import { useGetDownloadScrollAcrossLineageResultsQuery } from '../../../../../graphql/scroll.generated';
+import { LineageDirection } from '../../../../../types.generated';
 import {
     DownloadSearchResults,
     DownloadSearchResultsInput,
     DownloadSearchResultsParams,
-} from '@app/search/utils/types';
-
-import { useGetDownloadScrollAcrossLineageResultsQuery } from '@graphql/scroll.generated';
-import { LineageDirection } from '@types';
+} from '../../../../search/utils/types';
 
 /**
  * Generates a hook which can be used to download Scroll Across Lineage Results to CSV inside the

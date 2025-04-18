@@ -1,46 +1,50 @@
 extend type QueryEntity {
-  """
-  Statistics about the query usage of the current user.
-  """
-  usageFeatures: QueryUsageFeatures
+
+    """
+    Statistics about the query usage of the current user.
+    """
+    usageFeatures: QueryUsageFeatures
+
 }
 
 type QueryUsageFeatures {
-  """
-  Number of times this query was executed in the last 30 days
-  """
-  queryCountLast30Days: Long
 
-  """
-  * Query count total
-  * Total number of executions of this query
-  """
-  queryCountTotal: Long
+    """
+    Number of times this query was executed in the last 30 days
+    """
+    queryCountLast30Days: Long
 
-  """
-  Top users of this query in the last 30 days
-  """
-  topUsersLast30Days: [Entity]
+    """
+    * Query count total
+    * Total number of executions of this query
+    """
+    queryCountTotal: Long
 
-  """
-  Total cost of this query in the last 30 days
-  """
-  queryCostLast30Days: Float
+    """
+    Top users of this query in the last 30 days
+    """
+    topUsersLast30Days: [Entity]
 
-  """
-  The percentile rank of this query based on runs last 30 days
-  """
-  runsPercentileLast30days: Int
+    """
+    Total cost of this query in the last 30 days
+    """
+    queryCostLast30Days: Float
 
-  """
-  Last time this query was executed
-  """
-  lastExecutedAt: Long
+    """
+    The percentile rank of this query based on runs last 30 days
+    """
+    runsPercentileLast30days: Int
+
+    """
+    Last time this query was executed
+    """
+    lastExecutedAt: Long
+
 }
 
 input SortQueriesInput {
-  """
-  A criterion to sort query results on
-  """
-  sortCriterion: SortCriterion!
+    """
+    A criterion to sort query results on
+    """
+    sortCriterion: SortCriterion!
 }

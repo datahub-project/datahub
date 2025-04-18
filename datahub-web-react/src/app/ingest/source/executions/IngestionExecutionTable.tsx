@@ -1,20 +1,13 @@
-import { Empty, Pagination, Typography } from 'antd';
 import React from 'react';
+import { Empty, Pagination, Typography } from 'antd';
 import styled from 'styled-components';
-
-import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
-import {
-    ButtonsColumn,
-    SourceColumn,
-    StatusColumn,
-    TimeColumn,
-} from '@app/ingest/source/executions/IngestionExecutionTableColumns';
-import { SUCCESS, getIngestionSourceStatus } from '@app/ingest/source/utils';
-import { formatDuration } from '@app/shared/formatDuration';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { SearchCfg } from '@src/conf';
-
-import { EntityType, ExecutionRequest } from '@types';
+import { StyledTable } from '../../../entity/shared/components/styled/StyledTable';
+import { EntityType, ExecutionRequest } from '../../../../types.generated';
+import { ButtonsColumn, SourceColumn, StatusColumn, TimeColumn } from './IngestionExecutionTableColumns';
+import { SUCCESS, getIngestionSourceStatus } from '../utils';
+import { formatDuration } from '../../../shared/formatDuration';
+import { SearchCfg } from '../../../../conf';
 
 const PaginationInfoContainer = styled.span`
     padding: 8px;

@@ -1,12 +1,10 @@
-import { colors } from '@components';
-import { Card } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-
-import { TestCardDetails } from '@app/tests/card/TestCardDetails';
-import { TestCardResults } from '@app/tests/card/TestCardResults';
-
-import { Test } from '@types';
+import { colors } from '@components';
+import { Card } from 'antd';
+import { TestCardDetails } from './TestCardDetails';
+import { TestCardResults } from './TestCardResults';
+import { Test } from '../../../types.generated';
 
 const StyledCard = styled(Card)`
     border-radius: 12px;

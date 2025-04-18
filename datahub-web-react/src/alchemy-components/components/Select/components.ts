@@ -1,19 +1,10 @@
 import { Button, Icon } from '@components';
-<<<<<<< HEAD
-=======
 import { colors, radius, shadows, spacing, transition, typography, zIndices } from '@components/theme';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 import { Checkbox } from 'antd';
 import styled from 'styled-components';
-
-import { SelectLabelVariants, SelectSizeOptions, SelectStyleProps } from '@components/components/Select/types';
-import { getOptionLabelStyle, getSelectFontStyles, getSelectStyle } from '@components/components/Select/utils';
-import {
-    formLabelTextStyles,
-    inputPlaceholderTextStyles,
-    inputValueTextStyles,
-} from '@components/components/commonStyles';
-import { colors, radius, shadows, spacing, transition, typography, zIndices } from '@components/theme';
+import { formLabelTextStyles, inputPlaceholderTextStyles, inputValueTextStyles } from '../commonStyles';
+import { SelectLabelVariants, SelectSizeOptions, SelectStyleProps } from './types';
+import { getOptionLabelStyle, getSelectFontStyles, getSelectStyle } from './utils';
 
 const sharedTransition = `${transition.property.colors} ${transition.easing['ease-in-out']} ${transition.duration.normal}`;
 
@@ -29,10 +20,7 @@ export const SelectBase = styled.div<SelectStyleProps>(
         transition: sharedTransition,
         justifyContent: 'space-between',
         alignSelf: position || 'end',
-<<<<<<< HEAD
         minHeight: '36px',
-=======
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
         alignItems: 'center',
         overflow: 'auto',
         textWrapMode: 'nowrap',

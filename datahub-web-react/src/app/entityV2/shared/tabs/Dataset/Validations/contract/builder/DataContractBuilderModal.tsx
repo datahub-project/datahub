@@ -1,19 +1,19 @@
-import { Modal, Typography, message } from 'antd';
 import React, { useState } from 'react';
-
-import { DataContractBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/DataContractBuilder';
-import {
-    DEFAULT_BUILDER_STATE,
-    DataContractBuilderState,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/types';
-import { buildProposeDataContractMutationVariables } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/utils';
-import ClickOutside from '@app/shared/ClickOutside';
-import analytics, { EntityActionType, EventType } from '@src/app/analytics';
+import { message, Modal, Typography } from 'antd';
 import ProposalDescriptionModal from '@src/app/entityV2/shared/containers/profile/sidebar/ProposalDescriptionModal';
-import { useAppConfig } from '@src/app/useAppConfig';
 import { useProposeDataContractMutation } from '@src/graphql/contract.generated';
-
-import { ActionRequestType, DataContract, DataContractProposalOperationType, EntityType } from '@types';
+import analytics, { EntityActionType, EventType } from '@src/app/analytics';
+import { useAppConfig } from '@src/app/useAppConfig';
+import {
+    ActionRequestType,
+    DataContract,
+    DataContractProposalOperationType,
+    EntityType,
+} from '../../../../../../../../types.generated';
+import ClickOutside from '../../../../../../../shared/ClickOutside';
+import { DataContractBuilderState, DEFAULT_BUILDER_STATE } from './types';
+import { DataContractBuilder } from './DataContractBuilder';
+import { buildProposeDataContractMutationVariables } from './utils';
 
 const modalStyle = {};
 const modalBodyStyle = {

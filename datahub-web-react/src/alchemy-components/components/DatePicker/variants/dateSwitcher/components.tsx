@@ -2,10 +2,9 @@ import { colors } from '@components';
 import { CaretLeft, CaretRight } from 'phosphor-react';
 import React, { useCallback, useMemo } from 'react';
 import styled from 'styled-components';
-
-import { ExtendedInputRenderProps } from '@components/components/DatePicker/types';
-import { SwitcherDirection } from '@components/components/DatePicker/variants/dateSwitcher/types';
-import { Text } from '@components/components/Text/Text';
+import { Text } from '../../../Text/Text';
+import { SwitcherDirection } from './types';
+import { ExtendedInputRenderProps } from '../../types';
 
 const StyledContainer = styled.div<{ $opened?: boolean; $disabled?: boolean }>`
     border: 1px solid ${(props) => (props.$opened || props.$disabled ? colors.gray[1800] : colors.gray[100])};

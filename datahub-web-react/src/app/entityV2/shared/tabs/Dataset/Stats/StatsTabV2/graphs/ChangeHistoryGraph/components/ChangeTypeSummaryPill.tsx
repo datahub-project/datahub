@@ -1,14 +1,10 @@
-import React, { useMemo } from 'react';
-import styled from 'styled-components';
-
-import {
-    AggregationGroup,
-    Operation,
-} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/types';
 import { Pill } from '@src/alchemy-components';
-import { ColorOptions } from '@src/alchemy-components/theme/config';
 import { abbreviateNumber } from '@src/app/dataviz/utils';
 import { pluralize } from '@src/app/shared/textUtil';
+import React, { useMemo } from 'react';
+import styled from 'styled-components';
+import { ColorOptions } from '@src/alchemy-components/theme/config';
+import { AggregationGroup, Operation } from '../types';
 
 const GROUP_TO_PILL_COLOR_MAPPING = new Map<string, ColorOptions>([
     [AggregationGroup.Purple, 'violet'],

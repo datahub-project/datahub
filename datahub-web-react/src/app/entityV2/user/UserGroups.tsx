@@ -1,14 +1,12 @@
-import { Tooltip } from '@components';
 import { Col, Pagination, Row } from 'antd';
+import { Tooltip } from '@components';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-
-import { scrollToTop } from '@app/shared/searchUtils';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { useGetUserGroupsLazyQuery } from '@graphql/user.generated';
-import { CorpGroup, EntityRelationship, EntityType } from '@types';
+import { useGetUserGroupsLazyQuery } from '../../../graphql/user.generated';
+import { CorpGroup, EntityRelationship, EntityType } from '../../../types.generated';
+import { scrollToTop } from '../../shared/searchUtils';
+import { useEntityRegistry } from '../../useEntityRegistry';
 
 type Props = {
     urn: string;

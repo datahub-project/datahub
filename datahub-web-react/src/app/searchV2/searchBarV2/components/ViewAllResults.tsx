@@ -1,17 +1,8 @@
-<<<<<<< HEAD
-import { ArrowElbowDownLeft, MagnifyingGlass } from '@phosphor-icons/react';
-import React from 'react';
-import styled from 'styled-components/macro';
-
-import KeyIcon from '@app/searchV2/searchBarV2/components/KeyIcon';
-import { Text, colors } from '@src/alchemy-components';
-=======
 import React from 'react';
 import { ArrowElbowDownLeft, MagnifyingGlass } from '@phosphor-icons/react';
 import { colors, Text } from '@src/alchemy-components';
 import styled from 'styled-components/macro';
 import KeyIcon from './KeyIcon';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const LeftInternalContainer = styled.span`
     display: flex;

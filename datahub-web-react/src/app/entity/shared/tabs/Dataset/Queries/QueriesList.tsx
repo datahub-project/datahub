@@ -1,8 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-
-import Query from '@app/entity/shared/tabs/Dataset/Queries/Query';
-import { Query as QueryType } from '@app/entity/shared/tabs/Dataset/Queries/types';
+import Query from './Query';
+import { Query as QueryType } from './types';
 
 const List = styled.div`
     margin-bottom: 28px;

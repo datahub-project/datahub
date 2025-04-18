@@ -1,5 +1,5 @@
-import { Divider, Skeleton } from 'antd';
 import React from 'react';
+import { Divider, Skeleton } from 'antd';
 import styled from 'styled-components';
 
 const Container = styled.div`

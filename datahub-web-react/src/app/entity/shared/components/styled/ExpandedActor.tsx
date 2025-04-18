@@ -1,14 +1,12 @@
-import { Popover } from '@components';
 import { Tag } from 'antd';
+import { Popover } from '@components';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-
-import { CustomAvatar } from '@app/shared/avatar';
-import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { CorpGroup, CorpUser, EntityType } from '@types';
+import { CorpGroup, CorpUser, EntityType } from '../../../../../types.generated';
+import { CustomAvatar } from '../../../../shared/avatar';
+import { useEntityRegistry } from '../../../../useEntityRegistry';
+import { useEmbeddedProfileLinkProps } from '../../../../shared/useEmbeddedProfileLinkProps';
 
 type Props = {
     actor: CorpUser | CorpGroup;

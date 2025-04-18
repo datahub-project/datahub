@@ -1,8 +1,7 @@
-import React from 'react';
-
-import SamplesTable from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/components/sections/Samples/components/SamplesTable';
 import { Drawer } from '@src/alchemy-components';
 import { SchemaFieldDataType } from '@src/types.generated';
+import React from 'react';
+import SamplesTable from './SamplesTable';
 
 interface SampleDrawerProps {
     samples: string[];

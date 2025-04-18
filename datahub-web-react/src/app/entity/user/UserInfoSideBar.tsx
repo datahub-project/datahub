@@ -1,34 +1,31 @@
-import { EditOutlined, MailOutlined, PhoneOutlined, SlackOutlined } from '@ant-design/icons';
-import { Button, Divider, Space, Tag, Typography, message } from 'antd';
+import { getCountryName } from '@src/app/shared/sidebar/components';
+import { Divider, message, Space, Button, Typography, Tag } from 'antd';
 import React, { useState } from 'react';
-
-import { useUserContext } from '@app/context/useUserContext';
-import EntityGroups from '@app/entity/shared/EntityGroups';
+import { EditOutlined, MailOutlined, PhoneOutlined, SlackOutlined } from '@ant-design/icons';
+import GlobeIcon from '../../../images/Globe.svg';
+import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
+import { EntityRelationship, DataHubRole } from '../../../types.generated';
+import UserEditProfileModal from './UserEditProfileModal';
+import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import {
-    AboutSection,
-    AboutSectionText,
-    EditButton,
-    EmptyValue,
-    GroupsSection,
-    LocationSection,
-    LocationSectionText,
-    Name,
     SideBar,
     SideBarSubSection,
+    EmptyValue,
     SocialDetails,
-    Team,
+    EditButton,
+    AboutSection,
+    AboutSectionText,
+    GroupsSection,
+    Name,
     TitleRole,
+    Team,
+    LocationSection,
+    LocationSectionText,
     UserDetails,
-} from '@app/entity/shared/SidebarStyledComponents';
-import UserEditProfileModal from '@app/entity/user/UserEditProfileModal';
-import { mapRoleIcon } from '@app/identity/user/UserUtils';
-import CustomAvatar from '@app/shared/avatar/CustomAvatar';
-import { getCountryName } from '@src/app/shared/sidebar/components';
-
-import { useUpdateCorpUserPropertiesMutation } from '@graphql/user.generated';
-import { DataHubRole, EntityRelationship } from '@types';
-
-import GlobeIcon from '@images/Globe.svg';
+} from '../shared/SidebarStyledComponents';
+import EntityGroups from '../shared/EntityGroups';
+import { mapRoleIcon } from '../../identity/user/UserUtils';
+import { useUserContext } from '../../context/useUserContext';
 
 const { Paragraph } = Typography;
 

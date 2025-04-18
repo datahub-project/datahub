@@ -1,9 +1,11 @@
-import cronstrue from 'cronstrue';
 import React from 'react';
-
-import { capitalizeFirstLetter } from '@app/shared/textUtil';
-
-import { CronSchedule, FreshnessAssertionSchedule, FreshnessAssertionScheduleType } from '@types';
+import cronstrue from 'cronstrue';
+import {
+    FreshnessAssertionSchedule,
+    FreshnessAssertionScheduleType,
+    CronSchedule,
+} from '../../../../../../../types.generated';
+import { capitalizeFirstLetter } from '../../../../../../shared/textUtil';
 
 type Props = {
     definition: FreshnessAssertionSchedule;

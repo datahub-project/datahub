@@ -1,8 +1,7 @@
 import React from 'react';
 
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { Chart, Dashboard, EntityType, GlossaryTerm, MatchedField } from '@types';
+import { Chart, Dashboard, EntityType, GlossaryTerm, MatchedField } from '../../../types.generated';
+import { useEntityRegistry } from '../../useEntityRegistry';
 
 const LABEL_INDEX_NAME = 'fieldLabels';
 const TYPE_PROPERTY_KEY_NAME = 'type';

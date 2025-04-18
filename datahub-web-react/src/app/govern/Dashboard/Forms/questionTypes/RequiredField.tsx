@@ -1,9 +1,8 @@
-import { Tooltip } from '@components';
-import { Form, FormInstance } from 'antd';
-import React from 'react';
-
-import { RequiredFieldContainer, StyledCheckbox, StyledLabel } from '@app/govern/Dashboard/Forms/styledComponents';
 import { Icon } from '@src/alchemy-components';
+import { Form, FormInstance } from 'antd';
+import { Tooltip } from '@components';
+import React from 'react';
+import { RequiredFieldContainer, StyledCheckbox, StyledLabel } from '../styledComponents';
 
 interface Props {
     form: FormInstance;

@@ -1,20 +1,18 @@
-import { Tooltip } from '@components';
-import { Button, Dropdown, List, Tag, Typography, message } from 'antd';
-import { Copy, DotsThreeVertical, LockOpen, Trash } from 'phosphor-react';
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
-
-import useDeleteEntity from '@app/entity/shared/EntityDropdown/useDeleteEntity';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entity/shared/constants';
-import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
-import SelectRole from '@app/identity/user/SelectRole';
-import ViewResetTokenModal from '@app/identity/user/ViewResetTokenModal';
-import { USERS_ASSIGN_ROLE_ID } from '@app/onboarding/config/UsersOnboardingConfig';
-import CustomAvatar from '@app/shared/avatar/CustomAvatar';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { CorpUser, CorpUserStatus, DataHubRole, EntityType } from '@types';
+import { Button, Dropdown, List, message, Tag, Typography } from 'antd';
+import { Tooltip } from '@components';
+import { Link } from 'react-router-dom';
+import { Copy, DotsThreeVertical, LockOpen, Trash } from 'phosphor-react';
+import { CorpUser, CorpUserStatus, EntityType, DataHubRole } from '../../../types.generated';
+import CustomAvatar from '../../shared/avatar/CustomAvatar';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { ANTD_GRAY, REDESIGN_COLORS } from '../../entity/shared/constants';
+import ViewResetTokenModal from './ViewResetTokenModal';
+import useDeleteEntity from '../../entity/shared/EntityDropdown/useDeleteEntity';
+import SelectRole from './SelectRole';
+import { USERS_ASSIGN_ROLE_ID } from '../../onboarding/config/UsersOnboardingConfig';
+import { MenuItemStyle } from '../../entity/view/menu/item/styledComponent';
 
 type Props = {
     user: CorpUser;

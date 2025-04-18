@@ -1,24 +1,5 @@
-import { Tooltip, colors } from '@components';
-import { Divider, Modal, Typography, message } from 'antd';
-import { TooltipPlacement } from 'antd/es/tooltip';
-import moment from 'moment';
 import React from 'react';
 import styled from 'styled-components';
-<<<<<<< HEAD
-
-import MarkAsDeprecatedButton from '@app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
-import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';
-import { toLocalDateString } from '@app/shared/time/timeUtils';
-import { Tooltip2 } from '@src/alchemy-components/components/Tooltip2';
-import CompactMarkdownViewer from '@src/app/entity/shared/tabs/Documentation/components/CompactMarkdownViewer';
-
-import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated';
-import { Deprecation, SubResourceType } from '@types';
-
-import DeprecatedIcon from '@images/deprecated-status.svg?react';
-=======
 import { colors, Tooltip } from '@components';
 import { Divider, Modal, Typography, message } from 'antd';
 import moment from 'moment';
@@ -33,7 +14,6 @@ import { getV1FieldPathFromSchemaFieldUrn } from '../../../../lineageV2/lineageU
 import { toLocalDateString } from '../../../../shared/time/timeUtils';
 import { REDESIGN_COLORS } from '../../constants';
 import MarkAsDeprecatedButton from './MarkAsDeprecatedButton';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const DeprecatedContainer = styled.div`
     display: flex;

@@ -1,6 +1,4 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
-
-import { ListPoliciesDocument, ListPoliciesQuery } from '@graphql/policy.generated';
 import {
     PolicyMatchCondition,
     PolicyMatchCriterion,
@@ -11,7 +9,8 @@ import {
     Privilege,
     ResourceFilter,
     ResourcePrivileges,
-} from '@types';
+} from '../../../types.generated';
+import { ListPoliciesDocument, ListPoliciesQuery } from '../../../graphql/policy.generated';
 
 export const DEFAULT_PAGE_SIZE = 10;
 

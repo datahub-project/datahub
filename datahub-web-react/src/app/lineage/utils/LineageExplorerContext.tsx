@@ -1,8 +1,6 @@
 import React from 'react';
-
-import { ColumnEdge } from '@app/lineage/types';
-
-import { SchemaField, SchemaFieldRef } from '@types';
+import { SchemaField, SchemaFieldRef } from '../../../types.generated';
+import { ColumnEdge } from '../types';
 
 export const LineageExplorerContext = React.createContext<LineageExplorerContextType>({
     expandTitles: false,

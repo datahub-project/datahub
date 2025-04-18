@@ -1,11 +1,10 @@
-import React from 'react';
-
-import Condition from '@app/govern/Dashboard/Forms/filters/Condition';
-/* eslint-disable import/no-cycle */
-import QueryBuilder from '@app/govern/Dashboard/Forms/filters/QueryBuilder';
 import { Property } from '@src/app/automations/fields/ConditionSelector/properties';
 import { LogicalPredicate, PropertyPredicate } from '@src/app/tests/builder/steps/definition/builder/types';
 import { isLogicalPredicate } from '@src/app/tests/builder/steps/definition/builder/utils';
+import React from 'react';
+import Condition from './Condition';
+/* eslint-disable import/no-cycle */
+import QueryBuilder from './QueryBuilder';
 
 interface Props {
     operands: (LogicalPredicate | PropertyPredicate)[];

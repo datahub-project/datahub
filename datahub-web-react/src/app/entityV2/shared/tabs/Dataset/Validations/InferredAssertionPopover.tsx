@@ -1,10 +1,9 @@
-import { Popover } from '@components';
-import { Typography } from 'antd';
-import { Sparkle } from 'phosphor-react';
 import React from 'react';
 import styled from 'styled-components';
-
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { Typography } from 'antd';
+import { Popover } from '@components';
+import { Sparkle } from 'phosphor-react';
+import { REDESIGN_COLORS } from '../../../constants';
 
 const Container = styled.div``;
 

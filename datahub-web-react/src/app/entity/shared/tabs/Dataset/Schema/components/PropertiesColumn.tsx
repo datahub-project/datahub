@@ -1,8 +1,7 @@
 import { ControlOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
-
-import { SchemaField } from '@types';
+import { SchemaField } from '../../../../../../../types.generated';
 
 const ColumnWrapper = styled.div`
     font-size: 14px;

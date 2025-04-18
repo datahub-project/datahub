@@ -1,7 +1,6 @@
-import { ComponentType } from 'react';
-
-import { AutomationCategory, AutomationTypes } from '@app/automations/constants';
 import { AppConfig, Test } from '@src/types.generated';
+import { ComponentType } from 'react';
+import { AutomationCategory, AutomationTypes } from './constants';
 
 /**
  * Component Base Type (props)

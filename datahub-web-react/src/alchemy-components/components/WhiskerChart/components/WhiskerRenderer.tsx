@@ -1,10 +1,9 @@
 import { LinearGradient } from '@visx/gradient';
 import { BarRounded } from '@visx/shape';
 import React, { useState } from 'react';
-
-import MetricPoint from '@components/components/WhiskerChart/components/MetricPoint';
-import { DEFAULT_COLOR_SHEME } from '@components/components/WhiskerChart/constants';
-import { WhiskerMetricType, WhiskerRenderProps } from '@components/components/WhiskerChart/types';
+import { DEFAULT_COLOR_SHEME } from '../constants';
+import { WhiskerMetricType, WhiskerRenderProps } from '../types';
+import MetricPoint from './MetricPoint';
 
 export default function WhiskerRenderer({
     datum,

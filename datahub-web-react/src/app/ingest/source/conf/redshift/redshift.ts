@@ -1,6 +1,5 @@
-import { SourceConfig } from '@app/ingest/source/conf/types';
-
-import redshiftLogo from '@images/redshiftlogo.png';
+import { SourceConfig } from '../types';
+import redshiftLogo from '../../../../../images/redshiftlogo.png';
 
 const placeholderRecipe = `\
 source: 

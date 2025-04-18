@@ -1,12 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-
-import AddContentView from '@app/actionrequest/item/AddContentView';
-import MetadataAssociationRequestItem from '@app/actionrequest/item/MetadataAssociationRequestItem';
-import { StyledTag } from '@app/entity/shared/components/styled/StyledTag';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { ActionRequest, EntityType } from '@types';
+import { ActionRequest, EntityType } from '../../../types.generated';
+import { StyledTag } from '../../entity/shared/components/styled/StyledTag';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import AddContentView from './AddContentView';
+import MetadataAssociationRequestItem from './MetadataAssociationRequestItem';
 
 type Props = {
     actionRequest: ActionRequest;

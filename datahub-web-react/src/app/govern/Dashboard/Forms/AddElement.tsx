@@ -1,8 +1,7 @@
+import { Button, Text } from '@src/alchemy-components';
 import { Tooltip } from '@components';
 import React from 'react';
-
-import { AddElementContainer, LeftSection } from '@app/govern/Dashboard/Forms/styledComponents';
-import { Button, Text } from '@src/alchemy-components';
+import { AddElementContainer, LeftSection } from './styledComponents';
 
 interface Props {
     heading: string;

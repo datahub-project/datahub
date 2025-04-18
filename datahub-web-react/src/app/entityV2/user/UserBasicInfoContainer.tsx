@@ -1,21 +1,20 @@
-import { PhoneOutlined, SlackOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import { Divider } from 'antd';
 import React from 'react';
-
+import { Divider } from 'antd';
+import { Tooltip } from '@components';
+import { PhoneOutlined, SlackOutlined } from '@ant-design/icons';
 import {
-    BasicDetails,
+    EmptyValue,
+    SocialDetails,
+    Name,
+    TitleRole,
+    RoleName,
     BasicDetailsContainer,
     DraftsOutlinedIconStyle,
-    EmptyValue,
-    Name,
+    BasicDetails,
     NameTitleContainer,
-    RoleName,
-    SocialDetails,
     SocialInfo,
-    TitleRole,
-} from '@app/entityV2/shared/SidebarStyledComponents';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+} from '../shared/SidebarStyledComponents';
+import { REDESIGN_COLORS } from '../shared/constants';
 
 type Props = {
     name: string | undefined;

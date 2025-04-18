@@ -1,14 +1,13 @@
-import { Form, Select, Switch, Tag, Typography } from 'antd';
-import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
+import { Form, Select, Switch, Tag, Typography } from 'antd';
 import styled from 'styled-components';
+import { Maybe } from 'graphql/jsutils/Maybe';
 
-import { CustomAvatar } from '@app/shared/avatar';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
-import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
-import { ActorFilter, CorpUser, EntityType, PolicyType, SearchResult } from '@types';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { ActorFilter, CorpUser, EntityType, PolicyType, SearchResult } from '../../../types.generated';
+import { useGetSearchResultsLazyQuery } from '../../../graphql/search.generated';
+import { useListOwnershipTypesQuery } from '../../../graphql/ownership.generated';
+import { CustomAvatar } from '../../shared/avatar';
 
 type Props = {
     policyType: PolicyType;

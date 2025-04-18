@@ -1,14 +1,12 @@
 import Icon, { CaretDownFilled } from '@ant-design/icons';
-import { Tooltip } from '@components';
 import { Select } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { DEFAULT_SORT_OPTION } from '@app/search/context/constants';
 import useGetSortOptions from '@src/app/searchV2/sorting/useGetSortOptions';
-
-import SortIcon from '@images/sort.svg?react';
+import SortIcon from '../../../images/sort.svg?react';
+import { ANTD_GRAY } from '../../entity/shared/constants';
+import { DEFAULT_SORT_OPTION } from '../context/constants';
 
 const SelectWrapper = styled.span`
     display: inline-flex;

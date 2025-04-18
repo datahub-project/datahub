@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
-
-import ActionDropdown from '@app/entity/shared/components/styled/search/action/ActionDropdown';
-import EditTagTermsModal, { OperationType } from '@app/shared/tags/AddTagsTermsModal';
-
-import { EntityType } from '@types';
+import { EntityType } from '../../../../../../../types.generated';
+import EditTagTermsModal, { OperationType } from '../../../../../../shared/tags/AddTagsTermsModal';
+import ActionDropdown from './ActionDropdown';
 
 type Props = {
     urns: Array<string>;

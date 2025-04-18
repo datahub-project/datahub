@@ -1,17 +1,15 @@
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
-import BulkSubmissionButton from '@app/entity/shared/entityForm/prompts/BulkSubmissionButton';
-import CompletedPromptAuditStamp from '@app/entity/shared/entityForm/prompts/CompletedPromptAuditStamp';
-import useDomainPrompt from '@app/entity/shared/entityForm/prompts/DomainPrompt/useDomainPrompt';
-import PromptHeader from '@app/entity/shared/entityForm/prompts/PromptHeader';
-import UrnInput from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/UrnInput/UrnInput';
-import usePromptCompletionInfo from '@app/entity/shared/entityForm/prompts/usePromptCompletionInfo';
-import { applyOpacity } from '@app/shared/styleUtils';
-
-import { EntityType, FormPrompt, SubmitFormPromptInput } from '@types';
+import { EntityType, FormPrompt, SubmitFormPromptInput } from '../../../../../../types.generated';
+import CompletedPromptAuditStamp from '../CompletedPromptAuditStamp';
+import { applyOpacity } from '../../../../../shared/styleUtils';
+import { useEntityFormContext } from '../../EntityFormContext';
+import BulkSubmissionButton from '../BulkSubmissionButton';
+import usePromptCompletionInfo from '../usePromptCompletionInfo';
+import UrnInput from '../StructuredPropertyPrompt/UrnInput/UrnInput';
+import PromptHeader from '../PromptHeader';
+import useDomainPrompt from './useDomainPrompt';
 
 const PromptWrapper = styled.div<{ displayBulkStyles?: boolean }>`
     display: flex;

@@ -1,10 +1,8 @@
-import * as QueryString from 'query-string';
 import { RouteComponentProps } from 'react-router';
-
-import { UnionType } from '@app/search/utils/constants';
-import filtersToQueryStringParams from '@app/search/utils/filtersToQueryStringParams';
-
-import { EntityType, FacetFilterInput } from '@types';
+import * as QueryString from 'query-string';
+import { EntityType, FacetFilterInput } from '../../../../../../types.generated';
+import filtersToQueryStringParams from '../../../../../search/utils/filtersToQueryStringParams';
+import { UnionType } from '../../../../../search/utils/constants';
 
 export const navigateToEntitySearchUrl = ({
     baseUrl,

@@ -56,11 +56,9 @@ This is over and above updating-datahub.md file
 ### Potential Downtime
 
 ### Deprecations
-
 - Deprecated `assertionInferenceDetails` aspect. However, the record is still used within the monitor entity.
 
 ### Other Notable Changes
-
 - New nav bar is switched on by default in the V2 UI ([datahub-gms] `SHOW_NAV_BAR_REDESIGN`)
 
 ### Environment variables
@@ -73,6 +71,7 @@ This is over and above updating-datahub.md file
 - [datahub-gms] `SHOW_TASK_CENTER_REDESIGN`: Flag to enable the new proposals redesign in the app, mostly in the task center. This should be off for most folks for 0.3.10 but we may turn on depending what gets into the release.
 - [integrations-service] `DATAHUB_SLACK_AT_MENTION_ENABLED` (default: false) - Whether to enable the Slackbot, which replies to the @datahub mentions.
 
+
 ## v0.3.9
 
 ### Breaking Changes
@@ -84,23 +83,21 @@ This is over and above updating-datahub.md file
 - #5287: The unused observability Anomaly entity has been removed from the system, replaced by MonitorAnomalyEvent. This should not affect existing deployments, as the entity was not consumed anywhere.
 
 ### Other Notable Changes
-
 We initially told Figma to produce `DataProcessInstanceInput.inputs` and `DataProcessInstanceOutput.outputs`
 for their AI/ML use cases. However, if they wish to see these data process instances and their edges
 in lineage, they should instead produce `DataProcessInstanceInput.inputEdges` and `DataProcessInstanceOutput.outputEdges`.
 
 We have a non-blocking upgrade job to migrate the data from the old fields to the new fields,
 that can be specified in datahub-apps, e.g.:
-
 ```yaml
-datahubSystemUpdate:
-  upgrades:
-    migrateProcessInstanceEdges:
-      enabled: true
-      reprocess: false
-      inputPlatforms: "workbench,mlflow"
-      outputPlatforms: "workbench,mlflow"
-      parentPlatforms: "workbench,mlflow"
+  datahubSystemUpdate:
+    upgrades:
+      migrateProcessInstanceEdges:
+        enabled: true
+        reprocess: false
+        inputPlatforms: 'workbench,mlflow'
+        outputPlatforms: 'workbench,mlflow'
+        parentPlatforms: 'workbench,mlflow'
 ```
 
 ### Environment Variables

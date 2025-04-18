@@ -1,8 +1,8 @@
-import { PropertyRow, ValueColumnData } from '@app/entityV2/shared/tabs/Properties/types';
-import { mapStructuredPropertyToPropertyRow } from '@app/entityV2/shared/tabs/Properties/useStructuredProperties';
-import { getProposedItemsByType } from '@app/entityV2/shared/utils';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { ActionRequestType } from '@src/types.generated';
+import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { getProposedItemsByType } from '../../utils';
+import { mapStructuredPropertyToPropertyRow } from './useStructuredProperties';
+import { PropertyRow, ValueColumnData } from './types';
 
 interface Props {
     fieldPath?: string;

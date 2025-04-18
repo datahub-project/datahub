@@ -1,25 +1,19 @@
 import {
-    OWNERSHIP_TYPE_REFERENCE_PLACEHOLDER_ID,
-    OWNERSHIP_TYPE_REFERENCE_REGEX,
+    EntityType,
+    StructuredPropertyEntity,
+    PropertyCardinality,
+    StdDataType,
+} from '../../../../../../../types.generated';
+import { PropertyPredicate } from '../types';
+import {
     STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID,
     STRUCTURED_PROPERTY_REFERENCE_REGEX,
-} from '@app/tests/builder/steps/definition/builder/property/constants';
-import {
-    OPERATOR_ID_TO_DETAILS,
-    Operator,
-    OperatorId,
-    isUnaryOperator,
-} from '@app/tests/builder/steps/definition/builder/property/types/operators';
-import { Property, entityProperties } from '@app/tests/builder/steps/definition/builder/property/types/properties';
-import {
-    VALUE_TYPE_ID_TO_DETAILS,
-    ValueInputType,
-    ValueOptions,
-    ValueTypeId,
-} from '@app/tests/builder/steps/definition/builder/property/types/values';
-import { PropertyPredicate } from '@app/tests/builder/steps/definition/builder/types';
-
-import { EntityType, PropertyCardinality, StdDataType, StructuredPropertyEntity } from '@types';
+    OWNERSHIP_TYPE_REFERENCE_PLACEHOLDER_ID,
+    OWNERSHIP_TYPE_REFERENCE_REGEX,
+} from './constants';
+import { isUnaryOperator, Operator, OperatorId, OPERATOR_ID_TO_DETAILS } from './types/operators';
+import { entityProperties, Property } from './types/properties';
+import { ValueInputType, ValueOptions, ValueTypeId, VALUE_TYPE_ID_TO_DETAILS } from './types/values';
 
 /**
  * Returns true if a well-supported Property supports searchable

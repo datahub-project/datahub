@@ -1,6 +1,5 @@
 import amplitude from '@analytics/amplitude';
-
-import analyticsConfig from '@conf/analytics';
+import analyticsConfig from '../../../conf/analytics';
 
 const amplitudeConfigs = analyticsConfig.amplitude;
 const isEnabled: boolean = amplitudeConfigs || false;

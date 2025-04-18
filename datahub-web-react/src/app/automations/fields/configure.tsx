@@ -1,9 +1,8 @@
 /* eslint-disable react-hooks/exhaustive-deps, no-param-reassign */
-import { camelCase, cloneDeep, isEqual } from 'lodash';
 import React, { createElement, useMemo } from 'react';
-
-import { useAutomationContext } from '@app/automations/Automations/AutomationProvider';
-import { Step, StepField, StepHeader } from '@app/automations/fields/components';
+import { isEqual, camelCase, cloneDeep } from 'lodash';
+import { useAutomationContext } from '../Automations/AutomationProvider';
+import { Step, StepHeader, StepField } from './components';
 
 interface Props {
     isEdit?: boolean;

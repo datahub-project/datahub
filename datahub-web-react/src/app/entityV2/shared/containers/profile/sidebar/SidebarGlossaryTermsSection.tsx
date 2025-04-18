@@ -1,21 +1,19 @@
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-
-import { useBaseEntity, useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
-import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
-import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
-import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
-import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
-import { getProposedItemsByType } from '@app/entityV2/shared/utils';
-import { ENTITY_PROFILE_GLOSSARY_TERMS_ID } from '@app/onboarding/config/EntityProfileOnboardingConfig';
-import ConstraintGroup from '@app/shared/constraints/ConstraintGroup';
-import { findTopLevelProposals } from '@app/shared/tags/utils/proposalUtils';
-import AddTagTerm from '@app/sharedV2/tags/AddTagTerm';
-import TagTermGroup from '@app/sharedV2/tags/TagTermGroup';
-
-import { GetDatasetQuery } from '@graphql/dataset.generated';
-import { ActionRequestType, EntityType } from '@types';
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import TagTermGroup from '../../../../../sharedV2/tags/TagTermGroup';
+import { useBaseEntity, useEntityData, useMutationUrn, useRefetch } from '../../../../../entity/shared/EntityContext';
+import { findTopLevelProposals } from '../../../../../shared/tags/utils/proposalUtils';
+import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
+import { ENTITY_PROFILE_GLOSSARY_TERMS_ID } from '../../../../../onboarding/config/EntityProfileOnboardingConfig';
+import ConstraintGroup from '../../../../../shared/constraints/ConstraintGroup';
+import { SidebarSection } from './SidebarSection';
+import { ActionRequestType, EntityType } from '../../../../../../types.generated';
+import EmptySectionText from './EmptySectionText';
+import { EMPTY_MESSAGES } from '../../../constants';
+import SectionActionButton from './SectionActionButton';
+import AddTagTerm from '../../../../../sharedV2/tags/AddTagTerm';
+import { getProposedItemsByType } from '../../../utils';
 
 const Content = styled.div`
     display: flex;

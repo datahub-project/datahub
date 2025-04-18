@@ -1,9 +1,10 @@
-import { Tooltip } from '@components';
-import { Divider } from 'antd';
 import React, { useState } from 'react';
-import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import styled from 'styled-components';
+import { Divider } from 'antd';
+import { Tooltip } from '@components';
+
+import { ANTD_GRAY } from '../../../../../constants';
 
 const Tabs = styled.div`
     margin: 12px 24px;

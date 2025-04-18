@@ -1,7 +1,6 @@
-import { renderHook } from '@testing-library/react-hooks';
-
-import usePrepareOperations from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/usePrepareOperations';
 import { Operation, OperationType } from '@src/types.generated';
+import { renderHook } from '@testing-library/react-hooks';
+import usePrepareOperations from '../usePrepareOperations';
 
 const SAMPLE_TIMESTAMP_1 = 1736260500000;
 const SAMPLE_TIMESTAMP_2 = 1736260600000;

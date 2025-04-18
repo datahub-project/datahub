@@ -1,14 +1,6 @@
-<<<<<<< HEAD
-import { afterAll, beforeEach, describe, expect, test, vi } from 'vitest';
-
-import { getEntitiesIngestedByType, removeEmptyArrays } from '@app/ingest/source/utils';
-
-import { ExecutionRequestResult } from '@types';
-=======
 import { vi, describe, test, expect, beforeEach, afterAll } from 'vitest';
-import { getEntitiesIngestedByType } from '../utils';
+import { removeEmptyArrays, getEntitiesIngestedByType } from '../utils';
 import { ExecutionRequestResult } from '../../../../types.generated';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 // Mock the structuredReport property of ExecutionRequestResult
 const mockExecutionRequestResult = (structuredReportData: any): Partial<ExecutionRequestResult> => {
@@ -19,7 +11,6 @@ const mockExecutionRequestResult = (structuredReportData: any): Partial<Executio
     } as Partial<ExecutionRequestResult>;
 };
 
-<<<<<<< HEAD
 const EMPTY_AND_CONDITONS = {
     on: {
         types: 'dataset',
@@ -151,8 +142,6 @@ describe('removeEmptyArrays', () => {
     });
 });
 
-=======
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 describe('getEntitiesIngestedByType', () => {
     // Mock for console.error
     const originalConsoleError = console.error;

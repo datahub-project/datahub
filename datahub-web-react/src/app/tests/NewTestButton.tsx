@@ -1,17 +1,15 @@
-import { useApolloClient } from '@apollo/client';
-import { message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-
-import analytics, { EventType } from '@app/analytics';
-import { TestBuilderModal } from '@app/tests/builder/TestBuilderModal';
-import { TestBuilderState } from '@app/tests/builder/types';
-import { updateListTestsCache } from '@app/tests/cacheUtils';
-import { DEFAULT_TESTS_PAGE_SIZE } from '@app/tests/constants';
+import { useApolloClient } from '@apollo/client';
 import { Button } from '@src/alchemy-components';
-
-import { useCreateTestMutation } from '@graphql/test.generated';
-import { TestDefinitionInput } from '@types';
+import { message } from 'antd';
+import { useCreateTestMutation } from '../../graphql/test.generated';
+import { TestBuilderModal } from './builder/TestBuilderModal';
+import { DEFAULT_TESTS_PAGE_SIZE } from './constants';
+import { TestBuilderState } from './builder/types';
+import analytics, { EventType } from '../analytics';
+import { updateListTestsCache } from './cacheUtils';
+import { TestDefinitionInput } from '../../types.generated';
 
 const ButtonContainer = styled.div`
     display: flex;
@@ -50,13 +48,11 @@ export const NewTestButton = ({ onCreated }: Props) => {
                 onCreated?.(newTest);
                 setShowCreateTestModal(false);
             })
-            .catch((error) => {
+            .catch((_) => {
                 message.destroy();
-                const errorMessage =
-                    error.graphQLErrors?.[0]?.message || 'Failed to save Test! Please review your test definition.';
                 message.error({
-                    content: errorMessage,
-                    duration: 5,
+                    content: `Failed to save Test! Please review your test definition.`,
+                    duration: 3,
                 });
             });
     };

@@ -1,5 +1,5 @@
-import { RELEVANCE } from '@app/searchV2/context/constants';
-import useGetSortOptions from '@app/searchV2/sorting/useGetSortOptions';
+import { RELEVANCE } from '../context/constants';
+import useGetSortOptions from './useGetSortOptions';
 
 export default function useSortInput(selectedSortOption: string | undefined) {
     const sortOptions = useGetSortOptions();

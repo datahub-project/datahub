@@ -1,11 +1,9 @@
-import { Select } from 'antd';
 import React, { useEffect } from 'react';
-
-import { StructuredPropertySelectResult } from '@app/tests/builder/steps/definition/builder/property/select/structured/StructuredPropertySelectResult';
-import { createPropertyUrnMap } from '@app/tests/builder/steps/definition/builder/property/select/structured/utils';
-
-import { useSearchStructuredPropertiesLazyQuery } from '@graphql/structuredProperties.generated';
-import { EntityType, StructuredPropertyEntity } from '@types';
+import { Select } from 'antd';
+import { EntityType, StructuredPropertyEntity } from '../../../../../../../../../types.generated';
+import { StructuredPropertySelectResult } from './StructuredPropertySelectResult';
+import { createPropertyUrnMap } from './utils';
+import { useSearchStructuredPropertiesLazyQuery } from '../../../../../../../../../graphql/structuredProperties.generated';
 
 type Props = {
     selectedProperty?: StructuredPropertyEntity; // The selected property

@@ -1,15 +1,14 @@
-import React from 'react';
-
-import CreateDataContractRequestItem from '@app/actionrequestV2/item/CreateDataContractRequestItem';
-import CreateNodeRequestItem from '@app/actionrequestV2/item/CreateNodeRequestItem';
-import CreateTermRequestItem from '@app/actionrequestV2/item/CreateTermRequestItem';
-import DomainAssociationRequestItem from '@app/actionrequestV2/item/DomainAssociationRequestItem';
-import OwnerAssociationRequestItem from '@app/actionrequestV2/item/OwnerAssociationRequestItem';
-import StructuredPropertyAssociationRequestItem from '@app/actionrequestV2/item/StructuredPropertyAsssociationRequestItem';
-import TagAssociationRequestItem from '@app/actionrequestV2/item/TagAssociationRequestItem';
-import TermAssociationRequestItem from '@app/actionrequestV2/item/TermAssociationRequestItem';
-import UpdateDescriptionRequestItem from '@app/actionrequestV2/item/updateDescription/UpdateDescriptionRequestItem';
 import { ActionRequest, ActionRequestType } from '@src/types.generated';
+import React from 'react';
+import TermAssociationRequestItem from './TermAssociationRequestItem';
+import TagAssociationRequestItem from './TagAssociationRequestItem';
+import CreateTermRequestItem from './CreateTermRequestItem';
+import CreateNodeRequestItem from './CreateNodeRequestItem';
+import UpdateDescriptionRequestItem from './updateDescription/UpdateDescriptionRequestItem';
+import StructuredPropertyAssociationRequestItem from './StructuredPropertyAsssociationRequestItem';
+import CreateDataContractRequestItem from './CreateDataContractRequestItem';
+import DomainAssociationRequestItem from './DomainAssociationRequestItem';
+import OwnerAssociationRequestItem from './OwnerAssociationRequestItem';
 
 interface Props {
     actionRequest: ActionRequest;

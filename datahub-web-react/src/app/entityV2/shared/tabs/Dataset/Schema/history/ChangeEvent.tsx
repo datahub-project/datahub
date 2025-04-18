@@ -1,11 +1,9 @@
+import { processDocumentationString } from '@src/app/lineageV2/lineageUtils';
 import React from 'react';
 import styled from 'styled-components';
-
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { getDocumentationString } from '@app/entityV2/shared/tabs/Dataset/Schema/history/changeEventToString';
-import { processDocumentationString } from '@src/app/lineageV2/lineageUtils';
-
-import { ChangeEvent } from '@types';
+import { ChangeEvent } from '../../../../../../../types.generated';
+import { REDESIGN_COLORS } from '../../../../constants';
+import { getDocumentationString } from './changeEventToString';
 
 const ChangeEventCircle = styled.div`
     display: inline-block;

@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-
-import { AvatarImage, AvatarImageWrapper, AvatarText, Container } from '@components/components/Avatar/components';
-import { AvatarProps } from '@components/components/Avatar/types';
-import getAvatarColor, { getNameInitials } from '@components/components/Avatar/utils';
+import { AvatarImage, AvatarImageWrapper, AvatarText, Container } from './components';
+import { AvatarProps } from './types';
+import getAvatarColor, { getNameInitials } from './utils';
 
 export const avatarDefaults: AvatarProps = {
     name: 'User name',

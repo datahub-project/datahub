@@ -1,20 +1,10 @@
-<<<<<<< HEAD
-import { ASSET_ENTITY_TYPES } from '@app/searchV2/utils/constants';
-=======
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 import {
     RECOMMENDATION_MODULE_ID_RECENTLY_EDITED_ENTITIES,
     RECOMMENDATION_MODULE_ID_RECENTLY_VIEWED_ENTITIES,
 } from '@src/app/entityV2/shared/constants';
-<<<<<<< HEAD
-
-import { useListRecommendationsQuery } from '@graphql/recommendations.generated';
-import { CorpUser, Entity, EntityType, ScenarioType } from '@types';
-=======
 import { useListRecommendationsQuery } from '../../../../graphql/recommendations.generated';
 import { CorpUser, Entity, EntityType, ScenarioType } from '../../../../types.generated';
 import { ASSET_ENTITY_TYPES } from '../../../searchV2/utils/constants';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const SUPPORTED_ENTITY_TYPES = [
     ...ASSET_ENTITY_TYPES,

@@ -1,8 +1,7 @@
-import { EyeOutlined } from '@ant-design/icons';
 import React from 'react';
-
-import { IconItemTitle } from '@app/entity/view/menu/item/IconItemTitle';
-import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
+import { EyeOutlined } from '@ant-design/icons';
+import { IconItemTitle } from './IconItemTitle';
+import { MenuItemStyle } from './styledComponent';
 
 type Props = {
     key: string;

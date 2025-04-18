@@ -1,15 +1,17 @@
-import { Select } from 'antd';
 import React, { useState } from 'react';
+
+import { Select } from 'antd';
 import styled from 'styled-components';
 
-import { PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
-import { SnowflakeConnectionForm, decodeJson } from '@app/settings/platform/snowflake/Form';
-import { PLATFORM } from '@app/settings/platform/snowflake/SnowflakeIntegration';
-import { TestConnection } from '@app/settings/platform/snowflake/TestConnection';
+import { useGetSearchResultsForMultipleQuery } from '../../../../graphql/search.generated';
+import { useConnectionQuery } from '../../../../graphql/connection.generated';
+import { EntityType } from '../../../../types.generated';
 
-import { useConnectionQuery } from '@graphql/connection.generated';
-import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
-import { EntityType } from '@types';
+import { PLATFORM_FILTER_NAME } from '../../../searchV2/utils/constants';
+import { PLATFORM } from './SnowflakeIntegration';
+import { decodeJson, SnowflakeConnectionForm } from './Form';
+
+import { TestConnection } from './TestConnection';
 
 const Wrapper = styled.div`
     display: flex;

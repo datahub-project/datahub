@@ -1,10 +1,12 @@
-import { ArrowLeftOutlined, ArrowRightOutlined, SmileTwoTone } from '@ant-design/icons';
-import { Button } from 'antd';
 import React from 'react';
 
-import { FormView, useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
-import { Flex } from '@app/entity/shared/entityForm/components';
-import { pluralize } from '@app/shared/textUtil';
+import { Button } from 'antd';
+import { ArrowLeftOutlined, ArrowRightOutlined, SmileTwoTone } from '@ant-design/icons';
+
+import { FormView, useEntityFormContext } from './EntityFormContext';
+import { Flex } from './components';
+
+import { pluralize } from '../../../shared/textUtil';
 
 interface Props {
     handleViewRemaining?: (e: any) => void;

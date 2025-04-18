@@ -3,8 +3,8 @@ import { Collapse, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { CountStyle } from '@app/entityV2/shared/SidebarStyledComponents';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { REDESIGN_COLORS } from '../../../constants';
+import { CountStyle } from '../../../SidebarStyledComponents';
 
 const Container = styled.div`
     margin-left: 7px;

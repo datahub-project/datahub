@@ -1,8 +1,6 @@
 import React from 'react';
-
-import TagTermGroup from '@app/shared/tags/TagTermGroup';
-
-import { BusinessAttribute, EntityType, GlobalTags } from '@types';
+import { EntityType, GlobalTags, BusinessAttribute } from '../../../types.generated';
+import TagTermGroup from '../../shared/tags/TagTermGroup';
 
 export default function useTagsAndTermsRenderer(
     tagHoveredUrn: string | undefined,

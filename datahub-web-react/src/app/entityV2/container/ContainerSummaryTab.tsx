@@ -1,8 +1,7 @@
 import React from 'react';
-
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import TableauWorkbookSummaryTab from '@app/entityV2/container/tableau/TableauWorkbookSummaryTab';
-import { SubType } from '@app/entityV2/shared/components/subtypes';
+import { useEntityData } from '../../entity/shared/EntityContext';
+import { SubType } from '../shared/components/subtypes';
+import TableauWorkbookSummaryTab from './tableau/TableauWorkbookSummaryTab';
 
 export default function ContainerSummaryTab() {
     const { entityData } = useEntityData();

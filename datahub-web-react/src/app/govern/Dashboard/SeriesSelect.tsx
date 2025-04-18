@@ -1,10 +1,11 @@
-import { Tooltip } from '@components';
-import { Button } from 'antd';
 import React from 'react';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { useFormAnalyticsContext } from '@app/govern/Dashboard/FormAnalyticsContext';
-import { SeriesButtons, SeriesContainer, SeriesLabel } from '@app/govern/Dashboard/components';
+import { Button } from 'antd';
+import { Tooltip } from '@components';
+import { SeriesContainer, SeriesLabel, SeriesButtons } from './components';
+import { ANTD_GRAY } from '../../entity/shared/constants';
+
+import { useFormAnalyticsContext } from './FormAnalyticsContext';
 
 export const SeriesSelect = () => {
     const {

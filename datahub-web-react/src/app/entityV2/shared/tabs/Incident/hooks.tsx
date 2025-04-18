@@ -1,27 +1,19 @@
-import { message } from 'antd';
 import React, { useCallback, useEffect, useMemo } from 'react';
+import { message } from 'antd';
 import { useHistory, useLocation } from 'react-router';
 
-import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
-import { IncidentAssigneeAvatarStack } from '@app/entityV2/shared/tabs/Incident/IncidentAssigneeAvatarStack';
-import { IncidentResolveButton } from '@app/entityV2/shared/tabs/Incident/IncidentResolveButton';
-import { CategoryType } from '@app/entityV2/shared/tabs/Incident/styledComponents';
-import { getAssigneeNamesWithAvatarUrl, getLinkedAssetsCount } from '@app/entityV2/shared/tabs/Incident/utils';
-import { IncidentPriorityLabel } from '@src/alchemy-components/components/IncidentPriorityLabel/IncidentPriorityLabel';
+import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
 import { IncidentStagePill } from '@src/alchemy-components/components/IncidentStagePill';
+import { IncidentPriorityLabel } from '@src/alchemy-components/components/IncidentPriorityLabel/IncidentPriorityLabel';
 import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
-import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { CorpUser, EntityPrivileges, IncidentType } from '@src/types.generated';
-<<<<<<< HEAD
-=======
 import { getQueryParams } from '../Dataset/Validations/assertionUtils';
 import { getAssigneeNamesWithAvatarUrl, getLinkedAssetsCount } from './utils';
 import { IncidentResolveButton } from './IncidentResolveButton';
 import { IncidentAssigneeAvatarStack } from './IncidentAssigneeAvatarStack';
 import { CategoryType } from './styledComponents';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 export const useIncidentsTableColumns = (refetch: () => void, privileges?: EntityPrivileges) => {
     return useMemo(() => {

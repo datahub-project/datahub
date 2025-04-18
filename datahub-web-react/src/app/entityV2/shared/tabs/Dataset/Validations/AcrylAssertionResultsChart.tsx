@@ -1,12 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-
-import { LOOKBACK_WINDOWS } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
-import { AcrylAssertionResultsChartHeader } from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylAssertionResultsChartHeader';
-import { AcrylAssertionResultsChartTimeline } from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylAssertionResultsChartTimeline';
-import { getFixedLookbackWindow } from '@app/shared/time/timeUtils';
-
-import { useGetAssertionRunsLazyQuery } from '@graphql/assertion.generated';
+import { useGetAssertionRunsLazyQuery } from '../../../../../../graphql/assertion.generated';
+import { getFixedLookbackWindow } from '../../../../../shared/time/timeUtils';
+import { LOOKBACK_WINDOWS } from '../Stats/lookbackWindows';
+import { AcrylAssertionResultsChartHeader } from './AcrylAssertionResultsChartHeader';
+import { AcrylAssertionResultsChartTimeline } from './AcrylAssertionResultsChartTimeline';
 
 const RESULT_CHART_WIDTH_PX = 800;
 

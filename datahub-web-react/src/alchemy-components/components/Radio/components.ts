@@ -1,8 +1,7 @@
-import styled from 'styled-components';
-
-import { getRadioBorderColor, getRadioCheckmarkColor } from '@components/components/Radio/utils';
-import { formLabelTextStyles } from '@components/components/commonStyles';
 import { borders, colors, radius, spacing } from '@components/theme';
+import styled from 'styled-components';
+import { formLabelTextStyles } from '../commonStyles';
+import { getRadioBorderColor, getRadioCheckmarkColor } from './utils';
 
 export const RadioWrapper = styled.div<{ disabled: boolean; error: string }>(({ disabled, error }) => ({
     position: 'relative',

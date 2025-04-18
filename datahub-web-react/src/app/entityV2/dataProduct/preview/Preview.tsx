@@ -1,12 +1,10 @@
-import React from 'react';
-
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { EntityMenuActions, IconStyleType, PreviewType } from '@app/entityV2/Entity';
-import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
-import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { Domain, EntityPath, EntityType, GlobalTags, GlossaryTerms, Owner } from '@types';
+import React from 'react';
+import { EntityType, Owner, GlobalTags, GlossaryTerms, Domain, EntityPath } from '../../../../types.generated';
+import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import { EntityMenuActions, IconStyleType, PreviewType } from '../../Entity';
+import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
 
 interface Props {
     urn: string;

@@ -1,14 +1,12 @@
-import { FolderOpenOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-import ContextPathEntityLink from '@src/app/previewV2/ContextPathEntityLink';
+import { FolderOpenOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
 import { ContextPathSeparator } from '@src/app/previewV2/ContextPathSeparator';
-
-import { Entity } from '@types';
+import ContextPathEntityLink from '@src/app/previewV2/ContextPathEntityLink';
+import { Entity } from '../../../types.generated';
+import { ANTD_GRAY } from '../../entity/shared/constants';
+import { useEntityRegistry } from '../../useEntityRegistry';
 
 const ParentNodesWrapper = styled.div`
     font-size: 12px;

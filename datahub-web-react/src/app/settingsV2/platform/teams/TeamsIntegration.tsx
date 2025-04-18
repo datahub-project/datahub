@@ -1,21 +1,20 @@
-import { Divider, Form, Input, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+import { Divider, Form, Input, Typography } from 'antd';
+import { useConnectionQuery, useUpsertConnectionMutation } from '../../../../graphql/connection.generated';
+import { DataHubConnectionDetailsType } from '../../../../types.generated';
+import { PlatformIntegrationBreadcrumb } from '../PlatformIntegrationBreadcrumb';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { PlatformIntegrationBreadcrumb } from '@app/settingsV2/platform/PlatformIntegrationBreadcrumb';
 import {
     TEAMS_CONNECTION_ID,
     TEAMS_CONNECTION_URN,
     TEAMS_PLATFORM_URN,
     getTeamsConnection,
     getWebhookURL,
-} from '@app/settingsV2/platform/teams/utils';
-import { FormItemTitle, StyledButton, StyledFormItem } from '@app/shared/share/v2/styledComponents';
-import { ToastType, showToastMessage } from '@app/sharedV2/toastMessageUtils';
-
-import { useConnectionQuery, useUpsertConnectionMutation } from '@graphql/connection.generated';
-import { DataHubConnectionDetailsType } from '@types';
+} from './utils';
+import { ToastType, showToastMessage } from '../../../sharedV2/toastMessageUtils';
+import { FormItemTitle, StyledButton, StyledFormItem } from '../../../shared/share/v2/styledComponents';
+import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
 
 const Page = styled.div`
     width: 100%;

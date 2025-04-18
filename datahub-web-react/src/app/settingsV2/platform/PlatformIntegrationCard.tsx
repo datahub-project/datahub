@@ -1,8 +1,7 @@
 import { Button, Divider, Image, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
 
 const Container = styled.div`
     display: flex;

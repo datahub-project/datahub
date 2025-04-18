@@ -1,26 +1,24 @@
-import { Empty, Form, Select, message } from 'antd';
 import React, { useRef, useState } from 'react';
-
-import DomainNavigator from '@app/domain/nestedDomains/domainNavigator/DomainNavigator';
-import domainAutocompleteOptions from '@app/domainV2/DomainAutocompleteOptions';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import ProposalDescriptionModal from '@app/entityV2/shared/containers/profile/sidebar/ProposalDescriptionModal';
-import { handleBatchError } from '@app/entityV2/shared/utils';
-import ClickOutside from '@app/shared/ClickOutside';
-import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
-import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Modal } from '@src/alchemy-components';
-import analytics, { EventType } from '@src/app/analytics';
-import { useEntityContext, useMutationUrn } from '@src/app/entity/shared/EntityContext';
-import handleGraphQLError from '@src/app/shared/handleGraphQLError';
-import { useAppConfig } from '@src/app/useAppConfig';
-import { useProposeDomainMutation } from '@src/graphql/domain.generated';
+import { Form, message, Select, Empty } from 'antd';
 import { getModalDomContainer } from '@src/utils/focus';
-
-import { useBatchSetDomainMutation } from '@graphql/mutations.generated';
-import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
-import { Domain, Entity, EntityType } from '@types';
+import { useProposeDomainMutation } from '@src/graphql/domain.generated';
+import { useEntityContext, useMutationUrn } from '@src/app/entity/shared/EntityContext';
+import analytics, { EventType } from '@src/app/analytics';
+import handleGraphQLError from '@src/app/shared/handleGraphQLError';
+import { Modal } from '@src/alchemy-components';
+import { useAppConfig } from '@src/app/useAppConfig';
+import { useGetAutoCompleteResultsLazyQuery } from '../../../../../../../graphql/search.generated';
+import { Domain, Entity, EntityType } from '../../../../../../../types.generated';
+import { useBatchSetDomainMutation } from '../../../../../../../graphql/mutations.generated';
+import domainAutocompleteOptions from '../../../../../../domainV2/DomainAutocompleteOptions';
+import { useEntityRegistry } from '../../../../../../useEntityRegistry';
+import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
+import { handleBatchError } from '../../../../utils';
+import { BrowserWrapper } from '../../../../../../shared/tags/AddTagsTermsModal';
+import DomainNavigator from '../../../../../../domain/nestedDomains/domainNavigator/DomainNavigator';
+import ClickOutside from '../../../../../../shared/ClickOutside';
+import { ANTD_GRAY } from '../../../../constants';
+import ProposalDescriptionModal from '../ProposalDescriptionModal';
 
 type Props = {
     urns: string[];

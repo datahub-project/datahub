@@ -68,22 +68,14 @@ extend type Mutation {
   If async is True (false by default), then the result will be null.
   """
   runAssertion(
-    """
-    The URN of the assertion to run.
-    """
+    """The URN of the assertion to run."""
     urn: String!
-    """
-    Whether to save the result of the assertion run for viewing through the UI.
-    """
-    saveResult: Boolean
-    """
-    An optional set of custom runtime parameters to inject into any SQL fragment in the assertion.
-    """
-    parameters: [StringMapEntryInput!]
-    """
-    Whether to run assertion asynchronously. False by default. If true, the response will be immediate, but the results will be available later accessible by fetching the assertion run events directly.
-    """
-    async: Boolean
+    """Whether to save the result of the assertion run for viewing through the UI."""
+    saveResult: Boolean,
+    """An optional set of custom runtime parameters to inject into any SQL fragment in the assertion."""
+    parameters: [StringMapEntryInput!],
+    """Whether to run assertion asynchronously. False by default. If true, the response will be immediate, but the results will be available later accessible by fetching the assertion run events directly."""
+    async: Boolean,
   ): AssertionResult
 
   """
@@ -98,22 +90,14 @@ extend type Mutation {
   If async is True (false by default), then the result will be null.
   """
   runAssertions(
-    """
-    The urns of the assertion to run.
-    """
+    """The urns of the assertion to run."""
     urns: [String!]!
-    """
-    Whether to save the results of the assertion run for viewing through the UI.
-    """
-    saveResults: Boolean
-    """
-    An optional set of custom runtime parameters to inject into any SQL fragment in the assertion.
-    """
-    parameters: [StringMapEntryInput!]
-    """
-    Whether to run assertions asynchronously. False by default. If true, the response will be immediate, but the results will be available later accessible by fetching the assertion run events directly.
-    """
-    async: Boolean
+    """Whether to save the results of the assertion run for viewing through the UI."""
+    saveResults: Boolean,
+    """An optional set of custom runtime parameters to inject into any SQL fragment in the assertion."""
+    parameters: [StringMapEntryInput!],
+    """Whether to run assertions asynchronously. False by default. If true, the response will be immediate, but the results will be available later accessible by fetching the assertion run events directly."""
+    async: Boolean,
   ): RunAssertionsResult
 
   """
@@ -128,22 +112,14 @@ extend type Mutation {
   If async is True (false by default), then the result will be null.
   """
   runAssertionsForAsset(
-    """
-    The urn of the asset whose assertions should be run
-    """
-    urn: String!
-    """
-    An optional set of tags URNs used to filter the assertions that are run
-    """
-    tagUrns: [String!]
-    """
-    An optional set of custom runtime parameters to inject into any SQL fragment in any assertions for the asset
-    """
-    parameters: [StringMapEntryInput!]
-    """
-    Whether to run assertions asynchronously. False by default. If true, the response will be immediate, but the results will be available later accessible by fetching the assertion run events directly.
-    """
-    async: Boolean
+    """The urn of the asset whose assertions should be run"""
+    urn: String!,
+    """An optional set of tags URNs used to filter the assertions that are run"""
+    tagUrns: [String!],
+    """An optional set of custom runtime parameters to inject into any SQL fragment in any assertions for the asset"""
+    parameters: [StringMapEntryInput!],
+    """Whether to run assertions asynchronously. False by default. If true, the response will be immediate, but the results will be available later accessible by fetching the assertion run events directly."""
+    async: Boolean,
   ): RunAssertionsResult
 
   """
@@ -170,7 +146,7 @@ extend type Mutation {
     The urn of assertion
     Provide only if updating an existing Freshness Assertion
     """
-    assertionUrn: String
+    assertionUrn: String,
 
     """
     Input for creating or updating a Freshness assertion.
@@ -182,11 +158,12 @@ extend type Mutation {
   Create or Update a Freshness Assertion
   """
   upsertDatasetVolumeAssertionMonitor(
+
     """
     The urn of assertion
     Provide only if updating an existing Volume Assertion
     """
-    assertionUrn: String
+    assertionUrn: String,
 
     """
     Input for creating or updating a Volume assertion.
@@ -202,7 +179,7 @@ extend type Mutation {
     The urn of assertion
     Provide only if updating an existing SQL Assertion
     """
-    assertionUrn: String
+    assertionUrn: String,
 
     """
     Input for creating or updating an SQL assertion.
@@ -218,7 +195,7 @@ extend type Mutation {
     The urn of assertion
     Provide only if updating an existing Field Assertion
     """
-    assertionUrn: String
+    assertionUrn: String,
 
     """
     Input for creating or updating an Field assertion.
@@ -234,7 +211,7 @@ extend type Mutation {
     The urn of assertion
     Provide only if updating an existing Schema Assertion
     """
-    assertionUrn: String
+    assertionUrn: String,
 
     """
     Input for creating or updating an Schema assertion.
@@ -762,6 +739,7 @@ enum SchemaAssertionCompatibility {
 Input for updating basic metadata associated with a particular assertion
 """
 input UpdateAssertionMetadataInput {
+
   """
   An optional human-readable description of the assertion
   """
@@ -960,6 +938,7 @@ extend type Assertion {
   The actions associated with the Assertion
   """
   actions: AssertionActions
+
 }
 
 """
@@ -1062,7 +1041,7 @@ input AssertionAdjustmentSettingsInput {
   The context to use to adjust assertion values
   """
   context: [StringMapEntryInput!]
-
+  
   """
   Exclusion windows for the assertion. If not provided, no exclusion windows are applied.
   """
@@ -1079,90 +1058,62 @@ input AssertionAdjustmentSettingsInput {
   sensitivity: AssertionMonitorSensitivityInput
 }
 
-"""
-Enum representing the type of exclusion window.
-"""
+""" Enum representing the type of exclusion window. """
 enum AssertionExclusionWindowType {
-  """
-  One-off time range to exclude.
-  """
+  """ One-off time range to exclude. """
   FIXED_RANGE
 
-  """
-  Recurring weekly time range to exclude.
-  """
+  """ Recurring weekly time range to exclude. """
   WEEKLY
 
-  """
-  Specific holiday to exclude.
-  """
+  """ Specific holiday to exclude. """
   HOLIDAY
 }
 
-"""
-Represents a recurring time window that repeats weekly.
-"""
+""" Represents a recurring time window that repeats weekly. """
 type WeeklyWindow {
-  """
-   Days of the week included in the exclusion window.
-  If not specified, all days are included.
-  """
+  """ Days of the week included in the exclusion window.
+  If not specified, all days are included. """
   daysOfWeek: [DayOfWeek!]
 
-  """
-   Start time of the exclusion window on each specified day.
+  """ Start time of the exclusion window on each specified day.
   Format: "HH:MM" in 24-hour format (e.g., "09:00" for 9 AM).
-  If not specified, defaults to the start of the day ("00:00").
-  """
+  If not specified, defaults to the start of the day ("00:00"). """
   startTime: String
 
-  """
-   End time of the exclusion window on each specified day.
+  """ End time of the exclusion window on each specified day.
   Format: "HH:MM" in 24-hour format (e.g., "17:00" for 5 PM).
-  If not specified, defaults to the end of the day ("23:59").
-  """
+  If not specified, defaults to the end of the day ("23:59"). """
   endTime: String
 
-  """
-   Time zone used to interpret start and end times.
+  """ Time zone used to interpret start and end times.
   Uses standard time zone identifiers (e.g., "America/Los_Angeles", "UTC").
-  Defaults to UTC if not specified.
-  """
+  Defaults to UTC if not specified. """
   timezone: String
 }
 
 input WeeklyWindowInput {
-  """
-   Days of the week included in the exclusion window.
-  If not specified, all days are included.
-  """
+  """ Days of the week included in the exclusion window.
+  If not specified, all days are included. """
   daysOfWeek: [DayOfWeek!]
 
-  """
-   Start time of the exclusion window on each specified day.
+  """ Start time of the exclusion window on each specified day.
   Format: "HH:MM" in 24-hour format (e.g., "09:00" for 9 AM).
-  If not specified, defaults to the start of the day ("00:00").
-  """
+  If not specified, defaults to the start of the day ("00:00"). """
   startTime: String
 
-  """
-   End time of the exclusion window on each specified day.
+  """ End time of the exclusion window on each specified day.
   Format: "HH:MM" in 24-hour format (e.g., "17:00" for 5 PM).
-  If not specified, defaults to the end of the day ("23:59").
-  """
+  If not specified, defaults to the end of the day ("23:59"). """
   endTime: String
 
-  """
-   Time zone used to interpret start and end times.
+  """ Time zone used to interpret start and end times.
   Uses standard time zone identifiers (e.g., "America/Los_Angeles", "UTC").
-  Defaults to UTC if not specified.
-  """
+  Defaults to UTC if not specified. """
   timezone: String
 }
 
-"""
-Enum representing days of the week.
-"""
+""" Enum representing days of the week. """
 enum DayOfWeek {
   MONDAY
   TUESDAY
@@ -1173,102 +1124,66 @@ enum DayOfWeek {
   SUNDAY
 }
 
-"""
-Represents an exclusion window based on a holiday. Need to add buffers.
-"""
+""" Represents an exclusion window based on a holiday. Need to add buffers."""
 type HolidayWindow {
-  """
-  The name of the holiday (e.g., "Thanksgiving").
-  """
+  """ The name of the holiday (e.g., "Thanksgiving"). """
   name: String!
 
-  """
-  The region where the holiday is observed (e.g., "US").
-  """
+  """ The region where the holiday is observed (e.g., "US"). """
   region: String
 
-  """
-  The time zone associated with the holiday (e.g., "America/New_York").
-  """
+  """ The time zone associated with the holiday (e.g., "America/New_York"). """
   timezone: String
 }
 
 input HolidayWindowInput {
-  """
-  The name of the holiday (e.g., "Thanksgiving").
-  """
+  """ The name of the holiday (e.g., "Thanksgiving"). """
   name: String!
 
-  """
-  The region where the holiday is observed (e.g., "US").
-  """
+  """ The region where the holiday is observed (e.g., "US"). """
   region: String
 
-  """
-  The time zone associated with the holiday (e.g., "America/New_York").
-  """
+  """ The time zone associated with the holiday (e.g., "America/New_York"). """
   timezone: String
 }
 
-"""
- Information about an assertion exclusion window.
-Used to exclude specific time periods from assertion evaluation or training.
-"""
+""" Information about an assertion exclusion window.
+Used to exclude specific time periods from assertion evaluation or training. """
 type AssertionExclusionWindow {
-  """
-  The type of exclusion window (e.g., fixed range or holiday-based).
-  """
+  """ The type of exclusion window (e.g., fixed range or holiday-based). """
   type: AssertionExclusionWindowType!
 
-  """
-  Display name for this exclusion window.
-  """
+  """ Display name for this exclusion window. """
   displayName: String
 
-  """
-   Date window for one-off exclusions.
-  Only applicable if the type is FIXED_RANGE.
-  """
+  """ Date window for one-off exclusions.
+  Only applicable if the type is FIXED_RANGE. """
   fixedRange: AbsoluteTimeWindow
 
-  """
-  Recurring weekly exclusion window.
-  """
+  """ Recurring weekly exclusion window. """
   weekly: WeeklyWindow
 
-  """
-   Holiday-based exclusion window.
-  Only applicable if the type is HOLIDAY.
-  """
+  """ Holiday-based exclusion window.
+  Only applicable if the type is HOLIDAY. """
   holiday: HolidayWindow
 }
 
 input AssertionExclusionWindowInput {
-  """
-  The type of exclusion window (e.g., fixed range or holiday-based).
-  """
+  """ The type of exclusion window (e.g., fixed range or holiday-based). """
   type: AssertionExclusionWindowType!
 
-  """
-  Display name for this exclusion window.
-  """
+  """ Display name for this exclusion window. """
   displayName: String
 
-  """
-   Date window for one-off exclusions.
-  Only applicable if the type is FIXED_RANGE.
-  """
+  """ Date window for one-off exclusions.
+  Only applicable if the type is FIXED_RANGE. """
   fixedRange: AbsoluteTimeWindowInput
 
-  """
-  Recurring weekly exclusion window.
-  """
+  """ Recurring weekly exclusion window. """
   weekly: WeeklyWindowInput
 
-  """
-   Holiday-based exclusion window.
-  Only applicable if the type is HOLIDAY.
-  """
+  """ Holiday-based exclusion window.
+  Only applicable if the type is HOLIDAY. """
   holiday: HolidayWindowInput
 }
 
@@ -2311,6 +2226,7 @@ input UpsertCustomAssertionInput {
   Logic comprising a raw, unstructured assertion. for example - custom SQL query for the assertion.
   """
   logic: String
+
 }
 
 """

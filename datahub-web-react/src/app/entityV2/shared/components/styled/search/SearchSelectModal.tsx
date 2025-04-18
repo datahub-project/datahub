@@ -1,12 +1,10 @@
-import { Button, Modal } from 'antd';
 import React, { useState } from 'react';
+import { Button, Modal } from 'antd';
 import styled from 'styled-components';
-
-import { EntityAndType } from '@app/entity/shared/types';
-import { SearchSelect } from '@app/entityV2/shared/components/styled/search/SearchSelect';
-import ClickOutside from '@app/shared/ClickOutside';
-
-import { EntityType } from '@types';
+import { EntityType } from '../../../../../../types.generated';
+import ClickOutside from '../../../../../shared/ClickOutside';
+import { EntityAndType } from '../../../../../entity/shared/types';
+import { SearchSelect } from './SearchSelect';
 
 const StyledModal = styled(Modal)`
     top: 30px;

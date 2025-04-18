@@ -1,14 +1,12 @@
-import { GlobalOutlined } from '@ant-design/icons';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-
-import AddContentView from '@app/actionrequest/item/AddContentView';
-import MetadataAssociationRequestItem from '@app/actionrequest/item/MetadataAssociationRequestItem';
-import { useEntityRegistry } from '@app/useEntityRegistry';
 import { colors } from '@src/alchemy-components';
-
-import { ActionRequest, EntityType } from '@types';
+import { GlobalOutlined } from '@ant-design/icons';
+import MetadataAssociationRequestItem from './MetadataAssociationRequestItem';
+import AddContentView from './AddContentView';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { ActionRequest, EntityType } from '../../../types.generated';
 
 type Props = {
     actionRequest: ActionRequest;

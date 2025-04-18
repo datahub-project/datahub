@@ -1,22 +1,21 @@
+import { AssertionActionType, AssertionType } from '@src/types.generated';
 import { Form } from 'antd';
 import { useState } from 'react';
-
 import {
     DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE,
     DEFAULT_DATASET_SQL_ASSERTION_PARAMETERS_STATE,
     DEFAULT_DATASET_SQL_ASSERTION_STATE,
     DEFAULT_DATASET_VOLUME_ASSERTION_STATE,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/constants';
+} from '../constants';
+import { AssertionMonitorBuilderState } from '../types';
+import { getDefaultDatasetFreshnessAssertionParametersState } from '../utils';
 import {
     getDefaultDatasetFieldAssertionParametersState,
     getDefaultDatasetFieldAssertionState,
     getDefaultDatasetSchemaAssertionParametersState,
     getDefaultDatasetSchemaAssertionState,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/utils';
-import { getDefaultDatasetVolumeAssertionParametersState } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/volume/utils';
-import { AssertionMonitorBuilderState } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
-import { getDefaultDatasetFreshnessAssertionParametersState } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/utils';
-import { AssertionActionType, AssertionType } from '@src/types.generated';
+} from './field/utils';
+import { getDefaultDatasetVolumeAssertionParametersState } from './volume/utils';
 
 export const toggleRaiseIncidentState = (state: AssertionMonitorBuilderState, newValue: boolean) => {
     let newFailureActions = state?.assertion?.actions?.onFailure || [];

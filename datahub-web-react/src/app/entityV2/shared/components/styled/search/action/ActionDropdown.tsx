@@ -1,11 +1,10 @@
-import { CaretDownOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import { Button, Dropdown, Menu } from 'antd';
-import MenuItem from 'antd/lib/menu/MenuItem';
 import React from 'react';
+import { Button, Dropdown, Menu } from 'antd';
+import { Tooltip } from '@components';
+import { CaretDownOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import MenuItem from 'antd/lib/menu/MenuItem';
+import { ANTD_GRAY } from '../../../../constants';
 
 const DownArrow = styled(CaretDownOutlined)`
     && {

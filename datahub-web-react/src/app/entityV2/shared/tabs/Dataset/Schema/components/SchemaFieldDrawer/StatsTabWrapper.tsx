@@ -1,10 +1,7 @@
 import React from 'react';
-
-import StatsSidebarView, {
-    StatsProps,
-} from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsSidebarView';
-import StatsTabContent from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/StatsTabContent';
 import { useAppConfig } from '@src/app/useAppConfig';
+import StatsTabContent from './StatsV2/StatsTabContent';
+import StatsSidebarView, { StatsProps } from './StatsSidebarView';
 
 export default function StatsTabWrapper(props: StatsProps) {
     const { config } = useAppConfig();

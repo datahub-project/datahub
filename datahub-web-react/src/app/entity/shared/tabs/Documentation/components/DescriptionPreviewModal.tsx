@@ -1,10 +1,9 @@
-import { Modal } from 'antd';
 import React from 'react';
-
-import { useRouteToTab } from '@app/entity/shared/EntityContext';
-import { DescriptionEditor } from '@app/entity/shared/tabs/Documentation/components/DescriptionEditor';
-import { DescriptionPreview } from '@app/entity/shared/tabs/Documentation/components/DescriptionPreview';
-import ClickOutside from '@app/shared/ClickOutside';
+import { Modal } from 'antd';
+import ClickOutside from '../../../../../shared/ClickOutside';
+import { DescriptionEditor } from './DescriptionEditor';
+import { DescriptionPreview } from './DescriptionPreview';
+import { useRouteToTab } from '../../../EntityContext';
 
 const modalStyle = {
     top: '5%',

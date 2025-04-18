@@ -1,16 +1,14 @@
+import { useBaseEntity, useRouteToTab } from '@src/app/entity/shared/EntityContext';
 import { Button, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import UsageFacepile from '@app/entity/dataset/profile/UsageFacepile';
-import { InfoItem } from '@app/entity/shared/components/styled/InfoItem';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { SidebarHeader } from '@app/entity/shared/containers/profile/sidebar/SidebarHeader';
-import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
-import { useBaseEntity, useRouteToTab } from '@src/app/entity/shared/EntityContext';
-
-import { GetDatasetQuery } from '@graphql/dataset.generated';
-import { Operation, UsageQueryResult } from '@types';
+import { GetDatasetQuery } from '../../../../../../../graphql/dataset.generated';
+import { Operation, UsageQueryResult } from '../../../../../../../types.generated';
+import { formatNumberWithoutAbbreviation } from '../../../../../../shared/formatNumber';
+import UsageFacepile from '../../../../../dataset/profile/UsageFacepile';
+import { InfoItem } from '../../../../components/styled/InfoItem';
+import { ANTD_GRAY } from '../../../../constants';
+import { SidebarHeader } from '../SidebarHeader';
 
 const HeaderInfoBody = styled(Typography.Text)`
     font-size: 16px;

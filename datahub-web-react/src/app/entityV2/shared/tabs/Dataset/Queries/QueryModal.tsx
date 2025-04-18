@@ -1,19 +1,17 @@
-import { Modal, Typography, message } from 'antd';
 import React from 'react';
+import { Modal, Typography, message } from 'antd';
 import styled from 'styled-components';
-
-import analytics, { EventType } from '@app/analytics';
-import { StyledSyntaxHighlighter } from '@app/entityV2/shared/StyledSyntaxHighlighter';
-import InferDocsPanel from '@app/entityV2/shared/components/inferredDocs/InferDocsPanel';
-import { useShouldShowInferDocumentationButton } from '@app/entityV2/shared/components/inferredDocs/utils';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import CopyQuery from '@app/entityV2/shared/tabs/Dataset/Queries/CopyQuery';
-import { Editor as MarkdownEditor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
 import { Button } from '@src/alchemy-components';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
-
-import { useUpdateQueryMutation } from '@graphql/query.generated';
-import { EntityType, QueryLanguage } from '@types';
+import CopyQuery from './CopyQuery';
+import { ANTD_GRAY } from '../../../constants';
+import { Editor as MarkdownEditor } from '../../Documentation/components/editor/Editor';
+import { StyledSyntaxHighlighter } from '../../../StyledSyntaxHighlighter';
+import { useShouldShowInferDocumentationButton } from '../../../components/inferredDocs/utils';
+import { EntityType, QueryLanguage } from '../../../../../../types.generated';
+import { useUpdateQueryMutation } from '../../../../../../graphql/query.generated';
+import analytics, { EventType } from '../../../../../analytics';
+import InferDocsPanel from '../../../components/inferredDocs/InferDocsPanel';
 
 const StyledModal = styled(Modal)`
     top: 4vh;

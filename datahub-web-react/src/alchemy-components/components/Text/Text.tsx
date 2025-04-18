@@ -1,7 +1,7 @@
 import React from 'react';
 
-import { Div, P, Pre, Span } from '@components/components/Text/components';
-import { TextProps } from '@components/components/Text/types';
+import { TextProps } from './types';
+import { P, Div, Span, Pre } from './components';
 
 export const textDefaults: TextProps = {
     type: 'p',

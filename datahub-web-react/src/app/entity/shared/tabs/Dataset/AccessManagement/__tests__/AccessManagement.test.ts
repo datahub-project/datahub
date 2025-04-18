@@ -1,6 +1,5 @@
-import { handleAccessRoles } from '@app/entity/shared/tabs/Dataset/AccessManagement/utils';
-
-import { GetExternalRolesQuery } from '@graphql/dataset.generated';
+import { GetExternalRolesQuery } from '../../../../../../../graphql/dataset.generated';
+import { handleAccessRoles } from '../utils';
 
 describe('handleAccessRoles', () => {
     it('should properly map the externalroles', () => {

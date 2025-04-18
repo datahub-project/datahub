@@ -1,13 +1,12 @@
-import * as QueryString from 'query-string';
-import { useMemo, useState } from 'react';
-import { useHistory, useLocation } from 'react-router';
-
-import { mergeFilters, replaceFilterValues } from '@app/taskCenterV2/proposalsV2/utils';
 import { UnionType } from '@src/app/searchV2/utils/constants';
 import { generateOrFilters } from '@src/app/searchV2/utils/generateOrFilters';
 import useFilters from '@src/app/searchV2/utils/useFilters';
 import { navigateWithFilters } from '@src/app/sharedV2/filters/navigateWithFilters';
 import { FacetFilterInput } from '@src/types.generated';
+import * as QueryString from 'query-string';
+import { useMemo, useState } from 'react';
+import { useHistory, useLocation } from 'react-router';
+import { mergeFilters, replaceFilterValues } from './utils';
 
 type Props = {
     useUrlParams: boolean;

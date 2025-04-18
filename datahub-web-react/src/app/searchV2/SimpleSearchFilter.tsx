@@ -2,13 +2,12 @@ import { DownOutlined, UpOutlined } from '@ant-design/icons';
 import { Button, Checkbox } from 'antd';
 import { CheckboxChangeEvent } from 'antd/lib/checkbox';
 import * as React from 'react';
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import styled from 'styled-components';
 
-import { SearchFilterLabel } from '@app/searchV2/SearchFilterLabel';
-import { TRUNCATED_FILTER_LENGTH } from '@app/searchV2/utils/constants';
-
-import { FacetFilterInput, FacetMetadata } from '@types';
+import { FacetFilterInput, FacetMetadata } from '../../types.generated';
+import { SearchFilterLabel } from './SearchFilterLabel';
+import { TRUNCATED_FILTER_LENGTH } from './utils/constants';
 
 const GRAPH_DEGREE_FILTER_FIELD = 'degree';
 

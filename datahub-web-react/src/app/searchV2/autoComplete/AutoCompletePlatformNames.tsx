@@ -1,8 +1,7 @@
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+import { ANTD_GRAY_V2 } from '../../entity/shared/constants';
 
 const PlatformText = styled(Typography.Text)`
     font-size: 12px;

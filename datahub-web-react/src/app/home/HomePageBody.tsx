@@ -1,8 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-
-import { useUserContext } from '@app/context/useUserContext';
-import { HomePageRecommendations } from '@app/home/HomePageRecommendations';
+import { useUserContext } from '../context/useUserContext';
+import { HomePageRecommendations } from './HomePageRecommendations';
 
 const BodyContainer = styled.div`
     padding: 20px 100px;

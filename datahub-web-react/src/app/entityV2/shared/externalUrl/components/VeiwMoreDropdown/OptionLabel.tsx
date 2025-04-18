@@ -1,6 +1,5 @@
 import React from 'react';
 import styled from 'styled-components';
-
 import { Popover, zIndices } from '@src/alchemy-components';
 import useMeasureIfTrancated from '@src/app/shared/useMeasureIfTruncated';
 

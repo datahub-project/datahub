@@ -1,12 +1,10 @@
-import { List } from 'antd';
 import React from 'react';
+import { List } from 'antd';
 import styled from 'styled-components';
-
-import { pluralize } from '@app/shared/textUtil';
 import { Button, colors } from '@src/alchemy-components';
 import analytics, { DocRequestCTASource, EventType } from '@src/app/analytics';
-
-import { FormType } from '@types';
+import { FormType } from '../../../types.generated';
+import { pluralize } from '../../shared/textUtil';
 
 const Title = styled.div`
     color: ${colors.gray[800]};

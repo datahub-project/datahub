@@ -1,12 +1,8 @@
+import { OperationType } from '@src/types.generated';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
-
-import ChangeTypeSummaryPill from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeTypeSummaryPill';
-import {
-    AnyOperationType,
-    OperationsData,
-} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/types';
-import { OperationType } from '@src/types.generated';
+import { AnyOperationType, OperationsData } from '../types';
+import ChangeTypeSummaryPill from './ChangeTypeSummaryPill';
 
 const Container = styled.div`
     display: flex;

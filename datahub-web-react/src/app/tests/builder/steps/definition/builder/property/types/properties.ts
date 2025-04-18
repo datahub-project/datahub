@@ -2,13 +2,9 @@
  * The file contains a set of well-supported properties,
  * which the UI deeply understands.
  */
-import {
-    OWNERSHIP_TYPE_REFERENCE_PLACEHOLDER_ID,
-    STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID,
-} from '@app/tests/builder/steps/definition/builder/property/constants';
-import { SelectInputMode, ValueTypeId } from '@app/tests/builder/steps/definition/builder/property/types/values';
-
-import { EntityType } from '@types';
+import { EntityType } from '../../../../../../../../types.generated';
+import { OWNERSHIP_TYPE_REFERENCE_PLACEHOLDER_ID, STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID } from '../constants';
+import { SelectInputMode, ValueTypeId } from './values';
 
 /**
  * A single well-supported property. Note that this is a "frontend"

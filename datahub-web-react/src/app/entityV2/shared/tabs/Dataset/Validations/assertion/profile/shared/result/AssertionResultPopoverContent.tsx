@@ -1,22 +1,27 @@
-import { ClockCircleOutlined } from '@ant-design/icons';
-import { Divider, Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import { PrimaryButton } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/details/PrimaryButton';
-import { isExternalAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/isExternalAssertion';
-import { toReadableLocalDateTimeString } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/utils';
-import { ProviderSummarySection } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/schedule/ProviderSummarySection';
-import { AssertionResultPill } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/AssertionResultPill';
+import styled from 'styled-components';
+import { Divider, Typography } from 'antd';
+import { ClockCircleOutlined } from '@ant-design/icons';
+
+import {
+    Assertion,
+    AssertionResultType,
+    AssertionRunEvent,
+    AssertionSourceType,
+} from '../../../../../../../../../../types.generated';
+import { AssertionResultPill } from '../../summary/shared/AssertionResultPill';
+import { PrimaryButton } from '../../../builder/details/PrimaryButton';
+import { isExternalAssertion } from '../isExternalAssertion';
+import { ProviderSummarySection } from '../../summary/schedule/ProviderSummarySection';
+import { ANTD_GRAY } from '../../../../../../../constants';
+import { toReadableLocalDateTimeString } from '../utils';
 import {
     ResultStatusType,
     getDetailedErrorMessage,
     getFormattedExpectedResultText,
     getFormattedReasonText,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultMessageUtils';
-
-import { Assertion, AssertionResultType, AssertionRunEvent, AssertionSourceType } from '@types';
+} from '../../summary/shared/resultMessageUtils';
 
 const HeaderRow = styled.div`
     display: flex;
@@ -141,8 +146,7 @@ export const AssertionResultPopoverContent = ({
                     <LastResultsRow>
                         {(timestamp && (
                             <>
-                                <StyledClockCircleOutlined /> Ran{' '}
-                                {toReadableLocalDateTimeString(run?.timestampMillis)}{' '}
+                                <StyledClockCircleOutlined /> Ran {toReadableLocalDateTimeString(run?.timestampMillis)}{' '}
                             </>
                         )) || <>No results yet</>}
                     </LastResultsRow>

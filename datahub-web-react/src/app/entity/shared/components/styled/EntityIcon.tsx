@@ -1,11 +1,9 @@
 import React from 'react';
-
-import { IconStyleType } from '@app/entity/Entity';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { PlatformIcon } from '@app/search/filters/utils';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { Entity } from '@types';
+import { useEntityRegistry } from '../../../../useEntityRegistry';
+import { PlatformIcon } from '../../../../search/filters/utils';
+import { Entity } from '../../../../../types.generated';
+import { IconStyleType } from '../../../Entity';
+import { ANTD_GRAY } from '../../constants';
 
 interface Props {
     entity: Entity;

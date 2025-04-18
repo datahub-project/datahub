@@ -1,6 +1,5 @@
 import { get } from 'lodash';
-
-import { FieldType, RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
+import { RecipeField, FieldType } from './common';
 
 export const VERTICA_HOST_PORT: RecipeField = {
     name: 'host_port',

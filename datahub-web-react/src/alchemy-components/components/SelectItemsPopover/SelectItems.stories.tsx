@@ -1,9 +1,10 @@
-import { MockedProvider } from '@apollo/client/testing';
-import { Meta, StoryObj } from '@storybook/react';
-import { Button } from 'antd';
 import React from 'react';
-
-import { SelectItemPopover, SelectItemPopoverProps } from '@components/components/SelectItemsPopover/SelectItemPopover';
+import { Meta, StoryObj } from '@storybook/react';
+import { Entity, EntityType, Tag as TagType } from '@src/types.generated';
+import { MockedProvider } from '@apollo/client/testing';
+import Tag from '@src/app/sharedV2/tags/tag/Tag';
+import { EntityRegistryContext } from '@src/entityRegistryContext';
+import { Button } from 'antd';
 import {
     defaultGlossaryTermEntities,
     defaultTagEntities,
@@ -12,11 +13,8 @@ import {
     mockTagEntityRegistry,
     mockTagSelectedEntities,
     tagMocks,
-} from '@components/components/SelectItemsPopover/__mock.data';
-
-import Tag from '@src/app/sharedV2/tags/tag/Tag';
-import { EntityRegistryContext } from '@src/entityRegistryContext';
-import { Entity, EntityType, Tag as TagType } from '@src/types.generated';
+} from './__mock.data';
+import { SelectItemPopoverProps, SelectItemPopover } from './SelectItemPopover';
 
 // Storybook meta configuration
 const meta: Meta<SelectItemPopoverProps> = {

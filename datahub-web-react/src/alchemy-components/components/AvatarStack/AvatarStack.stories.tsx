@@ -1,7 +1,6 @@
-import { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
-
-import { AvatarStack, avatarListDefaults } from '@components/components/AvatarStack/AvatarStack';
+import { Meta, StoryObj } from '@storybook/react';
+import { AvatarStack, avatarListDefaults } from './AvatarStack';
 
 // Meta Configuration
 const meta = {

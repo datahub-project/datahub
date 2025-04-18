@@ -1,7 +1,6 @@
 import React from 'react';
-
-import { ViewSelectFooter } from '@app/entity/view/select/ViewSelectFooter';
-import { ViewSelectHeader } from '@app/entity/view/select/ViewSelectHeader';
+import { ViewSelectFooter } from './ViewSelectFooter';
+import { ViewSelectHeader } from './ViewSelectHeader';
 
 type Props = {
     menu: React.ReactNode;

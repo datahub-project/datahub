@@ -1,22 +1,21 @@
-import { CopyOutlined } from '@ant-design/icons';
-import { Text, Tooltip } from '@components';
-import { Button, Typography } from 'antd';
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { CopyOutlined } from '@ant-design/icons';
+import { Button, Typography } from 'antd';
+import { Text, Tooltip } from '@components';
 import styled from 'styled-components';
-
+import CustomAvatar from '@src/app/shared/avatar/CustomAvatar';
+import { Link } from 'react-router-dom';
+import { CreatedByContainer } from '@src/app/govern/structuredProperties/styledComponents';
 import {
+    getExecutionRequestStatusDisplayColor,
+    getExecutionRequestStatusIcon,
+    getExecutionRequestStatusDisplayText,
     CLI_INGESTION_SOURCE,
+    SCHEDULED_INGESTION_SOURCE,
     MANUAL_INGESTION_SOURCE,
     RUNNING,
-    SCHEDULED_INGESTION_SOURCE,
     SUCCESS,
-    getExecutionRequestStatusDisplayColor,
-    getExecutionRequestStatusDisplayText,
-    getExecutionRequestStatusIcon,
-} from '@app/ingest/source/utils';
-import { CreatedByContainer } from '@src/app/govern/structuredProperties/styledComponents';
-import CustomAvatar from '@src/app/shared/avatar/CustomAvatar';
+} from '../utils';
 
 type Actor = {
     actorUrn: string;

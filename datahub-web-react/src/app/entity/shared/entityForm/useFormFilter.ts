@@ -1,8 +1,7 @@
 import { useState } from 'react';
-
-import { useUserContext } from '@app/context/useUserContext';
-import { FormResponsesFilter, FormView } from '@app/entity/shared/entityForm/EntityFormContext';
-import { generateFormCompletionFilter, generateFormResponsesFilters } from '@app/entity/shared/entityForm/utils';
+import { FormResponsesFilter, FormView } from './EntityFormContext';
+import { generateFormCompletionFilter, generateFormResponsesFilters } from './utils';
+import { useUserContext } from '../../../context/useUserContext';
 
 interface Props {
     formUrn: string;

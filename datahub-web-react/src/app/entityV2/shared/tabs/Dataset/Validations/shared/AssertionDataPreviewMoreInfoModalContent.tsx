@@ -1,6 +1,5 @@
 import { Text } from '@components';
 import React from 'react';
-
 import analytics, { EventType } from '@src/app/analytics';
 
 const VIEW_DOCUMENTATION_LINK = 'https://datahubproject.io/integrations/';

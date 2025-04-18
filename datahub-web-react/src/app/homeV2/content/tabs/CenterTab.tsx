@@ -1,9 +1,8 @@
-import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components/macro';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { CountBadge } from '@app/homeV2/content/tabs/CountBadge';
+import { Tooltip } from '@components';
+import { ANTD_GRAY } from '../../../entity/shared/constants';
+import { CountBadge } from './CountBadge';
 
 const Tab = styled.div<{ selected: boolean; disabled: boolean }>`
     font-size: 14px;

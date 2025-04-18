@@ -1,9 +1,8 @@
-import { Typography } from 'antd';
 import React from 'react';
+import { Typography } from 'antd';
 import styled from 'styled-components';
-
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { ActionType } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
+import { ActionType } from './utils';
+import { REDESIGN_COLORS } from '../../../../constants';
 
 const HeaderText = styled(Typography.Text)`
     color: ${REDESIGN_COLORS.LIGHT_TEXT_DARK_BACKGROUND};

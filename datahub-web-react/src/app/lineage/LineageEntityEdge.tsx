@@ -1,15 +1,14 @@
-import { ClockCircleOutlined, EyeOutlined } from '@ant-design/icons';
+import React from 'react';
 import { Tooltip } from '@components';
-import { curveBasis } from '@visx/curve';
-import { Group } from '@visx/group';
-import { LinePath } from '@visx/shape';
+import { ClockCircleOutlined, EyeOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import LocalizedFormat from 'dayjs/plugin/localizedFormat';
-import React from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { VizEdge } from '@app/lineage/types';
+import { Group } from '@visx/group';
+import { curveBasis } from '@visx/curve';
+import { LinePath } from '@visx/shape';
+import { VizEdge } from './types';
+import { ANTD_GRAY } from '../entity/shared/constants';
 
 dayjs.extend(LocalizedFormat);
 

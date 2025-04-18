@@ -1,22 +1,16 @@
-import {
-    ApiOutlined,
-    CheckOutlined,
-    ClockCircleOutlined,
-    CloseOutlined,
-    CodeOutlined,
-    ConsoleSqlOutlined,
-    ExclamationCircleOutlined,
-    ProjectOutlined,
-    TableOutlined,
-} from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
-
-import { sortAssertions } from '@app/entity/shared/tabs/Dataset/Validations/assertionUtils';
-import { AssertionGroup, AssertionStatusSummary } from '@app/entity/shared/tabs/Dataset/Validations/types';
-import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
-import { parseMaybeStringAsFloatOrDefault } from '@app/shared/numberUtil';
-
+import {
+    ClockCircleOutlined,
+    TableOutlined,
+    ProjectOutlined,
+    ConsoleSqlOutlined,
+    CheckOutlined,
+    CloseOutlined,
+    ApiOutlined,
+    CodeOutlined,
+    ExclamationCircleOutlined,
+} from '@ant-design/icons';
 import {
     Assertion,
     AssertionResultType,
@@ -27,7 +21,11 @@ import {
     EntityType,
     VolumeAssertionInfo,
     VolumeAssertionType,
-} from '@types';
+} from '../../../../../../types.generated';
+import { sortAssertions } from './assertionUtils';
+import { AssertionGroup, AssertionStatusSummary } from './types';
+import { formatNumberWithoutAbbreviation } from '../../../../../shared/formatNumber';
+import { parseMaybeStringAsFloatOrDefault } from '../../../../../shared/numberUtil';
 
 export const SUCCESS_COLOR_HEX = '#52C41A';
 export const FAILURE_COLOR_HEX = '#F5222D';

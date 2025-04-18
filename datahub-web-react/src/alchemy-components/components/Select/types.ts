@@ -1,6 +1,5 @@
 import React from 'react';
-
-import { IconNames } from '@components/components/Icon';
+import { IconNames } from '../Icon';
 
 export type SelectSizeOptions = 'sm' | 'md' | 'lg';
 export interface SelectOption {

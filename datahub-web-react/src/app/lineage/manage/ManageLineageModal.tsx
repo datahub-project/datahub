@@ -1,18 +1,16 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { Button, Modal, message } from 'antd';
+import { Button, message, Modal } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-
-import AddEntityEdge from '@app/lineage/manage/AddEntityEdge';
-import LineageEdges from '@app/lineage/manage/LineageEdges';
-import LineageEntityView from '@app/lineage/manage/LineageEntityView';
-import { Direction, UpdatedLineages } from '@app/lineage/types';
-import { buildUpdateLineagePayload, recordAnalyticsEvents } from '@app/lineage/utils/manageLineageUtils';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { useGetEntityLineageQuery } from '@graphql/lineage.generated';
-import { useUpdateLineageMutation } from '@graphql/mutations.generated';
-import { Entity, EntityType } from '@types';
+import { useGetEntityLineageQuery } from '../../../graphql/lineage.generated';
+import { Direction, UpdatedLineages } from '../types';
+import AddEntityEdge from './AddEntityEdge';
+import LineageEntityView from './LineageEntityView';
+import LineageEdges from './LineageEdges';
+import { Entity, EntityType } from '../../../types.generated';
+import { useUpdateLineageMutation } from '../../../graphql/mutations.generated';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { buildUpdateLineagePayload, recordAnalyticsEvents } from '../utils/manageLineageUtils';
 
 const ModalFooter = styled.div`
     display: flex;

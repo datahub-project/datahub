@@ -1,6 +1,5 @@
-import EntityRegistry from '@app/entity/EntityRegistry';
-
-import { EntityType } from '@types';
+import { EntityType } from '../../../../../types.generated';
+import EntityRegistry from '../../../../entity/EntityRegistry';
 
 /**
  * Converts a list of EntityType into their corresponding Metadata Graph names.

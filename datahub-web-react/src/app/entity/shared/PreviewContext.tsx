@@ -1,6 +1,5 @@
 import React from 'react';
-
-import { GenericEntityProperties } from '@app/entity/shared/types';
+import { GenericEntityProperties } from './types';
 
 const PreviewContext = React.createContext<GenericEntityProperties | null>(null);
 export default PreviewContext;

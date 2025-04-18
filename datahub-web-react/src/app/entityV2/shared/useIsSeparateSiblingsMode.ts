@@ -1,10 +1,9 @@
 import * as QueryString from 'query-string';
 import { useContext } from 'react';
 import { useLocation } from 'react-router-dom';
-
-import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { useIsShowSeparateSiblingsEnabled } from '@src/app/useAppConfig';
+import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import EntitySidebarContext from '../../sharedV2/EntitySidebarContext';
 
 // used to determine whether sibling entities should be shown merged or not
 export const SEPARATE_SIBLINGS_URL_PARAM = 'separate_siblings';

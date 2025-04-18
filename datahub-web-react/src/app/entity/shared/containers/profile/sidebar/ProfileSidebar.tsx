@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-
-import { EntitySidebar } from '@app/entity/shared/containers/profile/sidebar/EntitySidebar';
-import { ProfileSidebarResizer } from '@app/entity/shared/containers/profile/sidebar/ProfileSidebarResizer';
-import { EntitySidebarSection } from '@app/entity/shared/types';
+import { ProfileSidebarResizer } from './ProfileSidebarResizer';
+import { EntitySidebar } from './EntitySidebar';
+import { EntitySidebarSection } from '../../../types';
 
 export const MAX_SIDEBAR_WIDTH = 800;
 export const MIN_SIDEBAR_WIDTH = 200;

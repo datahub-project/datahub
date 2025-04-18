@@ -1,8 +1,7 @@
-import React from 'react';
-
-import QueryBuilder from '@app/govern/Dashboard/Forms/filters/QueryBuilder';
 import { Property } from '@src/app/tests/builder/steps/definition/builder/property/types/properties';
 import { LogicalPredicate, PropertyPredicate } from '@src/app/tests/builder/steps/definition/builder/types';
+import React from 'react';
+import QueryBuilder from './QueryBuilder';
 
 interface Props {
     filters: LogicalPredicate | PropertyPredicate;

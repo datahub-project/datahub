@@ -1,8 +1,7 @@
 import * as QueryString from 'query-string';
 import { useHistory, useLocation } from 'react-router';
-
-import { INGESTION_TAB_QUERY_PARAMS } from '@app/ingest/constants';
-import { TabType } from '@app/ingest/types';
+import { INGESTION_TAB_QUERY_PARAMS } from '../constants';
+import { TabType } from '../types';
 
 export const usePoolActionsForIngestionSourceList = (params, onSwitchTab: (tab: string) => void) => {
     const history = useHistory();

@@ -1,11 +1,10 @@
-import { Form } from 'antd';
-import React, { useContext } from 'react';
-
-import ManageFormContext from '@app/govern/Dashboard/Forms/ManageFormContext';
-import { FieldLabel, FormFieldsContainer } from '@app/govern/Dashboard/Forms/styledComponents';
-import { useFormHandlers } from '@app/govern/Dashboard/Forms/useFormHandlers';
 import { Input, SimpleSelect, TextArea } from '@src/alchemy-components';
 import { FormState, FormType } from '@src/types.generated';
+import { Form } from 'antd';
+import React, { useContext } from 'react';
+import ManageFormContext from './ManageFormContext';
+import { FieldLabel, FormFieldsContainer } from './styledComponents';
+import { useFormHandlers } from './useFormHandlers';
 
 const DetailsForm = () => {
     const { form, formValues } = useContext(ManageFormContext);

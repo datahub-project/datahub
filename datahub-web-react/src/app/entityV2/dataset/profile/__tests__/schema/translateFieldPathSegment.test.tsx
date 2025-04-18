@@ -1,4 +1,4 @@
-import translateFieldPathSegment from '@app/entityV2/dataset/profile/schema/utils/translateFieldPathSegment';
+import translateFieldPathSegment from '../../schema/utils/translateFieldPathSegment';
 
 describe('translateFieldPathSegment', () => {
     it('translates unions', () => {

@@ -1,16 +1,14 @@
-import { List, Pagination } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-
-import { PreviewType } from '@app/entityV2/Entity';
-import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
-import { CompactUserSubscriptions } from '@app/entityV2/user/CompactUserSubscriptions';
-import { scrollToTop } from '@app/shared/searchUtils';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-import colors from '@src/alchemy-components/theme/foundations/colors';
+import { List, Pagination } from 'antd';
 import { ANTD_GRAY_V2 } from '@src/app/entity/shared/constants';
-
-import { useListSubscriptionsQuery } from '@graphql/subscriptions.generated';
+import colors from '@src/alchemy-components/theme/foundations/colors';
+import { useListSubscriptionsQuery } from '../../../graphql/subscriptions.generated';
+import { scrollToTop } from '../../shared/searchUtils';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { PreviewType } from '../Entity';
+import { CompactUserSubscriptions } from './CompactUserSubscriptions';
+import { SidebarSection } from '../shared/containers/profile/sidebar/SidebarSection';
 
 const UserSubscriptionsWrapper = styled.div`
     height: 100%;

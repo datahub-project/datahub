@@ -1,32 +1,22 @@
 import React from 'react';
-
-import { IconStyleType } from '@app/entity/Entity';
-import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
 import {
-    Container,
-    DataProcessRunEvent,
     DataProduct,
     Deprecation,
     Domain,
+    Entity as GeneratedEntity,
     EntityPath,
     EntityType,
-    Entity as GeneratedEntity,
     GlobalTags,
     Health,
     Owner,
-    ParentContainersResult,
-<<<<<<< HEAD
     SearchInsight,
-} from '@types';
-=======
+    Container,
+    ParentContainersResult,
     DataProcessRunEvent,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType } from '../../Entity';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 export const Preview = ({
     urn,

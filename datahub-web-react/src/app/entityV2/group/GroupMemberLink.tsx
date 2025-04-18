@@ -1,13 +1,11 @@
-import { Tooltip } from '@components';
-import { Tag } from 'antd';
 import React from 'react';
+import { Tag } from 'antd';
+import { Tooltip } from '@components';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-
-import EntityRegistry from '@app/entity/EntityRegistry';
-import { CustomAvatar } from '@app/shared/avatar';
-
-import { CorpUser, EntityType } from '@types';
+import { CustomAvatar } from '../../shared/avatar';
+import { CorpUser, EntityType } from '../../../types.generated';
+import EntityRegistry from '../../entity/EntityRegistry';
 
 const MemberTag = styled(Tag)`
     padding: 2px;

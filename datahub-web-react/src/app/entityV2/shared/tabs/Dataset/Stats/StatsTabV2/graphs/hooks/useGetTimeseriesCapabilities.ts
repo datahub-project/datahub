@@ -1,6 +1,5 @@
-import { useEffect } from 'react';
-
 import { useGetDatasetTimeseriesCapabilityLazyQuery } from '@src/graphql/dataset.generated';
+import { useEffect } from 'react';
 
 export default function useGetTimeseriesCapabilities(urn?: string) {
     const [getDatasetTimeseriesCapability, { data, loading }] = useGetDatasetTimeseriesCapabilityLazyQuery({

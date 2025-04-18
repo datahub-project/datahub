@@ -1,8 +1,7 @@
+import React from 'react';
 import { PlusOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
-import React from 'react';
-
-import { EmptyTab } from '@app/entity/shared/components/styled/EmptyTab';
+import { EmptyTab } from '../../../components/styled/EmptyTab';
 
 export type Props = {
     message?: string;

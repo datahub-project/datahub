@@ -1,16 +1,14 @@
 import { Tooltip } from '@components';
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
-
-import { ViewBuilder } from '@app/entity/view/builder/ViewBuilder';
-import { ViewBuilderMode } from '@app/entity/view/builder/types';
-import { buildInitialViewState, fromUnionType } from '@app/entity/view/builder/utils';
-import { TextButton } from '@app/search/filters/styledComponents';
-import { canCreateViewFromFilters } from '@app/search/filters/utils';
-import { UnionType } from '@app/search/utils/constants';
-import { Message } from '@app/shared/Message';
-
-import { FacetFilterInput } from '@types';
+import { ViewBuilderMode } from '../../entity/view/builder/types';
+import { ViewBuilder } from '../../entity/view/builder/ViewBuilder';
+import { buildInitialViewState, fromUnionType } from '../../entity/view/builder/utils';
+import { FacetFilterInput } from '../../../types.generated';
+import { UnionType } from '../utils/constants';
+import { TextButton } from './styledComponents';
+import { Message } from '../../shared/Message';
+import { canCreateViewFromFilters } from './utils';
 
 const ToolTipHeader = styled.div`
     margin-bottom: 12px;

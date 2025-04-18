@@ -1,10 +1,8 @@
 import React from 'react';
-
-import EntityRegistry from '@app/entity/EntityRegistry';
-import CustomAvatar from '@app/shared/avatar/CustomAvatar';
-import { SpacedAvatarGroup } from '@app/shared/avatar/SpaceAvatarGroup';
-
-import { EntityType, Owner } from '@types';
+import { EntityType, Owner } from '../../../types.generated';
+import CustomAvatar from './CustomAvatar';
+import EntityRegistry from '../../entity/EntityRegistry';
+import { SpacedAvatarGroup } from './SpaceAvatarGroup';
 
 type Props = {
     owners?: Array<Owner> | null;

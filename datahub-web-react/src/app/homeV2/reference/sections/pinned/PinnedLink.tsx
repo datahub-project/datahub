@@ -1,14 +1,12 @@
-import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { PinnedLinkLogo } from '@app/homeV2/reference/sections/pinned/PinnedLinkLogo';
 import { colors } from '@src/alchemy-components';
 import { SEARCH_COLORS } from '@src/app/entityV2/shared/constants';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-
-import { PostContent } from '@types';
+import { Tooltip } from '@components';
+import { PostContent } from '../../../../../types.generated';
+import { PinnedLinkLogo } from './PinnedLinkLogo';
+import { ANTD_GRAY } from '../../../../entity/shared/constants';
 
 const LinkButton = styled.a<{ $isShowNavBarRedesign?: boolean }>`
     padding: 16px;

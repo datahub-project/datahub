@@ -1,9 +1,8 @@
-import { Select, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { TEST_CATEGORIES, TestCategory } from '@app/tests/constants';
-import { isSupportedCategory } from '@app/tests/utils';
+import { Select, Typography } from 'antd';
+import { isSupportedCategory } from '../../../utils';
+import { TestCategory, TEST_CATEGORIES } from '../../../constants';
 
 const OptionDescription = styled(Typography.Paragraph)`
     && {

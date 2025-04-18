@@ -1,12 +1,10 @@
-import { Drawer, Modal, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { AssertionMonitorBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/AssertionMonitorBuilder';
-import { AssertionMonitorBuilderState } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/types';
-import ClickOutside from '@app/shared/ClickOutside';
-
-import { Assertion, EntityType } from '@types';
+import { Drawer, Modal, Typography } from 'antd';
+import { AssertionMonitorBuilder } from './AssertionMonitorBuilder';
+import { AssertionMonitorBuilderState } from './types';
+import { EntityType, Assertion } from '../../../../../../../../types.generated';
+import ClickOutside from '../../../../../../../shared/ClickOutside';
 
 const modalStyle = {};
 const modalBodyStyle = { paddingRight: 48, paddingLeft: 48, paddingBottom: 20 };

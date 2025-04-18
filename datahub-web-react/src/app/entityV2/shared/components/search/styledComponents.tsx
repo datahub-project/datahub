@@ -1,7 +1,6 @@
 import styled from 'styled-components';
-
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { Input } from '@src/alchemy-components';
+import { REDESIGN_COLORS } from '../../constants';
 
 export const StyledInput = styled(Input)`
     width: auto;

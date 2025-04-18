@@ -1,23 +1,24 @@
-import { Modal } from 'antd';
+import { AutomationTemplate } from '@app/automations/types';
 import React, { useState } from 'react';
 
-import { useAutomationContext } from '@app/automations/Automations/AutomationProvider';
-import {
-    AutomationLogo,
-    AutomationsDescription,
-    AutomationsModalHeader,
-    PremadeAutomationCard,
-    PremadeAutomations,
-} from '@app/automations/Automations/components';
-import { useIsFormDisabled } from '@app/automations/Automations/hooks';
-import { Configure } from '@app/automations/fields/configure';
-import { templates } from '@app/automations/recipes';
-import { AutomationTemplate } from '@app/automations/types';
-import { getYaml } from '@app/automations/utils';
-import { YamlEditor } from '@app/ingest/source/builder/YamlEditor';
-import { Button } from '@src/alchemy-components';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import { Modal } from 'antd';
 import { useAppConfig } from '@src/app/useAppConfig';
+import { YamlEditor } from '@app/ingest/source/builder/YamlEditor';
+import { getYaml } from '@app/automations/utils';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import { Button } from '@src/alchemy-components';
+import { Configure } from '../fields/configure';
+import { templates } from '../recipes';
+import { useAutomationContext } from './AutomationProvider';
+import {
+    PremadeAutomations,
+    PremadeAutomationCard,
+    AutomationsModalHeader,
+    AutomationsDescription,
+    AutomationLogo,
+} from './components';
+
+import { useIsFormDisabled } from './hooks';
 
 const SelectAutomationType = ({ setAutomation }: any) => {
     const { config } = useAppConfig();

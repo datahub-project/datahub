@@ -1,7 +1,6 @@
 import { useUserContext } from '@src/app/context/useUserContext';
 import { useGetDataProductsListQuery } from '@src/graphql/dataProduct.generated';
-
-import { DataProduct, Domain, EntityType } from '@types';
+import { DataProduct, Domain, EntityType } from '../../../../../../../types.generated';
 
 const FETCH_COUNT = 100;
 const sortDataProducts = (a, b) => {

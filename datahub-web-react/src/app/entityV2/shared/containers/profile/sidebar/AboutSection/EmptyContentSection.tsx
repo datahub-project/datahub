@@ -1,10 +1,9 @@
-import { PlusOutlined } from '@ant-design/icons';
-import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { useRouteToTab } from '@app/entity/shared/EntityContext';
-import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
+import { Typography } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
+import { useRouteToTab } from '../../../../../../entity/shared/EntityContext';
+import { EMPTY_MESSAGES } from '../../../../constants';
 
 const EmptyContentWrapper = styled.div`
     font-size: 12px;

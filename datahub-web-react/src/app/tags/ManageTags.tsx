@@ -1,19 +1,3 @@
-<<<<<<< HEAD
-import { Button, PageTitle, Pagination, SearchBar, Tooltip2 } from '@components';
-import React, { useEffect, useMemo, useState } from 'react';
-import styled from 'styled-components';
-
-import { useUserContext } from '@app/context/useUserContext';
-import { PageContainer } from '@app/govern/structuredProperties/styledComponents';
-import CreateNewTagModal from '@app/tags/CreateNewTagModal/CreateNewTagModal';
-import EmptyTags from '@app/tags/EmptyTags';
-import TagsTable from '@app/tags/TagsTable';
-import { Message } from '@src/app/shared/Message';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
-import { EntityType } from '@src/types.generated';
-=======
 import React, { useState, useEffect, useMemo } from 'react';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { SearchBar, PageTitle, Pagination, Button, Tooltip2 } from '@components';
@@ -27,7 +11,6 @@ import EmptyTags from './EmptyTags';
 import TagsTable from './TagsTable';
 import CreateNewTagModal from './CreateNewTagModal/CreateNewTagModal';
 import { useUserContext } from '../context/useUserContext';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const HeaderContainer = styled.div`
     display: flex;

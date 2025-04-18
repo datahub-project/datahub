@@ -1,14 +1,14 @@
-import { Tooltip } from '@components';
 import React from 'react';
-import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import { getFormattedExpectedResultText } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultMessageUtils';
-import { applyOpacityToHexColor } from '@app/shared/styleUtils';
-import { toRelativeTimeString } from '@app/shared/time/timeUtils';
+import styled from 'styled-components';
+import { Tooltip } from '@components';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 
-import { EmbeddedAssertion } from '@types';
+import { EmbeddedAssertion } from '../../../../../../../../../../../types.generated';
+import { ANTD_GRAY } from '../../../../../../../../constants';
+import { toRelativeTimeString } from '../../../../../../../../../../shared/time/timeUtils';
+import { getFormattedExpectedResultText } from '../../shared/resultMessageUtils';
+import { applyOpacityToHexColor } from '../../../../../../../../../../shared/styleUtils';
 
 const Container = styled.div<{ highlightColor?: string }>`
     display: flex;

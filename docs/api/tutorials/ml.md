@@ -5,17 +5,16 @@ import TabItem from '@theme/TabItem';
 
 ## Why Integrate Your AI/ML System with DataHub?
 
-As a data practitioner, keeping track of your AI experiments, models, and their relationships can be challenging.
+As a data practitioner, keeping track of your AI experiments, models, and their relationships can be challenging. 
 DataHub makes this easier by providing a central place to organize and track your AI assets.
 
-This guide will show you how to integrate your AI workflows with DataHub.
+This guide will show you how to integrate your AI workflows with DataHub. 
 With integrations for popular ML platforms like MLflow and Amazon SageMaker, DataHub enables you to easily find and share AI models across your organization, track how models evolve over time, and understand how training data connects to each model.
 Most importantly, it enables seamless collaboration on AI projects by making everything discoverable and connected.
 
 ## Goals Of This Guide
 
 In this guide, you'll learn how to:
-
 - Create your basic AI components (models, experiments, runs)
 - Connect these components to build a complete AI system
 - Track relationships between models, data, and experiments
@@ -34,24 +33,22 @@ Here's what you need to know about the key components in DataHub:
 </p>
 
 The hierarchy works like this:
-
 1. Every run belongs to an experiment
 2. Successful runs can be registered as models
 3. Models belong to a model group
 4. Not every run becomes a model
 
 :::note Terminology Mapping
-Different AI platforms (MLflow, Amazon SageMaker) have their own terminology.
+Different AI platforms (MLflow, Amazon SageMaker) have their own terminology. 
 To keep things consistent, we'll use DataHub's terms throughout this guide.
 Here's how DataHub's terminology maps to these platforms:
 
-| DataHub         | Description                         | MLflow        | SageMaker     |
-| --------------- | ----------------------------------- | ------------- | ------------- |
-| ML Model Group  | Collection of related models        | Model         | Model Group   |
-| ML Model        | Versioned artifact in a model group | Model Version | Model Version |
-| ML Training Run | Single training attempt             | Run           | Training Job  |
-| ML Experiment   | Collection of training runs         | Experiment    | Experiment    |
-
+| DataHub | Description                         | MLflow | SageMaker |
+|---------|-------------------------------------|---------|-----------|
+| ML Model Group | Collection of related models        | Model | Model Group |
+| ML Model | Versioned artifact in a model group | Model Version | Model Version |
+| ML Training Run | Single training attempt             | Run | Training Job |
+| ML Experiment | Collection of training runs         | Experiment | Experiment |
 :::
 
 For platform-specific details, see our integration guides for [MLflow](/docs/generated/ingestion/sources/mlflow.md) and [Amazon SageMaker](/docs/generated/ingestion/sources/sagemaker.md).
@@ -139,7 +136,7 @@ Query your model group to check its properties:
 ```graphql
 query {
   mlModelGroup(
-    urn: "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,airline_forecast_models_group,PROD)"
+    urn:"urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,airline_forecast_models_group,PROD)"
   ) {
     properties {
       name
@@ -236,13 +233,9 @@ Query your model's information:
 
 ```graphql
 query {
-<<<<<<< HEAD
-  mlModel(urn: "urn:li:mlModel:(urn:li:dataPlatform:mlflow,arima_model,PROD)") {
-=======
   mlModel(
     urn:"urn:li:mlModel:(urn:li:dataPlatform:mlflow,arima_model,PROD)"
   ) {
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
     properties {
       name
       description
@@ -340,13 +333,9 @@ Query your experiment's information:
 
 ```graphql
 query {
-<<<<<<< HEAD
-  container(urn: "urn:li:container:airline_forecast_experiment") {
-=======
   container(
     urn:"urn:li:container:airline_forecast_experiment"
   ) {
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
     properties {
       name
       description
@@ -434,13 +423,9 @@ Query your training run:
 
 ```graphql
 query {
-<<<<<<< HEAD
-  dataProcessInstance(urn: "urn:li:dataProcessInstance:simple_training_run") {
-=======
   dataProcessInstance(
     urn:"urn:li:dataProcessInstance:simple_training_run"
   ) {
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
     name
     created {
       time
@@ -490,14 +475,8 @@ input_dataset = Dataset(
 )
 client._emit_mcps(input_dataset.as_mcps())
 ```
-<<<<<<< HEAD
-
-</TabItem> 
-<TabItem value="advanced" label="Advanced">
-=======
 </TabItem> 
 <TabItem value="advanced" label="Advanced"> 
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 Create a dataset with more detailed information:
 
@@ -543,16 +522,6 @@ client._emit_mcps(output_dataset.as_mcps())
 Verify your datasets:
 
 <Tabs> 
-<<<<<<< HEAD
-<TabItem value="UI" label="UI"> View dataset details in the DataHub UI:
-
-<p align="center"> 
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/dataset.png"/> 
-</p>
-
-</TabItem> 
-<TabItem value="graphql" label="GraphQL">
-=======
 <TabItem value="UI" label="UI"> View dataset details in the DataHub UI: 
 
 <p align="center"> 
@@ -561,18 +530,13 @@ Verify your datasets:
 
 </TabItem> 
 <TabItem value="graphql" label="GraphQL"> 
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 Query your dataset's information:
 
 ```graphql
 query {
   dataset(
-<<<<<<< HEAD
-    urn: "urn:li:dataset:(urn:li:dataPlatform:snowflake,iris_input,PROD)"
-=======
     urn:"urn:li:dataset:(urn:li:dataPlatform:snowflake,iris_input,PROD)"
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
   ) {
     name
     properties {
@@ -581,10 +545,6 @@ query {
   }
 }
 ```
-<<<<<<< HEAD
-
-=======
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 Check the response:
 
 ```graphql
@@ -603,10 +563,6 @@ Check the response:
   }
 }
 ```
-<<<<<<< HEAD
-
-=======
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 </TabItem> 
 </Tabs>
 
@@ -636,7 +592,6 @@ View model versions in the **Model Group** under the **Models** section:
 </p>
 
 Find group information in the **Model** page under the **Group** tab:
-
 <p align="center">
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/model-with-model-group.png"/>
 </p>
@@ -647,7 +602,9 @@ Query the model-group relationship:
 
 ```graphql
 query {
-  mlModel(urn: "urn:li:mlModel:(urn:li:dataPlatform:mlflow,arima_model,PROD)") {
+  mlModel(
+    urn:"urn:li:mlModel:(urn:li:dataPlatform:mlflow,arima_model,PROD)"
+  ) {
     name
     properties {
       groups {
@@ -704,7 +661,6 @@ Find your runs in the **Experiment** page under the **Entities** tab:
 </p>
 
 See the experiment details in the **Run** page:
-
 <p align="center">
   <img width="40%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/run-with-experiment.png"/>
 </p>
@@ -715,7 +671,9 @@ Query the run-experiment relationship:
 
 ```graphql
 query {
-  dataProcessInstance(urn: "urn:li:dataProcessInstance:simple_training_run") {
+  dataProcessInstance(
+    urn:"urn:li:dataProcessInstance:simple_training_run"
+  ) {
     name
     parentContainers {
       containers {
@@ -765,7 +723,6 @@ client._emit_mcps(model.as_mcps())
 ```
 
 This relationship enables you to:
-
 - Track which runs produced each model
 - Understand model provenance
 - Debug model issues
@@ -796,7 +753,9 @@ Query the model's training jobs:
 
 ```graphql
 query {
-  mlModel(urn: "urn:li:mlModel:(urn:li:dataPlatform:mlflow,arima_model,PROD)") {
+  mlModel(
+    urn:"urn:li:mlModel:(urn:li:dataPlatform:mlflow,arima_model,PROD)"
+  ) {
     name
     properties {
       mlModelLineageInfo {
@@ -816,13 +775,9 @@ View the relationship:
       "name": "ARIMA Model",
       "properties": {
         "mlModelLineageInfo": {
-<<<<<<< HEAD
-          "trainingJobs": ["urn:li:dataProcessInstance:simple_training_run"]
-=======
           "trainingJobs": [
             "urn:li:dataProcessInstance:simple_training_run"
           ]
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
         }
       }
     }
@@ -844,7 +799,6 @@ client._emit_mcps(model_group.as_mcps())
 ```
 
 This connection lets you:
-
 - View model groups in the run's lineage
 - Query training jobs at the group level
 - Track training history for model families
@@ -868,11 +822,7 @@ Query the model group's training jobs:
 ```graphql
 query {
   mlModelGroup(
-<<<<<<< HEAD
-    urn: "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,airline_forecast_models_group)"
-=======
     urn:"urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,airline_forecast_models_group)"
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
   ) {
     name
     properties {
@@ -893,13 +843,9 @@ Check the relationship:
       "name": "Airline Forecast Models Group",
       "properties": {
         "mlModelLineageInfo": {
-<<<<<<< HEAD
-          "trainingJobs": ["urn:li:dataProcessInstance:simple_training_run"]
-=======
           "trainingJobs": [
             "urn:li:dataProcessInstance:simple_training_run"
           ]
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
         }
       }
     }
@@ -916,33 +862,28 @@ Track input and output datasets for your training runs:
 
 ```python
 client.add_input_datasets_to_run(
-    run_urn=run_urn,
+    run_urn=run_urn, 
     dataset_urns=[str(input_dataset_urn)]
 )
 
 client.add_output_datasets_to_run(
-    run_urn=run_urn,
+    run_urn=run_urn, 
     dataset_urns=[str(output_dataset_urn)]
 )
 ```
 
 These connections help you:
-
 - Track data lineage
 - Understand data dependencies
 - Ensure reproducibility
 - Monitor data quality impacts
 
 Find dataset relationships in the **Lineage** tab of either the **Dataset** or **Run** page:
-
 <p align="center">
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/run-lineage-dataset-graph.png"/>
 </p>
 
-<<<<<<< HEAD
-=======
 
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 ## Update Properties
 
 ### Update Model Group Properties
@@ -969,18 +910,11 @@ client._emit_mcps(model_group.as_mcps())
 ```
 
 These updates allow you to:
-<<<<<<< HEAD
-
-=======
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 - Improve documentation with detailed descriptions
 - Apply consistent business context with tags and terms
 - Track organizational ownership and status
 
-<<<<<<< HEAD
-=======
 
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 ### Update Model Properties
 
 Models can be updated with additional information as they evolve:
@@ -1001,10 +935,6 @@ client._emit_mcps(model.as_mcps())
 ```
 
 These updates allow you to:
-<<<<<<< HEAD
-
-=======
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 - Track model iterations through versioning
 - Apply business context with tags and terms
 - Manage deployment aliases like "champion" and "challenger"
@@ -1037,10 +967,6 @@ client._emit_mcps(existing_experiment.as_mcps())
 ```
 
 These updates help you:
-<<<<<<< HEAD
-
-=======
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 - Document evolving experiment objectives
 - Categorize experiments with consistent tags
 - Track experiment status and priority
@@ -1056,11 +982,9 @@ Here's your complete ML system with all components connected:
 You now have a complete lineage view of your ML assets, from training data through runs to production models!
 
 You can check out the full code for this tutorial [here](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/ai/dh_ai_client_sample.py).
-
 ## What's Next?
 
 To see these integrations in action:
-
 - Watch our [Townhall demo](https://youtu.be/_WUoVqkF2Zo?feature=shared&t=1932) showcasing the MLflow integration
 - Explore our detailed documentation:
   - [MLflow Integration Guide](/docs/generated/ingestion/sources/mlflow.md)

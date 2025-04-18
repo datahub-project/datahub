@@ -1,26 +1,21 @@
-import { Form, Select, Typography } from 'antd';
 import React, { useEffect } from 'react';
+import { Form, Select, Typography } from 'antd';
 import styled from 'styled-components';
-
-import {
-    AI_INFERRED_ASSERTION_DEFAULT_SCHEDULE_CRON,
-    AI_INFERRED_ASSERTION_DEFAULT_SCHEDULE_TIMEZONE,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/constants';
-import { RangeInput } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/inputs/RangeInput';
-import { SetInput } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/inputs/SetInput';
-import { ValueInput } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/inputs/ValueInput';
-import {
-    getFieldMetricOperatorOptions,
-    getSelectedFieldMetricOperatorOption,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/utils';
+import { useAppConfig } from '@src/app/useAppConfig';
 import {
     AssertionMonitorBuilderState,
     FieldMetricAssertionBuilderOperator,
     FieldMetricAssertionBuilderOperatorOptions,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
-import { useAppConfig } from '@src/app/useAppConfig';
-
-import { AssertionStdOperator } from '@types';
+} from '../../types';
+import { getFieldMetricOperatorOptions, getSelectedFieldMetricOperatorOption } from './utils';
+import { AssertionStdOperator } from '../../../../../../../../../../types.generated';
+import { RangeInput } from './inputs/RangeInput';
+import { ValueInput } from './inputs/ValueInput';
+import { SetInput } from './inputs/SetInput';
+import {
+    AI_INFERRED_ASSERTION_DEFAULT_SCHEDULE_CRON,
+    AI_INFERRED_ASSERTION_DEFAULT_SCHEDULE_TIMEZONE,
+} from '../../constants';
 
 const Section = styled.div`
     margin: 16px 0;

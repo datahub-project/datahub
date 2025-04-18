@@ -1,12 +1,13 @@
-import { BADGE } from '@geometricpanda/storybook-addon-badges';
-import type { Meta, StoryObj } from '@storybook/react';
+import { PillProps } from '@components/components/Pills/types';
+import { ColorValues, getSizeName, PillVariantValues, SizeValues } from '@components/theme/config';
 import React from 'react';
 
+import { BADGE } from '@geometricpanda/storybook-addon-badges';
+import type { Meta, StoryObj } from '@storybook/react';
+
 import { GridList } from '@components/.docs/mdx-components';
-import { AVAILABLE_ICONS } from '@components/components/Icon';
-import { Pill, SUPPORTED_CONFIGURATIONS } from '@components/components/Pills/Pill';
-import { PillProps } from '@components/components/Pills/types';
-import { ColorValues, PillVariantValues, SizeValues, getSizeName } from '@components/theme/config';
+import { AVAILABLE_ICONS } from '../Icon';
+import { Pill, SUPPORTED_CONFIGURATIONS } from './Pill';
 
 const defaults: PillProps = {
     label: 'Label',

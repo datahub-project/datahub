@@ -1,7 +1,6 @@
-import { Typography } from 'antd';
 import React from 'react';
-
-import { OnboardingStep } from '@app/onboarding/OnboardingStep';
+import { Typography } from 'antd';
+import { OnboardingStep } from '../OnboardingStep';
 
 export const SEARCH_RESULTS_FILTERS_ID = 'search-results-filters';
 export const SEARCH_RESULTS_ADVANCED_SEARCH_ID = 'search-results-advanced-search';

@@ -1,7 +1,6 @@
 import React from 'react';
-
-import { REDESIGN_COLORS } from '@app/entity/shared/constants';
-import { DefaultViewIcon } from '@app/entity/view/shared/DefaultViewIcon';
+import { REDESIGN_COLORS } from '../../shared/constants';
+import { DefaultViewIcon } from './DefaultViewIcon';
 
 type Props = {
     title?: React.ReactNode;

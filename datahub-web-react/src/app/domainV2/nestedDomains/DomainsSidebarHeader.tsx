@@ -1,10 +1,9 @@
 import { useApolloClient } from '@apollo/client';
-import { Button, Tooltip } from '@components';
+import { Tooltip, Button } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-
-import CreateDomainModal from '@app/domainV2/CreateDomainModal';
-import { updateListDomainsCache } from '@app/domainV2/utils';
+import CreateDomainModal from '../CreateDomainModal';
+import { updateListDomainsCache } from '../utils';
 
 const Wrapper = styled.div`
     font-size: 20px;

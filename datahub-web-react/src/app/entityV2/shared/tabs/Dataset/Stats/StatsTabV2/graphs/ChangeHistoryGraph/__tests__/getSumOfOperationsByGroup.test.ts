@@ -1,10 +1,7 @@
-import { DEFAULT_OPERATION_TYPES } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/constants';
-import {
-    AggregationGroup,
-    OperationsData,
-} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/types';
-import { getSumOfOperationsByAggregationGroup } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/utils';
 import { OperationType } from '@src/types.generated';
+import { DEFAULT_OPERATION_TYPES } from '../constants';
+import { AggregationGroup, OperationsData } from '../types';
+import { getSumOfOperationsByAggregationGroup } from '../utils';
 
 const OPERATIONS_DATA_SAMPLE: OperationsData = {
     summary: {

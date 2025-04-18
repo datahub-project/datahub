@@ -1,9 +1,11 @@
-import { Checkbox } from 'antd';
 import React from 'react';
+import { Checkbox } from 'antd';
 
-import { TRAVERSAL_OPTIONS, TraversalTypes } from '@app/automations/fields/TraversalSelector/constants';
-import { CustomCheckboxLabel } from '@app/automations/sharedComponents';
 import type { ComponentBaseProps } from '@app/automations/types';
+
+import { CustomCheckboxLabel } from '@app/automations/sharedComponents';
+
+import { TraversalTypes, TRAVERSAL_OPTIONS } from './constants';
 
 // State Type (ensures the state is correctly applied across templates)
 export type TraversalSelectorStateType = {

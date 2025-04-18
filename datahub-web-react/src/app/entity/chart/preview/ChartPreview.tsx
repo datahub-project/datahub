@@ -1,27 +1,25 @@
 import React from 'react';
-
-import { IconStyleType } from '@app/entity/Entity';
-import { ChartStatsSummary as ChartStatsSummaryView } from '@app/entity/chart/shared/ChartStatsSummary';
-import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
 import {
     AccessLevel,
-    ChartStatsSummary,
-    Container,
-    DataProduct,
-    Deprecation,
     Domain,
-    EntityPath,
+    Container,
     EntityType,
     GlobalTags,
     GlossaryTerms,
-    Health,
     Owner,
-    ParentContainersResult,
     SearchInsight,
-} from '@types';
+    ParentContainersResult,
+    Deprecation,
+    ChartStatsSummary,
+    DataProduct,
+    EntityPath,
+    Health,
+} from '../../../../types.generated';
+import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
+import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import { IconStyleType } from '../../Entity';
+import { ChartStatsSummary as ChartStatsSummaryView } from '../shared/ChartStatsSummary';
 
 export const ChartPreview = ({
     urn,

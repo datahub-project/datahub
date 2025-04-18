@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-
-import { ManageActorNotificationSettings } from '@app/settingsV2/personal/notifications/ManageActorNotificationSettings';
+import { ManageActorNotificationSettings } from './ManageActorNotificationSettings';
 
 const PageContainer = styled.div`
     padding-top: 0px;

@@ -1,10 +1,6 @@
 import { Dropdown, Text } from '@components';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
-<<<<<<< HEAD
-
-=======
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 import {
     ActionButtonsContainer,
     Container,
@@ -19,15 +15,9 @@ import {
     SelectLabelContainer,
     StyledClearButton,
     StyledIcon,
-<<<<<<< HEAD
-} from '@components/components/Select/components';
-import DropdownSearchBar from '@components/components/Select/private/DropdownSearchBar';
-import { ActionButtonsProps, SelectProps } from '@components/components/Select/types';
-=======
 } from './components';
 import { ActionButtonsProps, SelectProps } from './types';
 import DropdownSearchBar from './private/DropdownSearchBar';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const NoSuggestions = styled.div`
     padding: 8px;

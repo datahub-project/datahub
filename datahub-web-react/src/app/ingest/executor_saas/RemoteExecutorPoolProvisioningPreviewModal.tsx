@@ -1,8 +1,4 @@
 import { ApolloQueryResult } from '@apollo/client';
-import { Modal, Typography, message } from 'antd';
-import React, { useEffect, useRef } from 'react';
-import styled from 'styled-components';
-
 import { Button } from '@src/alchemy-components';
 import Loading from '@src/app/shared/Loading';
 import {
@@ -10,6 +6,9 @@ import {
     useUpdateRemoteExecutorPoolMutation,
 } from '@src/graphql/remote_executor.saas.generated';
 import { RemoteExecutorPoolStatus } from '@src/types.generated';
+import { message, Modal, Typography } from 'antd';
+import React, { useEffect, useRef } from 'react';
+import styled from 'styled-components';
 
 const Content = styled.div`
     display: flex;

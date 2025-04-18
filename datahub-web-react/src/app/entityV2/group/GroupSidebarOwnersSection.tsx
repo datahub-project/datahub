@@ -1,11 +1,9 @@
-import { PlusOutlined } from '@ant-design/icons';
 import React, { useState } from 'react';
-
-import GroupOwnerSidebarSectionContent from '@app/entityV2/group/GroupOwnerSidebarSectionContent';
-import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
-import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
-
-import { Ownership } from '@types';
+import { PlusOutlined } from '@ant-design/icons';
+import GroupOwnerSidebarSectionContent from './GroupOwnerSidebarSectionContent';
+import SectionActionButton from '../shared/containers/profile/sidebar/SectionActionButton';
+import { SidebarSection } from '../shared/containers/profile/sidebar/SidebarSection';
+import { Ownership } from '../../../types.generated';
 
 type Props = {
     ownership: Ownership;

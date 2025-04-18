@@ -805,7 +805,6 @@ entities:
     keyAspect: dataHubOpenAPISchemaKey
     aspects:
       - systemMetadata
-<<<<<<< HEAD
   # SaaS Only Entities
   # TODO: Move this out to acryl-entity-registry.yml
   - name: dataHubRemoteExecutor
@@ -885,8 +884,6 @@ entities:
       - dataHubMetricCubeEvent
       # To be added later.
       # - dataHubMetricCubeStorageConfig
-=======
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 events:
   # SaaS Only Events
   - name: notificationRequest

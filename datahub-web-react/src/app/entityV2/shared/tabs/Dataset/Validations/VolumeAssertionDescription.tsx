@@ -1,6 +1,10 @@
-import { Typography } from 'antd';
 import React from 'react';
-
+import { Typography } from 'antd';
+import {
+    IncrementingSegmentRowCountChange,
+    RowCountChange,
+    VolumeAssertionInfo,
+} from '../../../../../../types.generated';
 import {
     getIsRowCountChange,
     getOperatorDescription,
@@ -8,9 +12,7 @@ import {
     getValueChangeTypeDescription,
     getVolumeTypeDescription,
     getVolumeTypeInfo,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/utils';
-
-import { IncrementingSegmentRowCountChange, RowCountChange, VolumeAssertionInfo } from '@types';
+} from './utils';
 
 type Props = {
     assertionInfo: VolumeAssertionInfo;

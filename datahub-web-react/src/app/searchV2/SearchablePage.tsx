@@ -1,44 +1,10 @@
-<<<<<<< HEAD
-=======
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 import { debounce } from 'lodash';
 import * as QueryString from 'query-string';
-import React, { useCallback, useEffect, useState } from 'react';
-import { useHistory, useLocation } from 'react-router';
-import { useDebounce } from 'react-use';
 import styled, { useTheme } from 'styled-components';
-
-import analytics, { EventType } from '@app/analytics';
-import { useUserContext } from '@app/context/useUserContext';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { NavSidebar } from '@app/homeV2/layout/NavSidebar';
-import { NavSidebar as NavSidebarRedesign } from '@app/homeV2/layout/navBarRedesign/NavSidebar';
-import { useSelectedSortOption } from '@app/search/context/SearchContext';
-import { SearchHeader } from '@app/searchV2/SearchHeader';
-import { FieldToAppliedFieldFiltersMap } from '@app/searchV2/filtersV2/types';
-import { convertFiltersMapToFilters } from '@app/searchV2/filtersV2/utils';
-import { UnionType } from '@app/searchV2/utils/constants';
-import { getAutoCompleteInputFromQuickFilter } from '@app/searchV2/utils/filterUtils';
-import { generateOrFilters } from '@app/searchV2/utils/generateOrFilters';
-import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
-import useFilters from '@app/searchV2/utils/useFilters';
-import { useAppConfig } from '@app/useAppConfig';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
-import { PageRoutes } from '@conf/Global';
-import { useQuickFiltersContext } from '@providers/QuickFiltersContext';
 import { colors } from '@src/alchemy-components';
-<<<<<<< HEAD
-
-import {
-    GetAutoCompleteMultipleResultsQuery,
-    useGetAutoCompleteMultipleResultsLazyQuery,
-} from '@graphql/search.generated';
-import { FacetFilterInput } from '@types';
-=======
 import { useDebounce } from 'react-use';
 import { SearchHeader } from './SearchHeader';
 import { useEntityRegistry } from '../useEntityRegistry';
@@ -63,7 +29,6 @@ import { generateOrFilters } from './utils/generateOrFilters';
 import { UnionType } from './utils/constants';
 import { useAppConfig } from '../useAppConfig';
 import { convertFiltersMapToFilters } from './filtersV2/utils';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const Body = styled.div`
     display: flex;

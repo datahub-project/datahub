@@ -1,16 +1,14 @@
-import { Skeleton } from 'antd';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
-
-import { useUserContext } from '@app/context/useUserContext';
-import { useUserPersonaTitle } from '@app/homeV2/persona/useUserPersona';
-import { GreetingText } from '@app/homeV2/reference/header/GreetingText';
-import { UserHeaderImage } from '@app/homeV2/reference/header/UserHeaderImage';
-import OnboardingContext from '@app/onboarding/OnboardingContext';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Skeleton } from 'antd';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-
-import { EntityType } from '@types';
+import { useUserContext } from '../../../context/useUserContext';
+import { GreetingText } from './GreetingText';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import { EntityType } from '../../../../types.generated';
+import { UserHeaderImage } from './UserHeaderImage';
+import { useUserPersonaTitle } from '../../persona/useUserPersona';
+import OnboardingContext from '../../../onboarding/OnboardingContext';
 
 const Container = styled.div`
     min-height: 240px;

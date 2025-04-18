@@ -1,8 +1,7 @@
-import { ThunderboltFilled } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entity/shared/constants';
+import { ThunderboltFilled } from '@ant-design/icons';
+import { ANTD_GRAY, REDESIGN_COLORS } from '../../../constants';
 
 const Container = styled.div`
     padding: 10px;

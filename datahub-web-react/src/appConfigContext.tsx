@@ -1,6 +1,5 @@
 import React from 'react';
-
-import { AppConfig } from '@types';
+import { AppConfig } from './types.generated';
 
 export const DEFAULT_APP_CONFIG: AppConfig = {
     analyticsConfig: {

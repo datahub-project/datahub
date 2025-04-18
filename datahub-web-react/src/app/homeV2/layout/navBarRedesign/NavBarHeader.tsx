@@ -1,18 +1,11 @@
-import { Pill, colors } from '@components';
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { colors, Pill } from '@components';
 import styled from 'styled-components';
-<<<<<<< HEAD
-
-import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
-import NavBarToggler from '@app/homeV2/layout/navBarRedesign/NavBarToggler';
-import analytics, { EventType } from '@src/app/analytics';
 import { useGlobalSettingsContext } from '@src/app/context/GlobalSettings/GlobalSettingsContext';
-=======
-import { colors, Pill } from '@src/alchemy-components';
+import analytics, { EventType } from '@src/app/analytics';
 import NavBarToggler from './NavBarToggler';
 import { useNavBarContext } from './NavBarContext';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const Container = styled.div`
     display: flex;
@@ -79,13 +72,8 @@ export default function NavBarHeader({ logotype }: Props) {
         <Container>
             <StyledLink to="/" onClick={() => analytics.event({ type: EventType.NavBarItemClick, label: 'Home' })}>
                 <Logotype>{logotype}</Logotype>
-<<<<<<< HEAD
                 {!isCollapsed ? <Title>{customName || 'DataHub'}</Title> : null}
                 {!isCollapsed && !customName && <Pill label="Cloud" variant="filled" color="gray" size="sm" />}
-=======
-                {!isCollapsed ? <Title>DataHub</Title> : null}
-                {!isCollapsed && <Pill label="Core" variant="filled" color="gray" size="sm" />}
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
             </StyledLink>
             {!isCollapsed && <NavBarToggler />}
         </Container>

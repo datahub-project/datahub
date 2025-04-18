@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-
-import { StyledTag } from '@app/entityV2/shared/components/styled/StyledTag';
-import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
-import { TagProfileDrawer } from '@app/shared/tags/TagProfileDrawer';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { EntityType, Tag } from '@types';
+import { EntityType, Tag } from '../../../types.generated';
+import { StyledTag } from '../../entityV2/shared/components/styled/StyledTag';
+import { HoverEntityTooltip } from '../../recommendations/renderer/component/HoverEntityTooltip';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { TagProfileDrawer } from '../../shared/tags/TagProfileDrawer';
 
 const Container = styled.span`
     display: block;

@@ -1,6 +1,5 @@
 import React from 'react';
-
-import { ShowMoreButton } from '@app/entityV2/shared/SidebarStyledComponents';
+import { ShowMoreButton } from '../SidebarStyledComponents';
 
 type Props = {
     totalCount: number;

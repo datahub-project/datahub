@@ -1,9 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
-
-import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
-import { WhiteButton } from '@app/shared/components';
-import { pluralize } from '@app/shared/textUtil';
+import { useEntityFormContext } from '../EntityFormContext';
+import { WhiteButton } from '../../../../shared/components';
+import { pluralize } from '../../../../shared/textUtil';
 
 const StyledButton = styled(WhiteButton)`
     align-self: end;

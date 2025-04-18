@@ -1,10 +1,8 @@
 import React from 'react';
-
-import EntityRegistry from '@app/entity/EntityRegistry';
-import { CustomAvatar } from '@app/shared/avatar';
-import { SpacedAvatarGroup } from '@app/shared/avatar/SpaceAvatarGroup';
-
-import { CorpGroup, CorpUser, DataHubPolicy, DataHubRole, EntityType, Maybe } from '@types';
+import { CorpGroup, CorpUser, EntityType, Maybe, DataHubPolicy, DataHubRole } from '../../types.generated';
+import EntityRegistry from '../entity/EntityRegistry';
+import { CustomAvatar } from '../shared/avatar';
+import { SpacedAvatarGroup } from '../shared/avatar/SpaceAvatarGroup';
 
 type Props = {
     users?: Maybe<Array<CorpUser>>;

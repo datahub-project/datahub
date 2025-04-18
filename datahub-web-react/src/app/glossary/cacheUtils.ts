@@ -1,6 +1,5 @@
 import { ApolloClient } from '@apollo/client';
-
-import { GetGlossaryNodeDocument, GetGlossaryNodeQuery } from '@graphql/glossaryNode.generated';
+import { GetGlossaryNodeDocument, GetGlossaryNodeQuery } from '../../graphql/glossaryNode.generated';
 
 export function removeTermFromGlossaryNode(
     client: ApolloClient<object>,

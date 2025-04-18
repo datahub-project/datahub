@@ -1,9 +1,8 @@
-import { Sparkle } from 'phosphor-react';
 import React from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { Sparkle } from 'phosphor-react';
 import { REDESIGN_COLORS } from '@src/app/entity/shared/constants';
+import { ANTD_GRAY } from '../../../constants';
 
 const Container = styled.span`
     color: ${ANTD_GRAY[8]};

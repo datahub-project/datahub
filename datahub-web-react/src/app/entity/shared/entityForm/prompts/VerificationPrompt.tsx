@@ -1,14 +1,12 @@
-import { Button, Divider, message } from 'antd';
 import React, { useEffect, useRef } from 'react';
 import styled from 'styled-components';
-
-import analytics, { DocRequestView, EventType } from '@app/analytics';
-import { useEntityContext, useMutationUrn } from '@app/entity/shared/EntityContext';
-import { PromptWrapper } from '@app/entity/shared/entityForm/prompts/Prompt';
-import { FORM_ASSET_COMPLETION } from '@app/onboarding/config/FormOnboardingConfig';
-import { useUpdateEducationStepsAllowList } from '@app/onboarding/useUpdateEducationStepsAllowList';
-
-import { useVerifyFormMutation } from '@graphql/form.generated';
+import { Button, Divider, message } from 'antd';
+import { useVerifyFormMutation } from '../../../../../graphql/form.generated';
+import { useEntityContext, useMutationUrn } from '../../EntityContext';
+import { PromptWrapper } from './Prompt';
+import { useUpdateEducationStepsAllowList } from '../../../../onboarding/useUpdateEducationStepsAllowList';
+import { FORM_ASSET_COMPLETION } from '../../../../onboarding/config/FormOnboardingConfig';
+import analytics, { DocRequestView, EventType } from '../../../../analytics';
 
 const ContentWrapper = styled.div`
     display: flex;

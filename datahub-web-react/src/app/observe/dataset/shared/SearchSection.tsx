@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-
-import { EmbeddedListSearch } from '@app/entity/shared/components/styled/search/EmbeddedListSearch';
-import { FilterSet } from '@app/entity/shared/components/styled/search/types';
-import { UnionType } from '@app/search/utils/constants';
-
-import { EntityType, FacetFilterInput } from '@types';
+import { FilterSet } from '../../../entity/shared/components/styled/search/types';
+import { EntityType, FacetFilterInput } from '../../../../types.generated';
+import { UnionType } from '../../../search/utils/constants';
+import { EmbeddedListSearch } from '../../../entity/shared/components/styled/search/EmbeddedListSearch';
 
 const SearchContainer = styled.div`
     height: 40vh;

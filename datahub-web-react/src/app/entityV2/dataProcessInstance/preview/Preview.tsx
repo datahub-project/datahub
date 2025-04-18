@@ -1,23 +1,21 @@
-import React from 'react';
-
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { IconStyleType } from '@app/entityV2/Entity';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
+import React from 'react';
 import {
-    Container,
     DataProduct,
     Deprecation,
     Domain,
+    Entity as GeneratedEntity,
     EntityPath,
     EntityType,
-    Entity as GeneratedEntity,
     GlobalTags,
     Health,
     Owner,
     SearchInsight,
-} from '@types';
+    Container,
+} from '../../../../types.generated';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import { IconStyleType } from '../../Entity';
 
 export default function Preview({
     urn,

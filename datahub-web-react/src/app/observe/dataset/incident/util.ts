@@ -1,8 +1,5 @@
-import {
-    ACTIVE_INCIDENT_TYPES_FILTER_FIELD,
-    HAS_ACTIVE_INCIDENTS_FILTER_FIELD,
-} from '@app/observe/dataset/incident/constants';
-import { UnionType } from '@app/search/utils/constants';
+import { UnionType } from '../../../search/utils/constants';
+import { HAS_ACTIVE_INCIDENTS_FILTER_FIELD, ACTIVE_INCIDENT_TYPES_FILTER_FIELD } from './constants';
 
 export const buildIncidentTypeFilters = (selectedIncidentTypes) => {
     if (selectedIncidentTypes) {

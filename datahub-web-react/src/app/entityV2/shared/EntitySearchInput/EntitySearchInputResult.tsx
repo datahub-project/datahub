@@ -1,8 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-
-import { IconStyleType } from '@app/entityV2/Entity';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import { IconStyleType } from '../../Entity';
 
 type Props = {
     entity: any;

@@ -1,18 +1,6 @@
 import { Table } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-<<<<<<< HEAD
-
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import { DatasetAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/DatasetAssertionDescription';
-import { FieldAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/FieldAssertionDescription';
-import { SqlAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/SqlAssertionDescription';
-import { VolumeAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/VolumeAssertionDescription';
-import { DataContractAssertionStatus } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/DataContractAssertionStatus';
-import { DataContractSummaryFooter } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/DataContractSummaryFooter';
-
-import { Assertion, DataQualityContract, DatasetAssertionInfo } from '@types';
-=======
 import { Assertion, DataQualityContract, DatasetAssertionInfo } from '../../../../../../../types.generated';
 import { ANTD_GRAY } from '../../../../constants';
 import { DatasetAssertionDescription } from '../DatasetAssertionDescription';
@@ -21,7 +9,6 @@ import { SqlAssertionDescription } from '../SqlAssertionDescription';
 import { VolumeAssertionDescription } from '../VolumeAssertionDescription';
 import { DataContractAssertionStatus } from './DataContractAssertionStatus';
 import { DataContractSummaryFooter } from './DataContractSummaryFooter';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const TitleText = styled.div`
     color: ${ANTD_GRAY[7]};

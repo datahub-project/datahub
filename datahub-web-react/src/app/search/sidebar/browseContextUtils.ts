@@ -1,6 +1,5 @@
-import { ENTITY_SUB_TYPE_FILTER_NAME } from '@app/search/utils/constants';
-
-import { FacetFilterInput } from '@types';
+import { FacetFilterInput } from '../../../types.generated';
+import { ENTITY_SUB_TYPE_FILTER_NAME } from '../utils/constants';
 
 export function getEntitySubtypeFiltersForEntity(entityType: string, existingFilters: FacetFilterInput[]) {
     return existingFilters

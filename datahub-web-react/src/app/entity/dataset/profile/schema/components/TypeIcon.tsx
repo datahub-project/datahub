@@ -1,21 +1,19 @@
 import {
-    CalendarOutlined,
     FieldBinaryOutlined,
-    FieldTimeOutlined,
     NumberOutlined,
+    UnorderedListOutlined,
     QuestionCircleOutlined,
     UnderlineOutlined,
-    UnorderedListOutlined,
+    CalendarOutlined,
+    FieldTimeOutlined,
 } from '@ant-design/icons';
-import { Tooltip } from '@components';
 import { Typography } from 'antd';
+import { Tooltip } from '@components';
 import React, { FC } from 'react';
-import { VscFileBinary, VscSymbolString } from 'react-icons/vsc';
+import { VscSymbolString, VscFileBinary } from 'react-icons/vsc';
 import styled from 'styled-components';
-
-import { capitalizeFirstLetter } from '@app/shared/textUtil';
-
-import { SchemaFieldDataType } from '@types';
+import { capitalizeFirstLetter } from '../../../../../shared/textUtil';
+import { SchemaFieldDataType } from '../../../../../../types.generated';
 
 const TypeIconContainer = styled.div`
     display: flex;

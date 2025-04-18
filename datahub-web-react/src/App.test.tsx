@@ -1,9 +1,8 @@
-import { MockedProvider } from '@apollo/client/testing';
-import { render } from '@testing-library/react';
 import React from 'react';
-
-import { InnerApp } from '@src/App';
-import { mocks } from '@src/Mocks';
+import { render } from '@testing-library/react';
+import { MockedProvider } from '@apollo/client/testing';
+import { InnerApp } from './App';
+import { mocks } from './Mocks';
 
 // eslint-disable-next-line vitest/expect-expect
 test('renders the app', async () => {

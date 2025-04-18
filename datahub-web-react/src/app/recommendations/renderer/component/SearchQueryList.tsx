@@ -2,10 +2,8 @@ import { Button, Tag } from 'antd';
 import React from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
-
-import { navigateToSearchUrl } from '@app/search/utils/navigateToSearchUrl';
-
-import { EntityType, FacetFilterInput, RecommendationContent, SearchParams } from '@types';
+import { EntityType, FacetFilterInput, RecommendationContent, SearchParams } from '../../../../types.generated';
+import { navigateToSearchUrl } from '../../../search/utils/navigateToSearchUrl';
 
 const SearchQueryListContainer = styled.div`
     display: flex;

@@ -1,12 +1,10 @@
 import React from 'react';
 import { CSSProperties } from 'styled-components';
-
-import SearchFilterView from '@app/searchV2/filters/SearchFilterView';
-import { FilterPredicate } from '@app/searchV2/filters/types';
-import useSearchFilterDropdown from '@app/searchV2/filters/useSearchFilterDropdown';
-import { getFilterDropdownIcon, useFilterDisplayName } from '@app/searchV2/filters/utils';
-
-import { FacetFilterInput, FacetMetadata } from '@types';
+import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
+import useSearchFilterDropdown from './useSearchFilterDropdown';
+import { getFilterDropdownIcon, useFilterDisplayName } from './utils';
+import SearchFilterView from './SearchFilterView';
+import { FilterPredicate } from './types';
 
 interface Props {
     filter: FacetMetadata;

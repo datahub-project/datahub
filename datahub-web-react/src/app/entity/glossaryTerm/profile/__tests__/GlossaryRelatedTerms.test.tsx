@@ -1,10 +1,9 @@
-import { MockedProvider } from '@apollo/client/testing';
 import { render } from '@testing-library/react';
 import React from 'react';
-
-import GlossaryRelatedTerms from '@app/entity/glossaryTerm/profile/GlossaryRelatedTerms';
-import { mocks } from '@src/Mocks';
-import TestPageContainer from '@utils/test-utils/TestPageContainer';
+import { MockedProvider } from '@apollo/client/testing';
+import TestPageContainer from '../../../../../utils/test-utils/TestPageContainer';
+import GlossaryRelatedTerms from '../GlossaryRelatedTerms';
+import { mocks } from '../../../../../Mocks';
 
 describe('Glossary Related Terms', () => {
     it('renders and print hasRelatedTerms detail by default', async () => {

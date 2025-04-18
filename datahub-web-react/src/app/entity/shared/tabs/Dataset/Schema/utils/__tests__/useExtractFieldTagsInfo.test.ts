@@ -1,7 +1,6 @@
-import { renderHook } from '@testing-library/react-hooks';
-
-import useExtractFieldTagsInfo from '@app/entity/shared/tabs/Dataset/Schema/utils/useExtractFieldTagsInfo';
 import { EditableSchemaMetadata, EntityType, SchemaField, SchemaFieldDataType, Tag } from '@src/types.generated';
+import { renderHook } from '@testing-library/react-hooks';
+import useExtractFieldTagsInfo from '../useExtractFieldTagsInfo';
 
 describe('useExtractFieldTagsInfo', () => {
     const testTag: Tag = {

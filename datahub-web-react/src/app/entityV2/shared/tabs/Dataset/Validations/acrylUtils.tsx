@@ -1,20 +1,11 @@
-import { ApiOutlined, CheckOutlined, CloseOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
-import * as cronParser from 'cron-parser';
-import cronstrue from 'cronstrue';
-import * as moment from 'moment-timezone';
 import React from 'react';
 import styled from 'styled-components';
-
-import { GenericEntityProperties } from '@app/entity/shared/types';
-import { AssertionGroup, AssertionStatusSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
-import { sortAssertions } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
-import { toProperTitleCase } from '@app/entityV2/shared/utils';
-import { lowerFirstLetter } from '@app/shared/textUtil';
+import * as moment from 'moment-timezone';
+import * as cronParser from 'cron-parser';
+import cronstrue from 'cronstrue';
+import { CheckOutlined, CloseOutlined, ApiOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { ASSERTION_TYPE_TO_ICON_MAP } from '@src/app/entityV2/shared/tabs/Dataset/Validations/shared/constant';
 import { EMBEDDED_EXECUTOR_POOL_NAME } from '@src/app/shared/constants';
-
-import { useIngestionSourceForEntityQuery } from '@graphql/ingestion.generated';
-import { GetDatasetAssertionsWithMonitorsQuery, MonitorDetailsFragment } from '@graphql/monitor.generated';
 import {
     Assertion,
     AssertionResultType,
@@ -25,7 +16,17 @@ import {
     EntityType,
     Monitor,
     MonitorMode,
-} from '@types';
+} from '../../../../../../types.generated';
+import { sortAssertions } from './assertionUtils';
+import { AssertionGroup, AssertionStatusSummary } from './acrylTypes';
+import { lowerFirstLetter } from '../../../../../shared/textUtil';
+import { useIngestionSourceForEntityQuery } from '../../../../../../graphql/ingestion.generated';
+import {
+    GetDatasetAssertionsWithMonitorsQuery,
+    MonitorDetailsFragment,
+} from '../../../../../../graphql/monitor.generated';
+import { GenericEntityProperties } from '../../../../../entity/shared/types';
+import { toProperTitleCase } from '../../../utils';
 
 export const SUCCESS_COLOR_HEX = '#52C41A';
 export const FAILURE_COLOR_HEX = '#F5222D';

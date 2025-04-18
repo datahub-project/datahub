@@ -1,20 +1,15 @@
 import isEqual from 'lodash/isEqual';
 import { useEffect, useMemo, useState } from 'react';
-
-import {
-    useMaybeEntityType,
-    useMaybeEnvironmentAggregation,
-    useMaybePlatformAggregation,
-} from '@app/search/sidebar/BrowseContext';
-import { SidebarFilters } from '@app/search/sidebar/types';
-import useGetSearchQueryInputs from '@app/search/useGetSearchQueryInputs';
-import { applyOrFilterOverrides } from '@app/search/utils/applyFilterOverrides';
+import useGetSearchQueryInputs from '../useGetSearchQueryInputs';
 import {
     BROWSE_PATH_V2_FILTER_NAME,
     ENTITY_FILTER_NAME,
     ORIGIN_FILTER_NAME,
     PLATFORM_FILTER_NAME,
-} from '@app/search/utils/constants';
+} from '../utils/constants';
+import { useMaybeEntityType, useMaybeEnvironmentAggregation, useMaybePlatformAggregation } from './BrowseContext';
+import { applyOrFilterOverrides } from '../utils/applyFilterOverrides';
+import { SidebarFilters } from './types';
 
 export const useSidebarFilters = (): SidebarFilters => {
     const entityType = useMaybeEntityType();

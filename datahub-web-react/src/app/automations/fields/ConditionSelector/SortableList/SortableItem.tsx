@@ -1,8 +1,10 @@
-import type { DraggableSyntheticListeners, UniqueIdentifier } from '@dnd-kit/core';
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import React, { createContext, useContext, useMemo } from 'react';
 import type { CSSProperties, PropsWithChildren } from 'react';
+
+import type { DraggableSyntheticListeners, UniqueIdentifier } from '@dnd-kit/core';
+
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 // TODO: Bring this into this component so it's fully resuable / self-contained
 import { SortButton } from '@app/automations/sharedComponents';

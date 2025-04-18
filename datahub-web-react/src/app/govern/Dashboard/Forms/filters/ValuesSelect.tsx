@@ -1,6 +1,4 @@
 import { colors, typography } from '@components';
-import React from 'react';
-
 import { EntitySearchInput } from '@src/app/entityV2/shared/EntitySearchInput/EntitySearchInput';
 import { SelectInput } from '@src/app/tests/builder/steps/definition/builder/property/input/SelectInput';
 import {
@@ -8,6 +6,7 @@ import {
     ValueInputType,
     ValueOptions,
 } from '@src/app/tests/builder/steps/definition/builder/property/types/values';
+import React from 'react';
 
 const EntitySearchInputStyle = {
     minWidth: 250,

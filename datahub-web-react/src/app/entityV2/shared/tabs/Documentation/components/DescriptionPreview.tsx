@@ -1,9 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
-
-import { DescriptionPreviewToolbar } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionPreviewToolbar';
-import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
 import InferenceDetailsPill from '@src/app/sharedV2/inferred/InferenceDetailsPill';
+import { Editor } from './editor/Editor';
+import { DescriptionPreviewToolbar } from './DescriptionPreviewToolbar';
 
 const EditorContainer = styled.div`
     overflow: auto;

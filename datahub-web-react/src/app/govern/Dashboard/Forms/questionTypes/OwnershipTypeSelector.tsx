@@ -1,11 +1,10 @@
-import { Form } from 'antd';
-import React, { useMemo } from 'react';
-
-import { SelectorWrapper } from '@app/govern/Dashboard/Forms/styledComponents';
 import { NestedSelect } from '@src/alchemy-components/components/Select/Nested/NestedSelect';
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { useListOwnershipTypesQuery } from '@src/graphql/ownership.generated';
 import { OwnershipTypeEntity } from '@src/types.generated';
+import { Form } from 'antd';
+import React, { useMemo } from 'react';
+import { SelectorWrapper } from '../styledComponents';
 
 const NONE_OWNERSHIP_TYPE = 'urn:li:ownershipType:__system__none';
 

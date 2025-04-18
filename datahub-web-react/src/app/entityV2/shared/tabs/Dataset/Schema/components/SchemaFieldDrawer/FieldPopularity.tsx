@@ -1,11 +1,9 @@
-import { Tooltip } from '@components';
 import React, { useMemo } from 'react';
-
-import { pathMatchesNewPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
-import { PopularityBars } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/PopularityBars';
-import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
-
-import { UsageQueryResult } from '@types';
+import { Tooltip } from '@components';
+import { UsageQueryResult } from '../../../../../../../../types.generated';
+import { pathMatchesNewPath } from '../../../../../../dataset/profile/schema/utils/utils';
+import { PopularityBars } from './PopularityBars';
+import { formatNumberWithoutAbbreviation } from '../../../../../../../shared/formatNumber';
 
 type FieldPopularityProps = {
     isFieldSelected: boolean;

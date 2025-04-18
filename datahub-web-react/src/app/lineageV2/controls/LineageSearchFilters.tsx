@@ -1,12 +1,11 @@
-import { Tooltip } from '@components';
-import { Switch } from 'antd';
-import React, { useContext, useMemo } from 'react';
-import styled from 'styled-components';
-
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import { LineageNodesContext, isTransformational } from '@app/lineageV2/common';
+import { isTransformational, LineageNodesContext } from '@app/lineageV2/common';
 import { ControlPanel, ControlPanelSubtext, ControlPanelTitle } from '@app/lineageV2/controls/common';
 import InfoPopover from '@app/sharedV2/icons/InfoPopover';
+import { Switch } from 'antd';
+import { Tooltip } from '@components';
+import React, { useContext, useMemo } from 'react';
+import styled from 'styled-components';
 
 const ToggleWrapper = styled.div`
     display: flex;

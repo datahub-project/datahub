@@ -1,28 +1,22 @@
-import { UsergroupAddOutlined } from '@ant-design/icons';
-import { Button, Empty, List, Pagination } from 'antd';
-import * as QueryString from 'query-string';
 import React, { useEffect, useState } from 'react';
-import { useLocation } from 'react-router';
+import { Button, Empty, List, Pagination } from 'antd';
 import styled from 'styled-components';
-
-import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
-import CreateGroupModal from '@app/identity/group/CreateGroupModal';
-import GroupListItem from '@app/identity/group/GroupListItem';
-import {
-    DEFAULT_GROUP_LIST_PAGE_SIZE,
-    addGroupToListGroupsCache,
-    removeGroupFromListGroupsCache,
-} from '@app/identity/group/cacheUtils';
-import { OnboardingTour } from '@app/onboarding/OnboardingTour';
-import { GROUPS_CREATE_GROUP_ID, GROUPS_INTRO_ID } from '@app/onboarding/config/GroupsOnboardingConfig';
-import { SearchBar } from '@app/search/SearchBar';
-import { Message } from '@app/shared/Message';
-import { scrollToTop } from '@app/shared/searchUtils';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { useListGroupsQuery } from '@graphql/group.generated';
-import { useListRolesQuery } from '@graphql/role.generated';
-import { CorpGroup, DataHubRole } from '@types';
+import { useLocation } from 'react-router';
+import * as QueryString from 'query-string';
+import { UsergroupAddOutlined } from '@ant-design/icons';
+import { CorpGroup, DataHubRole } from '../../../types.generated';
+import { Message } from '../../shared/Message';
+import { useListGroupsQuery } from '../../../graphql/group.generated';
+import GroupListItem from './GroupListItem';
+import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
+import CreateGroupModal from './CreateGroupModal';
+import { SearchBar } from '../../search/SearchBar';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { scrollToTop } from '../../shared/searchUtils';
+import { GROUPS_CREATE_GROUP_ID, GROUPS_INTRO_ID } from '../../onboarding/config/GroupsOnboardingConfig';
+import { OnboardingTour } from '../../onboarding/OnboardingTour';
+import { addGroupToListGroupsCache, DEFAULT_GROUP_LIST_PAGE_SIZE, removeGroupFromListGroupsCache } from './cacheUtils';
+import { useListRolesQuery } from '../../../graphql/role.generated';
 
 const GroupContainer = styled.div`
     display: flex;

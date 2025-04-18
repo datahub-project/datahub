@@ -1,10 +1,8 @@
-import { Empty, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
-
-import NoDocs from '@images/no-docs.svg';
+import { Empty, Typography } from 'antd';
+import { EMPTY_MESSAGES } from '../../constants';
+import NoDocs from '../../../../../images/no-docs.svg';
 
 const StyledEmpty = styled(Empty)<{ $hideImage?: boolean }>`
     padding: 40px;

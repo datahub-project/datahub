@@ -1,23 +1,21 @@
-import { Col, message } from 'antd';
 import React, { useState } from 'react';
+import { Col, message } from 'antd';
 import styled from 'styled-components';
-
-import { useUserContext } from '@app/context/useUserContext';
-import { GroupBasicInfoSection } from '@app/entityV2/group/GroupBasicInfoSection';
-import GroupEditModal from '@app/entityV2/group/GroupEditModal';
-import { GroupInfoHeaderSection } from '@app/entityV2/group/GroupInfoHeaderSection';
+import SectionActionButton from '../shared/containers/profile/sidebar/SectionActionButton';
+import { REDESIGN_COLORS } from '../shared/constants';
+import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import {
     CustomAvatarContainer,
     EditProfileButtonContainer,
-    GroupInfo,
     WhiteEditOutlinedIconStyle,
-} from '@app/entityV2/shared/SidebarStyledComponents';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
-import CustomAvatar from '@app/shared/avatar/CustomAvatar';
-
-import { useUpdateNameMutation } from '@graphql/mutations.generated';
-import { EntityRelationshipsResult, Ownership } from '@types';
+    GroupInfo,
+} from '../shared/SidebarStyledComponents';
+import { EntityRelationshipsResult, Ownership } from '../../../types.generated';
+import GroupEditModal from './GroupEditModal';
+import { useUpdateNameMutation } from '../../../graphql/mutations.generated';
+import { GroupBasicInfoSection } from './GroupBasicInfoSection';
+import { GroupInfoHeaderSection } from './GroupInfoHeaderSection';
+import { useUserContext } from '../../context/useUserContext';
 
 export type SidebarData = {
     photoUrl: string | undefined;

@@ -1,8 +1,7 @@
 import { Tag } from 'antd';
-import ColorHash from 'color-hash';
 import styled, { css } from 'styled-components';
-
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import ColorHash from 'color-hash';
+import { REDESIGN_COLORS } from '../../constants';
 
 export const generateColor = new ColorHash({
     saturation: 0.9,

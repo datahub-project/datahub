@@ -1,10 +1,8 @@
-import { Modal, message } from 'antd';
+import { message, Modal } from 'antd';
 import React from 'react';
-
-import ActionDropdown from '@app/entity/shared/components/styled/search/action/ActionDropdown';
-import { handleBatchError } from '@app/entity/shared/utils';
-
-import { useBatchUpdateSoftDeletedMutation } from '@graphql/mutations.generated';
+import { useBatchUpdateSoftDeletedMutation } from '../../../../../../../graphql/mutations.generated';
+import ActionDropdown from './ActionDropdown';
+import { handleBatchError } from '../../../../utils';
 
 type Props = {
     urns: Array<string>;

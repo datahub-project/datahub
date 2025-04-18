@@ -1,9 +1,8 @@
 import React from 'react';
-
-import FilterOption from '@app/searchV2/filters/FilterOption';
-import { FilterOptionType } from '@app/searchV2/filters/types';
-import { getFilterIconAndLabel } from '@app/searchV2/filters/utils';
-import { EntityRegistry } from '@src/entityRegistryContext';
+import { EntityRegistry } from '../../../entityRegistryContext';
+import FilterOption from './FilterOption';
+import { FilterOptionType } from './types';
+import { getFilterIconAndLabel } from './utils';
 
 export interface DisplayedFilterOption {
     key: string;

@@ -1,5 +1,6 @@
-import { LegendItem, LegendLabel, LegendOrdinal } from '@visx/legend';
 import React from 'react';
+
+import { LegendOrdinal, LegendItem, LegendLabel } from '@visx/legend';
 
 interface Props {
     scale: any;

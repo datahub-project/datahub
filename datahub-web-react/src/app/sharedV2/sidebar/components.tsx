@@ -1,8 +1,7 @@
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import React from 'react';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import styled from 'styled-components';
-
-import { RotatingButton } from '@app/shared/components';
+import { RotatingButton } from '../../shared/components';
 
 export const SidebarWrapper = styled.div<{ width: number; $isShowNavBarRedesign?: boolean }>`
     max-height: 100%;

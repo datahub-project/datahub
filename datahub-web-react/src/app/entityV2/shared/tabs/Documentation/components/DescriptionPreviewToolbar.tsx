@@ -1,8 +1,7 @@
+import React from 'react';
 import { EditOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
-import React from 'react';
-
-import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
+import TabToolbar from '../../../components/styled/TabToolbar';
 
 type DescriptionPreviewToolbarProps = {
     onEdit: () => void;

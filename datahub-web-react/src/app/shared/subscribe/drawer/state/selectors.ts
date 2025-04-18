@@ -1,9 +1,7 @@
 import { useMemo } from 'react';
-
-import { useDrawerState } from '@app/shared/subscribe/drawer/state/context';
-import { ChannelSelections, State } from '@app/shared/subscribe/drawer/state/types';
-
-import { NotificationSinkType } from '@types';
+import { NotificationSinkType } from '../../../../../types.generated';
+import { useDrawerState } from './context';
+import { ChannelSelections, State } from './types';
 
 export function useDrawerSelector<T>(selector: (state: State) => T) {
     const state = useDrawerState();

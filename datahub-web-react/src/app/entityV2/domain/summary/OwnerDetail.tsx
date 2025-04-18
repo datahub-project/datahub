@@ -1,12 +1,10 @@
-import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
-
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import CustomAvatar from '@app/shared/avatar/CustomAvatar';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
-
-import { EntityType, Owner } from '@types';
+import { Tooltip } from '@components';
+import { useEntityRegistryV2 } from '../../../useEntityRegistry';
+import { EntityType, Owner } from '../../../../types.generated';
+import CustomAvatar from '../../../shared/avatar/CustomAvatar';
+import { REDESIGN_COLORS } from '../../shared/constants';
 
 const Details = styled.div`
     display: flex;

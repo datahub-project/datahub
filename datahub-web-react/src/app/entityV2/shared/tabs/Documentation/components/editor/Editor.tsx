@@ -1,7 +1,5 @@
-import { EditorComponent, Remirror, TableComponents, ThemeProvider, useRemirror } from '@remirror/react';
-import DOMPurify from 'dompurify';
 import React, { forwardRef, useEffect, useImperativeHandle } from 'react';
-import { useMount } from 'react-use';
+import DOMPurify from 'dompurify';
 import {
     BlockquoteExtension,
     BoldExtension,
@@ -23,17 +21,18 @@ import {
     TableExtension,
     UnderlineExtension,
 } from 'remirror/extensions';
-
-import { EditorContainer, EditorTheme } from '@app/entityV2/shared/tabs/Documentation/components/editor/EditorTheme';
-import { OnChangeMarkdown } from '@app/entityV2/shared/tabs/Documentation/components/editor/OnChangeMarkdown';
-import { htmlToMarkdown } from '@app/entityV2/shared/tabs/Documentation/components/editor/extensions/htmlToMarkdown';
-import { markdownToHtml } from '@app/entityV2/shared/tabs/Documentation/components/editor/extensions/markdownToHtml';
-import { DataHubMentionsExtension } from '@app/entityV2/shared/tabs/Documentation/components/editor/extensions/mentions/DataHubMentionsExtension';
-import { MentionsComponent } from '@app/entityV2/shared/tabs/Documentation/components/editor/extensions/mentions/MentionsComponent';
-import { CodeBlockToolbar } from '@app/entityV2/shared/tabs/Documentation/components/editor/toolbar/CodeBlockToolbar';
-import { FloatingToolbar } from '@app/entityV2/shared/tabs/Documentation/components/editor/toolbar/FloatingToolbar';
-import { TableCellMenu } from '@app/entityV2/shared/tabs/Documentation/components/editor/toolbar/TableCellMenu';
-import { Toolbar } from '@app/entityV2/shared/tabs/Documentation/components/editor/toolbar/Toolbar';
+import { EditorComponent, Remirror, useRemirror, ThemeProvider, TableComponents } from '@remirror/react';
+import { useMount } from 'react-use';
+import { EditorContainer, EditorTheme } from './EditorTheme';
+import { htmlToMarkdown } from './extensions/htmlToMarkdown';
+import { markdownToHtml } from './extensions/markdownToHtml';
+import { CodeBlockToolbar } from './toolbar/CodeBlockToolbar';
+import { FloatingToolbar } from './toolbar/FloatingToolbar';
+import { Toolbar } from './toolbar/Toolbar';
+import { OnChangeMarkdown } from './OnChangeMarkdown';
+import { TableCellMenu } from './toolbar/TableCellMenu';
+import { DataHubMentionsExtension } from './extensions/mentions/DataHubMentionsExtension';
+import { MentionsComponent } from './extensions/mentions/MentionsComponent';
 
 type EditorProps = {
     readOnly?: boolean;

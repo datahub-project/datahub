@@ -1,11 +1,10 @@
 import React, { useEffect, useMemo } from 'react';
 import styled from 'styled-components';
-
-import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
-import StatsTabRowCountGraph from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/StatsTabRowCountGraph/StatsTabRowCountGraph';
-import TopUsers from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/historical/TopUsers';
-import { useGetStatsData } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/useGetStatsData';
-import { SectionKeys } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
+import StatsTabRowCountGraph from '../graphs/StatsTabRowCountGraph/StatsTabRowCountGraph';
+import { useStatsSectionsContext } from '../StatsSectionsContext';
+import { useGetStatsData } from '../useGetStatsData';
+import TopUsers from './TopUsers';
+import { SectionKeys } from '../utils';
 
 const SectionWrapper = styled.div`
     display: flex;

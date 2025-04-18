@@ -1,40 +1,31 @@
 import { FolderFilled } from '@ant-design/icons';
+import { DATE_TYPE_URN } from '@src/app/shared/constants';
 import React from 'react';
-
-import { IconStyleType } from '@app/entity/Entity';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { FieldType, FilterField } from '@app/searchV2/filters/types';
+import { dataPlatform, dataPlatformInstance, dataset1, glossaryTerm1, user1 } from '../../../../Mocks';
+import { EntityType } from '../../../../types.generated';
+import { getTestEntityRegistry } from '../../../../utils/test-utils/TestPageContainer';
+import { IconStyleType } from '../../../entity/Entity';
+import { ANTD_GRAY } from '../../../entity/shared/constants';
 import {
-    PlatformIcon,
-    canCreateViewFromFilters,
-    combineAggregations,
-    filterEmptyAggregations,
-    filterOptionsWithSearch,
-    getActionRequestFilterDisplayName,
-    getFilterDisplayName,
     getFilterEntity,
-    getFilterIconAndLabel,
-    getFilterOptions,
     getNewFilters,
+    isFilterOptionSelected,
+    getFilterIconAndLabel,
+    PlatformIcon,
     getNumActiveFiltersForFilter,
     getNumActiveFiltersForGroupOfFilters,
-    getStructuredPropFilterDisplayName,
-<<<<<<< HEAD
+    combineAggregations,
+    filterEmptyAggregations,
+    getFilterOptions,
+    filterOptionsWithSearch,
+    canCreateViewFromFilters,
     isAnyOptionSelected,
-    isFilterOptionSelected,
-} from '@app/searchV2/filters/utils';
-import { ENTITY_SUB_TYPE_FILTER_NAME } from '@app/searchV2/utils/constants';
-import { dataPlatform, dataPlatformInstance, dataset1, glossaryTerm1, user1 } from '@src/Mocks';
-import { DATE_TYPE_URN } from '@src/app/shared/constants';
-import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
-
-import { EntityType } from '@types';
-=======
+    getStructuredPropFilterDisplayName,
     getFilterDisplayName,
+    getActionRequestFilterDisplayName,
 } from '../utils';
 import { ENTITY_SUB_TYPE_FILTER_NAME } from '../../utils/constants';
 import { FieldType, FilterField } from '../types';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 describe('filter utils - getNewFilters', () => {
     it('should get the correct list of filters when adding filters where the filter field did not already exist', () => {
@@ -487,7 +478,6 @@ describe('filter utils - getFilterDisplayName', () => {
         expect(getFilterDisplayName(option, field)).toBe('test name');
     });
 
-<<<<<<< HEAD
     it('should return formatted display name for action request type fields when aggregationsEntityTypes includes ActionRequest', () => {
         const option = { value: 'TAG_ASSOCIATION' };
         const field: FilterField = { type: FieldType.ENUM, field: 'type', displayName: 'Type' };
@@ -569,8 +559,6 @@ describe('filter utils - getActionRequestFilterDisplayName', () => {
         expect(getActionRequestFilterDisplayName(option, field)).toBe('');
     });
 
-=======
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
     it('should return undefined if no display name and field is not a structured property filter', () => {
         const option = { value: 'testValue' };
         const field: FilterField = { type: FieldType.ENUM, field: 'structuredProperties.test', displayName: 'test' };

@@ -1,4 +1,4 @@
-import { configMaps, defaultRecipes, mapFormStateToActionConfig } from '@app/automations/recipes';
+import { configMaps, defaultRecipes, mapFormStateToActionConfig } from '../../recipes';
 
 // Utility that updates the recipe of an automation with the new form data
 export const mapFormStateToRecipe = (formState: any) => {

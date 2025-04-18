@@ -1,6 +1,6 @@
-import { get, set } from 'lodash';
-import moment, { Moment } from 'moment-timezone';
 import React from 'react';
+import { set, get } from 'lodash';
+import moment, { Moment } from 'moment-timezone';
 
 export enum FieldType {
     TEXT,

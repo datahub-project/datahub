@@ -1,13 +1,12 @@
-import { Typography } from 'antd';
 import React from 'react';
+import { Typography } from 'antd';
 
-import { BarChart } from '@app/analyticsDashboard/components/BarChart';
-import { ChartCard } from '@app/analyticsDashboard/components/ChartCard';
-import { ChartContainer } from '@app/analyticsDashboard/components/ChartContainer';
-import { TableChart } from '@app/analyticsDashboard/components/TableChart';
-import { TimeSeriesChart } from '@app/analyticsDashboard/components/TimeSeriesChart';
-
-import { AnalyticsChart as AnalyticsChartType } from '@types';
+import { AnalyticsChart as AnalyticsChartType } from '../../../types.generated';
+import { TimeSeriesChart } from './TimeSeriesChart';
+import { BarChart } from './BarChart';
+import { TableChart } from './TableChart';
+import { ChartCard } from './ChartCard';
+import { ChartContainer } from './ChartContainer';
 
 type Props = {
     chartData: AnalyticsChartType;

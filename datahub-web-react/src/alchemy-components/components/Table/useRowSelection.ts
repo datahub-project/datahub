@@ -1,7 +1,6 @@
 import { useCallback, useMemo } from 'react';
-
-import { RowSelectionProps } from '@components/components/Table/types';
-import { getRowKey } from '@components/components/Table/utils';
+import { RowSelectionProps } from './types';
+import { getRowKey } from './utils';
 
 export const useRowSelection = <T>(
     data: T[],

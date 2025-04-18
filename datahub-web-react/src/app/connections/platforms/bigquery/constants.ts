@@ -1,8 +1,10 @@
 /*
  * Fields and configs are imported from ingest
  */
-import { RECIPE_FIELDS } from '@app/ingest/source/builder/RecipeForm/constants';
+
 import config, { BIGQUERY } from '@app/ingest/source/conf/bigquery/bigquery';
+
+import { RECIPE_FIELDS } from '@app/ingest/source/builder/RecipeForm/constants';
 
 export const PLATFORM_NAME = 'BigQuery';
 export const PLATFORM_URN = 'urn:li:dataPlatform:bigquery';

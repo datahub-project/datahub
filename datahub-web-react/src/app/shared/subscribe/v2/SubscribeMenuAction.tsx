@@ -1,28 +1,26 @@
-import { Bell, UsersThree } from '@phosphor-icons/react';
-import { Dropdown, Tabs } from 'antd';
+import { ENTITY_PROFILE_V2_SUBSCRIPTION_ID } from '@app/onboarding/configV2/EntityProfileOnboardingConfig';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components/macro';
-
-import { ActionMenuItem } from '@app/entityV2/shared/EntityDropdown/styledComponents';
-import { ENTITY_PROFILE_V2_SUBSCRIPTION_ID } from '@app/onboarding/configV2/EntityProfileOnboardingConfig';
-import Loading from '@app/shared/Loading';
-import { ShowMoreButton } from '@app/shared/ShowMoreSection';
-import CustomAvatar from '@app/shared/avatar/CustomAvatar';
-import { formatNumber } from '@app/shared/formatNumber';
-import SubscriptionDrawer from '@app/shared/subscribe/drawer/SubscriptionDrawer';
-import useDeleteSubscription from '@app/shared/subscribe/useDeleteSubscription';
-import useGroupRelationships from '@app/shared/subscribe/useGroupRelationships';
-import useSubscription from '@app/shared/subscribe/useSubscription';
-import useSubscriptionSummary from '@app/shared/subscribe/useSubscriptionSummary';
-import { useSiblingOptionsForSubscriptions } from '@app/shared/subscribe/v2/utils';
-import { Button, Icon, Pill, Text, colors } from '@src/alchemy-components';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { useIsSeparateSiblingsMode } from '@src/app/entityV2/shared/useIsSeparateSiblingsMode';
+import styled from 'styled-components/macro';
+import { Dropdown, Tabs } from 'antd';
+import { Button, colors, Icon, Pill, Text } from '@src/alchemy-components';
+import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { Bell, UsersThree } from '@phosphor-icons/react';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
-
-import { EntityType } from '@types';
+import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
+import useSubscription from '../useSubscription';
+import { formatNumber } from '../../formatNumber';
+import CustomAvatar from '../../avatar/CustomAvatar';
+import { ShowMoreButton } from '../../ShowMoreSection';
+import useSubscriptionSummary from '../useSubscriptionSummary';
+import useGroupRelationships from '../useGroupRelationships';
+import SubscriptionDrawer from '../drawer/SubscriptionDrawer';
+import useDeleteSubscription from '../useDeleteSubscription';
+import { ActionMenuItem } from '../../../entityV2/shared/EntityDropdown/styledComponents';
+import { EntityType } from '../../../../types.generated';
+import Loading from '../../Loading';
+import { useSiblingOptionsForSubscriptions } from './utils';
 
 const { TabPane } = Tabs;
 
@@ -36,9 +34,7 @@ const DropdownContent = styled.div`
     min-width: 300px;
     background: white;
     border-radius: 8px;
-    box-shadow:
-        0 3px 6px -4px rgba(0, 0, 0, 0.12),
-        0 6px 16px 0 rgba(0, 0, 0, 0.08);
+    box-shadow: 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 6px 16px 0 rgba(0, 0, 0, 0.08);
     padding: 12px;
 `;
 

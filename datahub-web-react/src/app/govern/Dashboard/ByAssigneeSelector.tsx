@@ -1,10 +1,12 @@
-import { Select } from 'antd';
 import React from 'react';
 
-import { useFormAnalyticsContext } from '@app/govern/Dashboard/FormAnalyticsContext';
-import { StyledSelect } from '@app/govern/Dashboard/components';
-import { getEntityInfo, mergeRowAndHeaderData } from '@app/govern/Dashboard/utils';
+import { Select } from 'antd';
 import analytics, { EventType } from '@src/app/analytics';
+
+import { mergeRowAndHeaderData, getEntityInfo } from './utils';
+
+import { useFormAnalyticsContext } from './FormAnalyticsContext';
+import { StyledSelect } from './components';
 
 export const ByAssigneeSelector = () => {
     const {

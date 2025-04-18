@@ -1,10 +1,9 @@
 import { CloseCircleOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import React from 'react';
-
-import { FormResponsesFilter, useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
-import { ActiveFilterWrapper, StyledButton } from '@app/search/filters/ActiveFilter';
-import { IconSpacer, Label } from '@app/search/filters/styledComponents';
-import { getLabelForFormResponsesFilter } from '@app/search/filters/utils';
+import { FormResponsesFilter, useEntityFormContext } from '../../entity/shared/entityForm/EntityFormContext';
+import { ActiveFilterWrapper, StyledButton } from './ActiveFilter';
+import { IconSpacer, Label } from './styledComponents';
+import { getLabelForFormResponsesFilter } from './utils';
 
 interface Props {
     filter: FormResponsesFilter;

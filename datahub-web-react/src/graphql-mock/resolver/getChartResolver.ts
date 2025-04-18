@@ -1,5 +1,5 @@
-import { findChartByURN } from '@graphql-mock/fixtures/searchResult/chartSearchResult';
-import { Chart } from '@types';
+import { Chart } from '../../types.generated';
+import { findChartByURN } from '../fixtures/searchResult/chartSearchResult';
 
 type GetChart = {
     data: {

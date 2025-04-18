@@ -1,5 +1,7 @@
 import React from 'react';
 
+import { TextAreaProps } from './types';
+
 import {
     ErrorMessage,
     Label,
@@ -10,8 +12,7 @@ import {
     TextAreaField,
     TextAreaWrapper,
     WarningMessage,
-} from '@components/components/TextArea/components';
-import { TextAreaProps } from '@components/components/TextArea/types';
+} from './components';
 
 export const textAreaDefaults: TextAreaProps = {
     label: 'Label',

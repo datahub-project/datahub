@@ -1,9 +1,8 @@
-import moment from 'moment';
 import * as QueryString from 'query-string';
-import { useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
-
-import { useAppConfig } from '@app/useAppConfig';
+import moment from 'moment';
+import { useMemo } from 'react';
+import { useAppConfig } from '../../useAppConfig';
 
 export const START_TIME_MILLIS_URL_PARAM = 'start_time_millis';
 export const END_TIME_MILLIS_URL_PARAM = 'end_time_millis';

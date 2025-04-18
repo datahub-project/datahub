@@ -1,8 +1,7 @@
 import { Space, Table, Typography } from 'antd';
-import { ColumnsType } from 'antd/es/table';
 import React from 'react';
-
-import { StringMapEntry } from '@types';
+import { ColumnsType } from 'antd/es/table';
+import { StringMapEntry } from '../../../../../types.generated';
 
 export type Props = {
     properties: StringMapEntry[];

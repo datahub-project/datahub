@@ -1,39 +1,9 @@
+import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
+import { Input, AutoComplete, Skeleton } from 'antd';
 import { CloseCircleFilled, SearchOutlined } from '@ant-design/icons';
-import { AutoComplete, Input, Skeleton } from 'antd';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
-
-import analytics, { Event, EventType } from '@app/analytics';
-import { useUserContext } from '@app/context/useUserContext';
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
-import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { ViewSelect } from '@app/entityV2/view/select/ViewSelect';
-import { V2_SEARCH_BAR_VIEWS } from '@app/onboarding/configV2/HomePageOnboardingConfig';
-import { CommandK } from '@app/searchV2/CommandK';
-import ViewAllSearchItem from '@app/searchV2/ViewAllSearchItem';
-import AutoCompleteItem from '@app/searchV2/autoComplete/AutoCompleteItem';
-import RecommendedOption from '@app/searchV2/autoComplete/RecommendedOption';
-import SectionHeader, { EntityTypeLabel } from '@app/searchV2/autoComplete/SectionHeader';
-import QuickFilters from '@app/searchV2/autoComplete/quickFilters/QuickFilters';
-import { FiltersAppliedHandler } from '@app/searchV2/filtersV2/types';
-import useFocusElementByCommandK from '@app/searchV2/searchBarV2/hooks/useFocusSearchBarByCommandK';
-import useSearchViewAll from '@app/searchV2/useSearchViewAll';
-import { combineSiblingsInAutoComplete } from '@app/searchV2/utils/combineSiblingsInAutoComplete';
-import { EXACT_SEARCH_PREFIX } from '@app/searchV2/utils/constants';
-import filterSearchQuery from '@app/searchV2/utils/filterSearchQuery';
-import { getFiltersWithQuickFilter } from '@app/searchV2/utils/filterUtils';
-import usePrevious from '@app/shared/usePrevious';
-import { useAppConfig, useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
-import { useQuickFiltersContext } from '@providers/QuickFiltersContext';
+import { useHistory } from 'react-router';
 import { Button, colors } from '@src/alchemy-components';
-<<<<<<< HEAD
-import { EntityRegistry } from '@src/entityRegistryContext';
-
-import { useListRecommendationsQuery } from '@graphql/recommendations.generated';
-import { AutoCompleteResultForEntity, FacetFilterInput, ScenarioType } from '@types';
-=======
 import { AutoCompleteResultForEntity, FacetFilterInput, ScenarioType } from '../../types.generated';
 import { EntityRegistry } from '../../entityRegistryContext';
 import filterSearchQuery from './utils/filterSearchQuery';
@@ -60,7 +30,6 @@ import useSearchViewAll from './useSearchViewAll';
 import { useAppConfig, useIsShowSeparateSiblingsEnabled } from '../useAppConfig';
 import useFocusElementByCommandK from './searchBarV2/hooks/useFocusSearchBarByCommandK';
 import { FiltersAppliedHandler } from './filtersV2/types';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const StyledAutoComplete = styled(AutoComplete)<{ $isShowNavBarRedesign?: boolean }>`
     width: 100%;

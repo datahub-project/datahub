@@ -1,10 +1,9 @@
 import React from 'react';
-
-import { ContentsSection } from '@app/entityV2/domain/summary/ContentsSection';
-import { DataProductsSection } from '@app/entityV2/domain/summary/DataProductsSection';
-import OwnersSection from '@app/entityV2/domain/summary/OwnersSection';
-import { SummaryTabWrapper } from '@app/entityV2/shared/summary/HeaderComponents';
-import SummaryAboutSection from '@app/entityV2/shared/summary/SummaryAboutSection';
+import { ContentsSection } from './ContentsSection';
+import { DataProductsSection } from './DataProductsSection';
+import SummaryAboutSection from '../../shared/summary/SummaryAboutSection';
+import { SummaryTabWrapper } from '../../shared/summary/HeaderComponents';
+import OwnersSection from './OwnersSection';
 
 export const DomainSummaryTab = () => {
     return (

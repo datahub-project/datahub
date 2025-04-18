@@ -1,8 +1,7 @@
 import React from 'react';
-
-import { LoaderBackRing, LoaderWrapper, StyledLoadingOutlined } from '@components/components/Loader/components';
-import { LoaderSizes, RingWidths } from '@components/components/Loader/constants';
-import { LoaderProps } from '@components/components/Loader/types';
+import { LoaderBackRing, LoaderWrapper, StyledLoadingOutlined } from './components';
+import { LoaderSizes, RingWidths } from './constants';
+import { LoaderProps } from './types';
 
 export const loaderDefault: LoaderProps = {
     size: 'md',

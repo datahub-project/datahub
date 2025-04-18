@@ -1,12 +1,10 @@
-import { DeleteOutlined } from '@ant-design/icons';
-import { Dropdown, Menu, Modal, message } from 'antd';
 import React from 'react';
-
-import { MenuIcon } from '@app/entity/shared/EntityDropdown/EntityDropdown';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { useDeleteDomainMutation } from '@graphql/domain.generated';
-import { EntityType } from '@types';
+import { DeleteOutlined } from '@ant-design/icons';
+import { Dropdown, Menu, message, Modal } from 'antd';
+import { EntityType } from '../../types.generated';
+import { useEntityRegistry } from '../useEntityRegistry';
+import { useDeleteDomainMutation } from '../../graphql/domain.generated';
+import { MenuIcon } from '../entity/shared/EntityDropdown/EntityDropdown';
 
 type Props = {
     urn: string;

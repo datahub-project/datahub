@@ -1,4 +1,4 @@
-import React, { ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { useContext, useState, ReactNode, useMemo, useCallback, useEffect } from 'react';
 
 export enum NavBarStateType {
     Collapsed = 'COLLAPSED',

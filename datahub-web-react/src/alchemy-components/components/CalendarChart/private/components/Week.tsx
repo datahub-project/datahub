@@ -1,8 +1,7 @@
 import React, { useMemo } from 'react';
-
-import { Day } from '@components/components/CalendarChart/private/components/Day';
-import { useCalendarState } from '@components/components/CalendarChart/private/context';
-import { WeekProps } from '@components/components/CalendarChart/types';
+import { WeekProps } from '../../types';
+import { useCalendarState } from '../context';
+import { Day } from './Day';
 
 export function Week<ValueType>({ week, weekNumber, monthOffset }: WeekProps<ValueType>) {
     const { squareSize, squareGap, margin } = useCalendarState<ValueType>();

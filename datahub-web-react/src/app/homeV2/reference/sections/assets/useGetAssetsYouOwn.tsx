@@ -1,17 +1,8 @@
-<<<<<<< HEAD
-import { ASSET_ENTITY_TYPES, OWNERS_FILTER_NAME } from '@app/searchV2/utils/constants';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-import useGetUserGroupUrns from '@src/app/entityV2/user/useGetUserGroupUrns';
-
-import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
-import { CorpUser } from '@types';
-=======
 import useGetUserGroupUrns from '@src/app/entityV2/user/useGetUserGroupUrns';
 import { useGetSearchResultsForMultipleQuery } from '../../../../../graphql/search.generated';
 import { CorpUser } from '../../../../../types.generated';
 import { ASSET_ENTITY_TYPES, OWNERS_FILTER_NAME } from '../../../../searchV2/utils/constants';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const MAX_ASSETS_TO_FETCH = 50;
 

@@ -1,8 +1,7 @@
-import React from 'react';
 import styled from 'styled-components';
-
-import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
+import React from 'react';
 import { Button } from '@src/alchemy-components';
+import TabToolbar from '../../../components/styled/TabToolbar';
 
 const StyledTabToolbar = styled(TabToolbar)`
     justify-content: flex-end !important;

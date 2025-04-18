@@ -3,18 +3,19 @@ A foundational type that represents a string value that is auditable.
 Use whenever we need to track the creation and last modification of a string value including the actor(s) involved.
 """
 type AuditableString {
-  """
-  The string value.
-  """
-  value: String!
+    
+        """
+        The string value.
+        """
+        value: String!
+    
+        """
+        The audit stamp related to the creation of this string.
+        """
+        created: AuditStamp!
 
-  """
-  The audit stamp related to the creation of this string.
-  """
-  created: AuditStamp!
-
-  """
-  The audit stamp related to the last modification of this string.
-  """
-  lastModified: AuditStamp!
+        """
+        The audit stamp related to the last modification of this string.
+        """
+        lastModified: AuditStamp!    
 }

@@ -1,8 +1,7 @@
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import React from 'react';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import styled from 'styled-components';
-
-import { ViewItem } from '@app/entityV2/view/menu/item/ViewItem';
+import { ViewItem } from './ViewItem';
 
 const EditOutlinedIconStyled = styled(EditOutlinedIcon)`
     font-size: 14px !important;

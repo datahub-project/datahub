@@ -1,33 +1,3 @@
-<<<<<<< HEAD
-import { RoleEntity } from '@app/entityV2/Access/RoleEntity';
-import EntityRegistry from '@app/entityV2/EntityRegistry';
-import { BusinessAttributeEntity } from '@app/entityV2/businessAttribute/BusinessAttributeEntity';
-import { ChartEntity } from '@app/entityV2/chart/ChartEntity';
-import { ContainerEntity } from '@app/entityV2/container/ContainerEntity';
-import { DashboardEntity } from '@app/entityV2/dashboard/DashboardEntity';
-import { DataContractEntity } from '@app/entityV2/dataContract/DataContractEntity';
-import { DataFlowEntity } from '@app/entityV2/dataFlow/DataFlowEntity';
-import { DataJobEntity } from '@app/entityV2/dataJob/DataJobEntity';
-import { DataPlatformEntity } from '@app/entityV2/dataPlatform/DataPlatformEntity';
-import { DataPlatformInstanceEntity } from '@app/entityV2/dataPlatformInstance/DataPlatformInstanceEntity';
-import { DataProcessInstanceEntity } from '@app/entityV2/dataProcessInstance/DataProcessInstanceEntity';
-import { DataProductEntity } from '@app/entityV2/dataProduct/DataProductEntity';
-import { DatasetEntity } from '@app/entityV2/dataset/DatasetEntity';
-import { DomainEntity } from '@app/entityV2/domain/DomainEntity';
-import GlossaryNodeEntity from '@app/entityV2/glossaryNode/GlossaryNodeEntity';
-import { GlossaryTermEntity } from '@app/entityV2/glossaryTerm/GlossaryTermEntity';
-import { GroupEntity } from '@app/entityV2/group/Group';
-import { MLFeatureEntity } from '@app/entityV2/mlFeature/MLFeatureEntity';
-import { MLFeatureTableEntity } from '@app/entityV2/mlFeatureTable/MLFeatureTableEntity';
-import { MLModelEntity } from '@app/entityV2/mlModel/MLModelEntity';
-import { MLModelGroupEntity } from '@app/entityV2/mlModelGroup/MLModelGroupEntity';
-import { MLPrimaryKeyEntity } from '@app/entityV2/mlPrimaryKey/MLPrimaryKeyEntity';
-import { QueryEntity } from '@app/entityV2/query/QueryEntity';
-import { SchemaFieldEntity } from '@app/entityV2/schemaField/SchemaFieldEntity';
-import { StructuredPropertyEntity } from '@app/entityV2/structuredProperty/StructuredPropertyEntity';
-import { TagEntity } from '@app/entityV2/tag/Tag';
-import { UserEntity } from '@app/entityV2/user/User';
-=======
 import { RoleEntity } from './entityV2/Access/RoleEntity';
 import EntityRegistry from './entityV2/EntityRegistry';
 import { BusinessAttributeEntity } from './entityV2/businessAttribute/BusinessAttributeEntity';
@@ -56,7 +26,6 @@ import { SchemaFieldEntity } from './entityV2/schemaField/SchemaFieldEntity';
 import { StructuredPropertyEntity } from './entityV2/structuredProperty/StructuredPropertyEntity';
 import { TagEntity } from './entityV2/tag/Tag';
 import { UserEntity } from './entityV2/user/User';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 export default function buildEntityRegistryV2() {
     const registry = new EntityRegistry();

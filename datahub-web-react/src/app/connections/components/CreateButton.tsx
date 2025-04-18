@@ -1,6 +1,7 @@
-import { Button, ButtonProps } from '@components';
-import { Modal } from 'antd';
 import React, { useState } from 'react';
+
+import { Modal } from 'antd';
+import { Button, ButtonProps } from '@components';
 
 interface Props extends ButtonProps {
     connections: {

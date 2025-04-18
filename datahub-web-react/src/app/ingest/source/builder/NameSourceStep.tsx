@@ -1,12 +1,11 @@
-import { Button, Tooltip } from '@components';
 import { Checkbox, Collapse, Form, Input, Typography } from 'antd';
+import { Button, Tooltip } from '@components';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import React from 'react';
 import styled from 'styled-components';
-
-import RemoteExecutorPoolSelector from '@app/ingest/source/builder/RemoteExecutorPoolSelector.saas';
-import { SourceBuilderState, StepProps, StringMapEntryInput } from '@app/ingest/source/builder/types';
-import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import { SourceBuilderState, StepProps, StringMapEntryInput } from './types';
+import { RequiredFieldForm } from '../../../shared/form/RequiredFieldForm';
+import RemoteExecutorPoolSelector from './RemoteExecutorPoolSelector.saas';
 
 const ControlsContainer = styled.div`
     display: flex;

@@ -1,27 +1,8 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
 import { keyBy } from 'lodash';
 import React from 'react';
-
-import {
-    AI_INFERRED_ASSERTION_DEFAULT_SCHEDULE_CRON,
-    AI_INFERRED_ASSERTION_DEFAULT_SCHEDULE_TIMEZONE,
-    ASSERTION_TYPES,
-    HIGH_WATERMARK_FIELD_TYPES,
-    LAST_MODIFIED_FIELD_TYPES,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/constants';
-import {
-    AssertionActionsFormState,
-    AssertionMonitorBuilderState,
-    FieldMetricAssertionBuilderOperatorOptions,
-    FreshnessAssertionBuilderScheduleType,
-    FreshnessAssertionScheduleBuilderTypeOptions,
-    VolumeAssertionBuilderTypeOptions,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
-import { BIGQUERY_URN, DATABRICKS_URN, REDSHIFT_URN, SNOWFLAKE_URN } from '@app/ingest/source/builder/constants';
-import { cleanAssertionDescription, removeNestedTypeNames } from '@app/shared/subscribe/drawer/utils';
 import { nullsToUndefined } from '@src/app/entityV2/shared/utils';
-
-import { UpdateAssertionMetadataMutationVariables } from '@graphql/assertion.generated';
+import { UpdateAssertionMetadataMutationVariables } from '../../../../../../../../graphql/assertion.generated';
 import {
     Assertion,
     AssertionActionType,
@@ -30,8 +11,8 @@ import {
     AssertionEvaluationParametersType,
     AssertionSourceType,
     AssertionStdOperator,
-    AssertionStdParameterType,
     AssertionStdParameters,
+    AssertionStdParameterType,
     AssertionType,
     AssertionValueChangeType,
     CreateFieldAssertionInput,
@@ -55,7 +36,29 @@ import {
     SchemaFieldDataType,
     SqlAssertionType,
     VolumeAssertionType,
-} from '@types';
+} from '../../../../../../../../types.generated';
+import {
+    BIGQUERY_URN,
+    DATABRICKS_URN,
+    REDSHIFT_URN,
+    SNOWFLAKE_URN,
+} from '../../../../../../../ingest/source/builder/constants';
+import {
+    AI_INFERRED_ASSERTION_DEFAULT_SCHEDULE_CRON,
+    AI_INFERRED_ASSERTION_DEFAULT_SCHEDULE_TIMEZONE,
+    ASSERTION_TYPES,
+    HIGH_WATERMARK_FIELD_TYPES,
+    LAST_MODIFIED_FIELD_TYPES,
+} from './constants';
+import {
+    AssertionActionsFormState,
+    AssertionMonitorBuilderState,
+    FieldMetricAssertionBuilderOperatorOptions,
+    FreshnessAssertionBuilderScheduleType,
+    FreshnessAssertionScheduleBuilderTypeOptions,
+    VolumeAssertionBuilderTypeOptions,
+} from './types';
+import { cleanAssertionDescription, removeNestedTypeNames } from '../../../../../../../shared/subscribe/drawer/utils';
 
 /** Configuration object used to display each source option */
 export type SourceOption = {

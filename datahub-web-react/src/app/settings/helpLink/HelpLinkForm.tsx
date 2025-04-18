@@ -1,10 +1,9 @@
 import { Button, Switch } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import LinkInput, { getLinkWithoutPrefix } from '@app/settings/helpLink/LinkInput';
-import { InputLabel, InputWrapper, RequiredIcon, StyledInput } from '@app/settings/helpLink/components';
-import useHelpLinkForm from '@app/settings/helpLink/useHelpLinkForm';
+import useHelpLinkForm from './useHelpLinkForm';
+import LinkInput, { getLinkWithoutPrefix } from './LinkInput';
+import { InputLabel, InputWrapper, RequiredIcon, StyledInput } from './components';
 
 const ContentWrapper = styled.div`
     display: flex;

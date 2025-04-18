@@ -1,4 +1,4 @@
-import { OwnershipTypeEntity } from '@types';
+import { OwnershipTypeEntity } from '../../../../../../../../../types.generated';
 
 export const getOwnershipTypeDisplayName = (ownershipType: OwnershipTypeEntity) => {
     return ownershipType.info?.name || ownershipType.urn;

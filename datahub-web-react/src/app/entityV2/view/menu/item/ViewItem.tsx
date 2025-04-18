@@ -1,7 +1,6 @@
-import { Menu } from 'antd';
 import React from 'react';
-
-import { IconItemTitle } from '@app/entityV2/view/menu/item/IconItemTitle';
+import { Menu } from 'antd';
+import { IconItemTitle } from './IconItemTitle';
 
 type Props = {
     key: string;

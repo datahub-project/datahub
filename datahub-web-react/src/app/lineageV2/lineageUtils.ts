@@ -1,11 +1,9 @@
-import { useLocation } from 'react-router-dom';
-
-import { KEY_SCHEMA_PREFIX, VERSION_PREFIX } from '@app/entity/dataset/profile/schema/utils/constants';
-import EntityRegistry from '@app/entityV2/EntityRegistry';
-import { getFieldPathFromSchemaFieldUrn } from '@app/entityV2/schemaField/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { EntityType, SchemaField } from '@types';
+import { useLocation } from 'react-router-dom';
+import { EntityType, SchemaField } from '../../types.generated';
+import { KEY_SCHEMA_PREFIX, VERSION_PREFIX } from '../entity/dataset/profile/schema/utils/constants';
+import EntityRegistry from '../entityV2/EntityRegistry';
+import { getFieldPathFromSchemaFieldUrn } from '../entityV2/schemaField/utils';
 
 export function downgradeV2FieldPath(fieldPath: string): string;
 export function downgradeV2FieldPath(fieldPath?: string | null) {

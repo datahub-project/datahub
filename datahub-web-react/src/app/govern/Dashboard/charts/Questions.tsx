@@ -1,15 +1,19 @@
-import { scaleOrdinal } from '@visx/scale';
 import React, { useEffect } from 'react';
 
-import { ChartCard, HorizontalFullBarChart } from '@app/dataviz';
-import { COMPLETED_COLOR, IN_PROGRESS_COLOR, NOT_STARTED_COLOR } from '@app/dataviz/constants';
-import { useFormAnalyticsContext } from '@app/govern/Dashboard/FormAnalyticsContext';
-import { ChartNoData, ChartState, SectionWaiting } from '@app/govern/Dashboard/charts/AuxViews';
-import { ChartGroup, Row, SecondaryHeading } from '@app/govern/Dashboard/components';
-import { mergeRowAndHeaderData, truncateString } from '@app/govern/Dashboard/utils';
+import { scaleOrdinal } from '@visx/scale';
 
-import { useFormAnalyticsQuery } from '@graphql/analytics.generated';
-import { useGetFormQuery } from '@graphql/form.generated';
+import { ChartCard, HorizontalFullBarChart } from '../../../dataviz';
+import { COMPLETED_COLOR, NOT_STARTED_COLOR, IN_PROGRESS_COLOR } from '../../../dataviz/constants';
+
+import { ChartGroup, Row, SecondaryHeading } from '../components';
+import { mergeRowAndHeaderData, truncateString } from '../utils';
+
+import { useFormAnalyticsQuery } from '../../../../graphql/analytics.generated';
+import { useFormAnalyticsContext } from '../FormAnalyticsContext';
+
+import { useGetFormQuery } from '../../../../graphql/form.generated';
+
+import { SectionWaiting, ChartState, ChartNoData } from './AuxViews';
 
 /* THIS CHART CAN ONLY WORK ON THE FORMS TAB WHEN A FORM ID IS SELECTED */
 const DocumentationProgressByQuestion = () => {

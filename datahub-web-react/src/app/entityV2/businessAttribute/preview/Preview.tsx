@@ -1,13 +1,11 @@
-import { GlobalOutlined } from '@ant-design/icons';
 import React from 'react';
-
-import { getRelatedEntitiesUrl } from '@app/businessAttribute/businessAttributeUtils';
-import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
-import UrlButton from '@app/entityV2/shared/UrlButton';
-import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { EntityType, Owner } from '@types';
+import { GlobalOutlined } from '@ant-design/icons';
+import { EntityType, Owner } from '../../../../types.generated';
+import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import { IconStyleType, PreviewType } from '../../Entity';
+import UrlButton from '../../shared/UrlButton';
+import { getRelatedEntitiesUrl } from '../../../businessAttribute/businessAttributeUtils';
 
 export const Preview = ({
     urn,

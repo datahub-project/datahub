@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-
-import OptionsDropdownMenu from '@app/searchV2/filters/OptionsDropdownMenu';
-import { mapFilterOption } from '@app/searchV2/filters/mapFilterOption';
-import { FilterField, FilterValue } from '@app/searchV2/filters/types';
-import { OptionMenu } from '@app/searchV2/filters/value/styledComponents';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import { FilterField, FilterValue } from '../types';
+import { mapFilterOption } from '../mapFilterOption';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import OptionsDropdownMenu from '../OptionsDropdownMenu';
+import { OptionMenu } from './styledComponents';
 
 // Since we are working with a boolean field, always simply have the base options.
 const OPTIONS = [

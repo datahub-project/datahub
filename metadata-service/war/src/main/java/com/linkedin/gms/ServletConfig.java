@@ -24,12 +24,9 @@ import io.datahubproject.openapi.converter.StringToChangeCategoryConverter;
 import java.util.Arrays;
 import java.util.List;
 import javax.annotation.Nonnull;
-<<<<<<< HEAD
 import org.apache.directory.scim.core.json.ObjectMapperFactory;
 import org.apache.directory.scim.core.schema.SchemaRegistry;
 import org.apache.directory.scim.protocol.Constants;
-=======
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 import org.apache.iceberg.rest.RESTSerializers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;

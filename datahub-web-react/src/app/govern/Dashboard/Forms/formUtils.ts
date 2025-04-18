@@ -1,5 +1,4 @@
 import { LogicalPredicate } from '@src/app/tests/builder/steps/definition/builder/types';
-
 import {
     AndFilterInput,
     CorpGroup,
@@ -16,7 +15,7 @@ import {
     OwnershipParamsInput,
     StructuredPropertyParams,
     StructuredPropertyParamsInput,
-} from '@types';
+} from '../../../../types.generated';
 
 export type FormMode = 'create' | 'edit';
 

@@ -1,18 +1,13 @@
-import React from 'react';
-
-import OperatorSelect from '@app/govern/Dashboard/Forms/filters/OperatorSelect';
-import PropertySelect from '@app/govern/Dashboard/Forms/filters/PropertySelect';
-import ValuesSelect from '@app/govern/Dashboard/Forms/filters/ValuesSelect';
-import {
-    ConditionContainer,
-    IconsContainer,
-    SelectContainer,
-} from '@app/govern/Dashboard/Forms/filters/styledComponents';
-import { CardIcons } from '@app/govern/Dashboard/Forms/styledComponents';
 import { Icon } from '@src/alchemy-components';
 import { Property } from '@src/app/tests/builder/steps/definition/builder/property/types/properties';
 import { getOperatorOptions, getValueOptions } from '@src/app/tests/builder/steps/definition/builder/property/utils';
 import { PropertyPredicate } from '@src/app/tests/builder/steps/definition/builder/types';
+import React from 'react';
+import { CardIcons } from '../styledComponents';
+import OperatorSelect from './OperatorSelect';
+import PropertySelect from './PropertySelect';
+import { ConditionContainer, IconsContainer, SelectContainer } from './styledComponents';
+import ValuesSelect from './ValuesSelect';
 
 interface Props {
     selectedPredicate?: PropertyPredicate;

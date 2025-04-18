@@ -1,14 +1,13 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import React, { useContext, useEffect } from 'react';
-
-import AddToForm from '@app/govern/Dashboard/Forms/AddToForm';
-import CreateFormHeader from '@app/govern/Dashboard/Forms/CreateFormHeader';
-import DetailsForm from '@app/govern/Dashboard/Forms/DetailsForm';
-import ManageFormContext from '@app/govern/Dashboard/Forms/ManageFormContext';
-import { FormMode } from '@app/govern/Dashboard/Forms/formUtils';
-import { ContentContainer, ContentWrapper, StyledSpin } from '@app/govern/Dashboard/Forms/styledComponents';
 import { useIsThemeV2 } from '@src/app/useIsThemeV2';
+import React, { useContext, useEffect } from 'react';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import AddToForm from './AddToForm';
+import CreateFormHeader from './CreateFormHeader';
+import DetailsForm from './DetailsForm';
+import { FormMode } from './formUtils';
+import ManageFormContext from './ManageFormContext';
+import { ContentContainer, ContentWrapper, StyledSpin } from './styledComponents';
 
 interface Props {
     mode: FormMode;

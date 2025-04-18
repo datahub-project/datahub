@@ -1,11 +1,8 @@
 extend type Mutation {
-  """
+    """
   Create or update a data contract for a given dataset. Requires the "Edit Data Contract" privilege for the provided dataset.
   """
-  upsertDataContract(
-    urn: String
-    input: UpsertDataContractInput!
-  ): DataContract!
+  upsertDataContract(urn: String, input: UpsertDataContractInput!): DataContract!
 }
 
 extend type Dataset {
@@ -23,7 +20,7 @@ on whether the assertions that compose the contract are passing or failing.
 Note that the data contract entity is currently in early preview (beta).
 """
 type DataContract implements Entity {
-  """
+    """
   A primary key of the data contract
   """
   urn: String!
@@ -59,21 +56,11 @@ type DataContract implements Entity {
   """
   result(
     """
-<<<<<<< HEAD
     Experimental --
     If true, any native data contract assertions will be re-evaluated before returning the result.
     Returns null if there is NO contract. Contract is PASSING if there are no assertions inside of it.
-=======
-    Structured properties about this Data Contract
     """
-    structuredProperties: StructuredProperties
-
-    """
-    List of relationships between the source Entity and some destination entities with a given types
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
-    """
-    refresh: Boolean
-  ): DataContractResult
+    refresh: Boolean): DataContractResult
 }
 
 type DataContractProperties {
@@ -104,22 +91,22 @@ type DataContractProperties {
 The state of the data contract
 """
 enum DataContractState {
-  """
+    """
   The data contract is active.
   """
   ACTIVE
 
-  """
-  The data contract is pending. Note that this symbol is currently experimental.
-  """
-  PENDING
+    """
+    The data contract is pending. Note that this symbol is currently experimental.
+    """
+    PENDING
 }
 
 type DataContractStatus {
-  """
-  The state of the data contract
-  """
-  state: DataContractState!
+    """
+    The state of the data contract
+    """
+    state: DataContractState!
 }
 
 type DataContractResult {
@@ -137,81 +124,81 @@ type DataContractResult {
 }
 
 enum DataContractResultType {
-  """
-  The data contract is passing
-  """
-  PASSING
+    """
+    The data contract is passing
+    """
+    PASSING
 
-  """
-  The data contract is failing
-  """
-  FAILING
+    """
+    The data contract is failing
+    """
+    FAILING
 }
 
 type DataQualityContract {
-  """
-  The assertion representing the schema contract.
-  """
-  assertion: Assertion!
+    """
+    The assertion representing the schema contract.
+    """
+    assertion: Assertion!
 }
 
 type SchemaContract {
-  """
-  The assertion representing the schema contract.
-  """
-  assertion: Assertion!
+    """
+    The assertion representing the schema contract.
+    """
+    assertion: Assertion!
 }
 
 type FreshnessContract {
-  """
-  The assertion representing the Freshness contract.
-  """
-  assertion: Assertion!
+    """
+    The assertion representing the Freshness contract.
+    """
+    assertion: Assertion!
 }
 
 """
 Input required to upsert a Data Contract entity for an asset
 """
 input UpsertDataContractInput {
-  """
+    """
   The urn of the related entity. Dataset is the only entity type supported today.
   """
   entityUrn: String!
 
-  """
-  The Freshness / Freshness portion of the contract. If not provided, this will be set to none.
-  For Dataset Contracts, it is expected that there will not be more than 1 Freshness contract. If there are, only the first will be displayed.
-  """
-  freshness: [FreshnessContractInput!]
+    """
+    The Freshness / Freshness portion of the contract. If not provided, this will be set to none.
+    For Dataset Contracts, it is expected that there will not be more than 1 Freshness contract. If there are, only the first will be displayed.
+    """
+    freshness: [FreshnessContractInput!]
 
-  """
-  The schema / structural portion of the contract. If not provided, this will be set to none.
-  For Dataset Contracts, it is expected that there will not be more than 1 Schema contract. If there are, only the first will be displayed.
-  """
-  schema: [SchemaContractInput!]
+    """
+    The schema / structural portion of the contract. If not provided, this will be set to none.
+    For Dataset Contracts, it is expected that there will not be more than 1 Schema contract. If there are, only the first will be displayed.
+    """
+    schema: [SchemaContractInput!]
 
-  """
-  The data quality portion of the contract. If not provided, this will be set to none.
-  """
-  dataQuality: [DataQualityContractInput!]
+    """
+    The data quality portion of the contract. If not provided, this will be set to none.
+    """
+    dataQuality: [DataQualityContractInput!]
 
-  """
-  The state of the data contract. If not provided, it will be in ACTIVE mode by default.
-  """
-  state: DataContractState
+    """
+    The state of the data contract. If not provided, it will be in ACTIVE mode by default.
+    """
+    state: DataContractState
 
-  """
-  Optional ID of the contract you want to create. Only applicable if this is a create operation. If not provided, a random
-  id will be generated for you.
-  """
-  id: String
+    """
+    Optional ID of the contract you want to create. Only applicable if this is a create operation. If not provided, a random
+    id will be generated for you.
+    """
+    id: String
 }
 
 """
 Input required to create an Freshness contract
 """
 input FreshnessContractInput {
-  """
+    """
   The assertion monitoring this part of the data contract. Assertion must be of type Freshness.
   """
   assertionUrn: String!
@@ -221,7 +208,7 @@ input FreshnessContractInput {
 Input required to create a schema contract
 """
 input SchemaContractInput {
-  """
+    """
   The assertion monitoring this part of the data contract. Assertion must be of type Data Schema.
   """
   assertionUrn: String!
@@ -231,7 +218,7 @@ input SchemaContractInput {
 Input required to create a data quality contract
 """
 input DataQualityContractInput {
-  """
+    """
   The assertion monitoring this part of the data contract. Assertion must be of type Dataset, Volume, Field / Column, or Custom SQL.
   """
   assertionUrn: String!

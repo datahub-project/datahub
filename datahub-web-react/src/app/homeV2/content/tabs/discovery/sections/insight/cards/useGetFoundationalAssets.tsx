@@ -1,8 +1,7 @@
-import { FilterSet } from '@app/entityV2/shared/components/styled/search/types';
-import { LAST_MODIFIED_TIME_FIELD } from '@app/searchV2/context/constants';
-import { UnionType } from '@app/searchV2/utils/constants';
-
-import { FilterOperator, SortCriterion, SortOrder } from '@types';
+import { FilterOperator, SortCriterion, SortOrder } from '../../../../../../../../types.generated';
+import { FilterSet } from '../../../../../../../entityV2/shared/components/styled/search/types';
+import { LAST_MODIFIED_TIME_FIELD } from '../../../../../../../searchV2/context/constants';
+import { UnionType } from '../../../../../../../searchV2/utils/constants';
 
 const FOUNDATIONAL_ASSET_TAGS = ['urn:li:tag:__default_large_table', 'urn:li:tag:__default_high_queries'];
 

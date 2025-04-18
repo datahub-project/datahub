@@ -1,11 +1,11 @@
-import { Popover } from '@components';
-import { TooltipPlacement } from 'antd/lib/tooltip';
 import React from 'react';
 
-import { AssertionResultPopoverContent } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopoverContent';
-import { ResultStatusType } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultMessageUtils';
+import { Popover } from '@components';
+import { TooltipPlacement } from 'antd/lib/tooltip';
 
-import { Assertion, AssertionRunEvent } from '@types';
+import { Assertion, AssertionRunEvent } from '../../../../../../../../../../types.generated';
+import { AssertionResultPopoverContent } from './AssertionResultPopoverContent';
+import { ResultStatusType } from '../../summary/shared/resultMessageUtils';
 
 type Props = {
     assertion: Assertion;

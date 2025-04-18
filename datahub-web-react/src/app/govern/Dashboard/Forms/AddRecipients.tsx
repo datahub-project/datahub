@@ -1,14 +1,13 @@
 import { Text } from '@components';
+import InfoTooltip from '@src/app/sharedV2/icons/InfoTooltip';
 import React, { useContext, useState } from 'react';
 import styled from 'styled-components';
-
-import AddElement from '@app/govern/Dashboard/Forms/AddElement';
-import AddUsersModal from '@app/govern/Dashboard/Forms/AddUsersModal';
-import ManageFormContext from '@app/govern/Dashboard/Forms/ManageFormContext';
-import UsersList from '@app/govern/Dashboard/Forms/UsersList';
-import { OwnershipCheckbox, StyledCheckbox } from '@app/govern/Dashboard/Forms/styledComponents';
-import { useFormHandlers } from '@app/govern/Dashboard/Forms/useFormHandlers';
-import InfoTooltip from '@src/app/sharedV2/icons/InfoTooltip';
+import AddElement from './AddElement';
+import AddUsersModal from './AddUsersModal';
+import ManageFormContext from './ManageFormContext';
+import { OwnershipCheckbox, StyledCheckbox } from './styledComponents';
+import { useFormHandlers } from './useFormHandlers';
+import UsersList from './UsersList';
 
 const StyledText = styled.div`
     display: inline-flex;

@@ -1,8 +1,7 @@
 import React from 'react';
-
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import { EmbeddedListSearchSection } from '@app/entity/shared/components/styled/search/EmbeddedListSearchSection';
-import { UnionType } from '@app/search/utils/constants';
+import { useEntityData } from '../shared/EntityContext';
+import { EmbeddedListSearchSection } from '../shared/components/styled/search/EmbeddedListSearchSection';
+import { UnionType } from '../../search/utils/constants';
 
 export const ContainerEntitiesTab = () => {
     const { urn } = useEntityData();

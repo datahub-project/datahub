@@ -1,7 +1,6 @@
-import { Tooltip } from '@components';
 import React from 'react';
-
-import { formatBytes, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { Tooltip } from '@components';
+import { formatBytes, formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
 
 export const FormattedBytesStat = ({ bytes }: { bytes: number }) => {
     const formattedBytes = formatBytes(bytes);

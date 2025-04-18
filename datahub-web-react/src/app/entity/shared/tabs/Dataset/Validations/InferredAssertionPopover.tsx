@@ -1,10 +1,9 @@
-import { ThunderboltFilled } from '@ant-design/icons';
-import { Popover } from '@components';
-import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { REDESIGN_COLORS } from '@app/entity/shared/constants';
+import { Typography } from 'antd';
+import { Popover } from '@components';
+import { ThunderboltFilled } from '@ant-design/icons';
+import { REDESIGN_COLORS } from '../../../constants';
 
 const Container = styled.div``;
 

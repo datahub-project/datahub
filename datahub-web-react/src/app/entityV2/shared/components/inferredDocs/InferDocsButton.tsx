@@ -1,8 +1,7 @@
-import { Sparkle } from 'phosphor-react';
 import React from 'react';
 import styled, { keyframes } from 'styled-components';
-
-import analytics, { EventType, InferDocsClickEvent } from '@app/analytics';
+import { Sparkle } from 'phosphor-react';
+import analytics, { EventType, InferDocsClickEvent } from '../../../../analytics';
 
 const GradientAnimation = keyframes`
     0% {

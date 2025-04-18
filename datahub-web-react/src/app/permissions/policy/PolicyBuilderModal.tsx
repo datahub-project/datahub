@@ -1,16 +1,14 @@
-import { Modal, Steps } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-
-import PolicyActorForm from '@app/permissions/policy/PolicyActorForm';
-import PolicyPrivilegeForm from '@app/permissions/policy/PolicyPrivilegeForm';
-import PolicyTypeForm from '@app/permissions/policy/PolicyTypeForm';
-import { EMPTY_POLICY } from '@app/permissions/policy/policyUtils';
-import ClickOutside from '@app/shared/ClickOutside';
-import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { Modal, Steps } from 'antd';
 import { Button } from '@src/alchemy-components';
-
-import { ActorFilter, Policy, PolicyType, ResourceFilter } from '@types';
+import PolicyPrivilegeForm from './PolicyPrivilegeForm';
+import PolicyTypeForm from './PolicyTypeForm';
+import PolicyActorForm from './PolicyActorForm';
+import { ActorFilter, Policy, PolicyType, ResourceFilter } from '../../../types.generated';
+import { EMPTY_POLICY } from './policyUtils';
+import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
+import ClickOutside from '../../shared/ClickOutside';
 
 type Props = {
     policy: Omit<Policy, 'urn'>;

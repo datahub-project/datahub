@@ -1,6 +1,5 @@
 import { useContext, useEffect } from 'react';
-
-import OnboardingContext from '@app/onboarding/OnboardingContext';
+import OnboardingContext from './OnboardingContext';
 
 export const useHandleOnboardingTour = () => {
     const { setTourReshow, setIsTourOpen } = useContext(OnboardingContext);

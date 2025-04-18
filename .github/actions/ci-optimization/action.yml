@@ -45,7 +45,6 @@ outputs:
     description: "Actions code has changed"
     value: ${{ steps.filter.outputs.actions == 'true' }}
 
-<<<<<<< HEAD
   # Saas Only
   integrations-service-change:
     description: "Integrations Service code has changed"
@@ -53,13 +52,11 @@ outputs:
   datahub-executor-change:
     description: "Datahub executor code has changed"
     value: ${{ steps.filter.outputs.datahub-executor == 'true' || steps.trigger.outputs.trigger == 'manual' }}
-=======
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 runs:
   using: "composite"
   steps:
     - name: Check trigger type
-      id: trigger # Add an ID to reference this step
+      id: trigger  # Add an ID to reference this step
       shell: bash
       run: |
         if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
@@ -117,7 +114,6 @@ runs:
           actions:
             - "datahub-actions/**"
             - "docker/datahub-actions/**"
-<<<<<<< HEAD
 
           integrations-service:
             - "datahub-integrations-service/**"
@@ -132,6 +128,3 @@ runs:
             - "metadata-models/**"
             - "docker/datahub-ingestion-**"
             - "docker/datahub-executor/**"
-=======
-          
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105

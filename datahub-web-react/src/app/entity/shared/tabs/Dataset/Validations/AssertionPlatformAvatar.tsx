@@ -1,12 +1,10 @@
-import { Tooltip } from '@components';
-import { Image, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { LinkWrapper } from '@app/shared/LinkWrapper';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { DataPlatform, EntityType } from '@types';
+import { Typography, Image } from 'antd';
+import { Tooltip } from '@components';
+import { DataPlatform, EntityType } from '../../../../../../types.generated';
+import { LinkWrapper } from '../../../../../shared/LinkWrapper';
+import { useEntityRegistry } from '../../../../../useEntityRegistry';
 
 const PlatformContainer = styled.div`
     margin-right: 8px;

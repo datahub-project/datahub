@@ -1,13 +1,12 @@
-import { Tooltip } from '@components';
-import { Button, Checkbox, Modal, Typography } from 'antd';
 import React from 'react';
+import { Button, Checkbox, Modal, Typography } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components';
-
-import { SearchSelectActions } from '@app/entity/shared/components/styled/search/SearchSelectActions';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
-import { EntityAndType } from '@app/entity/shared/types';
 import { useAppConfig } from '@src/app/useAppConfig';
+import { ANTD_GRAY } from '../../../constants';
+import { EntityAndType } from '../../../types';
+import { SearchSelectActions } from './SearchSelectActions';
+import { useEntityFormContext } from '../../../entityForm/EntityFormContext';
 
 const CheckboxContainer = styled.div`
     display: flex;

@@ -1,6 +1,5 @@
 import { useState } from 'react';
-
-import { SortOrder } from '@types';
+import { SortOrder } from '../../../types.generated';
 
 export interface Sorting {
     sortField: string | null;

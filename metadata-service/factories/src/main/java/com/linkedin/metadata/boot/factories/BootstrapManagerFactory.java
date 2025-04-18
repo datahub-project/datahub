@@ -91,7 +91,6 @@ public class BootstrapManagerFactory {
   private SearchDocumentTransformer _searchDocumentTransformer;
 
   @Autowired
-<<<<<<< HEAD
   @Qualifier("assertionService")
   private AssertionService _assertionService;
 
@@ -104,8 +103,6 @@ public class BootstrapManagerFactory {
   private TimeseriesAspectService _timeseriesAspectService;
 
   @Autowired
-=======
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
   @Qualifier("entityAspectDao")
   private AspectMigrationsDao _migrationsDao;
 

@@ -1,19 +1,9 @@
-<<<<<<< HEAD
-import React, { useCallback } from 'react';
-
-import BaseEntityFilter from '@app/searchV2/filtersV2/filters/BaseEntityFilter/BaseEntityFilter';
-import { FilterComponentProps } from '@app/searchV2/filtersV2/types';
-import { isTag } from '@src/app/entityV2/tag/utils';
-import TagLink from '@src/app/sharedV2/tags/TagLink';
-import { Entity, EntityType } from '@src/types.generated';
-=======
 import { isTag } from '@src/app/entityV2/tag/utils';
 import TagLink from '@src/app/sharedV2/tags/TagLink';
 import { Entity, EntityType } from '@src/types.generated';
 import React, { useCallback } from 'react';
 import { FilterComponentProps } from '../../types';
 import BaseEntityFilter from '../BaseEntityFilter/BaseEntityFilter';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 interface PlatformLabelProps {
     entity: Entity;

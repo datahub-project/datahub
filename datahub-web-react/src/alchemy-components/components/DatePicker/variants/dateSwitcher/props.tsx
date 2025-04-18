@@ -1,8 +1,7 @@
 import React from 'react';
-
-import { VariantProps } from '@components/components/DatePicker/types';
-import { CommonVariantProps } from '@components/components/DatePicker/variants/common/props';
-import { DateSwitcherInput } from '@components/components/DatePicker/variants/dateSwitcher/components';
+import { VariantProps } from '../../types';
+import { CommonVariantProps } from '../common/props';
+import { DateSwitcherInput } from './components';
 
 export const DateSwitcherVariantProps: VariantProps = {
     ...CommonVariantProps,

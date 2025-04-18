@@ -1,18 +1,16 @@
 import { CheckOutlined, CloseCircleOutlined } from '@ant-design/icons';
-import { Modal, Typography, message } from 'antd';
+import { message, Modal, Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-
-import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { CustomAvatar } from '@app/shared/avatar';
-import { capitalizeFirstLetter } from '@app/shared/textUtil';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Button } from '@src/alchemy-components';
 import { ANTD_GRAY } from '@src/app/entity/shared/constants';
-
-import { useAcceptProposalsMutation, useRejectProposalsMutation } from '@graphql/actionRequest.generated';
-import { ActionRequest, ActionRequestStatus, EntityType } from '@types';
+import { Button } from '@src/alchemy-components';
+import { useAcceptProposalsMutation, useRejectProposalsMutation } from '../../../graphql/actionRequest.generated';
+import { ActionRequest, ActionRequestStatus, EntityType } from '../../../types.generated';
+import { CustomAvatar } from '../../shared/avatar';
+import { capitalizeFirstLetter } from '../../shared/textUtil';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import analytics, { EntityActionType, EventType } from '../../analytics';
 
 const ContentContainer = styled.div`
     display: flex;

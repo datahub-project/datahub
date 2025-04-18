@@ -1,3 +1,5 @@
+import React from 'react';
+import { Tooltip } from '@components';
 import {
     BoldOutlined,
     CalendarOutlined,
@@ -7,10 +9,7 @@ import {
     NumberOutlined,
     ProfileOutlined,
 } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import React from 'react';
-
-import { SchemaFieldDataType } from '@types';
+import { SchemaFieldDataType } from '../../../types.generated';
 
 export default function CompactFieldIcon(type?: SchemaFieldDataType): JSX.Element | null {
     if (type === SchemaFieldDataType.Number) {

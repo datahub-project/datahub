@@ -1,9 +1,8 @@
-import React from 'react';
-
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { DataPlatform, Dataset, EntityType } from '@src/types.generated';
+import React from 'react';
 
 type SiblingOption = {
     title: string;

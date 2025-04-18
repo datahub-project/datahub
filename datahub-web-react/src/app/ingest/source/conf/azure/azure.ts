@@ -1,6 +1,5 @@
-import { SourceConfig } from '@app/ingest/source/conf/types';
-
-import azureLogo from '@images/azure-ad.png';
+import { SourceConfig } from '../types';
+import azureLogo from '../../../../../images/azure-ad.png';
 
 const placeholderRecipe = `\
 source:

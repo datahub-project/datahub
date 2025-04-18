@@ -1,6 +1,5 @@
-import { SourceConfig } from '@app/ingest/source/conf/types';
-
-import lookerLogo from '@images/lookerlogo.svg';
+import { SourceConfig } from '../types';
+import lookerLogo from '../../../../../images/lookerlogo.svg';
 
 const placeholderRecipe = `\
 source:

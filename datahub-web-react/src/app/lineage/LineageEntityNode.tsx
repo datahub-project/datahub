@@ -1,40 +1,28 @@
+import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { Group } from '@visx/group';
 import { LinkHorizontal } from '@visx/shape';
-import React, { useContext, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
-import { IconStyleType } from '@app/entity/Entity';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { EntityHealth } from '@app/entity/shared/containers/profile/header/EntityHealth';
-import { filterForAssetBadge } from '@app/entity/shared/containers/profile/header/utils';
-import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
+import { useEntityRegistry } from '../useEntityRegistry';
+import { IconStyleType } from '../entity/Entity';
+import { Direction, VizNode, EntitySelectParams, EntityAndType, UpdatedLineages } from './types';
+import { ANTD_GRAY } from '../entity/shared/constants';
+import { capitalizeFirstLetterOnly } from '../shared/textUtil';
+import { getShortenedTitle, nodeHeightFromTitleLength } from './utils/titleUtils';
+import { LineageExplorerContext } from './utils/LineageExplorerContext';
+import { useGetEntityLineageLazyQuery } from '../../graphql/lineage.generated';
+import { useIsSeparateSiblingsMode } from '../entity/shared/siblingUtils';
+import { centerX, centerY, iconHeight, iconWidth, iconX, iconY, textX, width, healthX, healthY } from './constants';
+import LineageEntityColumns from './LineageEntityColumns';
+import { convertInputFieldsToSchemaFields } from './utils/columnLineageUtils';
+import ManageLineageMenu from './manage/ManageLineageMenu';
+import { useGetLineageTimeParams } from './utils/useGetLineageTimeParams';
+import { EntityHealth } from '../entity/shared/containers/profile/header/EntityHealth';
+import { EntityType } from '../../types.generated';
 import StructuredPropertyBadge, {
     MAX_PROP_BADGE_WIDTH,
-} from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
-import LineageEntityColumns from '@app/lineage/LineageEntityColumns';
-import {
-    centerX,
-    centerY,
-    healthX,
-    healthY,
-    iconHeight,
-    iconWidth,
-    iconX,
-    iconY,
-    textX,
-    width,
-} from '@app/lineage/constants';
-import ManageLineageMenu from '@app/lineage/manage/ManageLineageMenu';
-import { Direction, EntityAndType, EntitySelectParams, UpdatedLineages, VizNode } from '@app/lineage/types';
-import { LineageExplorerContext } from '@app/lineage/utils/LineageExplorerContext';
-import { convertInputFieldsToSchemaFields } from '@app/lineage/utils/columnLineageUtils';
-import { getShortenedTitle, nodeHeightFromTitleLength } from '@app/lineage/utils/titleUtils';
-import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { useGetEntityLineageLazyQuery } from '@graphql/lineage.generated';
-import { EntityType } from '@types';
+} from '../entityV2/shared/containers/profile/header/StructuredPropertyBadge';
+import { filterForAssetBadge } from '../entity/shared/containers/profile/header/utils';
 
 const CLICK_DELAY_THRESHOLD = 1000;
 const DRAG_DISTANCE_THRESHOLD = 20;

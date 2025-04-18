@@ -1,7 +1,6 @@
-import { Form } from 'antd';
 import React from 'react';
-
-import { EditableContext } from '@app/entity/shared/components/styled/ERModelRelationship/ERModelRelationUtils';
+import { Form } from 'antd';
+import { EditableContext } from './ERModelRelationUtils';
 
 interface EditableRowProps {
     index: number;

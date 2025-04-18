@@ -1,9 +1,8 @@
-import { Timeline, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { INSTRUCTIONS_TITLE, STEPS } from '@app/tests/builder/tutorial/constants';
+import { Timeline, Typography } from 'antd';
+import { ANTD_GRAY } from '../../../entity/shared/constants';
+import { INSTRUCTIONS_TITLE, STEPS } from './constants';
 
 const Container = styled.div`
     margin: 4px;

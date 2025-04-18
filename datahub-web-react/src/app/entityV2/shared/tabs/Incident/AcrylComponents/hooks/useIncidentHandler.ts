@@ -1,18 +1,14 @@
-import { useApolloClient } from '@apollo/client';
-import { Form, message } from 'antd';
-import _ from 'lodash';
 import { useState } from 'react';
-<<<<<<< HEAD
-
-import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
-import { PAGE_SIZE, updateActiveIncidentInCache } from '@app/entityV2/shared/tabs/Incident/incidentUtils';
-import analytics, { EntityActionType, EventType } from '@src/app/analytics';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import handleGraphQLError from '@src/app/shared/handleGraphQLError';
-=======
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 import { useRaiseIncidentMutation, useUpdateIncidentMutation } from '@src/graphql/mutations.generated';
 import { EntityType, IncidentSourceType, IncidentState } from '@src/types.generated';
+import analytics, { EntityActionType, EventType } from '@src/app/analytics';
+import _ from 'lodash';
+import { Form, message } from 'antd';
+import { useApolloClient } from '@apollo/client';
+import handleGraphQLError from '@src/app/shared/handleGraphQLError';
+import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { IncidentAction } from '../../constant';
+import { PAGE_SIZE, updateActiveIncidentInCache } from '../../incidentUtils';
 
 export const getCacheIncident = ({
     values,
@@ -61,10 +57,7 @@ export const getCacheIncident = ({
         },
         priority: values.priority,
         created: {
-<<<<<<< HEAD
             __typename: 'AuditStamp',
-=======
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
             time: values.created || Date.now(),
             actor: user?.urn,
         },
@@ -84,12 +77,9 @@ export const useIncidentHandler = ({
     currentIncident,
     urn,
 }) => {
-<<<<<<< HEAD
     // Important: Here we are trying to fetch the URN of the sibling whose "profile" we are currently viewing.
     // We then insert any new incidents into this cache as well so that it immediately updates the page for the asset.
     const { urn: maybeCacheEntityUrn } = useEntityData();
-=======
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
     const [raiseIncidentMutation] = useRaiseIncidentMutation();
     const [updateIncidentMutation] = useUpdateIncidentMutation();
     const [form] = Form.useForm();

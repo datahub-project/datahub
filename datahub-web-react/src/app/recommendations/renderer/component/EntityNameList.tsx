@@ -1,14 +1,12 @@
-import { Divider, List } from 'antd';
 import React from 'react';
+import { Divider, List } from 'antd';
 import styled from 'styled-components';
-
-import { IconStyleType } from '@app/entity/Entity';
-import { getPlatformName } from '@app/entity/shared/utils';
-import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { Entity } from '@types';
+import { Entity } from '../../../../types.generated';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
+import { IconStyleType } from '../../../entity/Entity';
+import { getPlatformName } from '../../../entity/shared/utils';
+import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
 
 export const StyledList = styled(List)`
     overflow-y: auto;

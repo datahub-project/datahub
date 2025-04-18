@@ -1,8 +1,7 @@
 import React from 'react';
-
-import { Avatar } from '@components/components/Avatar';
-import { AvatarContainer, AvatarStackContainer } from '@components/components/AvatarStack/components';
-import { AvatarItemProps, AvatarStackProps } from '@components/components/AvatarStack/types';
+import { AvatarContainer, AvatarStackContainer } from './components';
+import { Avatar } from '../Avatar';
+import { AvatarItemProps, AvatarStackProps } from './types';
 
 export const avatarListDefaults: AvatarStackProps = {
     avatars: [

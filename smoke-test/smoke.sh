@@ -21,7 +21,6 @@ else
 
 
 
-
   python3 -m venv venv
   set +x
   source venv/bin/activate

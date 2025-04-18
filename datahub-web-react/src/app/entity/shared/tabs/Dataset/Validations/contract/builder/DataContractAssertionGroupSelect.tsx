@@ -1,11 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { AcrylDatasetAssertionsList } from '@app/entity/shared/tabs/Dataset/Validations/AcrylAssertionsList';
-import { DataContractCategoryType } from '@app/entity/shared/tabs/Dataset/Validations/contract/builder/types';
-
-import { Assertion } from '@types';
+import { Assertion } from '../../../../../../../../types.generated';
+import { ANTD_GRAY } from '../../../../../constants';
+import { DataContractCategoryType } from './types';
+import { AcrylDatasetAssertionsList } from '../../AcrylAssertionsList';
 
 const Category = styled.div`
     padding: 20px;

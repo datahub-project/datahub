@@ -1,14 +1,12 @@
 import { MockedProvider } from '@apollo/client/testing';
 import { render } from '@testing-library/react';
 import React from 'react';
-
-import { EntityContext } from '@app/entity/shared/EntityContext';
-import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
-import { DataJobFlowTab } from '@app/entity/shared/tabs/Entity/DataJobFlowTab';
-import { dataJob1, mocks } from '@src/Mocks';
-import TestPageContainer from '@utils/test-utils/TestPageContainer';
-
-import { EntityType } from '@types';
+import { dataJob1, mocks } from '../../../../../../Mocks';
+import { EntityType } from '../../../../../../types.generated';
+import TestPageContainer from '../../../../../../utils/test-utils/TestPageContainer';
+import { getDataForEntityType } from '../../../containers/profile/utils';
+import { EntityContext } from '../../../EntityContext';
+import { DataJobFlowTab } from '../DataJobFlowTab';
 
 describe('DataJobFlowTab', () => {
     it('renders fields', async () => {

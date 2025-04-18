@@ -1,7 +1,6 @@
 import { getHomePagePostsFilters } from '@app/utils/queryUtils';
-
-import { useListPostsQuery } from '@graphql/post.generated';
-import { Post, PostContentType, PostType } from '@types';
+import { useListPostsQuery } from '../../../../../graphql/post.generated';
+import { Post, PostContentType, PostType } from '../../../../../types.generated';
 
 export const useGetAnnouncements = () => {
     const {

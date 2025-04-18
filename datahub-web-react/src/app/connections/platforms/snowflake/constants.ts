@@ -1,8 +1,10 @@
 /*
  * Fields and configs are imported from ingest
  */
-import { RECIPE_FIELDS } from '@app/ingest/source/builder/RecipeForm/constants';
+
 import config, { SNOWFLAKE } from '@app/ingest/source/conf/snowflake/snowflake';
+
+import { RECIPE_FIELDS } from '@app/ingest/source/builder/RecipeForm/constants';
 
 export const PLATFORM_NAME = 'Snowflake';
 export const PLATFORM_URN = 'urn:li:dataPlatform:snowflake';

@@ -13,8 +13,6 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
-import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.CreateTestInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.key.TestKey;
@@ -46,55 +44,58 @@ public class CreateTestResolver implements DataFetcher<CompletableFuture<String>
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (!canManageTests(context)) {
-            throw new AuthorizationException(
-                "Unauthorized to perform this action. Please contact your DataHub administrator.");
-          }
+          if (canManageTests(context)) {
 
-          // Create new test
-          // Since we are creating a new Test, we need to generate a unique UUID.
-          final UUID uuid = UUID.randomUUID();
-          final String uuidStr = input.getId() == null ? uuid.toString() : input.getId();
+            try {
 
-          // Create the Ingestion source key
-          final TestKey key = new TestKey();
-          key.setId(uuidStr);
+              // Create new test
+              // Since we are creating a new Test, we need to generate a unique UUID.
+              final UUID uuid = UUID.randomUUID();
+              final String uuidStr = input.getId() == null ? uuid.toString() : input.getId();
 
-          try {
-            if (_entityClient.exists(
-                context.getOperationContext(),
-                EntityKeyUtils.convertEntityKeyToUrn(key, TEST_ENTITY_NAME))) {
-              throw new IllegalArgumentException("This Test already exists!");
+              // Create the Ingestion source key
+              final TestKey key = new TestKey();
+              key.setId(uuidStr);
+
+              if (_entityClient.exists(
+                  context.getOperationContext(),
+                  EntityKeyUtils.convertEntityKeyToUrn(key, TEST_ENTITY_NAME))) {
+                throw new IllegalArgumentException("This Test already exists!");
+              }
+
+              // Create the Test info.
+              final TestInfo info = mapCreateTestInput(input, actor);
+
+              // Validate test info
+              ValidationResult validationResult =
+                  _testEngine.validateJson(info.getDefinition().getJson());
+              if (!validationResult.isValid()) {
+                throw new RuntimeException(
+                    "Failed to validate test definition: \n"
+                        + String.join("\n", validationResult.getMessages()));
+              }
+
+              final MetadataChangeProposal proposal =
+                  buildMetadataChangeProposalWithKey(
+                      key, TEST_ENTITY_NAME, TEST_INFO_ASPECT_NAME, info);
+              String ingestResult;
+              try {
+                ingestResult =
+                    _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
+              } catch (Exception e) {
+                throw new RuntimeException(
+                    String.format("Failed to create test with urn %s", input), e);
+              }
+
+              _testEngine.invalidateCache();
+              return ingestResult;
+            } catch (Exception e) {
+              throw new RuntimeException(
+                  String.format("Failed to create test with urn %s", input), e);
             }
-
-            // Create the Test info.
-            final TestInfo info = mapCreateTestInput(input, actor);
-
-            // Validate test info
-            ValidationResult validationResult =
-                _testEngine.validateJson(info.getDefinition().getJson());
-            if (!validationResult.isValid()) {
-              throw new DataHubGraphQLException(
-                  "Failed to validate test definition: \n"
-                      + String.join("\n", validationResult.getMessages()),
-                  DataHubGraphQLErrorCode.BAD_REQUEST);
-            }
-
-            final MetadataChangeProposal proposal =
-                buildMetadataChangeProposalWithKey(
-                    key, TEST_ENTITY_NAME, TEST_INFO_ASPECT_NAME, info);
-
-            String ingestResult =
-                _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
-
-            _testEngine.invalidateCache();
-            return ingestResult;
-          } catch (DataHubGraphQLException e) {
-            throw e; // Let validation exceptions propagate directly
-          } catch (Exception e) {
-            throw new RuntimeException(
-                String.format("Failed to create test with id %s: %s", uuidStr, e.getMessage()), e);
           }
+          throw new AuthorizationException(
+              "Unauthorized to perform this action. Please contact your DataHub administrator.");
         },
         this.getClass().getSimpleName(),
         "get");

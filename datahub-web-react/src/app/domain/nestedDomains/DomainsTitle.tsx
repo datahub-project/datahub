@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-
-import DomainIcon from '@app/domain/DomainIcon';
+import DomainIcon from '../DomainIcon';
 
 const TitleWrapper = styled.span`
     display: flex;

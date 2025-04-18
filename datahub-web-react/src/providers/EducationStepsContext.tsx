@@ -1,6 +1,5 @@
 import React from 'react';
-
-import { StepStateResult } from '@types';
+import { StepStateResult } from '../types.generated';
 
 export const EducationStepsContext = React.createContext<{
     educationSteps: StepStateResult[] | null;

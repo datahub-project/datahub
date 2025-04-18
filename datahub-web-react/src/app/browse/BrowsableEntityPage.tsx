@@ -1,10 +1,8 @@
-import { Affix } from 'antd';
 import * as React from 'react';
-
-import { LegacyBrowsePath } from '@app/browse/LegacyBrowsePath';
-
-import { useGetBrowsePathsQuery } from '@graphql/browse.generated';
-import { EntityType } from '@types';
+import { Affix } from 'antd';
+import { LegacyBrowsePath } from './LegacyBrowsePath';
+import { useGetBrowsePathsQuery } from '../../graphql/browse.generated';
+import { EntityType } from '../../types.generated';
 
 interface Props {
     urn: string;

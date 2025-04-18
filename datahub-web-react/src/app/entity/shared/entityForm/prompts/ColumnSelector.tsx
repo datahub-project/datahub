@@ -1,12 +1,10 @@
 import { Checkbox } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import MultiSelectSelector from '@app/entity/shared/components/styled/MultiSelectSelector';
-import { downgradeV2FieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
-import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
-
-import { SchemaField } from '@types';
+import { useGetEntityWithSchema } from '../../../../entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
+import { SchemaField } from '../../../../../types.generated';
+import { downgradeV2FieldPath } from '../../../../entityV2/dataset/profile/schema/utils/utils';
+import MultiSelectSelector from '../../components/styled/MultiSelectSelector';
 
 const ColumnSelectorWrapper = styled.div`
     display: flex;

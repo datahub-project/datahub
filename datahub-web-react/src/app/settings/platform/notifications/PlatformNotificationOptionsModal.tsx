@@ -1,8 +1,7 @@
-import { Button, Form, Input, Modal, Typography } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-
-import { EMAIL_SINK, NotificationSink, PlatformNotificationOptions, SLACK_SINK } from '@app/settings/platform/types';
+import { Typography, Modal, Button, Form, Input } from 'antd';
+import { EMAIL_SINK, NotificationSink, PlatformNotificationOptions, SLACK_SINK } from '../types';
 
 type Props = {
     initialState?: PlatformNotificationOptions;

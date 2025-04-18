@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Dict, Optional
 
 import pydantic
-from datahub.ingestion.api.report import Report
+from datahub.ingestion.api.report import Report, SupportsAsObj
 from datahub_actions.action.action import Action
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.event.event_registry import (
@@ -186,4 +186,4 @@ class ReportingAction(Action, abc.ABC):
         pass
 
 
-assert hasattr(ActionStageReport, "as_obj")
+assert issubclass(ActionStageReport, SupportsAsObj)

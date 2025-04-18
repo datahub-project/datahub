@@ -1,16 +1,18 @@
 import React from 'react';
+
 import styled from 'styled-components';
 
-import { IconStyleType } from '@app/entity/Entity';
-import PlatformContentView from '@app/entity/shared/containers/profile/header/PlatformContent/PlatformContentView';
-import { getDisplayedEntityType } from '@app/entity/shared/containers/profile/header/utils';
-import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
-import { getPlatformName } from '@app/entity/shared/utils';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
-import useContentTruncation from '@app/shared/useContentTruncation';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useEntityFormContext } from '../EntityFormContext';
+import { useEntityRegistry } from '../../../../useEntityRegistry';
+import useContentTruncation from '../../../../shared/useContentTruncation';
 
-import { EntityType } from '@types';
+import PlatformContentView from '../../containers/profile/header/PlatformContent/PlatformContentView';
+import { IconStyleType } from '../../../Entity';
+import { getPlatformName } from '../../utils';
+import { getDisplayedEntityType } from '../../containers/profile/header/utils';
+import { capitalizeFirstLetterOnly } from '../../../../shared/textUtil';
+
+import { EntityType } from '../../../../../types.generated';
 
 const EntityName = styled.div`
     font-size: 16px;

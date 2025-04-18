@@ -1,20 +1,14 @@
+import { Button, Text } from '@src/alchemy-components';
+import { DayData } from '@src/alchemy-components/components/CalendarChart/types';
+import { pluralize, pluralizeIfIrregular } from '@src/app/shared/textUtil';
 import dayjs from 'dayjs';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
-
-import {
-    AnyOperationType,
-    CustomOperationType,
-    Operation,
-    OperationsData,
-} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/types';
-import { convertAggregationsToOperationsData } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/utils';
-import { Button, Text } from '@src/alchemy-components';
-import { DayData } from '@src/alchemy-components/components/CalendarChart/types';
-import { abbreviateNumber } from '@src/app/dataviz/utils';
-import { formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
-import { pluralize, pluralizeIfIrregular } from '@src/app/shared/textUtil';
 import { OperationType } from '@src/types.generated';
+import { formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
+import { abbreviateNumber } from '@src/app/dataviz/utils';
+import { AnyOperationType, CustomOperationType, Operation, OperationsData } from '../types';
+import { convertAggregationsToOperationsData } from '../utils';
 
 const Container = styled.div`
     display: flex;

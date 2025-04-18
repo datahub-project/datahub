@@ -1,23 +1,21 @@
 import { message } from 'antd';
-
-import analytics, { EventType } from '@app/analytics';
-import { AssertionMonitorBuilderState } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/types';
-import {
-    builderStateToUpsertFieldAssertionMonitorVariables,
-    builderStateToUpsertFreshnessAssertionMonitorVariables,
-    builderStateToUpsertSchemaAssertionMonitorVariables,
-    builderStateToUpsertSqlAssertionMonitorVariables,
-    builderStateToUpsertVolumeAssertionMonitorVariables,
-} from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/utils';
-
 import {
     useUpsertDatasetFieldAssertionMonitorMutation,
     useUpsertDatasetFreshnessAssertionMonitorMutation,
     useUpsertDatasetSchemaAssertionMonitorMutation,
     useUpsertDatasetSqlAssertionMonitorMutation,
     useUpsertDatasetVolumeAssertionMonitorMutation,
-} from '@graphql/assertion.generated';
-import { Assertion, AssertionType } from '@types';
+} from '../../../../../../../../graphql/assertion.generated';
+import {
+    builderStateToUpsertFieldAssertionMonitorVariables,
+    builderStateToUpsertFreshnessAssertionMonitorVariables,
+    builderStateToUpsertSqlAssertionMonitorVariables,
+    builderStateToUpsertVolumeAssertionMonitorVariables,
+    builderStateToUpsertSchemaAssertionMonitorVariables,
+} from './utils';
+import { Assertion, AssertionType } from '../../../../../../../../types.generated';
+import analytics, { EventType } from '../../../../../../../analytics';
+import { AssertionMonitorBuilderState } from './types';
 
 export const useUpsertAssertionMonitor = (
     builderState: AssertionMonitorBuilderState,

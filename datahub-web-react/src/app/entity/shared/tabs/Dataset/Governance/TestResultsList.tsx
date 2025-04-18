@@ -1,13 +1,11 @@
 import { CopyOutlined, StopOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
 import { Button, Divider, Empty, Tag, Typography } from 'antd';
-import React from 'react';
+import { Tooltip } from '@components';
 import styled from 'styled-components';
-
-import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
-import { getResultColor, getResultIcon, getResultText } from '@app/entity/shared/tabs/Dataset/Governance/testUtils';
-
-import { TestResult } from '@types';
+import React from 'react';
+import { TestResult } from '../../../../../../types.generated';
+import { StyledTable } from '../../../components/styled/StyledTable';
+import { getResultColor, getResultIcon, getResultText } from './testUtils';
 
 const ResultContainer = styled.div`
     display: flex;

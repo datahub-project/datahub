@@ -1,12 +1,7 @@
 import React from 'react';
-
-import { SearchListInsightCard } from '@app/homeV2/content/tabs/discovery/sections/insight/cards/SearchListInsightCard';
-import {
-    buildMostUsersFilters,
-    buildMostUsersSort,
-} from '@app/homeV2/content/tabs/discovery/sections/insight/cards/useGetMostUsers';
-
-import { EntityType } from '@types';
+import { EntityType } from '../../../../../../../../types.generated';
+import { SearchListInsightCard } from './SearchListInsightCard';
+import { buildMostUsersFilters, buildMostUsersSort } from './useGetMostUsers';
 
 export const MOST_USERS_ID = 'MostUsers';
 

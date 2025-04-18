@@ -1,10 +1,6 @@
 import React, { useState } from 'react';
-
-import ActionDropdown from '@app/entity/shared/components/styled/search/action/ActionDropdown';
-import {
-    EditOwnersModal,
-    OperationType,
-} from '@app/entity/shared/containers/profile/sidebar/Ownership/EditOwnersModal';
+import { EditOwnersModal, OperationType } from '../../../../containers/profile/sidebar/Ownership/EditOwnersModal';
+import ActionDropdown from './ActionDropdown';
 
 type Props = {
     urns: Array<string>;

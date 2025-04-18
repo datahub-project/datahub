@@ -1,8 +1,7 @@
 import React from 'react';
 
-import { getResultDotIcon } from '@app/entity/shared/tabs/Dataset/Validations/assertionUtils';
-
-import { AssertionResultType, AssertionRunEvent } from '@types';
+import { AssertionResultType, AssertionRunEvent } from '../../../../../../../../../types.generated';
+import { getResultDotIcon } from '../../../assertionUtils';
 
 type Props = {
     run?: AssertionRunEvent;

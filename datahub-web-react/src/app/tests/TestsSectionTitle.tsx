@@ -1,7 +1,7 @@
-import { InfoCircleOutlined } from '@ant-design/icons';
-import { PageTitle, Tooltip, colors } from '@components';
 import React from 'react';
 import styled from 'styled-components';
+import { PageTitle, Tooltip, colors } from '@components';
+import { InfoCircleOutlined } from '@ant-design/icons';
 
 const Container = styled.div`
     display: flex;

@@ -1,10 +1,8 @@
 import React, { useEffect, useState } from 'react';
-
-import { useUserContext } from '@app/context/useUserContext';
-import { QuickFiltersContext } from '@providers/QuickFiltersContext';
-
-import { useGetQuickFiltersQuery } from '@graphql/quickFilters.generated';
-import { QuickFilter } from '@types';
+import { QuickFiltersContext } from './QuickFiltersContext';
+import { QuickFilter } from '../types.generated';
+import { useGetQuickFiltersQuery } from '../graphql/quickFilters.generated';
+import { useUserContext } from '../app/context/useUserContext';
 
 export default function QuickFiltersProvider({ children }: { children: React.ReactNode }) {
     const userContext = useUserContext();

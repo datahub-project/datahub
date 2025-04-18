@@ -1,3 +1,4 @@
+import React from 'react';
 import {
     CheckOutlined,
     ClockCircleOutlined,
@@ -5,18 +6,11 @@ import {
     ExclamationCircleFilled,
     StopOutlined,
 } from '@ant-design/icons';
-import React from 'react';
-
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import { AssertionStatusSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
-import {
-    FAILURE_COLOR_HEX,
-    SUCCESS_COLOR_HEX,
-    WARNING_COLOR_HEX,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
-import { DataContractCategoryType } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/types';
-
-import { Assertion, AssertionType, DataContract, DataContractState } from '@types';
+import { Assertion, AssertionType, DataContract, DataContractState } from '../../../../../../../types.generated';
+import { ANTD_GRAY } from '../../../../constants';
+import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX, WARNING_COLOR_HEX } from '../acrylUtils';
+import { DataContractCategoryType } from './builder/types';
+import { AssertionStatusSummary } from '../acrylTypes';
 
 export const getContractSummaryIcon = (state: DataContractState, summary: AssertionStatusSummary) => {
     if (state === DataContractState.Pending) {

@@ -1,8 +1,5 @@
-import {
-    FAILING_ASSERTION_TYPE_FILTER_FIELD,
-    HAS_FAILING_ASSERTIONS_FILTER_FIELD,
-} from '@app/observe/dataset/assertion/constants';
-import { UnionType } from '@app/search/utils/constants';
+import { UnionType } from '../../../search/utils/constants';
+import { FAILING_ASSERTION_TYPE_FILTER_FIELD, HAS_FAILING_ASSERTIONS_FILTER_FIELD } from './constants';
 
 export const buildAssertionTypeFilters = (selectedAssertionTypes) => {
     if (selectedAssertionTypes) {

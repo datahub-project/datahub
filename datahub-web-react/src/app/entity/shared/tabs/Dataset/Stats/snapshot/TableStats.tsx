@@ -1,15 +1,13 @@
-import { Tooltip } from '@components';
 import { Typography } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
-
-import { ExpandedActorGroup } from '@app/entity/shared/components/styled/ExpandedActorGroup';
-import { InfoItem } from '@app/entity/shared/components/styled/InfoItem';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
-import { countFormatter } from '@utils/formatter/index';
-
-import { CorpUser, Maybe, PartitionSpec, PartitionType, UserUsageCounts } from '@types';
+import { CorpUser, Maybe, PartitionSpec, PartitionType, UserUsageCounts } from '../../../../../../../types.generated';
+import { countFormatter } from '../../../../../../../utils/formatter/index';
+import { formatNumberWithoutAbbreviation } from '../../../../../../shared/formatNumber';
+import { ExpandedActorGroup } from '../../../../components/styled/ExpandedActorGroup';
+import { InfoItem } from '../../../../components/styled/InfoItem';
+import { ANTD_GRAY } from '../../../../constants';
 
 type Props = {
     rowCount?: number;

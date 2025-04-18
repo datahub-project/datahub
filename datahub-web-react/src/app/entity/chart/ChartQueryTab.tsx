@@ -1,13 +1,11 @@
 import { Typography } from 'antd';
 import React from 'react';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import styled from 'styled-components';
-
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
-import { InfoItem } from '@app/entity/shared/components/styled/InfoItem';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-
-import { GetChartQuery } from '@graphql/chart.generated';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { GetChartQuery } from '../../../graphql/chart.generated';
+import { ANTD_GRAY } from '../shared/constants';
+import { useBaseEntity } from '../shared/EntityContext';
+import { InfoItem } from '../shared/components/styled/InfoItem';
 
 const InfoSection = styled.div`
     border-bottom: 1px solid ${ANTD_GRAY[4.5]};

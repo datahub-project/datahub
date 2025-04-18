@@ -1,11 +1,10 @@
 import { Select } from 'antd';
 import React, { useEffect } from 'react';
 import { useLocation } from 'react-router';
-
-import { useFormAnalyticsContext } from '@app/govern/Dashboard/FormAnalyticsContext';
-import { StyledSelect } from '@app/govern/Dashboard/components';
-import { getEntityInfo, mergeRowAndHeaderData } from '@app/govern/Dashboard/utils';
 import analytics, { EventType } from '@src/app/analytics';
+import { useFormAnalyticsContext } from './FormAnalyticsContext';
+import { StyledSelect } from './components';
+import { getEntityInfo, mergeRowAndHeaderData } from './utils';
 
 export const ByFormSelector = () => {
     const {

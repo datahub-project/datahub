@@ -1,21 +1,19 @@
-import { CheckOutlined, CloseCircleOutlined } from '@ant-design/icons';
-import { Checkbox, Empty, List, Modal, Pagination, Typography, message } from 'antd';
 import React, { useMemo, useState } from 'react';
+import { Checkbox, Empty, List, message, Modal, Pagination, Typography } from 'antd';
 import styled from 'styled-components';
-
-import { Message } from '@app/shared/Message';
-import { Button } from '@src/alchemy-components';
+import { CheckOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import TabToolbar from '@src/app/entityV2/shared/components/styled/TabToolbar';
 import ActionRequestListItem from '@src/app/actionrequest/item/ActionRequestListItem';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
-import TabToolbar from '@src/app/entityV2/shared/components/styled/TabToolbar';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-
+import { Button } from '@src/alchemy-components';
+import { ActionRequest, ActionRequestAssignee, ActionRequestStatus } from '../../../types.generated';
+import { Message } from '../../shared/Message';
 import {
     useAcceptProposalsMutation,
     useListActionRequestsQuery,
     useRejectProposalsMutation,
-} from '@graphql/actionRequest.generated';
-import { ActionRequest, ActionRequestAssignee, ActionRequestStatus } from '@types';
+} from '../../../graphql/actionRequest.generated';
 
 const ActionRequestsContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     ${(props) => props.$isShowNavBarRedesign && 'height: calc(100% - 20px);'}

@@ -1,9 +1,8 @@
-import { Tooltip } from '@components';
-import { Select, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { ActionType } from '@app/tests/builder/steps/definition/builder/property/types/action';
+import { Select, Typography } from 'antd';
+import { Tooltip } from '@components';
+import { ActionType } from '../../property/types/action';
 
 const StyledSelect = styled(Select)`
     width: 200px;

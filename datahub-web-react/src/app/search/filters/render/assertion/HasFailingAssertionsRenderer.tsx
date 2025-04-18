@@ -1,9 +1,8 @@
-import { CloseCircleOutlined } from '@ant-design/icons';
 import React from 'react';
-
-import { FilterRenderer } from '@app/search/filters/render/FilterRenderer';
-import { HasFailingAssertionsFilter } from '@app/search/filters/render/assertion/HasFailingAssertionsFilter';
-import { FilterRenderProps } from '@app/search/filters/render/types';
+import { CloseCircleOutlined } from '@ant-design/icons';
+import { FilterRenderer } from '../FilterRenderer';
+import { FilterRenderProps } from '../types';
+import { HasFailingAssertionsFilter } from './HasFailingAssertionsFilter';
 
 export class HasFailingAssertionsRenderer implements FilterRenderer {
     field = 'hasFailingAssertions';

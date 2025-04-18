@@ -1,26 +1,24 @@
-import { CloseCircleOutlined, ExclamationCircleOutlined, LoadingOutlined, PartitionOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import { Button, Checkbox, Typography } from 'antd';
 import React, { useState } from 'react';
+import { Typography, Button, Checkbox } from 'antd';
+import { Tooltip } from '@components';
+import { LoadingOutlined, PartitionOutlined, ExclamationCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import { useHistory } from 'react-router';
-import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-
-import { useEntityContext } from '@app/entity/shared/EntityContext';
-import StyledButton from '@app/entity/shared/components/styled/StyledButton';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { sortSharedList } from '@app/entity/shared/containers/profile/utils';
-import { WARNING_COLOR_HEX } from '@app/entity/shared/tabs/Incident/incidentUtils';
-import { GenericEntityProperties } from '@app/entity/shared/types';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import useShareResultsPolling from '@app/entityV2/shared/containers/profile/sidebar/shared/useShareResultsPolling';
-import { getSharedItemInfo } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
-import { toLocalDateTimeString } from '@app/shared/time/timeUtils';
-import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Link } from 'react-router-dom';
 import SharedByInfo from '@src/app/shared/share/items/MetadataShareItem/SharedByInfo';
-
-import { ShareResult } from '@types';
+import { getSharedItemInfo } from '../../../../../entityV2/shared/containers/profile/sidebar/shared/utils';
+import { useEntityContext } from '../../../EntityContext';
+import { ANTD_GRAY } from '../../../constants';
+import { toLocalDateTimeString } from '../../../../../shared/time/timeUtils';
+import { sortSharedList } from '../utils';
+import { ShareResult } from '../../../../../../types.generated';
+import StyledButton from '../../../components/styled/StyledButton';
+import { REDESIGN_COLORS } from '../../../../../entityV2/shared/constants';
+import useShareResultsPolling from '../../../../../entityV2/shared/containers/profile/sidebar/shared/useShareResultsPolling';
+import { useEntityRegistry } from '../../../../../useEntityRegistry';
+import PlatformIcon from '../../../../../sharedV2/icons/PlatformIcon';
+import { WARNING_COLOR_HEX } from '../../../tabs/Incident/incidentUtils';
+import { GenericEntityProperties } from '../../../types';
 
 export const StyledContainer = styled.div`
     font-size: 11px;

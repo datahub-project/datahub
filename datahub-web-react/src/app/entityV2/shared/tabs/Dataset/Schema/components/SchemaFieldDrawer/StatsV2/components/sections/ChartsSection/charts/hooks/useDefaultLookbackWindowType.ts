@@ -1,8 +1,7 @@
-import { useMemo } from 'react';
-
 import { Datum } from '@src/alchemy-components/components/LineChart/types';
 import { GRAPH_LOOKBACK_WINDOWS } from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/constants';
 import { getStartTimeByWindowSize } from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/utils';
+import { useMemo } from 'react';
 
 /**
  * Returns the minimum available lookback window containing the data

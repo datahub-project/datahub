@@ -1,7 +1,7 @@
-import { useActive, useCommands } from '@remirror/react';
-import { Select } from 'antd';
 import React, { MouseEventHandler, useCallback } from 'react';
+import { Select } from 'antd';
 import styled from 'styled-components';
+import { useActive, useCommands } from '@remirror/react';
 
 const { Option } = Select;
 

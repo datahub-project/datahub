@@ -1,8 +1,7 @@
-import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components/macro';
-
-import PostItemMenu from '@app/settings/posts/PostItemMenu';
+import { Maybe } from 'graphql/jsutils/Maybe';
+import PostItemMenu from './PostItemMenu';
 
 export interface PostEntry {
     urn: string;

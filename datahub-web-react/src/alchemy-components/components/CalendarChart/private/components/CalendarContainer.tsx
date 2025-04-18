@@ -1,9 +1,8 @@
 import React, { useMemo } from 'react';
-
-import { CalendarInnerWrapper, CalendarWrapper } from '@components/components/CalendarChart/components';
-import { DAYS_IN_WEEK } from '@components/components/CalendarChart/private/constants';
-import { useCalendarState } from '@components/components/CalendarChart/private/context';
-import { CalendarContainerProps } from '@components/components/CalendarChart/types';
+import { useCalendarState } from '../context';
+import { DAYS_IN_WEEK } from '../constants';
+import { CalendarContainerProps } from '../../types';
+import { CalendarInnerWrapper, CalendarWrapper } from '../../components';
 
 export function CalendarContainer<ValueType>({ children }: CalendarContainerProps) {
     const { squareSize, squareGap, margin, parentHeight, countOfWeeks, countOfMonths } = useCalendarState<ValueType>();

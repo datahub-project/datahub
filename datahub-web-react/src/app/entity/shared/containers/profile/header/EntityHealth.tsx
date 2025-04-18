@@ -1,11 +1,14 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-
-import { EntityHealthPopover } from '@app/entity/shared/containers/profile/header/EntityHealthPopover';
-import { HealthSummaryIconType, getHealthSummaryIcon, isHealthy, isUnhealthy } from '@app/shared/health/healthUtils';
-
-import { Health } from '@types';
+import { Link } from 'react-router-dom';
+import { Health } from '../../../../../../types.generated';
+import {
+    getHealthSummaryIcon,
+    HealthSummaryIconType,
+    isHealthy,
+    isUnhealthy,
+} from '../../../../../shared/health/healthUtils';
+import { EntityHealthPopover } from './EntityHealthPopover';
 
 const Container = styled.div`
     display: flex;

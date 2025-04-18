@@ -1,17 +1,8 @@
-<<<<<<< HEAD
-import { ArrowDown, ArrowElbowDownLeft, ArrowUp } from 'phosphor-react';
-import React from 'react';
-import styled from 'styled-components';
-
-import KeyIcon from '@app/searchV2/searchBarV2/components/KeyIcon';
-import { Text, colors } from '@src/alchemy-components';
-=======
 import React from 'react';
 import { colors, Text } from '@src/alchemy-components';
 import { ArrowDown, ArrowElbowDownLeft, ArrowUp } from 'phosphor-react';
 import styled from 'styled-components';
 import KeyIcon from './KeyIcon';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const Container = styled.div`
     position: sticky;

@@ -1,7 +1,6 @@
-import { getCanEditName } from '@app/entity/shared/containers/profile/header/EntityHeader';
-import { platformPrivileges } from '@src/Mocks';
-
-import { EntityType } from '@types';
+import { platformPrivileges } from '../../../../../../Mocks';
+import { EntityType } from '../../../../../../types.generated';
+import { getCanEditName } from '../header/EntityHeader';
 
 describe('getCanEditName', () => {
     const entityDataWithManagePrivileges = { privileges: { canManageEntity: true, canEditProperties: true } };

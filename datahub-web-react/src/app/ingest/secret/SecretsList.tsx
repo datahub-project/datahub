@@ -1,30 +1,28 @@
-import { SearchBar } from '@components';
-import { Empty, Modal, Typography, message } from 'antd';
+import React, { useEffect, useState } from 'react';
+import { Empty, message, Modal, Typography } from 'antd';
 import { PencilSimpleLine, Trash } from 'phosphor-react';
 import * as QueryString from 'query-string';
-import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
-
-import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
-import { SecretBuilderModal } from '@app/ingest/secret/SecretBuilderModal';
-import {
-    addSecretToListSecretsCache,
-    removeSecretFromListSecretsCache,
-    updateSecretInListSecretsCache,
-} from '@app/ingest/secret/cacheUtils';
-import { SecretBuilderState } from '@app/ingest/secret/types';
-import { Message } from '@app/shared/Message';
-import { scrollToTop } from '@app/shared/searchUtils';
-import { Pagination, Table } from '@src/alchemy-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-
+import { Table, Pagination } from '@src/alchemy-components';
+import { SearchBar } from '@components';
 import {
     useCreateSecretMutation,
     useDeleteSecretMutation,
     useListSecretsQuery,
     useUpdateSecretMutation,
-} from '@graphql/ingestion.generated';
+} from '../../../graphql/ingestion.generated';
+import { Message } from '../../shared/Message';
+import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
+import { SecretBuilderModal } from './SecretBuilderModal';
+import { SecretBuilderState } from './types';
+import { scrollToTop } from '../../shared/searchUtils';
+import {
+    addSecretToListSecretsCache,
+    removeSecretFromListSecretsCache,
+    updateSecretInListSecretsCache,
+} from './cacheUtils';
 
 const DeleteButtonContainer = styled.div`
     display: flex;

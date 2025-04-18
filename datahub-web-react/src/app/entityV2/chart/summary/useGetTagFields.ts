@@ -1,7 +1,6 @@
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
-
-import { GetChartQuery } from '@graphql/chart.generated';
-import { SchemaField } from '@types';
+import { GetChartQuery } from '../../../../graphql/chart.generated';
+import { SchemaField } from '../../../../types.generated';
+import { useBaseEntity } from '../../../entity/shared/EntityContext';
 
 export function useGetTagFields(tag: string): SchemaField[] | undefined {
     const chart = useBaseEntity<GetChartQuery>()?.chart;

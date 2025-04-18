@@ -1,8 +1,7 @@
+import { ColorOptions, SizeOptions } from '@components/theme/config';
 import { InputHTMLAttributes } from 'react';
 import { CSSProperties } from 'styled-components';
-
-import { IconNames } from '@components/components/Icon';
-import { ColorOptions, SizeOptions } from '@components/theme/config';
+import { IconNames } from '../Icon';
 
 export type SwitchLabelPosition = 'left' | 'top';
 

@@ -1,13 +1,7 @@
 import { Icon, Input, Text, Tooltip } from '@components';
 import { Collapse, Form } from 'antd';
 import React from 'react';
-
-import {
-    CollapseHeader,
-    FlexContainer,
-    InputLabel,
-    StyledCollapse,
-} from '@app/govern/structuredProperties/styledComponents';
+import { CollapseHeader, FlexContainer, InputLabel, StyledCollapse } from './styledComponents';
 
 interface Props {
     isEditMode: boolean;

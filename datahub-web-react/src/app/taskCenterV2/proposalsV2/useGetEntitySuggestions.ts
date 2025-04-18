@@ -1,10 +1,9 @@
-import { useMemo } from 'react';
-
 import { useUserContext } from '@src/app/context/useUserContext';
 import { UnionType } from '@src/app/searchV2/utils/constants';
 import { generateOrFilters } from '@src/app/searchV2/utils/generateOrFilters';
 import { useAggregateAcrossEntitiesQuery } from '@src/graphql/search.generated';
 import { EntityType, FacetFilterInput, FacetMetadata } from '@src/types.generated';
+import { useMemo } from 'react';
 
 type Props = {
     activeFilters: FacetFilterInput[];

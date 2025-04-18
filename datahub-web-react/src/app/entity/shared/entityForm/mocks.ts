@@ -1,6 +1,5 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
-
-import { EntityType, FormPromptType, FormState, FormType } from '@types';
+import { EntityType, FormPromptType, FormState, FormType } from '../../../../types.generated';
+import { GenericEntityProperties } from '../types';
 
 const form1 = {
     urn: 'urn:li:form:1',

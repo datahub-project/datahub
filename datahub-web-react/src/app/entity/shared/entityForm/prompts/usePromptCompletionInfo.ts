@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
-
-import { useUserContext } from '@app/context/useUserContext';
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { EntityType, FormPrompt, SchemaField } from '../../../../../types.generated';
+import { useUserContext } from '../../../../context/useUserContext';
+import { useEntityRegistry } from '../../../../useEntityRegistry';
+import { useEntityData } from '../../EntityContext';
 import {
     findCompletedFieldPrompt,
     findPromptAssociation,
@@ -9,11 +10,8 @@ import {
     getIncompletePrompts,
     isFieldPromptComplete,
     isPromptComplete,
-} from '@app/entity/shared/containers/profile/sidebar/FormInfo/utils';
-import { getTimeFromNow } from '@app/shared/time/timeUtils';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { EntityType, FormPrompt, SchemaField } from '@types';
+} from '../../containers/profile/sidebar/FormInfo/utils';
+import { getTimeFromNow } from '../../../../shared/time/timeUtils';
 
 interface CompletionProps {
     prompt: FormPrompt;

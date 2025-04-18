@@ -1,10 +1,8 @@
-import { FolderOutlined } from '@ant-design/icons';
 import React from 'react';
-
-import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { EntityType, Owner, ParentNodesResult } from '@types';
+import { FolderOutlined } from '@ant-design/icons';
+import { EntityType, Owner, ParentNodesResult } from '../../../../types.generated';
+import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
+import { useEntityRegistry } from '../../../useEntityRegistry';
 
 export const Preview = ({
     urn,

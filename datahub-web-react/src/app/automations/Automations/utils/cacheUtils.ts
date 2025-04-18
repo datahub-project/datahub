@@ -1,11 +1,10 @@
 import { ActionPipelineState } from '@src/types.generated';
-
 import {
     GetActionPipelineStatusDocument,
     GetActionPipelineStatusQuery,
     ListActionPipelinesDocument,
     ListActionPipelinesQuery,
-} from '@graphql/actionPipeline.generated';
+} from '../../../../graphql/actionPipeline.generated';
 
 const addOrUpdateAutomationInList = (existingAutomations, newAutomation) => {
     const newAutomations = [...existingAutomations];

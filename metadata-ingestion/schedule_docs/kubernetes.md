@@ -1,7 +1,7 @@
 # Using Kubernetes
 
-If you have deployed DataHub using our official [helm charts](https://github.com/acryldata/datahub-helm) you can use the
-datahub ingestion cron subchart to schedule ingestions.
+If you have deployed DataHub using our official [helm charts](https://github.com/acryldata/datahub-helm) you can use the 
+datahub ingestion cron subchart to schedule ingestions. 
 
 Here is an example of what that configuration would look like in your **values.yaml**:
 
@@ -20,7 +20,6 @@ This assumes the pre-existence of a Kubernetes ConfigMap which holds all recipes
 where the cron jobs will be running.
 
 An example could be:
-
 ```yaml
 apiVersion: v1
 kind: ConfigMap
@@ -34,11 +33,11 @@ data:
         # Coordinates
         host_port: <MYSQL HOST>:3306
         database: dbname
-
+    
         # Credentials
         username: root
         password: example
-
+    
     sink:
       type: datahub-rest
       config:

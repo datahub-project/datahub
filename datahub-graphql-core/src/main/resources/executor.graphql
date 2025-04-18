@@ -7,9 +7,7 @@ extend type Query {
   """
   List configurations related to the remote executor
   """
-  listExecutorConfigs(
-    input: ListExecutorConfigsInput
-  ): ListExecutorConfigsResult
+  listExecutorConfigs(input: ListExecutorConfigsInput): ListExecutorConfigsResult
 }
 
 """

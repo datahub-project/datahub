@@ -1,10 +1,8 @@
-import { Col, Divider, Row, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { AnalyticsChart } from '@app/analyticsDashboard/components/AnalyticsChart';
-
-import { AnalyticsChartGroup } from '@types';
+import { Col, Divider, Row, Typography } from 'antd';
+import { AnalyticsChartGroup } from '../../../types.generated';
+import { AnalyticsChart } from './AnalyticsChart';
 
 const Container = styled.div`
     display: flex;

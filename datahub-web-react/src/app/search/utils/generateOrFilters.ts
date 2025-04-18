@@ -1,6 +1,5 @@
-import { FILTER_DELIMITER, UnionType } from '@app/search/utils/constants';
-
-import { AndFilterInput, FacetFilterInput } from '@types';
+import { FacetFilterInput, AndFilterInput } from '../../../types.generated';
+import { FILTER_DELIMITER, UnionType } from './constants';
 
 // Generates a list of AND filter inputs to be combined in orFilters. This is used when unionType is OR or AND.
 // When unionType = OR, pass in empty `filters` so the nested filters live alone in their AND statement.

@@ -1,16 +1,16 @@
+import React, { useEffect, useState } from 'react';
 import { Select } from 'antd';
 import { debounce } from 'lodash';
-import React, { useEffect, useState } from 'react';
 
+import { EntityType, SearchAcrossEntitiesInput, Container } from '@types';
 import type { ComponentBaseProps } from '@app/automations/types';
-import { PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
-import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
+
 import {
     useGetAutoCompleteMultipleResultsQuery,
     useGetSearchResultsForMultipleQuery,
 } from '@src/graphql/search.generated';
-
-import { Container, EntityType, SearchAcrossEntitiesInput } from '@types';
+import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
+import { PLATFORM_FILTER_NAME } from '../../../searchV2/utils/constants';
 
 export type ContainerSelectorStateType = {
     containers: string[];

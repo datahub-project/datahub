@@ -1,9 +1,8 @@
 import React from 'react';
-
-import { BrowseProvider } from '@app/searchV2/sidebar/BrowseContext';
-import EntityNode from '@app/searchV2/sidebar/EntityNode';
-import SidebarLoadingError from '@app/searchV2/sidebar/SidebarLoadingError';
-import useSidebarEntities from '@app/searchV2/sidebar/useSidebarEntities';
+import EntityNode from './EntityNode';
+import { BrowseProvider } from './BrowseContext';
+import SidebarLoadingError from './SidebarLoadingError';
+import useSidebarEntities from './useSidebarEntities';
 
 type Props = {
     visible: boolean;

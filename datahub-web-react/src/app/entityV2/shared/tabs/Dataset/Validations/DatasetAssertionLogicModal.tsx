@@ -1,7 +1,6 @@
-import { Button, Modal } from 'antd';
+import { Modal, Button } from 'antd';
 import React from 'react';
-
-import Query from '@app/entityV2/shared/tabs/Dataset/Queries/Query';
+import Query from '../Queries/Query';
 
 export type AssertionsSummary = {
     totalAssertions: number;

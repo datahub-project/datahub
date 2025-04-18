@@ -1,7 +1,6 @@
-import { Button, Form, Input, Modal, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
-
-import { useUpdateCorpGroupPropertiesMutation } from '@graphql/group.generated';
+import { message, Button, Input, Modal, Typography, Form } from 'antd';
+import { useUpdateCorpGroupPropertiesMutation } from '../../../graphql/group.generated';
 
 type PropsData = {
     name: string | undefined;

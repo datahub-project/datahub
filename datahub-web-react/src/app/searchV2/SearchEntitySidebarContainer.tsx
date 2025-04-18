@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-
-import { EntityAndType } from '@app/entity/shared/types';
-import CompactContext from '@app/shared/CompactContext';
-import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
-import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import { EntityAndType } from '../entity/shared/types';
+import CompactContext from '../shared/CompactContext';
+import EntitySidebarContext from '../sharedV2/EntitySidebarContext';
+import useSidebarWidth from '../sharedV2/sidebar/useSidebarWidth';
+import { useEntityRegistry } from '../useEntityRegistry';
 
 const SidebarContainer = styled.div<{ height: string }>`
     max-height: ${(props) => props.height};

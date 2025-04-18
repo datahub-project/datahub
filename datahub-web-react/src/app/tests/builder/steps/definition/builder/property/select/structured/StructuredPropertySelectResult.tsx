@@ -1,12 +1,10 @@
-import { Tooltip } from '@components';
-import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { getPropertyDisplayName } from '@app/tests/builder/steps/definition/builder/property/select/structured/utils';
-
-import { StructuredPropertyEntity } from '@types';
+import { Divider } from 'antd';
+import { Tooltip } from '@components';
+import { StructuredPropertyEntity } from '../../../../../../../../../types.generated';
+import { getPropertyDisplayName } from './utils';
+import { ANTD_GRAY } from '../../../../../../../../entity/shared/constants';
 
 const Container = styled.div`
     display: flex;

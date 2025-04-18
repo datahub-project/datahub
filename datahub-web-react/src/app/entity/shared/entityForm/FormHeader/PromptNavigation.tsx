@@ -1,30 +1,27 @@
+import React from 'react';
+
 import { CheckCircleFilled } from '@ant-design/icons';
 import { message, notification } from 'antd';
-import * as QueryString from 'query-string';
-import React from 'react';
-import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
-
-import analytics, { DocRequestView, EventType } from '@app/analytics';
-import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
-import VerificationCTA from '@app/entity/shared/entityForm/FormHeader/VerificationCTA';
-import {
-    ArrowLeft,
-    ArrowRight,
-    BulkNavigationWrapper,
-    NavigationWrapper,
-} from '@app/entity/shared/entityForm/FormHeader/components';
-import DocumentationPrompt from '@app/entity/shared/entityForm/prompts/DocumentationPrompt/DocumentationPrompt';
-import DomainPrompt from '@app/entity/shared/entityForm/prompts/DomainPrompt/DomainPrompt';
-import GlossaryTermsPrompt from '@app/entity/shared/entityForm/prompts/GlossaryTermsPrompt/GlossaryTermsPrompt';
-import OwnershipPrompt from '@app/entity/shared/entityForm/prompts/OwnershipPrompt/OwnershipPrompt';
-import StructuredPropertyPrompt from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/StructuredPropertyPrompt';
-import { FORM_ANSWER_IN_BULK_ID } from '@app/onboarding/config/FormOnboardingConfig';
-import { pluralize } from '@app/shared/textUtil';
+import * as QueryString from 'query-string';
+import { useHistory, useLocation } from 'react-router';
 import useGetSearchQueryInputs from '@src/app/search/useGetSearchQueryInputs';
-
-import { useAsyncBatchSubmitFormPromptMutation, useBatchSubmitFormPromptMutation } from '@graphql/form.generated';
-import { EntityType, FormPromptType, SubmitFormPromptInput } from '@types';
+import { useEntityFormContext } from '../EntityFormContext';
+import { ArrowLeft, ArrowRight, BulkNavigationWrapper, NavigationWrapper } from './components';
+import { EntityType, FormPromptType, SubmitFormPromptInput } from '../../../../../types.generated';
+import StructuredPropertyPrompt from '../prompts/StructuredPropertyPrompt/StructuredPropertyPrompt';
+import {
+    useAsyncBatchSubmitFormPromptMutation,
+    useBatchSubmitFormPromptMutation,
+} from '../../../../../graphql/form.generated';
+import VerificationCTA from './VerificationCTA';
+import { FORM_ANSWER_IN_BULK_ID } from '../../../../onboarding/config/FormOnboardingConfig';
+import { pluralize } from '../../../../shared/textUtil';
+import analytics, { EventType, DocRequestView } from '../../../../analytics';
+import OwnershipPrompt from '../prompts/OwnershipPrompt/OwnershipPrompt';
+import DocumentationPrompt from '../prompts/DocumentationPrompt/DocumentationPrompt';
+import GlossaryTermsPrompt from '../prompts/GlossaryTermsPrompt/GlossaryTermsPrompt';
+import DomainPrompt from '../prompts/DomainPrompt/DomainPrompt';
 
 const FormPromptsWrapper = styled(BulkNavigationWrapper)`
     justify-content: space-between;

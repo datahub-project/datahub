@@ -1,10 +1,8 @@
-import { ErrorResponse } from '@apollo/client/link/error';
 import { message } from 'antd';
-
-import { useGlobalSettingsContext } from '@app/context/GlobalSettings/GlobalSettingsContext';
 import handleGraphQLError from '@src/app/shared/handleGraphQLError';
-
-import { useUpdateHelpLinkMutation } from '@graphql/settings.generated';
+import { ErrorResponse } from '@apollo/client/link/error';
+import { useUpdateHelpLinkMutation } from '../../../graphql/settings.generated';
+import { useGlobalSettingsContext } from '../../context/GlobalSettings/GlobalSettingsContext';
 
 export default function useHelpLinkForm() {
     const { helpLinkState, refetch, globalSettings } = useGlobalSettingsContext();

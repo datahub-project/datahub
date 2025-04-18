@@ -1,27 +1,23 @@
 import { CalendarChart, GraphCard } from '@components';
-import React, { useEffect, useMemo, useState } from 'react';
-
-import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
-import { ChangeHistoryDrawer } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/ChangeHistoryDrawer';
-import ChangeHistoryPopover from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryPopover';
-import Subtitle from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/Subtitle';
-import TypesSelect from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/TypesSelect';
-import useChangeHistoryData from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/hooks/useChangeHistoryData';
-import useColorAccessors from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/hooks/useColorAccessors';
-import useDataRange from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/hooks/useDataRange';
-import useGetCalendarRangeByTimeRange from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/hooks/useGetCalendarRangeByTimeRange';
-import {
-    AnyOperationType,
-    OperationsData,
-} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/types';
-import { addPrefix } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/utils';
-import NoPermission from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/NoPermission';
-import AddAssertionButton from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/AddAssertionButton';
-import MoreInfoModalContent from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/MoreInfoModalContent';
-import { SectionKeys } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
 import { DayData } from '@src/alchemy-components/components/CalendarChart/types';
-import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
 import { AssertionType, OperationType, TimeRange } from '@src/types.generated';
+import React, { useEffect, useMemo, useState } from 'react';
+import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
+import { useStatsSectionsContext } from '../../StatsSectionsContext';
+import AddAssertionButton from '../components/AddAssertionButton';
+import MoreInfoModalContent from '../components/MoreInfoModalContent';
+import NoPermission from '../NoPermission';
+import { ChangeHistoryDrawer } from './components/ChangeHistoryDrawer/ChangeHistoryDrawer';
+import ChangeHistoryPopover from './components/ChangeHistoryPopover';
+import Subtitle from './components/Subtitle';
+import TypesSelect from './components/TypesSelect';
+import useChangeHistoryData from './hooks/useChangeHistoryData';
+import useColorAccessors from './hooks/useColorAccessors';
+import useDataRange from './hooks/useDataRange';
+import useGetCalendarRangeByTimeRange from './hooks/useGetCalendarRangeByTimeRange';
+import { AnyOperationType, OperationsData } from './types';
+import { SectionKeys } from '../../utils';
+import { addPrefix } from './utils';
 
 const CHANGE_HISTORY_TIME_RANGE = TimeRange.Year;
 

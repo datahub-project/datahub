@@ -2,19 +2,17 @@ import { KeyboardArrowDown, KeyboardArrowRight } from '@mui/icons-material';
 import { Collapse, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import { Entity } from '@app/entityV2/Entity';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
-import EntityProperty from '@app/entityV2/shared/containers/profile/sidebar/shared/EntityProperty';
-import SyncedOrShared from '@app/entityV2/shared/containers/profile/sidebar/shared/SyncedOrShared';
-import TimeProperty from '@app/entityV2/shared/containers/profile/sidebar/shared/TimeProperty';
-import { ACRYL_PLATFORM, ActionType } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
-import { getPlatformName } from '@app/entityV2/shared/utils';
-import { useEntityRegistryV2 as useEntityRegistry } from '@app/useEntityRegistry';
-
-import { DataPlatformInstance, EntityType, SyncMechanism } from '@types';
+import { DataPlatformInstance, EntityType, SyncMechanism } from '../../../../../../../types.generated';
+import { useEntityData } from '../../../../../../entity/shared/EntityContext';
+import { useEntityRegistryV2 as useEntityRegistry } from '../../../../../../useEntityRegistry';
+import { Entity } from '../../../../../Entity';
+import { REDESIGN_COLORS } from '../../../../constants';
+import { getPlatformName } from '../../../../utils';
+import { SidebarSection } from '../SidebarSection';
+import EntityProperty from './EntityProperty';
+import SyncedOrShared from './SyncedOrShared';
+import TimeProperty from './TimeProperty';
+import { ACRYL_PLATFORM, ActionType } from './utils';
 
 const SyncedAssetContainer = styled.div`
     display: flex;

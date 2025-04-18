@@ -1,7 +1,6 @@
-import { cloneDeep } from 'lodash';
-
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import { ActionRequestAssignee, FacetFilterInput } from '@src/types.generated';
+import { cloneDeep } from 'lodash';
 
 export const PERSONAL_ACTION_REQUESTS_GROUP_NAME = 'Inbox';
 export const MY_PROPOSALS_GROUP_NAME = 'My Proposals';

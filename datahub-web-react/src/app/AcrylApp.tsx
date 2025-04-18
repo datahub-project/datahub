@@ -1,4 +1,4 @@
-import { useUserTracking } from '@app/useUserTracking';
+import { useUserTracking } from './useUserTracking';
 
 /**
  * Component for adding SaaS-specific functionality to the app, separated to reduce merge conflicts.

@@ -1,24 +1,20 @@
-import { DatePicker } from 'antd';
 import moment from 'moment';
-import React, { useCallback, useRef, useState } from 'react';
-import styled from 'styled-components';
-
-import { FilterField } from '@app/searchV2/filters/types';
-import { useFilterDisplayName } from '@app/searchV2/filters/utils';
-import useDateRangeFilterValues from '@app/searchV2/filters/value/useDateRangeFilterValues';
 import { Text } from '@src/alchemy-components';
-import { Datetime } from '@src/app/lineageV2/LineageTimeSelector';
+import React, { useCallback, useRef, useState } from 'react';
+import { DatePicker } from 'antd';
+import styled from 'styled-components';
 import { FacetFilterInput, FacetMetadata, FilterOperator } from '@src/types.generated';
+import { Datetime } from '@src/app/lineageV2/LineageTimeSelector';
+import { FilterField } from '../types';
+import { useFilterDisplayName } from '../utils';
+import useDateRangeFilterValues from './useDateRangeFilterValues';
 
 const { RangePicker } = DatePicker;
 
 const Container = styled.div`
     padding: 16px;
     background-color: #ffffff;
-    box-shadow:
-        0 3px 6px -4px rgba(0, 0, 0, 0.12),
-        0 6px 16px 0 rgba(0, 0, 0, 0.08),
-        0 9px 28px 8px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 9px 28px 8px rgba(0, 0, 0, 0.05);
     border-radius: 8px;
     min-width: 225px;
 `;

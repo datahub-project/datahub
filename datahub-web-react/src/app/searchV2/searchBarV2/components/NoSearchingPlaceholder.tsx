@@ -1,12 +1,6 @@
 import React from 'react';
-<<<<<<< HEAD
-import styled from 'styled-components';
-
-import { Text } from '@src/alchemy-components';
-=======
 import { Text } from '@src/alchemy-components';
 import styled from 'styled-components';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const Container = styled.div`
     display: flex;

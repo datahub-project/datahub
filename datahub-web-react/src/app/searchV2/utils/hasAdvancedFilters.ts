@@ -1,6 +1,5 @@
-import { ADVANCED_SEARCH_ONLY_FILTERS, UnionType } from '@app/searchV2/utils/constants';
-
-import { FacetFilterInput } from '@types';
+import { FacetFilterInput } from '../../../types.generated';
+import { ADVANCED_SEARCH_ONLY_FILTERS, UnionType } from './constants';
 
 // utility method that looks at the set of filters and determines if the filters can be represented by simple search
 export const hasAdvancedFilters = (filters: FacetFilterInput[], unionType: UnionType) => {

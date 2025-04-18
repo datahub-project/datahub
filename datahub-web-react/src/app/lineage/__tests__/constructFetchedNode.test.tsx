@@ -1,8 +1,7 @@
-import { Direction, EntityAndType, FetchedEntity } from '@app/lineage/types';
-import { shouldIncludeChildEntity } from '@app/lineage/utils/constructFetchedNode';
-import { dataJob1, dataset1, dataset1FetchedEntity, dataset2, dataset2FetchedEntity } from '@src/Mocks';
-
-import { Entity, EntityType } from '@types';
+import { dataset1, dataset2, dataJob1, dataset1FetchedEntity, dataset2FetchedEntity } from '../../../Mocks';
+import { Entity, EntityType } from '../../../types.generated';
+import { Direction, EntityAndType, FetchedEntity } from '../types';
+import { shouldIncludeChildEntity } from '../utils/constructFetchedNode';
 
 describe('shouldIncludeChildEntity', () => {
     const parentChildren = [

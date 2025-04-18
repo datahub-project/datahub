@@ -1,28 +1,26 @@
 import { FolderFilled } from '@ant-design/icons';
 import React from 'react';
-
-import { IconStyleType } from '@app/entity/Entity';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { dataPlatform, dataPlatformInstance, dataset1, glossaryTerm1, user1 } from '../../../../Mocks';
+import { EntityType } from '../../../../types.generated';
+import { getTestEntityRegistry } from '../../../../utils/test-utils/TestPageContainer';
+import { IconStyleType } from '../../../entity/Entity';
+import { ANTD_GRAY } from '../../../entity/shared/constants';
 import {
-    PlatformIcon,
-    canCreateViewFromFilters,
-    combineAggregations,
-    filterEmptyAggregations,
-    filterOptionsWithSearch,
     getFilterEntity,
-    getFilterIconAndLabel,
-    getFilterOptions,
     getNewFilters,
+    isFilterOptionSelected,
+    getFilterIconAndLabel,
+    PlatformIcon,
     getNumActiveFiltersForFilter,
     getNumActiveFiltersForGroupOfFilters,
+    combineAggregations,
+    filterEmptyAggregations,
+    getFilterOptions,
+    filterOptionsWithSearch,
+    canCreateViewFromFilters,
     isAnyOptionSelected,
-    isFilterOptionSelected,
-} from '@app/search/filters/utils';
-import { ENTITY_SUB_TYPE_FILTER_NAME } from '@app/search/utils/constants';
-import { dataPlatform, dataPlatformInstance, dataset1, glossaryTerm1, user1 } from '@src/Mocks';
-import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
-
-import { EntityType } from '@types';
+} from '../utils';
+import { ENTITY_SUB_TYPE_FILTER_NAME } from '../../utils/constants';
 
 describe('filter utils - getNewFilters', () => {
     it('should get the correct list of filters when adding filters where the filter field did not already exist', () => {

@@ -1,8 +1,9 @@
-import { BellTwoTone } from '@ant-design/icons';
 import React from 'react';
-import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import styled from 'styled-components';
+import { BellTwoTone } from '@ant-design/icons';
+
+import { ANTD_GRAY } from '../../../../../constants';
 
 const Container = styled.div`
     display: flex;

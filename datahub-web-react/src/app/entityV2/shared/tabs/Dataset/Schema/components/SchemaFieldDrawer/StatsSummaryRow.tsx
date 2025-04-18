@@ -1,10 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
-
-import TrendDetail from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/TrendDetail';
-import { pluralize } from '@app/shared/textUtil';
-
-import { DatasetFieldProfile } from '@types';
+import { DatasetFieldProfile } from '../../../../../../../../types.generated';
+import { pluralize } from '../../../../../../../shared/textUtil';
+import TrendDetail from './TrendDetail';
 
 const StatsSummaryRowContent = styled.div`
     display: flex;

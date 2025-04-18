@@ -1,13 +1,12 @@
 import React from 'react';
-
-import EntityRegistryProvider from '@app/EntityRegistryProvider';
-import GlobalSettingsContextProvider from '@app/context/GlobalSettings/GlobalSettingsContextProvider';
-import UserContextProvider from '@app/context/UserContextProvider';
-import { NavBarProvider } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
-import SearchContextProvider from '@app/search/context/SearchContextProvider';
-import { EducationStepsProvider } from '@providers/EducationStepsProvider';
-import QuickFiltersProvider from '@providers/QuickFiltersProvider';
-import AppConfigProvider from '@src/AppConfigProvider';
+import AppConfigProvider from '../AppConfigProvider';
+import { EducationStepsProvider } from '../providers/EducationStepsProvider';
+import UserContextProvider from './context/UserContextProvider';
+import QuickFiltersProvider from '../providers/QuickFiltersProvider';
+import SearchContextProvider from './search/context/SearchContextProvider';
+import EntityRegistryProvider from './EntityRegistryProvider';
+import GlobalSettingsContextProvider from './context/GlobalSettings/GlobalSettingsContextProvider';
+import { NavBarProvider } from './homeV2/layout/navBarRedesign/NavBarContext';
 
 interface Props {
     children: React.ReactNode;

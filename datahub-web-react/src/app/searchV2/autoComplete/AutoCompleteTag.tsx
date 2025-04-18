@@ -1,9 +1,7 @@
 import React from 'react';
-
-import { StyledTag } from '@app/entityV2/shared/components/styled/StyledTag';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { EntityType, Tag } from '@types';
+import { EntityType, Tag } from '../../../types.generated';
+import { StyledTag } from '../../entityV2/shared/components/styled/StyledTag';
+import { useEntityRegistry } from '../../useEntityRegistry';
 
 interface Props {
     tag: Tag;

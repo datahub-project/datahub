@@ -1,15 +1,3 @@
-<<<<<<< HEAD
-import React from 'react';
-import styled from 'styled-components';
-
-import EntityIcon from '@app/searchV2/autoCompleteV2/components/icon/EntityIcon';
-import EntitySubtitle from '@app/searchV2/autoCompleteV2/components/subtitle/EntitySubtitle';
-import { getEntityDisplayType } from '@app/searchV2/autoCompleteV2/utils';
-import { Text } from '@src/alchemy-components';
-import { MatchText } from '@src/alchemy-components/components/MatchText';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { Entity } from '@src/types.generated';
-=======
 import { Text } from '@src/alchemy-components';
 import { MatchText } from '@src/alchemy-components/components/MatchText';
 import { Entity } from '@src/types.generated';
@@ -19,7 +7,6 @@ import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import EntityIcon from './components/icon/EntityIcon';
 import EntitySubtitle from './components/subtitle/EntitySubtitle';
 import { getEntityDisplayType } from './utils';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const Container = styled.div`
     display: flex;

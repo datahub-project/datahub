@@ -1,4 +1,4 @@
-import { Entity } from '@types';
+import { Entity } from '../../../types.generated';
 
 export interface FilterOptionType {
     field: string;

@@ -1,6 +1,6 @@
-import { EntityCapabilityType } from '@app/entityV2/Entity';
-import { entityHasCapability, getHighlightedTag, getUniqueOwners } from '@app/previewV2/utils';
-import { entityCapabilities, globalTags, owners } from '@src/Mocks';
+import { entityCapabilities, globalTags, owners } from '../../../Mocks';
+import { EntityCapabilityType } from '../../entityV2/Entity';
+import { entityHasCapability, getHighlightedTag, getUniqueOwners } from '../utils';
 
 describe('Preview V2 utils tests', () => {
     it('getUniqueOwners -> should return all unique owners based on URN', () => {

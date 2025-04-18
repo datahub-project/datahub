@@ -1,11 +1,9 @@
 import React, { useEffect } from 'react';
 import styled from 'styled-components/macro';
-
-import AttributeItem from '@app/businessAttribute/AttributeItem';
-import { sortBusinessAttributes } from '@app/businessAttribute/businessAttributeUtils';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { ListBusinessAttributesQuery, useListBusinessAttributesQuery } from '@graphql/businessAttribute.generated';
+import { useEntityRegistry } from '../useEntityRegistry';
+import { ListBusinessAttributesQuery, useListBusinessAttributesQuery } from '../../graphql/businessAttribute.generated';
+import { sortBusinessAttributes } from './businessAttributeUtils';
+import AttributeItem from './AttributeItem';
 
 const BrowserWrapper = styled.div`
     color: #262626;

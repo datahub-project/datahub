@@ -1,8 +1,7 @@
-import { Empty, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { EMPTY_MESSAGES } from '@app/entity/shared/constants';
+import { Empty, Typography } from 'antd';
+import { EMPTY_MESSAGES } from '../../constants';
 
 const StyledEmpty = styled(Empty)`
     padding: 40px;

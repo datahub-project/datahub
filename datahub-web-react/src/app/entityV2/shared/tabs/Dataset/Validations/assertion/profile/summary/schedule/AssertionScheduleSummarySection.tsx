@@ -1,10 +1,11 @@
-import { Tooltip } from '@components';
-import { Divider } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import { TruncatedTextWithTooltip } from '@app/shared/TruncatedTextWithTooltip';
+import styled from 'styled-components';
+import { Divider } from 'antd';
+import { Tooltip } from '@components';
+
+import { ANTD_GRAY } from '../../../../../../../constants';
+import { TruncatedTextWithTooltip } from '../../../../../../../../../shared/TruncatedTextWithTooltip';
 
 const Container = styled.div`
     display: flex;

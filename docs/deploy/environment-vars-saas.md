@@ -148,10 +148,11 @@ The AI-powered Slack bot, which replies to the @datahub mentions, is covered in 
 | `ALTERNATE_MCP_VALIDATION`                 | `false` | boolean   | [`GMS`]                                 | Enables an alternate MCP validation pathway for MCPs that should be validated only after applying a mutation hook. |
 | `GRAPHQL_QUERY_INTROSPECTION_ENABLED`      | `true`  | boolean   | [`GMS`]                                 | Whether to enable introspection queries in the GraphQL API.                                                        |
 
+
 ## OIDC Implicit
 
-| Variable                           | Default | Unit/Type | Components   | Description                                                               |
-| ---------------------------------- | ------- | --------- | ------------ | ------------------------------------------------------------------------- |
-| `AUTH_OIDC_IMPLICIT_ENABLED`       | `false` | boolean   | [`Frontend`] | Enables OIDC Implicit Flow                                                |
-| `AUTH_OIDC_IMPLICIT_CLIENT_ISSUER` |         | string    | [`Frontend`] | The issuer for the client's IDP. i.e. Google: https://accounts.google.com |
-| `AUTH_OIDC_IMPLICIT_JWKS_JSON`     |         | string    | [`Frontend`] | Public keys for the IDP as a json string                                  |
+| Variable                               | Default | Unit/Type | Components         | Description                                                               |
+|----------------------------------------|---------|-----------|--------------------|---------------------------------------------------------------------------|
+| `AUTH_OIDC_IMPLICIT_ENABLED`           | `false` | boolean   | [`Frontend`]       | Enables OIDC Implicit Flow                                                |
+| `AUTH_OIDC_IMPLICIT_CLIENT_ISSUER`     |         | string    | [`Frontend`]       | The issuer for the client's IDP. i.e. Google: https://accounts.google.com |
+| `AUTH_OIDC_IMPLICIT_JWKS_JSON`         |         | string    | [`Frontend`]       | Public keys for the IDP as a json string                                  |

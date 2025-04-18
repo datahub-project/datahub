@@ -1,8 +1,7 @@
 import { Divider, Space, Typography } from 'antd';
 import React from 'react';
-
-import { AvatarsGroup } from '@app/shared/avatar';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import { AvatarsGroup } from '../../../shared/avatar';
 
 type Props = {
     definition: string;

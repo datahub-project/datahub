@@ -1,18 +1,16 @@
 import { useContext, useEffect } from 'react';
-
-import { NUM_COLUMNS_PER_PAGE } from '@app/lineage/constants';
-import { FetchedEntity } from '@app/lineage/types';
-import { LineageExplorerContext } from '@app/lineage/utils/LineageExplorerContext';
+import { SchemaField } from '../../../types.generated';
+import usePrevious from '../../shared/usePrevious';
+import { NUM_COLUMNS_PER_PAGE } from '../constants';
+import { FetchedEntity } from '../types';
 import {
     convertFieldsToV1FieldPath,
     convertInputFieldsToSchemaFields,
     getHighlightedColumnsForNode,
     sortColumnsByDefault,
     sortRelatedLineageColumns,
-} from '@app/lineage/utils/columnLineageUtils';
-import usePrevious from '@app/shared/usePrevious';
-
-import { SchemaField } from '@types';
+} from './columnLineageUtils';
+import { LineageExplorerContext } from './LineageExplorerContext';
 
 export default function useSortColumnsBySelectedField(fetchedEntities: Map<string, FetchedEntity>) {
     const { highlightedEdges, selectedField, columnsByUrn, setColumnsByUrn } = useContext(LineageExplorerContext);

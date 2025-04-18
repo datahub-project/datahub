@@ -1,11 +1,9 @@
+import styled from 'styled-components';
 import React from 'react';
 import { useHistory } from 'react-router';
-import styled from 'styled-components';
-
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
-import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
-
-import { SearchSuggestion } from '@types';
+import { SearchSuggestion } from '../../../types.generated';
+import { navigateToSearchUrl } from '../utils/navigateToSearchUrl';
+import { ANTD_GRAY_V2 } from '../../entity/shared/constants';
 
 const TextWrapper = styled.div`
     font-size: 14px;

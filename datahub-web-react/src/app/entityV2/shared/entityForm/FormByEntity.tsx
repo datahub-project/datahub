@@ -1,17 +1,25 @@
 import React from 'react';
+
 import styled from 'styled-components';
 
-import { EntityContext, useEntityContext } from '@app/entity/shared/EntityContext';
-import ProfileSidebar from '@app/entity/shared/containers/profile/sidebar/ProfileSidebar';
-import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
-import Form from '@app/entity/shared/entityForm/Form';
-import ProgressBar from '@app/entity/shared/entityForm/ProgressBar';
-import { ANTD_GRAY_V2 } from '@app/entityV2/shared/constants';
-import EntityInfo from '@app/entityV2/shared/containers/profile/sidebar/EntityInfo/EntityInfo';
-import { OnboardingTour } from '@app/onboarding/OnboardingTour';
-import { FORM_QUESTION_VIEW_BUTTON, WELCOME_TO_BULK_BY_ENTITY_ID } from '@app/onboarding/config/FormOnboardingConfig';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-import { useIsThemeV2 } from '@app/useIsThemeV2';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import { EntityContext, useEntityContext } from '../../../entity/shared/EntityContext';
+import { useEntityFormContext } from '../../../entity/shared/entityForm/EntityFormContext';
+import { ANTD_GRAY_V2 } from '../constants';
+
+import ProfileSidebar from '../../../entity/shared/containers/profile/sidebar/ProfileSidebar';
+
+import EntityInfo from '../containers/profile/sidebar/EntityInfo/EntityInfo';
+import Form from '../../../entity/shared/entityForm/Form';
+import ProgressBar from '../../../entity/shared/entityForm/ProgressBar';
+
+import { OnboardingTour } from '../../../onboarding/OnboardingTour';
+import {
+    FORM_QUESTION_VIEW_BUTTON,
+    WELCOME_TO_BULK_BY_ENTITY_ID,
+} from '../../../onboarding/config/FormOnboardingConfig';
+
+import { useIsThemeV2 } from '../../../useIsThemeV2';
 
 const ContentWrapper = styled.div`
     background-color: ${ANTD_GRAY_V2[1]};

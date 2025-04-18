@@ -1,7 +1,8 @@
-import { Modal } from 'antd';
 import React from 'react';
 
-import { SnowflakeConnectionForm } from '@app/settings/platform/snowflake/Form';
+import { Modal } from 'antd';
+
+import { SnowflakeConnectionForm } from './Form';
 
 interface Props {
     title: string;

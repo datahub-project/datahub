@@ -1,13 +1,12 @@
 import React, { useCallback } from 'react';
-
-import { Popover } from '@components/components/Popover';
-import { Text } from '@components/components/Text';
+import { Popover } from '../../Popover';
+import { Text } from '../../Text';
 import {
     DEFAULT_COLOR_SHEME,
     WHISKER_METRIC_ATTRIBUTE_NAMES,
     WHISKER_METRIC_NAMES as WHISKER_METRIC_LABELS,
-} from '@components/components/WhiskerChart/constants';
-import { TooltipRendererProps } from '@components/components/WhiskerChart/types';
+} from '../constants';
+import { TooltipRendererProps } from '../types';
 
 const RADIUS = 6;
 

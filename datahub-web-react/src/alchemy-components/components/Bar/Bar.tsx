@@ -1,10 +1,9 @@
 import React from 'react';
-
-import { BarContainer, IndividualBar } from '@components/components/Bar/components';
-import { BAR_HEIGHT_MULTIPLIER } from '@components/components/Bar/constant';
-import { BarComponentProps } from '@components/components/Bar/types';
-
 import { colors } from '@src/alchemy-components/theme';
+
+import { BarComponentProps } from './types';
+import { BarContainer, IndividualBar } from './components';
+import { BAR_HEIGHT_MULTIPLIER } from './constant';
 
 const defaultProps: BarComponentProps = {
     color: colors.violet[500],

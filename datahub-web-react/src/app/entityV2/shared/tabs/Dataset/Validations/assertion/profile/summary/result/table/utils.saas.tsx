@@ -1,10 +1,9 @@
 import React from 'react';
-
-import { AssertionResultDot } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/AssertionResultDot';
-import { AssertionPredictionTableItem } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/table/AssertionPredictionTableItem.saas';
-import { getResultColor } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
-import { useAppConfig } from '@src/app/useAppConfig';
 import { Assertion, AssertionResultType, AssertionRunEvent, Monitor } from '@src/types.generated';
+import { useAppConfig } from '@src/app/useAppConfig';
+import { AssertionResultDot } from '../../../shared/AssertionResultDot';
+import { getResultColor } from '../../../../../assertionUtils';
+import { AssertionPredictionTableItem } from './AssertionPredictionTableItem.saas';
 
 export const useAssertionPredictionItem = (assertion: Assertion, monitor?: Monitor) => {
     // We can only show predictions if smart assertions are being trained online

@@ -2,9 +2,8 @@ import { Image } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
-
-import { useAppConfig } from '@app/useAppConfig';
-import { DEFAULT_APP_CONFIG } from '@src/appConfigContext';
+import { useAppConfig } from '../useAppConfig';
+import { DEFAULT_APP_CONFIG } from '../../appConfigContext';
 
 const StyledLink = styled(Link)`
     display: flex;

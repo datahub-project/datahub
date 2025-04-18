@@ -1,16 +1,11 @@
-import { blue } from '@ant-design/colors';
-import { CheckCircleFilled } from '@ant-design/icons';
+import { Test } from '@src/types.generated';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
-
-import { FormView, useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
-import {
-    BULK_VERIFY_ID,
-    getAssociatedPromptId,
-    getFirstTestResult,
-} from '@app/entity/shared/entityForm/useEntityFormTasks';
 import Loading from '@src/app/shared/Loading';
-import { Test } from '@src/types.generated';
+import { CheckCircleFilled } from '@ant-design/icons';
+import { blue } from '@ant-design/colors';
+import { FormView, useEntityFormContext } from './EntityFormContext';
+import { BULK_VERIFY_ID, getAssociatedPromptId, getFirstTestResult } from './useEntityFormTasks';
 
 const TaskWrapper = styled.div`
     padding: 12px 0;

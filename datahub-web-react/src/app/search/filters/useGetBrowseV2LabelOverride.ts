@@ -1,10 +1,8 @@
 import { useEffect } from 'react';
-
-import EntityRegistry from '@app/entity/EntityRegistry';
-import { getLastBrowseEntryFromFilterValue } from '@app/search/filters/utils';
-import { BROWSE_PATH_V2_FILTER_NAME } from '@app/search/utils/constants';
-
-import { useGetEntityDisplayNameLazyQuery } from '@graphql/search.generated';
+import { useGetEntityDisplayNameLazyQuery } from '../../../graphql/search.generated';
+import { getLastBrowseEntryFromFilterValue } from './utils';
+import { BROWSE_PATH_V2_FILTER_NAME } from '../utils/constants';
+import EntityRegistry from '../../entity/EntityRegistry';
 
 function isEntityUrn(string: string) {
     return string.includes('urn:li:');

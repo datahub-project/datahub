@@ -1,8 +1,4 @@
-import {
-    getFieldPathFromSchemaFieldUrn,
-    getSchemaFieldParentLink,
-    getSourceUrnFromSchemaFieldUrn,
-} from '@app/entity/schemaField/utils';
+import { getFieldPathFromSchemaFieldUrn, getSchemaFieldParentLink, getSourceUrnFromSchemaFieldUrn } from '../utils';
 
 describe('schema field utils', () => {
     const schemaFieldUrn =

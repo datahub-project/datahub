@@ -1,10 +1,8 @@
 import * as React from 'react';
-
-import { Entity } from '@app/entity/Entity';
-import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
-import { GenericEntityProperties } from '@app/entity/shared/types';
-
-import { DataPlatformInstance, EntityType } from '@types';
+import { DataPlatformInstance, EntityType } from '../../../types.generated';
+import { Entity } from '../Entity';
+import { GenericEntityProperties } from '../shared/types';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
 
 /**
  * Definition of the DataHub DataPlatformInstance entity.

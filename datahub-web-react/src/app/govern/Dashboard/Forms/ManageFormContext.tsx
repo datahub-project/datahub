@@ -1,8 +1,7 @@
+import { FormState } from '@src/types.generated';
 import { FormInstance } from 'antd';
 import React from 'react';
-
-import { FormFields, FormMode } from '@app/govern/Dashboard/Forms/formUtils';
-import { FormState } from '@src/types.generated';
+import { FormFields, FormMode } from './formUtils';
 
 interface ManageFormState {
     formValues: FormFields;

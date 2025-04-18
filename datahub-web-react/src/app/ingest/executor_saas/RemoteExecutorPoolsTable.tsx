@@ -1,21 +1,16 @@
-import { Button, Empty, Popover, Typography } from 'antd';
 import { uniq } from 'lodash';
-import { Check } from 'phosphor-react';
+import { StyledTable } from '@src/app/entityV2/shared/components/styled/StyledTable';
+import { RemoteExecutorPool, RemoteExecutorPoolStatus } from '@src/types.generated';
+import { Button, Empty, Popover, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { PoolDescriptionColumn, PoolStatusColumn } from '@app/ingest/executor_saas/Columns';
-import { RemoteExecutorsList } from '@app/ingest/executor_saas/RemoteExecutorsList';
-import {
-    checkIsPoolInDataHubCloud,
-    getDisplayablePoolId,
-    provisioningStatusToLabel,
-} from '@app/ingest/executor_saas/utils';
-import { checkIsExecutionRequestRunning } from '@app/ingest/source/utils';
+import { Check } from 'phosphor-react';
 import { colors } from '@src/alchemy-components';
-import { StyledTable } from '@src/app/entityV2/shared/components/styled/StyledTable';
 import { pluralize } from '@src/app/shared/textUtil';
-import { RemoteExecutorPool, RemoteExecutorPoolStatus } from '@src/types.generated';
+import { RemoteExecutorsList } from './RemoteExecutorsList';
+import { PoolDescriptionColumn, PoolStatusColumn } from './Columns';
+import { checkIsExecutionRequestRunning } from '../source/utils';
+import { checkIsPoolInDataHubCloud, getDisplayablePoolId, provisioningStatusToLabel } from './utils';
 
 const PAGE_HEADER_HEIGHT = 395;
 const ExecutorsTable = styled(StyledTable)`

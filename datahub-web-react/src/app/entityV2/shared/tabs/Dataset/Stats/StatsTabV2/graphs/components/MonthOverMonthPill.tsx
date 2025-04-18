@@ -1,5 +1,5 @@
-import { Pill } from '@components';
 import React from 'react';
+import { Pill } from '@components';
 
 type PillMoMProps = {
     value?: number | null;

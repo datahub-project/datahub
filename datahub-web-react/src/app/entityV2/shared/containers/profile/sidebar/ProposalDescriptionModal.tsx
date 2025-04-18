@@ -1,7 +1,6 @@
+import { Input, Modal } from '@src/alchemy-components';
 import { Form } from 'antd';
 import React, { useState } from 'react';
-
-import { Input, Modal } from '@src/alchemy-components';
 
 interface Props {
     onPropose: (description?: string) => void;

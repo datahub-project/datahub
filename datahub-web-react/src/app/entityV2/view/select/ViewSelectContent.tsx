@@ -1,10 +1,9 @@
-import { Tooltip } from '@components';
-import AddOutlinedIcon from '@mui/icons-material/AddOutlined';
 import React from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import { ViewOptionTooltipTitle } from '@app/entityV2/view/select/ViewOptionTooltipTitle';
+import AddOutlinedIcon from '@mui/icons-material/AddOutlined';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import { Tooltip } from '@components';
+import { ANTD_GRAY } from '../../shared/constants';
 import {
     ViewContainer,
     ViewContent,
@@ -12,9 +11,9 @@ import {
     ViewIcon,
     ViewIconNavBarRedesign,
     ViewLabel,
-} from '@app/entityV2/view/select/styledComponents';
-import { Carousel } from '@app/sharedV2/carousel/Carousel';
-import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+} from './styledComponents';
+import { Carousel } from '../../../sharedV2/carousel/Carousel';
+import { ViewOptionTooltipTitle } from './ViewOptionTooltipTitle';
 
 const StyledCarousel = styled(Carousel)<{ $isShowNavBarRedesign?: boolean }>`
     gap: ${(props) => (props.$isShowNavBarRedesign ? '8px' : '10px')};

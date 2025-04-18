@@ -1,27 +1,25 @@
-import React from 'react';
-
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
-import EntityCount from '@app/entityV2/shared/containers/profile/header/EntityCount';
-import ContainerIcon from '@app/entityV2/shared/containers/profile/header/PlatformContent/ContainerIcon';
-import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
+import React from 'react';
 import {
-    BrowsePathV2,
     Container,
-    DataProduct,
-    Deprecation,
-    Domain,
-    EntityPath,
     EntityType,
-    GlobalTags,
-    GlossaryTerms,
     Owner,
-    ParentContainersResult,
     SearchInsight,
     SubTypes,
-} from '@types';
+    Domain,
+    ParentContainersResult,
+    GlobalTags,
+    Deprecation,
+    GlossaryTerms,
+    DataProduct,
+    EntityPath,
+    BrowsePathV2,
+} from '../../../../types.generated';
+import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import ContainerIcon from '../../shared/containers/profile/header/PlatformContent/ContainerIcon';
+import EntityCount from '../../shared/containers/profile/header/EntityCount';
+import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
 
 export const Preview = ({
     urn,

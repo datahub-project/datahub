@@ -1,9 +1,8 @@
-import { LeftOutlined, RightOutlined } from '@ant-design/icons';
-import { Button, Dropdown, Typography } from 'antd';
 import React, { useState } from 'react';
+import { Button, Dropdown, Typography } from 'antd';
+import { LeftOutlined, RightOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-
-import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
+import { MenuItemStyle } from '../../../../view/menu/item/styledComponent';
 
 const CustomPaginationContainer = styled.div`
     display: flex;

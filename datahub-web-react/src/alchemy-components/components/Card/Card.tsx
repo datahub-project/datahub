@@ -1,15 +1,7 @@
 import React from 'react';
-
-import {
-    CardContainer,
-    Header,
-    SubTitle,
-    SubTitleContainer,
-    Title,
-    TitleContainer,
-} from '@components/components/Card/components';
-import { CardProps } from '@components/components/Card/types';
-import { Pill } from '@components/components/Pills';
+import { CardProps } from './types';
+import { CardContainer, Header, SubTitle, SubTitleContainer, Title, TitleContainer } from './components';
+import { Pill } from '../Pills';
 
 export const cardDefaults: CardProps = {
     title: 'Title',

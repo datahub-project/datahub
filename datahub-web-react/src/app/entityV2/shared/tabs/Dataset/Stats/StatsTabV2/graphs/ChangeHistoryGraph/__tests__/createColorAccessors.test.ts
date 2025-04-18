@@ -1,11 +1,8 @@
-import { DEFAULT_OPERATION_TYPES } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/constants';
-import {
-    AggregationGroup,
-    OperationsData,
-} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/types';
-import { createColorAccessors } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/utils';
 import { CalendarData } from '@src/alchemy-components/components/CalendarChart/types';
 import { OperationType } from '@src/types.generated';
+import { DEFAULT_OPERATION_TYPES } from '../constants';
+import { AggregationGroup, OperationsData } from '../types';
+import { createColorAccessors } from '../utils';
 
 function getSampleOfOperationsData(value: number): OperationsData {
     return {

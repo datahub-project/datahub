@@ -1,14 +1,9 @@
-import { Checkbox, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import {
-    toggleRaiseIncidentState,
-    toggleResolveIncidentState,
-} from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/utils';
-import { AssertionMonitorBuilderState } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/types';
-
-import { AssertionActionType } from '@types';
+import { Checkbox, Typography } from 'antd';
+import { AssertionMonitorBuilderState } from '../../types';
+import { AssertionActionType } from '../../../../../../../../../../types.generated';
+import { toggleRaiseIncidentState, toggleResolveIncidentState } from '../utils';
 
 const Section = styled.div`
     display: flex;

@@ -1,17 +1,9 @@
 import React from 'react';
-<<<<<<< HEAD
-import styled from 'styled-components';
-
-=======
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 import { Text } from '@src/alchemy-components';
 import { SingleEntityIcon } from '@src/app/searchV2/autoCompleteV2/components/icon/SingleEntityIcon';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { Entity } from '@src/types.generated';
-<<<<<<< HEAD
-=======
 import styled from 'styled-components';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const Container = styled.div`
     display: flex;

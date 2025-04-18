@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-
+import { Button } from '@src/alchemy-components';
 import {
     selectHasNotificationType,
     selectHasSlackChannel,
@@ -8,10 +8,8 @@ import {
     selectIsSettingsChannelSelection,
     selectIsSlackEnabled,
     useDrawerSelector,
-} from '@app/shared/subscribe/drawer/state/selectors';
-import { Button } from '@src/alchemy-components';
-
-import { Assertion } from '@types';
+} from '../state/selectors';
+import { Assertion } from '../../../../../types.generated';
 
 const FooterContainer = styled.div`
     display: flex;

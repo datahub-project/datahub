@@ -1,9 +1,8 @@
 import { render } from '@testing-library/react';
 import React from 'react';
-
-import LineageEntityView from '@app/lineage/manage/LineageEntityView';
-import { dataset1 } from '@src/Mocks';
-import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
+import { dataset1 } from '../../../Mocks';
+import { getTestEntityRegistry } from '../../../utils/test-utils/TestPageContainer';
+import LineageEntityView from '../manage/LineageEntityView';
 
 const mockEntityRegistry = getTestEntityRegistry();
 vi.mock('../../useEntityRegistry', () => ({

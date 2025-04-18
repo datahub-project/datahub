@@ -1,5 +1,5 @@
-import { buildComponents } from '@app/connections/factory';
-import * as constants from '@app/connections/platforms/bigquery/constants';
+import { buildComponents } from '../../factory';
+import * as constants from './constants';
 
 // Build components with the constants
 const components = buildComponents(constants);

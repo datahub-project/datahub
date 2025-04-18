@@ -1,6 +1,6 @@
-import { getDefaultDomain } from '@app/entity/shared/entityForm/prompts/DomainPrompt/utils';
-import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import { FormPrompt } from '@src/types.generated';
+import { GenericEntityProperties } from '@src/app/entity/shared/types';
+import { getDefaultDomain } from '../utils';
 
 describe('getDefaultDomain', () => {
     const promptWithAllowedDomains = {

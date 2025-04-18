@@ -1,12 +1,11 @@
+import { Popover, Text } from '@src/alchemy-components';
+import { CorpUser, Operation } from '@src/types.generated';
 import dayjs from 'dayjs';
 import LocalizedFormat from 'dayjs/plugin/localizedFormat';
 import React from 'react';
 import styled from 'styled-components';
-
-import ChangeTypePill from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/components/ChangeTypePill';
-import useGetUserName from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/useGetUserName';
-import { Popover, Text } from '@src/alchemy-components';
-import { CorpUser, Operation } from '@src/types.generated';
+import useGetUserName from '../useGetUserName';
+import ChangeTypePill from './ChangeTypePill';
 
 dayjs.extend(LocalizedFormat);
 

@@ -4,12 +4,12 @@
 
 	Action: datahub-integrations-service/src/datahub_integrations/propagation/snowflake/tag_propagator.py
 */
+
+import { AutomationRecipe, AutomationTemplate } from '@app/automations/types';
+import SnowflakeLogo from '@images/snowflakelogo.png';
+import { AppConfig, EntityType } from '@src/types.generated';
 import { commonFieldsMapping } from '@app/automations/constants';
 import { getField } from '@app/automations/fields';
-import { AutomationRecipe, AutomationTemplate } from '@app/automations/types';
-import { AppConfig, EntityType } from '@src/types.generated';
-
-import SnowflakeLogo from '@images/snowflakelogo.png';
 
 // Common unique ID for the action
 // Used to identify the action in the backend & provide common key between template <> recipe
@@ -77,7 +77,6 @@ const fields = [
             {
                 props: {
                     fieldTypes: [EntityType.Tag, EntityType.GlossaryTerm],
-                    canShowNotice: true,
                 },
                 state: {
                     terms: [],

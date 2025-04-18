@@ -1,6 +1,5 @@
-import { useMemo } from 'react';
-
 import { SelectOption } from '@src/alchemy-components';
+import { useMemo } from 'react';
 
 export default function useGetTimeRangeOptions(
     timeRangeOptions: SelectOption[],

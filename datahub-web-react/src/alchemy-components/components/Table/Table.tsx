@@ -1,8 +1,7 @@
+import { CaretUp, CaretDown } from 'phosphor-react';
 import { LoadingOutlined } from '@ant-design/icons';
 import { Text } from '@components';
-import { CaretDown, CaretUp } from 'phosphor-react';
 import React, { useEffect, useState } from 'react';
-
 import {
     BaseTable,
     HeaderContainer,
@@ -14,11 +13,11 @@ import {
     TableHeader,
     TableHeaderCell,
     TableRow,
-} from '@components/components/Table/components';
-import { SortingState, TableProps } from '@components/components/Table/types';
-import { useGetSelectionColumn } from '@components/components/Table/useGetSelectionColumn';
-import { getSortedData, handleActiveSort, renderCell } from '@components/components/Table/utils';
-import { Tooltip2 } from '@components/components/Tooltip2';
+} from './components';
+import { SortingState, TableProps } from './types';
+import { getSortedData, handleActiveSort, renderCell } from './utils';
+import { Tooltip2 } from '../Tooltip2';
+import { useGetSelectionColumn } from './useGetSelectionColumn';
 
 export const tableDefaults: TableProps<any> = {
     columns: [],
@@ -189,17 +188,12 @@ export const Table = <T,>({
                                 <TableRow
                                     key={key}
                                     canExpand={canExpand}
-<<<<<<< HEAD
                                     onClick={(e) => {
                                         if (focusedRowIndex === index) {
                                             setFocusedRowIndex(null);
                                         } else {
                                             setFocusedRowIndex(index);
                                         }
-=======
-                                    onClick={() => {
-                                        setFocusedRowIndex(index);
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
                                         if (canExpand) onExpand?.(row); // Handle row expansion
                                         onRowClick?.(row); // Handle row click
                                         e.stopPropagation();
@@ -212,7 +206,6 @@ export const Table = <T,>({
                                             currentRefs[index] = el;
                                         }
                                     }}
-                                    isFocused={focusedRowIndex === index}
                                     isRowClickable={isRowClickable}
                                     data-testId={rowDataTestId?.(row)}
                                     canHover

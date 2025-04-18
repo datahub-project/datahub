@@ -1,13 +1,12 @@
-import EntityRegistry from '@app/entity/EntityRegistry';
-import { EntityAndType, FetchedEntities, FetchedEntity } from '@app/lineage/types';
+import { EntityType, SchemaFieldRef } from '../../../types.generated';
+import EntityRegistry from '../../entity/EntityRegistry';
+import { EntityAndType, FetchedEntities, FetchedEntity } from '../types';
 import {
     decodeSchemaField,
     getFieldPathFromSchemaFieldUrn,
     getSourceUrnFromSchemaFieldUrn,
     isSameColumn,
-} from '@app/lineage/utils/columnLineageUtils';
-
-import { EntityType, SchemaFieldRef } from '@types';
+} from './columnLineageUtils';
 
 const breakFieldUrn = (ref: SchemaFieldRef) => {
     const before = ref.urn;

@@ -1,6 +1,5 @@
-import { SourceConfig } from '@app/ingest/source/conf/types';
-
-import snowflakeLogo from '@images/snowflakelogo.png';
+import { SourceConfig } from '../types';
+import snowflakeLogo from '../../../../../images/snowflakelogo.png';
 
 const placeholderRecipe = `\
 source:

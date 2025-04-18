@@ -1,3 +1,3 @@
-import EmbedLookup from '@app/embed/lookup/EmbedLookup';
+import EmbedLookup from './EmbedLookup';
 
 export default EmbedLookup;

@@ -1,6 +1,7 @@
+import React from 'react';
+
 import { ArrowRightOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
-import React from 'react';
 
 type Props = {
     close: () => void;

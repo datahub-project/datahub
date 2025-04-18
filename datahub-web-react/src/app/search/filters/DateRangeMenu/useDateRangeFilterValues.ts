@@ -1,8 +1,7 @@
-import moment from 'moment';
 import { useEffect, useMemo } from 'react';
-
-import useGetSearchQueryInputs from '@app/search/useGetSearchQueryInputs';
 import { FilterOperator } from '@src/types.generated';
+import moment from 'moment';
+import useGetSearchQueryInputs from '../../useGetSearchQueryInputs';
 
 export type Datetime = moment.Moment | null;
 

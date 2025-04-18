@@ -1,12 +1,11 @@
 import { Text } from '@components';
+import { ActionRequest, ActionRequestOrigin } from '@src/types.generated';
 import React from 'react';
 import styled from 'styled-components';
-
-import AiActorLabel from '@app/actionrequestV2/item/AiActorLabel';
-import CreatedByView from '@app/actionrequestV2/item/CreatedByView';
-import RequestTargetEntityView from '@app/actionrequestV2/item/RequestTargetEntityView';
-import { ContentWrapper } from '@app/actionrequestV2/item/styledComponents';
-import { ActionRequest, ActionRequestOrigin } from '@src/types.generated';
+import AiActorLabel from './AiActorLabel';
+import CreatedByView from './CreatedByView';
+import RequestTargetEntityView from './RequestTargetEntityView';
+import { ContentWrapper } from './styledComponents';
 
 const CenteredText = styled(Text)`
     display: inline-flex;

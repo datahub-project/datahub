@@ -1,16 +1,8 @@
-import EntityRegistry from '@app/entity/EntityRegistry';
-import {
-    Direction,
-    EntityAndType,
-    FetchedEntities,
-    FetchedEntity,
-    NodeData,
-    UpdatedLineages,
-} from '@app/lineage/types';
-import constructFetchedNode, { shouldIncludeChildEntity } from '@app/lineage/utils/constructFetchedNode';
-import extendAsyncEntities from '@app/lineage/utils/extendAsyncEntities';
-
-import { Entity } from '@types';
+import { Entity } from '../../../types.generated';
+import EntityRegistry from '../../entity/EntityRegistry';
+import { Direction, EntityAndType, FetchedEntities, FetchedEntity, NodeData, UpdatedLineages } from '../types';
+import constructFetchedNode, { shouldIncludeChildEntity } from './constructFetchedNode';
+import extendAsyncEntities from './extendAsyncEntities';
 
 function createEntityAndType(entity: Entity) {
     return {

@@ -133,61 +133,61 @@ input UpdateSystemMonitorInput {
 A monitor represents a process that monitors a Data Asset
 """
 type Monitor implements Entity {
-  """
-  The primary key of the Monitor
-  """
-  urn: String!
+    """
+    The primary key of the Monitor
+    """
+    urn: String!
 
-  """
-  The standard Entity Type
-  """
-  type: EntityType!
+    """
+    The standard Entity Type
+    """
+    type: EntityType!
 
-  """
-  The entity being monitored
-  """
-  entity: Entity!
+    """
+    The entity being monitored
+    """
+    entity: Entity!
 
-  """
-  Key information about the monitor
-  """
-  info: MonitorInfo
+    """
+    Key information about the monitor
+    """
+    info: MonitorInfo
 
-  """
-  Edges extending from this entity
-  """
-  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    """
+    Edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
-  """
-  Experimental API.
-  For fetching extra aspects that do not have custom UI code yet
-  """
-  aspects(input: AspectParams): [RawAspect!]
+    """
+    Experimental API.
+    For fetching extra aspects that do not have custom UI code yet
+    """
+    aspects(input: AspectParams): [RawAspect!]
 }
 
 """
 Information about the monitor.
 """
 type MonitorInfo {
-  """
-  The type of Monitor
-  """
-  type: MonitorType!
+    """
+    The type of Monitor
+    """
+    type: MonitorType!
 
-  """
-  Information about an assertion evaluator monitor. Present if type is ASSERTION.
-  """
-  assertionMonitor: AssertionMonitor
+    """
+    Information about an assertion evaluator monitor. Present if type is ASSERTION.
+    """
+    assertionMonitor: AssertionMonitor
 
-  """
-  Information about the current status of a Monitor.
-  """
-  status: MonitorStatus!
+    """
+    Information about the current status of a Monitor.
+    """
+    status: MonitorStatus!
 
-  """
-  Advanced: The executor pool id of the remote monitor service, if any.
-  """
-  executorId: String
+    """
+    Advanced: The executor pool id of the remote monitor service, if any.
+    """
+    executorId: String
 }
 
 """
@@ -204,56 +204,56 @@ enum MonitorType {
 Information about an assertion evaluator monitor.
 """
 type AssertionMonitor {
-  """
-  The set of assertions to be evaluated by the monitor
-  """
-  assertions: [AssertionEvaluationSpec!]!
+    """
+    The set of assertions to be evaluated by the monitor
+    """
+    assertions: [AssertionEvaluationSpec!]!
 
-  """
-  The settings for the assertion monitor.
-  """
-  settings: AssertionMonitorSettings
+    """
+    The settings for the assertion monitor.
+    """
+    settings: AssertionMonitorSettings
 }
 
 """
 Settings for the assertion monitor.
 """
 type AssertionMonitorSettings {
-  """
-  Adjustment settings for the assertion monitor
-  """
-  inferenceSettings: AssertionAdjustmentSettings
+    """
+    Adjustment settings for the assertion monitor
+    """
+    inferenceSettings: AssertionAdjustmentSettings
 }
 
 """
 Information required to evaluate an assertion
 """
 type AssertionEvaluationSpec {
-  """
-  The assertion being evaluated
-  """
-  assertion: Assertion!
+    """
+    The assertion being evaluated
+    """
+    assertion: Assertion!
 
-  """
-  A cron schedule dictating when the assertion is evaluated.
-  """
-  schedule: CronSchedule!
+    """
+    A cron schedule dictating when the assertion is evaluated.
+    """
+    schedule: CronSchedule!
 
-  """
-  Parameters required to evaluate the assertion
-  """
-  parameters: AssertionEvaluationParameters
+    """
+    Parameters required to evaluate the assertion
+    """
+    parameters: AssertionEvaluationParameters
 
-  """
-  Additional context about assertion being evaluated.
-  """
-  context: AssertionEvaluationContext
+    """
+    Additional context about assertion being evaluated.
+    """
+    context: AssertionEvaluationContext
 
-  """
-  JSON string containing payload of AssertionEvaluationParameters which can be readily used with Python Client.
-  Currently used to populate parameters in AssertionRunEvent aspect in monitors service.
-  """
-  rawParameters: String
+    """
+    JSON string containing payload of AssertionEvaluationParameters which can be readily used with Python Client.
+    Currently used to populate parameters in AssertionRunEvent aspect in monitors service.
+    """
+    rawParameters: String
 }
 
 """
@@ -295,7 +295,7 @@ type AssertionEvaluationContext {
   An embedded copy of the assertion used to evaluate which will overwrite the referenced assertion
   if present and if the EmbeddedAssertion's evaluationTimeWindow period is valid
   """
-  embeddedAssertions: [EmbeddedAssertion!]
+  embeddedAssertions:  [EmbeddedAssertion!]
 
   """
   The standard deviation that was used to calculate the threshold for the assertion
@@ -343,8 +343,9 @@ type AssertionInferenceDetails {
   generatedAt: Long
 }
 
+
 """
-Embedded assertion to be evaluated
+  Embedded assertion to be evaluated
 """
 type EmbeddedAssertion {
   """
@@ -364,19 +365,20 @@ type EmbeddedAssertion {
   rawAssertion: String!
 }
 
+
 """
 Represents the time window in which an assertion is valid.
 """
 type EvaluationTimeWindow {
-  """
-  The starting time of the assertion validity window.
-  """
-  startTimeMillis: Long!
+    """
+    The starting time of the assertion validity window.
+    """
+    startTimeMillis: Long!
 
-  """
-  The ending time of the assertion validity window.
-  """
-  endTimeMillis: Long!
+    """
+    The ending time of the assertion validity window.
+    """
+    endTimeMillis: Long!
 }
 
 """
@@ -413,25 +415,25 @@ type AssertionEvaluationParameters {
 The parameters required to evaluate a dataset freshness assertion. Present if type is DATASET_FRESHNESS.
 """
 type DatasetFreshnessAssertionParameters {
-  """
-  The source of the change operation.
-  """
-  sourceType: DatasetFreshnessSourceType!
+    """
+    The source of the change operation.
+    """
+    sourceType: DatasetFreshnessSourceType!
 
-  """
-  Information about the field to use. Present when sourceType is FIELD_VALUE
-  """
-  field: FreshnessFieldSpec
+    """
+    Information about the field to use. Present when sourceType is FIELD_VALUE
+    """
+    field: FreshnessFieldSpec
 
-  """
-  Determine that a change has occurred by inspecting an audit log API
-  """
-  auditLog: AuditLogSpec
+    """
+    Determine that a change has occurred by inspecting an audit log API
+    """
+    auditLog: AuditLogSpec
 
-  """
-  Determine that a change has occurred using Operations reported to DataHub
-  """
-  dataHubOperation: DataHubOperationSpec
+    """
+    Determine that a change has occurred using Operations reported to DataHub
+    """
+    dataHubOperation: DataHubOperationSpec
 }
 
 """
@@ -600,170 +602,170 @@ type MonitorStatus {
 Input for a cron schedule
 """
 input CronScheduleInput {
-  """
-  A cron-formatted execution interval, as a cron string, e.g. 1 * * * *
-  """
-  cron: String!
+    """
+    A cron-formatted execution interval, as a cron string, e.g. 1 * * * *
+    """
+    cron: String!
 
-  """
-  Timezone in which the cron interval applies, e.g. America/Los_Angeles
-  """
-  timezone: String!
+    """
+    Timezone in which the cron interval applies, e.g. America/Los_Angeles
+    """
+    timezone: String!
 }
 
 """
 The parameters required to evaluate an assertion
 """
 input AssertionEvaluationParametersInput {
-  """
-  The type of assertion evaluation parameters
-  """
-  type: AssertionEvaluationParametersType!
+    """
+    The type of assertion evaluation parameters
+    """
+    type: AssertionEvaluationParametersType!
 
-  """
-  The parameters required to evaluate a dataset freshness assertion. Present if type is DATASET_FRESHNESS.
-  """
-  datasetFreshnessParameters: DatasetFreshnessAssertionParametersInput
+    """
+    The parameters required to evaluate a dataset freshness assertion. Present if type is DATASET_FRESHNESS.
+    """
+    datasetFreshnessParameters: DatasetFreshnessAssertionParametersInput
 
-  """
-  The parameters required to evaluate a dataset volume assertion. Present if type is DATASET_VOLUME.
-  """
-  datasetVolumeParameters: DatasetVolumeAssertionParametersInput
+    """
+    The parameters required to evaluate a dataset volume assertion. Present if type is DATASET_VOLUME.
+    """
+    datasetVolumeParameters: DatasetVolumeAssertionParametersInput
 
-  """
-  The parameters required to evaluate a dataset field assertion. Present if type is DATASET_FIELD.
-  """
-  datasetFieldParameters: DatasetFieldAssertionParametersInput
+    """
+    The parameters required to evaluate a dataset field assertion. Present if type is DATASET_FIELD.
+    """
+    datasetFieldParameters: DatasetFieldAssertionParametersInput
 
-  """
-  The parameters required to evaluate a dataset schema assertion. Present if type is DATASET_SCHEMA.
-  """
-  datasetSchemaParameters: DatasetSchemaAssertionParametersInput
+    """
+    The parameters required to evaluate a dataset schema assertion. Present if type is DATASET_SCHEMA.
+    """
+    datasetSchemaParameters: DatasetSchemaAssertionParametersInput
 }
 
 """
 Input for the parameters required to evaluate a dataset freshness assertion. Present if type is DATASET_FRESHNESS.
 """
 input DatasetFreshnessAssertionParametersInput {
-  """
-  The source of the change operation.
-  """
-  sourceType: DatasetFreshnessSourceType!
+    """
+    The source of the change operation.
+    """
+    sourceType: DatasetFreshnessSourceType!
 
-  """
-  Information about the field to use. Present when sourceType is FIELD_VALUE
-  """
-  field: FreshnessFieldSpecInput
+    """
+    Information about the field to use. Present when sourceType is FIELD_VALUE
+    """
+    field: FreshnessFieldSpecInput
 
-  """
-  Determine that a change has occurred by inspecting an audit log API
-  """
-  auditLog: AuditLogSpecInput
+    """
+    Determine that a change has occurred by inspecting an audit log API
+    """
+    auditLog: AuditLogSpecInput
 
-  """
-  Determine that a change has occurred by inspecting Operations reported to DataHub
-  """
-  dataHubOperation: DataHubOperationSpecInput
+    """
+    Determine that a change has occurred by inspecting Operations reported to DataHub
+    """
+    dataHubOperation: DataHubOperationSpecInput
 }
 
 """
 Input for the parameters required to evaluate a dataset freshness assertion. Present if type is DATASET_VOLUME.
 """
 input DatasetVolumeAssertionParametersInput {
-  """
-  The source of the volume source type
-  """
-  sourceType: DatasetVolumeSourceType!
+    """
+    The source of the volume source type
+    """
+    sourceType: DatasetVolumeSourceType!
 }
 
 """
 Define the source type for the actual schema used to evaluate the assertion
 """
 enum DatasetSchemaSourceType {
-  """
-  Use the DataHub latest schema metadata to determine the schema
-  """
-  DATAHUB_SCHEMA
+    """
+    Use the DataHub latest schema metadata to determine the schema
+    """
+    DATAHUB_SCHEMA
 }
 
 """
 Information about the information used to evaluate a schema assertion - where the schema comes from.
 """
 type DatasetSchemaAssertionParameters {
-  """
-  The source of the information used to evaluate schema assertion - where the schema comes from.
-  """
-  sourceType: DatasetSchemaSourceType!
+    """
+    The source of the information used to evaluate schema assertion - where the schema comes from.
+    """
+    sourceType: DatasetSchemaSourceType!
 }
 
 """
 Input for the parameters required to evaluate a dataset freshness assertion. Present if type is DATASET_VOLUME.
 """
 input DatasetSchemaAssertionParametersInput {
-  """
-  The source of the schema source type
-  """
-  sourceType: DatasetSchemaSourceType!
+    """
+    The source of the schema source type
+    """
+    sourceType: DatasetSchemaSourceType!
 }
 
 """
 Input for information about the field to use in an assertion
 """
 input SchemaFieldSpecInput {
-  """
-  The field path
-  """
-  path: String!
+    """
+    The field path
+    """
+    path: String!
 
-  """
-  The DataHub standard schema field type.
-  """
-  type: String!
+    """
+    The DataHub standard schema field type.
+    """
+    type: String!
 
-  """
-  The native field type
-  """
-  nativeType: String!
+    """
+    The native field type
+    """
+    nativeType: String!
 }
 
 """
 Input for information about the field to use in a Freshness assertion
 """
 input FreshnessFieldSpecInput {
-  """
-  The field path
-  """
-  path: String!
+    """
+    The field path
+    """
+    path: String!
 
-  """
-  The DataHub standard schema field type.
-  """
-  type: String!
+    """
+    The DataHub standard schema field type.
+    """
+    type: String!
 
-  """
-  The native field type
-  """
-  nativeType: String!
+    """
+    The native field type
+    """
+    nativeType: String!
 
-  """
-  The type of the field being used to verify the Freshness Assertion
-  """
-  kind: FreshnessFieldKind!
+    """
+    The type of the field being used to verify the Freshness Assertion
+    """
+    kind: FreshnessFieldKind!
 }
 
 """
 Input for information about the audit log operations to use in an assertion
 """
 input AuditLogSpecInput {
-  """
-  The list of operation types that should be monitored. If not provided, a default set will be used.
-  """
-  operationTypes: [String!]
+    """
+    The list of operation types that should be monitored. If not provided, a default set will be used.
+    """
+    operationTypes: [String!]
 
-  """
-  Optional: The user name associated with the operation.
-  """
-  userName: String
+    """
+    Optional: The user name associated with the operation.
+    """
+    userName: String
 }
 
 """
@@ -785,31 +787,32 @@ input DataHubOperationSpecInput {
 Input for creating an Assertion Monitor. Assumes that the assertion under monitor has already been created.
 """
 input CreateAssertionMonitorInput {
-  """
-  The urn of the entity being monitored.
-  This should exactly match the urn of the entity against which the assertion was defined.
-  """
-  entityUrn: String!
 
-  """
-  The assertion to be evaluated
-  """
-  assertionUrn: String!
+    """
+    The urn of the entity being monitored.
+    This should exactly match the urn of the entity against which the assertion was defined.
+    """
+    entityUrn: String!
 
-  """
-  A cron schedule dictating when the assertion is evaluated.
-  """
-  schedule: CronScheduleInput!
+    """
+    The assertion to be evaluated
+    """
+    assertionUrn: String!
 
-  """
-  Parameters required to evaluate the assertion
-  """
-  parameters: AssertionEvaluationParametersInput
+    """
+    A cron schedule dictating when the assertion is evaluated.
+    """
+    schedule: CronScheduleInput!
 
-  """
-  Advanced: The executor pool id of the remote monitor service, if any.
-  """
-  executorId: String
+    """
+    Parameters required to evaluate the assertion
+    """
+    parameters: AssertionEvaluationParametersInput
+
+    """
+    Advanced: The executor pool id of the remote monitor service, if any.
+    """
+    executorId: String
 }
 
 """
@@ -911,8 +914,8 @@ input DatasetFieldAssertionParametersInput {
 }
 
 extend type Assertion {
-  """
-  Fetches the monitor responsible for evaluating this assertion, if available. Null if there is not one.
-  """
-  monitor: Monitor
+    """
+    Fetches the monitor responsible for evaluating this assertion, if available. Null if there is not one.
+    """
+    monitor: Monitor
 }

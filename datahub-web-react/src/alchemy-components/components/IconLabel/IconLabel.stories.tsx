@@ -1,9 +1,9 @@
-import { Airplane } from '@phosphor-icons/react';
-import { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
+import { Meta, StoryObj } from '@storybook/react';
+import { Airplane } from '@phosphor-icons/react';
 
-import { IconLabel } from '@components/components/IconLabel/IconLabel';
-import { IconType } from '@components/components/IconLabel/types';
+import { IconLabel } from './IconLabel';
+import { IconType } from './types';
 
 const meta: Meta<typeof IconLabel> = {
     title: 'Components / IconLabel',

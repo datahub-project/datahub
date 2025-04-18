@@ -1,13 +1,11 @@
 import { FolderOpenOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
-
-import { DatasetStatsSummary } from '@app/entity/dataset/shared/DatasetStatsSummary';
-import { getDatasetLastUpdatedMs } from '@app/entityV2/shared/utils';
-import { ArrowWrapper } from '@app/search/autoComplete/ParentContainers';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { Dataset, Entity, EntityType } from '@types';
+import { Dataset, Entity, EntityType } from '../../../types.generated';
+import { DatasetStatsSummary } from '../../entity/dataset/shared/DatasetStatsSummary';
+import { getDatasetLastUpdatedMs } from '../../entityV2/shared/utils';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { ArrowWrapper } from './ParentContainers';
 
 const ContentWrapper = styled.div`
     font-size: 12px;

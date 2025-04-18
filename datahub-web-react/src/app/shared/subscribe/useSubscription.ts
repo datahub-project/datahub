@@ -1,4 +1,4 @@
-import { useGetSubscriptionQuery } from '@graphql/subscriptions.generated';
+import { useGetSubscriptionQuery } from '../../../graphql/subscriptions.generated';
 
 type Props = {
     isPersonal: boolean;

@@ -1,12 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-
-import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
-import { useBrowsePath, useEntityType } from '@app/search/sidebar/BrowseContext';
-import { BROWSE_LOAD_MORE_MARGIN, BROWSE_PAGE_SIZE } from '@app/search/sidebar/constants';
-import { useSidebarFilters } from '@app/search/sidebar/useSidebarFilters';
-import useIntersect from '@app/shared/useIntersect';
-
-import { GetBrowseResultsV2Query, useGetBrowseResultsV2LazyQuery } from '@graphql/browseV2.generated';
+import useIntersect from '../../shared/useIntersect';
+import { BROWSE_LOAD_MORE_MARGIN, BROWSE_PAGE_SIZE } from './constants';
+import { GetBrowseResultsV2Query, useGetBrowseResultsV2LazyQuery } from '../../../graphql/browseV2.generated';
+import { useSidebarFilters } from './useSidebarFilters';
+import { useBrowsePath, useEntityType } from './BrowseContext';
+import { useEntityFormContext } from '../../entity/shared/entityForm/EntityFormContext';
 
 type Props = {
     skip: boolean;

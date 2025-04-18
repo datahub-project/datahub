@@ -1,7 +1,4 @@
 import { Dispatch, SetStateAction } from 'react';
-
-import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
-import { BaseItemType } from '@src/alchemy-components/components/Timeline/types';
 import {
     AuditStamp,
     CorpUser,
@@ -16,6 +13,8 @@ import {
     IncidentType,
     OwnerType,
 } from '@src/types.generated';
+import { BaseItemType } from '@src/alchemy-components/components/Timeline/types';
+import { IncidentAction } from './constant';
 
 export type IncidentListFilter = {
     sortBy: string;
@@ -102,10 +101,6 @@ export type IncidentEditorProps = {
     onClose?: () => void;
     data?: IncidentTableRow;
     mode?: IncidentAction;
-<<<<<<< HEAD
-=======
-    entity?: EntityStagedForIncident;
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
     urn?: string;
 };
 

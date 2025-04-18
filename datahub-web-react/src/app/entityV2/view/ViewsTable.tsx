@@ -1,15 +1,8 @@
-import { Empty } from 'antd';
 import React from 'react';
-
-import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
-import {
-    ActionsColumn,
-    DescriptionColumn,
-    NameColumn,
-    ViewTypeColumn,
-} from '@app/entityV2/view/select/ViewsTableColumns';
-
-import { DataHubView } from '@types';
+import { Empty } from 'antd';
+import { StyledTable } from '../shared/components/styled/StyledTable';
+import { ActionsColumn, DescriptionColumn, NameColumn, ViewTypeColumn } from './select/ViewsTableColumns';
+import { DataHubView } from '../../../types.generated';
 
 type ViewsTableProps = {
     views: DataHubView[];

@@ -1,11 +1,10 @@
-import Editor from '@monaco-editor/react';
-import { Form, Input, Typography } from 'antd';
 import React from 'react';
+import Editor from '@monaco-editor/react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { QueryBuilderState } from '@app/entity/shared/tabs/Dataset/Queries/types';
-import { Editor as MarkdownEditor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
+import { Form, Input, Typography } from 'antd';
+import { ANTD_GRAY } from '../../../constants';
+import { QueryBuilderState } from './types';
+import { Editor as MarkdownEditor } from '../../Documentation/components/editor/Editor';
 
 const EditorWrapper = styled.div`
     border: 1px solid ${ANTD_GRAY[5]};

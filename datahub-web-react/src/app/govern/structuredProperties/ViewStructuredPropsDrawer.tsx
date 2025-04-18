@@ -1,8 +1,7 @@
 import { Text } from '@components';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { PropertyCardinality, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
 import React from 'react';
-
-import ViewAdvancedOptions from '@app/govern/structuredProperties/ViewAdvancedOptions';
-import ViewDisplayPreferences from '@app/govern/structuredProperties/ViewDisplayPreferences';
 import {
     DescriptionContainer,
     DrawerHeader,
@@ -14,10 +13,10 @@ import {
     VerticalDivider,
     ViewDivider,
     ViewFieldsContainer,
-} from '@app/govern/structuredProperties/styledComponents';
-import { getDisplayName, getValueTypeLabel } from '@app/govern/structuredProperties/utils';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { PropertyCardinality, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
+} from './styledComponents';
+import { getDisplayName, getValueTypeLabel } from './utils';
+import ViewAdvancedOptions from './ViewAdvancedOptions';
+import ViewDisplayPreferences from './ViewDisplayPreferences';
 
 interface Props {
     isViewDrawerOpen: boolean;

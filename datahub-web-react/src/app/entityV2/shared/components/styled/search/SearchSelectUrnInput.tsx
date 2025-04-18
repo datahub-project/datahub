@@ -1,7 +1,3 @@
-import { Skeleton } from 'antd';
-import React, { useEffect, useMemo, useState } from 'react';
-import styled from 'styled-components';
-
 import { Icon } from '@src/alchemy-components';
 import { EntityAndType } from '@src/app/entity/shared/types';
 import { extractTypeFromUrn } from '@src/app/entity/shared/utils';
@@ -9,6 +5,9 @@ import { SearchSelect } from '@src/app/entityV2/shared/components/styled/search/
 import { useHydratedEntityMap } from '@src/app/entityV2/shared/tabs/Properties/useHydratedEntityMap';
 import { EntityLink } from '@src/app/homeV2/reference/sections/EntityLink';
 import { EntityType } from '@src/types.generated';
+import { Skeleton } from 'antd';
+import React, { useEffect, useMemo, useState } from 'react';
+import styled from 'styled-components';
 
 const Container = styled.div`
     display: flex;

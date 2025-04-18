@@ -1,13 +1,10 @@
-import '@src/App.less';
-
 import React, { useEffect } from 'react';
-
-import { THIRD_PARTY_LOGGING_KEY } from '@app/analytics/analytics';
-import { checkAuthStatus } from '@app/auth/checkAuthStatus';
-import { useGlobalSettingsContext } from '@app/context/GlobalSettings/GlobalSettingsContext';
-import { AppConfigContext, DEFAULT_APP_CONFIG } from '@src/appConfigContext';
-
-import { useAppConfigQuery } from '@graphql/app.generated';
+import './App.less';
+import { THIRD_PARTY_LOGGING_KEY } from './app/analytics/analytics';
+import { checkAuthStatus } from './app/auth/checkAuthStatus';
+import { AppConfigContext, DEFAULT_APP_CONFIG } from './appConfigContext';
+import { useAppConfigQuery } from './graphql/app.generated';
+import { useGlobalSettingsContext } from './app/context/GlobalSettings/GlobalSettingsContext';
 
 function changeFavicon(src) {
     const links = document.querySelectorAll("link[rel~='icon']") as any;

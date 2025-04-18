@@ -1,7 +1,7 @@
-import { ExclamationCircleOutlined } from '@ant-design/icons';
-import { Button, Modal } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { Modal, Button } from 'antd';
+import { ExclamationCircleOutlined } from '@ant-design/icons';
 
 const StyledModal = styled(Modal)`
     .ant-modal-content,

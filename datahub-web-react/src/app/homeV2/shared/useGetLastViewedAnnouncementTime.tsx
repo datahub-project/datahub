@@ -1,7 +1,6 @@
-import { useUserContext } from '@app/context/useUserContext';
-import { LAST_VIEWED_ANNOUNCEMENT_TIME_STEP } from '@app/homeV2/shared/utils';
-
-import { useBatchGetStepStatesQuery } from '@graphql/step.generated';
+import { useBatchGetStepStatesQuery } from '../../../graphql/step.generated';
+import { useUserContext } from '../../context/useUserContext';
+import { LAST_VIEWED_ANNOUNCEMENT_TIME_STEP } from './utils';
 
 export const useGetLastViewedAnnouncementTime = () => {
     const { user } = useUserContext();

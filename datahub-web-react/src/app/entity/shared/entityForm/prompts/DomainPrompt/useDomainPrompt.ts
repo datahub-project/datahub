@@ -1,11 +1,9 @@
 import { useMemo, useState } from 'react';
-
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import { getPromptAssociation } from '@app/entity/shared/containers/profile/sidebar/FormInfo/utils';
-import { FormView, useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
-import { getDefaultDomain } from '@app/entity/shared/entityForm/prompts/DomainPrompt/utils';
-
-import { FormPrompt, FormPromptType, SubmitFormPromptInput } from '@types';
+import { useEntityData } from '../../../EntityContext';
+import { FormPrompt, FormPromptType, SubmitFormPromptInput } from '../../../../../../types.generated';
+import { FormView, useEntityFormContext } from '../../EntityFormContext';
+import { getPromptAssociation } from '../../../containers/profile/sidebar/FormInfo/utils';
+import { getDefaultDomain } from './utils';
 
 interface Props {
     prompt: FormPrompt;

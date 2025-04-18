@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { IncidentList } from '@app/entityV2/shared/tabs/Incident/IncidentList';
+import { IncidentList } from './IncidentList';
 
 export const IncidentTab = () => {
     return <IncidentList />;

@@ -1,12 +1,13 @@
-import { Badge, Button } from 'antd';
 import React from 'react';
+
+import styled from 'styled-components/macro';
+import { Button, Badge } from 'antd';
 import { HiOutlineClipboardList } from 'react-icons/hi';
 import { useHistory } from 'react-router-dom';
-import styled from 'styled-components/macro';
 
-import analytics, { EventType } from '@app/analytics';
-import { useUserContext } from '@app/context/useUserContext';
-import { PageRoutes } from '@conf/Global';
+import { useUserContext } from '../../context/useUserContext';
+import { PageRoutes } from '../../../conf/Global';
+import analytics, { EventType } from '../../analytics';
 
 const LinkWrapper = styled.span`
     margin-right: 0px;

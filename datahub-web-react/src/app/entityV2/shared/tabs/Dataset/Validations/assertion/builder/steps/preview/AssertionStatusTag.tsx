@@ -1,9 +1,8 @@
-import { CheckCircleFilled, CloseCircleFilled, ExclamationCircleFilled } from '@ant-design/icons';
-import { Tag } from 'antd';
 import React from 'react';
+import { Tag } from 'antd';
+import { CheckCircleFilled, CloseCircleFilled, ExclamationCircleFilled } from '@ant-design/icons';
 import styled from 'styled-components';
-
-import { AssertionResultType } from '@types';
+import { AssertionResultType } from '../../../../../../../../../../types.generated';
 
 const StyledTag = styled(Tag)<{ borderColor: string }>`
     &&& {

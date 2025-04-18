@@ -1,27 +1,25 @@
 import React from 'react';
-
-import { IconStyleType } from '@app/entity/Entity';
-import { DashboardStatsSummary as DashboardStatsSummaryView } from '@app/entity/dashboard/shared/DashboardStatsSummary';
-import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
 import {
     AccessLevel,
-    Container,
-    DashboardStatsSummary,
-    DataProduct,
-    Deprecation,
     Domain,
-    EntityPath,
+    Container,
     EntityType,
     GlobalTags,
     GlossaryTerms,
-    Health,
     Owner,
-    ParentContainersResult,
     SearchInsight,
-} from '@types';
+    ParentContainersResult,
+    Deprecation,
+    DashboardStatsSummary,
+    DataProduct,
+    EntityPath,
+    Health,
+} from '../../../../types.generated';
+import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
+import { IconStyleType } from '../../Entity';
+import { DashboardStatsSummary as DashboardStatsSummaryView } from '../shared/DashboardStatsSummary';
 
 export const DashboardPreview = ({
     urn,

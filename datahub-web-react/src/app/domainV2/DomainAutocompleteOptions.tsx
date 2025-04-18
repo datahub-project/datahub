@@ -1,13 +1,11 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
-
-import { getParentDomains } from '@app/domain/utils';
-import EntityRegistry from '@app/entity/EntityRegistry';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import ParentEntities from '@app/search/filters/ParentEntities';
-
-import { Entity } from '@types';
+import { Entity } from '../../types.generated';
+import { getParentDomains } from '../domain/utils';
+import EntityRegistry from '../entity/EntityRegistry';
+import { ANTD_GRAY } from '../entityV2/shared/constants';
+import ParentEntities from '../search/filters/ParentEntities';
 
 const LoadingWrapper = styled.div`
     padding: 8px;

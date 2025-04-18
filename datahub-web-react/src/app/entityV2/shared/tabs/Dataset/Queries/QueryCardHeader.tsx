@@ -1,9 +1,8 @@
-import { ExpandOutlined } from '@ant-design/icons';
-import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import CopyQuery from '@app/entityV2/shared/tabs/Dataset/Queries/CopyQuery';
+import { ExpandOutlined } from '@ant-design/icons';
+import { Button } from 'antd';
+import CopyQuery from './CopyQuery';
 
 const Header = styled.div`
     display: flex;

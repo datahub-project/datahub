@@ -2,10 +2,7 @@
 
 The Tag Sync (or Tag Propagation) Action allows you to propagate tags from your assets into downstream entities. e.g. You can apply a tag (like `critical`) on a dataset and have it propagate down to all the downstream datasets.
 
-<<<<<<< HEAD
-=======
 
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 ## Configurability
 
 You can control which tags should be propagated downstream using a prefix system. E.g. You can specify that only tags that start with `tier:` should be propagated downstream.
@@ -30,11 +27,7 @@ action:
   type: "tag_propagation"
   config:
     tag_prefixes:
-<<<<<<< HEAD
-      - classification
-=======
     - classification
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 datahub:
   server: "http://localhost:8080"
@@ -42,8 +35,4 @@ datahub:
 
 ## Caveats
 
-<<<<<<< HEAD
 - Tag Propagation is currently only supported for downstream datasets. Tags will not propagate to downstream dashboards or charts. Let us know if this is an important feature for you.
-=======
-- Tag Propagation is currently only supported for downstream datasets. Tags will not propagate to downstream dashboards or charts. Let us know if this is an important feature for you.
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105

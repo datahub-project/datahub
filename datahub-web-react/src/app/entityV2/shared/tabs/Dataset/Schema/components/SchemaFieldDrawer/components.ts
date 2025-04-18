@@ -1,7 +1,6 @@
 import { Divider } from 'antd';
 import styled from 'styled-components';
-
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { REDESIGN_COLORS } from '../../../../../constants';
 
 export const SectionHeader = styled.div`
     margin-bottom: 8px;

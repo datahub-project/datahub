@@ -1,9 +1,8 @@
-import { CameraOutlined } from '@ant-design/icons';
-import { toPng } from 'html-to-image';
 import React from 'react';
 import { getRectOfNodes, getTransformForBounds, useReactFlow } from 'reactflow';
-
-import { StyledPanelButton } from '@app/lineageV2/controls/StyledPanelButton';
+import { CameraOutlined } from '@ant-design/icons';
+import { toPng } from 'html-to-image';
+import { StyledPanelButton } from './StyledPanelButton';
 
 type Props = {
     showExpandedText: boolean;

@@ -1,11 +1,9 @@
-import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
-
-import { HorizontalList } from '@app/entityV2/shared/summary/ListComponents';
-import { EntityCard } from '@app/homeV2/content/recent/EntityCard';
-
-import { Entity } from '@types';
+import { Tooltip } from '@components';
+import { HorizontalList } from '../../../entityV2/shared/summary/ListComponents';
+import { EntityCard } from './EntityCard';
+import { Entity } from '../../../../types.generated';
 
 const MAX_ASSETS_TO_SHOW = 5;
 

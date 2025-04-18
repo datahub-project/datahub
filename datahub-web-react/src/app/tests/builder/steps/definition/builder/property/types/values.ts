@@ -1,6 +1,5 @@
-import { OperatorId } from '@app/tests/builder/steps/definition/builder/property/types/operators';
-
-import { EntityType } from '@types';
+import { EntityType } from '../../../../../../../../types.generated';
+import { OperatorId } from './operators';
 
 /**
  * The value type of a particular well-supported Property.

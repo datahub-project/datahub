@@ -1,20 +1,19 @@
-import { PlusOutlined } from '@ant-design/icons';
-import { Button, Tooltip } from '@components';
-import { Dropdown, message } from 'antd';
 import React from 'react';
+import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
+import { useAppConfig } from '@src/app/useAppConfig';
 import styled from 'styled-components';
-
-import { EntityStagedForAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
-import { useSiblingOptionsForAssertionBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/utils';
-import { extractPlatformNameFromPlatformUrn } from '@app/entityV2/shared/utils';
+import { Dropdown, message } from 'antd';
+import { Button, Tooltip } from '@components';
+import { PlusOutlined } from '@ant-design/icons';
+import { DataPlatform, EntityPrivileges } from '@src/types.generated';
+import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
+import TabToolbar from '@src/app/entity/shared/components/styled/TabToolbar';
 import { getColor } from '@src/alchemy-components/theme/utils';
 import analytics, { EventType } from '@src/app/analytics';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import TabToolbar from '@src/app/entity/shared/components/styled/TabToolbar';
-import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
-import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
-import { useAppConfig } from '@src/app/useAppConfig';
-import { DataPlatform, EntityPrivileges } from '@src/types.generated';
+import { useSiblingOptionsForAssertionBuilder } from './AssertionList/utils';
+import { EntityStagedForAssertion } from './AssertionList/types';
+import { extractPlatformNameFromPlatformUrn } from '../../../utils';
 
 const SiblingSelectionDropdownLink = styled.div`
     margin-bottom: 4px;

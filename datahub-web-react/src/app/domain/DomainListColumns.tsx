@@ -1,14 +1,12 @@
-import { Tooltip } from '@components';
-import { Tag, Typography } from 'antd';
 import React from 'react';
+import { Tag, Typography } from 'antd';
+import { Tooltip } from '@components';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-
-import DomainItemMenu from '@app/domain/DomainItemMenu';
-import AvatarsGroup from '@app/shared/avatar/AvatarsGroup';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { Maybe, Ownership } from '@types';
+import { Maybe, Ownership } from '../../types.generated';
+import { useEntityRegistry } from '../useEntityRegistry';
+import AvatarsGroup from '../shared/avatar/AvatarsGroup';
+import DomainItemMenu from './DomainItemMenu';
 
 interface DomainEntry {
     name: string;

@@ -1,8 +1,6 @@
 import { useEffect } from 'react';
-
-import { CUSTOM, PLATFORM_URN_TO_LOGO, SOURCE_TO_PLATFORM_URN } from '@app/ingest/source/builder/constants';
-
-import { useGetDataPlatformLazyQuery } from '@graphql/dataPlatform.generated';
+import { useGetDataPlatformLazyQuery } from '../../../../graphql/dataPlatform.generated';
+import { CUSTOM, SOURCE_TO_PLATFORM_URN, PLATFORM_URN_TO_LOGO } from './constants';
 
 function generatePlatformUrn(platformName: string) {
     return `urn:li:dataPlatform:${platformName}`;

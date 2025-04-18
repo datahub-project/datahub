@@ -1,14 +1,12 @@
-import { Affix } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-
-import { ProfileNavBrowsePath } from '@app/entity/shared/containers/profile/nav/ProfileNavBrowsePath';
-import ProfileNavBrowsePathV2 from '@app/entity/shared/containers/profile/nav/ProfileNavBrowsePathV2';
-import { useIsBrowseV2 } from '@app/search/useSearchAndBrowseVersion';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { useGetBrowsePathsQuery } from '@graphql/browse.generated';
-import { EntityType } from '@types';
+import { Affix } from 'antd';
+import { useGetBrowsePathsQuery } from '../../../../../../graphql/browse.generated';
+import { EntityType } from '../../../../../../types.generated';
+import { useEntityRegistry } from '../../../../../useEntityRegistry';
+import { ProfileNavBrowsePath } from './ProfileNavBrowsePath';
+import ProfileNavBrowsePathV2 from './ProfileNavBrowsePathV2';
+import { useIsBrowseV2 } from '../../../../../search/useSearchAndBrowseVersion';
 
 type Props = {
     urn: string;

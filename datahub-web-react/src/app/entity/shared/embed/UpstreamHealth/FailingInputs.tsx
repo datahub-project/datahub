@@ -1,17 +1,15 @@
 import { orange } from '@ant-design/colors';
 import { DownOutlined, WarningFilled } from '@ant-design/icons';
-import { Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { getDisplayedEntityType } from '@app/entity/shared/containers/profile/header/utils';
-import ActiveIncidents from '@app/entity/shared/embed/UpstreamHealth/ActiveIncidents';
-import FailingAssertions from '@app/entity/shared/embed/UpstreamHealth/FailingAssertions';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { Dataset } from '@types';
+import { Typography } from 'antd';
+import { Dataset } from '../../../../../types.generated';
+import { useEntityRegistry } from '../../../../useEntityRegistry';
+import { ANTD_GRAY } from '../../constants';
+import { getDisplayedEntityType } from '../../containers/profile/header/utils';
+import { useEntityData } from '../../EntityContext';
+import ActiveIncidents from './ActiveIncidents';
+import FailingAssertions from './FailingAssertions';
 
 const FailingEntityTitle = styled(Typography.Text)`
     font-size: 16px;

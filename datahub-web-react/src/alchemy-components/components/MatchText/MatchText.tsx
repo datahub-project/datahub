@@ -1,16 +1,8 @@
 import React from 'react';
-<<<<<<< HEAD
-
-import { matchTextDefaults } from '@components/components/MatchText/defaults';
-import { MatchTextProps } from '@components/components/MatchText/types';
-import { annotateHighlightedText } from '@components/components/MatchText/utils';
-import { Text } from '@components/components/Text';
-=======
 import { Text } from '../Text';
 import { matchTextDefaults } from './defaults';
 import { MatchTextProps } from './types';
 import { annotateHighlightedText } from './utils';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 export default function MatchText({
     text,

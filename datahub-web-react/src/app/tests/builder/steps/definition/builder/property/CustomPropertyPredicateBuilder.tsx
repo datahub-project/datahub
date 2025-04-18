@@ -1,11 +1,10 @@
-import { Input } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { ValueSelect } from '@app/tests/builder/steps/definition/builder/property/select/ValueSelect';
-import { isUnaryOperator } from '@app/tests/builder/steps/definition/builder/property/types/operators';
-import { ValueInputType } from '@app/tests/builder/steps/definition/builder/property/types/values';
-import { PropertyPredicate } from '@app/tests/builder/steps/definition/builder/types';
+import { Input } from 'antd';
+import { ValueSelect } from './select/ValueSelect';
+import { PropertyPredicate } from '../types';
+import { ValueInputType } from './types/values';
+import { isUnaryOperator } from './types/operators';
 
 const Container = styled.div`
     display: flex;

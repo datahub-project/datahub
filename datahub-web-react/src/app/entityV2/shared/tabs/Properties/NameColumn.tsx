@@ -1,11 +1,10 @@
-import { Tooltip } from '@components';
 import { Typography } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
-import Highlight from 'react-highlighter';
 import styled from 'styled-components';
-
-import StructuredPropertyTooltip from '@app/entityV2/shared/tabs/Properties/StructuredPropertyTooltip';
-import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
+import Highlight from 'react-highlighter';
+import { PropertyRow } from './types';
+import StructuredPropertyTooltip from './StructuredPropertyTooltip';
 
 const ParentNameText = styled(Typography.Text)`
     color: #373d44;

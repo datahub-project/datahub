@@ -1,5 +1,5 @@
-import { message } from 'antd';
 import React, { ReactNode, useEffect, useMemo } from 'react';
+import { message } from 'antd';
 
 type MessageType = 'loading' | 'info' | 'error' | 'warning' | 'success';
 export type MessageProps = {

@@ -1,18 +1,16 @@
 import { Checkbox, List } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import CreateNodeRequestItem from '@app/actionrequest/item/CreateNodeRequestItem';
-import CreateTermRequestItem from '@app/actionrequest/item/CreateTermRequestItem';
-import DataContractListItem from '@app/actionrequest/item/DataContractListItem';
-import DomainAssociationRequestItem from '@app/actionrequest/item/DomainAssociationRequestItem';
-import OwnerAssociationRequestItem from '@app/actionrequest/item/OwnerAssociationRequestItem';
-import StructuredPropertyAsssociationRequestItem from '@app/actionrequest/item/StructuredPropertyAsssociationRequestItem';
-import TagAssociationRequestItem from '@app/actionrequest/item/TagAssociationRequestItem';
-import TermAssociationRequestItem from '@app/actionrequest/item/TermAssociationRequestItem';
-import UpdateDescriptionRequestItem from '@app/actionrequest/item/updateDescription/UpdateDescriptionRequestItem';
-
-import { ActionRequest, ActionRequestType } from '@types';
+import { ActionRequest, ActionRequestType } from '../../../types.generated';
+import CreateNodeRequestItem from './CreateNodeRequestItem';
+import CreateTermRequestItem from './CreateTermRequestItem';
+import DataContractListItem from './DataContractListItem';
+import StructuredPropertyAsssociationRequestItem from './StructuredPropertyAsssociationRequestItem';
+import TagAssociationRequestItem from './TagAssociationRequestItem';
+import TermAssociationRequestItem from './TermAssociationRequestItem';
+import UpdateDescriptionRequestItem from './updateDescription/UpdateDescriptionRequestItem';
+import DomainAssociationRequestItem from './DomainAssociationRequestItem';
+import OwnerAssociationRequestItem from './OwnerAssociationRequestItem';
 
 const ActionRequestItemContainer = styled.div`
     display: flex;

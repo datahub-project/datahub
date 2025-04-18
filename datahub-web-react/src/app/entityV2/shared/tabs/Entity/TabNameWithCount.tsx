@@ -1,8 +1,7 @@
-import React from 'react';
-import styled from 'styled-components';
-
 import { Pill } from '@src/alchemy-components';
 import { formatNumber } from '@src/app/shared/formatNumber';
+import React from 'react';
+import styled from 'styled-components';
 
 const Container = styled.div`
     display: flex;

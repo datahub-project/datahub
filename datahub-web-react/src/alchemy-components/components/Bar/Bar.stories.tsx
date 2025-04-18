@@ -1,9 +1,8 @@
-import { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
-
-import { Bar } from '@components/components/Bar/Bar';
-
+import { Meta, StoryObj } from '@storybook/react';
 import colors from '@src/alchemy-components/theme/foundations/colors';
+
+import { Bar } from './Bar';
 
 const meta: Meta<typeof Bar> = {
     title: 'Components / Bar',

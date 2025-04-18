@@ -4,12 +4,12 @@
 
 	Action: datahub-integrations-service/src/datahub_integrations/propagation/term/term_propagation_action.py
 */
+
+import { AutomationRecipe, AutomationTemplate } from '@app/automations/types';
+import AcrylLogo from '@images/acryl-logo.svg';
+import { EntityType } from '@src/types.generated';
 import { commonFieldsMapping } from '@app/automations/constants';
 import { getField } from '@app/automations/fields';
-import { AutomationRecipe, AutomationTemplate } from '@app/automations/types';
-import { EntityType } from '@src/types.generated';
-
-import AcrylLogo from '@images/acryl-logo.svg';
 
 // Common unique ID for the action
 // Used to identify the action in the backend & provide common key between template <> recipe

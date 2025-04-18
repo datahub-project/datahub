@@ -1,8 +1,6 @@
-import React, { useMemo } from 'react';
-
 import { SearchSelectUrnInput } from '@src/app/entityV2/shared/components/styled/search/SearchSelectUrnInput';
-
-import { EntityType, PropertyCardinality, StructuredPropertyEntity } from '@types';
+import React, { useMemo } from 'react';
+import { EntityType, PropertyCardinality, StructuredPropertyEntity } from '../../../../../../../types.generated';
 
 interface StructuredPropertySearchSelectUrnInputProps {
     structuredProperty: StructuredPropertyEntity;

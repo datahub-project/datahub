@@ -1,6 +1,6 @@
 import { DatePicker } from 'antd';
-import moment, { Moment } from 'moment';
 import React from 'react';
+import moment, { Moment } from 'moment';
 
 interface Props {
     selectedValues: any[];

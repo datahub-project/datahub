@@ -1,4 +1,4 @@
-import { foundations } from '@components/theme/foundations';
+import { foundations } from './foundations';
 
 const { colors } = foundations;
 

@@ -1,7 +1,6 @@
 import React from 'react';
-import styled from 'styled-components';
-
 import { Loader } from '@src/alchemy-components';
+import styled from 'styled-components';
 
 const Container = styled.div`
     display: flex;

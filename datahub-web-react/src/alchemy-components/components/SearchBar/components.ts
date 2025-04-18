@@ -1,7 +1,6 @@
+import { colors, typography } from '@src/alchemy-components/theme';
 import { Input } from 'antd';
 import styled from 'styled-components';
-
-import { colors, typography } from '@src/alchemy-components/theme';
 
 export const StyledSearchBar = styled(Input)<{ $width?: string }>`
     height: 40px;

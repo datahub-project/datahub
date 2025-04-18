@@ -1,8 +1,7 @@
 import React from 'react';
-import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import colors from '@src/alchemy-components/theme/foundations/colors';
+import styled from 'styled-components';
+import { ANTD_GRAY } from '../entity/shared/constants';
 
 export const ShowMoreButton = styled.div`
     padding: 4px;

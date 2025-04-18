@@ -1,8 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-
-import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
-import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
+import { useEntityFormContext } from '../EntityFormContext';
+import { Editor } from '../../tabs/Documentation/components/editor/Editor';
 
 const PromptTitle = styled.div<{ displayBulkStyles?: boolean }>`
     font-size: 16px;

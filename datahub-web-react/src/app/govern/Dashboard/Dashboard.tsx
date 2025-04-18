@@ -1,7 +1,7 @@
 import React from 'react';
 
-import { FormAnalyticsProvider } from '@app/govern/Dashboard/FormAnalyticsContext';
-import { TabLayout } from '@app/govern/Dashboard/TabLayout';
+import { FormAnalyticsProvider } from './FormAnalyticsContext';
+import { TabLayout } from './TabLayout';
 
 export const GovernDashboard = () => (
     <FormAnalyticsProvider>

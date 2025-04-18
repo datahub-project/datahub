@@ -1,9 +1,9 @@
-import { Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import InfoTooltip from '@app/sharedV2/icons/InfoTooltip';
+import { Typography } from 'antd';
+import styled from 'styled-components';
+import { ANTD_GRAY } from '../entity/shared/constants';
+import InfoTooltip from '../sharedV2/icons/InfoTooltip';
 
 const Card = styled.div`
     display: flex;

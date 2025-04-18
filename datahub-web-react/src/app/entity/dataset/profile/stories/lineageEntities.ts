@@ -1,4 +1,4 @@
-import { EntityType, FabricType, PlatformNativeType } from '@types';
+import { EntityType, FabricType, PlatformNativeType } from '../../../../../types.generated';
 
 export const sampleUpstreamEntities = [
     {

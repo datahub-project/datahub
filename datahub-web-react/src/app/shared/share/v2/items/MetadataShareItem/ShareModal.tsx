@@ -1,25 +1,31 @@
-import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
+import React, { useState, useMemo } from 'react';
+
 import { Empty, Form, Select, Tag, message } from 'antd';
-import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
-
-import analytics, { EventType } from '@app/analytics';
-import { useEntityContext } from '@app/entity/shared/EntityContext';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { SharedEntityInfo } from '@app/entityV2/shared/containers/profile/sidebar/SharedEntityInfo';
-import { InstanceIcon, StyledLabel } from '@app/entityV2/shared/containers/profile/sidebar/shared/styledComponents';
-import { PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
-import { PLATFORM_CONNECTION_URN } from '@app/shared/constants';
-import { ModalTitle, StyledCheckbox, StyledModal } from '@app/shared/share/v2/styledComponents';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
 import { Button } from '@src/alchemy-components';
-
-import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
-import { useShareEntityMutation, useUnshareEntityMutation } from '@graphql/share.generated';
-import { DataHubConnection, EntityType, ShareLineageDirection, ShareResultState } from '@types';
-
-import AcrylIcon from '@images/acryl-logo.svg?react';
-import ShareIcon from '@images/share-icon-custom.svg?react';
+import {
+    DataHubConnection,
+    EntityType,
+    ShareLineageDirection,
+    ShareResultState,
+} from '../../../../../../types.generated';
+import AcrylIcon from '../../../../../../images/acryl-logo.svg?react';
+import ShareIcon from '../../../../../../images/share-icon-custom.svg?react';
+import { useGetSearchResultsForMultipleQuery } from '../../../../../../graphql/search.generated';
+import { PLATFORM_FILTER_NAME } from '../../../../../searchV2/utils/constants';
+import { PLATFORM_CONNECTION_URN } from '../../../../constants';
+import { useShareEntityMutation, useUnshareEntityMutation } from '../../../../../../graphql/share.generated';
+import analytics, { EventType } from '../../../../../analytics';
+import { useEntityContext } from '../../../../../entity/shared/EntityContext';
+import { SharedEntityInfo } from '../../../../../entityV2/shared/containers/profile/sidebar/SharedEntityInfo';
+import { REDESIGN_COLORS } from '../../../../../entityV2/shared/constants';
+import {
+    InstanceIcon,
+    StyledLabel,
+} from '../../../../../entityV2/shared/containers/profile/sidebar/shared/styledComponents';
+import { StyledCheckbox, StyledModal, ModalTitle } from '../../styledComponents';
+import { useEntityRegistryV2 } from '../../../../../useEntityRegistry';
 
 const StyledShareIcon = styled(ShareIcon)`
     height: 28px;

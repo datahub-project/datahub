@@ -98,10 +98,7 @@ describe("create and manage platform and metadata policies", () => {
   it("create platform policy", () => {
     cy.waitTextVisible("Manage Permissions");
     changeFilterToAll();
-<<<<<<< HEAD
     cy.waitTextVisible("Users & Groups");
-=======
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
     cy.clickOptionWithText("Create new policy");
     clickFocusAndType("policy-name", platform_policy_name);
     cy.get('[data-testid="policy-type"] [title="Metadata"]').click();
@@ -114,10 +111,7 @@ describe("create and manage platform and metadata policies", () => {
 
   it("edit platform policy", () => {
     changeFilterToAll();
-<<<<<<< HEAD
     cy.waitTextVisible("Users & Groups");
-=======
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
     editPolicy(
       `${platform_policy_name}`,
       platform_policy_edited,
@@ -138,10 +132,7 @@ describe("create and manage platform and metadata policies", () => {
 
   it("create metadata policy", () => {
     changeFilterToAll();
-<<<<<<< HEAD
     cy.waitTextVisible("Users & Groups");
-=======
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
     cy.clickOptionWithText("Create new policy");
     clickFocusAndType("policy-name", metadata_policy_name);
     cy.get('[data-testid="policy-type"]').should("have.text", "Metadata");
@@ -153,10 +144,7 @@ describe("create and manage platform and metadata policies", () => {
 
   it("edit metadata policy", () => {
     changeFilterToAll();
-<<<<<<< HEAD
     cy.waitTextVisible("Users & Groups");
-=======
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
     editPolicy(
       `${metadata_policy_name}`,
       metadata_policy_edited,

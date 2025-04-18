@@ -1,27 +1,12 @@
 import {
-<<<<<<< HEAD
-    DomainFilter,
-    EntityTypeFilter,
-    OwnerFilter,
-    PlatformEntityFilter,
-    TagFilter,
-} from '@app/searchV2/filtersV2/filters';
-import FiltersRegistry from '@app/searchV2/filtersV2/filtersRegistry/filtersRegistry';
-import {
-=======
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
     DOMAINS_FILTER_NAME,
     ENTITY_SUB_TYPE_FILTER_NAME,
     OWNERS_FILTER_NAME,
     PLATFORM_FILTER_NAME,
     TAGS_FILTER_NAME,
-<<<<<<< HEAD
-} from '@app/searchV2/utils/constants';
-=======
 } from '../../utils/constants';
 import FiltersRegistry from '../filtersRegistry/filtersRegistry';
 import { DomainFilter, EntityTypeFilter, OwnerFilter, PlatformEntityFilter, TagFilter } from '../filters';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const defaultFiltersRegistry = new FiltersRegistry();
 

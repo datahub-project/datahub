@@ -1,7 +1,6 @@
-import EntityRegistry from '@app/entity/EntityRegistry';
-import { GenericEntityProperties } from '@app/entity/shared/types';
-
-import { Entity, EntityType } from '@types';
+import { Entity, EntityType } from '../../types.generated';
+import EntityRegistry from '../entity/EntityRegistry';
+import { GenericEntityProperties } from '../entity/shared/types';
 
 export const ROOT_NODES = 'rootNodes';
 export const ROOT_TERMS = 'rootTerms';

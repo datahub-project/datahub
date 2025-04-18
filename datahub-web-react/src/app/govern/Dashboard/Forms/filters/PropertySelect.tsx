@@ -1,9 +1,8 @@
 import { Text, Tooltip } from '@components';
+import { Property } from '@src/app/tests/builder/steps/definition/builder/property/types/properties';
 import { Select } from 'antd';
 import React from 'react';
-
-import { StyledSelect } from '@app/govern/Dashboard/Forms/filters/styledComponents';
-import { Property } from '@src/app/tests/builder/steps/definition/builder/property/types/properties';
+import { StyledSelect } from './styledComponents';
 
 interface Props {
     selectedProperty?: string;

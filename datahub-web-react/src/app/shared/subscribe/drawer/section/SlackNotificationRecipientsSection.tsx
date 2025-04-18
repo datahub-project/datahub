@@ -1,29 +1,27 @@
-import { EditTwoTone, MoreOutlined } from '@ant-design/icons';
-import { Alert, Form, Input, InputRef, Space, Switch, Typography } from 'antd';
-import { useForm } from 'antd/lib/form/Form';
 import React, { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Alert, Form, Input, InputRef, Space, Switch, Typography } from 'antd';
 import styled from 'styled-components/macro';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { NOTIFICATION_SINKS, SLACK_SINK } from '@app/settings/platform/types';
-import { isSinkEnabled } from '@app/settings/utils';
-import useDrawerActions from '@app/shared/subscribe/drawer/state/actions';
-import {
-    selectIsPersonal,
-    selectShouldShowUpdateSlackSettingsWarning,
-    selectSlack,
-    selectSlackSettingsChannel,
-    useDrawerSelector,
-} from '@app/shared/subscribe/drawer/state/selectors';
-import { ChannelSelections, SlackState } from '@app/shared/subscribe/drawer/state/types';
-import { useAppConfig } from '@app/useAppConfig';
+import { useForm } from 'antd/lib/form/Form';
+import { Link } from 'react-router-dom';
+import { EditTwoTone, MoreOutlined } from '@ant-design/icons';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
-import { SLACK_CONNECTION_URN } from '@src/app/settings/platform/slack/constants';
 import { TestNotificationButton } from '@src/app/shared/notifications/TestNotificationButton';
-
-import { useGetGlobalSettingsQuery } from '@graphql/settings.generated';
+import { SLACK_CONNECTION_URN } from '@src/app/settings/platform/slack/constants';
+import { ANTD_GRAY } from '../../../../entity/shared/constants';
+import { useGetGlobalSettingsQuery } from '../../../../../graphql/settings.generated';
+import { NOTIFICATION_SINKS, SLACK_SINK } from '../../../../settings/platform/types';
+import { isSinkEnabled } from '../../../../settings/utils';
+import useDrawerActions from '../state/actions';
+import { ChannelSelections, SlackState } from '../state/types';
+import {
+    selectShouldShowUpdateSlackSettingsWarning,
+    useDrawerSelector,
+    selectIsPersonal,
+    selectSlackSettingsChannel,
+    selectSlack,
+} from '../state/selectors';
+import { useAppConfig } from '../../../../useAppConfig';
 
 const LEFT_PADDING = 36;
 

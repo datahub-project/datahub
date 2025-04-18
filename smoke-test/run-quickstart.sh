@@ -31,13 +31,7 @@ DATAHUB_SEARCH_IMAGE="$DATAHUB_SEARCH_IMAGE" DATAHUB_SEARCH_TAG="$DATAHUB_SEARCH
 XPACK_SECURITY_ENABLED="$XPACK_SECURITY_ENABLED" ELASTICSEARCH_USE_SSL="$ELASTICSEARCH_USE_SSL" \
 USE_AWS_ELASTICSEARCH="$USE_AWS_ELASTICSEARCH" \
 DATAHUB_VERSION=${DATAHUB_VERSION} \
-<<<<<<< HEAD
 DATAHUB_INTEGRATIONS_VERSION=${DATAHUB_VERSION} \
 DATAHUB_ACTIONS_IMAGE=acryldata/datahub-actions \
 DATAHUB_LOCAL_ACTIONS_ENV=$(pwd)/test_resources/actions/actions.env  \
-=======
-DATAHUB_ACTIONS_IMAGE=acryldata/datahub-actions \
-DATAHUB_LOCAL_ACTIONS_ENV=`pwd`/test_resources/actions/actions.env  \
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 docker compose --project-directory ../docker/profiles --profile quickstart-consumers up -d --quiet-pull --wait --wait-timeout 900
-

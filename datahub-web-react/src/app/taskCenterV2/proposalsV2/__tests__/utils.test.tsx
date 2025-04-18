@@ -1,5 +1,5 @@
-import { entityHasProposals, mergeFilters, replaceFilterValues } from '@app/taskCenterV2/proposalsV2/utils';
 import { ActionRequestStatus, ActionRequestType, FilterOperator } from '@src/types.generated';
+import { mergeFilters, entityHasProposals, replaceFilterValues } from '../utils';
 
 const MOCK_ENTITY_DATA = {
     proposals: [

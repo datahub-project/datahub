@@ -1,18 +1,17 @@
 import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import {
-    EdgeId,
-    LineageAuditStamp,
-    LineageEdge,
-    NodeContext,
     addToAdjacencyList,
+    EdgeId,
     getEdgeId,
     isGhostEntity,
     isTransformational,
     isUrnQuery,
+    LineageAuditStamp,
+    LineageEdge,
+    NodeContext,
     parseEdgeId,
     setDefault,
 } from '@app/lineageV2/common';
-
 import { EntityType, LineageDirection } from '@types';
 
 export interface HideNodesConfig {

@@ -1,6 +1,5 @@
-import { ColorScheme, ColorSchemeParams } from '@components/components/BarChart/types';
-
 import { colors } from '@src/alchemy-components/theme';
+import { ColorScheme, ColorSchemeParams } from './types';
 
 export const VIOLET_COLOR_SCHEME_PRARAMS: ColorSchemeParams = {
     mainColor: colors.violet[500],

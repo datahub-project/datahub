@@ -1,6 +1,5 @@
-import { SourceConfig } from '@app/ingest/source/conf/types';
-
-import kafkaLogo from '@images/kafkalogo.png';
+import { SourceConfig } from '../types';
+import kafkaLogo from '../../../../../images/kafkalogo.png';
 
 const placeholderRecipe = `\
 source:

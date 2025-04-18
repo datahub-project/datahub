@@ -1,4 +1,4 @@
-import { FieldType } from '@app/ingest/source/builder/RecipeForm/common';
+import { FieldType } from '../../../ingest/source/builder/RecipeForm/common';
 
 export const SNOWFLAKE_CONNECTION_NAME = {
     name: 'name',

@@ -1,7 +1,6 @@
-import { ENTITY_FILTER_NAME, ORIGIN_FILTER_NAME } from '@app/search/utils/constants';
-
-import { useAggregateAcrossEntitiesQuery } from '@graphql/search.generated';
-import { EntityType } from '@types';
+import { useAggregateAcrossEntitiesQuery } from '../../../../../../graphql/search.generated';
+import { ENTITY_FILTER_NAME, ORIGIN_FILTER_NAME } from '../../../../../search/utils/constants';
+import { EntityType } from '../../../../../../types.generated';
 
 export default function useHasMultipleEnvironmentsQuery(entityType: EntityType) {
     const { data } = useAggregateAcrossEntitiesQuery({

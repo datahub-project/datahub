@@ -1,10 +1,14 @@
-import { MoreOutlined } from '@ant-design/icons';
-import { Button, ToggleCard, colors } from '@components';
-import { Form } from 'antd';
 import React, { useEffect, useRef, useState } from 'react';
+import { MoreOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
-
+import { Button, colors, ToggleCard } from '@components';
+import { Form } from 'antd';
+import { useUserContext } from '@src/app/context/useUserContext';
+import { TestNotificationButton } from '@src/app/shared/notifications/TestNotificationButton';
+import { SLACK_CONNECTION_URN } from '@src/app/settingsV2/platform/slack/constants';
+import { SlackNotificationSettings, SlackNotificationSettingsInput } from '../../../../../types.generated';
+import { getSlackSettingsChannel } from '../../../../shared/subscribe/drawer/utils';
 import {
     CancelButton,
     SaveButton,
@@ -12,13 +16,7 @@ import {
     SinkConfigurationContainer,
     StyledFormItem,
     StyledInput,
-} from '@app/settingsV2/personal/notifications/section/styledComponents';
-import { getSlackSettingsChannel } from '@app/shared/subscribe/drawer/utils';
-import { useUserContext } from '@src/app/context/useUserContext';
-import { SLACK_CONNECTION_URN } from '@src/app/settingsV2/platform/slack/constants';
-import { TestNotificationButton } from '@src/app/shared/notifications/TestNotificationButton';
-
-import { SlackNotificationSettings, SlackNotificationSettingsInput } from '@types';
+} from './styledComponents';
 
 const HelperText = styled.div`
     color: ${colors.gray[1700]};

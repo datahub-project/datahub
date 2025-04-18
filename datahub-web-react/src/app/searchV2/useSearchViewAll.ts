@@ -1,9 +1,8 @@
+import { useQuickFiltersContext } from '@src/providers/QuickFiltersContext';
 import { useCallback } from 'react';
 import { useHistory } from 'react-router';
-
-import analytics, { EventType } from '@app/analytics';
-import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
-import { useQuickFiltersContext } from '@src/providers/QuickFiltersContext';
+import analytics, { EventType } from '../analytics';
+import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 
 export default function useSearchViewAll() {
     const history = useHistory();

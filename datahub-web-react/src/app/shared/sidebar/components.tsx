@@ -1,9 +1,8 @@
-import { RightOutlined } from '@ant-design/icons';
 import { countries } from 'country-data-list';
 import React from 'react';
+import { RightOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-
-import { RotatingButton } from '@app/shared/components';
+import { RotatingButton } from '../components';
 
 export const SidebarWrapper = styled.div<{ width: number }>`
     max-height: 100%;

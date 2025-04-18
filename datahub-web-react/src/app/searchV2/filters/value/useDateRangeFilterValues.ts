@@ -1,9 +1,8 @@
-import moment from 'moment';
 import { useEffect, useMemo } from 'react';
-
-import useGetSearchQueryInputs from '@app/searchV2/useGetSearchQueryInputs';
-import { Datetime } from '@src/app/lineageV2/LineageTimeSelector';
 import { FilterOperator } from '@src/types.generated';
+import moment from 'moment';
+import { Datetime } from '@src/app/lineageV2/LineageTimeSelector';
+import useGetSearchQueryInputs from '../../useGetSearchQueryInputs';
 
 interface Props {
     filterField: string;

@@ -1,12 +1,11 @@
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import {
-    NodeContext,
     createEdgeId,
     getEdgeId,
     isUrnDataProcessInstance,
     isUrnTransformational,
+    NodeContext,
 } from '@app/lineageV2/common';
-
 import { LineageDirection } from '@types';
 
 enum HideOption {

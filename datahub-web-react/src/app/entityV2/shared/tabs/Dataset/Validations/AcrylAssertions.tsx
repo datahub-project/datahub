@@ -1,31 +1,27 @@
-import { PlusOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import { Button } from 'antd';
 import React, { useState } from 'react';
+import { PlusOutlined } from '@ant-design/icons';
+import { Button } from 'antd';
+import { Tooltip } from '@components';
+import { DataPlatform } from '@src/types.generated';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import { combineEntityDataWithSiblings } from '@app/entity/shared/siblingUtils';
-import { TableLoadingSkeleton } from '@app/entityV2/shared/TableLoadingSkeleton';
-import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
-import { AssertionGroupTable } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionGroupTable';
-import { DatasetAssertionsSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/DatasetAssertionsSummary';
-import {
-    createCachedAssertionWithMonitor,
-    updateDatasetAssertionsCache,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/acrylCacheUtils';
+import { useGetDatasetAssertionsWithMonitorsQuery } from '../../../../../../graphql/monitor.generated';
+import { useEntityData } from '../../../../../entity/shared/EntityContext';
+import { DatasetAssertionsSummary } from './DatasetAssertionsSummary';
+import { useIsSeparateSiblingsMode } from '../../../useIsSeparateSiblingsMode';
+import { useAppConfig } from '../../../../../useAppConfig';
+import { AssertionMonitorBuilderDrawer } from './assertion/builder/AssertionMonitorBuilderDrawer';
+import TabToolbar from '../../../components/styled/TabToolbar';
 import {
     AssertionWithMonitorDetails,
     createAssertionGroups,
     getLegacyAssertionsSummary,
     tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
-import { AssertionMonitorBuilderDrawer } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/AssertionMonitorBuilderDrawer';
-import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
-import { useAppConfig } from '@app/useAppConfig';
-import { DataPlatform } from '@src/types.generated';
-
-import { useGetDatasetContractQuery } from '@graphql/contract.generated';
-import { useGetDatasetAssertionsWithMonitorsQuery } from '@graphql/monitor.generated';
+} from './acrylUtils';
+import { AssertionGroupTable } from './AssertionGroupTable';
+import { updateDatasetAssertionsCache, createCachedAssertionWithMonitor } from './acrylCacheUtils';
+import { useGetDatasetContractQuery } from '../../../../../../graphql/contract.generated';
+import { combineEntityDataWithSiblings } from '../../../../../entity/shared/siblingUtils';
+import { TableLoadingSkeleton } from '../../../TableLoadingSkeleton';
 
 /**
  * @deprecated

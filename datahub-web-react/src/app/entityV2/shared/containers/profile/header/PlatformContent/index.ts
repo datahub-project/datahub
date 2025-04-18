@@ -1,3 +1,3 @@
-import PlatformContentContainer from '@app/entityV2/shared/containers/profile/header/PlatformContent/PlatformContentContainer';
+import PlatformContentContainer from './PlatformContentContainer';
 
 export default PlatformContentContainer;

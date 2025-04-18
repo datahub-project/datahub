@@ -2,11 +2,9 @@ import { Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
-
-import { CustomAvatar } from '@app/shared/avatar';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { ActionRequest, EntityType } from '@types';
+import { ActionRequest, EntityType } from '../../../types.generated';
+import { CustomAvatar } from '../../shared/avatar';
+import { useEntityRegistry } from '../../useEntityRegistry';
 
 const AuthorView = styled.span`
     margin-left: 4px;

@@ -1,13 +1,12 @@
-import React, { useState } from 'react';
-import { createPortal } from 'react-dom';
-import styled from 'styled-components';
-
-import { EntityStagedForAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
-import { CreateAssertionButton } from '@app/entityV2/shared/tabs/Dataset/Validations/CreateAssertionButton';
-import { AssertionMonitorBuilderDrawer } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/AssertionMonitorBuilderDrawer';
 import { Button } from '@src/alchemy-components';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { AssertionType, EntityPrivileges } from '@src/types.generated';
+import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
+import styled from 'styled-components';
+import { EntityStagedForAssertion } from '../../../../Validations/AssertionList/types';
+import { CreateAssertionButton } from '../../../../Validations/CreateAssertionButton';
+import { AssertionMonitorBuilderDrawer } from '../../../../Validations/assertion/builder/AssertionMonitorBuilderDrawer';
 
 const StyledCreateAssertionButton = styled(CreateAssertionButton)`
     & {

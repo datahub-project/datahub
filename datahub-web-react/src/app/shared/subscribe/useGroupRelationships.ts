@@ -1,6 +1,5 @@
-import { useUserContext } from '@app/context/useUserContext';
-
-import { useGetUserGroupsQuery } from '@graphql/user.generated';
+import { useGetUserGroupsQuery } from '../../../graphql/user.generated';
+import { useUserContext } from '../../context/useUserContext';
 
 const useGroupRelationships = ({ count = 100 } = {}) => {
     const authenticatedUserUrn = useUserContext()?.user?.urn;

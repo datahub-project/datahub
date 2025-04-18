@@ -1,14 +1,13 @@
 import React from 'react';
-
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import useGetPromptInfo from '@app/entity/shared/containers/profile/sidebar/FormInfo/useGetPromptInfo';
-import useIsUserAssigned from '@app/entity/shared/containers/profile/sidebar/FormInfo/useIsUserAssigned';
 import {
     isVerificationComplete,
     shouldShowVerificationInfo,
-} from '@app/entity/shared/containers/profile/sidebar/FormInfo/utils';
-import CompletedView from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/CompletedView';
-import IncompleteView from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/IncompleteView';
+} from '../../../../../../entity/shared/containers/profile/sidebar/FormInfo/utils';
+import CompletedView from './CompletedView';
+import IncompleteView from './IncompleteView';
+import { useEntityData } from '../../../../../../entity/shared/EntityContext';
+import useGetPromptInfo from '../../../../../../entity/shared/containers/profile/sidebar/FormInfo/useGetPromptInfo';
+import useIsUserAssigned from '../../../../../../entity/shared/containers/profile/sidebar/FormInfo/useIsUserAssigned';
 
 interface Props {
     formUrn?: string;

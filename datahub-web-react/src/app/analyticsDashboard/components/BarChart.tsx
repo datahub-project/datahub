@@ -1,13 +1,12 @@
-import { AxisBottom, AxisRight } from '@visx/axis';
-import { Group } from '@visx/group';
-import { scaleBand, scaleLinear, scaleOrdinal } from '@visx/scale';
-import { BarStack } from '@visx/shape';
 import React, { useMemo } from 'react';
+import { BarStack } from '@visx/shape';
+import { scaleOrdinal, scaleLinear, scaleBand } from '@visx/scale';
+import { Group } from '@visx/group';
+import { AxisBottom, AxisRight } from '@visx/axis';
 
-import Legend from '@app/analyticsDashboard/components/Legend';
-import { lineColors } from '@app/analyticsDashboard/components/lineColors';
-
-import { BarChart as BarChartType } from '@types';
+import { BarChart as BarChartType } from '../../../types.generated';
+import { lineColors } from './lineColors';
+import Legend from './Legend';
 
 type Props = {
     chartData: BarChartType;

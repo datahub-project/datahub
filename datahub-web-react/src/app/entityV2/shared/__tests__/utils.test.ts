@@ -1,33 +1,38 @@
 import {
-    decodeComma,
+    ActionRequestStatus,
+    ActionRequestType,
+    DataProduct,
+    DatasetStatsSummary,
+    EntityType,
+} from '../../../../types.generated';
+import {
     dictToQueryStringParams,
+    getNumberWithOrdinal,
     encodeComma,
+    decodeComma,
+    notEmpty,
+    truncate,
+    singularizeCollectionName,
+    getDataProduct,
+    isOutputPort,
+    getPlatformName,
+    isListSubset,
+    urlEncodeUrn,
+    handleBatchError,
+    getFineGrainedLineageWithSiblings,
+    summaryHasStats,
+    getProposedItemsByType,
+    getPlatformUrnFromEntityUrn,
     extractPlatformNameFromAssetUrn,
     extractPlatformNameFromPlatformUrn,
-    getDataProduct,
-    getFineGrainedLineageWithSiblings,
-    getNumberWithOrdinal,
-    getPlatformName,
-    getPlatformUrnFromEntityUrn,
-    getProposedItemsByType,
-    handleBatchError,
-    isListSubset,
-    isOutputPort,
-    notEmpty,
-    singularizeCollectionName,
-    summaryHasStats,
-    truncate,
-    urlEncodeUrn,
-} from '@app/entityV2/shared/utils';
+} from '../utils';
 import {
     mockActionRequests,
     mockEntityRelationShipResult,
     mockFineGrainedLineages1,
     mockRecord,
     mockSearchResult,
-} from '@src/Mocks';
-
-import { ActionRequestStatus, ActionRequestType, DataProduct, DatasetStatsSummary, EntityType } from '@types';
+} from '../../../../Mocks';
 
 describe('entity V2 utils test ->', () => {
     describe('dictToQueryStringParams ->', () => {

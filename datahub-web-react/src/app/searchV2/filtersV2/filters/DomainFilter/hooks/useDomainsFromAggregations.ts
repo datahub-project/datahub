@@ -1,13 +1,6 @@
-<<<<<<< HEAD
-import { useMemo } from 'react';
-
-import { isDomain } from '@src/app/entityV2/domain/utils';
-import { AggregationMetadata } from '@src/types.generated';
-=======
 import { AggregationMetadata } from '@src/types.generated';
 import { useMemo } from 'react';
 import { isDomain } from '@src/app/entityV2/domain/utils';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 export default function useDomainsFromAggregations(aggregations: Array<AggregationMetadata> | undefined) {
     return useMemo(() => {

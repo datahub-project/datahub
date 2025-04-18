@@ -1,6 +1,5 @@
 import React, { createContext } from 'react';
-
-import { StatsProps } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsSidebarView';
+import { StatsProps } from '../StatsSidebarView';
 
 interface ContextProps {
     properties?: StatsProps['properties'];

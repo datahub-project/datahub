@@ -1,32 +1,30 @@
 import { DownloadOutlined } from '@ant-design/icons';
-import { Button, Modal, Typography, message } from 'antd';
-import { Maybe } from 'graphql/jsutils/Maybe';
+import { Button, message, Modal, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import YAML from 'yamljs';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import IngestedAssets from '@app/ingest/source/IngestedAssets';
-import { StructuredReport } from '@app/ingest/source/executions/reporting/StructuredReport';
+import { Maybe } from 'graphql/jsutils/Maybe';
+import { useGetRemoteExecutorQuery } from '@src/graphql/remote_executor.saas.generated';
+import { colors } from '@src/alchemy-components';
+import { useAppConfig } from '@src/app/useAppConfig';
+import { useGetIngestionExecutionRequestQuery } from '../../../../graphql/ingestion.generated';
+import { ANTD_GRAY } from '../../../entity/shared/constants';
+import { downloadFile } from '../../../search/utils/csvUtils';
+import { Message } from '../../../shared/Message';
+import IngestedAssets from '../IngestedAssets';
 import {
-    RUNNING,
-    SUCCEEDED_WITH_WARNINGS,
-    SUCCESS,
     getExecutionRequestStatusDisplayColor,
     getExecutionRequestStatusDisplayText,
     getExecutionRequestStatusIcon,
     getExecutionRequestSummaryText,
     getIngestionSourceStatus,
     getStructuredReport,
-} from '@app/ingest/source/utils';
-import { downloadFile } from '@app/search/utils/csvUtils';
-import { Message } from '@app/shared/Message';
-import { colors } from '@src/alchemy-components';
-import { useAppConfig } from '@src/app/useAppConfig';
-import { useGetRemoteExecutorQuery } from '@src/graphql/remote_executor.saas.generated';
-
-import { useGetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
-import { ExecutionRequestResult } from '@types';
+    RUNNING,
+    SUCCESS,
+    SUCCEEDED_WITH_WARNINGS,
+} from '../utils';
+import { ExecutionRequestResult } from '../../../../types.generated';
+import { StructuredReport } from './reporting/StructuredReport';
 
 const StyledTitle = styled(Typography.Title)`
     padding: 0px;

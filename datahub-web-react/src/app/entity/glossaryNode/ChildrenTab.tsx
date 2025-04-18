@@ -1,13 +1,11 @@
 import React from 'react';
-
-import { sortGlossaryNodes } from '@app/entity/glossaryNode/utils';
-import { sortGlossaryTerms } from '@app/entity/glossaryTerm/utils';
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import EmptyGlossarySection from '@app/glossary/EmptyGlossarySection';
-import GlossaryEntitiesList from '@app/glossary/GlossaryEntitiesList';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { EntityType, GlossaryNode, GlossaryTerm } from '@types';
+import { EntityType, GlossaryNode, GlossaryTerm } from '../../../types.generated';
+import EmptyGlossarySection from '../../glossary/EmptyGlossarySection';
+import GlossaryEntitiesList from '../../glossary/GlossaryEntitiesList';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { sortGlossaryTerms } from '../glossaryTerm/utils';
+import { useEntityData } from '../shared/EntityContext';
+import { sortGlossaryNodes } from './utils';
 
 function ChildrenTab() {
     const { entityData } = useEntityData();

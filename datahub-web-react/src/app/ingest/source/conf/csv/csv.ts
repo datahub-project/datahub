@@ -1,6 +1,5 @@
-import { SourceConfig } from '@app/ingest/source/conf/types';
-
-import csvLogo from '@images/csv-logo.png';
+import { SourceConfig } from '../types';
+import csvLogo from '../../../../../images/csv-logo.png';
 
 const placeholderRecipe = `\
 source:

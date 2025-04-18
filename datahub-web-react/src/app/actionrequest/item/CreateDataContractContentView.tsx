@@ -1,12 +1,10 @@
-import { Button, Typography } from 'antd';
 import React, { useState } from 'react';
+import { Button, Typography } from 'antd';
 import { Link } from 'react-router-dom';
-
-import CreatedByView from '@app/actionrequest/item/CreatedByView';
-import { DataContractProposalModal } from '@app/entity/shared/tabs/Dataset/Validations/contract/proposal/DataContractProposalModal';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { ActionRequest, EntityType } from '@types';
+import { ActionRequest, EntityType } from '../../../types.generated';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import CreatedByView from './CreatedByView';
+import { DataContractProposalModal } from '../../entity/shared/tabs/Dataset/Validations/contract/proposal/DataContractProposalModal';
 
 interface Props {
     actionRequest: ActionRequest;

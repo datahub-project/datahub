@@ -1,10 +1,9 @@
-import React, { useMemo } from 'react';
-
-import { useGetSiblingsOptions } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/highlights/useGetSiblingsOptions';
 import { SimpleSelect } from '@src/alchemy-components';
+import { Dataset } from '@src/types.generated';
+import React, { useMemo } from 'react';
 import analytics, { EventType } from '@src/app/analytics';
 import { extractPlatformNameFromAssetUrn } from '@src/app/entityV2/shared/utils';
-import { Dataset } from '@src/types.generated';
+import { useGetSiblingsOptions } from './useGetSiblingsOptions';
 
 interface Props {
     baseEntity: Dataset;

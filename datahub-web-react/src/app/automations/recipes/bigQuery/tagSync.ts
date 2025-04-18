@@ -4,12 +4,12 @@
 
 	Action: TBD
 */
-import { commonFieldsMapping } from '@app/automations/constants';
-import { getField } from '@app/automations/fields';
-import { AutomationRecipe, AutomationTemplate, ConfigMap } from '@app/automations/types';
-import { EntityType } from '@src/types.generated';
 
 import BigQueryLogo from '@images/bigquerylogo.png';
+import { EntityType } from '@src/types.generated';
+import { commonFieldsMapping } from '@app/automations/constants';
+import { getField } from '@app/automations/fields';
+import { AutomationRecipe, AutomationTemplate, ConfigMap } from '../../types';
 
 // Common unique ID for the action
 // Used to identify the action in the backend & provide common key between template <> recipe

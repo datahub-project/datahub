@@ -1,21 +1,19 @@
-import { MockedProvider } from '@apollo/client/testing';
-import { fireEvent, render } from '@testing-library/react';
 import React from 'react';
-
+import { fireEvent, render } from '@testing-library/react';
+import { MockedProvider } from '@apollo/client/testing';
+import TestPageContainer from '../../../../../utils/test-utils/TestPageContainer';
 import {
     sampleSchema,
     sampleSchemaWithKeyValueFields,
+    sampleSchemaWithoutFields,
     sampleSchemaWithPkFk,
     sampleSchemaWithTags,
-    sampleSchemaWithoutFields,
-} from '@app/entity/dataset/profile/stories/sampleSchema';
-import { EntityContext } from '@app/entity/shared/EntityContext';
-import { SchemaTab } from '@app/entity/shared/tabs/Dataset/Schema/SchemaTab';
-import { SchemaRow } from '@app/entity/shared/tabs/Dataset/Schema/components/SchemaRow';
-import { mocks } from '@src/Mocks';
-import TestPageContainer from '@utils/test-utils/TestPageContainer';
-
-import { EntityType, SchemaMetadata } from '@types';
+} from '../stories/sampleSchema';
+import { mocks } from '../../../../../Mocks';
+import { SchemaTab } from '../../../shared/tabs/Dataset/Schema/SchemaTab';
+import { EntityContext } from '../../../shared/EntityContext';
+import { EntityType, SchemaMetadata } from '../../../../../types.generated';
+import { SchemaRow } from '../../../shared/tabs/Dataset/Schema/components/SchemaRow';
 
 vi.mock('virtualizedtableforantd4', async () => {
     return {

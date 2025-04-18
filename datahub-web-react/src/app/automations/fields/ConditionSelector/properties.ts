@@ -2,9 +2,8 @@
  * The file contains a set of well-supported properties,
  * which the UI deeply understands.
  */
-import { SelectInputMode, ValueTypeId } from '@app/automations/fields/types/values';
-
 import { EntityType } from '@types';
+import { SelectInputMode, ValueTypeId } from '../types/values';
 
 /**
  * A single well-supported property. Note that this is a "frontend"

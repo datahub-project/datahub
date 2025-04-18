@@ -1,17 +1,12 @@
-import { Form } from 'antd';
-import Typography from 'antd/lib/typography';
 import React, { useEffect } from 'react';
+import Typography from 'antd/lib/typography';
 import styled from 'styled-components';
-
-import { AssertionDatasetFieldBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/AssertionDatasetFieldBuilder';
-import {
-    getEligibleFieldColumns,
-    getFieldAssertionTypeKey,
-} from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/field/utils';
-import { AssertionMonitorBuilderState } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/types';
-
-import { useGetDatasetSchemaQuery } from '@graphql/dataset.generated';
-import { SchemaField } from '@types';
+import { Form } from 'antd';
+import { AssertionMonitorBuilderState } from '../../types';
+import { useGetDatasetSchemaQuery } from '../../../../../../../../../../graphql/dataset.generated';
+import { SchemaField } from '../../../../../../../../../../types.generated';
+import { getEligibleFieldColumns, getFieldAssertionTypeKey } from './utils';
+import { AssertionDatasetFieldBuilder } from '../AssertionDatasetFieldBuilder';
 
 const Section = styled.div`
     margin: 16px 0;

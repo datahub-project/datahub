@@ -1,12 +1,11 @@
-import { Tooltip } from '@components';
 import React from 'react';
+import { Tooltip } from '@components';
 import styled from 'styled-components';
 
-import { truncate } from '@app/entityV2/shared/utils';
-import { capitalizeFirstLetter } from '@app/shared/textUtil';
-import { ColumnTypeIcon } from '@app/sharedV2/utils';
-
-import { SchemaFieldDataType } from '@types';
+import { capitalizeFirstLetter } from '../../../../../../shared/textUtil';
+import { SchemaFieldDataType } from '../../../../../../../types.generated';
+import { ColumnTypeIcon } from '../../../../../../sharedV2/utils';
+import { truncate } from '../../../../utils';
 
 const Wrapper = styled.div`
     display: flex;

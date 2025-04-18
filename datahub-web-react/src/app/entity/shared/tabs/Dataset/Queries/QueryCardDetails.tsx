@@ -1,12 +1,11 @@
-import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import NoMarkdownViewer from '@app/entity/shared/components/styled/StripMarkdownText';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import QueryCardDetailsMenu from '@app/entity/shared/tabs/Dataset/Queries/QueryCardDetailsMenu';
-import QueryCardEditButton from '@app/entity/shared/tabs/Dataset/Queries/QueryCardEditButton';
-import { toLocalDateString } from '@app/shared/time/timeUtils';
+import { Typography } from 'antd';
+import { ANTD_GRAY } from '../../../constants';
+import { toLocalDateString } from '../../../../../shared/time/timeUtils';
+import NoMarkdownViewer from '../../../components/styled/StripMarkdownText';
+import QueryCardDetailsMenu from './QueryCardDetailsMenu';
+import QueryCardEditButton from './QueryCardEditButton';
 
 const Title = styled(Typography.Title)<{ secondary?: boolean }>`
     && {

@@ -1,18 +1,17 @@
-import { message } from 'antd';
 import React, { useMemo } from 'react';
+
 import styled from 'styled-components';
-
-import { EmailDefaults } from '@app/settingsV2/platform/notifications/EmailDefaults';
-import { SlackDefaults } from '@app/settingsV2/platform/notifications/SlackDefaults';
-import { SLACK_CONNECTION_URN } from '@app/settingsV2/platform/slack/constants';
-import { decodeSlackConnection } from '@app/settingsV2/platform/slack/utils';
-import { isSinkEnabled } from '@app/settingsV2/utils';
-import { useAppConfig } from '@app/useAppConfig';
-import { EMAIL_SINK } from '@src/app/settings/platform/types';
+import { message } from 'antd';
 import { useConnectionQuery } from '@src/graphql/connection.generated';
-
-import { useUpdateGlobalIntegrationSettingsMutation } from '@graphql/settings.generated';
-import { GlobalSettings } from '@types';
+import { EMAIL_SINK } from '@src/app/settings/platform/types';
+import { useUpdateGlobalIntegrationSettingsMutation } from '../../../../graphql/settings.generated';
+import { EmailDefaults } from './EmailDefaults';
+import { SlackDefaults } from './SlackDefaults';
+import { GlobalSettings } from '../../../../types.generated';
+import { isSinkEnabled } from '../../utils';
+import { useAppConfig } from '../../../useAppConfig';
+import { SLACK_CONNECTION_URN } from '../slack/constants';
+import { decodeSlackConnection } from '../slack/utils';
 
 const Container = styled.div`
     display: flex;

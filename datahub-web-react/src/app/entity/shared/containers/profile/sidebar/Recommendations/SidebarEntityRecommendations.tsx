@@ -1,12 +1,14 @@
 import React from 'react';
 import styled from 'styled-components';
-
-import { SidebarHeader } from '@app/entity/shared/containers/profile/sidebar/SidebarHeader';
-import { RecommendationModule } from '@app/recommendations/RecommendationModule';
-import { RecommendationDisplayType } from '@app/recommendations/types';
-
-import { useListRecommendationsQuery } from '@graphql/recommendations.generated';
-import { EntityType, RecommendationModule as RecommendationModuleType, ScenarioType } from '@types';
+import { useListRecommendationsQuery } from '../../../../../../../graphql/recommendations.generated';
+import {
+    EntityType,
+    ScenarioType,
+    RecommendationModule as RecommendationModuleType,
+} from '../../../../../../../types.generated';
+import { RecommendationModule } from '../../../../../../recommendations/RecommendationModule';
+import { RecommendationDisplayType } from '../../../../../../recommendations/types';
+import { SidebarHeader } from '../SidebarHeader';
 
 const RecommendationsContainer = styled.div``;
 

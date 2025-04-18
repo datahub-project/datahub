@@ -1,16 +1,14 @@
-import { BellFilled, BellOutlined } from '@ant-design/icons';
-import { Dropdown } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ActionItem } from '@app/entity/shared/tabs/Dataset/Validations/assertion/profile/actions/ActionItem';
-import SubscriptionDrawer from '@app/shared/subscribe/drawer/SubscriptionDrawer';
-import { checkIsAssetLevelAssertionSubscription } from '@app/shared/subscribe/drawer/section/utils';
-import useGroupRelationships from '@app/shared/subscribe/useGroupRelationships';
-import useSubscription from '@app/shared/subscribe/useSubscription';
-
-import { Assertion, EntityType } from '@types';
+import { BellFilled, BellOutlined } from '@ant-design/icons';
+import { Dropdown } from 'antd';
+import { ActionItem } from './ActionItem';
+import useSubscription from '../../../../../../../../shared/subscribe/useSubscription';
+import SubscriptionDrawer from '../../../../../../../../shared/subscribe/drawer/SubscriptionDrawer';
+import { Assertion, EntityType } from '../../../../../../../../../types.generated';
+import useGroupRelationships from '../../../../../../../../shared/subscribe/useGroupRelationships';
+import { useEntityData } from '../../../../../../EntityContext';
+import { checkIsAssetLevelAssertionSubscription } from '../../../../../../../../shared/subscribe/drawer/section/utils';
 
 const StyledBellFilled = styled(BellFilled)`
     && {

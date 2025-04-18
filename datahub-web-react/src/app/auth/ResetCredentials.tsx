@@ -1,17 +1,16 @@
-import { LockOutlined, UserOutlined } from '@ant-design/icons';
-import { useReactiveVar } from '@apollo/client';
-import { Button, Form, Image, Input, message } from 'antd';
 import React, { useCallback, useState } from 'react';
-import { Redirect } from 'react-router';
+import { Input, Button, Form, message, Image } from 'antd';
+import { UserOutlined, LockOutlined } from '@ant-design/icons';
+import { useReactiveVar } from '@apollo/client';
 import styled, { useTheme } from 'styled-components/macro';
-
-import analytics, { EventType } from '@app/analytics';
-import { isLoggedInVar } from '@app/auth/checkAuthStatus';
-import styles from '@app/auth/login.module.css';
-import useGetResetTokenFromUrlParams from '@app/auth/useGetResetTokenFromUrlParams';
-import { Message } from '@app/shared/Message';
-import { useAppConfig } from '@app/useAppConfig';
-import { PageRoutes } from '@conf/Global';
+import { Redirect } from 'react-router';
+import styles from './login.module.css';
+import { Message } from '../shared/Message';
+import { isLoggedInVar } from './checkAuthStatus';
+import analytics, { EventType } from '../analytics';
+import { useAppConfig } from '../useAppConfig';
+import { PageRoutes } from '../../conf/Global';
+import useGetResetTokenFromUrlParams from './useGetResetTokenFromUrlParams';
 
 type FormValues = {
     email: string;

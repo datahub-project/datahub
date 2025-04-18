@@ -1,7 +1,13 @@
-import { Form, Select, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
+import { Typography, Select, Form } from 'antd';
+import { useAppConfig } from '@src/app/useAppConfig';
+import {
+    AssertionValueChangeType,
+    IncrementingSegmentSpec,
+    Maybe,
+    VolumeAssertionType,
+} from '../../../../../../../../../../types.generated';
 import {
     VolumeTypeOptionEnum,
     getDefaultVolumeParameters,
@@ -9,15 +15,9 @@ import {
     getVolumeTypeCategory,
     getVolumeTypeOption,
     getVolumeTypeOptions,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/volume/utils';
-import {
-    VolumeAssertionBuilderState,
-    VolumeAssertionBuilderType,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
-import { getPropertyFromVolumeType } from '@app/entityV2/shared/tabs/Dataset/Validations/utils';
-import { useAppConfig } from '@src/app/useAppConfig';
-
-import { AssertionValueChangeType, IncrementingSegmentSpec, Maybe, VolumeAssertionType } from '@types';
+} from './utils';
+import { getPropertyFromVolumeType } from '../../../../utils';
+import { VolumeAssertionBuilderState, VolumeAssertionBuilderType } from '../../types';
 
 const Container = styled.div`
     margin: 16px 0 24px;

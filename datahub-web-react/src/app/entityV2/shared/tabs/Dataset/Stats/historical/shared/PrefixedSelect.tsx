@@ -1,8 +1,7 @@
-import { Select, Typography } from 'antd';
 import React from 'react';
+import { Select, Typography } from 'antd';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { ANTD_GRAY } from '../../../../../constants';
 
 type Props = {
     prefixText: string;

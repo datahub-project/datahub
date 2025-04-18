@@ -1,17 +1,16 @@
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import { sortSharedList } from '@app/entity/shared/containers/profile/utils';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
-import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
-import SharedByInfo from '@app/entityV2/shared/containers/profile/sidebar/shared/SharedByInfo';
-import SharingList from '@app/entityV2/shared/containers/profile/sidebar/shared/SharingList';
-import ShareModal from '@app/shared/share/v2/items/MetadataShareItem/ShareModal';
-import { pluralize } from '@app/shared/textUtil';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import { Typography } from 'antd';
+import { useEntityData } from '../../../../../../entity/shared/EntityContext';
+import { SidebarSection } from '../SidebarSection';
+import { sortSharedList } from '../../../../../../entity/shared/containers/profile/utils';
+import { pluralize } from '../../../../../../shared/textUtil';
+import SectionActionButton from '../SectionActionButton';
+import ShareModal from '../../../../../../shared/share/v2/items/MetadataShareItem/ShareModal';
+import SharingList from './SharingList';
+import { REDESIGN_COLORS } from '../../../../constants';
+import SharedByInfo from './SharedByInfo';
 
 const SharingInfo = styled.div`
     margin: 5px 0;

@@ -1,5 +1,5 @@
-import FilterRendererRegistry from '@app/searchV2/filters/render/FilterRendererRegistry';
-import { renderers as acrylRenderers } from '@app/searchV2/filters/render/acrylRenderers';
+import { renderers as acrylRenderers } from './acrylRenderers';
+import FilterRendererRegistry from './FilterRendererRegistry';
 
 /**
  * Configure the render registry.

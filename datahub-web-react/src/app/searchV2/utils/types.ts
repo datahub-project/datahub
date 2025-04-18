@@ -1,6 +1,5 @@
-import { SearchResultInterface } from '@app/entity/shared/components/styled/search/types';
-
-import { AndFilterInput, EntityType, FacetMetadata, SearchFlags } from '@types';
+import { AndFilterInput, EntityType, FacetMetadata, SearchFlags } from '../../../types.generated';
+import { SearchResultInterface } from '../../entity/shared/components/styled/search/types';
 
 /**
  * Input required to download a specific page of search results.

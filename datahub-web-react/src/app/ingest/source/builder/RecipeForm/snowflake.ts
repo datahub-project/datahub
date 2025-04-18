@@ -1,4 +1,4 @@
-import { FieldType, RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
+import { FieldType, RecipeField } from './common';
 
 export const SNOWFLAKE_ACCOUNT_ID: RecipeField = {
     name: 'account_id',

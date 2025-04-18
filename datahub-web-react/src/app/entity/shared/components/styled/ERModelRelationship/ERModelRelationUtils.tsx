@@ -1,7 +1,6 @@
-import { FormInstance } from 'antd';
 import React from 'react';
-
-import { EntityType } from '@types';
+import { FormInstance } from 'antd';
+import { EntityType } from '../../../../../../types.generated';
 
 export const EditableContext = React.createContext<FormInstance<any> | null>(null);
 export interface ERModelRelationDataType {

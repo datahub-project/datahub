@@ -1,7 +1,6 @@
-import { FilterSet } from '@app/entityV2/shared/components/styled/search/types';
-import { UnionType } from '@app/searchV2/utils/constants';
-
-import { FilterOperator, SortCriterion, SortOrder } from '@types';
+import { FilterOperator, SortCriterion, SortOrder } from '../../../../../../../../types.generated';
+import { FilterSet } from '../../../../../../../entityV2/shared/components/styled/search/types';
+import { UnionType } from '../../../../../../../searchV2/utils/constants';
 
 const MIN_QUERIES = '1';
 

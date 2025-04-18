@@ -1,12 +1,13 @@
-import { Tooltip } from '@components';
-import { Collapse, Input } from 'antd';
-import { Info } from 'phosphor-react';
 import React from 'react';
 import styled from 'styled-components';
+import { Info } from 'phosphor-react';
+import { Input, Collapse } from 'antd';
+import { Tooltip } from '@components';
 
-import { CategorySelector } from '@app/automations/fields/CategorySelector';
 import type { ComponentBaseProps } from '@app/automations/types';
+
 import RemoteExecutorPoolSelector from '@src/app/ingest/source/builder/RemoteExecutorPoolSelector.saas';
+import { CategorySelector } from '../CategorySelector';
 
 const { Panel } = Collapse;
 

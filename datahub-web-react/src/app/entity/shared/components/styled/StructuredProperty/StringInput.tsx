@@ -1,11 +1,9 @@
 import { Input } from 'antd';
 import React, { ChangeEvent } from 'react';
 import styled from 'styled-components';
-
-import MultipleOpenEndedInput from '@app/entity/shared/components/styled/StructuredProperty/MultipleOpenEndedInput';
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
-
-import { PropertyCardinality } from '@types';
+import { ANTD_GRAY_V2 } from '../../../constants';
+import { PropertyCardinality } from '../../../../../../types.generated';
+import MultipleOpenEndedInput from './MultipleOpenEndedInput';
 
 const StyledInput = styled(Input)`
     width: 75%;

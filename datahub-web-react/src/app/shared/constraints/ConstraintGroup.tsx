@@ -1,10 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import SatisfiedConstraint from '@app/shared/constraints/SatisfiedConstraint';
-import UnsatisfiedConstraint from '@app/shared/constraints/UnsatisfiedConstraint';
-
-import { Constraint as ConstraintType } from '@types';
+import { Constraint as ConstraintType } from '../../../types.generated';
+import SatisfiedConstraint from './SatisfiedConstraint';
+import UnsatisfiedConstraint from './UnsatisfiedConstraint';
 
 type Props = {
     constraints?: ConstraintType[];
@@ -28,9 +27,13 @@ export default function ConstraintGroup({ constraints }: Props) {
     return (
         <ConstraintContainer>
             <SatisfiedConstraintsContainer>
-                {satisfiedConstraints?.map((constraint) => <SatisfiedConstraint constraint={constraint} />)}
+                {satisfiedConstraints?.map((constraint) => (
+                    <SatisfiedConstraint constraint={constraint} />
+                ))}
             </SatisfiedConstraintsContainer>
-            {unsatisfiedConstraints?.map((constraint) => <UnsatisfiedConstraint constraint={constraint} />)}
+            {unsatisfiedConstraints?.map((constraint) => (
+                <UnsatisfiedConstraint constraint={constraint} />
+            ))}
         </ConstraintContainer>
     );
 }

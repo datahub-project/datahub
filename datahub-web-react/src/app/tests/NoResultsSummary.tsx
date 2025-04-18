@@ -1,11 +1,10 @@
-import { InfoCircleOutlined } from '@ant-design/icons';
-import { Popover } from '@components';
-import { Tag, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { METADATA_TESTS_DOC_URL } from '@app/tests/constants';
+import { Tag, Typography } from 'antd';
+import { Popover } from '@components';
+import { InfoCircleOutlined } from '@ant-design/icons';
+import { ANTD_GRAY } from '../entity/shared/constants';
+import { METADATA_TESTS_DOC_URL } from './constants';
 
 const Container = styled.span`
     max-width: 50px;

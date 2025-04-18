@@ -1,10 +1,9 @@
-import { Form, InputNumber } from 'antd';
 import React, { useEffect } from 'react';
+import { Form, InputNumber } from 'antd';
 import styled from 'styled-components';
-
-import { onRangeValueChange } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/field/inputs/utils';
-import { getFieldAssertionTypeKey } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/field/utils';
-import { AssertionMonitorBuilderState } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/types';
+import { AssertionMonitorBuilderState } from '../../../types';
+import { onRangeValueChange } from './utils';
+import { getFieldAssertionTypeKey } from '../utils';
 
 const StyledFormItem = styled(Form.Item)`
     width: 100px;

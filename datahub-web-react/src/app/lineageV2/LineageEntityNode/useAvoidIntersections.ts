@@ -1,9 +1,8 @@
 import { ReactFlowInstance } from '@reactflow/core/dist/esm/types';
 import { useContext, useEffect } from 'react';
 import { Node, useReactFlow } from 'reactflow';
-
-import { LINEAGE_NODE_HEIGHT, LINEAGE_NODE_WIDTH } from '@app/lineageV2/LineageEntityNode/useDisplayedColumns';
-import { LineageNode, LineageNodesContext, isTransformational } from '@app/lineageV2/common';
+import { isTransformational, LineageNode, LineageNodesContext } from '../common';
+import { LINEAGE_NODE_HEIGHT, LINEAGE_NODE_WIDTH } from './useDisplayedColumns';
 
 export default function useAvoidIntersections(id: string, expandHeight: number) {
     const { getNode, getNodes, setNodes } = useReactFlow();

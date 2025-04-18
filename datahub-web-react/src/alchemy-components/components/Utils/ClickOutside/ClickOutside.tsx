@@ -1,10 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-<<<<<<< HEAD
-
-import { ClickOutsideProps } from '@components/components/Utils/ClickOutside/types';
-=======
 import { ClickOutsideProps } from './types';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 export default function ClickOutside({
     children,

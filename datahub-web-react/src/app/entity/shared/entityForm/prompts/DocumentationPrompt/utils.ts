@@ -1,4 +1,3 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { getFieldDescriptionDetails } from '@src/app/entityV2/shared/tabs/Dataset/Schema/utils/getFieldDescriptionDetails';
 import { getAssetDescriptionDetails } from '@src/app/entityV2/shared/tabs/Documentation/utils';
 import {
@@ -7,6 +6,7 @@ import {
     FormPromptAssociation,
     SchemaField,
 } from '@src/types.generated';
+import { GenericEntityProperties } from '../../../types';
 
 export function getInitialDocumentationValues(
     entityData: GenericEntityProperties | null,

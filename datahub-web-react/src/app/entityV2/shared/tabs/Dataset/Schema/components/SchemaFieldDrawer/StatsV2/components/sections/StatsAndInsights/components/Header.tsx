@@ -1,12 +1,8 @@
 import React from 'react';
-import styled from 'styled-components';
-
-import useStatsTabContext from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/hooks/useStatsTabContext';
-import {
-    DATE_COMMA_TIME_TZ,
-    formatTimestamp,
-} from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/utils';
 import { Text } from '@src/alchemy-components';
+import styled from 'styled-components';
+import useStatsTabContext from '../../../../hooks/useStatsTabContext';
+import { DATE_COMMA_TIME_TZ, formatTimestamp } from '../../../../utils';
 
 const Container = styled.div`
     padding-bottom: 16px;

@@ -1,12 +1,11 @@
-import { Form, Input, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-
-import { CategorySelect } from '@app/tests/builder/steps/name/CategorySelect';
-import { StepProps } from '@app/tests/builder/types';
-import { DEFAULT_TEST_CATEGORY, TestCategory } from '@app/tests/constants';
-import { isCustomCategory, isSupportedCategory } from '@app/tests/utils';
+import { Form, Input, Typography } from 'antd';
 import { Button } from '@src/alchemy-components';
+import { StepProps } from '../../types';
+import { CategorySelect } from './CategorySelect';
+import { isSupportedCategory, isCustomCategory } from '../../../utils';
+import { DEFAULT_TEST_CATEGORY, TestCategory } from '../../../constants';
 
 const StyledForm = styled(Form)`
     max-width: 400px;

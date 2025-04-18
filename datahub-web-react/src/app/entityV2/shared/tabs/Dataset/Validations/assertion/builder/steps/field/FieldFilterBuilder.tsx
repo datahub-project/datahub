@@ -1,7 +1,10 @@
-import { Input, Typography } from 'antd';
 import React from 'react';
-
-import { DatasetFieldAssertionSourceType, DatasetFilter, DatasetFilterType } from '@types';
+import { Input, Typography } from 'antd';
+import {
+    DatasetFieldAssertionSourceType,
+    DatasetFilter,
+    DatasetFilterType,
+} from '../../../../../../../../../../types.generated';
 
 type Props = {
     value?: DatasetFilter | null;

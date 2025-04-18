@@ -1,7 +1,6 @@
 import { useContext, useEffect } from 'react';
-
-import { useUpdateEducationStepsAllowList } from '@app/onboarding/useUpdateEducationStepsAllowList';
-import { EducationStepsContext } from '@providers/EducationStepsContext';
+import { EducationStepsContext } from '../../providers/EducationStepsContext';
+import { useUpdateEducationStepsAllowList } from './useUpdateEducationStepsAllowList';
 
 export function useToggleEducationStepIdsAllowList(condition: boolean, id: string) {
     const { educationStepIdsAllowlist } = useContext(EducationStepsContext);

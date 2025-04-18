@@ -1,14 +1,12 @@
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import analytics, { Event, EventType } from '@app/analytics';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { getQuickFilterDetails } from '@app/search/autoComplete/quickFilters/utils';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-import { useQuickFiltersContext } from '@providers/QuickFiltersContext';
-
-import { QuickFilter as QuickFilterType } from '@types';
+import { useQuickFiltersContext } from '../../../../providers/QuickFiltersContext';
+import { QuickFilter as QuickFilterType } from '../../../../types.generated';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import { getQuickFilterDetails } from './utils';
+import { ANTD_GRAY } from '../../../entity/shared/constants';
+import analytics, { Event, EventType } from '../../../analytics';
 
 const QuickFilterWrapper = styled(Button)<{ selected: boolean }>`
     border: 1px solid ${ANTD_GRAY[4]};

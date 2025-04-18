@@ -1,15 +1,14 @@
-import { renderHook } from '@testing-library/react-hooks';
-
-import useExtractFieldTagsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldTagsInfo';
-import { pathMatchesExact, pathMatchesInsensitiveToV2 } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
 import {
-    ActionRequestType,
     EditableSchemaMetadata,
     EntityType,
     SchemaField,
     SchemaFieldDataType,
     Tag,
+    ActionRequestType,
 } from '@src/types.generated';
+import { renderHook } from '@testing-library/react-hooks';
+import { pathMatchesExact, pathMatchesInsensitiveToV2 } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
+import useExtractFieldTagsInfo from '../useExtractFieldTagsInfo';
 
 describe('useExtractFieldTagsInfo', () => {
     const testTag: Tag = {

@@ -1,4 +1,4 @@
-import { GlobalTags, SchemaField } from '@types';
+import { SchemaField, GlobalTags } from '../../../../../../types.generated';
 
 export interface ExtendedSchemaFields extends SchemaField {
     children?: Array<ExtendedSchemaFields>;

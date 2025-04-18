@@ -1,400 +1,398 @@
 extend type Query {
-  """
-  Get a subscription for an entity pair.
-  """
-  getSubscription(input: GetSubscriptionInput!): GetSubscriptionResult!
+    """
+    Get a subscription for an entity pair.
+    """
+    getSubscription(input: GetSubscriptionInput!): GetSubscriptionResult!
 
-  """
-  List an actor's subscriptions.
-  """
-  listSubscriptions(input: ListSubscriptionsInput!): ListSubscriptionsResult!
+    """
+    List an actor's subscriptions.
+    """
+    listSubscriptions(input: ListSubscriptionsInput!): ListSubscriptionsResult!
 
-  """
-  Get summary statistics of all subscriptions tied to an entity.
-  """
-  getEntitySubscriptionSummary(
-    input: GetEntitySubscriptionSummaryInput!
-  ): EntitySubscriptionSummary!
+    """
+    Get summary statistics of all subscriptions tied to an entity.
+    """
+    getEntitySubscriptionSummary(input: GetEntitySubscriptionSummaryInput!): EntitySubscriptionSummary!
 }
 
 extend type Mutation {
-  """
-  Create a subscription.
-  """
-  createSubscription(input: CreateSubscriptionInput!): DataHubSubscription!
+    """
+    Create a subscription.
+    """
+    createSubscription(input: CreateSubscriptionInput!): DataHubSubscription!
 
-  """
-  Update a subscription.
-  """
-  updateSubscription(input: UpdateSubscriptionInput!): DataHubSubscription!
+    """
+    Update a subscription.
+    """
+    updateSubscription(input: UpdateSubscriptionInput!): DataHubSubscription!
 
-  """
-  Delete a subscription.
-  """
-  deleteSubscription(input: DeleteSubscriptionInput!): Boolean!
+    """
+    Delete a subscription.
+    """
+    deleteSubscription(input: DeleteSubscriptionInput!): Boolean!
 }
 
 input GetSubscriptionInput {
-  """
-  The urn of the entity that the subscription is for.
-  """
-  entityUrn: String!
+    """
+    The urn of the entity that the subscription is for.
+    """
+    entityUrn: String!
 
-  """
-  (Optional) The group's Urn.
-  """
-  groupUrn: String
+    """
+    (Optional) The group's Urn.
+    """
+    groupUrn: String
 }
 
 input ListSubscriptionsInput {
-  """
-  (Optional) The group's Urn.
-  """
-  groupUrn: String
+    """
+    (Optional) The group's Urn.
+    """
+    groupUrn: String
 
-  """
-  (Optional) The starting offset of the result set returned. Defaults to 0.
-  """
-  start: Int
+    """
+    (Optional) The starting offset of the result set returned. Defaults to 0.
+    """
+    start: Int
 
-  """
-  (Optional) The maximum number of results to be returned. Defaults to 10.
-  """
-  count: Int
+    """
+    (Optional) The maximum number of results to be returned. Defaults to 10.
+    """
+    count: Int
 
-  """
-  (Optional) The urn of the actor that owns the subscription.
-  """
-  actorUrn: String
+    """
+    (Optional) The urn of the actor that owns the subscription.
+    """
+    actorUrn: String
 }
 
 input GetEntitySubscriptionSummaryInput {
-  """
-  The urn of the entity that the subscription is for.
-  """
-  entityUrn: String!
+    """
+    The urn of the entity that the subscription is for.
+    """
+    entityUrn: String!
 
-  """
-  The maximum number of subscriptions to return. This will be computed separately for users and groups.
-  Defaults to 100.
-  """
-  subscriptionCount: Int
+    """
+    The maximum number of subscriptions to return. This will be computed separately for users and groups.
+    Defaults to 100.
+    """
+    subscriptionCount: Int
 
-  """
-  The number of example groups to display in the summary. Defaults to 5.
-  """
-  numExampleGroups: Int @deprecated(reason: "Use `numSubscribedGroups`")
+    """
+    The number of example groups to display in the summary. Defaults to 5.
+    """
+    numExampleGroups: Int @deprecated(reason: "Use `numSubscribedGroups`")
 
-  """
-  The number of subscribed users to display in the summary. Defaults to 50.
-  """
-  numSubscribedUsers: Int
+    """
+    The number of subscribed users to display in the summary. Defaults to 50.
+    """
+    numSubscribedUsers: Int
 
-  """
-  The number of subscribed groups to display in the summary. Defaults to 5.
-  """
-  numSubscribedGroups: Int
+    """
+    The number of subscribed groups to display in the summary. Defaults to 5.
+    """
+    numSubscribedGroups: Int
 }
 
 type GetSubscriptionResult {
-  """
-  The subscription you're looking to get
-  """
-  subscription: DataHubSubscription
+    """
+    The subscription you're looking to get
+    """
+    subscription: DataHubSubscription
 
-  """
-  The privileges for this user for this subscription. Determines whether we can manage/view this subscription.
-  """
-  privileges: EntityPrivileges
+    """
+    The privileges for this user for this subscription. Determines whether we can manage/view this subscription.
+    """
+    privileges: EntityPrivileges
 }
 
 type ListSubscriptionsResult {
-  """
-  The list of subscriptions.
-  """
-  subscriptions: [DataHubSubscription!]!
+    """
+    The list of subscriptions.
+    """
+    subscriptions: [DataHubSubscription!]!
 
-  """
-  The total number of subscriptions given the input
-  """
-  total: Int!
+    """
+    The total number of subscriptions given the input
+    """
+    total: Int!
 }
 
 input CreateSubscriptionInput {
-  """
-  The urn of the entity that the subscription is for.
-  """
-  entityUrn: String!
+    """
+    The urn of the entity that the subscription is for.
+    """
+    entityUrn: String!
 
-  """
-  The subscription's types
-  """
-  subscriptionTypes: [SubscriptionType!]!
+    """
+    The subscription's types
+    """
+    subscriptionTypes: [SubscriptionType!]!
 
-  """
-  Change types that trigger a notification for the subscription.
-  """
-  entityChangeTypes: [EntityChangeDetailsInput!]!
+    """
+    Change types that trigger a notification for the subscription.
+    """
+    entityChangeTypes: [EntityChangeDetailsInput!]!
 
-  """
-  Notification configuration.
-  """
-  notificationConfig: SubscriptionNotificationConfigInput!
+    """
+    Notification configuration.
+    """
+    notificationConfig: SubscriptionNotificationConfigInput!
 
-  """
-  (Optional) Group urn. Only used for group subscriptions.
-  """
-  groupUrn: String
+    """
+    (Optional) Group urn. Only used for group subscriptions.
+    """
+    groupUrn: String
 
-  """
-  (Optional) User urn to subscribe as. Must be an admin with 'Manage User Subscriptions' privilege
-  """
-  userUrn: String
+    """
+    (Optional) User urn to subscribe as. Must be an admin with 'Manage User Subscriptions' privilege
+    """
+    userUrn: String
 }
 
 input UpdateSubscriptionInput {
-  """
-  The subscription urn.
-  """
-  subscriptionUrn: String!
+    """
+    The subscription urn.
+    """
+    subscriptionUrn: String!
 
-  """
-  (Optional) The subscription's types. Will replace existing types.
-  """
-  subscriptionTypes: [SubscriptionType]
+    """
+    (Optional) The subscription's types. Will replace existing types.
+    """
+    subscriptionTypes: [SubscriptionType]
 
-  """
-  (Optional) Change types that trigger a notification for the subscription. Will replace existing change types.
-  """
-  entityChangeTypes: [EntityChangeDetailsInput]
+    """
+    (Optional) Change types that trigger a notification for the subscription. Will replace existing change types.
+    """
+    entityChangeTypes: [EntityChangeDetailsInput]
 
-  """
-  (Optional) Notification configuration. Will replace existing notification configuration.
-  """
-  notificationConfig: SubscriptionNotificationConfigInput
+    """
+    (Optional) Notification configuration. Will replace existing notification configuration.
+    """
+    notificationConfig: SubscriptionNotificationConfigInput
 }
 
 input EntityChangeDetailsInput {
-  """
-  The change type that will trigger a notification for this subscription
-  """
-  entityChangeType: EntityChangeType!
-
-  """
-  (Optional) A filter that can be applied to exclude or include specific entity change events.
-  """
-  filter: EntityChangeDetailsFilterInput
+    """
+    The change type that will trigger a notification for this subscription
+    """
+    entityChangeType: EntityChangeType!
+    
+    """
+    (Optional) A filter that can be applied to exclude or include specific entity change events.
+    """
+    filter: EntityChangeDetailsFilterInput
 }
 
 input EntityChangeDetailsFilterInput {
-  """
-  (Optional) A list of assertion urns to inclusively filter when generating notifications.
-  Used for EntityChangeType values of ASSERTION_PASSED, ASSERTION_FAILED, ASSERTION_ERROR.
-  """
-  includeAssertions: [String!]
+    """
+    (Optional) A list of assertion urns to inclusively filter when generating notifications.
+    Used for EntityChangeType values of ASSERTION_PASSED, ASSERTION_FAILED, ASSERTION_ERROR.
+    """
+    includeAssertions: [String!]
 }
 
 input SubscriptionNotificationConfigInput {
-  """
-  (Optional) The subscription's Notification Settings.
-  """
-  notificationSettings: NotificationSettingsInput
+    """
+    (Optional) The subscription's Notification Settings.
+    """
+    notificationSettings: NotificationSettingsInput
 }
 
 input DeleteSubscriptionInput {
-  """
-  The subscription urn.
-  """
-  subscriptionUrn: String!
+    """
+    The subscription urn.
+    """
+    subscriptionUrn: String!
 }
 
+
 type DataHubSubscription {
-  """
-  The urn of the actor that owns the subscription.
-  """
-  actorUrn: String!
+    """
+    The urn of the actor that owns the subscription.
+    """
+    actorUrn: String!
 
-  """
-  The subscription's Urn.
-  """
-  subscriptionUrn: String!
+    """
+    The subscription's Urn.
+    """
+    subscriptionUrn: String!
 
-  """
-  The entity that the subscription is for.
-  """
-  entity: Entity!
+    """
+    The entity that the subscription is for.
+    """
+    entity: Entity!
 
-  """
-  The subscription's types
-  """
-  subscriptionTypes: [SubscriptionType!]!
+    """
+    The subscription's types
+    """
+    subscriptionTypes: [SubscriptionType!]!
 
-  """
-  Change types that trigger a notification for the subscription.
-  """
-  entityChangeTypes: [EntityChangeDetails!]!
+    """
+    Change types that trigger a notification for the subscription.
+    """
+    entityChangeTypes: [EntityChangeDetails!]!
 
-  """
-  Created on Audit Stamp.
-  """
-  createdOn: AuditStamp!
+    """
+    Created on Audit Stamp.
+    """
+    createdOn: AuditStamp!
 
-  """
-  Updated on Audit Stamp.
-  """
-  updatedOn: AuditStamp!
+    """
+    Updated on Audit Stamp.
+    """
+    updatedOn: AuditStamp!
 
-  """
-  Notification configuration.
-  """
-  notificationConfig: SubscriptionNotificationConfig
+    """
+    Notification configuration.
+    """
+    notificationConfig: SubscriptionNotificationConfig
 }
 
 type EntityChangeDetails {
-  """
-  The change type that will trigger a notification for this subscription
-  """
-  entityChangeType: EntityChangeType!
+    """
+    The change type that will trigger a notification for this subscription
+    """
+    entityChangeType: EntityChangeType!
 
-  """
-  (Optional) A filter that can be applied to exclude or include specific entity change events.
-  """
-  filter: EntityChangeDetailsFilter
+    """
+    (Optional) A filter that can be applied to exclude or include specific entity change events.
+    """
+    filter: EntityChangeDetailsFilter
 }
 
 type EntityChangeDetailsFilter {
-  """
-  (Optional) A list of assertion urns to inclusively filter when generating notifications.
-  Used for EntityChangeType values of ASSERTION_PASSED, ASSERTION_FAILED, ASSERTION_ERROR.
-  """
-  includeAssertions: [String!]
+    """
+    (Optional) A list of assertion urns to inclusively filter when generating notifications.
+    Used for EntityChangeType values of ASSERTION_PASSED, ASSERTION_FAILED, ASSERTION_ERROR.
+    """
+    includeAssertions: [String!]
 }
 
 enum SubscriptionType {
-  """
-  Triggered via direct changes on an entity.
-  """
-  ENTITY_CHANGE
+    """
+    Triggered via direct changes on an entity.
+    """
+    ENTITY_CHANGE
 
-  """
-  Triggered via changes on an entity's upstream dependencies.
-  """
-  UPSTREAM_ENTITY_CHANGE
+    """
+    Triggered via changes on an entity's upstream dependencies.
+    """
+    UPSTREAM_ENTITY_CHANGE
 }
 
 enum EntityChangeType {
-  """
-  .
-  Schema changes
-  """
-  OPERATION_COLUMN_ADDED
-  OPERATION_COLUMN_REMOVED
-  OPERATION_COLUMN_MODIFIED
+    """.
+    Schema changes
+    """
+    OPERATION_COLUMN_ADDED
+    OPERATION_COLUMN_REMOVED
+    OPERATION_COLUMN_MODIFIED
 
-  """
-  Operational metadata changes.
-  """
-  OPERATION_ROWS_INSERTED
-  OPERATION_ROWS_UPDATED
-  OPERATION_ROWS_REMOVED
+    """
+    Operational metadata changes.
+    """
+    OPERATION_ROWS_INSERTED
+    OPERATION_ROWS_UPDATED
+    OPERATION_ROWS_REMOVED
 
-  """
-  Assertion status changes.
-  """
-  ASSERTION_PASSED
-  ASSERTION_FAILED
-  ASSERTION_ERROR
+    """
+    Assertion status changes.
+    """
+    ASSERTION_PASSED
+    ASSERTION_FAILED
+    ASSERTION_ERROR
 
-  """
-  Incident status changes.
-  """
-  INCIDENT_RAISED
-  INCIDENT_RESOLVED
+    """
+    Incident status changes.
+    """
+    INCIDENT_RAISED
+    INCIDENT_RESOLVED
 
-  """
-  Test status changes.
-  """
-  TEST_PASSED
-  TEST_FAILED
+    """
+    Test status changes.
+    """
+    TEST_PASSED
+    TEST_FAILED
 
-  """
-  Deprecation status changes.
-  """
-  DEPRECATED
-  UNDEPRECATED
+    """
+    Deprecation status changes.
+    """
+    DEPRECATED
+    UNDEPRECATED
 
-  """
-  Ingestion status changes.
-  """
-  INGESTION_SUCCEEDED
-  INGESTION_FAILED
+    """
+    Ingestion status changes.
+    """
+    INGESTION_SUCCEEDED
+    INGESTION_FAILED
 
-  """
-  Documentation changes. Added, removed, or proposed.
-  """
-  DOCUMENTATION_CHANGE
+    """
+    Documentation changes. Added, removed, or proposed.
+    """
+    DOCUMENTATION_CHANGE
 
-  """
-  Ownership changes. Added or removed.
-  """
-  OWNER_ADDED
-  OWNER_REMOVED
+    """
+    Ownership changes. Added or removed.
+    """
+    OWNER_ADDED
+    OWNER_REMOVED
 
-  """
-  Glossary term changes. Added, removed, or proposed.
-  """
-  GLOSSARY_TERM_ADDED
-  GLOSSARY_TERM_REMOVED
-  GLOSSARY_TERM_PROPOSED
+    """
+    Glossary term changes. Added, removed, or proposed.
+    """
+    GLOSSARY_TERM_ADDED
+    GLOSSARY_TERM_REMOVED
+    GLOSSARY_TERM_PROPOSED
 
-  """
-  Tag changes. Added, removed, or proposed.
-  """
-  TAG_ADDED
-  TAG_REMOVED
-  TAG_PROPOSED
+    """
+    Tag changes. Added, removed, or proposed.
+    """
+    TAG_ADDED
+    TAG_REMOVED
+    TAG_PROPOSED
 }
 
 type SubscriptionNotificationConfig {
-  """
-  (Optional) The subscription's Notification Settings.
-  """
-  notificationSettings: NotificationSettings
+    """
+    (Optional) The subscription's Notification Settings.
+    """
+    notificationSettings: NotificationSettings
 }
 
 type EntitySubscriptionSummary {
-  """
-  Whether the user is subscribed to the entity.
-  """
-  isUserSubscribed: Boolean!
+    """
+    Whether the user is subscribed to the entity.
+    """
+    isUserSubscribed: Boolean!
 
-  """
-  Whether the user belongs to a group that is subscribed to the entity.
-  """
-  isUserSubscribedViaGroup: Boolean!
+    """
+    Whether the user belongs to a group that is subscribed to the entity.
+    """
+    isUserSubscribedViaGroup: Boolean!
 
-  """
-  The number of user subscriptions for the entity.
-  """
-  userSubscriptionCount: Int!
+    """
+    The number of user subscriptions for the entity.
+    """
+    userSubscriptionCount: Int!
 
-  """
-  The number of group subscriptions for the entity.
-  """
-  groupSubscriptionCount: Int!
+    """
+    The number of group subscriptions for the entity.
+    """
+    groupSubscriptionCount: Int!
 
-  """
-  Some of the groups that have subscriptions for the entity. Default count is 5.
-  """
-  exampleGroups: [CorpGroup!]! @deprecated(reason: "Use `subscribedGroups`")
+    """
+    Some of the groups that have subscriptions for the entity. Default count is 5.
+    """
+    exampleGroups: [CorpGroup!]! @deprecated(reason: "Use `subscribedGroups`")
 
-  """
-  Some of the groups that have subscriptions for the entity. Default count is 5.
-  """
-  subscribedGroups: [CorpGroup!]!
+    """
+    Some of the groups that have subscriptions for the entity. Default count is 5.
+    """
+    subscribedGroups: [CorpGroup!]!
 
-  """
-  Some of the users that have subscriptions for the entity. Default count is 150.
-  """
-  subscribedUsers: [CorpUser!]!
+    """
+    Some of the users that have subscriptions for the entity. Default count is 150.
+    """
+    subscribedUsers: [CorpUser!]!
 }

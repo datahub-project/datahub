@@ -1,22 +1,26 @@
-import { Add, Delete } from '@mui/icons-material';
-import { Select } from 'antd';
 import React, { useEffect, useMemo } from 'react';
+
+import { Delete, Add } from '@mui/icons-material';
+import { Select } from 'antd';
 import uniqid from 'uniqid';
 
-import { ACTION_TYPES } from '@app/automations/fields/CustomActionSelector/action';
+import { PrimaryButton, TextButton, DeleteButton, SuccessIcon, FailureIcon } from '@app/automations/sharedComponents';
+import { SelectInputMode } from '../types/values';
+
 import {
+    EmptyStateContainer,
+    CustomActionsContainer,
+    CustomActionBuilderContainer,
+    BuilderGroupContainer,
+    BuilderGroupHeader,
     ActionGroupContainer,
     ActionSelectorContainer,
     ActionsButtonContainer,
-    BuilderGroupContainer,
-    BuilderGroupHeader,
-    CustomActionBuilderContainer,
-    CustomActionsContainer,
-    EmptyStateContainer,
-} from '@app/automations/fields/CustomActionSelector/components';
-import { EntityTypeSelector } from '@app/automations/fields/EntityTypeSelector';
-import { SelectInputMode } from '@app/automations/fields/types/values';
-import { DeleteButton, FailureIcon, PrimaryButton, SuccessIcon, TextButton } from '@app/automations/sharedComponents';
+} from './components';
+
+import { EntityTypeSelector } from '../EntityTypeSelector';
+
+import { ACTION_TYPES } from './action';
 
 type Action = {
     id: number;

@@ -1,9 +1,8 @@
-import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
-
-import { RecommendedFilter } from '@app/searchV2/recommendation/types';
-import { getFilterColor } from '@app/searchV2/recommendation/utils';
+import { Tooltip } from '@components';
+import { RecommendedFilter } from './types';
+import { getFilterColor } from './utils';
 
 const Pill = styled.div<{ color: string }>`
     border-radius: 20px;

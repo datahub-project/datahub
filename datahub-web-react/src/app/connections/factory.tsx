@@ -1,10 +1,10 @@
 import React from 'react';
 
-import { ConnectionCreateButton } from '@app/connections/components/CreateButton';
-import { ConnectionForm } from '@app/connections/components/Form';
-import { ConnectionLogo } from '@app/connections/components/Logo';
-import { ConnectionSelectOrCreate } from '@app/connections/components/SelectOrCreate';
-import { ConnectionsTable } from '@app/connections/components/Table';
+import { ConnectionLogo } from './components/Logo';
+import { ConnectionCreateButton } from './components/CreateButton';
+import { ConnectionsTable } from './components/Table';
+import { ConnectionSelectOrCreate } from './components/SelectOrCreate';
+import { ConnectionForm } from './components/Form';
 
 // Component Factory without repeated withContext calls
 export const buildComponents = (constants) => {

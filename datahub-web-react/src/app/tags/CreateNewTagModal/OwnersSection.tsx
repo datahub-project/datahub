@@ -1,16 +1,3 @@
-<<<<<<< HEAD
-import { Text } from '@components';
-import { Select } from 'antd';
-import React, { useState } from 'react';
-import styled from 'styled-components';
-
-import { OwnerLabel } from '@app/shared/OwnerLabel';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
-import { useGetSearchResultsForMultipleLazyQuery } from '@graphql/search.generated';
-import { EntityType, OwnerEntityType } from '@types';
-=======
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Select } from 'antd';
@@ -20,7 +7,6 @@ import { useGetSearchResultsForMultipleLazyQuery } from '../../../graphql/search
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { useListOwnershipTypesQuery } from '../../../graphql/ownership.generated';
 import { OwnerLabel } from '../../shared/OwnerLabel';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 // Interface for pending owner
 export interface PendingOwner {

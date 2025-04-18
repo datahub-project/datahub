@@ -1,7 +1,6 @@
-import { Typography } from 'antd';
 import styled from 'styled-components';
-
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { Typography } from 'antd';
+import { REDESIGN_COLORS } from '../../../../constants';
 
 export const RelativeTime = styled.div<{ relativeTimeColor: string }>`
     display: flex;

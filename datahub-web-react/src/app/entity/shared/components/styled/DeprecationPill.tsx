@@ -1,18 +1,16 @@
-import { blue } from '@ant-design/colors';
-import { InfoCircleOutlined } from '@ant-design/icons';
-import { Popover, Tooltip } from '@components';
-import { Divider, Modal, Typography, message } from 'antd';
-import moment from 'moment';
 import React, { useState } from 'react';
+import { InfoCircleOutlined } from '@ant-design/icons';
+import { Divider, message, Modal, Typography } from 'antd';
+import { Tooltip, Popover } from '@components';
+import { blue } from '@ant-design/colors';
 import styled from 'styled-components';
-
-import StripMarkdownText, { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
-import { getLocaleTimezone } from '@app/shared/time/timeUtils';
-
-import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated';
-import { Deprecation } from '@types';
+import moment from 'moment';
+import { Deprecation } from '../../../../../types.generated';
+import { getLocaleTimezone } from '../../../../shared/time/timeUtils';
+import { ANTD_GRAY } from '../../constants';
+import { useBatchUpdateDeprecationMutation } from '../../../../../graphql/mutations.generated';
+import { Editor } from '../../tabs/Documentation/components/editor/Editor';
+import StripMarkdownText, { removeMarkdown } from './StripMarkdownText';
 
 const DeprecatedContainer = styled.div`
     height: 18px;

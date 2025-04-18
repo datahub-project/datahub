@@ -1,14 +1,12 @@
 import { Image, Row, Space, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import MarkdownViewer from '@app/entity/shared/components/legacy/MarkdownViewer';
-import CompactContext from '@app/shared/CompactContext';
-import { AvatarsGroup } from '@app/shared/avatar';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { MlFeatureTable } from '@types';
+import { MlFeatureTable } from '../../../../types.generated';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import CompactContext from '../../../shared/CompactContext';
+import { AvatarsGroup } from '../../../shared/avatar';
+import MarkdownViewer from '../../shared/components/legacy/MarkdownViewer';
+import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
 
 const HeaderInfoItem = styled.div`
     display: inline-block;

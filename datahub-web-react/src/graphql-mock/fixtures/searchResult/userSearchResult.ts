@@ -1,7 +1,7 @@
 /* eslint-disable prefer-object-spread */
-import { UserEntityArg, userEntity } from '@graphql-mock/fixtures/entity/userEntity';
-import { generateData } from '@graphql-mock/fixtures/searchResult/dataGenerator';
-import { CorpUser, SearchResult, SearchResults } from '@types';
+import { CorpUser, SearchResult, SearchResults } from '../../../types.generated';
+import { userEntity, UserEntityArg } from '../entity/userEntity';
+import { generateData } from './dataGenerator';
 
 // login with one of these usernames
 const usernames = ['kafka', 'looker', 'datahub'];

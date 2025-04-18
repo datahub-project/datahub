@@ -1,8 +1,4 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
-
-import { SCHEMA_FIELD_PROMPT_TYPES } from '@app/entity/shared/entityForm/constants';
-import { GenericEntityProperties } from '@app/entity/shared/types';
-
 import {
     FieldFormPromptAssociation,
     Form,
@@ -13,7 +9,9 @@ import {
     FormType,
     ResolvedAuditStamp,
     SchemaField,
-} from '@types';
+} from '../../../../../../../types.generated';
+import { SCHEMA_FIELD_PROMPT_TYPES } from '../../../../entityForm/constants';
+import { GenericEntityProperties } from '../../../../types';
 
 export function getFormAssociations(entityData: GenericEntityProperties | null) {
     return [...(entityData?.forms?.incompleteForms || []), ...(entityData?.forms?.completedForms || [])].filter(

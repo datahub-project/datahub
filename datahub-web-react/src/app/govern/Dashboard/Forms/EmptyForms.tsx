@@ -1,8 +1,7 @@
 import { Text } from '@components';
-import React from 'react';
-
-import { EmptyContainer } from '@app/govern/Dashboard/Forms/styledComponents';
 import EmptyFormsImage from '@src/images/empty-forms.svg?react';
+import React from 'react';
+import { EmptyContainer } from './styledComponents';
 
 interface Props {
     isEmptySearch?: boolean;

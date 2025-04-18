@@ -1,6 +1,5 @@
-import styled from 'styled-components';
-
 import colors from '@src/alchemy-components/theme/foundations/colors';
+import styled from 'styled-components';
 
 export const Title = styled.div`
     color: ${colors.gray[1700]};

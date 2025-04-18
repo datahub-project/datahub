@@ -1,4 +1,4 @@
-import { PostContentType } from '@types';
+import { PostContentType } from '../../../types.generated';
 
 export const TITLE_FIELD_NAME = 'title';
 export const DESCRIPTION_FIELD_NAME = 'description';

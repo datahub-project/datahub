@@ -1,11 +1,14 @@
 import { MockedProvider } from '@apollo/client/testing';
 import { render } from '@testing-library/react';
 import React from 'react';
-
-import DomainAssociationRequestItem from '@app/actionrequest/item/DomainAssociationRequestItem';
-import TestPageContainer from '@utils/test-utils/TestPageContainer';
-
-import { ActionRequest, ActionRequestOrigin, ActionRequestStatus, ActionRequestType } from '@types';
+import {
+    ActionRequest,
+    ActionRequestOrigin,
+    ActionRequestStatus,
+    ActionRequestType,
+} from '../../../../types.generated';
+import TestPageContainer from '../../../../utils/test-utils/TestPageContainer';
+import DomainAssociationRequestItem from '../DomainAssociationRequestItem';
 
 describe('DomainAsssociationRequestItem', () => {
     const defaultProps = {

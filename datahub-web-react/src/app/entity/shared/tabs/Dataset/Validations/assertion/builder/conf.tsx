@@ -1,13 +1,12 @@
-import { ConfigureDatasetFieldAssertionStep } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/ConfigureDatasetFieldAssertionStep';
-import { ConfigureDatasetFreshnessAssertionStep } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/ConfigureDatasetFreshnessAssertionStep';
-import { ConfigureDatasetSchemaAssertionStep } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/ConfigureDatasetSchemaAssertionStep';
-import { ConfigureDatasetSqlAssertionStep } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/ConfigureDatasetSqlAssertionStep';
-import { ConfigureDatasetVolumeAssertionStep } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/ConfigureDatasetVolumeAssertionStep';
-import { FinishUpStep } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/FinishUpStep';
-import { SelectTypeStep } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/SelectTypeStep';
-import { AssertionBuilderStep } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/types';
-
-import { AssertionType } from '@types';
+import { SelectTypeStep } from './steps/SelectTypeStep';
+import { ConfigureDatasetFreshnessAssertionStep } from './steps/ConfigureDatasetFreshnessAssertionStep';
+import { ConfigureDatasetVolumeAssertionStep } from './steps/ConfigureDatasetVolumeAssertionStep';
+import { ConfigureDatasetSqlAssertionStep } from './steps/ConfigureDatasetSqlAssertionStep';
+import { AssertionType } from '../../../../../../../../types.generated';
+import { AssertionBuilderStep } from './types';
+import { ConfigureDatasetFieldAssertionStep } from './steps/ConfigureDatasetFieldAssertionStep';
+import { FinishUpStep } from './steps/FinishUpStep';
+import { ConfigureDatasetSchemaAssertionStep } from './steps/ConfigureDatasetSchemaAssertionStep';
 
 /**
  * Mapping from the step type to the component implementing that step.

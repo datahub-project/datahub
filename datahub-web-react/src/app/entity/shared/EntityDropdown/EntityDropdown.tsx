@@ -1,5 +1,8 @@
-import { Tooltip } from '@components';
+import React, { useState } from 'react';
+import styled from 'styled-components';
 import { Button, Dropdown, Menu, message } from 'antd';
+import { Tooltip } from '@components';
+import { Redirect, useHistory } from 'react-router';
 import {
     Copy,
     CopySimple,
@@ -11,33 +14,23 @@ import {
     Trash,
     Warning,
 } from 'phosphor-react';
-import React, { useState } from 'react';
-import { Redirect, useHistory } from 'react-router';
-import styled from 'styled-components';
-
-import { useUserContext } from '@app/context/useUserContext';
-import CreateGlossaryEntityModal from '@app/entity/shared/EntityDropdown/CreateGlossaryEntityModal';
-import MoveDomainModal from '@app/entity/shared/EntityDropdown/MoveDomainModal';
-import MoveGlossaryEntityModal from '@app/entity/shared/EntityDropdown/MoveGlossaryEntityModal';
-import { UpdateDeprecationModal } from '@app/entity/shared/EntityDropdown/UpdateDeprecationModal';
-import useDeleteEntity from '@app/entity/shared/EntityDropdown/useDeleteEntity';
-import {
-    isDeleteDisabled,
-    isMoveDisabled,
-    shouldDisplayChildDeletionWarning,
-} from '@app/entity/shared/EntityDropdown/utils';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
-import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
-import { AddIncidentModal } from '@app/entity/shared/tabs/Incident/components/AddIncidentModal';
-import { getEntityProfileDeleteRedirectPath } from '@app/shared/deleteUtils';
-import { useIsNestedDomainsEnabled } from '@app/useAppConfig';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { useUpdateDeprecationMutation } from '@graphql/mutations.generated';
-import { EntityType } from '@types';
-
-import DeprecatedIcon from '@images/deprecated-status.svg?react';
+import { EntityType } from '../../../../types.generated';
+import CreateGlossaryEntityModal from './CreateGlossaryEntityModal';
+import { UpdateDeprecationModal } from './UpdateDeprecationModal';
+import { useUpdateDeprecationMutation } from '../../../../graphql/mutations.generated';
+import MoveGlossaryEntityModal from './MoveGlossaryEntityModal';
+import { ANTD_GRAY } from '../constants';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import useDeleteEntity from './useDeleteEntity';
+import { getEntityProfileDeleteRedirectPath } from '../../../shared/deleteUtils';
+import { shouldDisplayChildDeletionWarning, isDeleteDisabled, isMoveDisabled } from './utils';
+import { useUserContext } from '../../../context/useUserContext';
+import MoveDomainModal from './MoveDomainModal';
+import { useIsNestedDomainsEnabled } from '../../../useAppConfig';
+import { getEntityPath } from '../containers/profile/utils';
+import { useIsSeparateSiblingsMode } from '../siblingUtils';
+import { AddIncidentModal } from '../tabs/Incident/components/AddIncidentModal';
+import DeprecatedIcon from '../../../../images/deprecated-status.svg?react';
 
 export enum EntityMenuItems {
     COPY_URL,

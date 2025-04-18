@@ -1,14 +1,7 @@
-<<<<<<< HEAD
-=======
 import React, { useMemo, useCallback } from 'react';
 import { NestedSelect } from '@src/alchemy-components/components/Select/Nested/NestedSelect';
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 import capitalize from 'lodash/capitalize';
-import React, { useCallback, useMemo } from 'react';
-
-import { NestedSelect } from '@src/alchemy-components/components/Select/Nested/NestedSelect';
-import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 
 interface FilterOption {
     name: string;

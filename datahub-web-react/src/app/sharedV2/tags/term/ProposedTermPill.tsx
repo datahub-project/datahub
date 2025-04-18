@@ -1,14 +1,13 @@
-import { Tag } from 'antd';
+import { colors } from '@src/alchemy-components';
+import ProposedIcon from '@src/app/entityV2/shared/sidebarSection/ProposedIcon';
+import { EntityType, GlossaryTerm } from '@src/types.generated';
 import React from 'react';
 import styled from 'styled-components';
-
-import { TermRibbon } from '@app/sharedV2/tags/term/TermContent';
-import { colors } from '@src/alchemy-components';
+import { Tag } from 'antd';
 import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
-import ProposedIcon from '@src/app/entityV2/shared/sidebarSection/ProposedIcon';
-import { generateColorFromPalette } from '@src/app/glossaryV2/colorUtils';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { EntityType, GlossaryTerm } from '@src/types.generated';
+import { generateColorFromPalette } from '@src/app/glossaryV2/colorUtils';
+import { TermRibbon } from './TermContent';
 
 const TermContainer = styled.div<{ $isApproved?: boolean }>`
     display: flex;

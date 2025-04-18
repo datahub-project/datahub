@@ -1,5 +1,5 @@
-import { findDataJobByURN } from '@graphql-mock/fixtures/searchResult/dataJobSearchResult';
-import { DataJob } from '@types';
+import { DataJob } from '../../types.generated';
+import { findDataJobByURN } from '../fixtures/searchResult/dataJobSearchResult';
 
 type GetJobFlow = {
     data: { dataJob: DataJob };

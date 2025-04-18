@@ -1,20 +1,7 @@
 import { Typography } from 'antd';
-import DOMPurify from 'dompurify';
 import React, { useState } from 'react';
-import { useHistory } from 'react-router';
-<<<<<<< HEAD
 import styled from 'styled-components/macro';
-
-import { useRouteToTab } from '@app/entity/shared/EntityContext';
-import MarkdownViewer, { MarkdownView } from '@app/entity/shared/components/legacy/MarkdownViewer';
-import NoMarkdownViewer, { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { useIsOnTab } from '@app/entity/shared/containers/profile/utils';
-import CompactContext from '@app/shared/CompactContext';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { EntityType } from '@types';
-=======
+import { useHistory } from 'react-router';
 import DOMPurify from 'dompurify';
 import CompactContext from '../../../../../../shared/CompactContext';
 import MarkdownViewer, { MarkdownView } from '../../../../components/legacy/MarkdownViewer';
@@ -24,7 +11,6 @@ import { useIsOnTab } from '../../utils';
 import { ANTD_GRAY } from '../../../../constants';
 import { EntityType } from '../../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const ABBREVIATED_LIMIT = 150;
 

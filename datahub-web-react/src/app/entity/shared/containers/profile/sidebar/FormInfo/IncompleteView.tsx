@@ -1,19 +1,11 @@
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import OptionalPromptsRemaining from '@app/entity/shared/containers/profile/sidebar/FormInfo/OptionalPromptsRemaining';
-import RequiredPromptsRemaining from '@app/entity/shared/containers/profile/sidebar/FormInfo/RequiredPromptsRemaining';
-import {
-    CTAWrapper,
-    FlexWrapper,
-    StyledIcon,
-    StyledReadFilled,
-    Title,
-} from '@app/entity/shared/containers/profile/sidebar/FormInfo/components';
-
-import PurpleVerificationLogo from '@images/verificationPurple.svg?react';
-import GrayVerificationIcon from '@images/verificationWarningGray.svg?react';
+import PurpleVerificationLogo from '../../../../../../../images/verificationPurple.svg?react';
+import GrayVerificationIcon from '../../../../../../../images/verificationWarningGray.svg?react';
+import { CTAWrapper, FlexWrapper, StyledIcon, StyledReadFilled, Title } from './components';
+import OptionalPromptsRemaining from './OptionalPromptsRemaining';
+import RequiredPromptsRemaining from './RequiredPromptsRemaining';
 
 const StyledButton = styled(Button)`
     width: 100%;

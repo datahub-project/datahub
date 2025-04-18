@@ -1,13 +1,11 @@
+import { Button, message, Select } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
-import { Button, Select, message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-
-import { SchemaFieldDataType } from '@app/businessAttribute/businessAttributeUtils';
-import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
-import { SidebarHeader } from '@app/entity/shared/containers/profile/sidebar/SidebarHeader';
-
-import { useUpdateBusinessAttributeMutation } from '@graphql/businessAttribute.generated';
+import { useEntityData, useRefetch } from '../../shared/EntityContext';
+import { SidebarHeader } from '../../shared/containers/profile/sidebar/SidebarHeader';
+import { useUpdateBusinessAttributeMutation } from '../../../../graphql/businessAttribute.generated';
+import { SchemaFieldDataType } from '../../../businessAttribute/businessAttributeUtils';
 
 interface Props {
     readOnly?: boolean;

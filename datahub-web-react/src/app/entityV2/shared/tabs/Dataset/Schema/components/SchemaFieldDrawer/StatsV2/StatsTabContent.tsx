@@ -1,13 +1,12 @@
 import React from 'react';
 import styled from 'styled-components';
-
-import { StatsProps } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsSidebarView';
-import { StatsTabContextProvider } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/StatsTabContext';
-import Loading from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/components/Loading';
-import NoStats from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/components/NoStats';
-import ChartsSection from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/components/sections/ChartsSection/ChartsSection';
-import SamplesSection from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/components/sections/Samples/SamplesSection';
-import StatsAndInsightsSection from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/components/sections/StatsAndInsights/StatsAndInsightsSection';
+import { StatsProps } from '../StatsSidebarView';
+import Loading from './components/Loading';
+import NoStats from './components/NoStats';
+import SamplesSection from './components/sections/Samples/SamplesSection';
+import StatsAndInsightsSection from './components/sections/StatsAndInsights/StatsAndInsightsSection';
+import { StatsTabContextProvider } from './StatsTabContext';
+import ChartsSection from './components/sections/ChartsSection/ChartsSection';
 
 const Container = styled.div`
     display: flex;

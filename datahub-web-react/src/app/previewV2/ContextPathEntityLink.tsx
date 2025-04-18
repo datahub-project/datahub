@@ -2,14 +2,12 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import ContextPathEntityIcon from '@app/previewV2/ContextPathEntityIcon';
-import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-import { colors } from '@src/alchemy-components';
-
 import { Entity } from '@types';
+import { colors } from '@src/alchemy-components';
+import { REDESIGN_COLORS } from '../entityV2/shared/constants';
+import { useEntityRegistry } from '../useEntityRegistry';
+import ContextPathEntityIcon from './ContextPathEntityIcon';
+import { useEmbeddedProfileLinkProps } from '../shared/useEmbeddedProfileLinkProps';
 
 const Path = styled.div`
     white-space: nowrap;

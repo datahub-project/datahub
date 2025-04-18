@@ -1,8 +1,7 @@
-import DOMPurify from 'dompurify';
-
 import { tryExtractSubResourceDescription } from '@src/app/entityV2/shared/utils';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { ActionRequest, EntityType, SubResourceType } from '@src/types.generated';
+import DOMPurify from 'dompurify';
 
 export const useGetEntityNameFromActionRequest = (actionRequest: ActionRequest) => {
     const entityRegistry = useEntityRegistry();

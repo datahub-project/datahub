@@ -1,21 +1,19 @@
-import { Button, Divider, Modal, Tag, Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { Button, Divider, Modal, Tag, Typography } from 'antd';
 import styled from 'styled-components';
-
-import AvatarsGroup from '@app/permissions/AvatarsGroup';
-import { RESOURCE_TYPE, RESOURCE_URN, TYPE, URN } from '@app/permissions/policy/constants';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { Maybe, Policy, PolicyMatchCondition, PolicyState, PolicyType } from '../../../types.generated';
+import { useAppConfig } from '../../useAppConfig';
 import {
     convertLegacyResourceFilter,
-    getFieldCondition,
     getFieldValues,
+    getFieldCondition,
     mapResourceTypeToDisplayName,
-} from '@app/permissions/policy/policyUtils';
-import { SpacedAvatarGroup } from '@app/shared/avatar/SpaceAvatarGroup';
-import { useAppConfig } from '@app/useAppConfig';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { Maybe, Policy, PolicyMatchCondition, PolicyState, PolicyType } from '@types';
+} from './policyUtils';
+import AvatarsGroup from '../AvatarsGroup';
+import { RESOURCE_TYPE, RESOURCE_URN, TYPE, URN } from './constants';
+import { SpacedAvatarGroup } from '../../shared/avatar/SpaceAvatarGroup';
 
 type PrivilegeOptionType = {
     type?: string;
@@ -129,7 +127,11 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
         }
         if ((actors?.resolvedOwnershipTypes?.length ?? 0) > 0) {
             return (
-                <div>{actors?.resolvedOwnershipTypes?.map((type) => <PoliciesTag>{type.info.name}</PoliciesTag>)}</div>
+                <div>
+                    {actors?.resolvedOwnershipTypes?.map((type) => (
+                        <PoliciesTag>{type.info.name}</PoliciesTag>
+                    ))}
+                </div>
             );
         }
         return <PoliciesTag>Yes - All owners</PoliciesTag>;

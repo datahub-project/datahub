@@ -1,6 +1,5 @@
-import React, { TableHTMLAttributes } from 'react';
-
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
+import React, { TableHTMLAttributes } from 'react';
 
 export interface Column<T> {
     title: string | React.ReactNode;

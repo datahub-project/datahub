@@ -1,12 +1,7 @@
 import React from 'react';
-
-import { SearchListInsightCard } from '@app/homeV2/content/tabs/discovery/sections/insight/cards/SearchListInsightCard';
-import {
-    buildMostViewedDashboardsFilter,
-    buildMostViewedDashboardsSort,
-} from '@app/homeV2/content/tabs/discovery/sections/insight/cards/useGetMostViewedDashboards';
-
-import { EntityType } from '@types';
+import { EntityType } from '../../../../../../../../types.generated';
+import { SearchListInsightCard } from './SearchListInsightCard';
+import { buildMostViewedDashboardsFilter, buildMostViewedDashboardsSort } from './useGetMostViewedDashboards';
 
 export const MOST_VIEWED_DASHBOARDS_ID = 'MostViewedDashboards';
 

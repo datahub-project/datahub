@@ -28,7 +28,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  IMAGE: "795586375822.dkr.ecr.us-west-2.amazonaws.com/acryl-private-smoke-tests"
+  IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/acryl-private-smoke-tests'
 
 jobs:
   setup:

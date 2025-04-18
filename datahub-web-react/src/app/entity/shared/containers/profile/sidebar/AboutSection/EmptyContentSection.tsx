@@ -1,11 +1,10 @@
-import { EditOutlined } from '@ant-design/icons';
 import { Button, Typography } from 'antd';
+import { EditOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
-
-import { useRefetch, useRouteToTab } from '@app/entity/shared/EntityContext';
-import { AddLinkModal } from '@app/entity/shared/components/styled/AddLinkModal';
-import { EMPTY_MESSAGES } from '@app/entity/shared/constants';
+import { useRefetch, useRouteToTab } from '../../../../EntityContext';
+import { EMPTY_MESSAGES } from '../../../../constants';
+import { AddLinkModal } from '../../../../components/styled/AddLinkModal';
 
 const EmptyContentWrapper = styled.div`
     margin-bottom: 5px;

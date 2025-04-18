@@ -1,7 +1,6 @@
-import { RightOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { RightOutlined } from '@ant-design/icons';
+import { ANTD_GRAY } from '../entity/shared/constants';
 
 export const ContextPathSeparator = styled(RightOutlined)`
     color: ${ANTD_GRAY[6]};

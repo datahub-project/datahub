@@ -1,8 +1,7 @@
 // CheckboxGroup.tsx
 import React, { ReactNode } from 'react';
 import styled from 'styled-components';
-
-import { Checkbox } from '@components/components/Checkbox';
+import { Checkbox } from '../Checkbox';
 
 const StyledCheckboxLabel = styled.div`
     display: flex;

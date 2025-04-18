@@ -1,9 +1,8 @@
 import { PlusOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
-
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { Card } from '@app/sharedV2/cards/components';
+import { Card } from '../../sharedV2/cards/components';
+import { REDESIGN_COLORS } from '../shared/constants';
 
 const DataProductTitle = styled.div`
     font-size: 16px;

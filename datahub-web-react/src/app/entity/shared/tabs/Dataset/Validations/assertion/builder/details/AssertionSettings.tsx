@@ -1,33 +1,35 @@
-import { Tooltip } from '@components';
-import { Button, Form } from 'antd';
 import React, { useState } from 'react';
-import styled from 'styled-components';
 
-import { useConnectionWithRunAssertionCapabilitiesForEntityExists } from '@app/entity/shared/tabs/Dataset/Validations/acrylUtils';
-import { AssertionSettingsHeader } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/details/AssertionSettingsHeader';
-import { EditButton } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/details/EditButton';
-import { SaveButton } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/details/SaveButton';
-import { AssertionActionsSection } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/actions/AssertionActionsSection';
-import { FieldAssertionBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/field/FieldAssertionBuilder';
-import { DatasetFreshnessAssertionBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/freshness/DatasetFreshnessAssertionBuilder';
-import { SchemaAssertionBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/schema/SchemaAssertionBuilder';
-import { SqlAssertionBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/sql/SqlAssertionBuilder';
-import { useTestAssertionModal } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/utils';
-import { VolumeAssertionBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/volume/VolumeAssertionBuilder';
-import { AssertionMonitorBuilderState } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/types';
-import { useUpdateAssertionMetadataWithBuilderState } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/useUpdateAssertionMetadata';
-import { useUpsertAssertionMonitor } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/useUpsertAssertionMonitor';
+import { Button, Form } from 'antd';
+import { Tooltip } from '@components';
+import styled from 'styled-components';
 import {
-    createAssertionMonitorBuilderState,
-    getAssertionInput,
-} from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/utils';
+    Assertion,
+    AssertionType,
+    Monitor,
+    Entity,
+    AssertionSourceType,
+} from '../../../../../../../../../types.generated';
+import { EditButton } from './EditButton';
+import { AssertionSettingsHeader } from './AssertionSettingsHeader';
+import { AssertionMonitorBuilderState } from '../types';
+import { createAssertionMonitorBuilderState, getAssertionInput } from '../utils';
+import { SaveButton } from './SaveButton';
+import { useUpsertAssertionMonitor } from '../useUpsertAssertionMonitor';
+import { useUpdateAssertionMetadataWithBuilderState } from '../useUpdateAssertionMetadata';
+import { SqlAssertionBuilder } from '../steps/sql/SqlAssertionBuilder';
+import { DatasetFreshnessAssertionBuilder } from '../steps/freshness/DatasetFreshnessAssertionBuilder';
+import { VolumeAssertionBuilder } from '../steps/volume/VolumeAssertionBuilder';
+import { FieldAssertionBuilder } from '../steps/field/FieldAssertionBuilder';
 import {
     AssertionEditabilityScopeType,
     getAssertionEditabilityType,
-} from '@app/entity/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/assertionUtils';
-import { TestAssertionModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/preview/TestAssertionModal';
-
-import { Assertion, AssertionSourceType, AssertionType, Entity, Monitor } from '@types';
+} from '../../profile/summary/shared/assertionUtils';
+import { AssertionActionsSection } from '../steps/actions/AssertionActionsSection';
+import { SchemaAssertionBuilder } from '../steps/schema/SchemaAssertionBuilder';
+import { useConnectionWithRunAssertionCapabilitiesForEntityExists } from '../../../acrylUtils';
+import { useTestAssertionModal } from '../steps/utils';
+import { TestAssertionModal } from '../../../../../../../../entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/preview/TestAssertionModal';
 
 type Props = {
     assertion: Assertion;

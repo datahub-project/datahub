@@ -1,25 +1,23 @@
-import { ErrorRounded } from '@mui/icons-material';
+import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
 import { Divider } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import { CTAWrapper, StyledArrow } from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/components';
-import UpstreamEntitiesList from '@app/entityV2/shared/embed/UpstreamHealth/UpstreamEntitiesList';
-import { DATASET_COUNT } from '@app/entityV2/shared/embed/UpstreamHealth/utils';
-import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
+import { ErrorRounded } from '@mui/icons-material';
+import { isDeprecated, isUnhealthy } from '@src/app/shared/health/healthUtils';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { GenericEntityProperties } from '@src/app/entity/shared/types';
+import { useSearchAcrossLineageQuery } from '../../../../../graphql/search.generated';
+import { FilterOperator, LineageDirection } from '../../../../../types.generated';
 import {
     HAS_ACTIVE_INCIDENTS_FILTER_NAME,
     HAS_FAILING_ASSERTIONS_FILTER_NAME,
     IS_DEPRECATED_FILTER_NAME,
-} from '@app/search/utils/constants';
-import { useAppConfig } from '@app/useAppConfig';
-import { GenericEntityProperties } from '@src/app/entity/shared/types';
-import { isDeprecated, isUnhealthy } from '@src/app/shared/health/healthUtils';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
-
-import { useSearchAcrossLineageQuery } from '@graphql/search.generated';
-import { FilterOperator, LineageDirection } from '@types';
+} from '../../../../search/utils/constants';
+import { useAppConfig } from '../../../../useAppConfig';
+import { useEntityData } from '../../../../entity/shared/EntityContext';
+import { DATASET_COUNT } from './utils';
+import UpstreamEntitiesList from './UpstreamEntitiesList';
+import { CTAWrapper, StyledArrow } from '../../containers/profile/sidebar/FormInfo/components';
 
 export const StyledDivider = styled(Divider)`
     margin: 16px 0;

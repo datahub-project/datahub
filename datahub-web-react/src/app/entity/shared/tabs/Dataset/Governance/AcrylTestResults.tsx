@@ -1,15 +1,13 @@
-import { ReloadOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import { Button, message } from 'antd';
 import React from 'react';
-
-import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
-import { TestResultsList } from '@app/entity/shared/tabs/Dataset/Governance/TestResultsList';
-import { TestResultsSummary } from '@app/entity/shared/tabs/Dataset/Governance/TestResultsSummary';
-import { Message } from '@app/shared/Message';
-
-import { useGetDatasetTestResultsQuery, useRunTestsMutation } from '@graphql/test.generated';
-import { TestResult } from '@types';
+import { ReloadOutlined } from '@ant-design/icons';
+import { Button, message } from 'antd';
+import { Tooltip } from '@components';
+import { TestResult } from '../../../../../../types.generated';
+import { TestResultsList } from './TestResultsList';
+import { TestResultsSummary } from './TestResultsSummary';
+import TabToolbar from '../../../components/styled/TabToolbar';
+import { Message } from '../../../../../shared/Message';
+import { useGetDatasetTestResultsQuery, useRunTestsMutation } from '../../../../../../graphql/test.generated';
 
 type Props = {
     urn: string;

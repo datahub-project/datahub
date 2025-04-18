@@ -1,13 +1,12 @@
-import { DeleteOutlined } from '@ant-design/icons';
-import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { Action } from '@app/tests/builder/steps/actions/types';
-import { ActionBuilder } from '@app/tests/builder/steps/definition/builder/action/ActionBuilder';
-import { AddActionButton } from '@app/tests/builder/steps/definition/builder/action/AddActionButton';
-import { ActionId, ActionType } from '@app/tests/builder/steps/definition/builder/property/types/action';
+import { DeleteOutlined } from '@ant-design/icons';
+import { Button } from 'antd';
+import { ANTD_GRAY } from '../../../../../../entity/shared/constants';
+import { ActionId, ActionType } from '../property/types/action';
+import { AddActionButton } from './AddActionButton';
+import { Action } from '../../../actions/types';
+import { ActionBuilder } from './ActionBuilder';
 
 /**
  * The maximum number of sub-predicates supported in a single

@@ -1,16 +1,12 @@
+import { useGetOperationsQuery } from '@src/graphql/dataset.generated';
+import { FacetFilterInput, FilterOperator } from '@src/types.generated';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import { uniq } from 'lodash';
 import { useMemo } from 'react';
-
-import { OPERATIONS_LIMIT } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/constants';
-import { AnyOperationType } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/types';
-import {
-    hasPrefix,
-    removePrefix,
-} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/utils';
-import { useGetOperationsQuery } from '@src/graphql/dataset.generated';
-import { FacetFilterInput, FilterOperator } from '@src/types.generated';
+import { AnyOperationType } from '../../types';
+import { hasPrefix, removePrefix } from '../../utils';
+import { OPERATIONS_LIMIT } from './constants';
 
 dayjs.extend(utc);
 

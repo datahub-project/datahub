@@ -1,16 +1,14 @@
-import { LoadingOutlined } from '@ant-design/icons';
-import { FloatingWrapper } from '@remirror/react';
-import { Empty, Spin } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { useDebounce } from 'react-use';
-import { Positioner, selectionPositioner } from 'remirror/extensions';
+import { FloatingWrapper } from '@remirror/react';
+import { Empty, Spin } from 'antd';
 import styled from 'styled-components';
-
-import { MentionsDropdown } from '@components/components/Editor/extensions/mentions/MentionsDropdown';
-import { useDataHubMentions } from '@components/components/Editor/extensions/mentions/useDataHubMentions';
-
+import { LoadingOutlined } from '@ant-design/icons';
+import { Positioner, selectionPositioner } from 'remirror/extensions';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@src/graphql/search.generated';
+import { MentionsDropdown } from './MentionsDropdown';
+import { useDataHubMentions } from './useDataHubMentions';
 
 const Container = styled.div`
     position: relative;

@@ -1,4 +1,4 @@
-import { useGetValidationsTab } from '@app/entity/shared/tabs/Dataset/Validations/useGetValidationsTab';
+import { useGetValidationsTab } from '../useGetValidationsTab';
 
 describe('useGetValidationsTab', () => {
     it('should correctly extract valid tab', () => {

@@ -1,3 +1,3 @@
-import EntityMenuActions from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import EntityMenuActions from './EntityMenuActions';
 
 export default EntityMenuActions;

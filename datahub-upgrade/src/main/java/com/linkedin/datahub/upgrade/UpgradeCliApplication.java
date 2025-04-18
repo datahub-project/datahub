@@ -40,13 +40,9 @@ import org.springframework.context.annotation.FilterType;
             KafkaTraceReaderFactory.class,
             TraceServiceFactory.class,
             KafkaConsumerPoolFactory.class,
-<<<<<<< HEAD
             ExternalEventsServiceFactory.class,
             NotificationSinkManagerFactory.class,
             TestEngineFactory.class
-=======
-            ExternalEventsServiceFactory.class
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
           })
     })
 public class UpgradeCliApplication {

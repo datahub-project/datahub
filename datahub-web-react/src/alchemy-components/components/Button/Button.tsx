@@ -1,9 +1,11 @@
-import { LoadingOutlined } from '@ant-design/icons';
-import { Icon } from '@components';
 import React from 'react';
 
-import { ButtonBase } from '@components/components/Button/components';
-import { ButtonProps, ButtonPropsDefaults } from '@components/components/Button/types';
+import { LoadingOutlined } from '@ant-design/icons';
+
+import { Icon } from '@components';
+
+import { ButtonBase } from './components';
+import { ButtonProps, ButtonPropsDefaults } from './types';
 
 export const buttonDefaults: ButtonPropsDefaults = {
     variant: 'filled',

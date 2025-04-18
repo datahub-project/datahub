@@ -1,25 +1,23 @@
 import { ConsoleSqlOutlined, HomeOutlined, LoadingOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
+import LineageVisualizationContext from '@app/lineageV2/LineageVisualizationContext';
 import { Skeleton, Spin } from 'antd';
+import { Tooltip } from '@components';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import React, { useContext } from 'react';
 import { Handle, NodeProps, Position } from 'reactflow';
 import styled from 'styled-components';
-
-import { LINEAGE_COLORS, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { LoadingWrapper } from '@app/lineageV2/LineageEntityNode/NodeContents';
-import LineageVisualizationContext from '@app/lineageV2/LineageVisualizationContext';
+import { useGetQueryQuery } from '../../../graphql/query.generated';
+import { EntityType, LineageDirection } from '../../../types.generated';
+import { LINEAGE_COLORS, REDESIGN_COLORS } from '../../entityV2/shared/constants';
 import {
     FetchStatus,
+    isGhostEntity,
     LineageDisplayContext,
     LineageEntity,
     LineageNodesContext,
-    isGhostEntity,
     useIgnoreSchemaFieldStatus,
-} from '@app/lineageV2/common';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
-
-import { useGetQueryQuery } from '@graphql/query.generated';
-import { EntityType, LineageDirection } from '@types';
+} from '../common';
+import { LoadingWrapper } from '../LineageEntityNode/NodeContents';
 
 export const LINEAGE_TRANSFORMATION_NODE_NAME = 'lineage-transformation';
 export const TRANSFORMATION_NODE_SIZE = 30;

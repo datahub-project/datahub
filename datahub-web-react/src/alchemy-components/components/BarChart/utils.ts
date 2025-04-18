@@ -1,6 +1,5 @@
 import dayjs from 'dayjs';
-
-import { COLOR_SCHEMES } from '@components/components/BarChart/constants';
+import { COLOR_SCHEMES } from './constants';
 
 export function generateMockData(length = 30, maxValue = 50_000, minValue = 0) {
     return Array(length)

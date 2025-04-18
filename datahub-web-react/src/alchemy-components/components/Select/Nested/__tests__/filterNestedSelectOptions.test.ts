@@ -1,10 +1,5 @@
-<<<<<<< HEAD
-import { NestedSelectOption } from '@components/components/Select/Nested/types';
-import { filterNestedSelectOptions } from '@components/components/Select/Nested/utils';
-=======
 import { NestedSelectOption } from '../types';
 import { filterNestedSelectOptions } from '../utils';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 describe('filterNestedSelectOptions', () => {
     const options: NestedSelectOption[] = [

@@ -1,7 +1,6 @@
 import React from 'react';
-import styled from 'styled-components';
-
 import { Text } from '@src/alchemy-components';
+import styled from 'styled-components';
 
 const MetricContainer = styled.div`
     display: flex;

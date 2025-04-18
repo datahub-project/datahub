@@ -1,16 +1,9 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import React from 'react';
-
-import {
-    FailingDataWrapper,
-    FailingSectionWrapper,
-    LoadMoreButton,
-    LoadingWrapper,
-} from '@app/entity/shared/embed/UpstreamHealth/FailingAssertions';
-import FailingEntity from '@app/entity/shared/embed/UpstreamHealth/FailingEntity';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { Dataset } from '@types';
+import { Dataset } from '../../../../../types.generated';
+import { useEntityRegistry } from '../../../../useEntityRegistry';
+import { FailingDataWrapper, FailingSectionWrapper, LoadingWrapper, LoadMoreButton } from './FailingAssertions';
+import FailingEntity from './FailingEntity';
 
 interface Props {
     datasetsWithActiveIncidents: Dataset[];

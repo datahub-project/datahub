@@ -1,20 +1,18 @@
-import { LoadingOutlined } from '@ant-design/icons';
-import { Radio } from 'antd';
-import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
-
 import { NestedSelectOption } from '@components/components/Select/Nested/types';
-
-import { SelectDropdown } from '@app/automations/fields/TermSelector/SelectDropdown';
-import type { RadioValue, SelectDropdownProps } from '@app/automations/fields/TermSelector/types';
-import { getEntitiesByTagORTerm } from '@app/automations/fields/TermSelector/utils';
-import { useGlossaryOptionsBuilder } from '@app/automations/fields/hooks';
-import { sharedStyles } from '@app/automations/sharedComponents';
+import React, { useState, useEffect } from 'react';
+import { Radio } from 'antd';
+import styled from 'styled-components';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
-import { isResolutionRequired } from '@src/app/entityV2/view/builder/utils';
+import { sharedStyles } from '@app/automations/sharedComponents';
 import GlossaryTermsSelector from '@src/app/govern/Dashboard/Forms/questionTypes/GlossaryTermsSelector';
 import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
+import { isResolutionRequired } from '@src/app/entityV2/view/builder/utils';
+import { LoadingOutlined } from '@ant-design/icons';
 import { EntityType } from '@src/types.generated';
+import type { SelectDropdownProps, RadioValue } from './types';
+import { SelectDropdown } from './SelectDropdown';
+import { useGlossaryOptionsBuilder } from '../hooks';
+import { getEntitiesByTagORTerm } from './utils';
 
 const Wrapper = styled.div`
     display: grid;
@@ -233,8 +231,7 @@ export const TermOption = ({
         const newSelectedOptions = values.reduce<SelectedOptionType>(
             (acc, glossary) => {
                 const { isParent, value } = glossary;
-                if (isParent)
-                    acc.GLOSSARY_NODE.push(value); // If parent node, add to GLOSSARY_NODE
+                if (isParent) acc.GLOSSARY_NODE.push(value); // If parent node, add to GLOSSARY_NODE
                 else acc.GLOSSARY_TERM.push(value); // If glossary term, add to GLOSSARY_TERM
                 return acc;
             },

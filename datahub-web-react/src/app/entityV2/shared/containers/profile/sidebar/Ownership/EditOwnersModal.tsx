@@ -1,26 +1,27 @@
-import { LoadingOutlined } from '@ant-design/icons';
-import { Empty, Form, Select, Tag, Typography, message } from 'antd';
 import React, { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { Empty, Form, message, Select, Tag, Typography } from 'antd';
 import styled from 'styled-components/macro';
-
-import analytics, { EntityActionType, EventType } from '@app/analytics';
-import OwnershipTypesSelect from '@app/entityV2/shared/containers/profile/sidebar/Ownership/OwnershipTypesSelect';
-import ProposalDescriptionModal from '@app/entityV2/shared/containers/profile/sidebar/ProposalDescriptionModal';
-import { handleBatchError } from '@app/entityV2/shared/utils';
-import { OwnerLabel } from '@app/shared/OwnerLabel';
-import { useGetRecommendations } from '@app/shared/recommendation';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Modal } from '@src/alchemy-components';
-import { useEntityContext, useMutationUrn } from '@src/app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
-import handleGraphQLError from '@src/app/shared/handleGraphQLError';
-import { useAppConfig } from '@src/app/useAppConfig';
 import { getModalDomContainer } from '@src/utils/focus';
-
-import { useBatchAddOwnersMutation, useBatchRemoveOwnersMutation } from '@graphql/mutations.generated';
-import { useListOwnershipTypesQuery, useProposeOwnersMutation } from '@graphql/ownership.generated';
-import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
-import { CorpUser, Entity, EntityType, OwnerEntityType } from '@types';
+import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
+import { LoadingOutlined } from '@ant-design/icons';
+import { useEntityContext, useMutationUrn } from '@src/app/entity/shared/EntityContext';
+import handleGraphQLError from '@src/app/shared/handleGraphQLError';
+import { Modal } from '@src/alchemy-components';
+import { useAppConfig } from '@src/app/useAppConfig';
+import { CorpUser, Entity, EntityType, OwnerEntityType } from '../../../../../../../types.generated';
+import { useEntityRegistry } from '../../../../../../useEntityRegistry';
+import analytics, { EventType, EntityActionType } from '../../../../../../analytics';
+import {
+    useBatchAddOwnersMutation,
+    useBatchRemoveOwnersMutation,
+} from '../../../../../../../graphql/mutations.generated';
+import { useGetAutoCompleteResultsLazyQuery } from '../../../../../../../graphql/search.generated';
+import { useGetRecommendations } from '../../../../../../shared/recommendation';
+import { OwnerLabel } from '../../../../../../shared/OwnerLabel';
+import { handleBatchError } from '../../../../utils';
+import { useListOwnershipTypesQuery, useProposeOwnersMutation } from '../../../../../../../graphql/ownership.generated';
+import OwnershipTypesSelect from './OwnershipTypesSelect';
+import ProposalDescriptionModal from '../ProposalDescriptionModal';
 
 const SelectInput = styled(Select)`
     width: 480px;

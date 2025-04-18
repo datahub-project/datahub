@@ -1,8 +1,7 @@
-import React, { useMemo } from 'react';
-
-import useStatsTabContext from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/hooks/useStatsTabContext';
 import { GraphCard, WhiskerChart } from '@src/alchemy-components';
+import React, { useMemo } from 'react';
 import { WhiskerDatum } from '@src/alchemy-components/components/WhiskerChart/types';
+import useStatsTabContext from '../../../../hooks/useStatsTabContext';
 
 export default function NumericDistributionChart() {
     const { properties } = useStatsTabContext();

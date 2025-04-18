@@ -1,13 +1,11 @@
-import { Button, Table } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
-import AccessManagerDescription from '@app/entityV2/shared/tabs/Dataset/AccessManagement/AccessManagerDescription';
-import { handleAccessRoles } from '@app/entityV2/shared/tabs/Dataset/AccessManagement/utils';
-
-import { GetDatasetQuery, useGetExternalRolesQuery } from '@graphql/dataset.generated';
-import { useGetMeQuery } from '@graphql/me.generated';
+import { Button, Table } from 'antd';
+import { useBaseEntity } from '../../../../../entity/shared/EntityContext';
+import { GetDatasetQuery, useGetExternalRolesQuery } from '../../../../../../graphql/dataset.generated';
+import { useGetMeQuery } from '../../../../../../graphql/me.generated';
+import { handleAccessRoles } from './utils';
+import AccessManagerDescription from './AccessManagerDescription';
 
 const StyledTable = styled(Table)`
     overflow: inherit;

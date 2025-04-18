@@ -1,7 +1,6 @@
-import { getQueryEntitiesFilter } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/filterQueries';
-
-import { ListQueriesDocument, ListQueriesQuery } from '@graphql/query.generated';
-import { QueryEntity, QuerySource } from '@types';
+import { ListQueriesDocument, ListQueriesQuery } from '../../../../../../graphql/query.generated';
+import { QueryEntity, QuerySource } from '../../../../../../types.generated';
+import { getQueryEntitiesFilter } from './utils/filterQueries';
 
 export const removeQueryFromListQueriesCache = (urn, client, page, pageSize, datasetUrn, siblingUrn) => {
     const entityFilter = getQueryEntitiesFilter(datasetUrn, siblingUrn);

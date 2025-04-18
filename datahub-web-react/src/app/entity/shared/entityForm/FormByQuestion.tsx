@@ -1,28 +1,33 @@
 import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
 
-import ActiveTasks from '@app/entity/shared/entityForm/ActiveTasks';
-import BulkVerifyPromptModal from '@app/entity/shared/entityForm/BulkVerifyPromptModal';
-import { EmptyStates } from '@app/entity/shared/entityForm/EmptyStates';
-import { FormResponsesFilter, useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
-import { OnboardingTour } from '@app/onboarding/OnboardingTour';
+import styled from 'styled-components';
+import { EmbeddedSearchBar } from '@src/app/searchV2/EmbeddedSearchBar';
+
+import { SearchResults as NotAlchemySearchResults } from '../../../search/SearchResults';
+import { SearchFilters as NotAlchemySearchFilers } from '../../../search/filters/SearchFilters';
+
+import { SearchResults } from '../../../searchV2/SearchResults';
+import SearchFilters from '../../../searchV2/filters/SearchFilters';
+
+import useGetSearchQueryInputs from '../../../search/useGetSearchQueryInputs';
+import { useIsSearchV2 } from '../../../search/useSearchAndBrowseVersion';
+import useSearchPage from '../../../search/useSearchPage';
+import useFilterMode from '../../../search/filters/useFilterMode';
+import { FormResponsesFilter, useEntityFormContext } from './EntityFormContext';
+import { OnboardingTour } from '../../../onboarding/OnboardingTour';
 import {
     FORM_ANSWER_IN_BULK_ID,
     FORM_ASSETS_ASSIGNED_ID,
     FORM_FILTER_AND_BROWSE_ID,
     WELCOME_TO_BULK_BY_QUESTION_ID,
-} from '@app/onboarding/config/FormOnboardingConfig';
-import { SearchResults as NotAlchemySearchResults } from '@app/search/SearchResults';
-import { SearchFilters as NotAlchemySearchFilers } from '@app/search/filters/SearchFilters';
-import useFilterMode from '@app/search/filters/useFilterMode';
-import useGetSearchQueryInputs from '@app/search/useGetSearchQueryInputs';
-import { useIsSearchV2 } from '@app/search/useSearchAndBrowseVersion';
-import useSearchPage from '@app/search/useSearchPage';
-import { SearchResults } from '@app/searchV2/SearchResults';
-import SearchFilters from '@app/searchV2/filters/SearchFilters';
-import usePrevious from '@app/shared/usePrevious';
-import { useIsThemeV2 } from '@app/useIsThemeV2';
-import { EmbeddedSearchBar } from '@src/app/searchV2/EmbeddedSearchBar';
+} from '../../../onboarding/config/FormOnboardingConfig';
+
+import { EmptyStates } from './EmptyStates';
+import usePrevious from '../../../shared/usePrevious';
+import BulkVerifyPromptModal from './BulkVerifyPromptModal';
+
+import { useIsThemeV2 } from '../../../useIsThemeV2';
+import ActiveTasks from './ActiveTasks';
 
 const FormByQuestionWrapper = styled.div`
     display: flex;

@@ -1,4 +1,4 @@
-import { CorpUser, Entity, SchemaFieldEntity } from '@types';
+import { CorpUser, Entity, SchemaFieldEntity } from '../../../../../../types.generated';
 
 export type QueryBuilderState = {
     urn?: string;
@@ -17,6 +17,7 @@ export type Query = {
     createdBy?: CorpUser | null;
     poweredEntity?: Entity;
     usedBy?: CorpUser[];
+    runsPercentileLast30days?: number | null;
     columns?: SchemaFieldEntity[];
 };
 

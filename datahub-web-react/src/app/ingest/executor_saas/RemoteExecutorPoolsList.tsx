@@ -1,26 +1,25 @@
 // SaaS only
-import { Button, SearchBar } from '@components';
-import { Pagination } from 'antd';
-import { ArrowClockwise } from 'phosphor-react';
-import * as QueryString from 'query-string';
-import React, { useEffect, useRef, useState } from 'react';
-import { useHistory } from 'react-router';
-import styled from 'styled-components';
-
-import { INGESTION_TAB_QUERY_PARAMS } from '@app/ingest/constants';
-import CreateRemoteExecutorPoolModal from '@app/ingest/executor_saas/CreateRemoteExecutorPoolModal';
-import { RemoteExecutorPoolProvisioningPreviewModal } from '@app/ingest/executor_saas/RemoteExecutorPoolProvisioningPreviewModal';
-import { RemoteExecutorPoolsTable } from '@app/ingest/executor_saas/RemoteExecutorPoolsTable';
-import { TabType } from '@app/ingest/types';
 import TabToolbar from '@src/app/entityV2/shared/components/styled/TabToolbar';
-import { useQueryParamValue } from '@src/app/entityV2/shared/useQueryParamValue';
 import { Message } from '@src/app/shared/Message';
+import * as QueryString from 'query-string';
 import {
     useGetRemoteExecutorPoolQuery,
     useListRemoteExecutorPoolsQuery,
     useUpdateDefaultRemoteExecutorPoolMutation,
 } from '@src/graphql/remote_executor.saas.generated';
+import { Button, SearchBar } from '@components';
+import { Pagination } from 'antd';
+import { ArrowClockwise } from 'phosphor-react';
+import React, { useEffect, useRef, useState } from 'react';
+import styled from 'styled-components';
 import { RemoteExecutorPool } from '@src/types.generated';
+import { useQueryParamValue } from '@src/app/entityV2/shared/useQueryParamValue';
+import { useHistory } from 'react-router';
+import { INGESTION_TAB_QUERY_PARAMS } from '../constants';
+import { TabType } from '../types';
+import { RemoteExecutorPoolsTable } from './RemoteExecutorPoolsTable';
+import CreateRemoteExecutorPoolModal from './CreateRemoteExecutorPoolModal';
+import { RemoteExecutorPoolProvisioningPreviewModal } from './RemoteExecutorPoolProvisioningPreviewModal';
 
 const DEFAULT_PAGE_SIZE = 25;
 export const REMOTE_EXECUTORS_CREATE_SOURCE_ID = 'REMOTE_EXECUTORS_CREATE_SOURCE_ID';

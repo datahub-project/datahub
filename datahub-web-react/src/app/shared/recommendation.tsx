@@ -1,5 +1,5 @@
-import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
-import { Entity, EntityType } from '@types';
+import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
+import { Entity, EntityType } from '../../types.generated';
 
 export const useGetRecommendations = (types: Array<EntityType>) => {
     const { data, loading } = useGetSearchResultsForMultipleQuery({

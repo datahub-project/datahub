@@ -1,13 +1,12 @@
-import { Skeleton } from 'antd';
 import React, { useContext, useState } from 'react';
 import styled from 'styled-components';
-
-import { CenterTab } from '@app/homeV2/content/tabs/CenterTab';
-import { DEFAULT_TAB, TAB_NAME_DETAILS, TabType } from '@app/homeV2/content/tabs/tabs';
-import { useGetActiveTabs } from '@app/homeV2/content/tabs/useGetVisibleTabs';
-import OnboardingContext from '@app/onboarding/OnboardingContext';
-import { useAppConfig } from '@app/useAppConfig';
+import { Skeleton } from 'antd';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import OnboardingContext from '../../../onboarding/OnboardingContext';
+import { useGetActiveTabs } from './useGetVisibleTabs';
+import { DEFAULT_TAB, TAB_NAME_DETAILS, TabType } from './tabs';
+import { CenterTab } from './CenterTab';
+import { useAppConfig } from '../../../useAppConfig';
 
 const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     flex: 1;

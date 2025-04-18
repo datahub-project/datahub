@@ -1,9 +1,8 @@
 import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
-
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { pluralize } from '@app/shared/textUtil';
+import { pluralize } from '../shared/textUtil';
+import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 
 type Props = {
     icon: any;

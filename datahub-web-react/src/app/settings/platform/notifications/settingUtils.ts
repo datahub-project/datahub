@@ -1,9 +1,12 @@
 import { message } from 'antd';
-
-import { EMAIL_SINK, FormattedNotificationSetting, SLACK_SINK } from '@app/settings/platform/types';
-
-import { UpdateGlobalNotificationSettingsMutationFn } from '@graphql/settings.generated';
-import { GlobalNotificationSettings, NotificationScenarioType, NotificationSettingValue, StringMapEntry } from '@types';
+import {
+    GlobalNotificationSettings,
+    NotificationScenarioType,
+    NotificationSettingValue,
+    StringMapEntry,
+} from '../../../../types.generated';
+import { EMAIL_SINK, FormattedNotificationSetting, SLACK_SINK } from '../types';
+import { UpdateGlobalNotificationSettingsMutationFn } from '../../../../graphql/settings.generated';
 
 export const SLACK_CHANNEL_PARAM_NAME = `${SLACK_SINK.id}.channel`;
 export const EMAIL_ADDRESS_PARAM_NAME = `${EMAIL_SINK.id}.address`;

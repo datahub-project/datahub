@@ -1,8 +1,7 @@
-import { filterSchemaRows } from '@app/entity/shared/tabs/Dataset/Schema/utils/filterSchemaRows';
-import { glossaryTerm1, sampleTag } from '@src/Mocks';
-import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
-
-import { SchemaField } from '@types';
+import { glossaryTerm1, sampleTag } from '../../../../../../../Mocks';
+import { SchemaField } from '../../../../../../../types.generated';
+import { getTestEntityRegistry } from '../../../../../../../utils/test-utils/TestPageContainer';
+import { filterSchemaRows } from '../utils/filterSchemaRows';
 
 describe('filterSchemaRows', () => {
     const testEntityRegistry = getTestEntityRegistry();

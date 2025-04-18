@@ -1,8 +1,7 @@
 import React from 'react';
-
-import { GlossaryTermSearchList } from '@app/recommendations/renderer/component/GlossaryTermSearchList';
-import { RecommendationRenderProps } from '@app/recommendations/types';
-import { recommendationClickEvent } from '@app/recommendations/util/recommendationClickEvent';
+import { RecommendationRenderProps } from '../types';
+import { recommendationClickEvent } from '../util/recommendationClickEvent';
+import { GlossaryTermSearchList } from './component/GlossaryTermSearchList';
 
 export const GlossaryTermSearchListRenderer = ({
     renderId,

@@ -1,17 +1,16 @@
-import { Layout } from 'antd';
 import React, { useState } from 'react';
+import { Layout } from 'antd';
 import styled from 'styled-components';
 
-import EntityRegistry from '@app/entity/EntityRegistry';
-import DemoButton from '@app/entity/shared/components/styled/DemoButton';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { SearchBar } from '@app/search/SearchBar';
-import AppLogoLink from '@app/shared/AppLogoLink';
-import { ManageAccount } from '@app/shared/ManageAccount';
-import { HeaderLinks } from '@app/shared/admin/HeaderLinks';
-import { useAppConfig, useIsShowAcrylInfoEnabled } from '@app/useAppConfig';
-
-import { AutoCompleteResultForEntity, EntityType } from '@types';
+import { SearchBar } from './SearchBar';
+import { ManageAccount } from '../shared/ManageAccount';
+import { AutoCompleteResultForEntity, EntityType } from '../../types.generated';
+import EntityRegistry from '../entity/EntityRegistry';
+import { ANTD_GRAY } from '../entity/shared/constants';
+import { HeaderLinks } from '../shared/admin/HeaderLinks';
+import { useAppConfig, useIsShowAcrylInfoEnabled } from '../useAppConfig';
+import DemoButton from '../entity/shared/components/styled/DemoButton';
+import AppLogoLink from '../shared/AppLogoLink';
 
 const { Header } = Layout;
 

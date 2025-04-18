@@ -1,7 +1,8 @@
-import * as config from '@components/theme/config';
-import { foundations } from '@components/theme/foundations';
-import { semanticTokens } from '@components/theme/semantic-tokens';
-import * as utils from '@components/theme/utils';
+import * as config from './config';
+import * as utils from './utils';
+
+import { foundations } from './foundations';
+import { semanticTokens } from './semantic-tokens';
 
 const theme = {
     semanticTokens,

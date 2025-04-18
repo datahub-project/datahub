@@ -1,9 +1,9 @@
 import * as React from 'react';
 import { useEffect, useState } from 'react';
-
-import { SimpleSearchFilter } from '@app/search/SimpleSearchFilter';
-import { FilterScenarioType } from '@app/search/filters/render/types';
-import { useFilterRendererRegistry } from '@app/search/filters/render/useFilterRenderer';
+import { FacetFilterInput, FacetMetadata } from '../../types.generated';
+import { FilterScenarioType } from './filters/render/types';
+import { useFilterRendererRegistry } from './filters/render/useFilterRenderer';
+import { SimpleSearchFilter } from './SimpleSearchFilter';
 import {
     DEGREE_FILTER_NAME,
     ENTITY_FILTER_NAME,
@@ -11,10 +11,8 @@ import {
     ENTITY_SUB_TYPE_FILTER_NAME,
     LEGACY_ENTITY_FILTER_NAME,
     SCHEMA_FIELD_ALIASES_FILTER_NAME,
-} from '@app/search/utils/constants';
-import { useAppConfig } from '@app/useAppConfig';
-
-import { FacetFilterInput, FacetMetadata } from '@types';
+} from './utils/constants';
+import { useAppConfig } from '../useAppConfig';
 
 const TOP_FILTERS = ['degree', ENTITY_FILTER_NAME, 'platform', 'tags', 'glossaryTerms', 'domains', 'owners'];
 

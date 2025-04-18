@@ -1,26 +1,19 @@
 import React from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
-
-import { ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionListConstants';
-import {
-    AcrylAssertionProgressBar,
-    AssertionProgressSummary,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionProgressBar';
-import { AcrylAssertionSummarySection } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/Summary/AcrylAssertionSummarySection';
-import {
-    ASSERTION_SUMMARY_CARD_STATUSES,
-    NO_RUNNING_STATE,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/constant';
-import { buildAssertionUrlSearch } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/utils';
-import { AssertionGroup } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
-import { getAssertionGroupName } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
-import { ASSERTION_TYPE_TO_ICON_MAP } from '@app/entityV2/shared/tabs/Dataset/Validations/shared/constant';
-import { Button } from '@src/alchemy-components';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { AssertionType, EntityType } from '@src/types.generated';
 import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { AssertionType, EntityType } from '@src/types.generated';
+import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { Button } from '@src/alchemy-components';
+import { AssertionGroup } from '../../acrylTypes';
+import { getAssertionGroupName } from '../../acrylUtils';
+import { AcrylAssertionProgressBar, AssertionProgressSummary } from '../AcrylAssertionProgressBar';
+import { ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS } from '../AcrylAssertionListConstants';
+import { AcrylAssertionSummarySection } from './AcrylAssertionSummarySection';
+import { ASSERTION_TYPE_TO_ICON_MAP } from '../../shared/constant';
+import { ASSERTION_SUMMARY_CARD_STATUSES, NO_RUNNING_STATE } from '../constant';
+import { buildAssertionUrlSearch } from '../utils';
 
 const StyledCard = styled.div`
     display: flex;

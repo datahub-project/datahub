@@ -1,6 +1,6 @@
 import React from 'react';
-import { useInView } from 'react-intersection-observer';
 import styled from 'styled-components';
+import { useInView } from 'react-intersection-observer';
 
 const VirtualChildWrapper = styled.div<{ $inView: boolean; $height: number }>`
     height: ${(props) => (props.$inView ? 'auto' : `${props.$height}px`)};

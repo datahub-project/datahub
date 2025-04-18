@@ -1,9 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { SearchFilterLabel } from '@app/search/SearchFilterLabel';
-
-import { FacetFilterInput, FacetMetadata } from '@types';
+import { FacetFilterInput, FacetMetadata } from '../../types.generated';
+import { SearchFilterLabel } from './SearchFilterLabel';
 
 type Props = {
     facet: FacetMetadata;

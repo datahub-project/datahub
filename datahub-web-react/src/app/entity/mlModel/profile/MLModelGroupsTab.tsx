@@ -1,14 +1,13 @@
-import { Space, Table, Typography } from 'antd';
-import { ColumnsType } from 'antd/es/table';
-import Link from 'antd/lib/typography/Link';
 import React from 'react';
+import { Space, Table, Typography } from 'antd';
+import Link from 'antd/lib/typography/Link';
+import { ColumnsType } from 'antd/es/table';
 import styled from 'styled-components';
 
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { GetMlModelQuery } from '@graphql/mlModel.generated';
-import { EntityType, MlModelGroup } from '@types';
+import { EntityType, MlModelGroup } from '../../../../types.generated';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import { useBaseEntity } from '../../shared/EntityContext';
+import { GetMlModelQuery } from '../../../../graphql/mlModel.generated';
 
 const TabContent = styled.div`
     padding: 16px;

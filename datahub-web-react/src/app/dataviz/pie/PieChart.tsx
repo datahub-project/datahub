@@ -1,9 +1,10 @@
-import { Annotation, Connector, Label } from '@visx/annotation';
-import { Pie } from '@visx/shape';
-import { PieArcDatum } from '@visx/shape/lib/shapes/Pie';
 import React from 'react';
 
-import { useDataAnnotationPosition } from '@app/dataviz/pie/usePieDataAnnotation';
+import { Pie } from '@visx/shape';
+import { PieArcDatum } from '@visx/shape/lib/shapes/Pie';
+import { Annotation, Label, Connector } from '@visx/annotation';
+
+import { useDataAnnotationPosition } from './usePieDataAnnotation';
 
 const PieDataAnnotation = ({
     title,

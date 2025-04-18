@@ -1,14 +1,12 @@
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import AdvancedFilterCloseButton from '@app/search/advanced/AdvancedFilterCloseButton';
-import { FilterContainer } from '@app/search/advanced/styles';
-import { FILTER_DELIMITER } from '@app/search/utils/constants';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { EntityType, FacetFilterInput } from '@types';
+import { FILTER_DELIMITER } from '../utils/constants';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { EntityType, FacetFilterInput } from '../../../types.generated';
+import { ANTD_GRAY } from '../../entity/shared/constants';
+import AdvancedFilterCloseButton from './AdvancedFilterCloseButton';
+import { FilterContainer } from './styles';
+import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 
 const FilterFieldLabel = styled.span`
     font-weight: 600;

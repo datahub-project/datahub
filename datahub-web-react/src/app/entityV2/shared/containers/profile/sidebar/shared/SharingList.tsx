@@ -1,31 +1,23 @@
-import { CloseCircleOutlined, ExclamationCircleOutlined, LoadingOutlined } from '@ant-design/icons';
+import React from 'react';
 import { Tooltip } from '@components';
+import { CloseCircleOutlined, ExclamationCircleOutlined, LoadingOutlined } from '@ant-design/icons';
+import styled from 'styled-components';
 import InfoIcon from '@mui/icons-material/Info';
 import SwapVertOutlinedIcon from '@mui/icons-material/SwapVertOutlined';
-import React from 'react';
-import { Link } from 'react-router-dom';
-import styled from 'styled-components';
-
-import { useEntityContext } from '@app/entity/shared/EntityContext';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import SharedLineageIcon from '@app/entityV2/shared/containers/profile/sidebar/shared/SharedLineageIcon';
-import {
-    ContentText,
-    InstanceIcon,
-    LabelText,
-    RelativeTime,
-} from '@app/entityV2/shared/containers/profile/sidebar/shared/styledComponents';
-import useShareResultsPolling from '@app/entityV2/shared/containers/profile/sidebar/shared/useShareResultsPolling';
-import { getRelativeTimeColor, getSharedItemInfo } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
-import { toLocalDateString, toRelativeTimeString } from '@app/shared/time/timeUtils';
-import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
-import { WARNING_COLOR_HEX } from '@src/app/entity/shared/tabs/Incident/incidentUtils';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-
-import { ShareResult } from '@types';
-
-import AcrylIcon from '@images/acryl-logo.svg?react';
-import ShareIcon from '@images/share-icon-custom.svg?react';
+import { WARNING_COLOR_HEX } from '@src/app/entity/shared/tabs/Incident/incidentUtils';
+import { Link } from 'react-router-dom';
+import { useEntityContext } from '../../../../../../entity/shared/EntityContext';
+import AcrylIcon from '../../../../../../../images/acryl-logo.svg?react';
+import { toLocalDateString, toRelativeTimeString } from '../../../../../../shared/time/timeUtils';
+import { ShareResult } from '../../../../../../../types.generated';
+import { ContentText, InstanceIcon, LabelText, RelativeTime } from './styledComponents';
+import { REDESIGN_COLORS } from '../../../../constants';
+import ShareIcon from '../../../../../../../images/share-icon-custom.svg?react';
+import SharedLineageIcon from './SharedLineageIcon';
+import useShareResultsPolling from './useShareResultsPolling';
+import { getRelativeTimeColor, getSharedItemInfo } from './utils';
+import PlatformIcon from '../../../../../../sharedV2/icons/PlatformIcon';
 
 const StyledShareIcon = styled(ShareIcon)`
     height: 18px;

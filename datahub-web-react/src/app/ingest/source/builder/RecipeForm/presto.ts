@@ -1,4 +1,4 @@
-import { FieldType, RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
+import { RecipeField, FieldType } from './common';
 
 export const PRESTO = 'presto';
 

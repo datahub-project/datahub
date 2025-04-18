@@ -1,22 +1,20 @@
-import { BookmarksSimple } from '@phosphor-icons/react';
 import React from 'react';
-
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entity/Entity';
-import ChildrenTab from '@app/entity/glossaryNode/ChildrenTab';
-import { Preview } from '@app/entity/glossaryNode/preview/Preview';
-import { EntityMenuItems } from '@app/entity/shared/EntityDropdown/EntityDropdown';
-import { EntityProfile } from '@app/entity/shared/containers/profile/EntityProfile';
-import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { SidebarMetadataSection } from '@app/entity/shared/containers/profile/sidebar/SidebarMetadataSection';
-import SidebarStructuredPropsSection from '@app/entity/shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
-import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
-import { DocumentationTab } from '@app/entity/shared/tabs/Documentation/DocumentationTab';
-import { PropertiesTab } from '@app/entity/shared/tabs/Properties/PropertiesTab';
-import { FetchedEntity } from '@app/lineage/types';
-
-import { useGetGlossaryNodeQuery } from '@graphql/glossaryNode.generated';
-import { EntityType, GlossaryNode, SearchResult } from '@types';
+import { BookmarksSimple } from '@phosphor-icons/react';
+import { useGetGlossaryNodeQuery } from '../../../graphql/glossaryNode.generated';
+import { EntityType, GlossaryNode, SearchResult } from '../../../types.generated';
+import { FetchedEntity } from '../../lineage/types';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
+import { EntityProfile } from '../shared/containers/profile/EntityProfile';
+import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
+import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
+import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
+import ChildrenTab from './ChildrenTab';
+import { Preview } from './preview/Preview';
+import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 
 class GlossaryNodeEntity implements Entity<GlossaryNode> {
     getLineageVizConfig?: ((entity: GlossaryNode) => FetchedEntity) | undefined;

@@ -1,6 +1,5 @@
 import { Key } from 'react';
-
-import { Assertion, DataHubSubscription, EntityType, NotificationSinkType } from '@types';
+import { Assertion, DataHubSubscription, EntityType, NotificationSinkType } from '../../../../../types.generated';
 
 export const ChannelSelections = {
     SETTINGS: 'SETTINGS',

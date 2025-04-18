@@ -1,9 +1,9 @@
-import { Radio } from 'antd';
 import React from 'react';
+import { Radio } from 'antd';
 import styled from 'styled-components';
 
-import { MODE_OPTIONS, ModeTypes } from '@app/automations/fields/ModeSelector/constants';
 import type { ComponentBaseProps } from '@app/automations/types';
+import { ModeTypes, MODE_OPTIONS } from './constants';
 
 const RadioGroupWrapper = styled.div`
     &&& .ant-radio-wrapper {

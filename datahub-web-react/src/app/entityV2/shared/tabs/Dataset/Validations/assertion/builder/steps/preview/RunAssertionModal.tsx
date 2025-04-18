@@ -1,17 +1,18 @@
-import { LoadingOutlined } from '@ant-design/icons';
-import { Modal, Typography, message } from 'antd';
 import React, { useCallback, useEffect, useRef } from 'react';
+import { message, Modal, Typography } from 'antd';
 import styled from 'styled-components';
-
-import { AssertionStatusTag } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/preview/AssertionStatusTag';
-import { RunAssertionResult } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/preview/RunAssertionResult';
-import { Button } from '@src/alchemy-components';
-import { ANTD_GRAY } from '@src/app/entity/shared/constants';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import { LoadingOutlined } from '@ant-design/icons';
 import { usePollForData } from '@src/app/shared/polling/utils';
-
-import { useGetAssertionRunsLazyQuery, useRunAssertionMutation } from '@graphql/assertion.generated';
-import { AssertionResult, AssertionResultType } from '@types';
+import { ANTD_GRAY } from '@src/app/entity/shared/constants';
+import { Button } from '@src/alchemy-components';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import { AssertionResult, AssertionResultType } from '../../../../../../../../../../types.generated';
+import { AssertionStatusTag } from './AssertionStatusTag';
+import { RunAssertionResult } from './RunAssertionResult';
+import {
+    useGetAssertionRunsLazyQuery,
+    useRunAssertionMutation,
+} from '../../../../../../../../../../graphql/assertion.generated';
 
 const MAX_TIMES_TO_POLL = 20;
 const POLL_INTERVAL_MILLIS = 3000;

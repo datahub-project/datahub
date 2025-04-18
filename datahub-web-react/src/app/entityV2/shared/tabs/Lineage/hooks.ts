@@ -1,7 +1,6 @@
+import { Direction } from '@src/app/lineage/types';
 import { useCallback, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
-
-import { Direction } from '@src/app/lineage/types';
 
 const IS_VISUALIZE_VIEW_DEFAULT = true;
 

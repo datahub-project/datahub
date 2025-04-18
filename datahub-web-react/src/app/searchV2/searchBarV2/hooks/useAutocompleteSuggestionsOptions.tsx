@@ -1,19 +1,9 @@
-<<<<<<< HEAD
-import React, { useMemo } from 'react';
-
-import AutoCompleteEntityItem from '@app/searchV2/autoCompleteV2/AutoCompleteEntityItem';
-import SectionHeader from '@app/searchV2/searchBarV2/components/SectionHeader';
-import { combineSiblingsInAutoComplete } from '@app/searchV2/utils/combineSiblingsInAutoComplete';
-import { Loader } from '@src/alchemy-components';
-import { AutoCompleteResultForEntity } from '@src/types.generated';
-=======
 import { Loader } from '@src/alchemy-components';
 import { AutoCompleteResultForEntity } from '@src/types.generated';
 import React, { useMemo } from 'react';
 import SectionHeader from '../components/SectionHeader';
 import { combineSiblingsInAutoComplete } from '../../utils/combineSiblingsInAutoComplete';
 import AutoCompleteEntityItem from '../../autoCompleteV2/AutoCompleteEntityItem';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 export default function useAutocompleteSuggestionsOptions(
     suggestions: AutoCompleteResultForEntity[],

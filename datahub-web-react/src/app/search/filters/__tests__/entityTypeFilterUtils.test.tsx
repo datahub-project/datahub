@@ -1,19 +1,18 @@
 import React from 'react';
-
+import { getTestEntityRegistry } from '../../../../utils/test-utils/TestPageContainer';
+import {
+    LEGACY_ENTITY_FILTER_NAME,
+    ENTITY_SUB_TYPE_FILTER_NAME,
+    ENTITY_FILTER_NAME,
+    TAGS_FILTER_NAME,
+} from '../../utils/constants';
 import {
     getDisplayedFilterOptions,
     getInitialSelectedOptions,
     getInitialSelectedOptionsFromAggregations,
     getNumActiveFilters,
-} from '@app/search/filters/EntityTypeFilter/entityTypeFilterUtils';
-import FilterOption from '@app/search/filters/FilterOption';
-import {
-    ENTITY_FILTER_NAME,
-    ENTITY_SUB_TYPE_FILTER_NAME,
-    LEGACY_ENTITY_FILTER_NAME,
-    TAGS_FILTER_NAME,
-} from '@app/search/utils/constants';
-import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
+} from '../EntityTypeFilter/entityTypeFilterUtils';
+import FilterOption from '../FilterOption';
 
 const mockData = {
     aggregateAcrossEntities: {

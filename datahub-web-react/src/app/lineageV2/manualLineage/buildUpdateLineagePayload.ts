@@ -1,4 +1,4 @@
-import { Entity, LineageDirection, LineageEdge } from '@types';
+import { Entity, LineageDirection, LineageEdge } from '../../../types.generated';
 
 export function buildUpdateLineagePayload(
     lineageDirection: LineageDirection,

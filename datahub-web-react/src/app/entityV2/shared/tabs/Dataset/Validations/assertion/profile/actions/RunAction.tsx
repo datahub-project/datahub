@@ -1,13 +1,13 @@
-import { RefreshOutlined } from '@mui/icons-material';
 import React, { useState } from 'react';
+
 import styled from 'styled-components';
+import { RefreshOutlined } from '@mui/icons-material';
 
-import { isMonitorActive } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
-import { RunAssertionModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/preview/RunAssertionModal';
-import { ActionItem } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/ActionItem';
-import { useAppConfig } from '@app/useAppConfig';
-
-import { Assertion, AssertionSourceType, Monitor } from '@types';
+import { ActionItem } from './ActionItem';
+import { Assertion, AssertionSourceType, Monitor } from '../../../../../../../../../types.generated';
+import { RunAssertionModal } from '../../builder/steps/preview/RunAssertionModal';
+import { isMonitorActive } from '../../../acrylUtils';
+import { useAppConfig } from '../../../../../../../../useAppConfig';
 
 const StyledRefresh = styled(RefreshOutlined)`
     && {

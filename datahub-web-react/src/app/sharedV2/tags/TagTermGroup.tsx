@@ -1,24 +1,22 @@
 import { PlusOutlined } from '@ant-design/icons';
+import { StyledTag } from '@app/entityV2/shared/components/styled/StyledTag';
 import { Tag as AntTag, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
-
-import { EMPTY_MESSAGES } from '@app/entity/shared/constants';
-import { StyledTag } from '@app/entityV2/shared/components/styled/StyledTag';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import ProposalModal from '@app/shared/tags/ProposalModal';
-import AddTagTerm from '@app/sharedV2/tags/AddTagTerm';
-import { DomainLink } from '@app/sharedV2/tags/DomainLink';
-import Tag from '@app/sharedV2/tags/tag/Tag';
-import ProposedTermPill from '@app/sharedV2/tags/term/ProposedTermPill';
-import Term from '@app/sharedV2/tags/term/Term';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-import { colors } from '@src/alchemy-components';
 import ProposedIcon from '@src/app/entityV2/shared/sidebarSection/ProposedIcon';
-
-import { useAcceptProposalsMutation, useRejectProposalsMutation } from '@graphql/actionRequest.generated';
-import { ActionRequest, Domain as DomainEntity, EntityType, GlobalTags, GlossaryTerms } from '@types';
+import { colors } from '@src/alchemy-components';
+import { useAcceptProposalsMutation, useRejectProposalsMutation } from '../../../graphql/actionRequest.generated';
+import { ActionRequest, Domain as DomainEntity, EntityType, GlobalTags, GlossaryTerms } from '../../../types.generated';
+import { EMPTY_MESSAGES } from '../../entity/shared/constants';
+import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
+import ProposalModal from '../../shared/tags/ProposalModal';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { DomainLink } from './DomainLink';
+import Tag from './tag/Tag';
+import Term from './term/Term';
+import AddTagTerm from './AddTagTerm';
+import ProposedTermPill from './term/ProposedTermPill';
 
 type Props = {
     uneditableTags?: GlobalTags | null;

@@ -1,9 +1,8 @@
-import { useGetLastViewedAnnouncementTime } from '@app/homeV2/shared/useGetLastViewedAnnouncementTime';
-import { hasViewedAnnouncement } from '@app/homeV2/shared/utils';
 import { getHomePagePostsFilters } from '@app/utils/queryUtils';
-
-import { useListPostsQuery } from '@graphql/post.generated';
-import { Post, PostContentType, PostType } from '@types';
+import { useListPostsQuery } from '../../../../graphql/post.generated';
+import { Post, PostContentType, PostType } from '../../../../types.generated';
+import { useGetLastViewedAnnouncementTime } from '../../shared/useGetLastViewedAnnouncementTime';
+import { hasViewedAnnouncement } from '../../shared/utils';
 
 export const useGetUnseenAnnouncements = () => {
     const { time: lastViewedAnnouncementsTime } = useGetLastViewedAnnouncementTime();

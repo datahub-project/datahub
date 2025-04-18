@@ -1,10 +1,9 @@
-import { ArrowRightOutlined, FolderOutlined } from '@ant-design/icons';
-import { Card, Row, Space, Typography } from 'antd';
 import React from 'react';
+import { Card, Row, Space, Typography } from 'antd';
 import { Link } from 'react-router-dom';
+import { ArrowRightOutlined, FolderOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-
-import { singularizeCollectionName } from '@app/entity/shared/utils';
+import { singularizeCollectionName } from '../entity/shared/utils';
 
 const styles = {
     row: { padding: 8 },

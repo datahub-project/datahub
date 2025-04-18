@@ -1,15 +1,14 @@
-import { Tag, Typography } from 'antd';
 import React from 'react';
+import { Tag, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { IconStyleType } from '@app/entityV2/Entity';
-import NoMarkdownViewer from '@app/entityV2/shared/components/styled/StripMarkdownText';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import SearchTextHighlighter from '@app/searchV2/matches/SearchTextHighlighter';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { EntityType } from '@types';
+import { EntityType } from '../../../../types.generated';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import { ANTD_GRAY } from '../../shared/constants';
+import { IconStyleType } from '../../Entity';
+import NoMarkdownViewer from '../../shared/components/styled/StripMarkdownText';
+import SearchTextHighlighter from '../../../searchV2/matches/SearchTextHighlighter';
 
 const PreviewContainer = styled.div`
     margin-bottom: 4px;

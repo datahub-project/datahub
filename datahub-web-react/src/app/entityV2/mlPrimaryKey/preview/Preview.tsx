@@ -1,12 +1,10 @@
-import React from 'react';
-
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
-import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { DataPlatform, DataProduct, EntityPath, EntityType, Owner } from '@types';
+import React from 'react';
+import { DataPlatform, DataProduct, EntityPath, EntityType, Owner } from '../../../../types.generated';
+import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
+import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import { IconStyleType, PreviewType } from '../../Entity';
 
 export const Preview = ({
     urn,

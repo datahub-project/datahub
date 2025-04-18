@@ -1,17 +1,19 @@
-import { Tooltip } from '@components';
-import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { useConnectionWithRunAssertionCapabilitiesForEntityExists } from '@app/entity/shared/tabs/Dataset/Validations/acrylUtils';
-import { AssertionActionsSection } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/actions/AssertionActionsSection';
-import { DatasetFreshnessAssertionBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/freshness/DatasetFreshnessAssertionBuilder';
-import { TestAssertionModal } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/preview/TestAssertionModal';
-import { useTestAssertionModal } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/utils';
-import { AssertionBuilderStep, StepProps } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/types';
-import { builderStateToTestFreshnessAssertionVariables } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/utils';
-
-import { AssertionEvaluationParametersInput, AssertionType, CreateFreshnessAssertionInput } from '@types';
+import { Button } from 'antd';
+import { Tooltip } from '@components';
+import { AssertionBuilderStep, StepProps } from '../types';
+import {
+    AssertionEvaluationParametersInput,
+    AssertionType,
+    CreateFreshnessAssertionInput,
+} from '../../../../../../../../../types.generated';
+import { TestAssertionModal } from './preview/TestAssertionModal';
+import { builderStateToTestFreshnessAssertionVariables } from '../utils';
+import { useTestAssertionModal } from './utils';
+import { DatasetFreshnessAssertionBuilder } from './freshness/DatasetFreshnessAssertionBuilder';
+import { useConnectionWithRunAssertionCapabilitiesForEntityExists } from '../../../acrylUtils';
+import { AssertionActionsSection } from './actions/AssertionActionsSection';
 
 const Step = styled.div`
     height: 100%;

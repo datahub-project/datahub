@@ -1,17 +1,11 @@
-import { ArrowRightOutlined } from '@ant-design/icons';
-import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entity/shared/constants';
-import { getAssertionsSummary } from '@app/entity/shared/tabs/Dataset/Validations/acrylUtils';
-import {
-    StyledCheckOutlined,
-    StyledCloseOutlined,
-    StyledExclamationOutlined,
-} from '@app/entity/shared/tabs/Dataset/Validations/shared/styledComponents';
-
-import { Assertion } from '@types';
+import { ArrowRightOutlined } from '@ant-design/icons';
+import { Button } from 'antd';
+import { Assertion } from '../../../../../../../types.generated';
+import { StyledCheckOutlined, StyledCloseOutlined, StyledExclamationOutlined } from '../shared/styledComponents';
+import { getAssertionsSummary } from '../acrylUtils';
+import { ANTD_GRAY, REDESIGN_COLORS } from '../../../../constants';
 
 const Container = styled.div`
     display: flex;

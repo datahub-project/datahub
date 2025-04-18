@@ -1,18 +1,9 @@
 import { FileOutlined } from '@ant-design/icons';
-<<<<<<< HEAD
-import * as React from 'react';
-
-import { Entity, IconStyleType } from '@app/entityV2/Entity';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
-import { TYPE_ICON_CLASS_NAME } from '@src/app/shared/constants';
-import { DataContract, EntityType } from '@src/types.generated';
-=======
 import { TYPE_ICON_CLASS_NAME } from '@src/app/shared/constants';
 import { DataContract, EntityType } from '@src/types.generated';
 import * as React from 'react';
 import { Entity, IconStyleType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 /**
  * Definition of the DataHub DataFlow entity.

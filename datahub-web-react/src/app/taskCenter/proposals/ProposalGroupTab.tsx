@@ -1,12 +1,11 @@
-import { CheckSquareOutlined, ClockCircleOutlined } from '@ant-design/icons';
-import { Button } from 'antd';
 import React, { useState } from 'react';
 
-import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
-import { ProposalList } from '@app/taskCenter/proposals/ProposalList';
+import { CheckSquareOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import { Button } from 'antd';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
-
-import { ActionRequestAssignee, ActionRequestStatus } from '@types';
+import { ActionRequestAssignee, ActionRequestStatus } from '../../../types.generated';
+import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
+import { ProposalList } from './ProposalList';
 
 type Props = {
     // The assignee associated with the action request groups,

@@ -1,11 +1,14 @@
-import { Select } from 'antd';
 import React from 'react';
 
-import { useFormAnalyticsContext } from '@app/govern/Dashboard/FormAnalyticsContext';
-import { StyledSelect } from '@app/govern/Dashboard/components';
-import { getEntityInfo, mergeRowAndHeaderData } from '@app/govern/Dashboard/utils';
-import { NO_DOMAIN } from '@conf/Global';
+import { Select } from 'antd';
 import analytics, { EventType } from '@src/app/analytics';
+
+import { mergeRowAndHeaderData, getEntityInfo } from './utils';
+
+import { useFormAnalyticsContext } from './FormAnalyticsContext';
+
+import { NO_DOMAIN } from '../../../conf/Global';
+import { StyledSelect } from './components';
 
 export const ByDomainSelector = () => {
     const {

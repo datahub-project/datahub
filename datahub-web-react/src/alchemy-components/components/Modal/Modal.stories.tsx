@@ -2,10 +2,8 @@ import { Button, Text } from '@components';
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
-
-import { ModalButton } from '@components/components/Modal/Modal';
-
 import { Modal } from '.';
+import { ModalButton } from './Modal';
 
 type ModalWithExampleButtons = React.ComponentProps<typeof Modal> & { buttonExamples?: string[]; content?: string };
 

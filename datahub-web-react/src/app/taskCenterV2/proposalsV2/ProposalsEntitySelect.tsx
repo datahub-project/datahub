@@ -1,13 +1,12 @@
-import _ from 'lodash';
 import React, { useMemo, useState } from 'react';
-import styled from 'styled-components';
-
+import { Entity } from '@src/types.generated';
+import _ from 'lodash';
 import { Pill, SimpleSelect } from '@src/alchemy-components';
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
-import EntitySearchInputResultV2 from '@src/app/entityV2/shared/EntitySearchInput/EntitySearchInputResultV2';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@src/graphql/search.generated';
-import { Entity } from '@src/types.generated';
+import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import EntitySearchInputResultV2 from '@src/app/entityV2/shared/EntitySearchInput/EntitySearchInputResultV2';
+import styled from 'styled-components';
 
 const Container = styled.div`
     width: 500px;

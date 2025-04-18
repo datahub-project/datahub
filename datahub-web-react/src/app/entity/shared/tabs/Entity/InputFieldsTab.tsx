@@ -1,14 +1,12 @@
 import { Empty } from 'antd';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
-
-import { groupByFieldPath } from '@app/entity/dataset/profile/schema/utils/utils';
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import SchemaTable from '@app/entity/shared/tabs/Dataset/Schema/SchemaTable';
-import SchemaEditableContext from '@app/shared/SchemaEditableContext';
-
-import { SchemaField } from '@types';
+import { SchemaField } from '../../../../../types.generated';
+import SchemaEditableContext from '../../../../shared/SchemaEditableContext';
+import { groupByFieldPath } from '../../../dataset/profile/schema/utils/utils';
+import { ANTD_GRAY } from '../../constants';
+import { useEntityData } from '../../EntityContext';
+import SchemaTable from '../Dataset/Schema/SchemaTable';
 
 const NoSchema = styled(Empty)`
     color: ${ANTD_GRAY[6]};

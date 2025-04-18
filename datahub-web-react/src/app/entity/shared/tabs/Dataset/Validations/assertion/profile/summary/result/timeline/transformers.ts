@@ -1,12 +1,4 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
-
-import {
-    AssertionDataPoint,
-    AssertionResultChartData,
-} from '@app/entity/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/types';
-import { tryGetPrimaryMetricValueFromAssertionRunEvent } from '@app/entity/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultExtractionUtils';
-import { getFieldMetricTypeReadableLabel } from '@app/entity/shared/tabs/Dataset/Validations/fieldDescriptionUtils';
-
 import {
     Assertion,
     AssertionInfo,
@@ -14,7 +6,10 @@ import {
     AssertionType,
     FieldAssertionInfo,
     FieldAssertionType,
-} from '@types';
+} from '../../../../../../../../../../../types.generated';
+import { AssertionDataPoint, AssertionResultChartData } from './charts/types';
+import { getFieldMetricTypeReadableLabel } from '../../../../../fieldDescriptionUtils';
+import { tryGetPrimaryMetricValueFromAssertionRunEvent } from '../../shared/resultExtractionUtils';
 
 /**
  * Gets the Y value that we should be plotting on the graph from the assertion run event

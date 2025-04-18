@@ -1,7 +1,6 @@
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { useListSubscriptionsQuery } from '@graphql/subscriptions.generated';
-import { CorpUser, EntityType } from '@types';
+import { useListSubscriptionsQuery } from '../../../../../graphql/subscriptions.generated';
+import { CorpUser, EntityType } from '../../../../../types.generated';
+import { useEntityRegistry } from '../../../../useEntityRegistry';
 
 const MAX_ASSETS_TO_FETCH = 50;
 

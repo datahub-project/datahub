@@ -1,28 +1,25 @@
-import {
-    DEFAULT_APPLY_TYPE,
-    DEFAULT_AUTOMATION_CATEGORY,
-    DEFAULT_CARDINALITY,
-    DEFAULT_MODE,
-} from '@app/automations/constants';
-import { ApplyTypeSelector, ApplyTypeSelectorStateType } from '@app/automations/fields/ApplyTypeSelector';
-import { CardinalitySelector, CardinalitySelectorStateType } from '@app/automations/fields/CardinalitySelector';
-import { ConnectionSelector, ConnectionSelectorStateType } from '@app/automations/fields/ConnectionSelector';
-import { ContainerSelector, ContainerSelectorStateType } from '@app/automations/fields/ContainerSelector';
-import { Details, DetailsStateType } from '@app/automations/fields/Details';
-import { EntityTypeSelector, EntityTypeSelectorStateType } from '@app/automations/fields/EntityTypeSelector';
-import { HiddenRecipeModifer } from '@app/automations/fields/HiddenRecipeModifer';
-import { ModeSelector, ModeSelectorStateType } from '@app/automations/fields/ModeSelector';
-import { PlatformSelector, PlatformSelectorStateType } from '@app/automations/fields/PlatformSelector';
-import {
-    PropagationOptions,
-    PropagationOptionsStateType,
-} from '@app/automations/fields/PropagationOptions/PropagationOptions';
-import { RadioSelector } from '@app/automations/fields/RadioSelector';
-import { TermSelector, TermSelectorStateType } from '@app/automations/fields/TermSelector';
-import { TraversalSelector, TraversalSelectorStateType } from '@app/automations/fields/TraversalSelector';
 import type { Field } from '@app/automations/types';
-import { EMBEDDED_EXECUTOR_POOL_NAME } from '@src/app/shared/constants';
 import { EntityType } from '@src/types.generated';
+import { EMBEDDED_EXECUTOR_POOL_NAME } from '@src/app/shared/constants';
+
+import { DEFAULT_AUTOMATION_CATEGORY, DEFAULT_APPLY_TYPE, DEFAULT_CARDINALITY, DEFAULT_MODE } from '../constants';
+
+// Specific field components
+import { TermSelector, TermSelectorStateType } from './TermSelector';
+import { EntityTypeSelector, EntityTypeSelectorStateType } from './EntityTypeSelector';
+import { TraversalSelector, TraversalSelectorStateType } from './TraversalSelector';
+import { ConnectionSelector, ConnectionSelectorStateType } from './ConnectionSelector';
+import { ApplyTypeSelector, ApplyTypeSelectorStateType } from './ApplyTypeSelector';
+import { CardinalitySelector, CardinalitySelectorStateType } from './CardinalitySelector';
+import { PlatformSelector, PlatformSelectorStateType } from './PlatformSelector';
+import { ContainerSelector, ContainerSelectorStateType } from './ContainerSelector';
+import { ModeSelector, ModeSelectorStateType } from './ModeSelector';
+import { Details, DetailsStateType } from './Details';
+
+// Generic field components
+import { RadioSelector } from './RadioSelector';
+import { HiddenRecipeModifer } from './HiddenRecipeModifer';
+import { PropagationOptions, PropagationOptionsStateType } from './PropagationOptions/PropagationOptions';
 
 // Recipe Modifier (for hidden config fields)
 // This field is used to modify the recipe state, usually during a
@@ -100,7 +97,6 @@ const termSelector: Field = {
             props: {
                 fieldTypes: [EntityType.Tag, EntityType.GlossaryTerm, EntityType.GlossaryNode],
                 allowedRadios: ['all', 'some', 'none'],
-                canShowNotice: false,
             },
 
             // State mapping to connect form data to the component's state

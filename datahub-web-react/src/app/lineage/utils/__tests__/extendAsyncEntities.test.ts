@@ -1,8 +1,7 @@
-import { FetchedEntity } from '@app/lineage/types';
-import { extendColumnLineage } from '@app/lineage/utils/extendAsyncEntities';
-import { dataJob1, dataset1, dataset2 } from '@src/Mocks';
-
-import { FineGrainedLineage } from '@types';
+import { dataJob1, dataset1, dataset2 } from '../../../../Mocks';
+import { FetchedEntity } from '../../types';
+import { FineGrainedLineage } from '../../../../types.generated';
+import { extendColumnLineage } from '../extendAsyncEntities';
 
 describe('extendColumnLineage', () => {
     it('should update fineGrainedMap to draw lines from downstream and upstream datasets with a datajob in between', () => {

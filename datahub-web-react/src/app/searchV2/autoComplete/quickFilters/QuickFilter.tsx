@@ -1,16 +1,14 @@
 import { Button } from 'antd';
 import React from 'react';
-import { useHistory } from 'react-router';
 import styled from 'styled-components';
-
-import analytics, { Event, EventType } from '@app/analytics';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { getQuickFilterDetails } from '@app/searchV2/autoComplete/quickFilters/utils';
-import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-import { useQuickFiltersContext } from '@providers/QuickFiltersContext';
-
-import { QuickFilter as QuickFilterType } from '@types';
+import { useHistory } from 'react-router';
+import { useQuickFiltersContext } from '../../../../providers/QuickFiltersContext';
+import { QuickFilter as QuickFilterType } from '../../../../types.generated';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import { getQuickFilterDetails } from './utils';
+import { ANTD_GRAY } from '../../../entity/shared/constants';
+import analytics, { Event, EventType } from '../../../analytics';
+import { navigateToSearchUrl } from '../../utils/navigateToSearchUrl';
 
 const QuickFilterWrapper = styled(Button)<{ selected: boolean }>`
     border: 1px solid ${ANTD_GRAY[4]};

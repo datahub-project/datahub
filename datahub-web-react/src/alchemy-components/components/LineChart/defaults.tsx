@@ -1,15 +1,13 @@
-import { TickLabelProps } from '@visx/axis';
-import { LinearGradient } from '@visx/gradient';
-import dayjs from 'dayjs';
 import React from 'react';
-
-import { Glyph, TooltipGlyph } from '@components/components/LineChart/components';
-import { GLYPH_DROP_SHADOW_FILTER } from '@components/components/LineChart/constants';
-import { Datum, LineChartProps } from '@components/components/LineChart/types';
-import { roundToEven } from '@components/components/LineChart/utils';
-import { abbreviateNumber } from '@components/components/dataviz/utils';
-
+import { TickLabelProps } from '@visx/axis';
 import { colors } from '@src/alchemy-components/theme';
+import dayjs from 'dayjs';
+import { LinearGradient } from '@visx/gradient';
+import { Datum, LineChartProps } from './types';
+import { abbreviateNumber } from '../dataviz/utils';
+import { roundToEven } from './utils';
+import { GLYPH_DROP_SHADOW_FILTER } from './constants';
+import { Glyph, TooltipGlyph } from './components';
 
 const commonTickLabelProps: TickLabelProps<Datum> = {
     fontSize: 10,

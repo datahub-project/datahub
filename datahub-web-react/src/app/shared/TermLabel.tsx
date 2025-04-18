@@ -1,5 +1,5 @@
-import { BookmarkSimple, BookmarksSimple } from '@phosphor-icons/react';
 import React from 'react';
+import { BookmarkSimple, BookmarksSimple } from '@phosphor-icons/react';
 import styled from 'styled-components';
 
 import { EntityType } from '@src/types.generated';

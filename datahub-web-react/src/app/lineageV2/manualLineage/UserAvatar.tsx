@@ -2,12 +2,10 @@ import { PartitionOutlined } from '@ant-design/icons';
 import { Avatar, Popover } from '@components';
 import React from 'react';
 import styled from 'styled-components/macro';
-
-import getAvatarColor from '@app/shared/avatar/getAvatarColor';
-import { toLocalDateTimeString } from '@app/shared/time/timeUtils';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { CorpUser, EntityType } from '@types';
+import { CorpUser, EntityType } from '../../../types.generated';
+import getAvatarColor from '../../shared/avatar/getAvatarColor';
+import { toLocalDateTimeString } from '../../shared/time/timeUtils';
+import { useEntityRegistry } from '../../useEntityRegistry';
 
 const StyledAvatar = styled(Avatar)<{ $backgroundColor: string }>`
     color: #fff;

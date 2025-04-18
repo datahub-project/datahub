@@ -1,9 +1,8 @@
-import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-
-import { StyledMenuItem } from '@app/shared/share/v2/styledComponents';
+import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
+import { StyledMenuItem } from '../styledComponents';
 
 interface CopyUrnMenuItemProps {
     urn: string;

@@ -1,8 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { formatNumber } from '@app/shared/formatNumber';
+import { formatNumber } from '../shared/formatNumber';
+import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 
 const Container = styled.div`
     color: ${REDESIGN_COLORS.FOUNDATION_BLUE_4};

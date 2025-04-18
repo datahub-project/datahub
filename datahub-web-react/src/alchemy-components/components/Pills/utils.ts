@@ -1,10 +1,8 @@
-import { CSSObject } from 'styled-components';
-
 import { PillStyleProps } from '@components/components/Pills/types';
 import { ColorOptions, PillVariantOptions, SizeOptions } from '@components/theme/config';
-
 import { typography } from '@src/alchemy-components/theme';
 import { getColor, getFontSize } from '@src/alchemy-components/theme/utils';
+import { CSSObject } from 'styled-components';
 
 interface ColorStyles {
     primaryColor: string;
@@ -66,7 +64,7 @@ const getPillVariantStyles = (variant: PillVariantOptions, colorStyles: ColorSty
             },
             borderRadius: '4px',
         },
-    })[variant];
+    }[variant]);
 
 const getPillFontStyles = (variant: PillVariantOptions, size: SizeOptions): CSSObject => {
     const baseFontStyles = {

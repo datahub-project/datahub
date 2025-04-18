@@ -1,16 +1,18 @@
-import { DeleteOutlined, EditOutlined } from '@ant-design/icons';
-import { Alert, Button, Divider, Image, Table, Typography } from 'antd';
 import React, { useState } from 'react';
+
 import styled from 'styled-components';
+import { DeleteOutlined, EditOutlined } from '@ant-design/icons';
+import { Button, Divider, Typography, Alert, Image, Table } from 'antd';
 
-import snowflakeConfig from '@app/ingest/source/conf/snowflake/snowflake';
-import { PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
-import { PlatformIntegrationBreadcrumb } from '@app/settings/platform/PlatformIntegrationBreadcrumb';
-import { SnowflakeConnectionModal } from '@app/settings/platform/snowflake/Modal';
-import { Message } from '@app/shared/Message';
+import { useGetSearchResultsForMultipleQuery } from '../../../../graphql/search.generated';
+import { EntityType } from '../../../../types.generated';
 
-import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
-import { EntityType } from '@types';
+import snowflakeConfig from '../../../ingest/source/conf/snowflake/snowflake';
+import { Message } from '../../../shared/Message';
+import { PlatformIntegrationBreadcrumb } from '../PlatformIntegrationBreadcrumb';
+
+import { PLATFORM_FILTER_NAME } from '../../../searchV2/utils/constants';
+import { SnowflakeConnectionModal } from './Modal';
 
 export const PLATFORM = 'urn:li:dataPlatform:snowflake';
 

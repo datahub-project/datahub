@@ -1,6 +1,5 @@
-import { SourceConfig } from '@app/ingest/source/conf/types';
-
-import oktaLogo from '@images/oktalogo.png';
+import { SourceConfig } from '../types';
+import oktaLogo from '../../../../../images/oktalogo.png';
 
 const placeholderRecipe = `\
 source:

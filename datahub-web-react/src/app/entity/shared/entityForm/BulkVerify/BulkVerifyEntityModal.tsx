@@ -1,10 +1,12 @@
-import { Button, Modal } from 'antd';
 import React from 'react';
+
+import { Modal, Button } from 'antd';
 import styled from 'styled-components';
 
-import BulkVerifyEntityInfo from '@app/entity/shared/entityForm/BulkVerify/BulkVerifyEntityInfo';
-import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
-import Form from '@app/entity/shared/entityForm/Form';
+import { useEntityFormContext } from '../EntityFormContext';
+
+import Form from '../Form';
+import BulkVerifyEntityInfo from './BulkVerifyEntityInfo';
 
 const StyledModal = styled(Modal)`
     min-width: 70%;

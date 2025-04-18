@@ -1,11 +1,13 @@
-import { Form, InputNumber, Select, Typography } from 'antd';
 import React from 'react';
+import { Form, InputNumber, Select, Typography } from 'antd';
 import styled from 'styled-components';
-
-import { SQL_CHANGE_TYPE_OPTIONS } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/sql/utils';
-import { AssertionMonitorBuilderState } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/types';
-
-import { AssertionStdParameterType, AssertionValueChangeType, SqlAssertionType } from '@types';
+import { AssertionMonitorBuilderState } from '../../types';
+import {
+    AssertionStdParameterType,
+    AssertionValueChangeType,
+    SqlAssertionType,
+} from '../../../../../../../../../../types.generated';
+import { SQL_CHANGE_TYPE_OPTIONS } from './utils';
 
 const StyledSelect = styled(Select)`
     width: 120px;

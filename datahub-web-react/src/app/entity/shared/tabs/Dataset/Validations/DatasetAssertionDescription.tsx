@@ -1,13 +1,7 @@
+import { Typography, Button } from 'antd';
 import { Popover } from '@components';
-import { Button, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-
-import { DatasetAssertionLogicModal } from '@app/entity/shared/tabs/Dataset/Validations/DatasetAssertionLogicModal';
-import { toReadableLocalDateTimeString } from '@app/entity/shared/tabs/Dataset/Validations/assertion/profile/shared/utils';
-import { getFormattedParameterValue } from '@app/entity/shared/tabs/Dataset/Validations/assertionUtils';
-import { decodeSchemaField } from '@app/lineage/utils/columnLineageUtils';
-
 import {
     AssertionRunEvent,
     AssertionStdAggregation,
@@ -16,7 +10,11 @@ import {
     DatasetAssertionInfo,
     DatasetAssertionScope,
     SchemaFieldRef,
-} from '@types';
+} from '../../../../../../types.generated';
+import { decodeSchemaField } from '../../../../../lineage/utils/columnLineageUtils';
+import { getFormattedParameterValue } from './assertionUtils';
+import { DatasetAssertionLogicModal } from './DatasetAssertionLogicModal';
+import { toReadableLocalDateTimeString } from './assertion/profile/shared/utils';
 
 const ViewLogicButton = styled(Button)`
     padding: 0px;

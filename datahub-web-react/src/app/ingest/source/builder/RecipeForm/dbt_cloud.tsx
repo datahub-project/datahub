@@ -1,8 +1,7 @@
-import { get } from 'lodash';
 import React from 'react';
 import styled from 'styled-components';
-
-import { FieldType, RecipeField, setFieldValueOnRecipe } from '@app/ingest/source/builder/RecipeForm/common';
+import { get } from 'lodash';
+import { RecipeField, FieldType, setFieldValueOnRecipe } from './common';
 
 const TipSection = styled.div`
     margin-bottom: 12px;

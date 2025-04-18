@@ -1,7 +1,7 @@
-import { Divider, Form, Select } from 'antd';
-import Typography from 'antd/lib/typography';
 import React from 'react';
+import Typography from 'antd/lib/typography';
 import styled from 'styled-components';
+import { Divider, Form, Select } from 'antd';
 
 const StyledFormItem = styled(Form.Item)<{ width: string }>`
     width: ${(props) => props.width};

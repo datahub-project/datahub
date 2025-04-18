@@ -1,5 +1,5 @@
-import { useGetDataPlatformsQuery } from '@graphql/dataPlatform.generated';
-import { DataPlatform } from '@types';
+import { useGetDataPlatformsQuery } from '../../../../../../../graphql/dataPlatform.generated';
+import { DataPlatform } from '../../../../../../../types.generated';
 
 export const DATA_PLATFORMS_URNS = [
     'urn:li:dataPlatform:snowflake',

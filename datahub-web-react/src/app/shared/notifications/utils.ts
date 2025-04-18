@@ -1,4 +1,4 @@
-import { ExtraContextForErrorMessage, TestNotificationConfig } from '@app/shared/notifications/types';
+import { ExtraContextForErrorMessage, TestNotificationConfig } from './types';
 
 export const getDestinationId = (
     config: Pick<TestNotificationConfig, 'destinationSettings' | 'integration'>,

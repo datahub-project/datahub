@@ -1,13 +1,13 @@
-import { Drawer, Modal } from 'antd';
 import React, { useState } from 'react';
 
-import { IncidentDrawerHeader } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentDrawerHeader';
-import { IncidentEditor } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentEditor';
-import { IncidentView } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentView';
-import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
-import { EntityStagedForIncident, IncidentTableRow } from '@app/entityV2/shared/tabs/Incident/types';
+import { Drawer, Modal } from 'antd';
 import ClickOutside from '@src/app/shared/ClickOutside';
 import { EntityPrivileges, Incident } from '@src/types.generated';
+import { IncidentDrawerHeader } from './IncidentDrawerHeader';
+import { IncidentView } from './IncidentView';
+import { IncidentEditor } from './IncidentEditor';
+import { EntityStagedForIncident, IncidentTableRow } from '../types';
+import { IncidentAction } from '../constant';
 
 const modalBodyStyle = { padding: 0, fontFamily: 'Mulish, sans-serif' };
 
@@ -22,10 +22,7 @@ type IncidentDetailDrawerProps = {
 };
 
 export const IncidentDetailDrawer = ({
-<<<<<<< HEAD
     entity,
-=======
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
     urn,
     mode,
     onCancel,

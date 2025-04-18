@@ -1,8 +1,7 @@
+import { Button, Checkbox, Input, Modal, Text } from '@src/alchemy-components';
 import { Form } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components/macro';
-
-import { Button, Checkbox, Input, Modal, Text } from '@src/alchemy-components';
 
 const FooterContainer = styled.div`
     display: flex;

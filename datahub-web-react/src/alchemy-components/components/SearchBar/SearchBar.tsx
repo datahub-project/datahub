@@ -1,10 +1,8 @@
+import { Icon } from '@src/alchemy-components';
 import { InputProps } from 'antd';
 import React from 'react';
-
-import { StyledSearchBar } from '@components/components/SearchBar/components';
-import { SearchBarProps } from '@components/components/SearchBar/types';
-
-import { Icon } from '@src/alchemy-components';
+import { StyledSearchBar } from './components';
+import { SearchBarProps } from './types';
 
 export const searchBarDefaults: SearchBarProps = {
     placeholder: 'Search...',

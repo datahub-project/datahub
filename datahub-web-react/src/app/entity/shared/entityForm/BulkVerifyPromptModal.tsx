@@ -1,10 +1,9 @@
-import { ArrowRightOutlined } from '@ant-design/icons';
-import { Button, Modal } from 'antd';
 import React from 'react';
+import { Button, Modal } from 'antd';
+import { ArrowRightOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-
-import { FormView, useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
-import { pluralize } from '@app/shared/textUtil';
+import { pluralize } from '../../../shared/textUtil';
+import { FormView, useEntityFormContext } from './EntityFormContext';
 
 const Title = styled.div`
     font-size: 16px;

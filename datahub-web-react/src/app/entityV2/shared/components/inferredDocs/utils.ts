@@ -1,7 +1,7 @@
-import { INFER_DOCUMENTATION_ENTITY_TYPES } from '@app/entityV2/shared/components/inferredDocs/constants';
 import { useAppConfig } from '@src/app/useAppConfig';
 import { useInferDocumentationMutation } from '@src/graphql/mutations.generated';
 import { EntityType } from '@src/types.generated';
+import { INFER_DOCUMENTATION_ENTITY_TYPES } from './constants';
 
 export const useInferDocumentationForItem = ({
     entityUrn,

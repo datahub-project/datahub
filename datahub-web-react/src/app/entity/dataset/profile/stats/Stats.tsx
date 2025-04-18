@@ -1,10 +1,8 @@
-import { Radio } from 'antd';
 import React, { useState } from 'react';
-
-import HistoricalStatsView from '@app/entity/dataset/profile/stats/historical/HistoricalStatsView';
-import LatestStatsView from '@app/entity/dataset/profile/stats/snapshot/LatestStatsView';
-
-import { DatasetProfile } from '@types';
+import { Radio } from 'antd';
+import { DatasetProfile } from '../../../../../types.generated';
+import LatestStatsView from './snapshot/LatestStatsView';
+import HistoricalStatsView from './historical/HistoricalStatsView';
 
 export type Props = {
     urn: string;

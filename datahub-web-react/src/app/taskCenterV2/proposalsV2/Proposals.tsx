@@ -1,19 +1,13 @@
-import { Button as TabButton, colors } from '@components';
+import { colors, Button as TabButton } from '@components';
 import { Button } from 'antd';
 import React, { useState } from 'react';
-import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
-
-import { ProposalList } from '@app/taskCenterV2/proposalsV2/ProposalList';
-import {
-    ActionRequestGroup,
-    MY_PROPOSALS_GROUP_NAME,
-    PERSONAL_ACTION_REQUESTS_GROUP_NAME,
-} from '@app/taskCenterV2/proposalsV2/utils';
-import { ACTION_REQUEST_DISPLAY_FACETS } from '@app/taskCenterV2/utils/constants';
-import { useGetAuthenticatedUser } from '@app/useGetAuthenticatedUser';
-
-import { ActionRequest, AssigneeType, CorpGroup } from '@types';
+import { useHistory, useLocation } from 'react-router';
+import { ActionRequest, AssigneeType, CorpGroup } from '../../../types.generated';
+import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
+import { ProposalList } from './ProposalList';
+import { ActionRequestGroup, MY_PROPOSALS_GROUP_NAME, PERSONAL_ACTION_REQUESTS_GROUP_NAME } from './utils';
+import { ACTION_REQUEST_DISPLAY_FACETS } from '../utils/constants';
 
 const StyledButtonGroup = styled(Button.Group)`
     margin: 8px 16px;

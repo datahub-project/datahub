@@ -1,12 +1,11 @@
 import React from 'react';
 import styled from 'styled-components';
-
-import { StatsProps } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsSidebarView';
-import Metric from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/components/sections/StatsAndInsights/components/Metric';
-import useStatsTabContext from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/hooks/useStatsTabContext';
-import { formatNumber } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/utils';
 import { isValuePresent } from '@src/app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import { SchemaFieldDataType } from '@src/types.generated';
+import { StatsProps } from '../../../../../StatsSidebarView';
+import useStatsTabContext from '../../../../hooks/useStatsTabContext';
+import { formatNumber } from '../../../../utils';
+import Metric from './Metric';
 
 const MetricsContainer = styled.div`
     display: flex;

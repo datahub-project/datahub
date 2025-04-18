@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from 'react';
-
-import { StyledTableContainer } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/StyledComponents';
-import { useAssertionsTableColumns } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/hooks';
-import { AssertionListFilter, AssertionTable } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
-import { getEntityUrnForAssertion, getSiblingWithUrn } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
-import { useOpenAssertionDetailModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/hooks';
-import { AssertionProfileDrawer } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileDrawer';
+import { AssertionType, DataContract, Entity } from '@src/types.generated';
+import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { Table } from '@src/alchemy-components';
 import { SortingState } from '@src/alchemy-components/components/Table/types';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { useGetExpandedTableGroupsFromEntityUrnInUrl } from '@src/app/entityV2/shared/hooks';
-import { AssertionType, DataContract, Entity } from '@src/types.generated';
+
+import { AssertionProfileDrawer } from '../assertion/profile/AssertionProfileDrawer';
+import { getEntityUrnForAssertion, getSiblingWithUrn } from '../acrylUtils';
+import { useOpenAssertionDetailModal } from '../assertion/builder/hooks';
+import { AssertionTable, AssertionListFilter } from './types';
+import { useAssertionsTableColumns } from './hooks';
+import { StyledTableContainer } from './StyledComponents';
 
 type Props = {
     assertionData: AssertionTable;

@@ -1,15 +1,11 @@
-import { Form, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { VolumeRowCountChangeBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/volume/VolumeRowCountChangeBuilder';
-import { VolumeRowCountTotalBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/volume/VolumeRowCountTotalBuilder';
-import { getParameterBuilderTitle } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/volume/utils';
-import {
-    VolumeAssertionBuilderState,
-    VolumeAssertionBuilderTypeOptions,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
-import { getIsRowCountChange, getPropertyFromVolumeType } from '@app/entityV2/shared/tabs/Dataset/Validations/utils';
+import { Form, Typography } from 'antd';
+import { getParameterBuilderTitle } from './utils';
+import { VolumeRowCountTotalBuilder } from './VolumeRowCountTotalBuilder';
+import { VolumeRowCountChangeBuilder } from './VolumeRowCountChangeBuilder';
+import { getIsRowCountChange, getPropertyFromVolumeType } from '../../../../utils';
+import { VolumeAssertionBuilderState, VolumeAssertionBuilderTypeOptions } from '../../types';
 
 const FormDiv = styled.div`
     margin: 16px 0 24px;

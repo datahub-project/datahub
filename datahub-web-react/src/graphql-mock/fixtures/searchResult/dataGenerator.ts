@@ -1,4 +1,4 @@
-import { AnyRecord } from '@graphql-mock/types';
+import { AnyRecord } from '../../types';
 
 type GenerateDataArg<T = AnyRecord> = {
     generator(): T;

@@ -1,11 +1,10 @@
-import { LinkSimpleHorizontal } from '@phosphor-icons/react';
-import { useActive } from '@remirror/react';
 import React, { useState } from 'react';
-
-import { CommandButton } from '@components/components/Editor/toolbar/CommandButton';
-import { LinkModal } from '@components/components/Editor/toolbar/LinkModal';
-
+import { useActive } from '@remirror/react';
+import { LinkSimpleHorizontal } from '@phosphor-icons/react';
 import { colors } from '@src/alchemy-components/theme';
+
+import { CommandButton } from './CommandButton';
+import { LinkModal } from './LinkModal';
 
 export const AddLinkButton = () => {
     const [isModalVisible, setModalVisible] = useState(false);

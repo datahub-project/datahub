@@ -1,14 +1,4 @@
 import { Key } from 'react';
-
-import { useDrawerState } from '@app/shared/subscribe/drawer/state/context';
-import {
-    ASSERTION_SUBSCRIPTION_RELATED_ENTITY_CHANGE_TYPES,
-    removeNestedTypeNames,
-    updateSubscriptionFunction,
-} from '@app/shared/subscribe/drawer/utils';
-
-import { useGetDatasetAssertionsWithMonitorsQuery } from '@graphql/monitor.generated';
-import { useUpdateSubscriptionMutation } from '@graphql/subscriptions.generated';
 import {
     Assertion,
     DataHubSubscription,
@@ -17,7 +7,15 @@ import {
     EntityType,
     NotificationSettingsInput,
     SubscriptionType,
-} from '@types';
+} from '../../../../../types.generated';
+import {
+    ASSERTION_SUBSCRIPTION_RELATED_ENTITY_CHANGE_TYPES,
+    removeNestedTypeNames,
+    updateSubscriptionFunction,
+} from '../utils';
+import { useUpdateSubscriptionMutation } from '../../../../../graphql/subscriptions.generated';
+import { useDrawerState } from '../state/context';
+import { useGetDatasetAssertionsWithMonitorsQuery } from '../../../../../graphql/monitor.generated';
 
 export function checkIsKeyBeingToggledForAssertionSubscriptionsAtAssetLevel(
     key: Key,

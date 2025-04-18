@@ -1,8 +1,10 @@
+import useShouldHideTransformations from '@app/lineageV2/useShouldHideTransformations';
+import useShouldShowDataProcessInstances from '@app/lineageV2/useShouldShowDataProcessInstances';
 import React, { useContext, useEffect, useState } from 'react';
 import { ReactFlowProvider } from 'reactflow';
-
-import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
-import LineageDisplay from '@app/lineageV2/LineageDisplay';
+import { EntityType, LineageDirection } from '../../types.generated';
+import { useGetLineageTimeParams } from '../lineage/utils/useGetLineageTimeParams';
+import TabFullsizedContext from '../shared/TabFullsizedContext';
 import {
     EdgeId,
     FetchStatus,
@@ -12,13 +14,9 @@ import {
     LineageNodesContext,
     NodeContext,
     useIgnoreSchemaFieldStatus,
-} from '@app/lineageV2/common';
-import useSearchAcrossLineage from '@app/lineageV2/useSearchAcrossLineage';
-import useShouldHideTransformations from '@app/lineageV2/useShouldHideTransformations';
-import useShouldShowDataProcessInstances from '@app/lineageV2/useShouldShowDataProcessInstances';
-import TabFullsizedContext from '@app/shared/TabFullsizedContext';
-
-import { EntityType, LineageDirection } from '@types';
+} from './common';
+import LineageDisplay from './LineageDisplay';
+import useSearchAcrossLineage from './useSearchAcrossLineage';
 
 type Props = {
     urn: string;

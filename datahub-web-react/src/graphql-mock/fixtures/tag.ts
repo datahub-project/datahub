@@ -1,8 +1,7 @@
 import * as faker from 'faker';
-
-import { findUserByURN } from '@graphql-mock/fixtures/searchResult/userSearchResult';
-import { getActor } from '@graphql-mock/helper';
-import { EntityType, Ownership, OwnershipType, Tag, TagUpdateInput } from '@types';
+import { EntityType, Ownership, OwnershipType, Tag, TagUpdateInput } from '../../types.generated';
+import { getActor } from '../helper';
+import { findUserByURN } from './searchResult/userSearchResult';
 
 export const tagDb: Tag[] = [];
 

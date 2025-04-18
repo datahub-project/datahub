@@ -1,11 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
-
-import { FilterPill } from '@app/searchV2/recommendation/FilterPill';
-import { RecommendedFilter } from '@app/searchV2/recommendation/types';
-import { useGetRecommendedFilters } from '@app/searchV2/recommendation/useGetRecommendedFilters';
-
-import { FacetFilterInput, FacetMetadata, FilterOperator } from '@types';
+import { FacetFilterInput, FacetMetadata, FilterOperator } from '../../../types.generated';
+import { FilterPill } from './FilterPill';
+import { useGetRecommendedFilters } from './useGetRecommendedFilters';
+import { RecommendedFilter } from './types';
 
 const FilterPills = styled.div`
     display: flex;

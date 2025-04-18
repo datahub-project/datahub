@@ -1,7 +1,6 @@
-import { useUserContext } from '@app/context/useUserContext';
-
-import { useListRecommendationsQuery } from '@graphql/recommendations.generated';
-import { CorpUser, DataPlatform, ScenarioType } from '@types';
+import { useListRecommendationsQuery } from '../../../../../../../graphql/recommendations.generated';
+import { CorpUser, DataPlatform, ScenarioType } from '../../../../../../../types.generated';
+import { useUserContext } from '../../../../../../context/useUserContext';
 
 export const PLATFORMS_MODULE_ID = 'Platforms';
 

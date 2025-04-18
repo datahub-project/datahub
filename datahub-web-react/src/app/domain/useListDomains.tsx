@@ -1,6 +1,5 @@
-import { useSortedDomains } from '@app/domain/utils';
-
-import { useListDomainsQuery } from '@graphql/domain.generated';
+import { useListDomainsQuery } from '../../graphql/domain.generated';
+import { useSortedDomains } from './utils';
 
 interface Props {
     parentDomain?: string;

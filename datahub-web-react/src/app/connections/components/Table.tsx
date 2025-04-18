@@ -1,9 +1,10 @@
-import { Alert, Modal, Table, message } from 'antd';
 import React, { useState } from 'react';
+import { Alert, Table, Modal, message } from 'antd';
 
-import { ActionsMenu } from '@app/connections/components/ActionMenu';
-import { useDeleteConnection } from '@app/connections/hooks';
 import { Message } from '@app/shared/Message';
+
+import { useDeleteConnection } from '@app/connections/hooks';
+import { ActionsMenu } from './ActionMenu';
 
 type Props = {
     connections: {

@@ -1,16 +1,13 @@
-import { Typography } from 'antd';
 import React from 'react';
-import { VerticalTimeline, VerticalTimelineElement } from 'react-vertical-timeline-component';
-import 'react-vertical-timeline-component/style.min.css';
 import styled from 'styled-components';
-
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-
-import { useGetTimelineQuery } from '@graphql/timeline.generated';
-import { ChangeCategoryType } from '@types';
-
-import TimelineIcon from '@images/timeline-icon.svg?react';
+import { Typography } from 'antd';
+import { VerticalTimeline, VerticalTimelineElement } from 'react-vertical-timeline-component';
+import { useEntityData } from '../../../../../entity/shared/EntityContext';
+import { useGetTimelineQuery } from '../../../../../../graphql/timeline.generated';
+import { ChangeCategoryType } from '../../../../../../types.generated';
+import 'react-vertical-timeline-component/style.min.css';
+import { REDESIGN_COLORS } from '../../../constants';
+import TimelineIcon from '../../../../../../images/timeline-icon.svg?react';
 
 const TimeLine = styled(VerticalTimeline)`
     svg {

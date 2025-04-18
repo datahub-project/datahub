@@ -1,6 +1,6 @@
-import { AggregationGroup } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/types';
-import { convertAggregationsToOperationsData } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/utils';
-import { OperationType, OperationsAggregationsResult } from '@src/types.generated';
+import { OperationsAggregationsResult, OperationType } from '@src/types.generated';
+import { convertAggregationsToOperationsData } from '../utils';
+import { AggregationGroup } from '../types';
 
 const EXAMPLE_AGGREGATION_WITH_CUSTOM_TYPES: OperationsAggregationsResult = {
     totalInserts: 1,

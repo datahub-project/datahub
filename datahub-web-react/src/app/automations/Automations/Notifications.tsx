@@ -1,10 +1,12 @@
-import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
-import { Typography, notification } from 'antd';
-import type { NotificationPlacement } from 'antd/es/notification';
 import React from 'react';
+
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { Typography, notification } from 'antd';
+import type { NotificationPlacement } from 'antd/es/notification';
+import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
+
+import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
 
 const NotificationTitleContainer = styled.div`
     font-weight: 700;

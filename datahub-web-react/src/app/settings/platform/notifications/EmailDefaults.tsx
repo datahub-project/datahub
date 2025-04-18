@@ -1,7 +1,8 @@
-import { Tooltip } from '@components';
-import { Button, Form, Input, Space, Typography } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
 import styled from 'styled-components';
+import { Typography, Form, Input, Button, Space } from 'antd';
+import { Tooltip } from '@components';
 
 const InputDiv = styled.div`
     width: 360px;

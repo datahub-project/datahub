@@ -1,7 +1,6 @@
+import { IconSource } from '@components/components/Icon/types';
 import * as materialIcons from '@mui/icons-material';
 import * as phosphorIcons from 'phosphor-react';
-
-import { IconSource } from '@components/components/Icon/types';
 
 export const getIconNames = () => {
     // We only want "Filled" (mui default) and "Outlined" icons

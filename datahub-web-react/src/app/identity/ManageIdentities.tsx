@@ -1,10 +1,9 @@
-import { Typography } from 'antd';
 import React from 'react';
+import { Typography } from 'antd';
 import styled from 'styled-components';
-
-import { GroupList } from '@app/identity/group/GroupList';
-import { UserList } from '@app/identity/user/UserList';
-import { RoutedTabs } from '@app/shared/RoutedTabs';
+import { RoutedTabs } from '../shared/RoutedTabs';
+import { GroupList } from './group/GroupList';
+import { UserList } from './user/UserList';
 
 const PageContainer = styled.div`
     padding-top: 20px;

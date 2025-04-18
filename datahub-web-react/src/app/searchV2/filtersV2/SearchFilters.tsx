@@ -1,15 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
-<<<<<<< HEAD
-
-import FiltersRenderingRunner from '@app/searchV2/filtersV2/FiltersRenderingRunner';
-import { SearchFiltersProvider } from '@app/searchV2/filtersV2/context';
-import DynamicFacetsUpdater from '@app/searchV2/filtersV2/defaults/DefaultFacetsUpdater/DefaultFacetsUpdater';
-import DefaultFiltersRenderer from '@app/searchV2/filtersV2/defaults/DefaultFiltersRenderer';
-import defaultFiltersRegistry from '@app/searchV2/filtersV2/defaults/defaultFiltersRegistry';
-=======
 import DynamicFacetsUpdater from './defaults/DefaultFacetsUpdater/DefaultFacetsUpdater';
 import FiltersRenderingRunner from './FiltersRenderingRunner';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 import {
     AppliedFieldFilterUpdater,
     FieldName,
@@ -17,14 +8,10 @@ import {
     FieldToFacetStateMap,
     FiltersAppliedHandler,
     FiltersRenderer,
-<<<<<<< HEAD
-} from '@app/searchV2/filtersV2/types';
-=======
 } from './types';
 import { SearchFiltersProvider } from './context';
 import defaultFiltersRegistry from './defaults/defaultFiltersRegistry';
 import DefaultFiltersRenderer from './defaults/DefaultFiltersRenderer';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 interface Props {
     query: string;

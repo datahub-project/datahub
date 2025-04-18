@@ -1,20 +1,12 @@
+import React, { useEffect, useState, useRef } from 'react';
+import { IncidentStage, IncidentState, IncidentType } from '@src/types.generated';
+import { Input } from '@src/alchemy-components';
+import colors from '@src/alchemy-components/theme/foundations/colors';
+import { Editor } from '@src/alchemy-components/components/Editor/Editor';
+import { useUserContext } from '@src/app/context/useUserContext';
 import { Form } from 'antd';
-import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
-import { IncidentAssigneeSelector } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentAssigneeSelector';
-import { IncidentLinkedAssetsList } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentLinkedAssetsList';
-import { IncidentSelectField } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentSelectedField';
-import { useIncidentHandler } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/hooks/useIncidentHandler';
-import {
-    IncidentFooter,
-    InputFormItem,
-    SaveButton,
-    SelectFormItem,
-    StyledForm,
-    StyledFormElements,
-    StyledSpinner,
-} from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
 import {
     INCIDENT_CATEGORIES,
     INCIDENT_OPTION_LABEL_MAPPING,
@@ -22,14 +14,22 @@ import {
     INCIDENT_STAGES,
     INCIDENT_STATES,
     IncidentAction,
-} from '@app/entityV2/shared/tabs/Incident/constant';
-import { IncidentEditorProps } from '@app/entityV2/shared/tabs/Incident/types';
-import { getAssigneeWithURN, getLinkedAssetsData, validateForm } from '@app/entityV2/shared/tabs/Incident/utils';
-import { Input } from '@src/alchemy-components';
-import { Editor } from '@src/alchemy-components/components/Editor/Editor';
-import colors from '@src/alchemy-components/theme/foundations/colors';
-import { useUserContext } from '@src/app/context/useUserContext';
-import { IncidentStage, IncidentState, IncidentType } from '@src/types.generated';
+} from '../constant';
+import { getAssigneeWithURN, getLinkedAssetsData, validateForm } from '../utils';
+import {
+    IncidentFooter,
+    SelectFormItem,
+    SaveButton,
+    StyledForm,
+    StyledFormElements,
+    InputFormItem,
+    StyledSpinner,
+} from './styledComponents';
+import { IncidentEditorProps } from '../types';
+import { IncidentLinkedAssetsList } from './IncidentLinkedAssetsList';
+import { IncidentSelectField } from './IncidentSelectedField';
+import { IncidentAssigneeSelector } from './IncidentAssigneeSelector';
+import { useIncidentHandler } from './hooks/useIncidentHandler';
 
 const HalfWidthInput = styled(Input)`
     width: 50%;
@@ -41,10 +41,6 @@ export const IncidentEditor = ({
     onSubmit,
     data,
     mode = IncidentAction.CREATE,
-<<<<<<< HEAD
-=======
-    entity,
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
     urn,
 }: IncidentEditorProps) => {
     const assigneeValues = data?.assignees && getAssigneeWithURN(data.assignees);

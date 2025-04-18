@@ -1,14 +1,18 @@
-import { Modal } from 'antd';
 import React, { useState } from 'react';
+import { Modal } from 'antd';
 import styled from 'styled-components';
-
-import { EmbeddedListSearch } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearch';
-import { EntityActionProps } from '@app/entityV2/shared/components/styled/search/EntitySearchResults';
-import { FilterSet } from '@app/entityV2/shared/components/styled/search/types';
-import { UnionType } from '@app/search/utils/constants';
 import { Button } from '@src/alchemy-components';
-
-import { AndFilterInput, EntityType, FacetFilterInput, SearchFlags, SortCriterion } from '@types';
+import {
+    AndFilterInput,
+    EntityType,
+    FacetFilterInput,
+    SearchFlags,
+    SortCriterion,
+} from '../../../../../../types.generated';
+import { EmbeddedListSearch } from './EmbeddedListSearch';
+import { UnionType } from '../../../../../search/utils/constants';
+import { FilterSet } from './types';
+import { EntityActionProps } from './EntitySearchResults';
 
 const SearchContainer = styled.div<{ height?: string }>`
     height: ${(props) => props.height || '500px'};

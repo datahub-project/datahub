@@ -1,4 +1,4 @@
-import { FormResponsesFilter, FormView } from '@app/entity/shared/entityForm/EntityFormContext';
+import { FormResponsesFilter, FormView } from './EntityFormContext';
 
 export function generateFormResponsesFilters(
     formView: FormView,

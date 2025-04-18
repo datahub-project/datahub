@@ -1,11 +1,11 @@
 # DataHub Open Data Quality Assertions Specification
 
 DataHub is developing an open-source Data Quality Assertions Specification & Compiler that will allow you to declare data quality checks / expectations / assertions using a simple, universal
-YAML-based format, and then compile this into artifacts that can be registered or directly executed by 3rd party Data Quality tools like [Snowflake DMFs](https://docs.snowflake.com/en/user-guide/data-quality-intro),
-dbt tests, Great Expectations or DataHub Cloud natively.
+YAML-based format, and then compile this into artifacts that can be registered or directly executed by 3rd party Data Quality tools like [Snowflake DMFs](https://docs.snowflake.com/en/user-guide/data-quality-intro), 
+dbt tests, Great Expectations or DataHub Cloud natively. 
 
 Ultimately, our goal is to provide an framework-agnostic, highly-portable format for defining Data Quality checks, making it seamless to swap out the underlying
-assertion engine without service disruption for end consumers of the results of these data quality checks in catalogging tools like DataHub.
+assertion engine without service disruption for end consumers of the results of these data quality checks in catalogging tools like DataHub. 
 
 ## Integrations
 
@@ -24,21 +24,21 @@ Below, we'll look at how to define assertions in YAML, and then provide an usage
 
 The following assertion types are currently supported by the DataHub YAML Assertion spec:
 
-- [Freshness](/docs/managed-datahub/observe/freshness-assertions.md)
+- [Freshness](/docs/managed-datahub/observe/freshness-assertions.md) 
 - [Volume](/docs/managed-datahub/observe/volume-assertions.md)
 - [Column](/docs/managed-datahub/observe/column-assertions.md)
 - [Custom SQL](/docs/managed-datahub/observe/custom-sql-assertions.md)
 - [Schema](/docs/managed-datahub/observe/schema-assertions.md)
 
 Each assertion type aims to validate a different aspect of structured table (e.g. on a data warehouse or data lake), from
-structure to size to column integrity to custom metrics.
+structure to size to column integrity to custom metrics. 
 
-In this section, we'll go over examples of defining each.
+In this section, we'll go over examples of defining each. 
 
 ### Freshness Assertions
 
 Freshness Assertions allow you to verify that your data was updated within the expected timeframe.
-Below you'll find examples of defining different types of freshness assertions via YAML.
+Below you'll find examples of defining different types of freshness assertions via YAML. 
 
 #### Validating that Table is Updated Every 6 Hours
 
@@ -47,14 +47,14 @@ version: 1
 assertions:
   - entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
     type: freshness
-    lookback_interval: "6 hours"
+    lookback_interval: '6 hours'
     last_modified_field: updated_at
     schedule:
       type: interval
-      interval: "6 hours" # Run every 6 hours
+      interval: '6 hours' # Run every 6 hours
 ```
 
-This assertion checks that the `purchase_events` table in the `test_db.public` schema was updated within the last 6 hours
+This assertion checks that the `purchase_events` table in the `test_db.public` schema was updated within the last 6 hours 
 by issuing a Query to the table which validates determines whether an update was made using the `updated_at` column in the past 6 hours.
 To use this check, we must specify the field that contains the last modified timestamp of a given row.
 
@@ -65,8 +65,9 @@ to detect stale data as soon as it becomes "stale" by inspecting it more frequen
 #### Supported Source Types
 
 Currently, the only supported `sourceType` for Freshness Assertions is `LAST_MODIFIED_FIELD`. In the future,
-we may support additional source types, such as `HIGH_WATERMARK`, along with data source-specific types such as
+we may support additional source types, such as `HIGH_WATERMARK`, along with data source-specific types such as 
 `AUDIT_LOG` and `INFORMATION_SCHEMA`.
+
 
 ### Volume Assertions
 
@@ -80,21 +81,21 @@ version: 1
 assertions:
   - entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
     type: volume
-    metric: "row_count"
+    metric: 'row_count'
     condition:
       type: between
       min: 1000
       max: 10000
-    # filters: "event_type = 'purchase'" Optionally add filters.
+    # filters: "event_type = 'purchase'" Optionally add filters. 
     schedule:
-      type: on_table_change # Run when new data is added to the table.
+      type: on_table_change # Run when new data is added to the table. 
 ```
 
 This assertion checks that the `purchase_events` table in the `test_db.public` schema has between 1000 and 10000 records.
 Using the `condition` field, you can specify the type of comparison to be made, and the `min` and `max` fields to specify the range of values to compare against.
 Using the `filters` field, you can optionally specify a SQL WHERE clause to filter the records being counted.
 Using the `schedule` field you can specify when the assertion should be run, either on a fixed schedule or when new data is added to the table.
-The only metric currently supported is `row_count`.
+The only metric currently supported is `row_count`. 
 
 #### Validating that Table Row Count is Less Than Value
 
@@ -103,13 +104,13 @@ version: 1
 assertions:
   - entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
     type: volume
-    metric: "row_count"
+    metric: 'row_count'
     condition:
       type: less_than_or_equal_to
       value: 1000
-    # filters: "event_type = 'purchase'" Optionally add filters.
+    # filters: "event_type = 'purchase'" Optionally add filters. 
     schedule:
-      type: on_table_change # Run when new data is added to the table.
+      type: on_table_change # Run when new data is added to the table. 
 ```
 
 #### Validating that Table Row Count is Greater Than Value
@@ -119,14 +120,15 @@ version: 1
 assertions:
   - entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
     type: volume
-    metric: "row_count"
+    metric: 'row_count'
     condition:
       type: greater_than_or_equal_to
       value: 1000
-    # filters: "event_type = 'purchase'" Optionally add filters.
+    # filters: "event_type = 'purchase'" Optionally add filters. 
     schedule:
-      type: on_table_change # Run when new data is added to the table.
+      type: on_table_change # Run when new data is added to the table. 
 ```
+
 
 #### Supported Conditions
 
@@ -139,6 +141,7 @@ The full set of supported volume assertion conditions include:
 - `less_than`
 - `less_than_or_equal_to`
 - `between`
+
 
 ### Column Assertions
 
@@ -161,11 +164,11 @@ assertions:
     type: field
     field: amount
     condition:
-      type: between
-      min: 0
-      max: 10
+        type: between
+        min: 0
+        max: 10
     exclude_nulls: True
-    # filters: "event_type = 'purchase'" Optionally add filters for Column Assertion.
+    # filters: "event_type = 'purchase'" Optionally add filters for Column Assertion. 
     # failure_threshold:
     #  type: count
     #  value: 10
@@ -174,17 +177,17 @@ assertions:
 ```
 
 This assertion checks that all values for the `amount` column in the `purchase_events` table in the `test_db.public` schema have values between 0 and 10.
-Using the `field` field, you can specify the column to be asserted on, and using the `condition` field, you can specify the type of comparison to be made,
+Using the `field` field, you can specify the column to be asserted on, and using the `condition` field, you can specify the type of comparison to be made, 
 and the `min` and `max` fields to specify the range of values to compare against.
 Using the `schedule` field you can specify when the assertion should be run, either on a fixed schedule or when new data is added to the table.
 Using the `filters` field, you can optionally specify a SQL WHERE clause to filter the records being counted.
-Using the `exclude_nulls` field, you can specify whether to exclude NULL values from the assertion, meaning that
-NULL will simply be ignored if encountered, as opposed to failing the check.
+Using the `exclude_nulls` field, you can specify whether to exclude NULL values from the assertion, meaning that 
+NULL will simply be ignored if encountered, as opposed to failing the check. 
 Using the `failure_threshold`, we can set a threshold for the number of rows that can fail the assertion before the assertion is considered failed.
 
 #### Field Values Assertion: Validating that All Column Values are In Expected Set
 
-The validate a VARCHAR / STRING column that should contain one of a set of values:
+The validate a VARCHAR / STRING column that should contain one of a set of values: 
 
 ```yaml
 version: 1
@@ -193,13 +196,13 @@ assertions:
     type: field
     field: product_id
     condition:
-      type: in
-      value:
-        - "product_1"
-        - "product_2"
-        - "product_3"
+        type: in
+        value: 
+          - 'product_1'
+          - 'product_2'
+          - 'product_3'
     exclude_nulls: False
-    # filters: "event_type = 'purchase'" Optionally add filters for Column Assertion.
+    # filters: "event_type = 'purchase'" Optionally add filters for Column Assertion. 
     # failure_threshold:
     #  type: count
     #  value: 10
@@ -221,7 +224,7 @@ assertions:
       type: matches_regex
       value: "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}"
     exclude_nulls: False
-    # filters: "event_type = 'purchase'" Optionally add filters for Column Assertion.
+    # filters: "event_type = 'purchase'" Optionally add filters for Column Assertion. 
     # failure_threshold:
     #  type: count
     #  value: 10
@@ -250,6 +253,7 @@ The full set of supported field value conditions include:
 - `length_less_than` # String Only
 - `length_between` # String Only
 
+
 #### Field Metric Assertion: Validating No Missing Values in Column
 
 ```yaml
@@ -262,7 +266,7 @@ assertions:
     condition:
       type: equal_to
       value: 0
-    # filters: "event_type = 'purchase'" Optionally add filters for Column Assertion.
+    # filters: "event_type = 'purchase'" Optionally add filters for Column Assertion. 
     schedule:
       type: on_table_change
 ```
@@ -281,12 +285,12 @@ assertions:
     condition:
       type: equal_to
       value: 100
-    # filters: "event_type = 'purchase'" Optionally add filters for Column Assertion.
+    # filters: "event_type = 'purchase'" Optionally add filters for Column Assertion. 
     schedule:
       type: on_table_change
 ```
 
-This assertion ensures that the `id` column in the `purchase_events` table in the `test_db.public` schema
+This assertion ensures that the `id` column in the `purchase_events` table in the `test_db.public` schema 
 has no duplicates, by checking that the unique percentage is 100%.
 
 #### Field Metric Assertion: Validating String Column is Never Empty String
@@ -301,7 +305,7 @@ assertions:
     condition:
       type: equal_to
       value: 0
-    # filters: "event_type = 'purchase'" Optionally add filters for Column Assertion.
+    # filters: "event_type = 'purchase'" Optionally add filters for Column Assertion. 
     schedule:
       type: on_table_change
 ```
@@ -367,7 +371,7 @@ assertions:
       value: 0
     schedule:
       type: interval
-      interval: "6 hours" # Run every 6 hours
+      interval: '6 hours' # Run every 6 hours
 ```
 
 This assertion checks that the `purchase_events` table in the `test_db.public` schema has no rows where the `product_id` column does not have a corresponding `id` in the `products` table.
@@ -387,10 +391,10 @@ assertions:
       value: 0
     schedule:
       type: interval
-      interval: "6 hours" # Run every 6 hours
+      interval: '6 hours' # Run every 6 hours
 ```
 
-This assertion checks that the number of rows in the `purchase_events` exactly matches the number of rows in an upstream `purchase_events_raw` table
+This assertion checks that the number of rows in the `purchase_events` exactly matches the number of rows in an upstream `purchase_events_raw` table 
 by subtracting the row count of the raw table from the row count of the processed table.
 
 #### Supported Conditions
@@ -404,6 +408,7 @@ The full set of supported custom SQL assertion conditions include:
 - `less_than`
 - `less_than_or_equal_to`
 - `between`
+
 
 ### Schema Assertions (Coming Soon)
 
@@ -422,20 +427,20 @@ version: 1
 assertions:
   - entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
     type: schema
-    condition:
-      type: exact_match
+    condition: 
+      type: exact_match 
       columns:
-        - name: id
-          type: INTEGER
-        - name: product_id
-          type: STRING
-        - name: amount
-          type: DECIMAL
-        - name: updated_at
-          type: TIMESTAMP
+      - name: id
+        type: INTEGER
+      - name: product_id
+        type: STRING
+      - name: amount
+        type: DECIMAL
+      - name: updated_at
+        type: TIMESTAMP
     schedule:
       type: interval
-      interval: "6 hours" # Run every 6 hours
+      interval: '6 hours' # Run every 6 hours
 ```
 
 This assertion checks that the `purchase_events` table in the `test_db.public` schema has the exact schema as specified, with the exact column names and data types.
@@ -447,18 +452,18 @@ version: 1
 assertions:
   - entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
     type: schema
-    condition:
+    condition: 
       type: contains
       columns:
-        - name: id
-          type: integer
-        - name: product_id
-          type: string
-        - name: amount
-          type: number
+      - name: id
+        type: integer
+      - name: product_id
+        type: string
+      - name: amount
+        type: number
     schedule:
       type: interval
-      interval: "6 hours" # Run every 6 hours
+      interval: '6 hours' # Run every 6 hours
 ```
 
 This assertion checks that the `purchase_events` table in the `test_db.public` schema contains all of the columns specified in the expected schema, with the exact column names and data types.

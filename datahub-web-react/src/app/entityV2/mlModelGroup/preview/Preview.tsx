@@ -1,14 +1,12 @@
-import React from 'react';
-
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { PreviewType } from '@app/entityV2/Entity';
-import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
-import { getDataProduct } from '@app/entityV2/shared/utils';
-import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { EntityPath, EntityType, MlModelGroup } from '@types';
+import React from 'react';
+import { EntityPath, EntityType, MlModelGroup } from '../../../../types.generated';
+import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
+import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import { getDataProduct } from '../../shared/utils';
+import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
+import { PreviewType } from '../../Entity';
 
 export const Preview = ({
     data,

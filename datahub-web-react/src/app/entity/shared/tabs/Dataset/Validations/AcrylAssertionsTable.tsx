@@ -1,15 +1,13 @@
-import { Checkbox, Empty, Table, TableProps } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { ActionsColumn, DetailsColumn } from '@app/entity/shared/tabs/Dataset/Validations/AcrylAssertionsTableColumns';
-import { getEntityUrnForAssertion, getSiblingWithUrn } from '@app/entity/shared/tabs/Dataset/Validations/acrylUtils';
-import { useOpenAssertionDetailModal } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/hooks';
-import { AssertionProfileDrawer } from '@app/entity/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileDrawer';
-
-import { Assertion, AssertionRunStatus, AssertionType, DataContract, Entity } from '@types';
+import { Checkbox, Empty, Table, TableProps } from 'antd';
+import { Assertion, AssertionRunStatus, AssertionType, DataContract, Entity } from '../../../../../../types.generated';
+import { useEntityData } from '../../../EntityContext';
+import { ActionsColumn, DetailsColumn } from './AcrylAssertionsTableColumns';
+import { AssertionProfileDrawer } from './assertion/profile/AssertionProfileDrawer';
+import { ANTD_GRAY } from '../../../constants';
+import { useOpenAssertionDetailModal } from './assertion/builder/hooks';
+import { getEntityUrnForAssertion, getSiblingWithUrn } from './acrylUtils';
 
 type StyledTableProps = {
     showSelect?: boolean;

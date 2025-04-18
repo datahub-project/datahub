@@ -1,9 +1,14 @@
-import EntityRegistry from '@app/entity/EntityRegistry';
-import { SearchResultInterface } from '@app/entity/shared/components/styled/search/types';
-import { GenericEntityProperties } from '@app/entity/shared/types';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
-
-import { CorpGroup, CorpUser, DashboardStatsSummary, DatasetStatsSummary, EntityType } from '@types';
+import {
+    CorpGroup,
+    CorpUser,
+    DashboardStatsSummary,
+    DatasetStatsSummary,
+    EntityType,
+} from '../../../../../../types.generated';
+import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
+import EntityRegistry from '../../../../EntityRegistry';
+import { GenericEntityProperties } from '../../../types';
+import { SearchResultInterface } from './types';
 
 const searchCsvDownloadHeader = [
     'urn',

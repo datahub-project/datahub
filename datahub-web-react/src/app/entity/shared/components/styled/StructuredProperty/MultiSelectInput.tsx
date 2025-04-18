@@ -1,14 +1,12 @@
 import { Checkbox, Select, Tag } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import DropdownLabel from '@app/entity/shared/components/styled/StructuredProperty/DropdownLabel';
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
-import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
-import ValueDescription from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/ValueDescription';
-import { getStructuredPropertyValue } from '@app/entity/shared/utils';
-
-import { AllowedValue } from '@types';
+import { ANTD_GRAY_V2 } from '../../../constants';
+import { getStructuredPropertyValue } from '../../../utils';
+import ValueDescription from '../../../entityForm/prompts/StructuredPropertyPrompt/ValueDescription';
+import { AllowedValue } from '../../../../../../types.generated';
+import DropdownLabel from './DropdownLabel';
+import { useEntityFormContext } from '../../../entityForm/EntityFormContext';
 
 const StyledCheckbox = styled(Checkbox)<{ $displayBulkStyles?: boolean }>`
     display: flex;

@@ -1,10 +1,28 @@
-import { InfoCircleFilled } from '@ant-design/icons';
-import { Alert, Divider, Image } from 'antd';
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
-
-import { NotificationTypeOptionsModal } from '@app/settingsV2/notifications/NotificationTypeOptionsModal';
-import { NotificationSettingsGroup } from '@app/settingsV2/notifications/NotificationsSettingsGroup';
+import { Divider, Image, Alert } from 'antd';
+import { InfoCircleFilled } from '@ant-design/icons';
+import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
+import { colors } from '@src/alchemy-components';
+import { Message } from '../../../shared/Message';
+import { NotificationTypeOptionsModal } from '../../notifications/NotificationTypeOptionsModal';
+import { RECOMMENDED_PLATFORM_NOTIFICATIONS, NON_RECOMMENDED_PLATFORM_NOTIFICATIONS } from '../types';
+import { useUpdateGlobalNotificationSettingsMutation } from '../../../../graphql/settings.generated';
+import {
+    GlobalSettings,
+    NotificationScenarioType,
+    NotificationSetting,
+    StringMapEntry,
+} from '../../../../types.generated';
+import { isSinkEnabled } from '../../utils';
+import { buildGlobalNotificationSettingsMap } from './utils';
+import { useAppConfig } from '../../../useAppConfig';
+import { NOTIFICATION_SINKS, NotificationTypeOptions } from '../../notifications/types';
+import {
+    EMAIL_ADDRESS_PARAM_NAME,
+    SLACK_CHANNEL_PARAM_NAME,
+    updateNotificationTypeParams,
+} from '../../notifications/utils';
 import {
     NotificationSinkHeader,
     NotificationSinkHeaders,
@@ -13,26 +31,8 @@ import {
     ScenarioSettingsContainer,
     ScenarioSettingsHeader,
     ScenarioSettingsTitle,
-} from '@app/settingsV2/notifications/styledComponents';
-import { NOTIFICATION_SINKS, NotificationTypeOptions } from '@app/settingsV2/notifications/types';
-import {
-    EMAIL_ADDRESS_PARAM_NAME,
-    SLACK_CHANNEL_PARAM_NAME,
-    updateNotificationTypeParams,
-} from '@app/settingsV2/notifications/utils';
-import { buildGlobalNotificationSettingsMap } from '@app/settingsV2/platform/notifications/utils';
-import {
-    NON_RECOMMENDED_PLATFORM_NOTIFICATIONS,
-    RECOMMENDED_PLATFORM_NOTIFICATIONS,
-} from '@app/settingsV2/platform/types';
-import { isSinkEnabled } from '@app/settingsV2/utils';
-import { Message } from '@app/shared/Message';
-import { useAppConfig } from '@app/useAppConfig';
-import { colors } from '@src/alchemy-components';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
-
-import { useUpdateGlobalNotificationSettingsMutation } from '@graphql/settings.generated';
-import { GlobalSettings, NotificationScenarioType, NotificationSetting, StringMapEntry } from '@types';
+} from '../../notifications/styledComponents';
+import { NotificationSettingsGroup } from '../../notifications/NotificationsSettingsGroup';
 
 const GlobalNotificationsBanner = styled.div`
     background: ${REDESIGN_COLORS.YELLOW_200};

@@ -1,8 +1,8 @@
-import { filterEntityByPath } from '@graphql-mock/fixtures/browsePathHelper';
-import { DataFlowEntityArg, dataFlowEntity } from '@graphql-mock/fixtures/entity/dataFlowEntity';
-import { generateData } from '@graphql-mock/fixtures/searchResult/dataGenerator';
-import { EntityBrowsePath } from '@graphql-mock/types';
-import { DataFlow, SearchResult, SearchResults } from '@types';
+import { DataFlow, SearchResult, SearchResults } from '../../../types.generated';
+import { EntityBrowsePath } from '../../types';
+import { filterEntityByPath } from '../browsePathHelper';
+import { dataFlowEntity, DataFlowEntityArg } from '../entity/dataFlowEntity';
+import { generateData } from './dataGenerator';
 
 type SearchResultArg = DataFlowEntityArg;
 

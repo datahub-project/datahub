@@ -1,10 +1,8 @@
 import React from 'react';
-
-import { pathMatchesNewPath } from '@app/entity/dataset/profile/schema/utils/utils';
-import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
-import TagTermGroup from '@app/shared/tags/TagTermGroup';
-
-import { EditableSchemaMetadata, EntityType, GlobalTags, SchemaField } from '@types';
+import { EditableSchemaMetadata, EntityType, GlobalTags, SchemaField } from '../../../../../../../types.generated';
+import TagTermGroup from '../../../../../../shared/tags/TagTermGroup';
+import { pathMatchesNewPath } from '../../../../../dataset/profile/schema/utils/utils';
+import { useEntityData, useRefetch } from '../../../../EntityContext';
 
 export default function useTagsAndTermsRendererFeatureTable(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,

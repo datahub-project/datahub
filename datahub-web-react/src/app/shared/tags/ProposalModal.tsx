@@ -1,12 +1,11 @@
-import { Modal } from 'antd';
 import React from 'react';
+
+import { Modal } from 'antd';
 import styled from 'styled-components';
-
-import { ModalButtonContainer } from '@app/shared/button/styledComponents';
-import { Button } from '@src/alchemy-components';
 import ActionRequestListItem from '@src/app/actionrequest/item/ActionRequestListItem';
-
-import { ActionRequest } from '@types';
+import { Button } from '@src/alchemy-components';
+import { ModalButtonContainer } from '../button/styledComponents';
+import { ActionRequest } from '../../../types.generated';
 
 type ProposalModalProps = {
     actionRequest: ActionRequest;

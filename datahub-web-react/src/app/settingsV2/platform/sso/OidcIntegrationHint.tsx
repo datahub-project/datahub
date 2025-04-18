@@ -1,11 +1,10 @@
-import { purple } from '@ant-design/colors';
-import { CloseOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
-import { Button, Typography } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { Button, Typography } from 'antd';
+import { CloseOutlined } from '@ant-design/icons';
+import { purple } from '@ant-design/colors';
+import { ANTD_GRAY } from '../../../entity/shared/constants';
 
 const Container = styled.div`
     background-color: ${purple[0]};

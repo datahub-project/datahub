@@ -1,16 +1,19 @@
-import { Badge as BadgeAntd } from 'antd';
 import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
 
-import { useUserContext } from '@app/context/useUserContext';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { RoutedTabs } from '@app/shared/RoutedTabs';
-import { Proposals } from '@app/taskCenter/proposals/Proposals';
-import { Requests } from '@app/taskCenter/requests/Requests';
-import { useIsThemeV2 } from '@app/useIsThemeV2';
-import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+import { Badge as BadgeAntd } from 'antd';
+import styled from 'styled-components';
 import { PageTitle } from '@src/alchemy-components';
 import { Badge } from '@src/alchemy-components/components/Badge';
+
+import { useUserContext } from '../context/useUserContext';
+
+import { Requests } from './requests/Requests';
+import { Proposals } from './proposals/Proposals';
+
+import { useIsThemeV2 } from '../useIsThemeV2';
+import { REDESIGN_COLORS } from '../entityV2/shared/constants';
+import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
+import { RoutedTabs } from '../shared/RoutedTabs';
 
 const PageContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;

@@ -1,13 +1,11 @@
-import { EditOutlined } from '@ant-design/icons';
-import { Button } from 'antd';
 import React, { useState } from 'react';
+import { Button } from 'antd';
+import { EditOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
-
-import SubscriptionDrawer from '@app/shared/subscribe/drawer/SubscriptionDrawer';
-import useDeleteSubscription from '@app/shared/subscribe/useDeleteSubscription';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { DataHubSubscription, EntityType } from '@types';
+import { DataHubSubscription, EntityType } from '../../../../../types.generated';
+import SubscriptionDrawer from '../../../../shared/subscribe/drawer/SubscriptionDrawer';
+import { useEntityRegistry } from '../../../../useEntityRegistry';
+import useDeleteSubscription from '../../../../shared/subscribe/useDeleteSubscription';
 
 const EditSubscriptionColumnContainer = styled.div`
     display: flex;

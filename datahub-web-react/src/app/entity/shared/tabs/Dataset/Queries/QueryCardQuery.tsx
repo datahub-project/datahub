@@ -1,8 +1,7 @@
 import React from 'react';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { ANTD_GRAY } from '../../../constants';
 
 const Statement = styled.div<{ fullHeight?: boolean }>`
     background-color: ${ANTD_GRAY[2]};

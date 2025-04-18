@@ -1,26 +1,20 @@
-import { ApolloError } from '@apollo/client';
-import * as QueryString from 'query-string';
 import React from 'react';
+import * as QueryString from 'query-string';
 import { useHistory, useLocation } from 'react-router';
-
-import { EmbeddedListSearch } from '@app/entity/shared/components/styled/search/EmbeddedListSearch';
-import { navigateToEntitySearchUrl } from '@app/entity/shared/components/styled/search/navigateToEntitySearchUrl';
-import {
-    FilterSet,
-    GetSearchResultsParams,
-    SearchResultsInterface,
-} from '@app/entity/shared/components/styled/search/types';
-import { useEntityQueryParams } from '@app/entity/shared/containers/profile/utils';
-import { decodeComma } from '@app/entity/shared/utils';
-import { EMBEDDED_LIST_SEARCH_ENTITY_TYPES, UnionType } from '@app/search/utils/constants';
+import { ApolloError } from '@apollo/client';
+import { FacetFilterInput } from '../../../../../../types.generated';
+import useFilters from '../../../../../search/utils/useFilters';
+import { navigateToEntitySearchUrl } from './navigateToEntitySearchUrl';
+import { FilterSet, GetSearchResultsParams, SearchResultsInterface } from './types';
+import { useEntityQueryParams } from '../../../containers/profile/utils';
+import { EmbeddedListSearch } from './EmbeddedListSearch';
+import { EMBEDDED_LIST_SEARCH_ENTITY_TYPES, UnionType } from '../../../../../search/utils/constants';
 import {
     DownloadSearchResults,
     DownloadSearchResultsInput,
     DownloadSearchResultsParams,
-} from '@app/search/utils/types';
-import useFilters from '@app/search/utils/useFilters';
-
-import { FacetFilterInput } from '@types';
+} from '../../../../../search/utils/types';
+import { decodeComma } from '../../../utils';
 
 const FILTER = 'filter';
 

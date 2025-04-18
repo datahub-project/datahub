@@ -1,6 +1,5 @@
-import { useGetEntities } from '@app/entity/shared/useGetEntities';
-
-import { StringMapEntry } from '@types';
+import { StringMapEntry } from '../../../../types.generated';
+import { useGetEntities } from '../useGetEntities';
 
 export function usePropagationDetails(sourceDetail?: StringMapEntry[] | null) {
     const isPropagated = !!sourceDetail?.find((mapEntry) => mapEntry.key === 'propagated' && mapEntry.value === 'true');

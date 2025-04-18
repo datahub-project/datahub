@@ -1,5 +1,4 @@
 import React from 'react';
-
 import { SimpleSelect } from '@src/alchemy-components';
 
 type Option = {

@@ -1,19 +1,3 @@
-<<<<<<< HEAD
-import { debounce } from 'lodash';
-import React, { useMemo, useState } from 'react';
-
-import { EntityIconWithName } from '@app/searchV2/filtersV2/filters/BaseEntityFilter/components/EntityIconWithName';
-import useDomainsFromAggregations from '@app/searchV2/filtersV2/filters/DomainFilter/hooks/useDomainsFromAggregations';
-import useDomainsFromSuggestions from '@app/searchV2/filtersV2/filters/DomainFilter/hooks/useDomainsFromSuggestions';
-import useMergedDomains from '@app/searchV2/filtersV2/filters/DomainFilter/hooks/useMergedDomains';
-import useOptionsFromDomains from '@app/searchV2/filtersV2/filters/DomainFilter/hooks/useOptionsFromDomains';
-import { DEBOUNCE_ON_SEARCH_TIMEOUT_MS } from '@app/searchV2/filtersV2/filters/constants';
-import useValues from '@app/searchV2/filtersV2/filters/hooks/useValues';
-import { FilterComponentProps } from '@app/searchV2/filtersV2/types';
-import { NestedSelect } from '@src/alchemy-components/components/Select/Nested/NestedSelect';
-import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
-import { Domain, EntityType, FilterOperator } from '@src/types.generated';
-=======
 import { NestedSelect } from '@src/alchemy-components/components/Select/Nested/NestedSelect';
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { Domain, EntityType, FilterOperator } from '@src/types.generated';
@@ -27,7 +11,6 @@ import useDomainsFromSuggestions from './hooks/useDomainsFromSuggestions';
 import useMergedDomains from './hooks/useMergedDomains';
 import useOptionsFromDomains from './hooks/useOptionsFromDomains';
 import { DEBOUNCE_ON_SEARCH_TIMEOUT_MS } from '../constants';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 export default function DomainFilter({ fieldName, facetState, appliedFilters, onUpdate }: FilterComponentProps) {
     const [entities, setEntities] = useState<Domain[]>([]);

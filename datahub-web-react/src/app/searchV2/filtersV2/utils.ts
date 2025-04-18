@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-import { FieldName, FieldToAppliedFieldFiltersMap } from '@app/searchV2/filtersV2/types';
-=======
 import { FieldName, FieldToAppliedFieldFiltersMap } from './types';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 export function itemsToMap<T, K>(items: Array<T>, keyAccessor?: (item: T) => K | T) {
     const accessor = (item: T) => (keyAccessor ? keyAccessor(item) : item);

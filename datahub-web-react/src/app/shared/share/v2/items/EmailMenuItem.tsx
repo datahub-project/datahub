@@ -1,10 +1,9 @@
-import { CheckOutlined, MailOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import qs from 'query-string';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-
-import { StyledMenuItem } from '@app/shared/share/v2/styledComponents';
+import { Tooltip } from '@components';
+import { CheckOutlined, MailOutlined } from '@ant-design/icons';
+import qs from 'query-string';
+import { StyledMenuItem } from '../styledComponents';
 
 interface EmailMenuItemProps {
     urn: string;

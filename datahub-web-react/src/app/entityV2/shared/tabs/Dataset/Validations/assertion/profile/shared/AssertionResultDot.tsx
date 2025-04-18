@@ -1,9 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { getResultDotIcon } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
-
-import { AssertionRunEvent } from '@types';
+import { AssertionRunEvent } from '../../../../../../../../../types.generated';
+import { getResultDotIcon } from '../../../assertionUtils';
 
 const StyledAssertionResultDotContainer = styled.div`
     display: flex;

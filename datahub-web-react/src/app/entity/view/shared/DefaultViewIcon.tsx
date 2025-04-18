@@ -1,6 +1,6 @@
-import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
+import { Tooltip } from '@components';
 
 const CircleContainer = styled.span`
     width: 10px;

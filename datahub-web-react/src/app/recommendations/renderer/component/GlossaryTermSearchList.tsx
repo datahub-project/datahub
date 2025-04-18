@@ -1,14 +1,12 @@
+import React from 'react';
+import styled from 'styled-components';
 import { BookmarkSimple } from '@phosphor-icons/react';
 import { Button, Tag } from 'antd';
-import React from 'react';
 import { useHistory } from 'react-router-dom';
-import styled from 'styled-components';
-
-import { UnionType } from '@app/search/utils/constants';
-import { navigateToSearchUrl } from '@app/search/utils/navigateToSearchUrl';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { GlossaryTerm, RecommendationContent } from '@types';
+import { RecommendationContent, GlossaryTerm } from '../../../../types.generated';
+import { navigateToSearchUrl } from '../../../search/utils/navigateToSearchUrl';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import { UnionType } from '../../../search/utils/constants';
 
 const TermSearchListContainer = styled.div`
     display: flex;

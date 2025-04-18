@@ -1,30 +1,28 @@
-import { CloseCircleOutlined, ExclamationCircleOutlined, LoadingOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import SwapVertOutlinedIcon from '@mui/icons-material/SwapVertOutlined';
-import { Button, Typography } from 'antd';
 import React from 'react';
+
+import { Typography, Button } from 'antd';
+import { Tooltip } from '@components';
+import { LoadingOutlined, ExclamationCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import SwapVertOutlinedIcon from '@mui/icons-material/SwapVertOutlined';
 import { useHistory } from 'react-router';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-
-import { useEntityContext } from '@app/entity/shared/EntityContext';
-import { sortSharedList } from '@app/entity/shared/containers/profile/utils';
-import { GenericEntityProperties } from '@app/entity/shared/types';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import SharedByInfo from '@app/entityV2/shared/containers/profile/sidebar/shared/SharedByInfo';
-import SharedLineageIcon from '@app/entityV2/shared/containers/profile/sidebar/shared/SharedLineageIcon';
-import { InstanceIcon, StyledLabel } from '@app/entityV2/shared/containers/profile/sidebar/shared/styledComponents';
-import { getSharedItemInfo } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
-import { WARNING_COLOR_HEX } from '@app/entityV2/shared/tabs/Incident/incidentUtils';
-import { StyledButton, StyledCheckbox } from '@app/shared/share/v2/styledComponents';
-import { toLocalDateTimeString } from '@app/shared/time/timeUtils';
-import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { ShareResult } from '@types';
-
-import AcrylIcon from '@images/acryl-logo.svg?react';
-import ShareIcon from '@images/share-icon-custom.svg?react';
+import SharedLineageIcon from './shared/SharedLineageIcon';
+import AcrylIcon from '../../../../../../images/acryl-logo.svg?react';
+import ShareIcon from '../../../../../../images/share-icon-custom.svg?react';
+import { useEntityContext } from '../../../../../entity/shared/EntityContext';
+import { REDESIGN_COLORS } from '../../../constants';
+import { toLocalDateTimeString } from '../../../../../shared/time/timeUtils';
+import { sortSharedList } from '../../../../../entity/shared/containers/profile/utils';
+import { ShareResult } from '../../../../../../types.generated';
+import { InstanceIcon, StyledLabel } from './shared/styledComponents';
+import { StyledCheckbox, StyledButton } from '../../../../../shared/share/v2/styledComponents';
+import { getSharedItemInfo } from './shared/utils';
+import { useEntityRegistry } from '../../../../../useEntityRegistry';
+import PlatformIcon from '../../../../../sharedV2/icons/PlatformIcon';
+import SharedByInfo from './shared/SharedByInfo';
+import { WARNING_COLOR_HEX } from '../../../tabs/Incident/incidentUtils';
+import { GenericEntityProperties } from '../../../../../entity/shared/types';
 
 const SharingInfoContainer = styled.div`
     margin-bottom: 12px;

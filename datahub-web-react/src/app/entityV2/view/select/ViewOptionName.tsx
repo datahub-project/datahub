@@ -1,14 +1,17 @@
-import { Tooltip, colors } from '@components';
+import React from 'react';
+import styled from 'styled-components';
+import { colors, Tooltip } from '@components';
 import FilterCenterFocusOutlinedIcon from '@mui/icons-material/FilterCenterFocusOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import PublicIcon from '@mui/icons-material/Public';
 import { GlobeHemisphereEast, Lock } from '@phosphor-icons/react';
-import React from 'react';
-import styled from 'styled-components';
-
-import { ANTD_GRAY, REDESIGN_COLORS, SEARCH_COLORS } from '@app/entityV2/shared/constants';
-import { ViewDropdownMenu } from '@app/entityV2/view/menu/ViewDropdownMenu';
-import { ViewOptionTooltipTitle } from '@app/entityV2/view/select/ViewOptionTooltipTitle';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import { ANTD_GRAY, REDESIGN_COLORS, SEARCH_COLORS } from '../../shared/constants';
+import { ViewOptionTooltipTitle } from './ViewOptionTooltipTitle';
+import { UserDefaultViewIcon } from '../shared/UserDefaultViewIcon';
+import { GlobalDefaultViewIcon } from '../shared/GlobalDefaultViewIcon';
+import { ViewDropdownMenu } from '../menu/ViewDropdownMenu';
+import { DataHubView } from '../../../../types.generated';
 import {
     ViewContainer,
     ViewContent,
@@ -16,12 +19,7 @@ import {
     ViewIcon,
     ViewIconNavBarRedesign,
     ViewLabel,
-} from '@app/entityV2/view/select/styledComponents';
-import { GlobalDefaultViewIcon } from '@app/entityV2/view/shared/GlobalDefaultViewIcon';
-import { UserDefaultViewIcon } from '@app/entityV2/view/shared/UserDefaultViewIcon';
-import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-
-import { DataHubView } from '@types';
+} from './styledComponents';
 
 const ICON_WIDTH = 30;
 

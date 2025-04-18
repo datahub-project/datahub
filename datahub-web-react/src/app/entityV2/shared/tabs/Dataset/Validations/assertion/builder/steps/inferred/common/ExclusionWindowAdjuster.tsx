@@ -1,11 +1,10 @@
-import { DatePicker, Dropdown, Form, List } from 'antd';
-import dayjs from 'dayjs';
 import React, { useState } from 'react';
-
-import { AssertionFormTitleAndTooltip } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/common/AssertionFormTitleAndTooltip';
-import { AssertionMonitorBuilderExclusionWindow } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
-import { Pill } from '@src/alchemy-components';
 import { AssertionExclusionWindowType } from '@src/types.generated';
+import { List, Dropdown, DatePicker, Form } from 'antd';
+import { Pill } from '@src/alchemy-components';
+import dayjs from 'dayjs';
+import { AssertionMonitorBuilderExclusionWindow } from '../../../types';
+import { AssertionFormTitleAndTooltip } from './AssertionFormTitleAndTooltip';
 
 type Props = {
     exclusionWindows: AssertionMonitorBuilderExclusionWindow;
@@ -89,7 +88,6 @@ export const ExclusionWindowAdjuster = (props: Props) => {
                                 open={isDropdownOpen}
                                 onOpenChange={setIsDropdownOpen}
                                 dropdownRender={() => dropdownContent}
-                                trigger={['click']}
                             >
                                 <Pill
                                     label="Add"

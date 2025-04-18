@@ -1,16 +1,15 @@
 import React, { useEffect, useState } from 'react';
-
+import { RadioGroupProps, RadioProps } from './types';
 import {
+    RadioWrapper,
     Checkmark,
     HiddenInput,
     Label,
+    Required,
+    RadioLabel,
     RadioBase,
     RadioGroupContainer,
-    RadioLabel,
-    RadioWrapper,
-    Required,
-} from '@components/components/Radio/components';
-import { RadioGroupProps, RadioProps } from '@components/components/Radio/types';
+} from './components';
 
 export const radioDefaults = {
     label: 'Label',

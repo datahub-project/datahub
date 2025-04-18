@@ -1,9 +1,8 @@
-import { Tooltip } from '@components';
-import { Button, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { Button, Typography } from 'antd';
+import { Tooltip } from '@components';
+import { ANTD_GRAY } from '../../../../../../constants';
 
 const Container = styled(Button)<{ enabled }>`
     margin-bottom: 12px;

@@ -1,5 +1,5 @@
-import { getCustomOperationsFromAggregations } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/utils';
 import { OperationsAggregationsResult } from '@src/types.generated';
+import { getCustomOperationsFromAggregations } from '../utils';
 
 const EXAMPLE_AGGREGATION_WITH_CUSTOM_TYPES: OperationsAggregationsResult = {
     customOperationsMap: [

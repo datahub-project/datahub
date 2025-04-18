@@ -1,9 +1,7 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import styled from 'styled-components';
-
-import { AlignItemsOptions, JustifyContentOptions } from '@components/components/Loader/types';
-
 import { colors } from '@src/alchemy-components/theme';
+import styled from 'styled-components';
+import { AlignItemsOptions, JustifyContentOptions } from './types';
 
 export const LoaderWrapper = styled.div<{
     $marginTop?: number;

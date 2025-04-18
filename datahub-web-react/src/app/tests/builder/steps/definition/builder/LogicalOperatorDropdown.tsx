@@ -1,12 +1,11 @@
-import { DownOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import { Dropdown, Menu, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { LogicalOperatorType } from '@app/tests/builder/steps/definition/builder/types';
-import { getOperatorDisplayName } from '@app/tests/builder/steps/definition/builder/utils';
+import { Dropdown, Menu, Typography } from 'antd';
+import { Tooltip } from '@components';
+import { DownOutlined } from '@ant-design/icons';
+import { LogicalOperatorType } from './types';
+import { getOperatorDisplayName } from './utils';
+import { ANTD_GRAY } from '../../../../../entity/shared/constants';
 
 const LogicalTypeTagContainer = styled.div`
     margin-right: 8px;

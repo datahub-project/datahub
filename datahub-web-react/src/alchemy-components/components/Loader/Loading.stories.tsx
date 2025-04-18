@@ -1,10 +1,8 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
+import { GridList } from '@src/alchemy-components/.docs/mdx-components';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
-
-import { Loader, loaderDefault } from '@components/components/Loader/Loader';
-
-import { GridList } from '@src/alchemy-components/.docs/mdx-components';
+import { Loader, loaderDefault } from './Loader';
 
 const meta = {
     title: 'Components / Loader',

@@ -1,8 +1,7 @@
-import { Text } from '@components';
+import { EmptyMessageContainer } from '@src/alchemy-components/components/GraphCard/components';
 import React from 'react';
 import styled from 'styled-components';
-
-import { EmptyMessageContainer } from '@src/alchemy-components/components/GraphCard/components';
+import { Text } from '@components';
 
 const EmptyMessageWrapper = styled.div`
     text-align: center;

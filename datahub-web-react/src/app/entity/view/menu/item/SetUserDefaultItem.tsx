@@ -1,8 +1,7 @@
 import React from 'react';
-
-import { IconItemTitle } from '@app/entity/view/menu/item/IconItemTitle';
-import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
-import { UserDefaultViewIcon } from '@app/entity/view/shared/UserDefaultViewIcon';
+import { UserDefaultViewIcon } from '../../shared/UserDefaultViewIcon';
+import { IconItemTitle } from './IconItemTitle';
+import { MenuItemStyle } from './styledComponent';
 
 type Props = {
     key: string;

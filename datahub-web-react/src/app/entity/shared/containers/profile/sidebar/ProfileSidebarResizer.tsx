@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { ANTD_GRAY } from '../../../constants';
 
 type Props = {
     setSidePanelWidth: (width: number) => void;

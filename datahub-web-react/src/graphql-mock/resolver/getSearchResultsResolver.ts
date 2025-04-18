@@ -1,4 +1,4 @@
-import * as fixtures from '@graphql-mock/fixtures';
+import * as fixtures from '../fixtures';
 import {
     Chart,
     CorpUser,
@@ -10,7 +10,7 @@ import {
     SearchInput,
     SearchResult,
     SearchResults,
-} from '@types';
+} from '../../types.generated';
 
 const entitySearchResults = {
     [EntityType.Dataset]: fixtures.datasetSearchResult,

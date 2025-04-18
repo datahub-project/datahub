@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
-
-import { IconLabelContainer, ImageContainer, Label } from '@components/components/IconLabel/components';
-import { IconLabelProps, IconType } from '@components/components/IconLabel/types';
-import { isValidImageUrl } from '@components/components/IconLabel/utils';
+import { IconLabelProps, IconType } from './types';
+import { IconLabelContainer, ImageContainer, Label } from './components';
+import { isValidImageUrl } from './utils';
 
 export const IconLabel = ({ icon, name, type, style, imageUrl, testId }: IconLabelProps) => {
     const [isValidImage, setIsValidImage] = useState(false);

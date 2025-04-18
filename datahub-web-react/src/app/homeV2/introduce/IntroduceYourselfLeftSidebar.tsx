@@ -1,8 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-
-import AcrylIcon from '@images/acryl-light-mark.svg?react';
-import introduceBg from '@images/introduceBg.svg';
+import AcrylIcon from '../../../images/acryl-light-mark.svg?react';
+import introduceBg from '../../../images/introduceBg.svg';
 
 const Container = styled.div`
     display: flex;

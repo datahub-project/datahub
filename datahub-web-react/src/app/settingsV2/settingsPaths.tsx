@@ -1,19 +1,18 @@
 import React from 'react';
-
-import { ManageViews } from '@app/entity/view/ManageViews';
-import { ManageOwnership } from '@app/entityV2/ownership/ManageOwnership';
-import { ManageIdentities } from '@app/identity/ManageIdentities';
-import { ManagePermissions } from '@app/permissions/ManagePermissions';
-import { ManagePolicies } from '@app/permissions/policy/ManagePolicies';
-import { AccessTokens } from '@app/settingsV2/AccessTokens';
-import { Preferences } from '@app/settingsV2/Preferences';
-import ManageHelpLink from '@app/settingsV2/helpLink/ManageHelpLink';
-import { ManageActorNotifications } from '@app/settingsV2/personal/notifications/ManageActorNotifications';
-import { ManageActorSubscriptions } from '@app/settingsV2/personal/subscriptions/ManageActorSubscriptions';
-import { PlatformIntegrations } from '@app/settingsV2/platform/PlatformIntegrations';
-import { PlatformSsoIntegrations } from '@app/settingsV2/platform/PlatformSsoIntegrations';
-import { PlatformNotifications } from '@app/settingsV2/platform/notifications/PlatformNotifications';
-import ManagePosts from '@app/settingsV2/posts/ManagePosts';
+import { ManageIdentities } from '../identity/ManageIdentities';
+import { ManagePermissions } from '../permissions/ManagePermissions';
+import { AccessTokens } from './AccessTokens';
+import { PlatformIntegrations } from './platform/PlatformIntegrations';
+import { PlatformNotifications } from './platform/notifications/PlatformNotifications';
+import { PlatformSsoIntegrations } from './platform/PlatformSsoIntegrations';
+import { Preferences } from './Preferences';
+import { ManagePolicies } from '../permissions/policy/ManagePolicies';
+import { ManageViews } from '../entity/view/ManageViews';
+import { ManageOwnership } from '../entityV2/ownership/ManageOwnership';
+import { ManageActorNotifications } from './personal/notifications/ManageActorNotifications';
+import { ManageActorSubscriptions } from './personal/subscriptions/ManageActorSubscriptions';
+import ManagePosts from './posts/ManagePosts';
+import ManageHelpLink from './helpLink/ManageHelpLink';
 
 const ACRYL_PATHS = [
     { path: 'integrations', content: <PlatformIntegrations /> },

@@ -1,14 +1,12 @@
-import { Breadcrumb, Row } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { LineageSelector } from '@app/entity/shared/containers/profile/nav/LineageSelector';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-import { PageRoutes } from '@conf/Global';
-
-import { EntityType } from '@types';
+import { Breadcrumb, Row } from 'antd';
+import { EntityType } from '../../../../../../types.generated';
+import { useEntityRegistry } from '../../../../../useEntityRegistry';
+import { PageRoutes } from '../../../../../../conf/Global';
+import { ANTD_GRAY } from '../../../constants';
+import { LineageSelector } from './LineageSelector';
 
 export const BrowseRow = styled(Row)`
     padding: 10px 20px;

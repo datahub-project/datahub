@@ -1,11 +1,10 @@
-import Icon from '@ant-design/icons/lib/components/Icon';
-import { Tooltip } from '@components';
-import { Button } from 'antd';
 import React, { memo, useState } from 'react';
+import Icon from '@ant-design/icons/lib/components/Icon';
+import { Button } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components';
-
-import CollapseIcon from '@images/collapse.svg?react';
-import ExpandIcon from '@images/expand.svg?react';
+import ExpandIcon from '../../images/expand.svg?react';
+import CollapseIcon from '../../images/collapse.svg?react';
 
 const ToggleIcon = styled(Icon)`
     color: ${(props) => props.theme.styles['primary-color']};

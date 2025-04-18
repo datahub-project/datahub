@@ -1,9 +1,8 @@
 import { AxisScaleOutput } from '@visx/axis';
 import { ScaleConfig } from '@visx/scale';
-import { Margin, GlyphProps as VisxGlyphProps } from '@visx/xychart';
+import { GlyphProps as VisxGlyphProps, Margin } from '@visx/xychart';
 import React from 'react';
-
-import { AxisProps, BaseDatum, GridProps } from '@components/components/BarChart/types';
+import { AxisProps, BaseDatum, GridProps } from '../BarChart/types';
 
 export type Datum = BaseDatum;
 

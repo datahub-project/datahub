@@ -1,7 +1,6 @@
 import React from 'react';
-
-import { ViewItem } from '@app/entityV2/view/menu/item/ViewItem';
-import { GlobalDefaultViewIcon } from '@app/entityV2/view/shared/GlobalDefaultViewIcon';
+import { GlobalDefaultViewIcon } from '../../shared/GlobalDefaultViewIcon';
+import { ViewItem } from './ViewItem';
 
 type Props = {
     key: string;

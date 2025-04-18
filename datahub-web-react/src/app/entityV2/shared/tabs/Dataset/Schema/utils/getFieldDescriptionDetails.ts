@@ -1,4 +1,8 @@
-import { DocumentationAssociation, EditableSchemaFieldInfo, SchemaFieldEntity } from '@types';
+import {
+    DocumentationAssociation,
+    EditableSchemaFieldInfo,
+    SchemaFieldEntity,
+} from '../../../../../../../types.generated';
 
 interface Props {
     schemaFieldEntity?: SchemaFieldEntity | null;

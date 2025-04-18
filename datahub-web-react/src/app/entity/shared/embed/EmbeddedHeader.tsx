@@ -1,18 +1,17 @@
-import { ArrowRightOutlined } from '@ant-design/icons';
 import { Image, Typography } from 'antd';
-import Link from 'antd/lib/typography/Link';
 import React from 'react';
 import styled, { useTheme } from 'styled-components/macro';
-
-import { EventType } from '@app/analytics';
-import analytics from '@app/analytics/analytics';
-import { IconStyleType } from '@app/entity/Entity';
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { getDisplayedEntityType } from '@app/entity/shared/containers/profile/header/utils';
-import { useAppConfig } from '@app/useAppConfig';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-import { DEFAULT_APP_CONFIG } from '@src/appConfigContext';
+import Link from 'antd/lib/typography/Link';
+import { ArrowRightOutlined } from '@ant-design/icons';
+import { DEFAULT_APP_CONFIG } from '../../../../appConfigContext';
+import { useAppConfig } from '../../../useAppConfig';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import { IconStyleType } from '../../Entity';
+import { useEntityData } from '../EntityContext';
+import { getDisplayedEntityType } from '../containers/profile/header/utils';
+import { ANTD_GRAY } from '../constants';
+import analytics from '../../../analytics/analytics';
+import { EventType } from '../../../analytics';
 
 const HeaderWrapper = styled.div`
     display: flex;

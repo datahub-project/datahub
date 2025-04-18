@@ -1,10 +1,6 @@
-import { Action } from '@app/tests/builder/steps/actions/types';
-import { ActionType } from '@app/tests/builder/steps/definition/builder/property/types/action';
-import {
-    ValueInputType,
-    ValueOptions,
-    ValueTypeId,
-} from '@app/tests/builder/steps/definition/builder/property/types/values';
+import { Action } from '../../../actions/types';
+import { ActionType } from '../property/types/action';
+import { ValueInputType, ValueOptions, ValueTypeId } from '../property/types/values';
 
 /**
  * Returns true if an action of the given type has a searchable set of values.

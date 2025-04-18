@@ -1,7 +1,7 @@
-import { EditOutlined } from '@ant-design/icons';
 import React from 'react';
 
-import { PrimaryButton } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/details/PrimaryButton';
+import { EditOutlined } from '@ant-design/icons';
+import { PrimaryButton } from './PrimaryButton';
 
 type Props = {
     title?: string;

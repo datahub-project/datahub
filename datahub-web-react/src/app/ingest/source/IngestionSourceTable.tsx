@@ -1,24 +1,17 @@
 import { Button, Empty } from 'antd';
-import { SorterResult } from 'antd/lib/table/interface';
 import React from 'react';
 import styled from 'styled-components/macro';
-
-import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { getDisplayablePoolId } from '@app/ingest/executor_saas/utils';
-import {
-    ActionsColumn,
-    LastStatusColumn,
-    ScheduleColumn,
-    TypeColumn,
-} from '@app/ingest/source/IngestionSourceTableColumns';
-import { IngestionSourceExecutionList } from '@app/ingest/source/executions/IngestionSourceExecutionList';
-import { CLI_EXECUTOR_ID, getIngestionSourceStatus } from '@app/ingest/source/utils';
+import { SorterResult } from 'antd/lib/table/interface';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { colors } from '@src/alchemy-components';
 import { useAppConfig } from '@src/app/useAppConfig';
-import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-
-import { IngestionSource } from '@types';
+import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
+import { ANTD_GRAY } from '../../entity/shared/constants';
+import { CLI_EXECUTOR_ID, getIngestionSourceStatus } from './utils';
+import { LastStatusColumn, TypeColumn, ActionsColumn, ScheduleColumn } from './IngestionSourceTableColumns';
+import { IngestionSource } from '../../../types.generated';
+import { IngestionSourceExecutionList } from './executions/IngestionSourceExecutionList';
+import { getDisplayablePoolId } from '../executor_saas/utils';
 
 const StyledSourceTable = styled(StyledTable)`
     .cliIngestion {

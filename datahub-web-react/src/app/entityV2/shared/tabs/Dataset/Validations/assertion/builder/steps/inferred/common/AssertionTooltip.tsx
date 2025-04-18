@@ -1,10 +1,9 @@
-import { InfoCircleOutlined } from '@ant-design/icons';
-import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { Tooltip } from '@src/alchemy-components';
 import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
+import { Tooltip } from '@src/alchemy-components';
+import { InfoCircleOutlined } from '@ant-design/icons';
+import { Typography } from 'antd';
 
 const TooltipContainer = styled.div`
     & .ant-typography {

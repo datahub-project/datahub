@@ -1,14 +1,12 @@
-import { InputNumber, Select, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
+import { InputNumber, Select, Typography } from 'antd';
+import { DateInterval, FixedIntervalSchedule } from '../../../../../../../../../../types.generated';
 import {
     DEFAULT_ASSERTION_EVALUATION_INTERVAL_MULTIPLE,
     DEFAULT_ASSERTION_EVALUATION_INTERVAL_UNIT,
-} from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/constants';
-import { StopPropagation } from '@app/shared/StopPropagation';
-
-import { DateInterval, FixedIntervalSchedule } from '@types';
+} from '../../constants';
+import { StopPropagation } from '../../../../../../../../../shared/StopPropagation';
 
 const Form = styled.div``;
 

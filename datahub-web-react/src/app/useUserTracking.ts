@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-
-import { useAppConfig } from '@app/useAppConfig';
+import { useAppConfig } from './useAppConfig';
 
 /**
  * Will turn on user tracking in our third party tool (hotjar) if the env variable is enabled

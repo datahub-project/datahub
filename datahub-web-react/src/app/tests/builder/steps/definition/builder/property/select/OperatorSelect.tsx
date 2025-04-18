@@ -1,9 +1,8 @@
-import { Tooltip } from '@components';
-import { Select, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { Operator } from '@app/tests/builder/steps/definition/builder/property/types/operators';
+import { Select, Typography } from 'antd';
+import { Tooltip } from '@components';
+import { Operator } from '../types/operators';
 
 const StyledSelect = styled(Select)`
     max-width: 160px;

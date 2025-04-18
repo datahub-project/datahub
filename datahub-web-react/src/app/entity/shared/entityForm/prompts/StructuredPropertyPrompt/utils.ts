@@ -1,6 +1,5 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
-import { getStructuredPropertyValue } from '@app/entity/shared/utils';
-
+import { getStructuredPropertyValue } from '../../../utils';
+import { GenericEntityProperties } from '../../../types';
 import {
     Entity,
     FormPrompt,
@@ -9,7 +8,7 @@ import {
     SchemaField,
     SchemaFieldEntity,
     StructuredPropertiesEntry,
-} from '@types';
+} from '../../../../../../types.generated';
 
 export function getInitialValues(prompt: FormPrompt, entityData: GenericEntityProperties | null, field?: SchemaField) {
     const structuredProperty = prompt.structuredPropertyParams?.structuredProperty;

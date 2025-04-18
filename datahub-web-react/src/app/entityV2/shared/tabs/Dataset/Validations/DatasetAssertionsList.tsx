@@ -1,22 +1,16 @@
-import { DeleteOutlined, DownOutlined, MoreOutlined, RightOutlined, StopOutlined } from '@ant-design/icons';
+import { Button, Dropdown, Empty, Image, message, Modal, Tag, Typography } from 'antd';
 import { Tooltip } from '@components';
-import { Button, Dropdown, Empty, Image, Modal, Tag, Typography, message } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
-import AssertionMenu from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionMenu';
-import { DatasetAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/DatasetAssertionDescription';
-import { DatasetAssertionDetails } from '@app/entityV2/shared/tabs/Dataset/Validations/DatasetAssertionDetails';
-import {
-    getResultColor,
-    getResultIcon,
-    getResultText,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
-
-import { useDeleteAssertionMutation } from '@graphql/assertion.generated';
-import { Assertion, AssertionRunStatus } from '@types';
+import { DeleteOutlined, DownOutlined, MoreOutlined, RightOutlined, StopOutlined } from '@ant-design/icons';
+import { DatasetAssertionDescription } from './DatasetAssertionDescription';
+import { StyledTable } from '../../../components/styled/StyledTable';
+import { DatasetAssertionDetails } from './DatasetAssertionDetails';
+import { Assertion, AssertionRunStatus } from '../../../../../../types.generated';
+import { getResultColor, getResultIcon, getResultText } from './assertionUtils';
+import { useDeleteAssertionMutation } from '../../../../../../graphql/assertion.generated';
+import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
+import AssertionMenu from './AssertionMenu';
 
 const ResultContainer = styled.div`
     display: flex;

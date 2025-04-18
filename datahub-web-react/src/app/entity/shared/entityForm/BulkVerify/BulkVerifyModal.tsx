@@ -1,15 +1,16 @@
-import { CheckCircleFilled, LoadingOutlined } from '@ant-design/icons';
-import { Button, Modal, notification } from 'antd';
 import React, { useState } from 'react';
-import styled from 'styled-components';
 
-import analytics, { DocRequestView, EventType } from '@app/analytics';
-import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
-import { BULK_VERIFY_ID } from '@app/entity/shared/entityForm/useEntityFormTasks';
-import { pluralize } from '@app/shared/textUtil';
 import { EntityType } from '@src/types.generated';
+import { CheckCircleFilled, LoadingOutlined } from '@ant-design/icons';
+import styled from 'styled-components';
+import { Button, Modal, notification } from 'antd';
 
-import { useAsyncBatchVerifyFormMutation, useBatchVerifyFormMutation } from '@graphql/form.generated';
+import { useAsyncBatchVerifyFormMutation, useBatchVerifyFormMutation } from '../../../../../graphql/form.generated';
+import { useEntityFormContext } from '../EntityFormContext';
+
+import { pluralize } from '../../../../shared/textUtil';
+import analytics, { DocRequestView, EventType } from '../../../../analytics';
+import { BULK_VERIFY_ID } from '../useEntityFormTasks';
 
 const ModalContent = styled.div`
     font-size: 14px;

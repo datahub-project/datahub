@@ -1,20 +1,15 @@
 import { useEffect, useMemo } from 'react';
-
-import { filterEmptyAggregations, getNewFilters, getNumActiveFiltersForFilter } from '@app/searchV2/filters/utils';
-import useGetSearchQueryInputs from '@app/searchV2/useGetSearchQueryInputs';
-import { ENTITY_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { useAggregateAcrossEntitiesLazyQuery } from '@src/graphql/search.generated';
-
-import { EntityType, FacetFilterInput, FacetMetadata } from '@types';
+import { EntityType, FacetFilterInput, FacetMetadata } from '../../../types.generated';
+import { filterEmptyAggregations, getNewFilters, getNumActiveFiltersForFilter } from './utils';
+import useGetSearchQueryInputs from '../useGetSearchQueryInputs';
+import { ENTITY_FILTER_NAME } from '../utils/constants';
 
 interface Props {
     filter: FacetMetadata;
     activeFilters: FacetFilterInput[];
     onChangeFilters: (newFilters: FacetFilterInput[]) => void;
-<<<<<<< HEAD
     aggregationsEntityTypes?: Array<EntityType>;
-=======
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
     shouldUseAggregationsFromFilter?: boolean;
 }
 
@@ -22,10 +17,7 @@ export default function useSearchFilterDropdown({
     filter,
     activeFilters,
     onChangeFilters,
-<<<<<<< HEAD
     aggregationsEntityTypes,
-=======
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
     shouldUseAggregationsFromFilter,
 }: Props) {
     const numActiveFilters = getNumActiveFiltersForFilter(activeFilters, filter);

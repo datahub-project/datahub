@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
-
-import useAggregationsQuery from '@app/searchV2/sidebar/useAggregationsQuery';
-import { PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
+import { PLATFORM_FILTER_NAME } from '../utils/constants';
+import useAggregationsQuery from './useAggregationsQuery';
 
 type Props = {
     skip: boolean;

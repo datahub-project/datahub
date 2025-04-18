@@ -1,7 +1,6 @@
-import { convertStateToUpdateInput, convertStateToView, searchViews } from '@app/entityV2/view/utils';
-import { searchViewsMock, viewBuilderStateMock } from '@src/Mocks';
-
-import { EntityType } from '@types';
+import { searchViewsMock, viewBuilderStateMock } from '../../../../Mocks';
+import { EntityType } from '../../../../types.generated';
+import { convertStateToUpdateInput, convertStateToView, searchViews } from '../utils';
 
 describe('Entity V2 views utils tests ->', () => {
     it('should convert an instance of the View builder state into the input required to create or update a view in GraphQL', () => {

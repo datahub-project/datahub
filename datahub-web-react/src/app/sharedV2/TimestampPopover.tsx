@@ -1,9 +1,8 @@
-import { Popover } from '@components';
 import React from 'react';
 import styled from 'styled-components';
-
+import { Popover } from '@components';
 import colors from '@src/alchemy-components/theme/foundations/colors';
-import { toLocalDateTimeString, toRelativeTimeString } from '@src/app/shared/time/timeUtils';
+import { toRelativeTimeString, toLocalDateTimeString } from '@src/app/shared/time/timeUtils';
 
 const PopoverContent = styled.div`
     color: ${colors.gray[500]};

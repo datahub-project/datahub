@@ -1,24 +1,23 @@
-import { InfoCircleOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import { Collapse, Typography } from 'antd';
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { ActionsStep } from '@app/tests/builder/steps/actions/ActionsStep';
-import { LogicalPredicateBuilder } from '@app/tests/builder/steps/definition/builder/LogicalPredicateBuilder';
-import { getPropertiesForEntityTypes } from '@app/tests/builder/steps/definition/builder/property/utils';
-import { LogicalPredicate } from '@app/tests/builder/steps/definition/builder/types';
+import { Collapse, Typography } from 'antd';
+import { Tooltip } from '@components';
+import { InfoCircleOutlined } from '@ant-design/icons';
+import { LogicalPredicateBuilder } from '../definition/builder/LogicalPredicateBuilder';
+import { LogicalPredicate } from '../definition/builder/types';
+import { serializeTestDefinition, deserializeTestDefinition } from '../definition/utils';
+import { ValidateTestModal } from '../validate/ValidateTestModal';
+import { YamlStep } from '../definition/yaml/YamlStep';
 import {
     convertLogicalPredicateToTestPredicate,
     convertTestPredicateToLogicalPredicate,
-} from '@app/tests/builder/steps/definition/builder/utils';
-import { deserializeTestDefinition, serializeTestDefinition } from '@app/tests/builder/steps/definition/utils';
-import { YamlStep } from '@app/tests/builder/steps/definition/yaml/YamlStep';
-import { graphNamesToEntityTypes } from '@app/tests/builder/steps/select/utils';
-import { ValidateTestModal } from '@app/tests/builder/steps/validate/ValidateTestModal';
-import { StepProps, TestBuilderStep } from '@app/tests/builder/types';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+} from '../definition/builder/utils';
+import { StepProps, TestBuilderStep } from '../../types';
+import { getPropertiesForEntityTypes } from '../definition/builder/property/utils';
+import { graphNamesToEntityTypes } from '../select/utils';
+import { useEntityRegistry } from '../../../../useEntityRegistry';
+import { ActionsStep } from '../actions/ActionsStep';
+import { ANTD_GRAY } from '../../../../entity/shared/constants';
 
 const BuilderWrapper = styled.div`
     margin-bottom: 28px;

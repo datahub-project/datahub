@@ -1,28 +1,27 @@
 import { useApolloClient } from '@apollo/client';
 import { Button, Tooltip } from '@components';
+import analytics, { EventType } from '@src/app/analytics';
+import { useUserContext } from '@src/app/context/useUserContext';
+import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
+import { showToastMessage, ToastType } from '@src/app/sharedV2/toastMessageUtils';
+import { useIsThemeV2 } from '@src/app/useIsThemeV2';
+import { PageRoutes } from '@src/conf/Global';
+import { useCreateFormMutation, useUpdateFormMutation } from '@src/graphql/form.generated';
+import { FormState, FormType, SearchAcrossEntitiesInput, SearchResults } from '@src/types.generated';
 import React, { useContext, useEffect, useState } from 'react';
 import { useHistory, useParams } from 'react-router';
 import { Link } from 'react-router-dom';
-
-import ManageFormContext from '@app/govern/Dashboard/Forms/ManageFormContext';
-import { updateFormsList } from '@app/govern/Dashboard/Forms/cacheUtils';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import { updateFormsList } from './cacheUtils';
 import {
+    mapPromptsToCreatePromptInput,
     PUBLISH_EXPLANATION,
     PUBLISH_MODAL_TEXT,
     UNPUBLISH_EXPLANATION,
     UNPUBLISH_MODAL_TEXT,
-    mapPromptsToCreatePromptInput,
-} from '@app/govern/Dashboard/Forms/formUtils';
-import { FooterContainer } from '@app/govern/Dashboard/Forms/styledComponents';
-import analytics, { EventType } from '@src/app/analytics';
-import { useUserContext } from '@src/app/context/useUserContext';
-import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
-import { ToastType, showToastMessage } from '@src/app/sharedV2/toastMessageUtils';
-import { useIsThemeV2 } from '@src/app/useIsThemeV2';
-import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { PageRoutes } from '@src/conf/Global';
-import { useCreateFormMutation, useUpdateFormMutation } from '@src/graphql/form.generated';
-import { FormState, FormType, SearchAcrossEntitiesInput, SearchResults } from '@src/types.generated';
+} from './formUtils';
+import ManageFormContext from './ManageFormContext';
+import { FooterContainer } from './styledComponents';
 
 interface Props {
     inputs: SearchAcrossEntitiesInput;

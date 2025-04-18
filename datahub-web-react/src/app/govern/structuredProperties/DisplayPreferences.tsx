@@ -1,17 +1,11 @@
-import { Collapse } from 'antd';
-import React, { useState } from 'react';
-
-import {
-    CollapseHeader,
-    StyledCollapse,
-    StyledFormItem,
-    TogglesContainer,
-} from '@app/govern/structuredProperties/styledComponents';
-import { StructuredProp, canBeAssetBadge, getDisplayName } from '@app/govern/structuredProperties/utils';
 import { Icon, Pill, Switch, Text } from '@src/alchemy-components';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
-import { useUpdateStructuredPropertyMutation } from '@src/graphql/structuredProperties.generated';
 import { AllowedValue, StructuredPropertyEntity, StructuredPropertyFilterStatus } from '@src/types.generated';
+import { Collapse } from 'antd';
+import React, { useState } from 'react';
+import { useUpdateStructuredPropertyMutation } from '@src/graphql/structuredProperties.generated';
+import { CollapseHeader, StyledCollapse, StyledFormItem, TogglesContainer } from './styledComponents';
+import { getDisplayName, canBeAssetBadge, StructuredProp } from './utils';
 
 const SCHEMA_FIELD_URN = 'urn:li:entityType:datahub.schemaField';
 

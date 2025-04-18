@@ -1,13 +1,12 @@
 import React from 'react';
-
-import { IconStyleType } from '@app/entity/Entity';
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import PlatformContentView from '@app/entity/shared/containers/profile/header/PlatformContent/PlatformContentView';
-import { getDisplayedEntityType } from '@app/entity/shared/containers/profile/header/utils';
-import { getPlatformName } from '@app/entity/shared/utils';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
-import useContentTruncation from '@app/shared/useContentTruncation';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '../../../../../../useEntityRegistry';
+import { IconStyleType } from '../../../../../Entity';
+import { useEntityData } from '../../../../EntityContext';
+import { capitalizeFirstLetterOnly } from '../../../../../../shared/textUtil';
+import { getPlatformName } from '../../../../utils';
+import PlatformContentView from './PlatformContentView';
+import useContentTruncation from '../../../../../../shared/useContentTruncation';
+import { getDisplayedEntityType } from '../utils';
 
 function PlatformContentContainer() {
     const { entityType, entityData } = useEntityData();

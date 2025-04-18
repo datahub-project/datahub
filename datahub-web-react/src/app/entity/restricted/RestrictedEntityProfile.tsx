@@ -1,15 +1,13 @@
 import React from 'react';
 import styled from 'styled-components';
-
-import { EntityTitle } from '@app/entity/shared/containers/profile/header/EntityName';
 import {
     LogoIcon,
     PlatformContentWrapper,
     PlatformText,
     PreviewImage,
-} from '@app/entity/shared/containers/profile/header/PlatformContent/PlatformContentView';
-
-import RestrictedIcon from '@images/restricted.svg';
+} from '../shared/containers/profile/header/PlatformContent/PlatformContentView';
+import RestrictedIcon from '../../../images/restricted.svg';
+import { EntityTitle } from '../shared/containers/profile/header/EntityName';
 
 const SubHeader = styled.div`
     margin-top: 8px;

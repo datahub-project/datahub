@@ -1,8 +1,7 @@
 import React from 'react';
-
-import { PlatformList } from '@app/recommendations/renderer/component/PlatformList';
-import { RecommendationRenderProps } from '@app/recommendations/types';
-import { recommendationClickEvent } from '@app/recommendations/util/recommendationClickEvent';
+import { RecommendationRenderProps } from '../types';
+import { recommendationClickEvent } from '../util/recommendationClickEvent';
+import { PlatformList } from './component/PlatformList';
 
 export const PlatformListRenderer = ({
     renderId,

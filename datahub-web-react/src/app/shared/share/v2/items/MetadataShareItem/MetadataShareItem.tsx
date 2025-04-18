@@ -1,9 +1,8 @@
 import { SendOutlined } from '@ant-design/icons';
-import React, { useState } from 'react';
 import styled from 'styled-components';
-
-import ShareModal from '@app/shared/share/v2/items/MetadataShareItem/ShareModal';
-import { StyledMenuItem } from '@app/shared/share/v2/styledComponents';
+import React, { useState } from 'react';
+import ShareModal from './ShareModal';
+import { StyledMenuItem } from '../../styledComponents';
 
 interface Props {
     key: string;

@@ -1,7 +1,6 @@
-import { ThunderboltFilled } from '@ant-design/icons';
 import styled from 'styled-components';
-
-import { REDESIGN_COLORS } from '@app/entity/shared/constants';
+import { ThunderboltFilled } from '@ant-design/icons';
+import { REDESIGN_COLORS } from '../constants';
 
 export const PropagateThunderbolt = styled(ThunderboltFilled)`
     && {

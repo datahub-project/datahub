@@ -1,10 +1,8 @@
-import { Button, Typography } from 'antd';
 import React from 'react';
+import { Button, Typography } from 'antd';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-
-import { DataHubView } from '@types';
+import { ANTD_GRAY } from '../../../constants';
+import { DataHubView } from '../../../../../../types.generated';
 
 const StyledMatchingViewsLabel = styled.div`
     color: ${ANTD_GRAY[8]};

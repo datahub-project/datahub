@@ -1,4 +1,4 @@
-import { cleanSample } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/components/sections/Samples/utils';
+import { cleanSample } from '../utils';
 
 const SAMPLE_EMPTY_LINE_WITH_NON_PRINTABLE_CHARS = '\t';
 const SAMPLE_EMPTY_LINE_WITH_SPACES = ' ';

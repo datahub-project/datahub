@@ -1,19 +1,18 @@
+import { EntityType } from '../../../types.generated';
 import {
     BrowseV2EntityLinkClickEvent,
     BrowseV2SelectNodeEvent,
     BrowseV2ToggleNodeEvent,
     EventType,
-} from '@app/analytics';
-import analytics from '@app/analytics/analytics';
+} from '../../analytics';
+import analytics from '../../analytics/analytics';
+import { useEntityRegistry } from '../../useEntityRegistry';
 import {
     useBrowsePathLength,
     useEntityType,
     useMaybeEnvironmentAggregation,
     useMaybePlatformAggregation,
-} from '@app/searchV2/sidebar/BrowseContext';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { EntityType } from '@types';
+} from './BrowseContext';
 
 const useSidebarAnalytics = () => {
     const registry = useEntityRegistry();

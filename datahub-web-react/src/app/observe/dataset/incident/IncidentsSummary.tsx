@@ -1,28 +1,17 @@
-import { Tooltip } from '@components';
 import React, { useState } from 'react';
-
-import { useUserContext } from '@app/context/useUserContext';
+import { Tooltip } from '@components';
+import { SearchSection } from '../shared/SearchSection';
+import { EntityType, IncidentType } from '../../../../types.generated';
+import { MultiDropdownSelect } from '../shared/MultiDropdownSelect';
+import { useAggregateAcrossEntitiesQuery } from '../../../../graphql/search.generated';
 import {
     ACTIVE_INCIDENT_TYPES_FILTER_FIELD,
     HAS_ACTIVE_INCIDENTS_FILTER_FIELD,
     TYPE_TO_DISPLAY_NAME,
-} from '@app/observe/dataset/incident/constants';
-import { buildIncidentTypeFilters } from '@app/observe/dataset/incident/util';
-import { MultiDropdownSelect } from '@app/observe/dataset/shared/MultiDropdownSelect';
-import { SearchSection } from '@app/observe/dataset/shared/SearchSection';
-import {
-    DescriptionText,
-    Header,
-    List,
-    Percent,
-    Stat,
-    Title,
-    TitleText,
-    Total,
-} from '@app/observe/dataset/shared/shared';
-
-import { useAggregateAcrossEntitiesQuery } from '@graphql/search.generated';
-import { EntityType, IncidentType } from '@types';
+} from './constants';
+import { buildIncidentTypeFilters } from './util';
+import { Stat, List, Header, Title, TitleText, DescriptionText, Percent, Total } from '../shared/shared';
+import { useUserContext } from '../../../context/useUserContext';
 
 type Props = {
     total: number;

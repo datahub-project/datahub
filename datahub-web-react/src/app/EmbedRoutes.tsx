@@ -1,11 +1,10 @@
 import React from 'react';
 import { Route } from 'react-router-dom';
-
-import EmbeddedPage from '@app/embed/EmbeddedPage';
-import EmbedLookup from '@app/embed/lookup';
-import EmbeddedHealthIcon from '@app/entity/shared/embed/EmbeddedHealthIcon';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-import { PageRoutes } from '@conf/Global';
+import { PageRoutes } from '../conf/Global';
+import EmbeddedPage from './embed/EmbeddedPage';
+import { useEntityRegistry } from './useEntityRegistry';
+import EmbedLookup from './embed/lookup';
+import EmbeddedHealthIcon from './entity/shared/embed/EmbeddedHealthIcon';
 
 export default function EmbedRoutes() {
     const entityRegistry = useEntityRegistry();

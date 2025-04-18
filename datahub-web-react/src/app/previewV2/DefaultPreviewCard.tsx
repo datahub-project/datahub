@@ -1,34 +1,12 @@
 import DataProcessInstanceInfo from '@src/app/preview/DataProcessInstanceInfo';
 import { CloseOutlined } from '@ant-design/icons';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
+import { useSearchCardContext } from '@app/entityV2/shared/SearchCardContext';
+import { ActionsAndStatusSection } from '@app/previewV2/shared';
 import { Button, Typography } from 'antd';
 import React, { ReactNode } from 'react';
 import styled from 'styled-components';
-
-import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
-import { GenericEntityProperties } from '@app/entity/shared/types';
-import { EntityMenuActions, PreviewType } from '@app/entityV2/Entity';
-import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
-import MoreOptionsMenuAction from '@app/entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
-import { usePreviewData } from '@app/entityV2/shared/PreviewContext';
-import { useSearchCardContext } from '@app/entityV2/shared/SearchCardContext';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { GlossaryPreviewCardDecoration } from '@app/entityV2/shared/containers/profile/header/GlossaryPreviewCardDecoration';
-import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
-import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
-import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
-import { DashboardLastUpdatedMs, DatasetLastUpdatedMs } from '@app/entityV2/shared/utils';
-import ColoredBackgroundPlatformIconGroup from '@app/previewV2/ColoredBackgroundPlatformIconGroup';
-import { CompactView } from '@app/previewV2/CompactView';
-import ContextPath from '@app/previewV2/ContextPath';
-import DefaultPreviewCardFooter from '@app/previewV2/DefaultPreviewCardFooter';
-import EntityHeader from '@app/previewV2/EntityHeader';
-import { ActionsAndStatusSection } from '@app/previewV2/shared';
-import { useRemoveDataProductAssets, useRemoveDomainAssets, useRemoveGlossaryTermAssets } from '@app/previewV2/utils';
-import { useSearchContext } from '@app/search/context/SearchContext';
-import useContentTruncation from '@app/shared/useContentTruncation';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
-import DataProcessInstanceInfo from '@src/app/preview/DataProcessInstanceInfo';
-
 import {
     BrowsePathV2,
     Container,
@@ -45,9 +23,6 @@ import {
     Maybe,
     Owner,
     SearchInsight,
-<<<<<<< HEAD
-} from '@types';
-=======
 } from '../../types.generated';
 import { EntityMenuActions, PreviewType } from '../entityV2/Entity';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../entityV2/shared/constants';
@@ -69,7 +44,6 @@ import { useEntityContext, useEntityData } from '../entity/shared/EntityContext'
 import { DashboardLastUpdatedMs, DatasetLastUpdatedMs } from '../entityV2/shared/utils';
 import { useRemoveDataProductAssets, useRemoveDomainAssets, useRemoveGlossaryTermAssets } from './utils';
 import CompactMarkdownViewer from '../entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const TransparentButton = styled(Button)`
     color: ${REDESIGN_COLORS.TITLE_PURPLE};

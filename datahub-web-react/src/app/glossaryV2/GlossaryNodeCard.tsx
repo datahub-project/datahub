@@ -1,14 +1,12 @@
-import { BookmarkSimple, BookmarksSimple } from '@phosphor-icons/react';
-import { Tooltip, Typography } from 'antd';
-import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components/macro';
-
-import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { generateColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { Tooltip, Typography } from 'antd';
+import { Maybe } from 'graphql/jsutils/Maybe';
 import { colors } from '@src/alchemy-components';
-
-import { DisplayProperties } from '@types';
+import { BookmarkSimple, BookmarksSimple } from '@phosphor-icons/react';
+import { DisplayProperties } from '../../types.generated';
+import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '../entityV2/shared/constants';
+import { generateColorFromPalette } from './colorUtils';
 
 interface GlossaryItemCardHeaderProps {
     color: string;

@@ -1,7 +1,6 @@
 import React from 'react';
-
-import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
-import TabNameWithCount from '@app/entityV2/shared/tabs/Entity/TabNameWithCount';
+import { useGetEntityWithSchema } from '../Dataset/Schema/useGetEntitySchema';
+import TabNameWithCount from './TabNameWithCount';
 
 const ColumnTabNameHeader = () => {
     const { entityWithSchema, loading } = useGetEntityWithSchema();

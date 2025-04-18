@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { matchPath, useLocation } from 'react-router';
-
-import { NavBarMenuItemTypes, NavBarMenuItems } from '@app/homeV2/layout/navBarRedesign/types';
+import { NavBarMenuItems, NavBarMenuItemTypes } from './types';
 
 export default function useSelectedKey(menu: NavBarMenuItems) {
     const location = useLocation();

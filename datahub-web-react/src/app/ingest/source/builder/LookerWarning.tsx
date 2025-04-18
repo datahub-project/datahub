@@ -1,7 +1,6 @@
-import { Alert } from 'antd';
 import React from 'react';
-
-import { LOOKER, LOOK_ML } from '@app/ingest/source/builder/constants';
+import { Alert } from 'antd';
+import { LOOKER, LOOK_ML } from './constants';
 
 const LOOKML_DOC_LINK = 'https://datahubproject.io/docs/generated/ingestion/sources/looker#module-lookml';
 const LOOKER_DOC_LINK = 'https://datahubproject.io/docs/generated/ingestion/sources/looker#module-looker';

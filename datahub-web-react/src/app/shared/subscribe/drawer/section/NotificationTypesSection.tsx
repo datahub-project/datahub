@@ -1,28 +1,23 @@
-import { Tree, Typography } from 'antd';
-import { DataNode } from 'antd/es/tree';
 import React, { Key, useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import AssertionSubscriptionAlert from '@app/shared/subscribe/drawer/section/AssertionSubscriptionAlert';
-import {
-    checkIsKeyBeingToggledForAssertionSubscriptionsAtAssetLevel,
-    getEntityChangeTypeWithName,
-    useRemoveAssertionFromAssetLevelSubscription,
-} from '@app/shared/subscribe/drawer/section/utils';
-import useDrawerActions from '@app/shared/subscribe/drawer/state/actions';
+import { Tree, Typography } from 'antd';
+import { DataNode } from 'antd/es/tree';
+import { ANTD_GRAY } from '../../../../entity/shared/constants';
+import { ASSERTION_SUBSCRIPTION_RELATED_ENTITY_CHANGE_TYPES, getTreeDataForEntity } from '../utils';
+import useDrawerActions from '../state/actions';
 import {
     selectCheckedKeys,
     selectExpandedKeys,
     selectKeysWithFilteringCleared,
     useDrawerSelector,
-} from '@app/shared/subscribe/drawer/state/selectors';
+} from '../state/selectors';
+import { Assertion, DataHubSubscription, EntityChangeType, EntityType } from '../../../../../types.generated';
+import AssertionSubscriptionAlert from './AssertionSubscriptionAlert';
 import {
-    ASSERTION_SUBSCRIPTION_RELATED_ENTITY_CHANGE_TYPES,
-    getTreeDataForEntity,
-} from '@app/shared/subscribe/drawer/utils';
-
-import { Assertion, DataHubSubscription, EntityChangeType, EntityType } from '@types';
+    checkIsKeyBeingToggledForAssertionSubscriptionsAtAssetLevel,
+    getEntityChangeTypeWithName,
+    useRemoveAssertionFromAssetLevelSubscription,
+} from './utils';
 
 const NotificationTypesContainer = styled.div`
     margin-top: 32px;

@@ -1,8 +1,7 @@
-import { Skeleton } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { Skeleton } from 'antd';
+import { ANTD_GRAY } from '../../../constants';
 
 const Header = styled.div`
     width: 100%;

@@ -1,3 +1,3 @@
-import EntityDropdown from '@app/entity/shared/EntityDropdown/EntityDropdown';
+import EntityDropdown from './EntityDropdown';
 
 export default EntityDropdown;

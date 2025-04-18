@@ -1,11 +1,10 @@
 import { MockedProvider } from '@apollo/client/testing';
 import { render } from '@testing-library/react';
 import React from 'react';
-
-import { PreviewType } from '@app/entity/Entity';
-import { Preview } from '@app/entity/businessAttribute/preview/Preview';
-import { mocks } from '@src/Mocks';
-import TestPageContainer from '@utils/test-utils/TestPageContainer';
+import { mocks } from '../../../../../Mocks';
+import TestPageContainer from '../../../../../utils/test-utils/TestPageContainer';
+import { Preview } from '../Preview';
+import { PreviewType } from '../../../Entity';
 
 describe('Preview', () => {
     it('renders', () => {

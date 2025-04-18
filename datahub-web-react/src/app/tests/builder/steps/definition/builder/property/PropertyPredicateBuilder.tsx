@@ -1,17 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-
-import { CustomPropertyPredicateBuilder } from '@app/tests/builder/steps/definition/builder/property/CustomPropertyPredicateBuilder';
-import { OwnershipTypePredicateBuilder } from '@app/tests/builder/steps/definition/builder/property/OwnershipTypePredicateBuilder';
-import { StructuredPropertyPredicateBuilder } from '@app/tests/builder/steps/definition/builder/property/StructuredPropertyPredicateBuilder';
-import { TypedPropertyPredicateBuilder } from '@app/tests/builder/steps/definition/builder/property/TypedPropertyPredicateBuilder';
-import { Property } from '@app/tests/builder/steps/definition/builder/property/types/properties';
-import {
-    getPropertyById,
-    isOwnershipTypeId,
-    isStructuredPropertyId,
-} from '@app/tests/builder/steps/definition/builder/property/utils';
-import { PropertyPredicate } from '@app/tests/builder/steps/definition/builder/types';
+import { PropertyPredicate } from '../types';
+import { Property } from './types/properties';
+import { getPropertyById, isStructuredPropertyId, isOwnershipTypeId } from './utils';
+import { CustomPropertyPredicateBuilder } from './CustomPropertyPredicateBuilder';
+import { TypedPropertyPredicateBuilder } from './TypedPropertyPredicateBuilder';
+import { StructuredPropertyPredicateBuilder } from './StructuredPropertyPredicateBuilder';
+import { OwnershipTypePredicateBuilder } from './OwnershipTypePredicateBuilder';
 
 const PredicateContainer = styled.div`
     display: flex;

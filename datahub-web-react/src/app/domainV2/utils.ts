@@ -1,15 +1,13 @@
 import { ApolloClient } from '@apollo/client';
-import { isEqual } from 'lodash';
 import { useEffect } from 'react';
-
-import { useDomainsContext } from '@app/domainV2/DomainsContext';
-import EntityRegistry from '@app/entity/EntityRegistry';
-import { GenericEntityProperties } from '@app/entity/shared/types';
-import usePrevious from '@app/shared/usePrevious';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { ListDomainsDocument, ListDomainsQuery } from '@graphql/domain.generated';
-import { Entity, EntityType } from '@types';
+import { isEqual } from 'lodash';
+import { ListDomainsDocument, ListDomainsQuery } from '../../graphql/domain.generated';
+import { Entity, EntityType } from '../../types.generated';
+import { GenericEntityProperties } from '../entity/shared/types';
+import usePrevious from '../shared/usePrevious';
+import { useDomainsContext } from './DomainsContext';
+import { useEntityRegistry } from '../useEntityRegistry';
+import EntityRegistry from '../entity/EntityRegistry';
 
 /**
  * Add an entry to the list domains cache.

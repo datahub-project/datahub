@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo } from 'react';
-
-import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
+import { ExtendedSchemaFields } from '../../../../dataset/profile/schema/utils/types';
 
 export default function useKeyboardControls(
     rows: ExtendedSchemaFields[],

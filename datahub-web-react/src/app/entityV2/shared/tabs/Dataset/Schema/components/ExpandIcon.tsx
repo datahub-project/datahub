@@ -1,12 +1,10 @@
 import { DownOutlined, RightOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
 import { Typography } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
-
-import { REDESIGN_COLORS, SEARCH_COLORS } from '@app/entityV2/shared/constants';
-
-import RowIcon from '@images/row-icon.svg?react';
+import RowIcon from '../../../../../../../images/row-icon.svg?react';
+import { REDESIGN_COLORS, SEARCH_COLORS } from '../../../../constants';
 
 const Prefix = styled.div<{ padding: number }>`
     position: absolute;

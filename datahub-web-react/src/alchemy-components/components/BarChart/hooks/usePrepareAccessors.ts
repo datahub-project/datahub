@@ -1,6 +1,5 @@
 import { useCallback, useMemo } from 'react';
-
-import { BaseDatum, XAccessor, YAccessor } from '@components/components/BarChart/types';
+import { BaseDatum, XAccessor, YAccessor } from '../types';
 
 export const DEFAULT_MIN_VALUE = 0.1;
 

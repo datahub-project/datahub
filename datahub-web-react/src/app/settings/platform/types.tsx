@@ -1,18 +1,14 @@
 import React from 'react';
-
-import AcrylInstances from '@app/settings/platform/acryl/AcrylInstances';
-import { SlackIntegration } from '@app/settings/platform/slack/SlackIntegration';
-import { SnowflakeIntegration } from '@app/settings/platform/snowflake/SnowflakeIntegration';
-import { OidcIntegration } from '@app/settings/platform/sso/OidcIntegration';
-
-import { NotificationScenarioType, NotificationSettingValue, NotificationSinkType } from '@types';
-
+import oidcLogo from '../../../images/oidclogo.png';
+import slackLogo from '../../../images/slacklogo.png';
 // import teamsLogo from '../../../images/teamslogo.png';
-import acrylLogo from '@images/acryl-dark-mark.svg';
-import oidcLogo from '@images/oidclogo.png';
-import slackLogo from '@images/slacklogo.png';
-import snowflakeLogo from '@images/snowflakelogo.png';
-
+import acrylLogo from '../../../images/acryl-dark-mark.svg';
+import snowflakeLogo from '../../../images/snowflakelogo.png';
+import { NotificationScenarioType, NotificationSettingValue, NotificationSinkType } from '../../../types.generated';
+import { SlackIntegration } from './slack/SlackIntegration';
+import { OidcIntegration } from './sso/OidcIntegration';
+import AcrylInstances from './acryl/AcrylInstances';
+import { SnowflakeIntegration } from './snowflake/SnowflakeIntegration';
 // import { TeamsIntegration } from './teams/TeamsIntegration';
 
 /**

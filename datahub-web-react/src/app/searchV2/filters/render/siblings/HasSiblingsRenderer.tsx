@@ -1,9 +1,8 @@
-import { BuildOutlined } from '@ant-design/icons';
 import React from 'react';
-
-import { FilterRenderer } from '@app/searchV2/filters/render/FilterRenderer';
-import { HasSiblingsFilter } from '@app/searchV2/filters/render/siblings/HasSiblingsFilter';
-import { FilterRenderProps } from '@app/searchV2/filters/render/types';
+import { BuildOutlined } from '@ant-design/icons';
+import { FilterRenderer } from '../FilterRenderer';
+import { FilterRenderProps } from '../types';
+import { HasSiblingsFilter } from './HasSiblingsFilter';
 
 export class HasSiblingsRenderer implements FilterRenderer {
     field = 'hasSiblings';

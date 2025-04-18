@@ -1,13 +1,11 @@
-import { LockOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import { Typography } from 'antd';
 import React from 'react';
+import { LockOutlined } from '@ant-design/icons';
+import { Typography } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components';
-
-import { MemberCount } from '@app/entityV2/group/GroupSidebar';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-
-import { EntityRelationshipsResult } from '@types';
+import { REDESIGN_COLORS } from '../shared/constants';
+import { MemberCount } from './GroupSidebar';
+import { EntityRelationshipsResult } from '../../../types.generated';
 
 const GroupHeader = styled.div`
     position: relative;

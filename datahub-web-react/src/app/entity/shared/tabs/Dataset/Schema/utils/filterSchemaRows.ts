@@ -1,6 +1,5 @@
-import EntityRegistry from '@app/entity/EntityRegistry';
-
-import { EntityType, SchemaField } from '@types';
+import { EntityType, SchemaField } from '../../../../../../../types.generated';
+import EntityRegistry from '../../../../../EntityRegistry';
 
 function matchesTagsOrTermsOrDescription(field: SchemaField, filterText: string, entityRegistry: EntityRegistry) {
     return (

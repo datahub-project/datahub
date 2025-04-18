@@ -1,7 +1,6 @@
-import React from 'react';
-
-import LineageTabTimeSelector from '@app/entityV2/shared/tabs/Lineage/LineageTabTimeSelector';
 import { ControlPanel, ControlPanelSubtext, ControlPanelTitle } from '@app/lineageV2/controls/common';
+import React from 'react';
+import LineageTabTimeSelector from '../../entityV2/shared/tabs/Lineage/LineageTabTimeSelector';
 
 const LineageTimeRangeControls = () => {
     return (

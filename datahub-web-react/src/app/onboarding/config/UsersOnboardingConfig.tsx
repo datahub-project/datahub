@@ -1,7 +1,6 @@
-import { Typography } from 'antd';
 import React from 'react';
-
-import { OnboardingStep } from '@app/onboarding/OnboardingStep';
+import { Typography } from 'antd';
+import { OnboardingStep } from '../OnboardingStep';
 
 export const USERS_INTRO_ID = 'users-intro';
 export const USERS_SSO_ID = 'users-sso';

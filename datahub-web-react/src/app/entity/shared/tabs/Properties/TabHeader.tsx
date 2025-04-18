@@ -1,11 +1,10 @@
 import { Icon } from '@components';
+import { Maybe, StructuredProperties } from '@src/types.generated';
 import { Input } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import AddPropertyButton from '@app/entity/shared/tabs/Properties/AddPropertyButton';
-import { Maybe, StructuredProperties } from '@src/types.generated';
+import { ANTD_GRAY } from '../../constants';
+import AddPropertyButton from './AddPropertyButton';
 
 const StyledInput = styled(Input)`
     border-radius: 70px;

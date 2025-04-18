@@ -3,29 +3,6 @@ import ResizeObserver from 'rc-resize-observer';
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 import { useVT } from 'virtualizedtableforantd4';
-
-import useSchemaTitleRenderer from '@app/entity/dataset/profile/schema/utils/schemaTitleRenderer';
-import translateFieldPath from '@app/entity/dataset/profile/schema/utils/translateFieldPath';
-import { ExtendedSchemaFields } from '@app/entity/dataset/profile/schema/utils/types';
-import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
-import { ANTD_GRAY, ANTD_GRAY_V2 } from '@app/entity/shared/constants';
-import ExpandIcon from '@app/entity/shared/tabs/Dataset/Schema/components/ExpandIcon';
-import PropertiesColumn from '@app/entity/shared/tabs/Dataset/Schema/components/PropertiesColumn';
-import SchemaFieldDrawer from '@app/entity/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawer';
-import { SchemaRow } from '@app/entity/shared/tabs/Dataset/Schema/components/SchemaRow';
-import { useGetStructuredPropColumns } from '@app/entity/shared/tabs/Dataset/Schema/useGetStructuredPropColumns';
-import { useGetTableColumnProperties } from '@app/entity/shared/tabs/Dataset/Schema/useGetTableColumnProperties';
-import { FkContext } from '@app/entity/shared/tabs/Dataset/Schema/utils/selectedFkContext';
-import useBusinessAttributeRenderer from '@app/entity/shared/tabs/Dataset/Schema/utils/useBusinessAttributeRenderer';
-import useDescriptionRenderer from '@app/entity/shared/tabs/Dataset/Schema/utils/useDescriptionRenderer';
-import useExtractFieldDescriptionInfo from '@app/entity/shared/tabs/Dataset/Schema/utils/useExtractFieldDescriptionInfo';
-import useExtractFieldGlossaryTermsInfo from '@app/entity/shared/tabs/Dataset/Schema/utils/useExtractFieldGlossaryTermsInfo';
-import useExtractFieldTagsInfo from '@app/entity/shared/tabs/Dataset/Schema/utils/useExtractFieldTagsInfo';
-import useSchemaBlameRenderer from '@app/entity/shared/tabs/Dataset/Schema/utils/useSchemaBlameRenderer';
-import useTagsAndTermsRenderer from '@app/entity/shared/tabs/Dataset/Schema/utils/useTagsAndTermsRenderer';
-import useUsageStatsRenderer from '@app/entity/shared/tabs/Dataset/Schema/utils/useUsageStatsRenderer';
-import { useBusinessAttributesFlag } from '@app/useAppConfig';
-
 import {
     EditableSchemaMetadata,
     ForeignKeyConstraint,
@@ -33,7 +10,28 @@ import {
     SchemaFieldBlame,
     SchemaMetadata,
     UsageQueryResult,
-} from '@types';
+} from '../../../../../../types.generated';
+import { useBusinessAttributesFlag } from '../../../../../useAppConfig';
+import useSchemaTitleRenderer from '../../../../dataset/profile/schema/utils/schemaTitleRenderer';
+import translateFieldPath from '../../../../dataset/profile/schema/utils/translateFieldPath';
+import { ExtendedSchemaFields } from '../../../../dataset/profile/schema/utils/types';
+import { StyledTable } from '../../../components/styled/StyledTable';
+import { ANTD_GRAY, ANTD_GRAY_V2 } from '../../../constants';
+import ExpandIcon from './components/ExpandIcon';
+import PropertiesColumn from './components/PropertiesColumn';
+import SchemaFieldDrawer from './components/SchemaFieldDrawer/SchemaFieldDrawer';
+import { SchemaRow } from './components/SchemaRow';
+import { FkContext } from './utils/selectedFkContext';
+import useBusinessAttributeRenderer from './utils/useBusinessAttributeRenderer';
+import useDescriptionRenderer from './utils/useDescriptionRenderer';
+import useExtractFieldDescriptionInfo from './utils/useExtractFieldDescriptionInfo';
+import useExtractFieldGlossaryTermsInfo from './utils/useExtractFieldGlossaryTermsInfo';
+import useExtractFieldTagsInfo from './utils/useExtractFieldTagsInfo';
+import useSchemaBlameRenderer from './utils/useSchemaBlameRenderer';
+import useTagsAndTermsRenderer from './utils/useTagsAndTermsRenderer';
+import useUsageStatsRenderer from './utils/useUsageStatsRenderer';
+import { useGetTableColumnProperties } from './useGetTableColumnProperties';
+import { useGetStructuredPropColumns } from './useGetStructuredPropColumns';
 
 const TableContainer = styled.div`
     overflow: inherit;

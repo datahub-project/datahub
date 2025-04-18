@@ -1,14 +1,13 @@
-import { InfoCircleOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import { Button, Form, Input, Space, Typography } from 'antd';
-import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-
-import { SLACK_CONNECTION_URN } from '@app/settings/platform/slack/constants';
-import { useUserContext } from '@src/app/context/useUserContext';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
+import { Typography, Form, Input, Button, Space } from 'antd';
+import { Tooltip } from '@components';
+import { InfoCircleOutlined } from '@ant-design/icons';
+import { Link } from 'react-router-dom';
 import { TestNotificationButton } from '@src/app/shared/notifications/TestNotificationButton';
+import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
+import { useUserContext } from '@src/app/context/useUserContext';
+import { SLACK_CONNECTION_URN } from '../slack/constants';
 
 const InputDiv = styled.div`
     width: 360px;

@@ -1,22 +1,14 @@
+import { Assertion, AssertionType, EntityType } from '@src/types.generated';
 import { Form, Steps } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
-
-import { useConnectionForEntityExists } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
-import {
-    AssertionBuilderStepTitles,
-    getAssertionsBuilderStepComponent,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/conf';
-import { DEFAULT_BUILDER_STATE } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/constants';
-import getInitBuilderStateByAssertionType from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/utils';
-import {
-    AssertionBuilderStep,
-    AssertionMonitorBuilderState,
-    StepProps,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
-import { useUpsertAssertionMonitor } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/useUpsertAssertionMonitor';
-import { isEntityEligibleForAssertionMonitoring } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/utils';
-import { Assertion, AssertionType, EntityType } from '@src/types.generated';
+import { useConnectionForEntityExists } from '../../acrylUtils';
+import { AssertionBuilderStepTitles, getAssertionsBuilderStepComponent } from './conf';
+import { DEFAULT_BUILDER_STATE } from './constants';
+import getInitBuilderStateByAssertionType from './steps/utils';
+import { AssertionBuilderStep, AssertionMonitorBuilderState, StepProps } from './types';
+import { useUpsertAssertionMonitor } from './useUpsertAssertionMonitor';
+import { isEntityEligibleForAssertionMonitoring } from './utils';
 
 const MainContent = styled.div`
     display: flex;

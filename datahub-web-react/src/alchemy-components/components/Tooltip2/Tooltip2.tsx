@@ -1,18 +1,17 @@
 import { Popover } from '@components';
 import { TooltipProps } from 'antd';
 import * as React from 'react';
-
 import {
     Container,
     Content,
     Section,
     SectionHeader,
-    SectionTitle,
     SectionsContainer,
+    SectionTitle,
     Title,
     TitleSuffix,
-} from '@components/components/Tooltip2/components';
-import { Tooltip2Props } from '@components/components/Tooltip2/types';
+} from './components';
+import { Tooltip2Props } from './types';
 
 /**
  * Note: Depends on styling set in global-overrides-v2.less to override ant padding

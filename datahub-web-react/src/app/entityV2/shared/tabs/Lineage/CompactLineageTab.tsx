@@ -1,18 +1,16 @@
 import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
-import { Icon, Tooltip } from '@components';
+import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
 import { Button, Divider } from 'antd';
+import { Icon, Tooltip } from '@components';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
-
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
-import { ANTD_GRAY, SEARCH_COLORS } from '@app/entityV2/shared/constants';
-import { ImpactAnalysis } from '@app/entityV2/shared/tabs/Lineage/ImpactAnalysis';
-import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
-import { UnionType } from '@app/search/utils/constants';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { LineageDirection } from '@types';
+import { LineageDirection } from '../../../../../types.generated';
+import { UnionType } from '../../../../search/utils/constants';
+import { useEntityRegistry } from '../../../../useEntityRegistry';
+import { useEntityData } from '../../../../entity/shared/EntityContext';
+import { ANTD_GRAY, SEARCH_COLORS } from '../../constants';
+import { ImpactAnalysis } from './ImpactAnalysis';
+import { LineageTabContext } from './LineageTabContext';
 
 // Unfortunately, we have to artificially bound the height.
 // Accounts for search bar, controls header, and padding.

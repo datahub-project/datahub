@@ -1,4 +1,4 @@
-import { RecommendationContent, RecommendationRenderType, ScenarioType } from '@types';
+import { RecommendationContent, RecommendationRenderType, ScenarioType } from '../../types.generated';
 
 /**
  * The display type that should be used when rendering the recommendation.

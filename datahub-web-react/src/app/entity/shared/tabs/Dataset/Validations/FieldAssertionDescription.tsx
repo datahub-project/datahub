@@ -1,14 +1,12 @@
-import { Typography } from 'antd';
 import React from 'react';
-
+import { Typography } from 'antd';
+import { FieldAssertionInfo } from '../../../../../../types.generated';
 import {
     getFieldDescription,
     getFieldOperatorDescription,
     getFieldParametersDescription,
     getFieldTransformDescription,
-} from '@app/entity/shared/tabs/Dataset/Validations/fieldDescriptionUtils';
-
-import { FieldAssertionInfo } from '@types';
+} from './fieldDescriptionUtils';
 
 type Props = {
     assertionInfo: FieldAssertionInfo;

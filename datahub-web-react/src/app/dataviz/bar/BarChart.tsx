@@ -1,11 +1,14 @@
-import { ParentSize } from '@visx/responsive';
-import { Axis, BarSeries, BarStack, Grid, XYChart } from '@visx/xychart';
-import dayjs from 'dayjs';
 import React from 'react';
 
-import { Legend } from '@app/dataviz/Legend';
-import { ChartWrapper } from '@app/dataviz/components';
-import { abbreviateNumber } from '@app/dataviz/utils';
+import dayjs from 'dayjs';
+
+import { Axis, BarSeries, BarStack, Grid, XYChart } from '@visx/xychart';
+import { ParentSize } from '@visx/responsive';
+
+import { Legend } from '../Legend';
+import { ChartWrapper } from '../components';
+
+import { abbreviateNumber } from '../utils';
 
 export const BarChart = <Data extends object, DataKeys>({
     data,

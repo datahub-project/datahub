@@ -1,10 +1,8 @@
 import React from 'react';
-
-import { DashboardStatsSummary } from '@app/entity/dashboard/shared/DashboardStatsSummary';
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
-
-import { GetDashboardQuery } from '@graphql/dashboard.generated';
-import { DashboardStatsSummary as DashboardStatsSummaryObj } from '@types';
+import { DashboardStatsSummary as DashboardStatsSummaryObj } from '../../../../types.generated';
+import { useBaseEntity } from '../../shared/EntityContext';
+import { GetDashboardQuery } from '../../../../graphql/dashboard.generated';
+import { DashboardStatsSummary } from '../shared/DashboardStatsSummary';
 
 export const DashboardStatsSummarySubHeader = () => {
     const result = useBaseEntity<GetDashboardQuery>();

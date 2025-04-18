@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-
-import { StructuredPropertyEntity } from '@types';
+import { StructuredPropertyEntity } from '../../../../../types.generated';
 
 const ContentWrapper = styled.div`
     font-size: 12px;

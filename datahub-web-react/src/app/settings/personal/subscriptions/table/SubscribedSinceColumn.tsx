@@ -1,10 +1,9 @@
-import { Typography } from 'antd';
+import React from 'react';
 import dayjs from 'dayjs';
 import LocalizedFormat from 'dayjs/plugin/localizedFormat';
-import React from 'react';
 import styled from 'styled-components/macro';
-
-import { DataHubSubscription } from '@types';
+import { Typography } from 'antd';
+import { DataHubSubscription } from '../../../../../types.generated';
 
 dayjs.extend(LocalizedFormat);
 

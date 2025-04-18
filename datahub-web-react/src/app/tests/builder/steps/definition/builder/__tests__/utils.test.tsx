@@ -1,10 +1,10 @@
-import { LogicalOperatorType } from '@app/tests/builder/steps/definition/builder/types';
+import { LogicalOperatorType } from '../types';
 import {
     convertLogicalPredicateToOrFilters,
     convertLogicalPredicateToTestPredicate,
     convertTestPredicateToLogicalPredicate,
     isLogicalPredicate,
-} from '@app/tests/builder/steps/definition/builder/utils';
+} from '../utils';
 
 const FULL_PROPERTY_PREDICATE = {
     property: 'test',

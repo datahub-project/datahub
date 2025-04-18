@@ -1,10 +1,8 @@
-import { Form, InputNumber, Typography } from 'antd';
 import React from 'react';
+import { Form, InputNumber, Typography } from 'antd';
 import styled from 'styled-components';
-
-import { AssertionMonitorBuilderState } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/types';
-
-import { FieldValuesFailThresholdType } from '@types';
+import { AssertionMonitorBuilderState } from '../../types';
+import { FieldValuesFailThresholdType } from '../../../../../../../../../../types.generated';
 
 type Props = {
     value: AssertionMonitorBuilderState;

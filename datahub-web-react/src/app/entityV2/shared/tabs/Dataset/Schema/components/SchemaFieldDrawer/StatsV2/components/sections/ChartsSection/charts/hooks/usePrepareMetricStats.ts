@@ -1,5 +1,3 @@
-import { useMemo } from 'react';
-
 import { Datum } from '@src/alchemy-components/components/LineChart/types';
 import {
     GRAPH_LOOKBACK_WINDOWS,
@@ -7,11 +5,12 @@ import {
 } from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/constants';
 import {
     AggregationFunction,
+    groupTimeData,
     MAX_VALUE_AGGREGATION,
     TimeInterval,
-    groupTimeData,
 } from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/utils';
 import { getFixedLookbackWindow } from '@src/app/shared/time/timeUtils';
+import { useMemo } from 'react';
 
 export const usePrepareMetricStats = (
     data: Datum[],

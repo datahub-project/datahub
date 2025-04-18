@@ -1,10 +1,13 @@
 import React from 'react';
 import styled from 'styled-components';
-
-import { pluralize } from '@app/shared/textUtil';
-import { EntityRegistry } from '@src/entityRegistryContext';
-
-import { AggregationMetadata, EntityType, FacetMetadata, SearchAcrossLineageResults } from '@types';
+import {
+    AggregationMetadata,
+    EntityType,
+    FacetMetadata,
+    SearchAcrossLineageResults,
+} from '../../../../../../../types.generated';
+import { EntityRegistry } from '../../../../../../../entityRegistryContext';
+import { pluralize } from '../../../../../../shared/textUtil';
 
 const UNIT_SEPARATOR = '␞';
 
@@ -110,9 +113,7 @@ export const getRelatedEntitySummary = (
                         {type.count}{' '}
                         {pluralize(
                             type.count,
-                            type.isEntityType
-                                ? (entityRegistry.getEntityName(type.type as EntityType) ?? '')
-                                : type.type,
+                            type.isEntityType ? entityRegistry.getEntityName(type.type as EntityType) ?? '' : type.type,
                         ).toLocaleLowerCase()}
                         {idx < summary.types.length - 1 && <>, </>}
                     </SummaryText>

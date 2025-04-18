@@ -1,5 +1,5 @@
-import { AggregationGroup } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/types';
 import { OperationType } from '@src/types.generated';
+import { AggregationGroup } from './types';
 
 export const AVAILABLE_OPERATION_TYPES = [
     OperationType.Insert,

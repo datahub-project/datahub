@@ -1,19 +1,17 @@
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import RichTextInput from '@app/entity/shared/components/styled/StructuredProperty/RichTextInput';
-import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
-import BulkSubmissionButton from '@app/entity/shared/entityForm/prompts/BulkSubmissionButton';
-import ColumnSelector from '@app/entity/shared/entityForm/prompts/ColumnSelector';
-import CompletedPromptAuditStamp from '@app/entity/shared/entityForm/prompts/CompletedPromptAuditStamp';
-import useDocumentationPrompt from '@app/entity/shared/entityForm/prompts/DocumentationPrompt/useDocumentationPrompt';
-import PromptHeader from '@app/entity/shared/entityForm/prompts/PromptHeader';
-import { ColumnSelectorProps } from '@app/entity/shared/entityForm/prompts/types';
-import usePromptCompletionInfo from '@app/entity/shared/entityForm/prompts/usePromptCompletionInfo';
-import { applyOpacity } from '@app/shared/styleUtils';
-
-import { FormPrompt, SchemaField, SubmitFormPromptInput } from '@types';
+import { FormPrompt, SchemaField, SubmitFormPromptInput } from '../../../../../../types.generated';
+import CompletedPromptAuditStamp from '../CompletedPromptAuditStamp';
+import { applyOpacity } from '../../../../../shared/styleUtils';
+import { useEntityFormContext } from '../../EntityFormContext';
+import BulkSubmissionButton from '../BulkSubmissionButton';
+import usePromptCompletionInfo from '../usePromptCompletionInfo';
+import { ColumnSelectorProps } from '../types';
+import ColumnSelector from '../ColumnSelector';
+import PromptHeader from '../PromptHeader';
+import RichTextInput from '../../../components/styled/StructuredProperty/RichTextInput';
+import useDocumentationPrompt from './useDocumentationPrompt';
 
 const PromptWrapper = styled.div<{ displayBulkStyles?: boolean }>`
     display: flex;

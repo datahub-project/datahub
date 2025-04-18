@@ -1,13 +1,11 @@
-import { Empty, List, Pagination, Typography, message } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
+import { Empty, List, message, Pagination, Typography } from 'antd';
 import styled from 'styled-components';
-
-import ActionRequestListItem from '@app/actionrequest/item/ActionRequestListItem';
-import analytics, { EventType } from '@app/analytics';
-import { Message } from '@app/shared/Message';
-
-import { useListActionRequestsQuery } from '@graphql/actionRequest.generated';
-import { ActionRequest, ActionRequestAssignee, ActionRequestStatus } from '@types';
+import ActionRequestListItem from './item/ActionRequestListItem';
+import { ActionRequest, ActionRequestAssignee, ActionRequestStatus } from '../../types.generated';
+import { Message } from '../shared/Message';
+import { useListActionRequestsQuery } from '../../graphql/actionRequest.generated';
+import analytics, { EventType } from '../analytics';
 
 const ActionRequestsContainer = styled.div`
     flex: 1;

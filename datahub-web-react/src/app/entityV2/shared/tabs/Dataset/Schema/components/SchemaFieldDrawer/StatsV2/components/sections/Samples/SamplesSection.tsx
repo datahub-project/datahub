@@ -1,11 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
-
-import AllSamplesDrawer from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/components/sections/Samples/components/AllSamplesDrawer';
-import SampleDrawer from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/components/sections/Samples/components/SampleDrawer';
-import SamplesTable from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/components/sections/Samples/components/SamplesTable';
-import useStatsTabContext from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/hooks/useStatsTabContext';
 import { Button } from '@src/alchemy-components';
+import useStatsTabContext from '../../../hooks/useStatsTabContext';
+import SamplesTable from './components/SamplesTable';
+import SampleDrawer from './components/SampleDrawer';
+import AllSamplesDrawer from './components/AllSamplesDrawer';
 
 const Container = styled.div``;
 

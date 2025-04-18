@@ -1,8 +1,7 @@
+import React from 'react';
 import { PlusOutlined } from '@ant-design/icons';
 import { Button, Tooltip } from '@components';
-import React from 'react';
-
-import { ADD_UNAUTHORIZED_MESSAGE } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/constants';
+import { ADD_UNAUTHORIZED_MESSAGE } from './utils/constants';
 
 interface Props {
     buttonLabel?: string;

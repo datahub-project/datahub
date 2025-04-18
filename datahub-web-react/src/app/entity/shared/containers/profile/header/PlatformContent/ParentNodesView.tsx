@@ -1,14 +1,12 @@
-import { FolderOutlined, RightOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import useContentTruncation from '@app/shared/useContentTruncation';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { EntityType, GlossaryNode } from '@types';
+import { Typography } from 'antd';
+import { Tooltip } from '@components';
+import { FolderOutlined, RightOutlined } from '@ant-design/icons';
+import { ANTD_GRAY } from '../../../../constants';
+import { EntityType, GlossaryNode } from '../../../../../../../types.generated';
+import useContentTruncation from '../../../../../../shared/useContentTruncation';
+import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 
 export const StyledRightOutlined = styled(RightOutlined)`
     color: ${ANTD_GRAY[7]};

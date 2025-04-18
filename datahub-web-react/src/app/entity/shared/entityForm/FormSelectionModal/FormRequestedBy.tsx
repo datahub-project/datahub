@@ -1,8 +1,6 @@
 import React from 'react';
-
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { Owner } from '@types';
+import { Owner } from '../../../../../types.generated';
+import { useEntityRegistry } from '../../../../useEntityRegistry';
 
 interface Props {
     owners: Owner[];

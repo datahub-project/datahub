@@ -1,17 +1,8 @@
-<<<<<<< HEAD
-import { MagnifyingGlass } from '@phosphor-icons/react';
-import React from 'react';
-import styled from 'styled-components/macro';
-
-import { Text } from '@src/alchemy-components';
-import colors from '@src/alchemy-components/theme/foundations/colors';
-=======
 import React from 'react';
 import { MagnifyingGlass } from '@phosphor-icons/react';
 import { Text } from '@src/alchemy-components';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 import styled from 'styled-components/macro';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const RecommendedOptionWrapper = styled.div`
     margin-left: 0;

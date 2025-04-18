@@ -1,13 +1,11 @@
-import { Button, Typography } from 'antd';
 import React from 'react';
+import { Button, Typography } from 'antd';
 import styled from 'styled-components';
-
-import { useUserContext } from '@app/context/useUserContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '@app/entity/view/utils';
-
-import { useListGlobalViewsQuery, useListMyViewsQuery } from '@graphql/view.generated';
-import { DataHubViewType } from '@types';
+import { ANTD_GRAY } from '../../../constants';
+import { useListGlobalViewsQuery, useListMyViewsQuery } from '../../../../../../graphql/view.generated';
+import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '../../../../view/utils';
+import { useUserContext } from '../../../../../context/useUserContext';
+import { DataHubViewType } from '../../../../../../types.generated';
 
 const MatchingViewsLabel = () => {
     const userContext = useUserContext();

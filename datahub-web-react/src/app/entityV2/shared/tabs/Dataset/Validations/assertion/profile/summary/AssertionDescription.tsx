@@ -1,9 +1,8 @@
-import { Typography } from 'antd';
 import React from 'react';
 
-import { useBuildAssertionDescriptionLabels } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/utils';
-
-import { Assertion, Monitor } from '@types';
+import { Typography } from 'antd';
+import { Assertion, Monitor } from '../../../../../../../../../types.generated';
+import { useBuildAssertionDescriptionLabels } from './utils';
 
 type Props = {
     assertion: Assertion;

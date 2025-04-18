@@ -1,7 +1,3 @@
-import { Form } from 'antd';
-import React, { useState } from 'react';
-
-import { SelectorWrapper } from '@app/govern/Dashboard/Forms/styledComponents';
 import { NestedSelect } from '@src/alchemy-components/components/Select/Nested/NestedSelect';
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
@@ -10,6 +6,9 @@ import {
     useGetSearchResultsForMultipleQuery,
 } from '@src/graphql/search.generated';
 import { Entity, EntityType } from '@src/types.generated';
+import { Form } from 'antd';
+import React, { useState } from 'react';
+import { SelectorWrapper } from '../styledComponents';
 
 const OwnershipSelector = () => {
     const entityRegistry = useEntityRegistryV2();

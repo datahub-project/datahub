@@ -1,4 +1,4 @@
-import { DatasetProperties, Operation } from '@types';
+import { DatasetProperties, Operation } from '../../../../types.generated';
 
 export function getLastUpdatedMs(
     properties: Pick<DatasetProperties, 'lastModified'> | null | undefined,

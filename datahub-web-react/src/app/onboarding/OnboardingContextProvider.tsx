@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-
-import OnboardingContext from '@app/onboarding/OnboardingContext';
+import OnboardingContext from './OnboardingContext';
 
 export const OnboardingContextProvider = ({ children }: { children: React.ReactNode }) => {
     const [isOpen, setIsOpen] = useState(false);

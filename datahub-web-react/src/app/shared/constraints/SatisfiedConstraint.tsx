@@ -1,9 +1,9 @@
-import { CheckCircleOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
 import React from 'react';
+import { Tooltip } from '@components';
+import { CheckCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 
-import { Constraint as ConstraintType } from '@types';
+import { Constraint as ConstraintType } from '../../../types.generated';
 
 type Props = {
     constraint?: ConstraintType;

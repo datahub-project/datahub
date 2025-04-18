@@ -1,9 +1,8 @@
 import { MockedProvider } from '@apollo/client/testing';
+import { EntityType, SubResourceType } from '@src/types.generated';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
-
-import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
-import { EntityType, SubResourceType } from '@src/types.generated';
+import { DeprecationIcon } from '../components/styled/DeprecationIcon';
 
 describe('DeprecationPill', () => {
     const defaultProps = {

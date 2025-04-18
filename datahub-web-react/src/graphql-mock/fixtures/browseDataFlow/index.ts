@@ -1,6 +1,6 @@
-import { BrowsePathResolver } from '@graphql-mock/fixtures/browsePathHelper';
-import { dataFlowBrowsePaths, filterDataFlowByPath } from '@graphql-mock/fixtures/searchResult/dataFlowSearchResult';
-import { EntityType } from '@types';
+import { EntityType } from '../../../types.generated';
+import { BrowsePathResolver } from '../browsePathHelper';
+import { dataFlowBrowsePaths, filterDataFlowByPath } from '../searchResult/dataFlowSearchResult';
 
 const browsePathResolver = new BrowsePathResolver({
     entityType: EntityType.DataFlow,

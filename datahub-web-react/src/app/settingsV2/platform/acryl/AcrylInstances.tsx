@@ -1,27 +1,24 @@
+import React, { useState } from 'react';
+import styled from 'styled-components';
+import { useHistory } from 'react-router';
 import AddOutlinedIcon from '@mui/icons-material/AddOutlined';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import { Button, Divider, Skeleton } from 'antd';
-import React, { useState } from 'react';
-import { useHistory } from 'react-router';
-import styled from 'styled-components';
-
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { Body, Layout, PrimaryHeading } from '@app/govern/Dashboard/components';
-import { HorizontalListSkeletons } from '@app/homeV2/content/HorizontalListSkeletons';
-import ImageWithColoredBackground from '@app/previewV2/ImageWIthColoredBackground';
-import { PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
-import NewInstanceForm from '@app/settingsV2/platform/acryl/NewInstanceForm';
-import { removeFromInstancesList } from '@app/settingsV2/platform/acryl/cacheUtils';
-import { PLATFORM_CONNECTION_URN } from '@app/shared/constants';
-import { BackButton } from '@app/sharedV2/buttons/BackButton';
-import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
-import { ToastType, showToastMessage } from '@app/sharedV2/toastMessageUtils';
-
-import { useDeleteConnectionMutation } from '@graphql/connection.generated';
-import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
-import { DataHubConnection, EntityType } from '@types';
-
-import acrylLogo from '@images/acryl-dark-mark.svg';
+import { useGetSearchResultsForMultipleQuery } from '../../../../graphql/search.generated';
+import { DataHubConnection, EntityType } from '../../../../types.generated';
+import { PLATFORM_FILTER_NAME } from '../../../searchV2/utils/constants';
+import { PLATFORM_CONNECTION_URN } from '../../../shared/constants';
+import acrylLogo from '../../../../images/acryl-dark-mark.svg';
+import NewInstanceForm from './NewInstanceForm';
+import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
+import { BackButton } from '../../../sharedV2/buttons/BackButton';
+import { HorizontalListSkeletons } from '../../../homeV2/content/HorizontalListSkeletons';
+import ImageWithColoredBackground from '../../../previewV2/ImageWIthColoredBackground';
+import { useDeleteConnectionMutation } from '../../../../graphql/connection.generated';
+import { ToastType, showToastMessage } from '../../../sharedV2/toastMessageUtils';
+import { ConfirmationModal } from '../../../sharedV2/modals/ConfirmationModal';
+import { Body, Layout, PrimaryHeading } from '../../../govern/Dashboard/components';
+import { removeFromInstancesList } from './cacheUtils';
 
 const Container = styled.div`
     display: flex;

@@ -1,4 +1,4 @@
-import { BrowsePath, BrowsePathsInput, EntityType } from '@types';
+import { BrowsePath, BrowsePathsInput, EntityType } from '../../types.generated';
 
 const paths = {
     [EntityType.Dataset](urn) {

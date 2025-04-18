@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import styled from 'styled-components';
 
-import { FinishUpBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/finish/FinishUpBuilder';
-import { StepProps } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
+import styled from 'styled-components';
 import { Button } from '@src/alchemy-components';
 
-import { AssertionType } from '@types';
+import { StepProps } from '../types';
+import { FinishUpBuilder } from './finish/FinishUpBuilder';
+import { AssertionType } from '../../../../../../../../../types.generated';
 
 const Step = styled.div`
     height: 100%;

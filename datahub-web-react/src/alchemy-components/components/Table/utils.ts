@@ -1,4 +1,4 @@
-import { Column, SortingState } from '@components/components/Table/types';
+import { Column, SortingState } from './types';
 
 export const handleActiveSort = (
     key: string,

@@ -1,7 +1,8 @@
-import { Tooltip } from '@components';
 import React from 'react';
 
-import { ActionItemButton } from '@app/entity/shared/tabs/Dataset/Validations/assertion/profile/actions/styledComponents';
+import { Tooltip } from '@components';
+
+import { ActionItemButton } from './styledComponents';
 
 type Props = {
     primary?: boolean;

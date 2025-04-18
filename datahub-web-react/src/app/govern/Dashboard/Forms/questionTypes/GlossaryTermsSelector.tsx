@@ -1,7 +1,5 @@
-import { groupBy } from 'lodash';
+import { EntityType } from '@src/types.generated';
 import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
-
 import { NestedSelect } from '@src/alchemy-components/components/Select/Nested/NestedSelect';
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
@@ -10,7 +8,8 @@ import {
     useGetAutoCompleteMultipleResultsLazyQuery,
     useGetSearchResultsForMultipleQuery,
 } from '@src/graphql/search.generated';
-import { EntityType } from '@src/types.generated';
+import styled from 'styled-components';
+import { groupBy } from 'lodash';
 
 const Wrapper = styled.div``;
 

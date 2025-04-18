@@ -1,13 +1,12 @@
-import { UsersThree } from 'phosphor-react';
-import React from 'react';
-import { Link } from 'react-router-dom';
-import styled from 'styled-components';
-
-import AddContentView from '@app/actionrequestV2/item/AddContentView';
 import { colors } from '@src/alchemy-components';
 import { CustomAvatar } from '@src/app/shared/avatar';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { ActionRequest, ActionRequestResult, EntityType } from '@src/types.generated';
+import { UsersThree } from 'phosphor-react';
+import React from 'react';
+import { Link } from 'react-router-dom';
+import styled from 'styled-components';
+import AddContentView from './AddContentView';
 
 const OwnershipTypeContainer = styled.span`
     white-space: nowrap;

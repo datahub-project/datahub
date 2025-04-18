@@ -1,12 +1,14 @@
+import React, { useEffect, useState, useCallback } from 'react';
 import { Alert } from 'antd';
-import { isEqual } from 'lodash';
-import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
+import { isEqual } from 'lodash';
 
-import { TermOption } from '@app/automations/fields/TermSelector/TermOption';
-import type { RadioValue } from '@app/automations/fields/TermSelector/types';
-import type { ComponentBaseProps } from '@app/automations/types';
 import { EntityType } from '@src/types.generated';
+import type { ComponentBaseProps } from '@app/automations/types';
+import type { RadioValue } from './types';
+import { automationType as SNOWFLAKE_TAG_TERM_SYNC_TYPE } from '../../recipes/snowflake/tagPropagation';
+
+import { TermOption } from './TermOption';
 
 const Wrapper = styled.div`
     display: grid;
@@ -22,7 +24,7 @@ export type TermSelectorStateType = {
 };
 
 export const TermSelector = ({ state, props, passStateToParent }: ComponentBaseProps) => {
-    const { fieldTypes, allowedRadios, canShowNotice } = props;
+    const { fieldTypes, allowedRadios } = props;
 
     // Ensure state properties are always arrays or boolean
     const { terms = [], nodes = [], tags = [], termsEnabled = false, tagsEnabled = false } = state;
@@ -118,7 +120,8 @@ export const TermSelector = ({ state, props, passStateToParent }: ComponentBaseP
 
     // Show notice of Ingestion Overwrite if `some` selected
     const showNotice =
-        canShowNotice && (selected.tags.selectionType === 'some' || selected.terms.selectionType === 'some');
+        state.type === SNOWFLAKE_TAG_TERM_SYNC_TYPE &&
+        (selected.tags.selectionType === 'some' || selected.terms.selectionType === 'some');
 
     return (
         <>

@@ -1,10 +1,8 @@
-import Icon from '@ant-design/icons';
 import React from 'react';
+import Icon from '@ant-design/icons';
+import { colors, Text } from '@src/alchemy-components';
 import styled from 'styled-components';
-
-import { Text, colors } from '@src/alchemy-components';
-
-import NoStatsAvailble from '@images/no-stats-available.svg?react';
+import NoStatsAvailble from '../../../../../../../../../../images/no-stats-available.svg?react';
 
 const NoDataContainer = styled.div`
     margin: 40px auto;

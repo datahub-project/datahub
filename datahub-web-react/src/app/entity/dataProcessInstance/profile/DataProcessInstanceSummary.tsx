@@ -1,16 +1,14 @@
-import { Pill } from '@components';
-import { Space, Table, Typography } from 'antd';
-import { capitalize } from 'lodash';
 import React from 'react';
 import styled from 'styled-components';
-
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
-import { InfoItem } from '@app/entity/shared/components/styled/InfoItem';
-import { TimestampPopover } from '@app/sharedV2/TimestampPopover';
+import { Space, Table, Typography } from 'antd';
 import { formatDetailedDuration } from '@src/app/shared/time/timeUtils';
-
-import { GetDataProcessInstanceQuery } from '@graphql/dataProcessInstance.generated';
-import { DataProcessInstanceRunResultType, MlHyperParam, MlMetric } from '@types';
+import { capitalize } from 'lodash';
+import { Pill } from '@components';
+import { MlHyperParam, MlMetric, DataProcessInstanceRunResultType } from '../../../../types.generated';
+import { useBaseEntity } from '../../shared/EntityContext';
+import { InfoItem } from '../../shared/components/styled/InfoItem';
+import { GetDataProcessInstanceQuery } from '../../../../graphql/dataProcessInstance.generated';
+import { TimestampPopover } from '../../../sharedV2/TimestampPopover';
 
 const TabContent = styled.div`
     padding: 16px;

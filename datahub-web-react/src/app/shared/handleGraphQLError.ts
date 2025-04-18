@@ -1,7 +1,6 @@
 import { ErrorResponse } from '@apollo/client/link/error';
 import { message } from 'antd';
-
-import { ErrorCodes } from '@app/shared/constants';
+import { ErrorCodes } from './constants';
 
 interface Props {
     error: ErrorResponse;

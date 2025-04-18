@@ -1,12 +1,10 @@
-import { Tooltip } from '@components';
-import { Avatar } from 'antd';
 import React from 'react';
-
-import ActorAvatar from '@app/entityV2/shared/ActorAvatar';
-import { userExists } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { CorpUser, EntityType } from '@types';
+import { Avatar } from 'antd';
+import { Tooltip } from '@components';
+import { CorpUser, EntityType } from '../../../../../../../types.generated';
+import { useEntityRegistry } from '../../../../../../useEntityRegistry';
+import ActorAvatar from '../../../../ActorAvatar';
+import { userExists } from './utils';
 
 export type Props = {
     users: Array<CorpUser>;

@@ -1,11 +1,10 @@
-import { Menu, MenuProps } from 'antd';
 import React from 'react';
+import { Menu, MenuProps } from 'antd';
 import styled from 'styled-components';
-
-import NavBarMenuItem from '@app/homeV2/layout/navBarRedesign/NavBarMenuItem';
-import NavBarMenuItemDropdown from '@app/homeV2/layout/navBarRedesign/NavBarMenuItemDropdown';
-import NavBarMenuItemGroup from '@app/homeV2/layout/navBarRedesign/NavBarMenuItemGroup';
-import { AnyMenuItem, NavBarMenuItemTypes, NavBarMenuItems } from '@app/homeV2/layout/navBarRedesign/types';
+import NavBarMenuItem from './NavBarMenuItem';
+import NavBarMenuItemDropdown from './NavBarMenuItemDropdown';
+import { AnyMenuItem, NavBarMenuItems, NavBarMenuItemTypes } from './types';
+import NavBarMenuItemGroup from './NavBarMenuItemGroup';
 
 const StyledMenu = styled(Menu)`
     && {

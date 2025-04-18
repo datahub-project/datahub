@@ -1,24 +1,22 @@
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { Modal, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-
-import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
-import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
-import { SetDomainModal } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SetDomainModal';
-import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
-import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
-import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
-import { ENTITY_PROFILE_DOMAINS_ID } from '@app/onboarding/config/EntityProfileOnboardingConfig';
-import { DomainContent, DomainLink } from '@app/sharedV2/tags/DomainLink';
+import { Modal, message } from 'antd';
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import { getProposedItemsByType } from '@src/app/entityV2/shared/utils';
+import { ActionRequestType, EntityType } from '@src/types.generated';
+import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { colors } from '@src/alchemy-components';
 import ProposedIcon from '@src/app/entityV2/shared/sidebarSection/ProposedIcon';
-import { getProposedItemsByType } from '@src/app/entityV2/shared/utils';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { ActionRequestType, EntityType } from '@src/types.generated';
-
-import { useUnsetDomainMutation } from '@graphql/mutations.generated';
+import { EMPTY_MESSAGES } from '../../../../constants';
+import { useEntityData, useMutationUrn, useRefetch } from '../../../../../../entity/shared/EntityContext';
+import { SetDomainModal } from './SetDomainModal';
+import { useUnsetDomainMutation } from '../../../../../../../graphql/mutations.generated';
+import { DomainContent, DomainLink } from '../../../../../../sharedV2/tags/DomainLink';
+import { ENTITY_PROFILE_DOMAINS_ID } from '../../../../../../onboarding/config/EntityProfileOnboardingConfig';
+import { SidebarSection } from '../SidebarSection';
+import SectionActionButton from '../SectionActionButton';
+import EmptySectionText from '../EmptySectionText';
 
 const Content = styled.div`
     display: flex;

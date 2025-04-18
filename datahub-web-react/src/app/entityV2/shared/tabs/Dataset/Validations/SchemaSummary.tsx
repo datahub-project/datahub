@@ -1,11 +1,9 @@
-import { MoreOutlined } from '@ant-design/icons';
-import { Table } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-
-import { SchemaMetadata } from '@types';
+import { MoreOutlined } from '@ant-design/icons';
+import { Table } from 'antd';
+import { SchemaMetadata } from '../../../../../../types.generated';
+import { ANTD_GRAY } from '../../../constants';
 
 const TitleText = styled.div`
     color: ${ANTD_GRAY[7]};

@@ -1,9 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import moment from 'moment';
 import React, { useState } from 'react';
-
-import { DatePicker, datePickerDefault } from '@components/components/DatePicker/DatePicker';
-import { DatePickerValue } from '@components/components/DatePicker/types';
+import { DatePicker, datePickerDefault } from './DatePicker';
+import { DatePickerValue } from './types';
 
 const meta = {
     title: 'Forms / DatePicker',

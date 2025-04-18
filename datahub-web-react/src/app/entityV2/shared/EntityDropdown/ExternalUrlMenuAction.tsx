@@ -1,6 +1,5 @@
-import React from 'react';
-
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
+import React from 'react';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 
 interface Props {

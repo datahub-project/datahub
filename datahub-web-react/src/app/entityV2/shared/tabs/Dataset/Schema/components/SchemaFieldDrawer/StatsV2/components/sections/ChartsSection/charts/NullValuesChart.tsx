@@ -1,7 +1,6 @@
 import React from 'react';
-
-import MetricWithProportionLineChart from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/components/sections/ChartsSection/charts/components/MetricWithProportionLineChart';
-import useStatsTabContext from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/hooks/useStatsTabContext';
+import MetricWithProportionLineChart from './components/MetricWithProportionLineChart';
+import useStatsTabContext from '../../../../hooks/useStatsTabContext';
 
 export default function NullValuesChart() {
     const { properties } = useStatsTabContext();

@@ -1,9 +1,10 @@
-import { SelectValue } from 'antd/lib/select';
 import React from 'react';
-import styled from 'styled-components';
 
-import { LOOKBACK_WINDOWS, LookbackWindow } from '@app/entity/shared/tabs/Dataset/Stats/lookbackWindows';
-import { SelectablePill } from '@app/entity/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/SelectablePill';
+import styled from 'styled-components';
+import { SelectValue } from 'antd/lib/select';
+
+import { LookbackWindow, LOOKBACK_WINDOWS } from '../../../../../../Stats/lookbackWindows';
+import { SelectablePill } from '../../shared/SelectablePill';
 
 const TimeWindowPills = styled.div`
     display: flex;

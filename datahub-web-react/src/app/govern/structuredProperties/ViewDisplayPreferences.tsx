@@ -1,14 +1,8 @@
+import { colors, Icon, Switch, Text } from '@src/alchemy-components';
+import { StructuredPropertyEntity, StructuredPropertyFilterStatus } from '@src/types.generated';
 import { Collapse } from 'antd';
 import React from 'react';
-
-import {
-    CollapseHeader,
-    StyledCollapse,
-    StyledFormItem,
-    TogglesContainer,
-} from '@app/govern/structuredProperties/styledComponents';
-import { Icon, Switch, Text, colors } from '@src/alchemy-components';
-import { StructuredPropertyEntity, StructuredPropertyFilterStatus } from '@src/types.generated';
+import { CollapseHeader, StyledCollapse, StyledFormItem, TogglesContainer } from './styledComponents';
 
 interface Props {
     propEntity: StructuredPropertyEntity;

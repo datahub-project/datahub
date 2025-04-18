@@ -1,11 +1,9 @@
-import { KeyboardArrowLeft } from '@mui/icons-material';
 import React, { useContext } from 'react';
-
-import analytics, { EventType } from '@app/analytics';
-import { Button, DownstreamWrapper, UpstreamWrapper } from '@app/lineageV2/LineageEntityNode/components';
-import { LineageNodesContext, onClickPreventSelect } from '@app/lineageV2/common';
-
-import { LineageDirection } from '@types';
+import { KeyboardArrowLeft } from '@mui/icons-material';
+import { LineageDirection } from '../../../types.generated';
+import { UpstreamWrapper, DownstreamWrapper, Button } from './components';
+import { LineageNodesContext, onClickPreventSelect } from '../common';
+import analytics, { EventType } from '../../analytics';
 
 interface Props {
     urn: string;

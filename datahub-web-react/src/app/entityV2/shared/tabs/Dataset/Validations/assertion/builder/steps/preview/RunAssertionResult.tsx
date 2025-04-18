@@ -1,10 +1,8 @@
-import { Typography } from 'antd';
 import React from 'react';
-
-import { DatasetAssertionResultDetails } from '@app/entityV2/shared/tabs/Dataset/Validations/DatasetAssertionResultDetails';
-import { getResultErrorMessage } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
-
-import { AssertionResult, AssertionResultType } from '@types';
+import { Typography } from 'antd';
+import { DatasetAssertionResultDetails } from '../../../../DatasetAssertionResultDetails';
+import { getResultErrorMessage } from '../../../../assertionUtils';
+import { AssertionResult, AssertionResultType } from '../../../../../../../../../../types.generated';
 
 type Props = {
     result: AssertionResult;

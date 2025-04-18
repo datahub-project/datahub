@@ -1,9 +1,3 @@
-import { EmbedLookupNotFoundReason } from '@app/embed/lookup/constants';
-import { PersonaType } from '@app/homeV2/shared/types';
-import { Direction } from '@app/lineage/types';
-import { FilterMode } from '@app/search/utils/constants';
-import { ActorType } from '@app/settings/personal/notifications/constants';
-
 import {
     AllowedValue,
     DataHubViewType,
@@ -20,7 +14,12 @@ import {
     RecommendationRenderType,
     ScenarioType,
     StructuredPropertyFilterStatus,
-} from '@types';
+} from '../../types.generated';
+import { EmbedLookupNotFoundReason } from '../embed/lookup/constants';
+import { PersonaType } from '../homeV2/shared/types';
+import { Direction } from '../lineage/types';
+import { FilterMode } from '../search/utils/constants';
+import { ActorType } from '../settings/personal/notifications/constants';
 
 // NOTE: If we move this file, update metadata-ingestion/scripts/analyticseventsdocgen.sh with new path for auto generating docs
 

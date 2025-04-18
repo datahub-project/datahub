@@ -1,5 +1,5 @@
-import { Col, Row, Skeleton } from 'antd';
 import React from 'react';
+import { Col, Row, Skeleton } from 'antd';
 import styled from 'styled-components';
 
 const Container = styled(Row)`

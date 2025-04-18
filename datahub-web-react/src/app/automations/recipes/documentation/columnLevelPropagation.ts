@@ -4,11 +4,11 @@
 
 	Action: datahub-integrations-service/src/datahub_integrations/propagation/doc/doc_propagation_action.py
 */
-import { commonFieldsMapping } from '@app/automations/constants';
-import { getField } from '@app/automations/fields';
-import { AutomationRecipe, AutomationTemplate, ConfigMap } from '@app/automations/types';
 
 import AcrylLogo from '@images/acryl-logo.svg';
+import { commonFieldsMapping } from '@app/automations/constants';
+import { getField } from '@app/automations/fields';
+import { AutomationRecipe, AutomationTemplate, ConfigMap } from '../../types';
 
 // Common unique ID for the action
 // Used to identify the action in the backend & provide common key between template <> recipe

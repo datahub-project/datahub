@@ -1,14 +1,7 @@
 import React, { useMemo } from 'react';
-<<<<<<< HEAD
-
-import { useSearchFiltersContext } from '@app/searchV2/filtersV2/context';
-import { FacetsUpdater } from '@app/searchV2/filtersV2/defaults/DefaultFacetsUpdater/FacetsUpdater';
-import { FieldName, FieldToFacetStateMap } from '@app/searchV2/filtersV2/types';
-=======
 import { useSearchFiltersContext } from '../../context';
 import { FieldName, FieldToFacetStateMap } from '../../types';
 import { FacetsUpdater } from './FacetsUpdater';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 interface DynamicFacetsUpdaterProps {
     fieldNames: FieldName[];

@@ -1,10 +1,8 @@
 import React from 'react';
-
-import { IconStyleType } from '@app/entity/Entity';
-import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { Domain, EntityPath, EntityType, GlobalTags, GlossaryTerms, Owner } from '@types';
+import { EntityType, Owner, GlobalTags, GlossaryTerms, Domain, EntityPath } from '../../../../types.generated';
+import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import { IconStyleType } from '../../Entity';
 
 interface Props {
     urn: string;

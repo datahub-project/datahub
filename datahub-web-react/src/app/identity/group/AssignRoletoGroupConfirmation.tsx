@@ -1,10 +1,8 @@
-import { Popconfirm, message } from 'antd';
 import React from 'react';
-
-import analytics, { EventType } from '@app/analytics';
-
-import { useBatchAssignRoleMutation } from '@graphql/mutations.generated';
-import { DataHubRole } from '@types';
+import { message, Popconfirm } from 'antd';
+import { useBatchAssignRoleMutation } from '../../../graphql/mutations.generated';
+import { DataHubRole } from '../../../types.generated';
+import analytics, { EventType } from '../../analytics';
 
 type Props = {
     open: boolean;

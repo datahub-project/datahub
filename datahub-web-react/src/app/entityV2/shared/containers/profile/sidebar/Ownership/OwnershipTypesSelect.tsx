@@ -1,8 +1,7 @@
+import { OwnershipTypeEntity } from '@src/types.generated';
 import { Select, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { OwnershipTypeEntity } from '@src/types.generated';
 
 const StyledSelect = styled(Select)`
     .ant-select-selection-placeholder {

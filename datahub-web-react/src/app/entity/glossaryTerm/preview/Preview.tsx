@@ -1,13 +1,11 @@
-import { BookmarkSimple } from '@phosphor-icons/react';
 import React from 'react';
-
-import { IconStyleType, PreviewType } from '@app/entity/Entity';
-import { getRelatedEntitiesUrl } from '@app/entity/glossaryTerm/utils';
-import UrlButton from '@app/entity/shared/UrlButton';
-import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { Deprecation, Domain, EntityType, Owner, ParentNodesResult } from '@types';
+import { BookmarkSimple } from '@phosphor-icons/react';
+import { Deprecation, Domain, EntityType, Owner, ParentNodesResult } from '../../../../types.generated';
+import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import { IconStyleType, PreviewType } from '../../Entity';
+import UrlButton from '../../shared/UrlButton';
+import { getRelatedEntitiesUrl } from '../utils';
 
 export const Preview = ({
     urn,

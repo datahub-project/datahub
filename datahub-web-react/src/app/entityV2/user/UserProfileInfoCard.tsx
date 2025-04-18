@@ -1,26 +1,18 @@
-import { Col } from 'antd';
-<<<<<<< HEAD
 import React, { useState } from 'react';
-=======
+import { Col } from 'antd';
 import { EntityRelationship, SearchResults } from '../../../types.generated';
 import SectionActionButton from '../shared/containers/profile/sidebar/SectionActionButton';
 import UserEditProfileModal from './UserEditProfileModal';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 import {
     CustomAvatarContainer,
-    EditProfileButtonContainer,
     GradientContainer,
-    UserInfo,
+    EditProfileButtonContainer,
     WhiteEditOutlinedIconStyle,
-} from '@app/entityV2/shared/SidebarStyledComponents';
-import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
-import { UserBasicInfoContainer } from '@app/entityV2/user/UserBasicInfoContainer';
-import UserEditProfileModal from '@app/entityV2/user/UserEditProfileModal';
-import CustomAvatar from '@app/shared/avatar/CustomAvatar';
-
-import { EntityRelationship, SearchResults } from '@types';
+    UserInfo,
+} from '../shared/SidebarStyledComponents';
+import { UserBasicInfoContainer } from './UserBasicInfoContainer';
 
 const AVATAR_STYLE = {
     marginRight: '0px',

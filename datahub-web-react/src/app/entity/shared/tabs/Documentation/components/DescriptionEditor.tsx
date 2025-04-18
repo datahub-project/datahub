@@ -1,23 +1,24 @@
-import { message } from 'antd';
-import DOMPurify from 'dompurify';
+import React, { useState, useEffect, useCallback } from 'react';
 import queryString from 'query-string';
-import React, { useCallback, useEffect, useState } from 'react';
-import { useHistory, useLocation } from 'react-router';
+import DOMPurify from 'dompurify';
+import { message } from 'antd';
 import styled from 'styled-components/macro';
-
-import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
-import { DescriptionEditorToolbar } from '@app/entity/shared/tabs/Documentation/components/DescriptionEditorToolbar';
-import { DiscardDescriptionModal } from '@app/entity/shared/tabs/Documentation/components/DiscardDescriptionModal';
-import SourceDescription from '@app/entity/shared/tabs/Documentation/components/SourceDesription';
-import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
-import { GenericEntityUpdate } from '@app/entity/shared/types';
-import { EDITED_DESCRIPTIONS_CACHE_NAME } from '@app/entity/shared/utils';
+import { useLocation, useHistory } from 'react-router';
 import { useShouldShowInferDocumentationButton } from '@src/app/entityV2/shared/components/inferredDocs/utils';
-
-import { useInferDocumentationMutation, useUpdateDescriptionMutation } from '@graphql/mutations.generated';
-import { useProposeUpdateDescriptionMutation } from '@graphql/proposals.generated';
-import { ActionRequestType, EntityType } from '@types';
+import analytics, { EventType, EntityActionType } from '../../../../../analytics';
+import { GenericEntityUpdate } from '../../../types';
+import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '../../../EntityContext';
+import {
+    useInferDocumentationMutation,
+    useUpdateDescriptionMutation,
+} from '../../../../../../graphql/mutations.generated';
+import { DiscardDescriptionModal } from './DiscardDescriptionModal';
+import { EDITED_DESCRIPTIONS_CACHE_NAME } from '../../../utils';
+import { useProposeUpdateDescriptionMutation } from '../../../../../../graphql/proposals.generated';
+import { ActionRequestType, EntityType } from '../../../../../../types.generated';
+import { DescriptionEditorToolbar } from './DescriptionEditorToolbar';
+import { Editor } from './editor/Editor';
+import SourceDescription from './SourceDesription';
 
 const PROPOSAL_ENTITY_TYPES = [EntityType.GlossaryTerm, EntityType.GlossaryNode, EntityType.Dataset];
 

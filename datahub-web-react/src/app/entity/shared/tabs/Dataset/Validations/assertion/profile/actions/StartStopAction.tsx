@@ -1,14 +1,14 @@
-import { CaretRightOutlined } from '@ant-design/icons';
-import { Modal, message } from 'antd';
 import React from 'react';
+
 import styled from 'styled-components';
+import { Modal, message } from 'antd';
+import { CaretRightOutlined } from '@ant-design/icons';
 
-import analytics, { EventType } from '@app/analytics';
-import { isMonitorActive } from '@app/entity/shared/tabs/Dataset/Validations/acrylUtils';
-import { ActionItem } from '@app/entity/shared/tabs/Dataset/Validations/assertion/profile/actions/ActionItem';
-
-import { useUpdateMonitorStatusMutation } from '@graphql/monitor.generated';
-import { Assertion, Monitor, MonitorMode } from '@types';
+import analytics, { EventType } from '../../../../../../../../analytics';
+import { ActionItem } from './ActionItem';
+import { useUpdateMonitorStatusMutation } from '../../../../../../../../../graphql/monitor.generated';
+import { Assertion, Monitor, MonitorMode } from '../../../../../../../../../types.generated';
+import { isMonitorActive } from '../../../acrylUtils';
 
 const StyledStopOutlined = styled.div`
     && {

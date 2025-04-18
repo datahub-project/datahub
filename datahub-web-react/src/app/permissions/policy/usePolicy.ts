@@ -1,26 +1,24 @@
-import { useApolloClient } from '@apollo/client';
 import { Modal, message } from 'antd';
-
-import analytics, { EventType } from '@app/analytics';
-import {
-    DEFAULT_PAGE_SIZE,
-    removeFromListPoliciesCache,
-    updateListPoliciesCache,
-} from '@app/permissions/policy/policyUtils';
-
-import { useCreatePolicyMutation, useDeletePolicyMutation, useUpdatePolicyMutation } from '@graphql/policy.generated';
+import { useApolloClient } from '@apollo/client';
 import {
     EntityType,
-    Maybe,
     Policy,
     PolicyMatchCriterionInput,
     PolicyMatchFilter,
     PolicyMatchFilterInput,
     PolicyState,
     PolicyType,
+    Maybe,
     PolicyUpdateInput,
     ResourceFilterInput,
-} from '@types';
+} from '../../../types.generated';
+import {
+    useCreatePolicyMutation,
+    useDeletePolicyMutation,
+    useUpdatePolicyMutation,
+} from '../../../graphql/policy.generated';
+import analytics, { EventType } from '../../analytics';
+import { DEFAULT_PAGE_SIZE, removeFromListPoliciesCache, updateListPoliciesCache } from './policyUtils';
 
 type PrivilegeOptionType = {
     type?: string;

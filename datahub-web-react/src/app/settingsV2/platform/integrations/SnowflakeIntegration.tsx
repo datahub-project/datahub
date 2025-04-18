@@ -1,9 +1,10 @@
-import { Divider, Typography } from 'antd';
 import React from 'react';
+
 import styled from 'styled-components';
+import { Divider, Typography } from 'antd';
 
 import { Snowflake, useGetConnections } from '@app/connections';
-import { PlatformIntegrationBreadcrumb } from '@app/settingsV2/platform/PlatformIntegrationBreadcrumb';
+import { PlatformIntegrationBreadcrumb } from '../PlatformIntegrationBreadcrumb';
 
 const Page = styled.div`
     width: 100%;

@@ -1,9 +1,8 @@
-import { EventType } from '@app/analytics';
-import analytics from '@app/analytics/analytics';
-import EntityRegistry from '@app/entity/EntityRegistry';
-import { Direction } from '@app/lineage/types';
-
-import { Entity, EntityType, LineageDirection } from '@types';
+import { Entity, EntityType, LineageDirection } from '../../../types.generated';
+import { EventType } from '../../analytics';
+import analytics from '../../analytics/analytics';
+import EntityRegistry from '../../entity/EntityRegistry';
+import { Direction } from '../../lineage/types';
 
 interface AnalyticsEventsProps {
     direction: LineageDirection;

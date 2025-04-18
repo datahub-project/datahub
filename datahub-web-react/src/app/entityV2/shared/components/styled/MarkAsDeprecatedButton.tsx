@@ -1,16 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
-<<<<<<< HEAD
-
-import { Button } from '@src/alchemy-components';
-
-import DeprecatedIcon from '@images/deprecated-status.svg?react';
-
-=======
 import { Button } from '@src/alchemy-components';
 import DeprecatedIcon from '../../../../../images/deprecated-status.svg?react';
 
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 const StyledButton = styled(Button)`
     padding: 4px;
     margin-top: -8px;

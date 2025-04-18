@@ -1,5 +1,6 @@
+import React, { useEffect, useState, useRef } from 'react';
+
 import { Select } from 'antd';
-import React, { useEffect, useRef, useState } from 'react';
 
 import { useGetConnections } from '@app/connections/hooks';
 import { transformDotNotationToNested } from '@app/connections/utils';

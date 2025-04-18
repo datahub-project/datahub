@@ -1,12 +1,6 @@
 import React, { useMemo } from 'react';
-<<<<<<< HEAD
-
-import { useSearchFiltersContext } from '@app/searchV2/filtersV2/context';
-import { FieldName, Filter } from '@app/searchV2/filtersV2/types';
-=======
 import { useSearchFiltersContext } from './context';
 import { FieldName, Filter } from './types';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 interface Props {
     fieldNames: FieldName[];

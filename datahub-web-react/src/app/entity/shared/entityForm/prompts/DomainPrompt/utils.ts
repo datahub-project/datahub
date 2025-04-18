@@ -1,5 +1,5 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { FormPrompt } from '@src/types.generated';
+import { GenericEntityProperties } from '../../../types';
 
 // get initial domain to show in an unfinished form prompt
 export function getDefaultDomain(entityData: GenericEntityProperties | null, prompt: FormPrompt) {

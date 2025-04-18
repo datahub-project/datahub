@@ -1,16 +1,11 @@
-import { Popover } from '@components';
-import { Typography } from 'antd';
 import React from 'react';
+import { Typography } from 'antd';
+import { Popover } from '@components';
 import styled from 'styled-components/macro';
-
-import {
-    getDescriptionFromType,
-    getNameFromType,
-} from '@app/entity/shared/containers/profile/sidebar/Ownership/ownershipUtils';
-import { CustomAvatar } from '@app/shared/avatar';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { Owner } from '@types';
+import { Owner } from '../../../../../../types.generated';
+import { CustomAvatar } from '../../../../../shared/avatar';
+import { getDescriptionFromType, getNameFromType } from '../../../containers/profile/sidebar/Ownership/ownershipUtils';
+import { useEntityRegistry } from '../../../../../useEntityRegistry';
 
 const TextWrapper = styled.span<{ fontSize?: number }>`
     ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}

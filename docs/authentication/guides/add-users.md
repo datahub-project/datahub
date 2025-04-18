@@ -134,7 +134,6 @@ curl -X 'POST' \
   }
 }'
 ```
-
 </TabItem>
 </Tabs>
 

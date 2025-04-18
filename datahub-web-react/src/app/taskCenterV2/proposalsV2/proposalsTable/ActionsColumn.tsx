@@ -1,16 +1,15 @@
+import { colors, Icon, Pill, Modal } from '@src/alchemy-components';
+import analytics, { EventType, EntityActionType } from '@src/app/analytics';
+import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useAcceptProposalsMutation, useRejectProposalsMutation } from '@src/graphql/actionRequest.generated';
 import { Form, Input, message } from 'antd';
 import { useForm } from 'antd/lib/form/Form';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-
-import ResultNote from '@app/taskCenterV2/proposalsV2/proposalsTable/ResultNote';
-import { ProposalModalType } from '@app/taskCenterV2/proposalsV2/utils';
-import { Icon, Modal, Pill, colors } from '@src/alchemy-components';
-import analytics, { EntityActionType, EventType } from '@src/app/analytics';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { useAcceptProposalsMutation, useRejectProposalsMutation } from '@src/graphql/actionRequest.generated';
 import { ActionRequest, ActionRequestResult, ActionRequestStatus, EntityType } from '@src/types.generated';
+import { ProposalModalType } from '../utils';
+import ResultNote from './ResultNote';
 
 const IconsContainer = styled.div`
     display: flex;

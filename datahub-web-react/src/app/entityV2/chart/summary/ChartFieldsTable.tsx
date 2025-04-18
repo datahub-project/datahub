@@ -1,13 +1,11 @@
-import { Table, Typography } from 'antd';
 import React from 'react';
-import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { CompactFieldIconWithTooltip } from '@app/sharedV2/icons/CompactFieldIcon';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { EntityType, SchemaField } from '@types';
+import { Link } from 'react-router-dom';
+import { Table, Typography } from 'antd';
+import { EntityType, SchemaField } from '../../../../types.generated';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import { CompactFieldIconWithTooltip } from '../../../sharedV2/icons/CompactFieldIcon';
+import { REDESIGN_COLORS } from '../../shared/constants';
 
 const MAX_ROWS = 5;
 

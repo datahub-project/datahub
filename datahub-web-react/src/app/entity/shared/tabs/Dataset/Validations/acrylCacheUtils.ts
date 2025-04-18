@@ -1,8 +1,8 @@
 import {
     GetDatasetAssertionsWithMonitorsDocument,
     GetDatasetAssertionsWithMonitorsQuery,
-} from '@graphql/monitor.generated';
-import { Assertion } from '@types';
+} from '../../../../../../graphql/monitor.generated';
+import { Assertion } from '../../../../../../types.generated';
 
 /**
  * This file contains utility classes for manipulating the Apollo Cache

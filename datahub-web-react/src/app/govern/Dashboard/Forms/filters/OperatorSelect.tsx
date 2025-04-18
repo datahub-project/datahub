@@ -1,9 +1,8 @@
 import { Text, Tooltip } from '@components';
+import { Operator } from '@src/app/tests/builder/steps/definition/builder/property/types/operators';
 import { Select } from 'antd';
 import React from 'react';
-
-import { StyledSelect } from '@app/govern/Dashboard/Forms/filters/styledComponents';
-import { Operator } from '@src/app/tests/builder/steps/definition/builder/property/types/operators';
+import { StyledSelect } from './styledComponents';
 
 interface Props {
     selectedOperator?: string;

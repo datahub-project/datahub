@@ -1,9 +1,8 @@
 import * as QueryString from 'query-string';
-import React, { useCallback, useMemo, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
-
-import { SearchContext } from '@app/search/context/SearchContext';
-import { updateUrlParam } from '@app/shared/updateUrlParam';
+import React, { useCallback, useMemo, useState } from 'react';
+import { SearchContext } from './SearchContext';
+import { updateUrlParam } from '../../shared/updateUrlParam';
 
 export default function SearchContextProvider({ children }: { children: React.ReactNode }) {
     const history = useHistory();

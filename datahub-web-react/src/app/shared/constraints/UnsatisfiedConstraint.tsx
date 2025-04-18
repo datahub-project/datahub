@@ -1,10 +1,10 @@
-import { Popover } from '@components';
-import { Tag } from 'antd';
 import React from 'react';
+import { Tag } from 'antd';
+import { Popover } from '@components';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { Constraint as ConstraintType } from '@types';
+import { Constraint as ConstraintType } from '../../../types.generated';
 
 type Props = {
     constraint?: ConstraintType;

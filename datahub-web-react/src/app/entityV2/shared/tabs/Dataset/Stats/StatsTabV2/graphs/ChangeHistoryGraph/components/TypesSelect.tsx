@@ -1,7 +1,6 @@
-import { SelectOption, SimpleSelect } from '@components';
 import React from 'react';
-
-import { SelectSkeleton } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/SelectSkeleton';
+import { SelectOption, SimpleSelect } from '@components';
+import { SelectSkeleton } from './SelectSkeleton';
 
 type TypesSelectProps = {
     options: SelectOption[];

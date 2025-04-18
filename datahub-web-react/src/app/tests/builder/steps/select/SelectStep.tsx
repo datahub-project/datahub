@@ -1,26 +1,24 @@
-import { InfoCircleOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import { Typography } from 'antd';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
-
-import { EntityCapabilityType } from '@app/entity/Entity';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { LogicalPredicateBuilder } from '@app/tests/builder/steps/definition/builder/LogicalPredicateBuilder';
-import { EntityTypeSelect } from '@app/tests/builder/steps/definition/builder/property/input/EntityTypeSelect';
-import { getPropertiesForEntityTypes } from '@app/tests/builder/steps/definition/builder/property/utils';
-import { LogicalPredicate } from '@app/tests/builder/steps/definition/builder/types';
+import { Typography } from 'antd';
+import { Tooltip } from '@components';
+import { InfoCircleOutlined } from '@ant-design/icons';
+import { EntityCapabilityType } from '../../../../entity/Entity';
+import { useEntityRegistry } from '../../../../useEntityRegistry';
+import { EntityTypeSelect } from '../definition/builder/property/input/EntityTypeSelect';
+import { LogicalPredicateBuilder } from '../definition/builder/LogicalPredicateBuilder';
+import { LogicalPredicate } from '../definition/builder/types';
+import { YamlStep } from '../definition/yaml/YamlStep';
+import { entityTypesToGraphNames, graphNamesToEntityTypes } from './utils';
+import { deserializeTestDefinition, serializeTestDefinition } from '../definition/utils';
 import {
     convertLogicalPredicateToTestPredicate,
     convertTestPredicateToLogicalPredicate,
-} from '@app/tests/builder/steps/definition/builder/utils';
-import { deserializeTestDefinition, serializeTestDefinition } from '@app/tests/builder/steps/definition/utils';
-import { YamlStep } from '@app/tests/builder/steps/definition/yaml/YamlStep';
-import { entityTypesToGraphNames, graphNamesToEntityTypes } from '@app/tests/builder/steps/select/utils';
-import { StepProps, TestBuilderStep } from '@app/tests/builder/types';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { EntityType } from '@types';
+} from '../definition/builder/utils';
+import { StepProps, TestBuilderStep } from '../../types';
+import { getPropertiesForEntityTypes } from '../definition/builder/property/utils';
+import { ANTD_GRAY } from '../../../../entity/shared/constants';
+import { EntityType } from '../../../../../types.generated';
 
 const Section = styled.div`
     margin-top: 20px;

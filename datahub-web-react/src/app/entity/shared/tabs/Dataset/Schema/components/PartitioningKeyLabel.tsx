@@ -1,9 +1,8 @@
-import { blue } from '@ant-design/colors';
-import { Badge } from 'antd';
 import React from 'react';
+import { Badge } from 'antd';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { blue } from '@ant-design/colors';
+import { ANTD_GRAY } from '../../../../constants';
 
 const PartitioningKeyBadge = styled(Badge)`
     margin-left: 4px;

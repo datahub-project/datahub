@@ -1,8 +1,7 @@
-import { Popover } from '@components';
 import { Typography } from 'antd';
+import { Popover } from '@components';
 import React from 'react';
-
-import { percentileToLabel } from '@app/entity/shared/stats/statsUtils';
+import { percentileToLabel } from './statsUtils';
 
 type Props = {
     percentile: number;

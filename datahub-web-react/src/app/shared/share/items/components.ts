@@ -1,7 +1,6 @@
-import MenuItem from 'antd/lib/menu/MenuItem';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import MenuItem from 'antd/lib/menu/MenuItem';
+import { ANTD_GRAY } from '../../../entity/shared/constants';
 
 export const StyledMenuItem = styled(MenuItem)`
     && {

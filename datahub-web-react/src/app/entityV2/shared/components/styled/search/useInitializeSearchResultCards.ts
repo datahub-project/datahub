@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
-
-import { getMatchedFieldsForList } from '@app/search/context/SearchResultContext';
-import { PreviewSection } from '@app/shared/MatchesContext';
-
-import { SearchResult } from '@types';
+import { PreviewSection } from '../../../../../shared/MatchesContext';
+import { SearchResult } from '../../../../../../types.generated';
+import { getMatchedFieldsForList } from '../../../../../search/context/SearchResultContext';
 
 export const useInitializeSearchResultCards = (
     searchResults: SearchResult[],

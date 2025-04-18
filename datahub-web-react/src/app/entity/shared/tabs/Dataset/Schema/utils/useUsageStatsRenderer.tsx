@@ -2,11 +2,9 @@ import { geekblue } from '@ant-design/colors';
 import { Tooltip } from '@components';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
-
-import { pathMatchesNewPath } from '@app/entity/dataset/profile/schema/utils/utils';
-import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
-
-import { UsageQueryResult } from '@types';
+import { UsageQueryResult } from '../../../../../../../types.generated';
+import { pathMatchesNewPath } from '../../../../../dataset/profile/schema/utils/utils';
+import { formatNumberWithoutAbbreviation } from '../../../../../../shared/formatNumber';
 
 const USAGE_BAR_MAX_WIDTH = 50;
 

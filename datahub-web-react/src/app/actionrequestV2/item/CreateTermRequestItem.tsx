@@ -1,8 +1,7 @@
-import React from 'react';
-
-import CreateGlossaryEntityContentView from '@app/actionrequestV2/item/CreateGlossaryEntityContentView';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { ActionRequest, EntityType } from '@src/types.generated';
+import React from 'react';
+import CreateGlossaryEntityContentView from './CreateGlossaryEntityContentView';
 
 interface Props {
     actionRequest: ActionRequest;

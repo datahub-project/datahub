@@ -1,12 +1,11 @@
 import { Button, Input, Text } from '@components';
+import { useUpdateOrganizationDisplayPreferencesMutation } from '@src/graphql/settings.generated';
 import { Form } from 'antd';
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
-
-import { useGlobalSettingsContext } from '@app/context/GlobalSettings/GlobalSettingsContext';
-import { ToastType, showToastMessage } from '@app/sharedV2/toastMessageUtils';
-import { useIsThemeV2 } from '@app/useIsThemeV2';
-import { useUpdateOrganizationDisplayPreferencesMutation } from '@src/graphql/settings.generated';
+import { useGlobalSettingsContext } from '../context/GlobalSettings/GlobalSettingsContext';
+import { showToastMessage, ToastType } from '../sharedV2/toastMessageUtils';
+import { useIsThemeV2 } from '../useIsThemeV2';
 
 const OrganizationSection = styled.div`
     display: grid;

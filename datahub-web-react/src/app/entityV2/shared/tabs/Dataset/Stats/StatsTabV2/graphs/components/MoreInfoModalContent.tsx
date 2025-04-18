@@ -1,10 +1,9 @@
 import { Text } from '@components';
-import React from 'react';
-
-import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
-import analytics, { EventType } from '@src/app/analytics';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import { getPlatformName } from '@src/app/entityV2/shared/utils';
+import React from 'react';
+import analytics, { EventType } from '@src/app/analytics';
+import { useStatsSectionsContext } from '../../StatsSectionsContext';
 
 const VIEW_DOCUMENTATION_LINK = 'https://datahubproject.io/integrations/';
 

@@ -1,10 +1,9 @@
-import { MockedProvider } from '@apollo/client/testing';
-import { render, waitFor } from '@testing-library/react';
 import React from 'react';
-
-import { Routes } from '@app/Routes';
-import { mocks } from '@src/Mocks';
-import TestPageContainer from '@utils/test-utils/TestPageContainer';
+import { render, waitFor } from '@testing-library/react';
+import { MockedProvider } from '@apollo/client/testing';
+import { mocks } from '../../Mocks';
+import TestPageContainer from '../../utils/test-utils/TestPageContainer';
+import { Routes } from '../Routes';
 
 test('renders embed page properly', async () => {
     const { getByText } = render(

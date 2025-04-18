@@ -1,15 +1,10 @@
-import { Select } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { EntitySearchInput } from '@app/entity/shared/EntitySearchInput/EntitySearchInput';
-import { SelectInput } from '@app/tests/builder/steps/definition/builder/property/input/SelectInput';
-import { TimeSelectInput } from '@app/tests/builder/steps/definition/builder/property/input/TimeSelectInput';
-import {
-    SelectParams,
-    ValueInputType,
-    ValueOptions,
-} from '@app/tests/builder/steps/definition/builder/property/types/values';
+import { Select } from 'antd';
+import { SelectParams, ValueInputType, ValueOptions } from '../types/values';
+import { SelectInput } from '../input/SelectInput';
+import { EntitySearchInput } from '../../../../../../../entity/shared/EntitySearchInput/EntitySearchInput';
+import { TimeSelectInput } from '../input/TimeSelectInput';
 
 const StyledSelect = styled(Select)`
     & {

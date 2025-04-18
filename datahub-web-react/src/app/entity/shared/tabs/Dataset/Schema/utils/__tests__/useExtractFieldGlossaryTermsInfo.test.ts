@@ -1,6 +1,3 @@
-import { renderHook } from '@testing-library/react-hooks';
-
-import useExtractFieldGlossaryTermsInfo from '@app/entity/shared/tabs/Dataset/Schema/utils/useExtractFieldGlossaryTermsInfo';
 import {
     EditableSchemaMetadata,
     EntityType,
@@ -8,6 +5,8 @@ import {
     SchemaField,
     SchemaFieldDataType,
 } from '@src/types.generated';
+import { renderHook } from '@testing-library/react-hooks';
+import useExtractFieldGlossaryTermsInfo from '../useExtractFieldGlossaryTermsInfo';
 
 describe('useExtractFieldGlossaryTermsInfo', () => {
     const testGlossaryTerm: GlossaryTerm = {

@@ -1,18 +1,14 @@
 import {
-    VolumeAssertionBuilderType,
-    VolumeAssertionBuilderTypeOptions,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
-import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
-import { parseMaybeStringAsFloatOrDefault } from '@app/shared/numberUtil';
-
-import {
     ActionRequestStatus,
     AssertionStdOperator,
     AssertionStdParameters,
     AssertionValueChangeType,
     VolumeAssertionInfo,
     VolumeAssertionType,
-} from '@types';
+} from '../../../../../../types.generated';
+import { formatNumberWithoutAbbreviation } from '../../../../../shared/formatNumber';
+import { parseMaybeStringAsFloatOrDefault } from '../../../../../shared/numberUtil';
+import { VolumeAssertionBuilderType, VolumeAssertionBuilderTypeOptions } from './assertion/builder/types';
 
 export const getIsRowCountChange = (type: VolumeAssertionType) => {
     return [VolumeAssertionType.RowCountChange, VolumeAssertionType.IncrementingSegmentRowCountChange].includes(type);

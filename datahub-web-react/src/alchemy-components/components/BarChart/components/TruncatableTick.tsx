@@ -1,8 +1,7 @@
-import { Text } from '@visx/text';
 import React from 'react';
-
-import { TruncatableTickProps } from '@components/components/BarChart/types';
-import { Popover } from '@components/components/Popover';
+import { Text } from '@visx/text';
+import { Popover } from '../../Popover';
+import { TruncatableTickProps } from '../types';
 
 export default function TruncatableTick({ formattedValue, limit, ...textProps }: TruncatableTickProps) {
     if (formattedValue === undefined) return null;

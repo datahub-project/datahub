@@ -1,16 +1,13 @@
-import { Switch, Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { Switch, Typography } from 'antd';
 import styled from 'styled-components/macro';
-
-import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
-import useDrawerActions from '@app/shared/subscribe/drawer/state/actions';
-import { useDrawerState } from '@app/shared/subscribe/drawer/state/context';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { EntityType } from '@types';
-
-import LinkOut from '@images/link-out.svg?react';
+import { useEntityRegistry } from '../../../../useEntityRegistry';
+import { getEntityPath } from '../../../../entity/shared/containers/profile/utils';
+import { EntityType } from '../../../../../types.generated';
+import LinkOut from '../../../../../images/link-out.svg?react';
+import { useDrawerState } from '../state/context';
+import useDrawerActions from '../state/actions';
 
 const UpstreamContainer = styled.div`
     margin-top: 32px;

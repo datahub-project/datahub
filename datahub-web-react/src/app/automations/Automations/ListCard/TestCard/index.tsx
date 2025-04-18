@@ -1,21 +1,17 @@
-import dayjs from 'dayjs';
-import localizedFormat from 'dayjs/plugin/localizedFormat';
 import React from 'react';
 
-import { ActionsMenu } from '@app/automations/Automations/ListCard/ActionsMenu';
-import {
-    Category,
-    Details,
-    ListCardBody,
-    ListCardHeader,
-    ResultContainer,
-    StyledDivider,
-} from '@app/automations/Automations/components';
-import { truncateString } from '@app/automations/utils';
-import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
-import { toRelativeTimeString } from '@app/shared/time/timeUtils';
+import dayjs from 'dayjs';
+import localizedFormat from 'dayjs/plugin/localizedFormat';
 
-import { useDeleteTestMutation, useGetTestResultsSummaryQuery } from '@graphql/test.generated';
+import { formatNumberWithoutAbbreviation } from '../../../../shared/formatNumber';
+import { toRelativeTimeString } from '../../../../shared/time/timeUtils';
+import { useGetTestResultsSummaryQuery, useDeleteTestMutation } from '../../../../../graphql/test.generated';
+
+import { truncateString } from '../../../utils';
+
+import { ListCardHeader, ListCardBody, StyledDivider, Category, Details, ResultContainer } from '../../components';
+
+import { ActionsMenu } from '../ActionsMenu';
 
 dayjs.extend(localizedFormat);
 

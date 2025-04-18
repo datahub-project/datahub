@@ -1,6 +1,5 @@
-import { ENTITY_TYPES_WITH_PROPOSALS, shouldShowProposeButton } from '@app/shared/tags/utils/proposalUtils';
-
-import { EntityType } from '@types';
+import { EntityType } from '../../../../types.generated';
+import { ENTITY_TYPES_WITH_PROPOSALS, shouldShowProposeButton } from '../utils/proposalUtils';
 
 describe('utils', () => {
     it('should return true for entities with proposals', () => {

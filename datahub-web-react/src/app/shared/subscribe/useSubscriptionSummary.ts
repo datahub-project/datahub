@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
-
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { useGetEntitySubscriptionSummaryQuery } from '@graphql/subscriptions.generated';
-import { EntityType } from '@types';
+import { useGetEntitySubscriptionSummaryQuery } from '../../../graphql/subscriptions.generated';
+import { EntityType } from '../../../types.generated';
+import { useEntityRegistry } from '../../useEntityRegistry';
 
 type Props = {
     entityUrn: string;

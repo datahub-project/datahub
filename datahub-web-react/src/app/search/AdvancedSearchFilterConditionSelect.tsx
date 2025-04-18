@@ -1,8 +1,8 @@
 import { Select } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { FacetFilterInput } from '../../types.generated';
+import { ANTD_GRAY } from '../entity/shared/constants';
 import {
     DESCRIPTION_FILTER_NAME,
     DOMAINS_FILTER_NAME,
@@ -12,9 +12,7 @@ import {
     ORIGIN_FILTER_NAME,
     REMOVED_FILTER_NAME,
     TYPE_NAMES_FILTER_NAME,
-} from '@app/search/utils/constants';
-
-import { FacetFilterInput } from '@types';
+} from './utils/constants';
 
 type Props = {
     filter: FacetFilterInput;

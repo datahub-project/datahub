@@ -1,8 +1,7 @@
-import { PlusOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '@app/entity/shared/constants';
+import { PlusOutlined } from '@ant-design/icons';
+import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '../../../entity/shared/constants';
 
 const DomainInfoContainer = styled.div`
     display: flex;

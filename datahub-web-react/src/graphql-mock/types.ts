@@ -1,4 +1,4 @@
-import { BrowseResults } from '@types';
+import { BrowseResults } from '../types.generated';
 
 export type DataSchema = {
     id?: string | undefined;

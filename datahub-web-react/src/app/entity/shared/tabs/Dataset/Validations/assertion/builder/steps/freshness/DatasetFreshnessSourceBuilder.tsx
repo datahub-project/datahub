@@ -1,28 +1,26 @@
-import { InfoCircleOutlined } from '@ant-design/icons';
-import { Form, Select, Typography } from 'antd';
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { useConnectionForEntityExists } from '@app/entity/shared/tabs/Dataset/Validations/acrylUtils';
-import { useChangeSourceOptionIf } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/hooks';
-import { AssertionDatasetFieldBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/AssertionDatasetFieldBuilder';
-import {
-    getDefaultFreshnessSourceOption,
-    getFreshnessSourceOption,
-    getFreshnessSourceOptionPlatformDescription,
-    getFreshnessSourceOptions,
-    isStructField,
-} from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/utils';
-
-import { useGetDatasetSchemaQuery } from '@graphql/dataset.generated';
+import { Form, Typography, Select } from 'antd';
+import { InfoCircleOutlined } from '@ant-design/icons';
 import {
     DatasetFreshnessAssertionParameters,
     DatasetFreshnessSourceType,
     FreshnessAssertionScheduleType,
     FreshnessFieldSpec,
     SchemaField,
-} from '@types';
+} from '../../../../../../../../../../types.generated';
+import { useGetDatasetSchemaQuery } from '../../../../../../../../../../graphql/dataset.generated';
+import { ANTD_GRAY } from '../../../../../../../constants';
+import {
+    getFreshnessSourceOption,
+    getFreshnessSourceOptions,
+    getFreshnessSourceOptionPlatformDescription,
+    getDefaultFreshnessSourceOption,
+    isStructField,
+} from '../../utils';
+import { useChangeSourceOptionIf } from '../../hooks';
+import { AssertionDatasetFieldBuilder } from '../AssertionDatasetFieldBuilder';
+import { useConnectionForEntityExists } from '../../../../acrylUtils';
 
 const FormDiv = styled.div``;
 

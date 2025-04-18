@@ -1,10 +1,8 @@
-import { Input, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { VolumeAssertionBuilderState } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
-
-import { DatasetFilterType, DatasetVolumeSourceType } from '@types';
+import { Input, Typography } from 'antd';
+import { DatasetFilterType, DatasetVolumeSourceType } from '../../../../../../../../../../types.generated';
+import { VolumeAssertionBuilderState } from '../../types';
 
 const Form = styled.div`
     margin-top: 16px;

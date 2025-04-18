@@ -24,7 +24,7 @@ import {
     SchemaFieldDataType,
     SqlAssertionType,
     VolumeAssertionType,
-} from '@types';
+} from '../../../../../../../../types.generated';
 
 /**
  * Extending the graphql schedule type to include local options such as 'inferred'

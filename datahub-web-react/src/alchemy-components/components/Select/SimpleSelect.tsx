@@ -1,11 +1,6 @@
-<<<<<<< HEAD
-=======
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 import { Dropdown, Text } from '@components';
 import { isEqual } from 'lodash';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-
 import {
     ActionButtonsContainer,
     Container,
@@ -20,19 +15,11 @@ import {
     StyledCheckbox,
     StyledClearButton,
     StyledIcon,
-<<<<<<< HEAD
-} from '@components/components/Select/components';
-import DropdownSearchBar from '@components/components/Select/private/DropdownSearchBar';
-import DropdownSelectAllOption from '@components/components/Select/private/DropdownSelectAllOption';
-import SelectLabelRenderer from '@components/components/Select/private/SelectLabelRenderer/SelectLabelRenderer';
-import { ActionButtonsProps, SelectOption, SelectProps } from '@components/components/Select/types';
-=======
 } from './components';
 import { ActionButtonsProps, SelectOption, SelectProps } from './types';
 import SelectLabelRenderer from './private/SelectLabelRenderer/SelectLabelRenderer';
 import DropdownSearchBar from './private/DropdownSearchBar';
 import DropdownSelectAllOption from './private/DropdownSelectAllOption';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const SelectActionButtons = ({
     selectedValues,
@@ -318,10 +305,7 @@ export const SimpleSelect = ({
                             disabledValues={disabledValues}
                             showDescriptions={showDescriptions}
                             renderCustomSelectedValue={renderCustomSelectedValue}
-<<<<<<< HEAD
                             selectedOptionListStyle={selectedOptionListStyle}
-=======
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
                             {...(selectLabelProps || {})}
                         />
                     </SelectLabelContainer>

@@ -1,4 +1,4 @@
-import useGetSearchQueryInputs from '@app/search/useGetSearchQueryInputs';
+import useGetSearchQueryInputs from '../useGetSearchQueryInputs';
 
 export type SidebarFilters = Pick<
     ReturnType<typeof useGetSearchQueryInputs>,

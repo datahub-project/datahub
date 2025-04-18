@@ -1,5 +1,6 @@
 import { LAST_MODIFIED_FILTER } from '@app/searchV2/filters/field/fields';
 import { FilterField } from '@app/searchV2/filters/types';
+import { EntityType } from '../../../types.generated';
 import {
     BROWSE_PATH_V2_FILTER_NAME,
     CHART_TYPE_FILTER_NAME,
@@ -16,9 +17,7 @@ import {
     PLATFORM_FILTER_NAME,
     TAGS_FILTER_NAME,
     TYPE_NAMES_FILTER_NAME,
-} from '@app/searchV2/utils/constants';
-
-import { EntityType } from '@types';
+} from '../utils/constants';
 
 export const SORTED_FILTERS = [
     ENTITY_SUB_TYPE_FILTER_NAME,

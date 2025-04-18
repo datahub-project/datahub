@@ -1,5 +1,5 @@
-import { findDataFlowByURN } from '@graphql-mock/fixtures/searchResult/dataFlowSearchResult';
-import { DataFlow } from '@types';
+import { DataFlow } from '../../types.generated';
+import { findDataFlowByURN } from '../fixtures/searchResult/dataFlowSearchResult';
 
 type GetDataFlow = {
     data: { dataFlow: DataFlow };

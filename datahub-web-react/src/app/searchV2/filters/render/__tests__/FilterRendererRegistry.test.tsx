@@ -1,6 +1,5 @@
 import React from 'react';
-
-import FilterRendererRegistry from '@app/searchV2/filters/render/FilterRendererRegistry';
+import FilterRendererRegistry from '../FilterRendererRegistry';
 
 describe('FilterRendererRegistry', () => {
     let registry;

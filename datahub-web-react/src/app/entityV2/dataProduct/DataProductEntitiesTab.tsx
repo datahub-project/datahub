@@ -1,10 +1,9 @@
 import React from 'react';
-
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import generateUseListDataProductAssets from '@app/entityV2/dataProduct/generateUseListDataProductAssets';
-import { generateUseListDataProductAssetsCount } from '@app/entityV2/dataProduct/generateUseListDataProductAssetsCount';
-import { SearchCardContext } from '@app/entityV2/shared/SearchCardContext';
-import { EmbeddedListSearchSection } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchSection';
+import { useEntityData } from '../../entity/shared/EntityContext';
+import { EmbeddedListSearchSection } from '../shared/components/styled/search/EmbeddedListSearchSection';
+import generateUseListDataProductAssets from './generateUseListDataProductAssets';
+import { SearchCardContext } from '../shared/SearchCardContext';
+import { generateUseListDataProductAssetsCount } from './generateUseListDataProductAssetsCount';
 
 export function DataProductEntitiesTab() {
     const { urn } = useEntityData();

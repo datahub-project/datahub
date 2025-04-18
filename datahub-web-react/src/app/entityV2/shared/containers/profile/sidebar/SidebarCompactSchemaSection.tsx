@@ -1,9 +1,8 @@
 import React from 'react';
-
-import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
-import { SchemaTab } from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTab';
-import { TabRenderType } from '@app/entityV2/shared/types';
-import { ENTITY_PROFILE_SCHEMA_ID } from '@app/onboarding/config/EntityProfileOnboardingConfig';
+import { ENTITY_PROFILE_SCHEMA_ID } from '../../../../../onboarding/config/EntityProfileOnboardingConfig';
+import { SidebarSection } from './SidebarSection';
+import { TabRenderType } from '../../../types';
+import { SchemaTab } from '../../../tabs/Dataset/Schema/SchemaTab';
 
 export const SidebarCompactSchemaSection = () => {
     return (

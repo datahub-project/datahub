@@ -1,13 +1,18 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useGetMeLazyQuery } from '../../graphql/me.generated';
+import { useGetGlobalViewsSettingsLazyQuery } from '../../graphql/app.generated';
+import {
+    ActionRequestStatus,
+    CorpUser,
+    EntityRelationshipsResult,
+    FormForActor,
+    PlatformPrivileges,
+} from '../../types.generated';
+import { UserContext, LocalState, DEFAULT_STATE, State } from './userContext';
 
-import { DEFAULT_STATE, LocalState, State, UserContext } from '@app/context/userContext';
-import { filterFormsForUser } from '@app/taskCenter/requests/utils';
-
-import { useListActionRequestsQuery } from '@graphql/actionRequest.generated';
-import { useGetGlobalViewsSettingsLazyQuery } from '@graphql/app.generated';
-import { useGetFormsForActorQuery } from '@graphql/form.generated';
-import { useGetMeLazyQuery } from '@graphql/me.generated';
-import { ActionRequestStatus, CorpUser, EntityRelationshipsResult, FormForActor, PlatformPrivileges } from '@types';
+import { useListActionRequestsQuery } from '../../graphql/actionRequest.generated';
+import { useGetFormsForActorQuery } from '../../graphql/form.generated';
+import { filterFormsForUser } from '../taskCenter/requests/utils';
 
 // TODO: Migrate all usage of useAuthenticatedUser to using this provider.
 

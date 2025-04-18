@@ -1,12 +1,10 @@
-import { Modal } from '@components';
-import { message } from 'antd';
-import React from 'react';
-
 import analytics, { EventType } from '@app/analytics';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-
+import { Modal } from '@components';
 import { useUnlinkAssetVersionMutation } from '@graphql/versioning.generated';
 import { EntityType } from '@types';
+import { message } from 'antd';
+import React from 'react';
 
 interface Props {
     urn: string;

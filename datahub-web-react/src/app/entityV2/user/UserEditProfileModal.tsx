@@ -1,12 +1,10 @@
 import { MoreOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import { Button, Form, Input, Modal, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-
-import { useAppConfig } from '@app/useAppConfig';
-
-import { useUpdateCorpUserPropertiesMutation } from '@graphql/user.generated';
+import { message, Button, Input, Modal, Typography, Form } from 'antd';
+import { Tooltip } from '@components';
+import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
+import { useAppConfig } from '../../useAppConfig';
 
 const StyledInput = styled(Input)`
     margin-bottom: 20px;

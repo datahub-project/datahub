@@ -1,16 +1,17 @@
 import React, { useEffect, useState } from 'react';
 
-import { useEntityContext } from '@app/entity/shared/EntityContext';
-import { getBulkByQuestionPrompts } from '@app/entity/shared/containers/profile/sidebar/FormInfo/utils';
-import { EntityFormContext, FormView } from '@app/entity/shared/entityForm/EntityFormContext';
-import { SCHEMA_FIELD_PROMPT_TYPES } from '@app/entity/shared/entityForm/constants';
-import { useEntityFormDataFactory } from '@app/entity/shared/entityForm/entityFormDataFactory';
-import useEntityDataForForm from '@app/entity/shared/entityForm/useEntityDataForForm';
-import { useEntityFormTasks } from '@app/entity/shared/entityForm/useEntityFormTasks';
-import { EntityAndType, GenericEntityProperties } from '@app/entity/shared/types';
-import usePrevious from '@app/shared/usePrevious';
+import { useEntityContext } from '../EntityContext';
+import { useEntityFormDataFactory } from './entityFormDataFactory';
+import usePrevious from '../../../shared/usePrevious';
 
-import { Entity, FormType } from '@types';
+import { EntityFormContext, FormView } from './EntityFormContext';
+import { Entity, FormType } from '../../../../types.generated';
+import { EntityAndType, GenericEntityProperties } from '../types';
+
+import { getBulkByQuestionPrompts } from '../containers/profile/sidebar/FormInfo/utils';
+import { SCHEMA_FIELD_PROMPT_TYPES } from './constants';
+import { useEntityFormTasks } from './useEntityFormTasks';
+import useEntityDataForForm from './useEntityDataForForm';
 
 interface Props {
     children: React.ReactNode;

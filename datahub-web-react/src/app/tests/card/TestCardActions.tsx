@@ -1,10 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
-
-import TestCardActionMenu from '@app/tests/card/TestCardActionMenu';
-import TestCardEditButton from '@app/tests/card/TestCardEditButton';
-
-import { Test } from '@types';
+import { Test } from '../../../types.generated';
+import TestCardActionMenu from './TestCardActionMenu';
+import TestCardEditButton from './TestCardEditButton';
 
 const Container = styled.div``;
 

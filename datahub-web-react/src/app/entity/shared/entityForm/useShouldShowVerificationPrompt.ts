@@ -1,8 +1,7 @@
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import useGetPromptInfo from '@app/entity/shared/containers/profile/sidebar/FormInfo/useGetPromptInfo';
-import { getFormAssociation, getFormVerification } from '@app/entity/shared/containers/profile/sidebar/FormInfo/utils';
-
-import { FormType, FormVerificationAssociation } from '@types';
+import { FormType, FormVerificationAssociation } from '../../../../types.generated';
+import { useEntityData } from '../EntityContext';
+import useGetPromptInfo from '../containers/profile/sidebar/FormInfo/useGetPromptInfo';
+import { getFormAssociation, getFormVerification } from '../containers/profile/sidebar/FormInfo/utils';
 
 interface ShowVerificationPromptProps {
     formType?: FormType;

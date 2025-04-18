@@ -1,16 +1,15 @@
-import { ApiOutlined } from '@ant-design/icons';
-import { HelpCenterOutlined, OndemandVideoOutlined } from '@mui/icons-material';
-import AutoStoriesOutlinedIcon from '@mui/icons-material/AutoStoriesOutlined';
-import { BookmarkSimple } from '@phosphor-icons/react';
-import { Col, Row, Skeleton } from 'antd';
 import React, { useContext } from 'react';
+import { Col, Row, Skeleton } from 'antd';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { useUserPersona } from '@app/homeV2/persona/useUserPersona';
-import { PersonaType } from '@app/homeV2/shared/types';
-import OnboardingContext from '@app/onboarding/OnboardingContext';
-import { useAppConfig } from '@app/useAppConfig';
+import { ApiOutlined } from '@ant-design/icons';
+import AutoStoriesOutlinedIcon from '@mui/icons-material/AutoStoriesOutlined';
+import { HelpCenterOutlined, OndemandVideoOutlined } from '@mui/icons-material';
+import { BookmarkSimple } from '@phosphor-icons/react';
+import { ANTD_GRAY } from '../../../entity/shared/constants';
+import { PersonaType } from '../../shared/types';
+import { useUserPersona } from '../../persona/useUserPersona';
+import { useAppConfig } from '../../../useAppConfig';
+import OnboardingContext from '../../../onboarding/OnboardingContext';
 
 const Header = styled.div`
     display: flex;
@@ -58,10 +57,7 @@ const ResourceLink = styled.a`
     align-items: center;
     justify-content: center;
     opacity: 0.9;
-    transition:
-        transform 0.3s ease,
-        color 0.3s ease,
-        opacity 0.3s ease;
+    transition: transform 0.3s ease, color 0.3s ease, opacity 0.3s ease;
     :hover {
         transform: scale(1.05); // Slightly scale up the link on hover
         opacity: 1;

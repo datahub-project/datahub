@@ -1,13 +1,12 @@
-import { BankOutlined, BarChartOutlined, MenuOutlined } from '@ant-design/icons';
-import { Menu } from 'antd';
-import Sider from 'antd/lib/layout/Sider';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Menu } from 'antd';
 import styled from 'styled-components';
-
-import { useUserContext } from '@app/context/useUserContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { useAppConfig } from '@app/useAppConfig';
+import { BankOutlined, BarChartOutlined, MenuOutlined } from '@ant-design/icons';
+import Sider from 'antd/lib/layout/Sider';
+import { useAppConfig } from './useAppConfig';
+import { ANTD_GRAY } from './entity/shared/constants';
+import { useUserContext } from './context/useUserContext';
 
 const ToggleContainer = styled.div`
     background-color: ${ANTD_GRAY[4]};

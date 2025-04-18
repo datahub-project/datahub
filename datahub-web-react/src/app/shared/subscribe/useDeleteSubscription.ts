@@ -1,7 +1,6 @@
-import { deleteSubscriptionFunction } from '@app/shared/subscribe/drawer/utils';
-
-import { useDeleteSubscriptionMutation } from '@graphql/subscriptions.generated';
-import { DataHubSubscription } from '@types';
+import { useDeleteSubscriptionMutation } from '../../../graphql/subscriptions.generated';
+import { DataHubSubscription } from '../../../types.generated';
+import { deleteSubscriptionFunction } from './drawer/utils';
 
 type Props = {
     subscription?: DataHubSubscription;

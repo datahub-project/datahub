@@ -56,11 +56,8 @@ buildscript {
   ext.log4jVersion = '2.23.1'
   ext.slf4jVersion = '1.7.36'
   ext.logbackClassic = '1.5.18'
-<<<<<<< HEAD
   ext.logbackContribVersion = '0.1.5'
   ext.janinoVersion = '3.0.12'
-=======
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
   ext.hadoop3Version = '3.3.6'
   ext.kafkaVersion = '5.5.15'
   ext.hazelcastVersion = '5.3.6'
@@ -593,18 +590,4 @@ subprojects {
 wrapper {
   gradleVersion = project.versionGradle
   distributionType = Wrapper.DistributionType.ALL
-}
-
-tasks.register('format') {
-  dependsOn(':datahub-web-react:graphqlPrettierWrite')
-  dependsOn(':datahub-web-react:githubActionsPrettierWrite')
-  dependsOn(':datahub-web-react:mdPrettierWrite')
-  dependsOn('spotlessApply')
-}
-
-tasks.register('formatChanged') {
-  dependsOn(':datahub-web-react:graphqlPrettierWriteChanged')
-  dependsOn(':datahub-web-react:githubActionsPrettierWriteChanged')
-  dependsOn(':datahub-web-react:mdPrettierWriteChanged')
-  dependsOn('spotlessApply')
 }

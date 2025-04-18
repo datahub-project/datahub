@@ -1,8 +1,7 @@
-import { blue, green } from '@ant-design/colors';
 import React from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { blue, green } from '@ant-design/colors';
+import { ANTD_GRAY } from '../../../../constants';
 
 const Pill = styled.div`
     background-color: ${ANTD_GRAY[1]};

@@ -1,17 +1,16 @@
 import React from 'react';
-
-import { NotificationSettingValue } from '@app/settingsV2/notifications/NotificationSettingValue';
-import { NotificationTypeOptionsButton } from '@app/settingsV2/notifications/NotificationTypeOptionButton';
+import { NotificationScenarioType, NotificationSetting } from '@src/types.generated';
 import {
     NotificationTypeDescription,
     OptionsPlaceholder,
     ScenarioSetting,
-    ScenarioSettingValues,
     ScenarioSettingsSection,
     ScenarioSettingsSectionTitle,
-} from '@app/settingsV2/notifications/styledComponents';
-import { NOTIFICATION_SINKS, NotificationGroup, NotificationSink } from '@app/settingsV2/notifications/types';
-import { NotificationScenarioType, NotificationSetting } from '@src/types.generated';
+    ScenarioSettingValues,
+} from './styledComponents';
+import { NotificationSettingValue } from './NotificationSettingValue';
+import { NotificationTypeOptionsButton } from './NotificationTypeOptionButton';
+import { NOTIFICATION_SINKS, NotificationGroup, NotificationSink } from './types';
 
 type Props = {
     notifications: NotificationGroup[];

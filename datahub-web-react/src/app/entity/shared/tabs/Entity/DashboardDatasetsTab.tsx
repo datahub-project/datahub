@@ -1,10 +1,8 @@
 import React from 'react';
-
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
-import { EntityList } from '@app/entity/shared/tabs/Entity/components/EntityList';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { EntityType } from '@types';
+import { useBaseEntity } from '../../EntityContext';
+import { EntityType } from '../../../../../types.generated';
+import { EntityList } from './components/EntityList';
+import { useEntityRegistry } from '../../../../useEntityRegistry';
 
 export const DashboardDatasetsTab = () => {
     const entity = useBaseEntity() as any;

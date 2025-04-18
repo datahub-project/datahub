@@ -1,9 +1,8 @@
-import { debounce } from 'lodash';
-import { useEffect, useState } from 'react';
-
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { useGetAutoCompleteResultsLazyQuery } from '@src/graphql/search.generated';
+import { useState, useEffect } from 'react';
 import { EntityType } from '@src/types.generated';
+import { useGetAutoCompleteResultsLazyQuery } from '@src/graphql/search.generated';
+import { debounce } from 'lodash';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 
 interface UseUpdateEntityParams {
     selectedItems: any[];

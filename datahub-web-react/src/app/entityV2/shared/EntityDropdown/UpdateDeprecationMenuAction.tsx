@@ -1,14 +1,12 @@
-import { ExclamationCircleOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import { message } from 'antd';
 import React, { useState } from 'react';
-
-import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
-import { UpdateDeprecationModal } from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationModal';
-import { ActionMenuItem } from '@app/entityV2/shared/EntityDropdown/styledComponents';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { useUpdateDeprecationMutation } from '@graphql/mutations.generated';
+import { ExclamationCircleOutlined } from '@ant-design/icons';
+import { message } from 'antd';
+import { Tooltip } from '@components';
+import { useEntityData, useRefetch } from '../../../entity/shared/EntityContext';
+import { ActionMenuItem } from './styledComponents';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import { UpdateDeprecationModal } from './UpdateDeprecationModal';
+import { useUpdateDeprecationMutation } from '../../../../graphql/mutations.generated';
 
 export default function UpdateDeprecationMenuAction() {
     const { urn, entityData, entityType } = useEntityData();

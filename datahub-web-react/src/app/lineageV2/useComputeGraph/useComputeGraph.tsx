@@ -1,16 +1,14 @@
-import { useContext, useMemo } from 'react';
-import { Edge } from 'reactflow';
-
-import NodeBuilder, { LineageVisualizationNode } from '@app/lineageV2/NodeBuilder';
 import { LineageNodesContext, useIgnoreSchemaFieldStatus } from '@app/lineageV2/common';
+import NodeBuilder, { LineageVisualizationNode } from '@app/lineageV2/NodeBuilder';
 import hideNodes, { HideNodesConfig } from '@app/lineageV2/useComputeGraph/filterNodes';
 import getDisplayedNodes from '@app/lineageV2/useComputeGraph/getDisplayedNodes';
 import getFineGrainedLineage, { FineGrainedLineageData } from '@app/lineageV2/useComputeGraph/getFineGrainedLineage';
 import orderNodes from '@app/lineageV2/useComputeGraph/orderNodes';
 import usePrevious from '@app/shared/usePrevious';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
-
 import { EntityType, LineageDirection } from '@types';
+import { useContext, useMemo } from 'react';
+import { Edge } from 'reactflow';
 
 interface ProcessedData {
     fineGrainedLineage: FineGrainedLineageData;

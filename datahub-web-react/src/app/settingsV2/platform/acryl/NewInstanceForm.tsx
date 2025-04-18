@@ -1,30 +1,22 @@
+import React, { useState } from 'react';
+import styled from 'styled-components';
 // import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import { useApolloClient } from '@apollo/client';
 import { Divider, Form, Input, message } from 'antd';
-import React, { useState } from 'react';
 import { useHistory } from 'react-router';
-import styled from 'styled-components';
-
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { updateInstancesList } from '@app/settingsV2/platform/acryl/cacheUtils';
+import { useUpdateConnectionMutation, useUpsertConnectionMutation } from '../../../../graphql/connection.generated';
 import {
-    HeaderContainer,
-    HeaderSubtext,
-    HeaderTitle,
-    LeftContainer,
-} from '@app/settingsV2/platform/acryl/styledComponents';
-import {
-    ACRYL_PLATFORM_URN,
-    getConnectionBlob,
-    getTokenFromJson,
-    getURLFromJson,
-    showToken,
-} from '@app/settingsV2/platform/acryl/utils';
-import { FormItemTitle, StyledButton, StyledFormItem } from '@app/shared/share/v2/styledComponents';
-import { BackButton } from '@app/sharedV2/buttons/BackButton';
-
-import { useUpdateConnectionMutation, useUpsertConnectionMutation } from '@graphql/connection.generated';
-import { DataHubConnection, DataHubConnectionDetailsType, SearchAcrossEntitiesInput, SearchResults } from '@types';
+    DataHubConnection,
+    DataHubConnectionDetailsType,
+    SearchAcrossEntitiesInput,
+    SearchResults,
+} from '../../../../types.generated';
+import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
+import { FormItemTitle, StyledButton, StyledFormItem } from '../../../shared/share/v2/styledComponents';
+import { BackButton } from '../../../sharedV2/buttons/BackButton';
+import { updateInstancesList } from './cacheUtils';
+import { HeaderContainer, HeaderSubtext, HeaderTitle, LeftContainer } from './styledComponents';
+import { ACRYL_PLATFORM_URN, getConnectionBlob, getTokenFromJson, getURLFromJson, showToken } from './utils';
 
 const Container = styled.div`
     display: flex;

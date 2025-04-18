@@ -1,16 +1,30 @@
-import { blue, green } from '@ant-design/colors';
-import { InfoCircleFilled } from '@ant-design/icons';
-import { Alert, Button as AntButton, Divider, Form, Image, Input, Modal, Radio, Typography, message } from 'antd';
-import { isEqual } from 'lodash';
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-
-import { EventType } from '@app/analytics';
-import analytics from '@app/analytics/analytics';
-import { PlatformIntegrationBreadcrumb } from '@app/settingsV2/platform/PlatformIntegrationBreadcrumb';
-import { SlackInstructions } from '@app/settingsV2/platform/slack/SlackInstructions';
-import { SlackIntegrationHint } from '@app/settingsV2/platform/slack/SlackIntegrationHint';
+import { isEqual } from 'lodash';
+import { Button as AntButton, Divider, Form, Input, message, Typography, Alert, Radio, Image, Modal } from 'antd';
+import { InfoCircleFilled } from '@ant-design/icons';
+import { blue, green } from '@ant-design/colors';
+import { Link } from 'react-router-dom';
+import { useAppConfig } from '@src/app/useAppConfig';
+import { Button } from '@src/alchemy-components';
+import { ANTD_GRAY } from '@src/app/entity/shared/constants';
+import { useConnectionQuery, useUpsertConnectionMutation } from '../../../../graphql/connection.generated';
+import {
+    useGetIntegrationSettingsQuery,
+    useUpdateGlobalIntegrationSettingsMutation,
+} from '../../../../graphql/settings.generated';
+import slackLogo from '../../../../images/slacklogo.png';
+import { DataHubConnectionDetailsType, SlackIntegrationSettings } from '../../../../types.generated';
+import { Message } from '../../../shared/Message';
+import { PlatformIntegrationBreadcrumb } from '../PlatformIntegrationBreadcrumb';
+import {
+    decodeSlackConnection,
+    encodeSlackConnection,
+    redirectToSlackInstall,
+    redirectToSlackRefreshInstallation,
+    useShouldDisplayBotTokensTabFromQueryParams,
+} from './utils';
+import { SlackConnection } from './types';
 import {
     APP_CONFIG_SELECT_ID,
     BOT_TOKEN_SELECT_ID,
@@ -20,28 +34,11 @@ import {
     SLACK_CONNECTION_OPTIONS,
     SLACK_CONNECTION_URN,
     SLACK_PLATFORM_URN,
-} from '@app/settingsV2/platform/slack/constants';
-import { SlackConnection } from '@app/settingsV2/platform/slack/types';
-import {
-    decodeSlackConnection,
-    encodeSlackConnection,
-    redirectToSlackInstall,
-    redirectToSlackRefreshInstallation,
-    useShouldDisplayBotTokensTabFromQueryParams,
-} from '@app/settingsV2/platform/slack/utils';
-import { Message } from '@app/shared/Message';
-import { Button } from '@src/alchemy-components';
-import { ANTD_GRAY } from '@src/app/entity/shared/constants';
-import { useAppConfig } from '@src/app/useAppConfig';
-
-import { useConnectionQuery, useUpsertConnectionMutation } from '@graphql/connection.generated';
-import {
-    useGetIntegrationSettingsQuery,
-    useUpdateGlobalIntegrationSettingsMutation,
-} from '@graphql/settings.generated';
-import { DataHubConnectionDetailsType, SlackIntegrationSettings } from '@types';
-
-import slackLogo from '@images/slacklogo.png';
+} from './constants';
+import { SlackInstructions } from './SlackInstructions';
+import analytics from '../../../analytics/analytics';
+import { EventType } from '../../../analytics';
+import { SlackIntegrationHint } from './SlackIntegrationHint';
 
 const Page = styled.div`
     width: 100%;

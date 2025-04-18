@@ -1,7 +1,6 @@
-import { Menu } from 'antd';
 import React from 'react';
-
-import CopyUrnMenuItem from '@app/shared/share/items/CopyUrnMenuItem';
+import { Menu } from 'antd';
+import CopyUrnMenuItem from '../../../../../shared/share/items/CopyUrnMenuItem';
 
 interface AssertionMenuProps {
     urn: string;

@@ -1,15 +1,13 @@
-import { UserOutlined } from '@ant-design/icons';
-import { useApolloClient } from '@apollo/client';
-import { Select } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { UserOutlined } from '@ant-design/icons';
+import { Select } from 'antd';
+import { useApolloClient } from '@apollo/client';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import AssignRoleConfirmation from '@app/identity/user/AssignRoleConfirmation';
-import { mapRoleIcon } from '@app/identity/user/UserUtils';
-import { clearRoleListCache } from '@app/permissions/roles/cacheUtils';
-
-import { CorpUser, DataHubRole } from '@types';
+import { CorpUser, DataHubRole } from '../../../types.generated';
+import AssignRoleConfirmation from './AssignRoleConfirmation';
+import { mapRoleIcon } from './UserUtils';
+import { ANTD_GRAY } from '../../entity/shared/constants';
+import { clearRoleListCache } from '../../permissions/roles/cacheUtils';
 
 const NO_ROLE_TEXT = 'No Role';
 const NO_ROLE_URN = 'urn:li:dataHubRole:NoRole';

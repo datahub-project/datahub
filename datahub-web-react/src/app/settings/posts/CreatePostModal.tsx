@@ -1,21 +1,19 @@
-import { Button, Form, Modal, message } from 'antd';
 import React, { useEffect, useState } from 'react';
-
-import CreatePostForm from '@app/settings/posts/CreatePostForm';
-import { PostEntry } from '@app/settings/posts/PostsListColumns';
+import { Button, Form, message, Modal } from 'antd';
+import CreatePostForm from './CreatePostForm';
 import {
     CREATE_POST_BUTTON_ID,
     DESCRIPTION_FIELD_NAME,
     LINK_FIELD_NAME,
     LOCATION_FIELD_NAME,
-    TITLE_FIELD_NAME,
     TYPE_FIELD_NAME,
-} from '@app/settings/posts/constants';
-import handleGraphQLError from '@app/shared/handleGraphQLError';
-import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
-
-import { useCreatePostMutation, useUpdatePostMutation } from '@graphql/mutations.generated';
-import { MediaType, PostContentType, PostType } from '@types';
+    TITLE_FIELD_NAME,
+} from './constants';
+import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
+import { MediaType, PostContentType, PostType } from '../../../types.generated';
+import { useCreatePostMutation, useUpdatePostMutation } from '../../../graphql/mutations.generated';
+import { PostEntry } from './PostsListColumns';
+import handleGraphQLError from '../../shared/handleGraphQLError';
 
 type Props = {
     editData: PostEntry;

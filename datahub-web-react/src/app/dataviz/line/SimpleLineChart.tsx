@@ -1,12 +1,13 @@
-import { curveCatmullRom } from '@visx/curve';
-import { MarkerCircle } from '@visx/marker';
-import { ParentSize } from '@visx/responsive';
-import { scaleLinear, scaleTime } from '@visx/scale';
-import { LinePath } from '@visx/shape';
-import { extent, max } from '@visx/vendor/d3-array';
 import React from 'react';
 
-import { ChartWrapper } from '@app/dataviz/components';
+import { curveCatmullRom } from '@visx/curve';
+import { LinePath } from '@visx/shape';
+import { ParentSize } from '@visx/responsive';
+import { MarkerCircle } from '@visx/marker';
+import { extent, max } from '@visx/vendor/d3-array';
+import { scaleTime, scaleLinear } from '@visx/scale';
+
+import { ChartWrapper } from '../components';
 
 interface Props {
     data: any;

@@ -19,7 +19,6 @@ curl --location --request POST 'https://demo.datahubproject.io/api/gms/operation
 ```
 
 The supported parameters are
-
 - `urn` - Optional URN string
 - `aspect` - Optional Aspect string
 - `urnLike` - Optional string regex to match URNs

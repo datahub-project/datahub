@@ -1,9 +1,7 @@
-import { Form, Select } from 'antd';
 import React, { useContext } from 'react';
-
-import { EditableContext } from '@app/entity/shared/components/styled/ERModelRelationship/ERModelRelationUtils';
-
-import { Dataset } from '@types';
+import { Form, Select } from 'antd';
+import { EditableContext } from './ERModelRelationUtils';
+import { Dataset } from '../../../../../../types.generated';
 
 interface EditableCellProps {
     editable: boolean;

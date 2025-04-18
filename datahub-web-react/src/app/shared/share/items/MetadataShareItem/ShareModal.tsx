@@ -1,18 +1,16 @@
-import { Button, Checkbox, Divider, Empty, Form, Modal, Select, message } from 'antd';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Form, Modal, Select, Divider, message, Empty, Checkbox, Button } from 'antd';
 import styled from 'styled-components';
-
-import analytics, { EventType } from '@app/analytics';
-import { useEntityContext } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY_V2, REDESIGN_COLORS } from '@app/entity/shared/constants';
-import { SharedEntityInfo } from '@app/entity/shared/containers/profile/sidebar/SharedEntityInfo';
-import { PLATFORM_FILTER_NAME } from '@app/search/utils/constants';
-import { PLATFORM_CONNECTION_URN } from '@app/shared/constants';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
-import { useShareEntityMutation, useUnshareEntityMutation } from '@graphql/share.generated';
-import { DataHubConnection, EntityType, ShareLineageDirection, ShareResultState } from '@types';
+import { DataHubConnection, EntityType, ShareLineageDirection, ShareResultState } from '../../../../../types.generated';
+import { useGetSearchResultsForMultipleQuery } from '../../../../../graphql/search.generated';
+import { PLATFORM_FILTER_NAME } from '../../../../search/utils/constants';
+import { PLATFORM_CONNECTION_URN } from '../../../constants';
+import { useShareEntityMutation, useUnshareEntityMutation } from '../../../../../graphql/share.generated';
+import analytics, { EventType } from '../../../../analytics';
+import { useEntityContext } from '../../../../entity/shared/EntityContext';
+import { SharedEntityInfo } from '../../../../entity/shared/containers/profile/sidebar/SharedEntityInfo';
+import { ANTD_GRAY_V2, REDESIGN_COLORS } from '../../../../entity/shared/constants';
+import { useEntityRegistry } from '../../../../useEntityRegistry';
 
 const ModalTitle = styled.span`
     font-size: 20px;

@@ -1,4 +1,4 @@
-import { SlackConnection } from '@app/settingsV2/platform/slack/types';
+import { SlackConnection } from './types';
 
 export const DEFAULT_SETTINGS = {
     defaultChannelName: undefined,

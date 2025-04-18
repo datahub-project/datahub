@@ -1,23 +1,6 @@
 import { Button, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-<<<<<<< HEAD
-
-import { EmbeddedListSearchModal } from '@app/entity/shared/components/styled/search/EmbeddedListSearchModal';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import {
-    extractEntityTypeCountsFromFacets,
-    getEntitiesIngestedByType,
-    getTotalEntitiesIngested,
-} from '@app/ingest/source/utils';
-import { UnionType } from '@app/search/utils/constants';
-import { Message } from '@app/shared/Message';
-import { formatNumber } from '@app/shared/formatNumber';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-import { ExecutionRequestResult, Maybe } from '@src/types.generated';
-
-import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
-=======
 import { Maybe, ExecutionRequestResult } from '@src/types.generated';
 import { useGetSearchResultsForMultipleQuery } from '../../../graphql/search.generated';
 import { EmbeddedListSearchModal } from '../../entity/shared/components/styled/search/EmbeddedListSearchModal';
@@ -27,7 +10,6 @@ import { formatNumber } from '../../shared/formatNumber';
 import { Message } from '../../shared/Message';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { extractEntityTypeCountsFromFacets, getEntitiesIngestedByType, getTotalEntitiesIngested } from './utils';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 const HeaderContainer = styled.div`
     display: flex;

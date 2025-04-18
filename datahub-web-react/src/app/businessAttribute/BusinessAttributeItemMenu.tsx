@@ -1,11 +1,9 @@
-import { DeleteOutlined } from '@ant-design/icons';
-import { Dropdown, Modal, message } from 'antd';
 import React from 'react';
-
-import { MenuIcon } from '@app/entity/shared/EntityDropdown/EntityDropdown';
-import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
-
-import { useDeleteBusinessAttributeMutation } from '@graphql/businessAttribute.generated';
+import { DeleteOutlined } from '@ant-design/icons';
+import { Dropdown, message, Modal } from 'antd';
+import { MenuIcon } from '../entity/shared/EntityDropdown/EntityDropdown';
+import { useDeleteBusinessAttributeMutation } from '../../graphql/businessAttribute.generated';
+import { MenuItemStyle } from '../entity/view/menu/item/styledComponent';
 
 type Props = {
     urn: string;

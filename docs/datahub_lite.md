@@ -10,14 +10,13 @@ DataHub Lite is compatible with the DataHub metadata format and all the ingestio
 Currently DataHub Lite uses DuckDB under the covers as its default storage layer, but that might change in the future.
 
 ## Features
-
 - Designed for the CLI
 - Available as a Python library or REST API
-- Ingest metadata from all DataHub ingestion sources
+- Ingest metadata from  all DataHub ingestion sources
 - Metadata Reads
-  - navigate metadata using a hierarchy
-  - get metadata for an entity
-  - search / query metadata across all entities
+   - navigate metadata using a hierarchy
+   - get metadata for an entity
+   - search / query metadata across all entities
 - Forward metadata automatically to a central GMS or Kafka instance
 
 ## Architecture
@@ -26,9 +25,8 @@ Currently DataHub Lite uses DuckDB under the covers as its default storage layer
 
 ## What is it not?
 
-DataHub Lite is NOT meant to be a replacement for the production Java DataHub server ([datahub-gms](./architecture/metadata-serving.md)). It does not offer the full set of API-s that the DataHub GMS server does.
+DataHub Lite is NOT meant to be a replacement for the production Java DataHub server ([datahub-gms](./architecture/metadata-serving.md)). It does not offer the full set of API-s that the DataHub GMS server does. 
 The following features are **NOT** supported:
-
 - Full-text search with ranking and relevance features
 - Graph traversal of relationships (e.g. lineage)
 - Metadata change stream over Kafka (only forwarding of writes is supported)
@@ -102,7 +100,7 @@ Forwarding is currently best-effort, so there can be losses in metadata if the r
 
 ### Importing from a file
 
-As a convenient short-cut, you can import metadata from any standard DataHub metadata json file (e.g. generated via using a file sink) by issuing a _datahub lite import_ command.
+As a convenient short-cut, you can import metadata from any standard DataHub metadata json file (e.g. generated via using a file sink) by issuing a *datahub lite import* command. 
 
 ```shell
 > datahub lite import --file metadata_events.json
@@ -144,6 +142,9 @@ metadata_aspect_v2
 metadata_aspect_v2
 ```
 
+
+
+
 ### Read (get)
 
 Once you have located a path of interest, you can read metadata at that entity, by issuing a **get**. You can additionally filter the metadata retrieved from an entity by the aspect type of the metadata (e.g. to request the schema, filter by the **schemaMetadata** aspect).
@@ -151,7 +152,6 @@ Once you have located a path of interest, you can read metadata at that entity, 
 Aside: If you are curious what all types of entities and aspects DataHub supports, check out the metadata model of entities like [Dataset](./generated/metamodel/entities/dataset.md), [Dashboard](./generated/metamodel/entities/dashboard.md) etc.
 
 The general template for the get responses looks like:
-
 ```
 {
     "urn": <urn_of_the_entity>,
@@ -162,8 +162,7 @@ The general template for the get responses looks like:
 }
 ```
 
-Here is what executing a _get_ command looks like:
-
+Here is what executing a *get* command looks like:
 <details>
 <summary>
 Get metadata for an entity by path
@@ -321,6 +320,8 @@ Get metadata for an entity by path
 
 </details>
 
+
+
 #### Get metadata for an entity filtered by specific aspect
 
 ```json
@@ -340,6 +341,7 @@ Get metadata for an entity by path
 Using the `get` command by path is much more pleasant when you have tab completion enabled on your shell. Check out the [Setting up Tab Completion](#tab-completion) section at the bottom of the guide.
 
 :::
+
 
 #### Get metadata using the urn of the entity
 
@@ -381,9 +383,10 @@ Get metadata with additional details (systemMetadata)
 
 </details>
 
+
 #### Point-in-time Queries
 
-DataHub Lite preserves every version of metadata ingested, just like DataHub GMS. You can also query the metadata as of a specific point in time by adding the _--asof_ parameter to your _get_ command.
+DataHub Lite preserves every version of metadata ingested, just like DataHub GMS. You can also query the metadata as of a specific point in time by adding the *--asof* parameter to your *get* command.
 
 ```shell
 > datahub lite get "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_aspect_v2,PROD)" --aspect status --asof 2020-01-01
@@ -397,6 +400,7 @@ null
   }
 }
 ```
+
 
 ### Search (search)
 
@@ -412,19 +416,16 @@ You can provide a free form search query like: "customer" and DataHub Lite will 
 You can also query the metadata precisely using DuckDB's [JSON](https://duckdb.org/docs/extensions/json.html) extract functions.
 Writing these functions requires that you understand the DataHub metadata model and how the data is laid out in DataHub Lite.
 
-For example, to find all entities whose _datasetProperties_ aspect includes the _view_definition_ in its _customProperties_ sub-field, we can issue the following command:
-
+For example, to find all entities whose *datasetProperties* aspect includes the *view_definition* in its *customProperties* sub-field, we can issue the following command:
 ```shell
 > datahub lite search --aspect datasetProperties --flavor exact "metadata -> '$.customProperties' ->> '$.view_definition' IS NOT NULL"
 ```
-
 ```json
 {"id": "urn:li:dataset:(urn:li:dataPlatform:mysql,information_schema.INNODB_MUTEXES,PROD)", "aspect": "datasetProperties", "snippet": "{\"customProperties\": {\"view_definition\": \"CREATE TEMPORARY TABLE `INNODB_MUTEXES` (\\n  `NAME` varchar(4000) NOT NULL DEFAULT '',\\n  `CREATE_FILE` varchar(4000) NOT NULL DEFAULT '',\\n  `CREATE_LINE` int(11) unsigned NOT NULL DEFAULT 0,\\n  `OS_WAITS` bigint(21) unsigned NOT NULL DEFAULT 0\\n) ENGINE=MEMORY DEFAULT CHARSET=utf8\", \"is_view\": \"True\"}, \"name\": \"INNODB_MUTEXES\", \"tags\": []}"}
 {"id": "urn:li:dataset:(urn:li:dataPlatform:mysql,information_schema.user_variables,PROD)", "aspect": "datasetProperties", "snippet": "{\"customProperties\": {\"view_definition\": \"CREATE TEMPORARY TABLE `user_variables` (\\n  `VARIABLE_NAME` varchar(64) NOT NULL DEFAULT '',\\n  `VARIABLE_VALUE` varchar(2048) DEFAULT NULL,\\n  `VARIABLE_TYPE` varchar(64) NOT NULL DEFAULT '',\\n  `CHARACTER_SET_NAME` varchar(32) DEFAULT NULL\\n) ENGINE=MEMORY DEFAULT CHARSET=utf8\", \"is_view\": \"True\"}, \"name\": \"user_variables\", \"tags\": []}"}
 {"id": "urn:li:dataset:(urn:li:dataPlatform:mysql,information_schema.INNODB_TABLESPACES_ENCRYPTION,PROD)", "aspect": "datasetProperties", "snippet": "{\"customProperties\": {\"view_definition\": \"CREATE TEMPORARY TABLE `INNODB_TABLESPACES_ENCRYPTION` (\\n  `SPACE` int(11) unsigned NOT NULL DEFAULT 0,\\n  `NAME` varchar(655) DEFAULT NULL,\\n  `ENCRYPTION_SCHEME` int(11) unsigned NOT NULL DEFAULT 0,\\n  `KEYSERVER_REQUESTS` int(11) unsigned NOT NULL DEFAULT 0,\\n  `MIN_KEY_VERSION` int(11) unsigned NOT NULL DEFAULT 0,\\n  `CURRENT_KEY_VERSION` int(11) unsigned NOT NULL DEFAULT 0,\\n  `KEY_ROTATION_PAGE_NUMBER` bigint(21) unsigned DEFAULT NULL,\\n  `KEY_ROTATION_MAX_PAGE_NUMBER` bigint(21) unsigned DEFAULT NULL,\\n  `CURRENT_KEY_ID` int(11) unsigned NOT NULL DEFAULT 0,\\n  `ROTATING_OR_FLUSHING` int(1) NOT NULL DEFAULT 0\\n) ENGINE=MEMORY DEFAULT CHARSET=utf8\", \"is_view\": \"True\"}, \"name\": \"INNODB_TABLESPACES_ENCRYPTION\", \"tags\": []}"}
 ```
-
-Search will return results that include the _id_ of the entity that matched along with the _aspect_ and the content of the aspect as part of the _snippet_ field. If you just want the _id_ of the entity to be returned, use the _--no-details_ flag.
+Search will return results that include the *id* of the entity that matched along with the *aspect* and the content of the aspect as part of the *snippet* field. If you just want the *id* of the entity to be returned, use the *--no-details* flag.
 
 ```shell
 > datahub lite search --aspect datasetProperties --flavor exact "metadata -> '$.customProperties' ->> '$.view_definition' IS NOT NULL" --no-details
@@ -474,7 +475,6 @@ INFO:     Uvicorn running on http://127.0.0.1:8979 (Press CTRL+C to quit)
 OpenAPI docs are available via your browser at the same port: http://localhost:8979
 
 The server exposes similar commands as the **lite** cli commands over HTTP:
-
 - entities: list of all entity ids and get metadata for an entity
 - browse: traverse the entity hierarchy in a path based way
 - search: execute search against the metadata
@@ -498,11 +498,12 @@ lite:
     server: "http://datahub-gms:8080
 ```
 
+
 ## Admin Commands
 
 ### Export Metadata (export)
 
-The _export_ command allows you to export the contents of DataHub Lite into a metadata events file that you can then send to another DataHub instance (e.g. over REST).
+The *export* command allows you to export the contents of DataHub Lite into a metadata events file that you can then send to another DataHub instance (e.g. over REST).
 
 ```shell
 > datahub lite export --file datahub_lite_export.json
@@ -533,9 +534,11 @@ DataHub Lite inited at my_local_datahub.duckdb
 
 DataHub Lite maintains a few derived tables to make access possible via both the native id (urn) as well as the logical path of the entity. The `reindex` command recomputes these indexes.
 
+
 ## Caveat Emptor!
 
 DataHub Lite is a very new project. Do not use it for production use-cases. The API-s and storage formats are subject to change and we get feedback from early adopters. That said, we are really interested in accepting PR-s and suggestions for improvements to this fledgling project.
+
 
 ## Advanced Options
 
@@ -545,7 +548,6 @@ Using the datahub lite commands like `ls` or `get` is much more pleasant when yo
 To set up shell completion for your shell, follow the instructions below based on your shell variant:
 
 #### Option 1: Inline eval (easy, less performant)
-
 <Tabs>
 <TabItem value="zsh" label="Zsh" default>
 
@@ -613,3 +615,4 @@ _DATAHUB_COMPLETE=fish_source datahub > ~/.config/fish/completions/datahub.fish
 
 </TabItem>
 </Tabs>
+

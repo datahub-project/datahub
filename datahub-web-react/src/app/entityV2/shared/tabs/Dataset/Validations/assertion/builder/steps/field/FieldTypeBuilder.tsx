@@ -1,19 +1,17 @@
-import { Tooltip } from '@components';
-import { Form, Select } from 'antd';
-import Typography from 'antd/lib/typography';
 import React from 'react';
+import Typography from 'antd/lib/typography';
 import styled from 'styled-components';
-
-import { useConnectionForEntityExists } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { Form, Select } from 'antd';
+import { Tooltip } from '@components';
+import { AssertionMonitorBuilderState } from '../../types';
 import {
     getDatasetProfileDisabledMessage,
     getDefaultDatasetFieldAssertionParametersState,
     getDefaultDatasetFieldAssertionState,
     getFieldTypeOptions,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/utils';
-import { AssertionMonitorBuilderState } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
-
-import { FieldAssertionType } from '@types';
+} from './utils';
+import { FieldAssertionType } from '../../../../../../../../../../types.generated';
+import { useConnectionForEntityExists } from '../../../../acrylUtils';
 
 const Section = styled.div`
     margin: 16px 0;

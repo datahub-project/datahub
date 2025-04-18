@@ -1,11 +1,9 @@
 import { Typography } from 'antd';
 import React from 'react';
-import { Link } from 'react-router-dom';
-
-import { useEntityRegistry } from '@app/useEntityRegistry';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
-
-import { ActionRequest } from '@types';
+import { Link } from 'react-router-dom';
+import { ActionRequest } from '../../../types.generated';
+import { useEntityRegistry } from '../../useEntityRegistry';
 
 interface Props {
     actionRequest: ActionRequest;

@@ -1,18 +1,18 @@
 # DataHub UI Application-Specific GraphQL Types
 
-extend type Query {
-  """
-  Fetch a specific action pipeline
-  urn: The primary key associated with the action pipeline.
-  """
-  actionPipeline(urn: String!): ActionPipeline
+ extend type Query {
 
-  """
-  List all action pipelines
-  """
-  listActionPipelines(
-    input: ListActionPipelinesInput!
-  ): ListActionPipelinesResult
+   """
+   Fetch a specific action pipeline
+   urn: The primary key associated with the action pipeline.
+   """
+   actionPipeline(urn: String!): ActionPipeline
+
+   """
+   List all action pipelines
+   """
+   listActionPipelines(input: ListActionPipelinesInput!): ListActionPipelinesResult
+
 }
 
 extend type Mutation {
@@ -36,9 +36,7 @@ extend type Mutation {
   input: Input required for creating an action pipeline request
   """
   # TODO remove this
-  createActionExecutionRequest(
-    input: CreateActionExecutionRequestInput!
-  ): String
+  createActionExecutionRequest(input: CreateActionExecutionRequestInput!): String
 
   """
   Stop an existing action pipeline execution
@@ -59,6 +57,7 @@ extend type Mutation {
   Bootstrap an existing action pipeline execution
   """
   bootstrapActionPipeline(urn: String!): String
+
 }
 
 """
@@ -137,6 +136,7 @@ enum ActionPipelineState {
   INACTIVE
 }
 
+
 """
 Input for creating an execution request input
 """
@@ -146,6 +146,7 @@ input CreateActionExecutionRequestInput {
   """
   actionPipelineUrn: String!
 }
+
 
 """
 A set of configurations for an Ingestion Source
@@ -171,6 +172,7 @@ type ActionConfig {
   """
   debugMode: Boolean
 }
+
 
 """
 Input arguments for listing Action Pipelines
@@ -247,6 +249,7 @@ input UpdateActionPipelineConfigInput {
   debugMode: Boolean
 }
 
+
 """
 Input arguments for creating / updating an Action Pipeline
 """
@@ -276,3 +279,4 @@ input UpdateActionPipelineInput {
   """
   config: UpdateActionPipelineConfigInput!
 }
+

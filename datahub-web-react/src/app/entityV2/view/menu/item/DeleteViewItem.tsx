@@ -1,8 +1,7 @@
-import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import React from 'react';
 import styled from 'styled-components';
-
-import { ViewItem } from '@app/entityV2/view/menu/item/ViewItem';
+import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
+import { ViewItem } from './ViewItem';
 
 type Props = {
     key: string;

@@ -1,6 +1,7 @@
-import { Image } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+
+import { Image } from 'antd';
 
 const PlatformLogo = styled(Image)`
     max-height: 35px;

@@ -1,8 +1,7 @@
 import React from 'react';
-
-import { Container, SubTitle, Title } from '@components/components/PageTitle/components';
-import { PageTitleProps } from '@components/components/PageTitle/types';
-import { Pill } from '@components/components/Pills';
+import { PageTitleProps } from './types';
+import { Container, SubTitle, Title } from './components';
+import { Pill } from '../Pills';
 
 export const PageTitle = ({ title, subTitle, pillLabel, variant = 'pageHeader' }: PageTitleProps) => {
     return (

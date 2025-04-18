@@ -1,22 +1,20 @@
-import { EditOutlined } from '@ant-design/icons';
-import { FetchResult } from '@apollo/client';
+import { Button } from '@src/alchemy-components';
 import { Typography, message } from 'antd';
+import { EditOutlined } from '@ant-design/icons';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-
-import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import UpdateDescriptionModal from '@app/entity/shared/components/legacy/DescriptionModal';
-import StripMarkdownText, { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import PropagationDetails from '@app/entity/shared/propagation/PropagationDetails';
-import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
-import SchemaEditableContext from '@app/shared/SchemaEditableContext';
-import { Button } from '@src/alchemy-components';
+import { FetchResult } from '@apollo/client';
 import CompactMarkdownViewer from '@src/app/entity/shared/tabs/Documentation/components/CompactMarkdownViewer';
-
-import { UpdateDatasetMutation } from '@graphql/dataset.generated';
-import { ActionRequestType, EntityType, StringMapEntry } from '@types';
+import { ActionRequestType, EntityType, StringMapEntry } from '../../../../../../types.generated';
+import { UpdateDatasetMutation } from '../../../../../../graphql/dataset.generated';
+import PropagationDetails from '../../../../shared/propagation/PropagationDetails';
+import UpdateDescriptionModal from '../../../../shared/components/legacy/DescriptionModal';
+import StripMarkdownText, { removeMarkdown } from '../../../../shared/components/styled/StripMarkdownText';
+import SchemaEditableContext from '../../../../../shared/SchemaEditableContext';
+import { useEntityData } from '../../../../shared/EntityContext';
+import analytics, { EventType, EntityActionType } from '../../../../../analytics';
+import { Editor } from '../../../../shared/tabs/Documentation/components/editor/Editor';
+import { ANTD_GRAY } from '../../../../shared/constants';
 
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;

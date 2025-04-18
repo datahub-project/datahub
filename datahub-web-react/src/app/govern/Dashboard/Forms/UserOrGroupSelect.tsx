@@ -1,7 +1,6 @@
 import { Select } from 'antd';
 import React, { ReactNode } from 'react';
-
-import { StyledTag } from '@app/govern/Dashboard/Forms/styledComponents';
+import { StyledTag } from './styledComponents';
 
 interface Props {
     onSelect: (asset: any) => void;

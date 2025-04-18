@@ -1,23 +1,21 @@
 import { DeliveredProcedureOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
 import { Pagination, Table, Typography } from 'antd';
+import { Tooltip } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { useGetDataJobRunsQuery } from '../../../../graphql/dataJob.generated';
+import { DataProcessInstanceRunResultType, DataProcessRunStatus } from '../../../../types.generated';
 import {
     getExecutionRequestStatusDisplayColor,
     getExecutionRequestStatusDisplayText,
     getExecutionRequestStatusIcon,
-} from '@app/ingest/source/utils';
-import { CompactEntityNameList } from '@app/recommendations/renderer/component/CompactEntityNameList';
-import { scrollToTop } from '@app/shared/searchUtils';
-
-import { useGetDataJobRunsQuery } from '@graphql/dataJob.generated';
-import { DataProcessInstanceRunResultType, DataProcessRunStatus } from '@types';
-
-import LoadingSvg from '@images/datahub-logo-color-loading_pendulum.svg?react';
+} from '../../../ingest/source/utils';
+import { CompactEntityNameList } from '../../../recommendations/renderer/component/CompactEntityNameList';
+import { ANTD_GRAY } from '../../shared/constants';
+import { useEntityData } from '../../shared/EntityContext';
+import LoadingSvg from '../../../../images/datahub-logo-color-loading_pendulum.svg?react';
+import { scrollToTop } from '../../../shared/searchUtils';
 
 const ExternalUrlLink = styled.a`
     font-size: 16px;

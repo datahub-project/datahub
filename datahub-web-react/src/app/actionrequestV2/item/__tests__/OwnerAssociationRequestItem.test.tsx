@@ -1,11 +1,14 @@
 import { MockedProvider } from '@apollo/client/testing';
 import { render } from '@testing-library/react';
 import React from 'react';
-
-import OwnerAssociationRequestItem from '@app/actionrequestV2/item/OwnerAssociationRequestItem';
-import TestPageContainer from '@utils/test-utils/TestPageContainer';
-
-import { ActionRequest, ActionRequestOrigin, ActionRequestStatus, ActionRequestType } from '@types';
+import {
+    ActionRequest,
+    ActionRequestOrigin,
+    ActionRequestStatus,
+    ActionRequestType,
+} from '../../../../types.generated';
+import TestPageContainer from '../../../../utils/test-utils/TestPageContainer';
+import OwnerAssociationRequestItem from '../OwnerAssociationRequestItem';
 
 describe('OwnerAsssociationRequestItem', () => {
     const defaultProps = {

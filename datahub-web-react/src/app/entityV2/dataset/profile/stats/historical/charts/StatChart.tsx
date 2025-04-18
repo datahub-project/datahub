@@ -2,11 +2,10 @@ import { Col, Divider, Typography } from 'antd';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
-import { ChartCard } from '@app/analyticsDashboard/components/ChartCard';
-import { ChartContainer } from '@app/analyticsDashboard/components/ChartContainer';
-import { TimeSeriesChart } from '@app/analyticsDashboard/components/TimeSeriesChart';
-
-import { DateInterval, DateRange } from '@types';
+import { DateInterval, DateRange } from '../../../../../../../types.generated';
+import { ChartCard } from '../../../../../../analyticsDashboard/components/ChartCard';
+import { ChartContainer } from '../../../../../../analyticsDashboard/components/ChartContainer';
+import { TimeSeriesChart } from '../../../../../../analyticsDashboard/components/TimeSeriesChart';
 
 const ChartTitle = styled(Typography.Title)`
     && {

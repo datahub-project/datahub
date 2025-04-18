@@ -1,17 +1,15 @@
-import { ApolloClient, InMemoryCache } from '@apollo/client';
 import { renderHook } from '@testing-library/react-hooks';
-
+import { ApolloClient, InMemoryCache } from '@apollo/client';
+import { DomainMock1, DomainMock3, expectedResult } from '../../../Mocks';
+import { useEntityRegistry } from '../../useEntityRegistry';
 import {
     addToListDomainsCache,
-    getParentDomains,
     removeFromListDomainsCache,
     updateListDomainsCache,
     useSortedDomains,
-} from '@app/domainV2/utils';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-import { DomainMock1, DomainMock3, expectedResult } from '@src/Mocks';
-
-import { Entity, EntityType } from '@types';
+    getParentDomains,
+} from '../utils';
+import { Entity, EntityType } from '../../../types.generated';
 
 const apolloClient = new ApolloClient({
     cache: new InMemoryCache(),

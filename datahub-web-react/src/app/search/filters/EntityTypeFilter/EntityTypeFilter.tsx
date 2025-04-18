@@ -1,25 +1,19 @@
 import React, { useEffect, useState } from 'react';
-
-import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
-import {
-    getDisplayedFilterOptions,
-    getInitialSelectedOptions,
-    getNumActiveFilters,
-} from '@app/search/filters/EntityTypeFilter/entityTypeFilterUtils';
-import SearchFilterView from '@app/search/filters/SearchFilterView';
-import { FilterOptionType } from '@app/search/filters/types';
-import { getFilterDropdownIcon, getNewFilters } from '@app/search/filters/utils';
-import useGetSearchQueryInputs from '@app/search/useGetSearchQueryInputs';
+import { FacetFilterInput, FacetMetadata } from '../../../../types.generated';
+import { useAggregateAcrossEntitiesLazyQuery } from '../../../../graphql/search.generated';
+import useGetSearchQueryInputs from '../../useGetSearchQueryInputs';
 import {
     ENTITY_FILTER_NAME,
     ENTITY_SUB_TYPE_FILTER_FIELDS,
     ENTITY_SUB_TYPE_FILTER_NAME,
     LEGACY_ENTITY_FILTER_FIELDS,
-} from '@app/search/utils/constants';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { useAggregateAcrossEntitiesLazyQuery } from '@graphql/search.generated';
-import { FacetFilterInput, FacetMetadata } from '@types';
+} from '../../utils/constants';
+import { getFilterDropdownIcon, getNewFilters } from '../utils';
+import { FilterOptionType } from '../types';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import { getDisplayedFilterOptions, getInitialSelectedOptions, getNumActiveFilters } from './entityTypeFilterUtils';
+import SearchFilterView from '../SearchFilterView';
+import { useEntityFormContext } from '../../../entity/shared/entityForm/EntityFormContext';
 
 interface Props {
     filter: FacetMetadata;

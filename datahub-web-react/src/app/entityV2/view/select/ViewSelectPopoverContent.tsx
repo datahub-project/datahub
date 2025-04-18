@@ -1,6 +1,5 @@
 import React from 'react';
-
-import { ViewSelectDropdown } from '@app/entityV2/view/select/ViewSelectDropdown';
+import { ViewSelectDropdown } from './ViewSelectDropdown';
 
 interface Props {
     children: React.ReactNode;

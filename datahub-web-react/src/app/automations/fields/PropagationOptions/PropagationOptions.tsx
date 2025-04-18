@@ -1,11 +1,10 @@
-import { InfoCircleOutlined } from '@ant-design/icons';
-import { Checkbox } from 'antd';
 import React from 'react';
+import { Checkbox } from 'antd';
 import styled from 'styled-components';
-
-import { RadioWrapper } from '@app/automations/fields/ApplyTypeSelector';
 import type { ComponentBaseProps } from '@app/automations/types';
 import { Tooltip } from '@src/alchemy-components';
+import { InfoCircleOutlined } from '@ant-design/icons';
+import { RadioWrapper } from '../ApplyTypeSelector';
 
 const Wrapper = styled.div`
     display: flex;

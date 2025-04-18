@@ -1,3 +1,4 @@
+import { getDefaultOwnerEntities, getDefaultOwnershipTypeUrn } from '../utils';
 import {
     entityDataWithNoAllowedOwners,
     entityDataWithNoAllowedTypes,
@@ -20,11 +21,7 @@ import {
     user2,
     user3,
     user4,
-} from '@app/entity/shared/entityForm/prompts/OwnershipPrompt/_tests_/mocks';
-import {
-    getDefaultOwnerEntities,
-    getDefaultOwnershipTypeUrn,
-} from '@app/entity/shared/entityForm/prompts/OwnershipPrompt/utils';
+} from './mocks';
 
 describe('get default owners based on different conditions', () => {
     test('get default owners with single cardinality and unrestricted owners', () => {

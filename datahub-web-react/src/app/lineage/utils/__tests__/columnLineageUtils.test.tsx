@@ -1,14 +1,13 @@
-import { FetchedEntity } from '@app/lineage/types';
 import {
     decodeSchemaField,
     encodeSchemaField,
     getFieldPathFromSchemaFieldUrn,
     getPopulatedColumnsByUrn,
     getSourceUrnFromSchemaFieldUrn,
-} from '@app/lineage/utils/columnLineageUtils';
-import { dataJob1, dataset1, dataset2 } from '@src/Mocks';
-
-import { FineGrainedLineage, SchemaFieldDataType } from '@types';
+} from '../columnLineageUtils';
+import { dataJob1, dataset1, dataset2 } from '../../../../Mocks';
+import { FetchedEntity } from '../../types';
+import { FineGrainedLineage, SchemaFieldDataType } from '../../../../types.generated';
 
 describe('getSourceUrnFromSchemaFieldUrn', () => {
     it('should get the source urn for a chart schemaField', () => {

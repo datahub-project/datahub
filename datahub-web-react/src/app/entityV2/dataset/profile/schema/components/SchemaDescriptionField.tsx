@@ -1,25 +1,24 @@
+import { Typography, message, Button, Skeleton } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
-import { FetchResult } from '@apollo/client';
-import { Button, Skeleton, Typography, message } from 'antd';
-import { Sparkle } from 'phosphor-react';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import { FetchResult } from '@apollo/client';
+import { Sparkle } from 'phosphor-react';
 
-import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import UpdateDescriptionModal from '@app/entityV2/shared/components/legacy/DescriptionModal';
-import { removeMarkdown } from '@app/entityV2/shared/components/styled/StripMarkdownText';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
-import SchemaEditableContext from '@app/shared/SchemaEditableContext';
-import DocumentationPropagationDetails from '@app/sharedV2/propagation/DocumentationPropagationDetails';
-import { colors } from '@src/alchemy-components';
-import { useShouldShowInferDocumentationButton } from '@src/app/entityV2/shared/components/inferredDocs/utils';
 import CompactMarkdownViewer from '@src/app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import InferenceDetailsIndicator from '@src/app/sharedV2/inferred/InferenceDetailsIndicator';
-
-import { UpdateDatasetMutation } from '@graphql/dataset.generated';
-import { StringMapEntry } from '@types';
+import { useShouldShowInferDocumentationButton } from '@src/app/entityV2/shared/components/inferredDocs/utils';
+import { colors } from '@src/alchemy-components';
+import { UpdateDatasetMutation } from '../../../../../../graphql/dataset.generated';
+import UpdateDescriptionModal from '../../../../shared/components/legacy/DescriptionModal';
+import { removeMarkdown } from '../../../../shared/components/styled/StripMarkdownText';
+import SchemaEditableContext from '../../../../../shared/SchemaEditableContext';
+import { useEntityData } from '../../../../../entity/shared/EntityContext';
+import analytics, { EventType, EntityActionType } from '../../../../../analytics';
+import { Editor } from '../../../../shared/tabs/Documentation/components/editor/Editor';
+import { REDESIGN_COLORS } from '../../../../shared/constants';
+import { StringMapEntry } from '../../../../../../types.generated';
+import DocumentationPropagationDetails from '../../../../../sharedV2/propagation/DocumentationPropagationDetails';
 
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;

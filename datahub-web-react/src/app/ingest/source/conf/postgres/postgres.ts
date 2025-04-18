@@ -1,6 +1,5 @@
-import { SourceConfig } from '@app/ingest/source/conf/types';
-
-import postgresLogo from '@images/postgreslogo.png';
+import { SourceConfig } from '../types';
+import postgresLogo from '../../../../../images/postgreslogo.png';
 
 const placeholderRecipe = `\
 source: 

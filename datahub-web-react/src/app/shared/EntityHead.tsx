@@ -1,9 +1,8 @@
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
-
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useEntityData } from '../entity/shared/EntityContext';
+import { useEntityRegistry } from '../useEntityRegistry';
+import { capitalizeFirstLetterOnly } from './textUtil';
 
 export const EntityHead = () => {
     const entityRegistry = useEntityRegistry();

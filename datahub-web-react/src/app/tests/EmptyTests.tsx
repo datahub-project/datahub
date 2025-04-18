@@ -1,8 +1,7 @@
-import { Empty, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { NewTestButton } from '@app/tests/NewTestButton';
+import { Typography, Empty } from 'antd';
+import { NewTestButton } from './NewTestButton';
 
 const StyledEmpty = styled(Empty)`
     padding: 80px;

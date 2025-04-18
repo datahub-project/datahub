@@ -1,8 +1,7 @@
 import React, { useMemo } from 'react';
-
-import { Week } from '@components/components/CalendarChart/private/components/Week';
-import { useCalendarState } from '@components/components/CalendarChart/private/context';
-import { MonthProps } from '@components/components/CalendarChart/types';
+import { MonthProps } from '../../types';
+import { useCalendarState } from '../context';
+import { Week } from './Week';
 
 export function Month<ValueType>({ month, monthIndex }: MonthProps<ValueType>) {
     const { squareGap, data } = useCalendarState();

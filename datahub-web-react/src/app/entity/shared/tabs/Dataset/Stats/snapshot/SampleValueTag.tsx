@@ -1,6 +1,6 @@
-import { Tooltip } from '@components';
-import { Tag } from 'antd';
 import React, { useState } from 'react';
+import { Tag } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components';
 
 const StyledTag = styled(Tag)`

@@ -5,9 +5,8 @@ for quickstart use-cases as well as development use-cases. These configurations 
 infrastructure configurations that DataHub can operate on.
 
 Requirements:
-
-- Using profiles requires docker compose >= 2.20.
-- If using the debug/development profiles, you will need to have built the `debug` docker images locally. See the Development Profiles section for more details.
+* Using profiles requires docker compose >= 2.20.
+* If using the debug/development profiles, you will need to have built the `debug` docker images locally. See the Development Profiles section for more details.
 
 ```bash
 $ cd docker/profiles
@@ -33,7 +32,7 @@ Quickstart profiles are primarily a way to test drive DataHub features before co
 A couple of these profiles are also used in our continuous integration (CI) tests.
 
 Note: Quickstart profiles use docker images with the `head` tag. These images up updated when changes are committed
-to the DataHub github repository. This can be overridden to use a stable release tag by prefixing the commands with
+to the DataHub github repository. This can be overridden to use a stable release tag by prefixing the commands with 
 `DATAHUB_VERSION=v0.12.1` for example.
 
 ### `quickstart`
@@ -58,9 +57,8 @@ Just run the `quickstart` data stores without the DataHub components. This mode 
 of docker.
 
 ### Quickstart Profiles Table
-
 | Profile Name         | MySQL | Postgres | Cassandra | Neo4j | Frontend | GMS | Actions | SystemUpdate | MAE | MCE | Kafka | OpenSearch |
-| -------------------- | ----- | -------- | --------- | ----- | -------- | --- | ------- | ------------ | --- | --- | ----- | ---------- |
+|----------------------|-------|----------|-----------|-------|----------|-----|---------|--------------|-----|-----|-------|------------|
 | quickstart           | X     |          |           |       | X        | X   | X       | X            |     |     | X     | X          |
 | quickstart-frontend  | X     |          |           |       | X        |     |         | X            |     |     | X     | X          |
 | quickstart-backend   | X     |          |           |       |          | X   | X       | X            |     |     | X     | X          |
@@ -71,10 +69,10 @@ of docker.
 
 ## Development Profiles
 
-- Runs `debug` tagged images
-- JVM Debug Mode Enabled
-- Exposes local jars and scripts to the containers
-- Can run non-default one-off configurations (neo4j, cassandra, elasticsearch)
+* Runs `debug` tagged images
+* JVM Debug Mode Enabled
+* Exposes local jars and scripts to the containers
+* Can run non-default one-off configurations (neo4j, cassandra, elasticsearch)
 
 The docker images used are the `debug` images which are created by building locally. These images are
 created by running the gradle command.
@@ -96,9 +94,8 @@ Run everything except for the `frontend` component. Useful for running just a lo
 Runs everything except for the GMS. Useful for running just a local (non-docker) GMS instance.
 
 ### Development Profiles Table
-
 | Profile Name        | MySQL | Postgres | Cassandra | Neo4j | Frontend | GMS | Actions | SystemUpdate | MAE | MCE | Kafka | OpenSearch | Elasticsearch |
-| ------------------- | ----- | -------- | --------- | ----- | -------- | --- | ------- | ------------ | --- | --- | ----- | ---------- | ------------- |
+|---------------------|-------|----------|-----------|-------|----------|-----|---------|--------------|-----|-----|-------|------------|---------------|
 | debug               | X     |          |           |       | X        | X   | X       | X            |     |     | X     | X          |               |
 | debug-frontend      | X     |          |           |       | X        |     |         | X            |     |     | X     | X          |               |
 | debug-backend       | X     |          |           |       |          | X   | X       | X            |     |     | X     | X          |               |
@@ -134,11 +131,12 @@ scenario we expect the consumers to block their startup waiting for the successf
 
 [1] Image versions were `v0.15.1-SNAPSHOT` built locally prior to running the command.
 
+
 ## Acryl Quickstart Profiles
 
 The following additions were added for Acryl Saas in `docker-compose.acryl.yml`
 
 | Profile Name         | Integrations Service | Monitors Service |
-| -------------------- | -------------------- | ---------------- |
+|----------------------|----------------------|------------------|
 | debug                | X                    | X                |
 | quickstart-consumers | X                    | X                |

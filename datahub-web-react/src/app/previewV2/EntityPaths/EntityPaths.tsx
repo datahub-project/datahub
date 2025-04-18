@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-
-import ColumnPathsText from '@app/previewV2/EntityPaths/ColumnPathsText';
-import EntityPathsModal from '@app/previewV2/EntityPaths/EntityPathsModal';
-
-import { EntityPath } from '@types';
+import { EntityPath } from '../../../types.generated';
+import ColumnPathsText from './ColumnPathsText';
+import EntityPathsModal from './EntityPathsModal';
 
 const EntityPathsWrapper = styled.div`
     padding-bottom: 10px;

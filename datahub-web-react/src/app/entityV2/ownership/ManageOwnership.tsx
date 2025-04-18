@@ -1,8 +1,7 @@
-import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-
-import { OwnershipList } from '@app/entityV2/ownership/OwnershipList';
+import { Typography } from 'antd';
+import { OwnershipList } from './OwnershipList';
 
 const PageContainer = styled.div`
     padding-top: 20px;

@@ -2,11 +2,10 @@ import { RightOutlined } from '@ant-design/icons';
 import { Dropdown } from 'antd';
 import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
-
-import FilterOption from '@app/search/filters/FilterOption';
-import BooleanSearchFilterMenu from '@app/search/filters/render/shared/BooleanMoreFilterMenu';
-import { MoreFilterOptionLabel } from '@app/search/filters/styledComponents';
-import { useElementDimensions } from '@app/search/filters/utils';
+import FilterOption from '../../FilterOption';
+import { MoreFilterOptionLabel } from '../../styledComponents';
+import { useElementDimensions } from '../../utils';
+import BooleanSearchFilterMenu from './BooleanMoreFilterMenu';
 
 const IconNameWrapper = styled.span`
     display: flex;

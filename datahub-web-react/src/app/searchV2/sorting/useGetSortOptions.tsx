@@ -1,5 +1,5 @@
-import { DATASET_FEATURES_SORT_OPTIONS, SORT_OPTIONS } from '@app/searchV2/context/constants';
 import { useIsDatasetFeaturesSearchSortEnabled } from '@src/app/useAppConfig';
+import { DATASET_FEATURES_SORT_OPTIONS, SORT_OPTIONS } from '../context/constants';
 
 export default function useGetSortOptions() {
     const isDatasetFeaturesSearchSortEnabled = useIsDatasetFeaturesSearchSortEnabled();

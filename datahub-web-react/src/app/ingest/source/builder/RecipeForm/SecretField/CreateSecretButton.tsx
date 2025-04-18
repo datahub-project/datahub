@@ -1,13 +1,11 @@
-import { blue } from '@ant-design/colors';
-import { PlusOutlined } from '@ant-design/icons';
-import { Button, message } from 'antd';
 import React, { useState } from 'react';
+import { Button, message } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
+import { blue } from '@ant-design/colors';
 import styled from 'styled-components/macro';
-
-import { SecretBuilderModal } from '@app/ingest/secret/SecretBuilderModal';
-import { SecretBuilderState } from '@app/ingest/secret/types';
-
-import { useCreateSecretMutation } from '@graphql/ingestion.generated';
+import { SecretBuilderModal } from '../../../../secret/SecretBuilderModal';
+import { useCreateSecretMutation } from '../../../../../../graphql/ingestion.generated';
+import { SecretBuilderState } from '../../../../secret/types';
 
 const CreateButton = styled(Button)`
     align-items: center;

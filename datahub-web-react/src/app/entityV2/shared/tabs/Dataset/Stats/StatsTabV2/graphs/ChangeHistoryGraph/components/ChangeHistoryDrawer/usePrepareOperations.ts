@@ -1,7 +1,6 @@
-import { useMemo } from 'react';
-
-import { OPERATIONS_LIMIT } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/constants';
 import { Operation } from '@src/types.generated';
+import { useMemo } from 'react';
+import { OPERATIONS_LIMIT } from './constants';
 
 export default function usePrepareOperations(operations: Operation[]) {
     return useMemo(() => {

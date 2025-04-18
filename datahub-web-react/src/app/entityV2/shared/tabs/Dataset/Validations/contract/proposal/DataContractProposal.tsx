@@ -1,3 +1,6 @@
+import React, { useEffect } from 'react';
+import styled from 'styled-components';
+import { Button, message, Modal, Typography } from 'antd';
 import {
     CheckOutlined,
     CloseOutlined,
@@ -6,22 +9,25 @@ import {
     PlusOutlined,
     StopOutlined,
 } from '@ant-design/icons';
-import { Button, Modal, Typography, message } from 'antd';
-import React, { useEffect } from 'react';
-import styled from 'styled-components';
-
-import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import { DataQualityContractSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/DataQualityContractSummary';
-import { FreshnessContractSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/FreshnessContractSummary';
-import { SchemaContractSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/SchemaContractSummary';
-import { DataContractProposalDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/proposal/DataContractProposalDescription';
-import { FAILURE_COLOR_HEX } from '@app/entityV2/shared/tabs/Incident/incidentUtils';
-
-import { useAcceptProposalsMutation, useRejectProposalsMutation } from '@graphql/actionRequest.generated';
-import { useGetContractProposalsQuery } from '@graphql/contract.generated';
-import { ActionRequestStatus, ActionRequestType, DataContractProposalParams, EntityType } from '@types';
+import { useEntityData } from '../../../../../../../entity/shared/EntityContext';
+import { useGetContractProposalsQuery } from '../../../../../../../../graphql/contract.generated';
+import {
+    ActionRequestStatus,
+    ActionRequestType,
+    DataContractProposalParams,
+    EntityType,
+} from '../../../../../../../../types.generated';
+import { DataContractProposalDescription } from './DataContractProposalDescription';
+import {
+    useAcceptProposalsMutation,
+    useRejectProposalsMutation,
+} from '../../../../../../../../graphql/actionRequest.generated';
+import { ANTD_GRAY } from '../../../../../constants';
+import { FAILURE_COLOR_HEX } from '../../../../Incident/incidentUtils';
+import { FreshnessContractSummary } from '../FreshnessContractSummary';
+import { SchemaContractSummary } from '../SchemaContractSummary';
+import { DataQualityContractSummary } from '../DataQualityContractSummary';
+import analytics, { EntityActionType, EventType } from '../../../../../../../analytics';
 
 const Container = styled.div``;
 

@@ -1,7 +1,6 @@
-import { useEffect } from 'react';
-
 import { useGetUsersLazyQuery } from '@src/graphql/user.generated';
 import { CorpUser } from '@src/types.generated';
+import { useEffect } from 'react';
 
 export default function useGetUsers(actors: string[]) {
     const [getUsers, { data, loading }] = useGetUsersLazyQuery({

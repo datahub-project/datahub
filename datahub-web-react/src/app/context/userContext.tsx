@@ -1,8 +1,6 @@
 import React from 'react';
-
-import { CustomUserContextState, DEFAULT_CUSTOM_STATE } from '@app/context/CustomUserContext';
-
-import { CorpUser, EntityRelationshipsResult, PlatformPrivileges } from '@types';
+import { CorpUser, EntityRelationshipsResult, PlatformPrivileges } from '../../types.generated';
+import { CustomUserContextState, DEFAULT_CUSTOM_STATE } from './CustomUserContext';
 
 /**
  * Local State is persisted to local storage.

@@ -1,13 +1,11 @@
-import { PicCenterOutlined } from '@ant-design/icons';
 import React from 'react';
-
-import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
-import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import { PicCenterOutlined } from '@ant-design/icons';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import { capitalizeFirstLetterOnly } from '@src/app/shared/textUtil';
-
-import { EntityType, Owner } from '@types';
+import { EntityType, Owner } from '../../../../types.generated';
+import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import { IconStyleType, PreviewType } from '../../Entity';
 
 export const Preview = ({
     data,

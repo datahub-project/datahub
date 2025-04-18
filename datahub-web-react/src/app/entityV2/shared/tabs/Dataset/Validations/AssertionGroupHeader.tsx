@@ -1,9 +1,8 @@
-import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { AssertionGroup } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
-import { getAssertionGroupSummaryIcon } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { Typography } from 'antd';
+import { getAssertionGroupSummaryIcon } from './acrylUtils';
+import { AssertionGroup } from './acrylTypes';
 
 const Container = styled.div`
     display: flex;

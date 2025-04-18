@@ -1,8 +1,7 @@
-import { Pagination as PaginationComponent } from 'antd';
 import React from 'react';
-
-import { PaginationContainer } from '@components/components/Pagination/components';
-import { PaginationProps, paginationDefaults } from '@components/components/Pagination/types';
+import { Pagination as PaginationComponent } from 'antd';
+import { paginationDefaults, PaginationProps } from './types';
+import { PaginationContainer } from './components';
 
 export const Pagination = ({
     currentPage = paginationDefaults.currentPage,

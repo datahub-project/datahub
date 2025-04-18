@@ -1,3 +1,4 @@
+import React from 'react';
 import {
     BoldOutlined,
     CalendarOutlined,
@@ -7,9 +8,7 @@ import {
     NumberOutlined,
     ProfileOutlined,
 } from '@ant-design/icons';
-import React from 'react';
-
-import { SchemaFieldDataType } from '@types';
+import { SchemaFieldDataType } from '../../types.generated';
 
 export function ColumnTypeIcon(type?: SchemaFieldDataType): JSX.Element | null {
     if (type === SchemaFieldDataType.Number) {

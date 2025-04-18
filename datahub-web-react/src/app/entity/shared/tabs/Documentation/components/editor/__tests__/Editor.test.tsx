@@ -1,7 +1,6 @@
-import { render } from '@testing-library/react';
 import React from 'react';
-
-import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
+import { render } from '@testing-library/react';
+import { Editor } from '../Editor';
 
 // setupTests mocks Editor for all tests. We want to use the actual editor for this test module
 vi.mock('../Editor', async () => vi.importActual('../Editor'));

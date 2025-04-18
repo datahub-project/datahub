@@ -1,4 +1,4 @@
-import { combineSiblingsInSearchResults } from '@app/search/utils/combineSiblingsInSearchResults';
+import { combineSiblingsInSearchResults } from './combineSiblingsInSearchResults';
 
 const searchResultWithSiblings = [
     {

@@ -2,11 +2,9 @@ import { CheckSquareOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React, { useState } from 'react';
 import { useTheme } from 'styled-components';
-
-import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
-import { ProposalList } from '@app/taskCenterV2/proposalsV2/ProposalList';
-
-import { ActionRequestAssignee, ActionRequestStatus } from '@types';
+import { ActionRequestAssignee, ActionRequestStatus } from '../../types.generated';
+import TabToolbar from '../entity/shared/components/styled/TabToolbar';
+import { ProposalList } from '../taskCenterV2/proposalsV2/ProposalList';
 
 type Props = {
     // The assignee associated with the action request groups,

@@ -1,26 +1,23 @@
 import React from 'react';
-
-import { Entity } from '@app/entity/Entity';
-import { VIEW_ENTITY_PAGE } from '@app/entity/shared/constants';
-import { GenericEntityProperties } from '@app/entity/shared/types';
-import { ViewBuilderState } from '@app/entity/view/types';
-import { EntityCapabilityType } from '@app/entityV2/Entity';
-import { FetchedEntity } from '@app/lineage/types';
-import { DEFAULT_APP_CONFIG } from '@src/appConfigContext';
-
-import { AppConfigDocument, GetEntityCountsDocument } from '@graphql/app.generated';
-import { GetBrowsePathsDocument, GetBrowseResultsDocument } from '@graphql/browse.generated';
-import { GetContainerDocument } from '@graphql/container.generated';
-import { GetDataFlowDocument } from '@graphql/dataFlow.generated';
-import { GetDataJobDocument } from '@graphql/dataJob.generated';
-import { GetDatasetDocument, GetDatasetSchemaDocument, UpdateDatasetDocument } from '@graphql/dataset.generated';
-import { GetGlossaryTermDocument, GetGlossaryTermQuery } from '@graphql/glossaryTerm.generated';
-import { GetMeDocument } from '@graphql/me.generated';
-import { GetMlModelDocument } from '@graphql/mlModel.generated';
-import { GetMlModelGroupDocument } from '@graphql/mlModelGroup.generated';
-import { GetGrantedPrivilegesDocument } from '@graphql/policy.generated';
-import { GetQuickFiltersDocument } from '@graphql/quickFilters.generated';
-import { ListRecommendationsDocument } from '@graphql/recommendations.generated';
+import { Entity } from './app/entity/Entity';
+import { VIEW_ENTITY_PAGE } from './app/entity/shared/constants';
+import { GenericEntityProperties } from './app/entity/shared/types';
+import { ViewBuilderState } from './app/entity/view/types';
+import { EntityCapabilityType } from './app/entityV2/Entity';
+import { FetchedEntity } from './app/lineage/types';
+import { DEFAULT_APP_CONFIG } from './appConfigContext';
+import { AppConfigDocument, GetEntityCountsDocument } from './graphql/app.generated';
+import { GetBrowsePathsDocument, GetBrowseResultsDocument } from './graphql/browse.generated';
+import { GetDataFlowDocument } from './graphql/dataFlow.generated';
+import { GetDataJobDocument } from './graphql/dataJob.generated';
+import { GetDatasetDocument, GetDatasetSchemaDocument, UpdateDatasetDocument } from './graphql/dataset.generated';
+import { GetGlossaryTermDocument, GetGlossaryTermQuery } from './graphql/glossaryTerm.generated';
+import { GetMeDocument } from './graphql/me.generated';
+import { GetMlModelDocument } from './graphql/mlModel.generated';
+import { GetMlModelGroupDocument } from './graphql/mlModelGroup.generated';
+import { GetGrantedPrivilegesDocument } from './graphql/policy.generated';
+import { GetQuickFiltersDocument } from './graphql/quickFilters.generated';
+import { ListRecommendationsDocument } from './graphql/recommendations.generated';
 import {
     GetAutoCompleteMultipleResultsDocument,
     GetAutoCompleteResultsDocument,
@@ -28,9 +25,9 @@ import {
     GetSearchResultsForMultipleDocument,
     GetSearchResultsForMultipleQuery,
     GetSearchResultsQuery,
-} from '@graphql/search.generated';
-import { GetTagDocument } from '@graphql/tag.generated';
-import { GetUserDocument } from '@graphql/user.generated';
+} from './graphql/search.generated';
+import { GetTagDocument } from './graphql/tag.generated';
+import { GetUserDocument } from './graphql/user.generated';
 import {
     ActionRequest,
     ActionRequestStatus,
@@ -65,7 +62,8 @@ import {
     ScenarioType,
     SchemaFieldDataType,
     SearchResult,
-} from '@types';
+} from './types.generated';
+import { GetContainerDocument } from './graphql/container.generated';
 
 export const entityPrivileges: EntityPrivileges = {
     canEditLineage: true,

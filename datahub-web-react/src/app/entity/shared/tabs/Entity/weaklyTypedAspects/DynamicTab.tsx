@@ -1,13 +1,12 @@
-import { Typography } from 'antd';
 import React from 'react';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { Typography } from 'antd';
 import styled from 'styled-components';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import DynamicPropertiesTab from '@app/entity/shared/tabs/Entity/weaklyTypedAspects/DynamicPropertiesTab';
-import DynamicTabularTab from '@app/entity/shared/tabs/Entity/weaklyTypedAspects/DynamicTabularTab';
-
-import { AspectRenderSpec } from '@types';
+import { ANTD_GRAY } from '../../../constants';
+import DynamicTabularTab from './DynamicTabularTab';
+import DynamicPropertiesTab from './DynamicPropertiesTab';
+import { AspectRenderSpec } from '../../../../../../types.generated';
 
 type Props = {
     payload: string | undefined | null;

@@ -1,9 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
-
-import { EmbeddedListSearchModal } from '@app/entity/shared/components/styled/search/EmbeddedListSearchModal';
-import { getValidateEntityAction } from '@app/tests/builder/steps/validate/ValidateTestButton';
-import { TestBuilderState } from '@app/tests/builder/types';
+import { EmbeddedListSearchModal } from '../../../../entity/shared/components/styled/search/EmbeddedListSearchModal';
+import { TestBuilderState } from '../../types';
+import { getValidateEntityAction } from './ValidateTestButton';
 
 const TitleContainer = styled.div`
     display: flex;

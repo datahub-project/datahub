@@ -1,7 +1,6 @@
 import React from 'react';
-
-import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
-import TableValueElement from '@app/entity/shared/tabs/Entity/weaklyTypedAspects/TableValueElement';
+import { StyledTable } from '../../../components/styled/StyledTable';
+import TableValueElement from './TableValueElement';
 
 type Props = {
     payload: string | undefined | null;

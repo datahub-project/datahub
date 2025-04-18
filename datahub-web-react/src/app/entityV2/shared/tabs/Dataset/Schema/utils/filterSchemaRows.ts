@@ -1,6 +1,5 @@
-import { EntityRegistry } from '@src/entityRegistryContext';
-
-import { EntityType, SchemaField } from '@types';
+import { EntityRegistry } from '../../../../../../../entityRegistryContext';
+import { EntityType, SchemaField } from '../../../../../../../types.generated';
 
 export enum SchemaFilterType {
     FieldPath = 'Field Path',

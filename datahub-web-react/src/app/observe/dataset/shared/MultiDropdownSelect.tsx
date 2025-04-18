@@ -1,5 +1,5 @@
-import { Select } from 'antd';
 import React from 'react';
+import { Select } from 'antd';
 
 const DROPDOWN_STYLE = { minWidth: 48, textAlign: 'center' };
 

@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
-
-import OptionalPromptsRemaining from '@app/entity/shared/containers/profile/sidebar/FormInfo/OptionalPromptsRemaining';
-import VerificationAuditStamp from '@app/entity/shared/containers/profile/sidebar/FormInfo/VerificationAuditStamp';
+import { Button } from '@src/alchemy-components';
 import {
     CTAWrapper,
     Content,
@@ -12,10 +10,10 @@ import {
     StyledReadOutlined,
     Title,
     TitleWrapper,
-} from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/components';
-import { Button } from '@src/alchemy-components';
-
-import ShieldCheck from '@images/shield-check.svg';
+} from './components';
+import OptionalPromptsRemaining from '../../../../../../entity/shared/containers/profile/sidebar/FormInfo/OptionalPromptsRemaining';
+import VerificationAuditStamp from '../../../../../../entity/shared/containers/profile/sidebar/FormInfo/VerificationAuditStamp';
+import ShieldCheck from '../../../../../../../images/shield-check.svg';
 
 interface Props {
     showVerificationStyles: boolean;

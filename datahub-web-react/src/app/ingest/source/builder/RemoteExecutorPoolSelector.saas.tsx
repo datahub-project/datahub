@@ -1,14 +1,13 @@
-import { Input, Select } from 'antd';
 import React, { useState } from 'react';
-
-import { checkIsPoolInDataHubCloud, getDisplayablePoolId } from '@app/ingest/executor_saas/utils';
-import { colors } from '@src/alchemy-components';
-import { useAppConfig } from '@src/app/useAppConfig';
+import { Input, Select } from 'antd';
 import {
     useGetDefaultRemoteExecutorPoolQuery,
     useListRemoteExecutorPoolsQuery,
 } from '@src/graphql/remote_executor.saas.generated';
+import { colors } from '@src/alchemy-components';
+import { useAppConfig } from '@src/app/useAppConfig';
 import { RemoteExecutorPool } from '@src/types.generated';
+import { checkIsPoolInDataHubCloud, getDisplayablePoolId } from '../../executor_saas/utils';
 
 type Props = {
     value?: string | null;

@@ -1,12 +1,14 @@
-import { Typography } from 'antd';
 import React from 'react';
+import { Typography } from 'antd';
 import styled from 'styled-components';
-
-import { VolumeNumberInput } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/volume/VolumeNumberInput';
-import { VolumeAssertionBuilderState } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
-import { getPropertyFromVolumeType } from '@app/entityV2/shared/tabs/Dataset/Validations/utils';
-
-import { AssertionStdOperator, AssertionStdParameterType, AssertionValueChangeType } from '@types';
+import {
+    AssertionStdOperator,
+    AssertionStdParameterType,
+    AssertionValueChangeType,
+} from '../../../../../../../../../../types.generated';
+import { VolumeNumberInput } from './VolumeNumberInput';
+import { getPropertyFromVolumeType } from '../../../../utils';
+import { VolumeAssertionBuilderState } from '../../types';
 
 const Container = styled.div`
     display: flex;

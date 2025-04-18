@@ -1,17 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
-
-import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
-import {
-    MAX_VALUE_AGGREGATION,
-    TimeInterval,
-    addMonthOverMonthValue,
-    groupTimeData,
-} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/utils';
-import { LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
-import { Datum } from '@src/alchemy-components/components/LineChart/types';
 import { extractChartValuesFromTableProfiles } from '@src/app/entityV2/shared/utils';
 import { getFixedLookbackWindow } from '@src/app/shared/time/timeUtils';
 import { useGetDataProfilesLazyQuery } from '@src/graphql/dataset.generated';
+import { useEffect, useMemo, useState } from 'react';
+import { Datum } from '@src/alchemy-components/components/LineChart/types';
+import { LookbackWindow } from '../../../lookbackWindows';
+import { useStatsSectionsContext } from '../../StatsSectionsContext';
+import { addMonthOverMonthValue, groupTimeData, MAX_VALUE_AGGREGATION, TimeInterval } from '../utils';
 
 export interface StorageSizeData extends Datum {
     mom?: number | null;

@@ -1,8 +1,7 @@
+import { Button, Text } from '@src/alchemy-components';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
-
-import { cleanSample } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/components/sections/Samples/utils';
-import { Button, Text } from '@src/alchemy-components';
+import { cleanSample } from '../utils';
 
 const MAX_LINES = 2;
 

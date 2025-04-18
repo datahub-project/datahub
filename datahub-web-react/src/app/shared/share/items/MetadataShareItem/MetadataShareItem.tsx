@@ -1,10 +1,9 @@
 import { SendOutlined } from '@ant-design/icons';
-import React, { useState } from 'react';
-import styled from 'styled-components';
-
-import ShareModal from '@app/shared/share/items/MetadataShareItem/ShareModal';
-import { TextSpan } from '@app/shared/share/items/components';
 import { ANTD_GRAY } from '@src/app/entity/shared/constants';
+import styled from 'styled-components';
+import React, { useState } from 'react';
+import { TextSpan } from '../components';
+import ShareModal from './ShareModal';
 
 const StyledMenuItem = styled.div`
     && {

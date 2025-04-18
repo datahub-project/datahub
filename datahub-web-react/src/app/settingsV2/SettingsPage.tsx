@@ -1,31 +1,30 @@
+import React from 'react';
+import { useHistory, useLocation, useRouteMatch, Redirect, Route, Switch } from 'react-router';
+import { Button, colors } from '@src/alchemy-components';
 import {
+    SquaresFour,
     Bank,
     Bell,
     Funnel,
+    SignIn,
     House,
     Question,
     ShieldCheck,
-    SignIn,
-    SquaresFour,
     Star,
     Users,
-    UsersThree,
     Wrench,
+    UsersThree,
 } from '@phosphor-icons/react';
-import React from 'react';
-import { Redirect, Route, Switch, useHistory, useLocation, useRouteMatch } from 'react-router';
 import styled from 'styled-components';
-
-import useGetLogoutHandler from '@app/auth/useGetLogoutHandler';
-import { useUserContext } from '@app/context/useUserContext';
-import NavBarMenu from '@app/homeV2/layout/navBarRedesign/NavBarMenu';
-import { NavBarMenuItemTypes, NavBarMenuItems } from '@app/homeV2/layout/navBarRedesign/types';
-import { useSubscriptionsEnabled } from '@app/settingsV2/personal/notifications/utils';
-import { DEFAULT_PATH, PATHS } from '@app/settingsV2/settingsPaths';
-import { useAppConfig } from '@app/useAppConfig';
-import { useIsThemeV2 } from '@app/useIsThemeV2';
-import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
-import { Button, colors } from '@src/alchemy-components';
+import { useUserContext } from '../context/useUserContext';
+import { useSubscriptionsEnabled } from './personal/notifications/utils';
+import { PATHS, DEFAULT_PATH } from './settingsPaths';
+import { NavBarMenuItems, NavBarMenuItemTypes } from '../homeV2/layout/navBarRedesign/types';
+import NavBarMenu from '../homeV2/layout/navBarRedesign/NavBarMenu';
+import { useIsThemeV2 } from '../useIsThemeV2';
+import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
+import useGetLogoutHandler from '../auth/useGetLogoutHandler';
+import { useAppConfig } from '../useAppConfig';
 
 const PageContainer = styled.div`
     display: flex;

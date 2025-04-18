@@ -1,17 +1,16 @@
-import { Divider } from 'antd';
-import React, { useContext, useState } from 'react';
-
-import AddElement from '@app/govern/Dashboard/Forms/AddElement';
-import AddQuestionModal from '@app/govern/Dashboard/Forms/AddQuestionModal';
-import AddRecipients from '@app/govern/Dashboard/Forms/AddRecipients';
-import AssetReviewModal from '@app/govern/Dashboard/Forms/AssetReviewModal';
-import ManageFormContext from '@app/govern/Dashboard/Forms/ManageFormContext';
-import QuestionsList from '@app/govern/Dashboard/Forms/QuestionsList';
-import LogicalFiltersBuilder from '@app/govern/Dashboard/Forms/filters/LogicalFiltersBuilder';
-import { properties } from '@app/govern/Dashboard/Forms/filters/properties';
 import { LogicalOperatorType, LogicalPredicate } from '@src/app/tests/builder/steps/definition/builder/types';
 import { convertLogicalPredicateToOrFilters } from '@src/app/tests/builder/steps/definition/builder/utils';
 import { AndFilterInput, FormPrompt, FormState } from '@src/types.generated';
+import { Divider } from 'antd';
+import React, { useContext, useState } from 'react';
+import AddElement from './AddElement';
+import AddQuestionModal from './AddQuestionModal';
+import AddRecipients from './AddRecipients';
+import AssetReviewModal from './AssetReviewModal';
+import LogicalFiltersBuilder from './filters/LogicalFiltersBuilder';
+import { properties } from './filters/properties';
+import ManageFormContext from './ManageFormContext';
+import QuestionsList from './QuestionsList';
 
 const AddToForm = () => {
     const { formValues, setFormValues } = useContext(ManageFormContext);

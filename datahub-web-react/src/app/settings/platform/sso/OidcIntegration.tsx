@@ -1,14 +1,12 @@
 import { InfoCircleOutlined } from '@ant-design/icons';
-import { Alert, Button, Card, Col, Collapse, Divider, Form, Input, Row, Switch, Typography, message } from 'antd';
+import { Button, Card, Divider, Form, Input, message, Switch, Typography, Row, Col, Alert, Collapse } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-
-import { REDESIGN_COLORS } from '@app/entity/shared/constants';
-import { PlatformSsoIntegrationBreadcrumb } from '@app/settings/platform/PlatformSsoIntegrationBreadcrumb';
-import { Message } from '@app/shared/Message';
-
-import { useGetSsoSettingsQuery, useUpdateSsoSettingsMutation } from '@graphql/settings.generated';
-import { OidcSettings } from '@types';
+import { useGetSsoSettingsQuery, useUpdateSsoSettingsMutation } from '../../../../graphql/settings.generated';
+import { OidcSettings } from '../../../../types.generated';
+import { REDESIGN_COLORS } from '../../../entity/shared/constants';
+import { Message } from '../../../shared/Message';
+import { PlatformSsoIntegrationBreadcrumb } from '../PlatformSsoIntegrationBreadcrumb';
 
 const Page = styled.div`
     width: 100%;

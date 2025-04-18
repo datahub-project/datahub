@@ -1,12 +1,10 @@
-import * as QueryString from 'query-string';
-import { useEffect } from 'react';
-import { useHistory, useLocation } from 'react-router-dom';
-
 import navigateToUrl from '@app/utils/navigateToUrl';
-
 import { useGetSchemaVersionListQuery } from '@graphql/schemaBlame.generated';
 import { useGetVersionedDatasetQuery } from '@graphql/versionedDataset.generated';
 import { EditableSchemaMetadata, Schema, SemanticVersionStruct } from '@types';
+import * as QueryString from 'query-string';
+import { useEffect } from 'react';
+import { useHistory, useLocation } from 'react-router-dom';
 
 interface Args {
     datasetUrn?: string;

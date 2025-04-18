@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-
-import { NavLinksMenu } from '@app/homeV2/layout/NavLinksMenu';
+import { NavLinksMenu } from './NavLinksMenu';
 
 const Container = styled.div`
     border-radius: 47px;

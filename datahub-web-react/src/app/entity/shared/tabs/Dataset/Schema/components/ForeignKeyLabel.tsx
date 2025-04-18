@@ -1,12 +1,11 @@
-import { green } from '@ant-design/colors';
-import { Badge } from 'antd';
 import React, { useContext } from 'react';
+import { Badge } from 'antd';
 import styled from 'styled-components';
+import { green } from '@ant-design/colors';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { FkContext } from '@app/entity/shared/tabs/Dataset/Schema/utils/selectedFkContext';
-
-import { ForeignKeyConstraint } from '@types';
+import { ANTD_GRAY } from '../../../../constants';
+import { ForeignKeyConstraint } from '../../../../../../../types.generated';
+import { FkContext } from '../utils/selectedFkContext';
 
 const ForeignKeyBadge = styled(Badge)<{ $highlight: boolean }>`
     margin-left: 4px;

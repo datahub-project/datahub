@@ -1,8 +1,8 @@
-import { Radio } from 'antd';
 import React from 'react';
+import { Radio } from 'antd';
 
-import { CheckboxGroup, CustomCheckboxLabel } from '@app/automations/sharedComponents';
 import type { ComponentBaseProps } from '@app/automations/types';
+import { CheckboxGroup, CustomCheckboxLabel } from '@app/automations/sharedComponents';
 
 // Custom Checkbox w/ Label component
 const RadioLabel = ({ label, description }: any) => (

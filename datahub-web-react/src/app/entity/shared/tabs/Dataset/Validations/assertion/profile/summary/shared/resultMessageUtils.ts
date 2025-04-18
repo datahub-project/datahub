@@ -1,32 +1,3 @@
-import { getCronAsText } from '@app/entity/shared/tabs/Dataset/Validations/acrylUtils';
-import { getFieldMetricLabel } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/field/utils';
-import { toReadableLocalDateTimeString } from '@app/entity/shared/tabs/Dataset/Validations/assertion/profile/shared/utils';
-import {
-    ASSERTION_OPERATOR_DESCRIPTIONS_REQUIRING_SUFFIX,
-    ASSERTION_OPERATOR_TO_DESCRIPTION,
-} from '@app/entity/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/constants';
-import {
-    AssertionExpectedRange,
-    tryGetAbsoluteVolumeAssertionNumericalResult,
-    tryGetActualUpdatedTimestampFromAssertionResult,
-    tryGetExpectedRangeFromAssertionAgainstAbsoluteValues,
-    tryGetExpectedRangeFromAssertionAgainstRelativeValues,
-    tryGetExpectedRangeFromFailThreshold,
-    tryGetExtraFieldsInActual,
-    tryGetExtraFieldsInExpected,
-    tryGetFieldMetricAssertionNumericalResult,
-    tryGetFieldValueAssertionNumericalResult,
-    tryGetMismatchedTypeFields,
-    tryGetPreviousSqlAssertionNumericalResult,
-    tryGetPreviousVolumeAssertionNumericalResult,
-    tryGetSqlAssertionNumericalResult,
-} from '@app/entity/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultExtractionUtils';
-import { getResultErrorMessage } from '@app/entity/shared/tabs/Dataset/Validations/assertionUtils';
-import { getFieldMetricTypeReadableLabel } from '@app/entity/shared/tabs/Dataset/Validations/fieldDescriptionUtils';
-import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
-import { lowerFirstLetter } from '@app/shared/textUtil';
-import { toLocalDateString, toLocalTimeString } from '@app/shared/time/timeUtils';
-
 import {
     Assertion,
     AssertionResult,
@@ -47,7 +18,32 @@ import {
     SqlAssertionInfo,
     SqlAssertionType,
     VolumeAssertionType,
-} from '@types';
+} from '../../../../../../../../../../types.generated';
+import { formatNumberWithoutAbbreviation } from '../../../../../../../../../shared/formatNumber';
+import { toLocalDateString, toLocalTimeString } from '../../../../../../../../../shared/time/timeUtils';
+import { getResultErrorMessage } from '../../../../assertionUtils';
+import { getFieldMetricLabel } from '../../../builder/steps/field/utils';
+import {
+    tryGetAbsoluteVolumeAssertionNumericalResult,
+    tryGetActualUpdatedTimestampFromAssertionResult,
+    tryGetExpectedRangeFromAssertionAgainstRelativeValues,
+    tryGetExpectedRangeFromAssertionAgainstAbsoluteValues,
+    tryGetFieldMetricAssertionNumericalResult,
+    tryGetFieldValueAssertionNumericalResult,
+    tryGetPreviousSqlAssertionNumericalResult,
+    tryGetPreviousVolumeAssertionNumericalResult,
+    tryGetSqlAssertionNumericalResult,
+    tryGetExpectedRangeFromFailThreshold,
+    AssertionExpectedRange,
+    tryGetExtraFieldsInActual,
+    tryGetExtraFieldsInExpected,
+    tryGetMismatchedTypeFields,
+} from './resultExtractionUtils';
+import { getCronAsText } from '../../../../acrylUtils';
+import { ASSERTION_OPERATOR_DESCRIPTIONS_REQUIRING_SUFFIX, ASSERTION_OPERATOR_TO_DESCRIPTION } from './constants';
+import { lowerFirstLetter } from '../../../../../../../../../shared/textUtil';
+import { getFieldMetricTypeReadableLabel } from '../../../../fieldDescriptionUtils';
+import { toReadableLocalDateTimeString } from '../../shared/utils';
 
 export const getFormattedResultText = (result?: AssertionResultType) => {
     if (result === undefined) {

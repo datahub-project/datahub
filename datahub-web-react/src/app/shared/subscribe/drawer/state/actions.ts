@@ -1,12 +1,6 @@
 import { Key, useMemo } from 'react';
-
-import { useDrawerDispatch } from '@app/shared/subscribe/drawer/state/context';
-import {
-    ActionTypes,
-    ChannelSelection,
-    InitializeActionPayload,
-    SlackState,
-} from '@app/shared/subscribe/drawer/state/types';
+import { useDrawerDispatch } from './context';
+import { ActionTypes, ChannelSelection, InitializeActionPayload, SlackState } from './types';
 
 const useDrawerActions = () => {
     const dispatch = useDrawerDispatch();

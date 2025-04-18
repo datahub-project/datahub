@@ -1,13 +1,12 @@
-import { red } from '@ant-design/colors';
-import { DeleteOutlined, PlusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import { Button, Form, Input } from 'antd';
 import React from 'react';
+import { Button, Form, Input } from 'antd';
+import { Tooltip } from '@components';
+import { red } from '@ant-design/colors';
 import styled from 'styled-components/macro';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { StyledFormItem } from '@app/ingest/source/builder/RecipeForm/SecretField/SecretField';
-import { RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
+import { DeleteOutlined, PlusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import { ANTD_GRAY } from '../../../../entity/shared/constants';
+import { RecipeField } from './common';
+import { StyledFormItem } from './SecretField/SecretField';
 
 export const Label = styled.div`
     font-weight: bold;

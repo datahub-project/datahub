@@ -1,23 +1,21 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-
-import { EMAIL_SINK, NOTIFICATION_SINKS, SLACK_SINK } from '@app/settingsV2/notifications/types';
-import { ActorNotificationScenarioSettings } from '@app/settingsV2/personal/notifications/ActorNotificationScenarioSettings';
-import { EmailSinkSettingsSection } from '@app/settingsV2/personal/notifications/section/EmailSinkSettingsSection';
-import { SlackSinkSettingsSection } from '@app/settingsV2/personal/notifications/section/SlackSinkSettingsSection';
-import { isSinkEnabled } from '@app/settingsV2/utils';
-import useActorSinkSettings from '@app/shared/subscribe/drawer/useSinkSettings';
-import { useAppConfig } from '@app/useAppConfig';
 import { PageTitle } from '@src/alchemy-components/components/PageTitle';
 import { useUserContext } from '@src/app/context/useUserContext';
-
-import { useGetGlobalSettingsQuery } from '@graphql/settings.generated';
+import { SlackSinkSettingsSection } from './section/SlackSinkSettingsSection';
+import { useGetGlobalSettingsQuery } from '../../../../graphql/settings.generated';
+import { EMAIL_SINK, NOTIFICATION_SINKS, SLACK_SINK } from '../../notifications/types';
+import { isSinkEnabled } from '../../utils';
+import useActorSinkSettings from '../../../shared/subscribe/drawer/useSinkSettings';
 import {
     EmailNotificationSettingsInput,
     EntityType,
     NotificationSinkType,
     SlackNotificationSettingsInput,
-} from '@types';
+} from '../../../../types.generated';
+import { EmailSinkSettingsSection } from './section/EmailSinkSettingsSection';
+import { useAppConfig } from '../../../useAppConfig';
+import { ActorNotificationScenarioSettings } from './ActorNotificationScenarioSettings';
 
 const SinksContainer = styled.div`
     margin: 16px 0px;

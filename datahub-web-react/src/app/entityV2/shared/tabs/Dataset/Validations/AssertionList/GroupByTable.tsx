@@ -1,8 +1,7 @@
+import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 import React from 'react';
 import styled from 'styled-components';
-
-import { AssertionListTableRow } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
-import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
+import { AssertionListTableRow } from './types';
 
 const GroupContainer = styled.div`
     background: #fafafa;

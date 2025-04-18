@@ -1,7 +1,6 @@
-import * as QueryString from 'query-string';
-
-import filtersToQueryStringParams from '@app/searchV2/utils/filtersToQueryStringParams';
 import { FacetFilterInput } from '@src/types.generated';
+import * as QueryString from 'query-string';
+import filtersToQueryStringParams from '../../searchV2/utils/filtersToQueryStringParams';
 
 export const navigateWithFilters = ({
     filters,

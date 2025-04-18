@@ -1,10 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
-
-import { IconStyleType } from '@app/entity/Entity';
-import { EntityRegistry } from '@src/entityRegistryContext';
-
-import { EntityType, QuickFilter } from '@types';
+import { EntityType, QuickFilter } from '../../../../types.generated';
+import { IconStyleType } from '../../../entity/Entity';
+import { EntityRegistry } from '../../../../entityRegistryContext';
 
 const StyledIcon = styled.img`
     width: 14px;

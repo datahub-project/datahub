@@ -1,6 +1,5 @@
 import styled from 'styled-components';
-
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
 
 export const HeaderContainer = styled.div`
     display: flex;

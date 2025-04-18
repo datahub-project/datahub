@@ -1,18 +1,14 @@
 import React from 'react';
 
-import { AssertionProfileFooter } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileFooter';
-import { AssertionProfileHeader } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileHeader';
-import { AssertionProfileHeaderLoading } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileHeaderLoading';
-import { AssertionTabs } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionTabs';
-import { AssertionSettingsTab } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/settings/AssertionSettingsTab';
-import { AssertionSummaryTab } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/AssertionSummaryTab';
-import {
-    AssertionEditabilityScopeType,
-    getAssertionEditabilityType,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/assertionUtils';
-
-import { useGetAssertionWithMonitorsQuery } from '@graphql/monitor.generated';
-import { Assertion, DataContract, Entity, Monitor } from '@types';
+import { AssertionSummaryTab } from './summary/AssertionSummaryTab';
+import { AssertionSettingsTab } from './settings/AssertionSettingsTab';
+import { Assertion, DataContract, Entity, Monitor } from '../../../../../../../../types.generated';
+import { useGetAssertionWithMonitorsQuery } from '../../../../../../../../graphql/monitor.generated';
+import { AssertionProfileHeader } from './AssertionProfileHeader';
+import { AssertionTabs } from './AssertionTabs';
+import { AssertionProfileFooter } from './AssertionProfileFooter';
+import { AssertionProfileHeaderLoading } from './AssertionProfileHeaderLoading';
+import { AssertionEditabilityScopeType, getAssertionEditabilityType } from './summary/shared/assertionUtils';
 
 enum TabType {
     Summary = 'Summary',

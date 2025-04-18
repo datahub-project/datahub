@@ -1,29 +1,27 @@
 /* eslint jsx-a11y/anchor-is-valid: 0 */
-import { Switch } from 'antd';
-import React, { useEffect, useState } from 'react';
 
-import { useAutomationContext } from '@app/automations/Automations/AutomationProvider';
-import { ActionsMenu } from '@app/automations/Automations/ListCard/ActionsMenu';
-import { openErrorNotification, openSuccessNotification } from '@app/automations/Automations/Notifications';
-import { UndoConfirmationModal } from '@app/automations/Automations/UndoConfirmationModal';
+import React, { useEffect, useState } from 'react';
+import { Switch } from 'antd';
+
 import {
-    ButtonsContainer,
-    Category,
-    Description,
-    ListCardHeader,
-    Name,
-    TitleColumn,
-} from '@app/automations/Automations/components';
-import { AutomationActionStatus, AutomationStatus } from '@app/automations/constants';
+    useStopActionPipelineMutation,
+    useStartActionPipelineMutation,
+    useRollbackActionPipelineMutation,
+    useGetActionPipelineStatusQuery,
+} from '@graphql/actionPipeline.generated';
+
+import { AutomationStatus, AutomationActionStatus } from '@app/automations/constants';
 import { parseJSON, truncateString } from '@app/automations/utils';
 
-import {
-    useBootstrapActionPipelineMutation,
-    useGetActionPipelineStatusQuery,
-    useRollbackActionPipelineMutation,
-    useStartActionPipelineMutation,
-    useStopActionPipelineMutation,
-} from '@graphql/actionPipeline.generated';
+import { Description, ListCardHeader, ButtonsContainer, Category, Name, TitleColumn } from '../../components';
+
+import { UndoConfirmationModal } from '../../UndoConfirmationModal';
+import { openSuccessNotification, openErrorNotification } from '../../Notifications';
+
+import { ActionsMenu } from '../ActionsMenu';
+
+import { useAutomationContext } from '../../AutomationProvider';
+import { useBootstrapActionPipelineMutation } from '../../../../../graphql/actionPipeline.generated';
 
 interface ActionCardProps {
     automation: any;

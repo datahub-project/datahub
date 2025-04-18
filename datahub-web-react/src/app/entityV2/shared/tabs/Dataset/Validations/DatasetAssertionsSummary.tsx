@@ -1,10 +1,9 @@
 import { CheckCircleFilled, CloseCircleFilled, ExclamationCircleFilled, StopOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
 import { Typography } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { ANTD_GRAY } from '../../../constants';
 
 const SummaryHeader = styled.div`
     width: 100%;

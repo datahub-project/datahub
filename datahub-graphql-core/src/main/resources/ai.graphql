@@ -1,33 +1,33 @@
 # Acryl's AI-powered features
 
 extend type Mutation {
-  """
-  Infer documentation for a given entity
-  """
-  inferDocumentation(urn: String!, saveResult: Boolean): InferredDocumentation
+    """
+    Infer documentation for a given entity
+    """
+    inferDocumentation(urn: String!, saveResult: Boolean): InferredDocumentation
 }
 
 """
 Contains inferred documentation for a given entity
 """
 type InferredDocumentation {
-  """
-  Inferred entity description
-  """
-  entityDescription: String
-  """
-  Inferred descriptions for each column on the entity
-  """
-  columnDescriptions: InferredColumnDescriptions
+    """
+    Inferred entity description
+    """
+    entityDescription: String
+    """
+    Inferred descriptions for each column on the entity
+    """
+    columnDescriptions: InferredColumnDescriptions
 }
 
 """
 Inferred descriptions for each column on the entity
 """
 type InferredColumnDescriptions {
-  """
-  A JSON blob string containing inferred descriptions for every column.
-  Structure is expected to be { [columnName:string]: string }
-  """
-  jsonBlob: String
+    """
+    A JSON blob string containing inferred descriptions for every column.
+    Structure is expected to be { [columnName:string]: string }
+    """
+    jsonBlob: String
 }

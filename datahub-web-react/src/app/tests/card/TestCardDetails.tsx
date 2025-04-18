@@ -1,18 +1,16 @@
-import { useApolloClient } from '@apollo/client';
-import { Tooltip, colors } from '@components';
-import { Modal, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-
-import analytics, { EventType } from '@app/analytics';
-import { TestBuilderModal } from '@app/tests/builder/TestBuilderModal';
-import { TestBuilderState } from '@app/tests/builder/types';
-import { removeFromListTestsCache, updateListTestsCache } from '@app/tests/cacheUtils';
-import { TestCardActions } from '@app/tests/card/TestCardActions';
-import { DEFAULT_TESTS_PAGE_SIZE } from '@app/tests/constants';
-
-import { useDeleteTestMutation, useUpdateTestMutation } from '@graphql/test.generated';
-import { Test, TestDefinitionInput } from '@types';
+import { message, Modal, Typography } from 'antd';
+import { Tooltip, colors } from '@components';
+import { useApolloClient } from '@apollo/client';
+import { TestCardActions } from './TestCardActions';
+import { Test, TestDefinitionInput } from '../../../types.generated';
+import analytics, { EventType } from '../../analytics';
+import { removeFromListTestsCache, updateListTestsCache } from '../cacheUtils';
+import { DEFAULT_TESTS_PAGE_SIZE } from '../constants';
+import { TestBuilderState } from '../builder/types';
+import { useDeleteTestMutation, useUpdateTestMutation } from '../../../graphql/test.generated';
+import { TestBuilderModal } from '../builder/TestBuilderModal';
 
 const Details = styled.div`
     height: 120px;
@@ -94,13 +92,11 @@ export const TestCardDetails = ({ test, onEdited, onDeleted, index }: Props) => 
                 setShowEditTestModal(false);
                 onEdited?.({ urn: test.urn, ...newTest });
             })
-            .catch((error) => {
+            .catch((_) => {
                 message.destroy();
-                const errorMessage =
-                    error.graphQLErrors?.[0]?.message || 'Failed to save Test! Please review your test definition.';
                 message.error({
-                    content: errorMessage,
-                    duration: 5,
+                    content: `Failed to save Test! Please review your test definition.`,
+                    duration: 3,
                 });
             });
     };
@@ -117,14 +113,11 @@ export const TestCardDetails = ({ test, onEdited, onDeleted, index }: Props) => 
                 onDeleted?.();
                 removeFromListTestsCache(client, urn, DEFAULT_TESTS_PAGE_SIZE);
             })
-            .catch((error) => {
+            .catch((e: unknown) => {
                 message.destroy();
-                const errorMessage =
-                    error.graphQLErrors?.[0]?.message || 'Failed to remove test! An unexpected error occurred.';
-                message.error({
-                    content: errorMessage,
-                    duration: 5,
-                });
+                if (e instanceof Error) {
+                    message.error({ content: `Failed to remove test! An unexpected error occurred.`, duration: 3 });
+                }
             });
     };
 

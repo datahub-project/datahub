@@ -1,6 +1,6 @@
-import { findDataJobByURN } from '@graphql-mock/fixtures/searchResult/dataJobSearchResult';
-import { updateEntityOwners, updateEntityTag } from '@graphql-mock/mutationHelper';
-import { DataJob, DataJobUpdateInput } from '@types';
+import { DataJob, DataJobUpdateInput } from '../../types.generated';
+import { findDataJobByURN } from '../fixtures/searchResult/dataJobSearchResult';
+import { updateEntityOwners, updateEntityTag } from '../mutationHelper';
 
 type UpdateDataJob = {
     data: { updateDataJob: DataJob };

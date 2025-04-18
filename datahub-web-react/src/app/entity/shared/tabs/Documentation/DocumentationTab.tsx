@@ -1,22 +1,23 @@
-import Icon, { EditOutlined, ExpandAltOutlined } from '@ant-design/icons';
-import { Button, Divider, Typography } from 'antd';
-import queryString from 'query-string';
 import React, { useEffect } from 'react';
+import queryString from 'query-string';
 import { useLocation } from 'react-router-dom';
-import styled from 'styled-components';
 
-import { useEntityData, useRefetch, useRouteToTab } from '@app/entity/shared/EntityContext';
-import { AddLinkModal } from '@app/entity/shared/components/styled/AddLinkModal';
-import { EmptyTab } from '@app/entity/shared/components/styled/EmptyTab';
-import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
-import { DescriptionEditor } from '@app/entity/shared/tabs/Documentation/components/DescriptionEditor';
-import { DescriptionPreviewModal } from '@app/entity/shared/tabs/Documentation/components/DescriptionPreviewModal';
-import { LinkList } from '@app/entity/shared/tabs/Documentation/components/LinkList';
-import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
-import { EDITED_DESCRIPTIONS_CACHE_NAME } from '@app/entity/shared/utils';
+import styled from 'styled-components';
+import { Button, Divider, Typography } from 'antd';
+import Icon, { EditOutlined, ExpandAltOutlined } from '@ant-design/icons';
 import { useShouldShowInferDocumentationButton } from '@src/app/entityV2/shared/components/inferredDocs/utils';
 
-import SparklesIcon from '@images/sparkles.svg?react';
+import TabToolbar from '../../components/styled/TabToolbar';
+import { AddLinkModal } from '../../components/styled/AddLinkModal';
+import { EmptyTab } from '../../components/styled/EmptyTab';
+import { DescriptionEditor } from './components/DescriptionEditor';
+import { LinkList } from './components/LinkList';
+
+import { useEntityData, useRefetch, useRouteToTab } from '../../EntityContext';
+import { EDITED_DESCRIPTIONS_CACHE_NAME } from '../../utils';
+import { Editor } from './components/editor/Editor';
+import { DescriptionPreviewModal } from './components/DescriptionPreviewModal';
+import SparklesIcon from '../../../../../images/sparkles.svg?react';
 
 const DocumentationContainer = styled.div`
     margin: 0 32px;

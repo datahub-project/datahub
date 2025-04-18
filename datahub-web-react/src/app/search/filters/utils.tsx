@@ -1,3 +1,7 @@
+import moment from 'moment-timezone';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import Icon from '@ant-design/icons/lib/components/Icon';
+import TableIcon from '@src/images/table-icon.svg?react';
 import {
     DatabaseOutlined,
     FileOutlined,
@@ -6,18 +10,12 @@ import {
     TagOutlined,
     UserOutlined,
 } from '@ant-design/icons';
-import Icon from '@ant-design/icons/lib/components/Icon';
+import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
+import { DATE_TYPE_URN } from '@src/app/shared/constants';
 import { BookmarkSimple, Globe } from '@phosphor-icons/react';
-import moment from 'moment-timezone';
-import React, { useLayoutEffect, useState } from 'react';
 import styled from 'styled-components';
-
-import { IconStyleType } from '@app/entity/Entity';
-import EntityRegistry from '@app/entity/EntityRegistry';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { FORM_RESPONSES_FILTER, FormResponsesFilter } from '@app/entity/shared/entityForm/EntityFormContext';
-import { FACETS_TO_ENTITY_TYPES } from '@app/search/filters/constants';
-import { FilterOptionType } from '@app/search/filters/types';
+import { STRUCTURED_PROPERTY_FILTER } from '@src/app/searchV2/filters/field/fields';
+import React, { useLayoutEffect, useState } from 'react';
 import {
     BROWSE_PATH_V2_FILTER_NAME,
     CONTAINER_FILTER_NAME,
@@ -33,18 +31,10 @@ import {
     TAGS_FILTER_NAME,
     TYPE_NAMES_FILTER_NAME,
     UNIT_SEPARATOR,
-} from '@app/search/utils/constants';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
-import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
-import { STRUCTURED_PROPERTY_FILTER } from '@src/app/searchV2/filters/field/fields';
-import { DATE_TYPE_URN } from '@src/app/shared/constants';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import TableIcon from '@src/images/table-icon.svg?react';
+} from '../utils/constants';
 
-import { GetAutoCompleteMultipleResultsQuery } from '@graphql/search.generated';
 import {
     AggregationMetadata,
-    Container,
     DataPlatform,
     DataPlatformInstance,
     Domain,
@@ -53,8 +43,17 @@ import {
     FacetFilterInput,
     FacetMetadata,
     GlossaryTerm,
+    Container,
     StructuredPropertyEntity,
-} from '@types';
+} from '../../../types.generated';
+import { IconStyleType } from '../../entity/Entity';
+import EntityRegistry from '../../entity/EntityRegistry';
+import { ANTD_GRAY } from '../../entity/shared/constants';
+import { GetAutoCompleteMultipleResultsQuery } from '../../../graphql/search.generated';
+import { FACETS_TO_ENTITY_TYPES } from './constants';
+import { FilterOptionType } from './types';
+import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
+import { FORM_RESPONSES_FILTER, FormResponsesFilter } from '../../entity/shared/entityForm/EntityFormContext';
 
 // either adds or removes selectedFilterValues to/from activeFilters for a given filterField
 export function getNewFilters(filterField: string, activeFilters: FacetFilterInput[], selectedFilterValues: string[]) {

@@ -1,6 +1,5 @@
 import React from 'react';
-
-import { TestResultsSummary } from '@app/tests/TestResultsSummary';
+import { TestResultsSummary } from '../TestResultsSummary';
 
 type Props = {
     urn: string;

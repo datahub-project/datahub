@@ -1,6 +1,6 @@
-import { getDefaultTermEntities, mergeObjects } from '@app/entity/shared/entityForm/prompts/GlossaryTermsPrompt/utils';
 import { glossaryTerm1, glossaryTerm3 } from '@src/Mocks';
 import { EntityType, GlossaryTerm, PromptCardinality } from '@src/types.generated';
+import { getDefaultTermEntities, mergeObjects } from '../utils';
 
 const glossaryTerm2 = {
     urn: 'urn:li:glossaryTerm:2',

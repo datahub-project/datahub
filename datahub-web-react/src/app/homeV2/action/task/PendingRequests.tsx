@@ -1,11 +1,10 @@
 import React from 'react';
-import { useHistory } from 'react-router';
 import styled from 'styled-components';
-
-import analytics, { EventType } from '@app/analytics';
-import { TaskSummaryCard } from '@app/homeV2/action/task/TaskSummaryCard';
-import { formatNumber } from '@app/shared/formatNumber';
-import { PageRoutes } from '@conf/Global';
+import { useHistory } from 'react-router';
+import { TaskSummaryCard } from './TaskSummaryCard';
+import { PageRoutes } from '../../../../conf/Global';
+import { formatNumber } from '../../../shared/formatNumber';
+import analytics, { EventType } from '../../../analytics';
 
 const Content = styled.span`
     text-wrap: wrap;

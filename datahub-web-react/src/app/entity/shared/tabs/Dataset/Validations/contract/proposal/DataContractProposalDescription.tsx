@@ -1,9 +1,7 @@
-import { Typography } from 'antd';
 import React from 'react';
-
-import { DBT_URN } from '@app/ingest/source/builder/constants';
-
-import { DataContractProposalParams } from '@types';
+import { Typography } from 'antd';
+import { DataContractProposalParams } from '../../../../../../../../types.generated';
+import { DBT_URN } from '../../../../../../../ingest/source/builder/constants';
 
 /**
  * Returns true if the contract is implemented externally,

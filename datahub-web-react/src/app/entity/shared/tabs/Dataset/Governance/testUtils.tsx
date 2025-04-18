@@ -1,7 +1,6 @@
-import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import React from 'react';
-
-import { TestResultType } from '@types';
+import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import { TestResultType } from '../../../../../../types.generated';
 
 /**
  * Returns the display text assoociated with an Test Result Type

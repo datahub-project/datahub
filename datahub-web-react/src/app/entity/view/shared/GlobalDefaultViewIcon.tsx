@@ -1,7 +1,6 @@
 import React from 'react';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { DefaultViewIcon } from '@app/entity/view/shared/DefaultViewIcon';
+import { ANTD_GRAY } from '../../shared/constants';
+import { DefaultViewIcon } from './DefaultViewIcon';
 
 type Props = {
     title?: React.ReactNode;

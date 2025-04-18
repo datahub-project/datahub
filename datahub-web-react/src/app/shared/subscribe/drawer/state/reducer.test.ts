@@ -1,7 +1,6 @@
-import { createInitialState, reducer } from '@app/shared/subscribe/drawer/state/reducer';
-import { ActionTypes, ChannelSelections } from '@app/shared/subscribe/drawer/state/types';
-
-import { DataHubSubscription, EntityType, NotificationSinkType } from '@types';
+import { DataHubSubscription, EntityType, NotificationSinkType } from '../../../../../types.generated';
+import { createInitialState, reducer } from './reducer';
+import { ActionTypes, ChannelSelections } from './types';
 
 const entityType = EntityType.Dataset;
 const slackSubscription: Partial<DataHubSubscription> = {

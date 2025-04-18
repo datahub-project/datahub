@@ -1,4 +1,4 @@
-import { pluralize } from '@app/shared/textUtil';
+import { pluralize } from '../textUtil';
 
 describe('pluralize text based on the count', () => {
     it('pluralize regular word with count greater than 1', () => {

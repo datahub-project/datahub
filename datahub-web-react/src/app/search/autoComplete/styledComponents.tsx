@@ -1,6 +1,5 @@
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { ANTD_GRAY } from '../../entity/shared/constants';
 
 export const SuggestionText = styled.div`
     margin-left: 12px;

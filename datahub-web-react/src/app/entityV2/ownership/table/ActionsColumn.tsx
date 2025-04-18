@@ -1,10 +1,9 @@
-import { CopyOutlined, DeleteOutlined, EditOutlined, MoreOutlined } from '@ant-design/icons';
-import { Dropdown, MenuProps, Popconfirm, Typography, message, notification } from 'antd';
 import React from 'react';
+import { Dropdown, MenuProps, Popconfirm, Typography, message, notification } from 'antd';
+import { CopyOutlined, DeleteOutlined, EditOutlined, MoreOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
-
-import { useDeleteOwnershipTypeMutation } from '@graphql/ownership.generated';
-import { OwnershipTypeEntity } from '@types';
+import { OwnershipTypeEntity } from '../../../../types.generated';
+import { useDeleteOwnershipTypeMutation } from '../../../../graphql/ownership.generated';
 
 const DROPDOWN_TEST_ID = 'ownership-table-dropdown';
 const EDIT_OWNERSHIP_TYPE_TEST_ID = 'edit-ownership-type';

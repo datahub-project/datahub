@@ -1,15 +1,14 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-
-import analytics, { DocRequestCTASource, EventType } from '@app/analytics';
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import EntityFormModal from '../../../../entityForm/EntityFormModal';
+import FormInfo from './FormInfo';
+import analytics, { DocRequestCTASource, EventType } from '../../../../../../analytics';
+import { useEntityData } from '../../../../../../entity/shared/EntityContext';
 import {
     filterFormAssociationsForUser,
     getFormAssociations,
-} from '@app/entity/shared/containers/profile/sidebar/FormInfo/utils';
-import FormSelectionModal from '@app/entity/shared/entityForm/FormSelectionModal/FormSelectionModal';
-import FormInfo from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/FormInfo';
-import EntityFormModal from '@app/entityV2/shared/entityForm/EntityFormModal';
+} from '../../../../../../entity/shared/containers/profile/sidebar/FormInfo/utils';
+import FormSelectionModal from '../../../../../../entity/shared/entityForm/FormSelectionModal/FormSelectionModal';
 
 const FormInfoWrapper = styled.div`
     padding: 12px 0px;

@@ -1,13 +1,12 @@
+import { EntityType } from '../../../types.generated';
+import { glossaryNode1, glossaryNode3, glossaryTerm1 } from '../../../Mocks';
 import {
+    getParentNodeToUpdate,
+    getGlossaryRootToUpdate,
     ROOT_NODES,
     ROOT_TERMS,
-    getGlossaryRootToUpdate,
-    getParentNodeToUpdate,
     updateGlossarySidebar,
-} from '@app/glossaryV2/utils';
-import { glossaryNode1, glossaryNode3, glossaryTerm1 } from '@src/Mocks';
-
-import { EntityType } from '@types';
+} from '../utils';
 
 const glossaryTermWithParent = {
     ...glossaryTerm1,

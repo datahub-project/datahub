@@ -1,5 +1,8 @@
 import React from 'react';
+import { Avatar } from '@src/alchemy-components';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useHistory } from 'react-router';
+import { EntityType } from '@src/types.generated';
 
 import {
     ResolverDetails,
@@ -8,11 +11,8 @@ import {
     ResolverSubTitle,
     ResolverSubTitleContainer,
     ResolverTitleContainer,
-} from '@app/entityV2/shared/tabs/Incident/styledComponents';
-import { getFormattedDateForResolver } from '@app/entityV2/shared/tabs/Incident/utils';
-import { Avatar } from '@src/alchemy-components';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { EntityType } from '@src/types.generated';
+} from './styledComponents';
+import { getFormattedDateForResolver } from './utils';
 
 type ResolvedSectionProps = {
     resolverUrn: string;

@@ -1,21 +1,17 @@
 import { Drawer, SelectOption } from '@components';
+import { OperationType } from '@src/types.generated';
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
-
-import ChangeHistoryTimeline from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/components/ChangeHistoryTimeline';
-import DateSwitcher from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/components/DateSwitcher';
-import UsersSelect from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/components/UsersSelect';
-import useDebounceFalse from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/useDebounceFalse';
-import useGetOperations from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/useGetOperations';
-import useGetUsers from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/useGetUsers';
-import useUsersSelectOptions from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/useUsersSelectOptions';
-import { getUniqueActorsFromOperations } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/utils';
-import TypesSelect from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/TypesSelect';
-import {
-    AnyOperationType,
-    OperationsData,
-} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/types';
-import { OperationType } from '@src/types.generated';
+import { AnyOperationType, OperationsData } from '../../types';
+import TypesSelect from '../TypesSelect';
+import ChangeHistoryTimeline from './components/ChangeHistoryTimeline';
+import DateSwitcher from './components/DateSwitcher';
+import UsersSelect from './components/UsersSelect';
+import useDebounceFalse from './useDebounceFalse';
+import useGetOperations from './useGetOperations';
+import useGetUsers from './useGetUsers';
+import useUsersSelectOptions from './useUsersSelectOptions';
+import { getUniqueActorsFromOperations } from './utils';
 
 const FlexRow = styled.div`
     display: flex;

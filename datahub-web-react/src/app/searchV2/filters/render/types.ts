@@ -1,4 +1,4 @@
-import { AppConfig, FacetFilter, FacetFilterInput, FacetMetadata } from '@types';
+import { AppConfig, FacetFilter, FacetFilterInput, FacetMetadata } from '../../../../types.generated';
 
 /**
  * The scenario in which filter rendering is required.

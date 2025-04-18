@@ -1,9 +1,8 @@
+import styled from 'styled-components';
+import { Row } from 'antd';
 import DraftsOutlinedIcon from '@mui/icons-material/DraftsOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { Row } from 'antd';
-import styled from 'styled-components';
-
-import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from './constants';
 
 /**
  * Styled Components- Users and Groups Side bar component

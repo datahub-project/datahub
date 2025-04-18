@@ -1,4 +1,4 @@
-import { identifyAndAddParentRows } from '@app/entity/shared/tabs/Properties/useStructuredProperties';
+import { identifyAndAddParentRows } from '../useStructuredProperties';
 
 describe('identifyAndAddParentRows', () => {
     it('should not return parent rows when there are none', () => {

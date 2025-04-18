@@ -2,17 +2,15 @@ import { Tag } from 'antd';
 import { isEqual } from 'lodash';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import SelectedEntity from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/UrnInput/SelectedEntity';
-import usePrevious from '@app/shared/usePrevious';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
 import {
     useGetAutoCompleteMultipleResultsLazyQuery,
     useGetSearchResultsForMultipleQuery,
-} from '@graphql/search.generated';
-import { Entity, EntityType } from '@types';
+} from '../../../../../../../graphql/search.generated';
+import { Entity, EntityType } from '../../../../../../../types.generated';
+import usePrevious from '../../../../../../shared/usePrevious';
+import { useEntityRegistry } from '../../../../../../useEntityRegistry';
+import { useEntityData } from '../../../../EntityContext';
+import SelectedEntity from './SelectedEntity';
 
 const StyleTag = styled(Tag)`
     margin: 2px;

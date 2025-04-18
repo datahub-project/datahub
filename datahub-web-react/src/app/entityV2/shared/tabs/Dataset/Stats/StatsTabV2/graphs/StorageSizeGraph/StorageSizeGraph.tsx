@@ -1,25 +1,19 @@
 import { GraphCard, LineChart } from '@components';
-import dayjs from 'dayjs';
-import React, { useEffect, useState } from 'react';
-
-import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
-import NoPermission from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/NoPermission';
-import useStorageSizeData, {
-    StorageSizeData,
-} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/StorageSizeGraph/useStorageSizeData';
-import GraphPopover from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/GraphPopover';
-import MonthOverMonthPill from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/MonthOverMonthPill';
-import MoreInfoModalContent from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/MoreInfoModalContent';
-import TimeRangeSelect from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/TimeRangeSelect';
-import {
-    GRAPH_LOOKBACK_WINDOWS,
-    GRAPH_LOOKBACK_WINDOWS_OPTIONS,
-} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/constants';
-import useGetTimeRangeOptionsByLookbackWindow from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/hooks/useGetTimeRangeOptionsByLookbackWindow';
-import { SectionKeys } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
-import { LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
 import { formatBytes, formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
 import { TimeRange } from '@src/types.generated';
+import dayjs from 'dayjs';
+import React, { useEffect, useState } from 'react';
+import { LookbackWindow } from '../../../lookbackWindows';
+import { useStatsSectionsContext } from '../../StatsSectionsContext';
+import GraphPopover from '../components/GraphPopover';
+import MonthOverMonthPill from '../components/MonthOverMonthPill';
+import MoreInfoModalContent from '../components/MoreInfoModalContent';
+import TimeRangeSelect from '../components/TimeRangeSelect';
+import { GRAPH_LOOKBACK_WINDOWS, GRAPH_LOOKBACK_WINDOWS_OPTIONS } from '../constants';
+import useGetTimeRangeOptionsByLookbackWindow from '../hooks/useGetTimeRangeOptionsByLookbackWindow';
+import NoPermission from '../NoPermission';
+import useStorageSizeData, { StorageSizeData } from './useStorageSizeData';
+import { SectionKeys } from '../../utils';
 
 export default function StorageSizeGraph() {
     const {

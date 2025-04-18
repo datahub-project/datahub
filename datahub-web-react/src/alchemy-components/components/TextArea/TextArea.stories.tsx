@@ -1,10 +1,12 @@
-import { BADGE } from '@geometricpanda/storybook-addon-badges';
-import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 
+import type { Meta, StoryObj } from '@storybook/react';
+import { BADGE } from '@geometricpanda/storybook-addon-badges';
+
 import { GridList } from '@components/.docs/mdx-components';
-import { AVAILABLE_ICONS } from '@components/components/Icon';
-import { TextArea, textAreaDefaults } from '@components/components/TextArea/TextArea';
+
+import { TextArea, textAreaDefaults } from './TextArea';
+import { AVAILABLE_ICONS } from '../Icon';
 
 // Auto Docs
 const meta = {

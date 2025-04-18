@@ -1,7 +1,5 @@
 extend type Query {
-  listRemoteExecutorPools(
-    input: ListRemoteExecutorPoolsInput!
-  ): ListRemoteExecutorPoolsResult!
+  listRemoteExecutorPools(input: ListRemoteExecutorPoolsInput!): ListRemoteExecutorPoolsResult!
   defaultRemoteExecutorPool: DefaultRemoteExecutorPoolResult!
   getRemoteExecutor(urn: String!): RemoteExecutor
   getRemoteExecutorPool(urn: String!): RemoteExecutorPool
@@ -41,6 +39,7 @@ input CreateRemoteExecutorPoolInput {
   isDefault: Boolean!
 }
 
+
 input UpdateRemoteExecutorPoolInput {
   """
   The unique identifier of the pool to be updated
@@ -60,9 +59,9 @@ input UpdateRemoteExecutorPoolInput {
 }
 
 input ListRemoteExecutorPoolsInput {
-  start: Int!
-  count: Int!
-  query: String
+    start: Int!
+    count: Int!
+    query: String
 }
 
 type DefaultRemoteExecutorPoolResult {
@@ -71,10 +70,10 @@ type DefaultRemoteExecutorPoolResult {
 }
 
 type ListRemoteExecutorPoolsResult {
-  remoteExecutorPools: [RemoteExecutorPool!]
-  start: Int!
-  count: Int!
-  total: Int!
+    remoteExecutorPools: [RemoteExecutorPool!]
+    start: Int!
+    count: Int!
+    total: Int!
 }
 
 type RemoteExecutorPool implements Entity {
@@ -96,7 +95,7 @@ type RemoteExecutorPool implements Entity {
   """
   The unique identifier of the pool, derived from the urn
   """
-  executorPoolId: String!
+  executorPoolId:  String!
 
   """
   A human-readable description of the pool
@@ -131,28 +130,26 @@ type RemoteExecutorPool implements Entity {
   """
   The ingestion sources that are associated with this pool
   """
-  ingestionSources(
-    input: RemoteExecutorPoolIngestionSourcesInput!
-  ): ListIngestionSourcesResult
+  ingestionSources(input: RemoteExecutorPoolIngestionSourcesInput!): ListIngestionSourcesResult
 }
 
 enum RemoteExecutorPoolStatus {
   """
   The pool is pending provisioning. Default state on creation.
   """
-  PROVISIONING_PENDING
+  PROVISIONING_PENDING,
   """
   The pool has been picked up by DataHub and is in the process of being provisioned.
   """
-  PROVISIONING_IN_PROGRESS
+  PROVISIONING_IN_PROGRESS,
   """
   The pool has failed to be provisioned.
   """
-  PROVISIONING_FAILED
+  PROVISIONING_FAILED,
   """
   The pool has been successfully provisioned and is ready to accept tasks.
   """
-  READY
+  READY,
 }
 
 type RemoteExecutorPoolState {
@@ -168,16 +165,17 @@ type RemoteExecutorPoolState {
 }
 
 input RemoteExecutorPoolIngestionSourcesInput {
-  start: Int!
-  count: Int!
-  hideSystemSources: Boolean!
+    start: Int!
+    count: Int!
+    hideSystemSources: Boolean!
 }
 
+
 type ListRemoteExecutorsResult {
-  remoteExecutors: [RemoteExecutor!]
-  start: Int!
-  count: Int!
-  total: Int!
+    remoteExecutors: [RemoteExecutor!]
+    start: Int!
+    count: Int!
+    total: Int!
 }
 
 type RemoteExecutor implements Entity {
@@ -199,7 +197,7 @@ type RemoteExecutor implements Entity {
   """
   The unique identifier of the Remote Executor's pool
   """
-  executorPoolId: String!
+  executorPoolId:  String!
 
   """
   Release Version (Tag) embedded into remote executor image

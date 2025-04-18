@@ -1,36 +1,41 @@
-import { LoadingOutlined } from '@ant-design/icons';
-import { Tag as CustomTag, Empty, Form, Select, Typography, message } from 'antd';
 import React, { useRef, useState } from 'react';
+import { message, Select, Typography, Tag as CustomTag, Form, Empty } from 'antd';
+import { LoadingOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-
-import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { FORBIDDEN_URN_CHARS_REGEX, handleBatchError } from '@app/entity/shared/utils';
-import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
-import ParentEntities from '@app/search/filters/ParentEntities';
-import { getParentEntities } from '@app/search/filters/utils';
-import ClickOutside from '@app/shared/ClickOutside';
-import { ENTER_KEY_CODE } from '@app/shared/constants';
-import { useGetRecommendations } from '@app/shared/recommendation';
-import CreateTagModal from '@app/shared/tags/CreateTagModal';
-import { TagTermLabel } from '@app/shared/tags/TagTermLabel';
-import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import ProposalDescriptionModal from '@src/app/entityV2/shared/containers/profile/sidebar/ProposalDescriptionModal';
 import { Modal } from '@src/alchemy-components';
 import { ModalButton } from '@src/alchemy-components/components/Modal/Modal';
-import ProposalDescriptionModal from '@src/app/entityV2/shared/containers/profile/sidebar/ProposalDescriptionModal';
 import { useAppConfig } from '@src/app/useAppConfig';
-import { getModalDomContainer } from '@utils/focus';
-
+import { useGetAutoCompleteResultsLazyQuery } from '../../../graphql/search.generated';
+import {
+    EntityType,
+    Tag,
+    Entity,
+    ResourceRefInput,
+    SubResourceType,
+    ActionRequestType,
+} from '../../../types.generated';
+import CreateTagModal from './CreateTagModal';
 import {
     useBatchAddTagsMutation,
     useBatchAddTermsMutation,
     useBatchRemoveTagsMutation,
     useBatchRemoveTermsMutation,
-} from '@graphql/mutations.generated';
-import { useProposeTagsMutation, useProposeTermsMutation } from '@graphql/proposals.generated';
-import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
-import { ActionRequestType, Entity, EntityType, ResourceRefInput, SubResourceType, Tag } from '@types';
+} from '../../../graphql/mutations.generated';
+import { useEnterKeyListener } from '../useEnterKeyListener';
+import GlossaryBrowser from '../../glossary/GlossaryBrowser/GlossaryBrowser';
+import ClickOutside from '../ClickOutside';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { useGetRecommendations } from '../recommendation';
+import { useProposeTagsMutation, useProposeTermsMutation } from '../../../graphql/proposals.generated';
+import { FORBIDDEN_URN_CHARS_REGEX, handleBatchError } from '../../entity/shared/utils';
+import { TagTermLabel } from './TagTermLabel';
+import { ENTER_KEY_CODE } from '../constants';
+import { getModalDomContainer } from '../../../utils/focus';
+import ParentEntities from '../../search/filters/ParentEntities';
+import { getParentEntities } from '../../search/filters/utils';
+import analytics, { EntityActionType, EventType } from '../../analytics';
+import { ANTD_GRAY } from '../../entity/shared/constants';
 
 export enum OperationType {
     ADD,
@@ -69,10 +74,7 @@ export const BrowserWrapper = styled.div<{
 }>`
     background-color: white;
     border-radius: 5px;
-    box-shadow:
-        0 3px 6px -4px rgb(0 0 0 / 12%),
-        0 6px 16px 0 rgb(0 0 0 / 8%),
-        0 9px 28px 8px rgb(0 0 0 / 5%);
+    box-shadow: 0 3px 6px -4px rgb(0 0 0 / 12%), 0 6px 16px 0 rgb(0 0 0 / 8%), 0 9px 28px 8px rgb(0 0 0 / 5%);
     max-height: ${(props) => (props.maxHeight ? props.maxHeight : '380')}px;
     overflow: auto;
     position: absolute;

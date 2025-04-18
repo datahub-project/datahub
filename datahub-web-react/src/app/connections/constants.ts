@@ -1,4 +1,4 @@
-import { FieldType, RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
+import { RecipeField, FieldType } from '@app/ingest/source/builder/RecipeForm/common';
 
 const CONNECTION_NAME: RecipeField = {
     name: 'name',

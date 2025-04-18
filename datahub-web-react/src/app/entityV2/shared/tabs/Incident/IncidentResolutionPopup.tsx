@@ -1,21 +1,21 @@
 import { useApolloClient } from '@apollo/client';
-import { Form, Input, Modal, message } from 'antd';
-import React from 'react';
-
 import { useUserContext } from '@app/context/useUserContext';
-import { IncidentSelectField } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentSelectedField';
 import { getCacheIncident } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/hooks/useIncidentHandler';
-import { INCIDENT_OPTION_LABEL_MAPPING, INCIDENT_RESOLUTION_STAGES } from '@app/entityV2/shared/tabs/Incident/constant';
 import { PAGE_SIZE, updateActiveIncidentInCache } from '@app/entityV2/shared/tabs/Incident/incidentUtils';
-import { FormItem, ModalHeading, ModalTitleContainer } from '@app/entityV2/shared/tabs/Incident/styledComponents';
-import { IncidentTableRow } from '@app/entityV2/shared/tabs/Incident/types';
+import React from 'react';
+import { Modal, Form, Input, message } from 'antd';
+import { IncidentStage, IncidentState } from '@src/types.generated';
 import { Button, colors } from '@src/alchemy-components';
+import { useUpdateIncidentStatusMutation } from '@src/graphql/mutations.generated';
+
+import handleGraphQLError from '@src/app/shared/handleGraphQLError';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
-import handleGraphQLError from '@src/app/shared/handleGraphQLError';
-import { useUpdateIncidentStatusMutation } from '@src/graphql/mutations.generated';
-import { IncidentStage, IncidentState } from '@src/types.generated';
+import { IncidentTableRow } from './types';
+import { IncidentSelectField } from './AcrylComponents/IncidentSelectedField';
+import { INCIDENT_OPTION_LABEL_MAPPING, INCIDENT_RESOLUTION_STAGES } from './constant';
+import { FormItem, ModalHeading, ModalTitleContainer } from './styledComponents';
 
 type IncidentResolutionPopupProps = {
     incident: IncidentTableRow;

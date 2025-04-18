@@ -1,4 +1,4 @@
-import { useAppConfig } from '@app/useAppConfig';
+import { useAppConfig } from '../useAppConfig';
 
 const useSearchAndBrowseVersion = () => {
     const appConfig = useAppConfig();

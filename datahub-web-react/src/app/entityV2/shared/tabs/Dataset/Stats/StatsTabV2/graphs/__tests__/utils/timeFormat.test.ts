@@ -1,11 +1,11 @@
 import {
-    MAX_VALUE_AGGREGATION,
-    SUM_VALUES_AGGREGATION,
-    TimeInterval,
     getPopoverTimeFormat,
     getXAxisTickFormat,
     groupTimeData,
-} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/utils';
+    MAX_VALUE_AGGREGATION,
+    SUM_VALUES_AGGREGATION,
+    TimeInterval,
+} from '../../utils';
 
 const barChartData = [
     {

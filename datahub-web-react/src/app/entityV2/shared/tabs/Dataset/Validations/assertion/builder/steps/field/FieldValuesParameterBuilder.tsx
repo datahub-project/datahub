@@ -1,17 +1,12 @@
-import { Form, Select, Typography } from 'antd';
 import React, { useEffect } from 'react';
+import { Form, Select, Typography } from 'antd';
 import styled from 'styled-components';
-
-import { RangeInput } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/inputs/RangeInput';
-import { SetInput } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/inputs/SetInput';
-import { ValueInput } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/inputs/ValueInput';
-import {
-    getFieldValuesOperatorOptions,
-    getSelectedFieldValuesOperatorOption,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/utils';
-import { AssertionMonitorBuilderState } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
-
-import { AssertionStdOperator } from '@types';
+import { AssertionMonitorBuilderState } from '../../types';
+import { getFieldValuesOperatorOptions, getSelectedFieldValuesOperatorOption } from './utils';
+import { AssertionStdOperator } from '../../../../../../../../../../types.generated';
+import { RangeInput } from './inputs/RangeInput';
+import { ValueInput } from './inputs/ValueInput';
+import { SetInput } from './inputs/SetInput';
 
 const Section = styled.div`
     margin: 16px 0;

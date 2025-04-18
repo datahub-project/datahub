@@ -1,11 +1,3 @@
-import { downgradeV2FieldPath } from '@app/entity/dataset/profile/schema/utils/utils';
-import { HIGH_WATERMARK_FIELD_TYPES } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/constants';
-import { AssertionMonitorBuilderState } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/types';
-import {
-    isEntityEligibleForAssertionMonitoring,
-    isStructField,
-} from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/utils';
-
 import {
     Assertion,
     AssertionEvaluationParametersType,
@@ -13,18 +5,22 @@ import {
     AssertionStdParameterType,
     AssertionType,
     DatasetFieldAssertionSourceType,
-    DatasetSchemaSourceType,
     FieldAssertionType,
     FieldMetricType,
     FieldTransformType,
     FieldValuesFailThresholdType,
     FreshnessFieldKind,
     Monitor,
-    SchemaAssertionCompatibility,
     SchemaField,
     SchemaFieldDataType,
+    SchemaAssertionCompatibility,
     SchemaMetadata,
-} from '@types';
+    DatasetSchemaSourceType,
+} from '../../../../../../../../../../types.generated';
+import { downgradeV2FieldPath } from '../../../../../../../../dataset/profile/schema/utils/utils';
+import { HIGH_WATERMARK_FIELD_TYPES } from '../../constants';
+import { AssertionMonitorBuilderState } from '../../types';
+import { isEntityEligibleForAssertionMonitoring, isStructField } from '../../utils';
 
 export const getFieldAssertionTypeKey = (fieldAssertionType?: FieldAssertionType | null) => {
     switch (fieldAssertionType) {

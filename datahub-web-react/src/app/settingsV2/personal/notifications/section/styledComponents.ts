@@ -1,6 +1,6 @@
-import { Button, colors } from '@components';
-import { Form, Input, Typography } from 'antd';
 import styled from 'styled-components/macro';
+import { Button, colors } from '@components';
+import { Typography, Input, Form } from 'antd';
 
 export const SinkConfigurationContainer = styled.div`
     display: flex;

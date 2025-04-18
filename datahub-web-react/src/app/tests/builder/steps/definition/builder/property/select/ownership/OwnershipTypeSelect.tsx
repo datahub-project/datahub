@@ -1,11 +1,9 @@
-import { Select } from 'antd';
 import React, { useEffect } from 'react';
-
-import { OwnershipTypeSelectResult } from '@app/tests/builder/steps/definition/builder/property/select/ownership/OwnershipTypeSelectResult';
-import { createOwnershipTypeUrnMap } from '@app/tests/builder/steps/definition/builder/property/select/ownership/utils';
-
-import { useSearchOwnershipTypesLazyQuery } from '@graphql/ownershipTypes.generated';
-import { OwnershipTypeEntity } from '@types';
+import { Select } from 'antd';
+import { OwnershipTypeEntity } from '../../../../../../../../../types.generated';
+import { OwnershipTypeSelectResult } from './OwnershipTypeSelectResult';
+import { createOwnershipTypeUrnMap } from './utils';
+import { useSearchOwnershipTypesLazyQuery } from '../../../../../../../../../graphql/ownershipTypes.generated';
 
 type Types = {
     selectedOwnershipType?: OwnershipTypeEntity; // The selected ownership type

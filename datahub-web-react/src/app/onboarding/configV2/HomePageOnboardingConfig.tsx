@@ -1,10 +1,8 @@
-import { Image, Typography } from 'antd';
 import React from 'react';
-
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import { OnboardingStep } from '@app/onboarding/OnboardingStep';
-
-import acrylMainDiagram from '@images/datahub-flow-diagram-light.png';
+import { Image, Typography } from 'antd';
+import { OnboardingStep } from '../OnboardingStep';
+import acrylMainDiagram from '../../../images/datahub-flow-diagram-light.png';
+import { ANTD_GRAY } from '../../entityV2/shared/constants';
 
 export const V2_SEARCH_BAR_ID = 'v2-search-bar';
 export const V2_HOME_PAGE_MOST_POPULAR_ID = 'v2-home-page-most-popular';

@@ -1,8 +1,7 @@
 import React from 'react';
-
-import HistoricalSectionHeader from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/historical/HistoricalSectionHeader';
-import { useGetStatsSections } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/useGetStatsSections';
-import { SectionKeys } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
+import { useGetStatsSections } from './useGetStatsSections';
+import { SectionKeys } from './utils';
+import HistoricalSectionHeader from './historical/HistoricalSectionHeader';
 
 const StatsSections = () => {
     const { sectionsList, orderedSections } = useGetStatsSections();

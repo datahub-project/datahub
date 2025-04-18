@@ -1,12 +1,10 @@
 import { MockedProvider } from '@apollo/client/testing';
 import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
-
-import { FetchStatus, LineageNodesContext } from '@app/lineageV2/common';
-import ManageLineageModal from '@app/lineageV2/manualLineage/ManageLineageModal';
-import TestPageContainer from '@utils/test-utils/TestPageContainer';
-
-import { EntityType, LineageDirection } from '@types';
+import { EntityType, LineageDirection } from '../../../../types.generated';
+import TestPageContainer from '../../../../utils/test-utils/TestPageContainer';
+import { FetchStatus, LineageNodesContext } from '../../common';
+import ManageLineageModal from '../ManageLineageModal';
 
 // Mock the SearchSelect component to avoid rendering it
 vi.mock('../../../entityV2/shared/components/styled/search/SearchSelect', () => ({

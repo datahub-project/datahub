@@ -1,14 +1,13 @@
 import styled from 'styled-components';
 
-import { Icon, IconNames } from '@components/components/Icon';
-import { TextAreaProps } from '@components/components/TextArea/types';
-import {
-    formLabelTextStyles,
-    inputPlaceholderTextStyles,
-    inputValueTextStyles,
-} from '@components/components/commonStyles';
-import theme, { borders, colors, radius, sizes, spacing, typography } from '@components/theme';
+import theme, { colors, radius, borders, spacing, typography, sizes } from '@components/theme';
 import { getStatusColors } from '@components/theme/utils';
+
+import { Icon, IconNames } from '../Icon';
+
+import { formLabelTextStyles, inputValueTextStyles, inputPlaceholderTextStyles } from '../commonStyles';
+
+import { TextAreaProps } from './types';
 
 const minHeight = '100px';
 

@@ -1,17 +1,15 @@
+import StructuredPropertyValue from '@src/app/entityV2/shared/tabs/Properties/StructuredPropertyValue';
+import { mapStructuredPropertyValues } from '@src/app/entityV2/shared/tabs/Properties/useStructuredProperties';
 import { Popover, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import AiActorLabel from '@app/actionrequest/item/AiActorLabel';
-import CreatedByView from '@app/actionrequest/item/CreatedByView';
-import MetadataAssociationRequestItem from '@app/actionrequest/item/MetadataAssociationRequestItem';
-import RequestTargetEntityView from '@app/actionrequest/item/RequestTargetEntityView';
-import { useEntityRegistry } from '@app/useEntityRegistry';
 import { colors } from '@src/alchemy-components';
-import StructuredPropertyValue from '@src/app/entityV2/shared/tabs/Properties/StructuredPropertyValue';
-import { mapStructuredPropertyValues } from '@src/app/entityV2/shared/tabs/Properties/useStructuredProperties';
-
-import { ActionRequest, ActionRequestOrigin, EntityType } from '@types';
+import { ActionRequest, ActionRequestOrigin, EntityType } from '../../../types.generated';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import AiActorLabel from './AiActorLabel';
+import CreatedByView from './CreatedByView';
+import MetadataAssociationRequestItem from './MetadataAssociationRequestItem';
+import RequestTargetEntityView from './RequestTargetEntityView';
 
 const ContentWrapper = styled.span`
     font-size: 14px;

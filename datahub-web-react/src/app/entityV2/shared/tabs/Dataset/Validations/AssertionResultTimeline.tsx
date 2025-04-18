@@ -1,15 +1,13 @@
-import { Popover } from '@components';
-import { AxisBottom } from '@visx/axis';
-import { Group } from '@visx/group';
-import { scaleUtc } from '@visx/scale';
-import { Bar } from '@visx/shape';
-import { Maybe } from 'graphql/jsutils/Maybe';
 import React, { useMemo } from 'react';
-
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import { LinkWrapper } from '@app/shared/LinkWrapper';
-
-import { AssertionResultType } from '@types';
+import { Popover } from '@components';
+import { Bar } from '@visx/shape';
+import { Group } from '@visx/group';
+import { AxisBottom } from '@visx/axis';
+import { scaleUtc } from '@visx/scale';
+import { Maybe } from 'graphql/jsutils/Maybe';
+import { ANTD_GRAY } from '../../../constants';
+import { LinkWrapper } from '../../../../../shared/LinkWrapper';
+import { AssertionResultType } from '../../../../../../types.generated';
 
 export type AssertionResult = {
     type: AssertionResultType;

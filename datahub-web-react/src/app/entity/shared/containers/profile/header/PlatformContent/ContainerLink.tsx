@@ -1,14 +1,12 @@
-import { FolderOpenOutlined } from '@ant-design/icons';
-import { Typography } from 'antd';
-import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
-import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { Container, EntityType } from '@types';
+import { Link } from 'react-router-dom';
+import { Typography } from 'antd';
+import { FolderOpenOutlined } from '@ant-design/icons';
+import { Maybe } from 'graphql/jsutils/Maybe';
+import { Container, EntityType } from '../../../../../../../types.generated';
+import { ANTD_GRAY } from '../../../../constants';
+import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 
 const ContainerText = styled(Typography.Text)`
     font-size: 12px;

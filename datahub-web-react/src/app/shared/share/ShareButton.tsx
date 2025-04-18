@@ -1,11 +1,9 @@
-import { ShareAltOutlined } from '@ant-design/icons';
-import { Button, Dropdown } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import useShareButtonMenu from '@app/shared/share/useShareButtonMenu';
-
-import { EntityType } from '@types';
+import { Button, Dropdown } from 'antd';
+import { ShareAltOutlined } from '@ant-design/icons';
+import { EntityType } from '../../../types.generated';
+import useShareButtonMenu from './useShareButtonMenu';
 
 interface ShareButtonProps {
     urn: string;

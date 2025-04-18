@@ -1,17 +1,11 @@
 import React from 'react';
 
-import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
-import {
-    ArrowLeft,
-    ArrowRight,
-    BulkNavigationWrapper,
-    NavigationWrapper,
-} from '@app/entity/shared/entityForm/FormHeader/components';
-import { MAX_ENTITY_URN_COUNT } from '@app/entity/shared/entityForm/entityFormDataFactory';
-import analytics, { EventType } from '@src/app/analytics';
 import { pluralize } from '@src/app/shared/textUtil';
-
-import { Entity } from '@types';
+import analytics, { EventType } from '@src/app/analytics';
+import { useEntityFormContext } from '../EntityFormContext';
+import { Entity } from '../../../../../types.generated';
+import { ArrowLeft, ArrowRight, BulkNavigationWrapper, NavigationWrapper } from './components';
+import { MAX_ENTITY_URN_COUNT } from '../entityFormDataFactory';
 
 export default function EntityNavigation() {
     const {

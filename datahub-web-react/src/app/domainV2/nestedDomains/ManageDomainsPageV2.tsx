@@ -1,16 +1,15 @@
-import { useApolloClient } from '@apollo/client';
 import React, { useEffect, useState } from 'react';
-import styled from 'styled-components/macro';
-
-import CreateDomainModal from '@app/domainV2/CreateDomainModal';
-import { useDomainsContext as useDomainsContextV2 } from '@app/domainV2/DomainsContext';
-import RootDomains from '@app/domainV2/nestedDomains/RootDomains';
-import { updateListDomainsCache } from '@app/domainV2/utils';
-import { OnboardingTour } from '@app/onboarding/OnboardingTour';
-import { DOMAINS_CREATE_DOMAIN_ID, DOMAINS_INTRO_ID } from '@app/onboarding/config/DomainsOnboardingConfig';
-import { Button } from '@src/alchemy-components';
-import { PageTitle } from '@src/alchemy-components/components/PageTitle';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import { Button } from '@src/alchemy-components';
+import styled from 'styled-components/macro';
+import { PageTitle } from '@src/alchemy-components/components/PageTitle';
+import { useApolloClient } from '@apollo/client';
+import RootDomains from './RootDomains';
+import { DOMAINS_CREATE_DOMAIN_ID, DOMAINS_INTRO_ID } from '../../onboarding/config/DomainsOnboardingConfig';
+import { OnboardingTour } from '../../onboarding/OnboardingTour';
+import CreateDomainModal from '../CreateDomainModal';
+import { updateListDomainsCache } from '../utils';
+import { useDomainsContext as useDomainsContextV2 } from '../DomainsContext';
 
 const PageWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     background-color: #ffffff;

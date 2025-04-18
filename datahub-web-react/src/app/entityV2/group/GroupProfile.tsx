@@ -1,41 +1,36 @@
-import { BookOpen } from '@phosphor-icons/react';
-import { Col } from 'antd';
 import React, { useContext, useState } from 'react';
+import { Col } from 'antd';
 import { matchPath } from 'react-router';
 import { useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
-
-import { EntityContext } from '@app/entity/shared/EntityContext';
-import { GenericEntityProperties } from '@app/entity/shared/types';
-import { GroupAssets } from '@app/entityV2/group/GroupAssets';
-import GroupMembers from '@app/entityV2/group/GroupMembers';
-import GroupSidebar from '@app/entityV2/group/GroupSidebar';
-import { TabType } from '@app/entityV2/group/types';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import {
-    StyledEntitySidebarContainer,
-    StyledSidebar,
-} from '@app/entityV2/shared/containers/profile/sidebar/EntityProfileSidebar';
-import EntitySidebarSectionsTab from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebarSectionsTab';
-import { EntitySidebarTabs } from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebarTabs';
-import SidebarCollapsibleHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarCollapsibleHeader';
-import NonExistentEntityPage from '@app/entityV2/shared/entity/NonExistentEntityPage';
-import CompactContext from '@app/shared/CompactContext';
-import { EntityHead } from '@app/shared/EntityHead';
-import { Message } from '@app/shared/Message';
-import { RoutedTabs } from '@app/shared/RoutedTabs';
-import { ErrorSection } from '@app/shared/error/ErrorSection';
-import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-import { PageRoutes } from '@conf/Global';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 import { useUserContext } from '@src/app/context/useUserContext';
+import { useGetGrantedPrivilegesQuery } from '@src/graphql/policy.generated';
+import { BookOpen } from '@phosphor-icons/react';
+import colors from '@src/alchemy-components/theme/foundations/colors';
 import { ManageActorNotifications } from '@src/app/settingsV2/personal/notifications/ManageActorNotifications';
 import { ManageActorSubscriptions } from '@src/app/settingsV2/personal/subscriptions/ManageActorSubscriptions';
-import { useGetGrantedPrivilegesQuery } from '@src/graphql/policy.generated';
-
-import { useGetGroupQuery } from '@graphql/group.generated';
-import { EntityRelationshipsResult, EntityType, OriginType, Ownership } from '@types';
+import { PageRoutes } from '../../../conf/Global';
+import { useGetGroupQuery } from '../../../graphql/group.generated';
+import { OriginType, EntityRelationshipsResult, Ownership, EntityType } from '../../../types.generated';
+import { EntityContext } from '../../entity/shared/EntityContext';
+import { EntityHead } from '../../shared/EntityHead';
+import { GenericEntityProperties } from '../../entity/shared/types';
+import { Message } from '../../shared/Message';
+import GroupMembers from './GroupMembers';
+import { RoutedTabs } from '../../shared/RoutedTabs';
+import GroupSidebar from './GroupSidebar';
+import { GroupAssets } from './GroupAssets';
+import { ErrorSection } from '../../shared/error/ErrorSection';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import NonExistentEntityPage from '../shared/entity/NonExistentEntityPage';
+import CompactContext from '../../shared/CompactContext';
+import { StyledEntitySidebarContainer, StyledSidebar } from '../shared/containers/profile/sidebar/EntityProfileSidebar';
+import EntitySidebarSectionsTab from '../shared/containers/profile/sidebar/EntitySidebarSectionsTab';
+import EntitySidebarContext from '../../sharedV2/EntitySidebarContext';
+import SidebarCollapsibleHeader from '../shared/containers/profile/sidebar/SidebarCollapsibleHeader';
+import { EntitySidebarTabs } from '../shared/containers/profile/sidebar/EntitySidebarTabs';
+import { REDESIGN_COLORS } from '../shared/constants';
+import { TabType } from './types';
 
 const messageStyle = { marginTop: '10%' };
 

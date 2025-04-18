@@ -1,12 +1,10 @@
 import React from 'react';
-
-import { AssertionDatasetFieldBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/AssertionDatasetFieldBuilder';
-import { getEligibleChangedRowColumns } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/field/utils';
-import { AssertionMonitorBuilderState } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/types';
-import { StopPropagation } from '@app/shared/StopPropagation';
-
-import { useGetDatasetSchemaQuery } from '@graphql/dataset.generated';
-import { DatasetFieldAssertionSourceType, SchemaField } from '@types';
+import { AssertionMonitorBuilderState } from '../../types';
+import { DatasetFieldAssertionSourceType, SchemaField } from '../../../../../../../../../../types.generated';
+import { useGetDatasetSchemaQuery } from '../../../../../../../../../../graphql/dataset.generated';
+import { getEligibleChangedRowColumns } from './utils';
+import { StopPropagation } from '../../../../../../../../../shared/StopPropagation';
+import { AssertionDatasetFieldBuilder } from '../AssertionDatasetFieldBuilder';
 
 type Props = {
     value: AssertionMonitorBuilderState;

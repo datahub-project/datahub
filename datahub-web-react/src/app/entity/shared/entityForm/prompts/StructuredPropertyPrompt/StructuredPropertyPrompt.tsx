@@ -1,19 +1,17 @@
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import StructuredPropertyInput from '@app/entity/shared/components/styled/StructuredProperty/StructuredPropertyInput';
-import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
-import BulkSubmissionButton from '@app/entity/shared/entityForm/prompts/BulkSubmissionButton';
-import ColumnSelector from '@app/entity/shared/entityForm/prompts/ColumnSelector';
-import CompletedPromptAuditStamp from '@app/entity/shared/entityForm/prompts/CompletedPromptAuditStamp';
-import PromptHeader from '@app/entity/shared/entityForm/prompts/PromptHeader';
-import useStructuredPropertyPrompt from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/useStructuredPropertyPrompt';
-import { ColumnSelectorProps } from '@app/entity/shared/entityForm/prompts/types';
-import usePromptCompletionInfo from '@app/entity/shared/entityForm/prompts/usePromptCompletionInfo';
-import { applyOpacity } from '@app/shared/styleUtils';
-
-import { FormPrompt, SchemaField, SubmitFormPromptInput } from '@types';
+import { FormPrompt, SchemaField, SubmitFormPromptInput } from '../../../../../../types.generated';
+import useStructuredPropertyPrompt from './useStructuredPropertyPrompt';
+import CompletedPromptAuditStamp from '../CompletedPromptAuditStamp';
+import { applyOpacity } from '../../../../../shared/styleUtils';
+import { useEntityFormContext } from '../../EntityFormContext';
+import BulkSubmissionButton from '../BulkSubmissionButton';
+import usePromptCompletionInfo from '../usePromptCompletionInfo';
+import StructuredPropertyInput from '../../../components/styled/StructuredProperty/StructuredPropertyInput';
+import { ColumnSelectorProps } from '../types';
+import ColumnSelector from '../ColumnSelector';
+import PromptHeader from '../PromptHeader';
 
 const PromptWrapper = styled.div<{ displayBulkStyles?: boolean }>`
     display: flex;

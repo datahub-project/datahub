@@ -1,10 +1,8 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-
-import { GenericEntityProperties } from '@app/entity/shared/types';
-import { generateColorFromPalette } from '@app/glossaryV2/colorUtils';
-
-import { DisplayProperties } from '@types';
+import { DisplayProperties } from '../../../../../../types.generated';
+import { generateColorFromPalette } from '../../../../../glossaryV2/colorUtils';
+import { GenericEntityProperties } from '../../../../../entity/shared/types';
 
 type Props = {
     urn: string;

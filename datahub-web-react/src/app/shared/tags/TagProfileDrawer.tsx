@@ -1,12 +1,11 @@
-import { InfoCircleOutlined } from '@ant-design/icons';
-import { Button, Drawer, Space } from 'antd';
 import React from 'react';
+import { Drawer, Button, Space } from 'antd';
 import styled from 'styled-components';
+import { InfoCircleOutlined } from '@ant-design/icons';
 
-import TagStyleEntity from '@app/shared/TagStyleEntity';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { EntityType } from '@types';
+import TagStyleEntity from '../TagStyleEntity';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { EntityType } from '../../../types.generated';
 
 type Props = {
     closeTagProfileDrawer?: () => void;

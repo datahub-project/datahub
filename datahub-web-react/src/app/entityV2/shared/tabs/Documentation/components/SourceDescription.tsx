@@ -1,10 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
-
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import DescriptionSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/DescriptionSection';
-import { getPlatformName } from '@app/entityV2/shared/utils';
+import { useEntityData } from '../../../../../entity/shared/EntityContext';
+import { ANTD_GRAY } from '../../../constants';
+import DescriptionSection from '../../../containers/profile/sidebar/AboutSection/DescriptionSection';
+import { getPlatformName } from '../../../utils';
 
 const LINE_LIMIT = 10;
 

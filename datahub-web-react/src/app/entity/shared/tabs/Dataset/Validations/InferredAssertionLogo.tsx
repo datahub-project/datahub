@@ -1,8 +1,7 @@
-import { ThunderboltFilled } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
-
-import { REDESIGN_COLORS } from '@app/entity/shared/constants';
+import { ThunderboltFilled } from '@ant-design/icons';
+import { REDESIGN_COLORS } from '../../../constants';
 
 const Logo = styled(ThunderboltFilled)`
     color: ${REDESIGN_COLORS.BLUE};

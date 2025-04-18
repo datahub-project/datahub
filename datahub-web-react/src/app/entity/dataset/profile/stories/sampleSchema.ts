@@ -1,6 +1,5 @@
-import { dataset3 } from '@src/Mocks';
-
-import { EntityType, Schema, SchemaField, SchemaFieldDataType, SchemaMetadata } from '@types';
+import { dataset3 } from '../../../../../Mocks';
+import { EntityType, Schema, SchemaMetadata, SchemaField, SchemaFieldDataType } from '../../../../../types.generated';
 
 // Extending the schema type with an option for tags
 export type TaggedSchemaField = {

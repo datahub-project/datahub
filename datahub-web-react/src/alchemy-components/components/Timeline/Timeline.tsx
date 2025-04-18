@@ -1,8 +1,7 @@
 import { Timeline as AntdTimeline } from 'antd';
 import React from 'react';
-
-import { StyledAntdTimeline } from '@components/components/Timeline/components';
-import { BaseItemType, TimelineProps } from '@components/components/Timeline/types';
+import { StyledAntdTimeline } from './components';
+import { BaseItemType, TimelineProps } from './types';
 
 export const Timeline = <ItemType extends BaseItemType>({
     items,

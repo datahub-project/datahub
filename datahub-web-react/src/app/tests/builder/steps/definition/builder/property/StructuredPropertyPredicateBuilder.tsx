@@ -1,19 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-
-import { STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID } from '@app/tests/builder/steps/definition/builder/property/constants';
-import { OperatorSelect } from '@app/tests/builder/steps/definition/builder/property/select/OperatorSelect';
-import { ValueSelect } from '@app/tests/builder/steps/definition/builder/property/select/ValueSelect';
-import { StructuredPropertySelect } from '@app/tests/builder/steps/definition/builder/property/select/structured/StructuredPropertySelect';
+import { PropertyPredicate } from '../types';
 import {
     extractStructuredPropertyReferenceUrn,
     getStructuredPropertiesOperatorOptions,
     getStructuredPropertyValueOptions,
-} from '@app/tests/builder/steps/definition/builder/property/utils';
-import { PropertyPredicate } from '@app/tests/builder/steps/definition/builder/types';
-
-import { useGetStructuredPropertyLazyQuery } from '@graphql/structuredProperties.generated';
-import { StructuredPropertyEntity } from '@types';
+} from './utils';
+import { OperatorSelect } from './select/OperatorSelect';
+import { ValueSelect } from './select/ValueSelect';
+import { StructuredPropertyEntity } from '../../../../../../../types.generated';
+import { StructuredPropertySelect } from './select/structured/StructuredPropertySelect';
+import { useGetStructuredPropertyLazyQuery } from '../../../../../../../graphql/structuredProperties.generated';
+import { STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID } from './constants';
 
 const PredicateContainer = styled.div`
     display: flex;

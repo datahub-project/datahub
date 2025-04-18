@@ -1,7 +1,6 @@
 import React from 'react';
-
-import { StyledCalendarWrapper } from '@components/components/DatePicker/components';
-import { VariantProps } from '@components/components/DatePicker/types';
+import { StyledCalendarWrapper } from '../../components';
+import { VariantProps } from '../../types';
 
 export const CommonVariantProps: VariantProps = {
     panelRender: (panel) => <StyledCalendarWrapper>{panel}</StyledCalendarWrapper>,

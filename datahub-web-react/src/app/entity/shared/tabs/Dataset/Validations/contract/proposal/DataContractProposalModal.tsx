@@ -1,13 +1,11 @@
-import { Button, Modal } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { DataQualityContractSummary } from '@app/entity/shared/tabs/Dataset/Validations/contract/DataQualityContractSummary';
-import { FreshnessContractSummary } from '@app/entity/shared/tabs/Dataset/Validations/contract/FreshnessContractSummary';
-import { SchemaContractSummary } from '@app/entity/shared/tabs/Dataset/Validations/contract/SchemaContractSummary';
-
-import { DataContractProposalParams } from '@types';
+import { Modal, Button } from 'antd';
+import { DataContractProposalParams } from '../../../../../../../../types.generated';
+import { FreshnessContractSummary } from '../FreshnessContractSummary';
+import { SchemaContractSummary } from '../SchemaContractSummary';
+import { DataQualityContractSummary } from '../DataQualityContractSummary';
+import { ANTD_GRAY } from '../../../../../constants';
 
 const NoAssertions = styled.div`
     padding: 20px;

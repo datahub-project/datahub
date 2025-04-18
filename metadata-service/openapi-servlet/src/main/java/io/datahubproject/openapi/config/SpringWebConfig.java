@@ -133,7 +133,6 @@ public class SpringWebConfig implements WebMvcConfigurer {
         .build();
   }
 
-<<<<<<< HEAD
   @Bean
   @ConditionalOnProperty(name = "metadataTests.enabled", havingValue = "true")
   public GroupedOpenApi metadataTestsOpenApiGroup() {
@@ -144,8 +143,6 @@ public class SpringWebConfig implements WebMvcConfigurer {
         .build();
   }
 
-=======
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
   @Override
   public void addResourceHandlers(ResourceHandlerRegistry registry) {
     registry

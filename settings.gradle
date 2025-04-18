@@ -116,16 +116,12 @@ buildCache {
 def installPreCommitHooks() {
     if (System.getenv("CI") == "true") {
         println("Skipping pre-commit hooks in CI")
-<<<<<<< HEAD
         return
     }
     try {
         def process = ["git", "config", "--unset-all", "core.hooksPath"].execute()
     } catch (Exception e) {
         println "Error removing core.hooksPath: ${e.message}"
-=======
-        return 
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
     }
     def preCommitInstalled = false
     try {

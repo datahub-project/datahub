@@ -1,9 +1,8 @@
-import { Tooltip } from '@components';
-import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { Property } from '@app/tests/builder/steps/definition/builder/property/types/properties';
+import { Typography } from 'antd';
+import { Tooltip } from '@components';
+import { Property } from '../types/properties';
 
 const TitleWrapper = styled.div`
     display: flex;

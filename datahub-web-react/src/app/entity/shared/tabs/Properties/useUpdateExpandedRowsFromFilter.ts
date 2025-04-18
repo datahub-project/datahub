@@ -1,7 +1,6 @@
-import { isEqual } from 'lodash';
 import { useEffect } from 'react';
-
-import usePrevious from '@app/shared/usePrevious';
+import { isEqual } from 'lodash';
+import usePrevious from '../../../../shared/usePrevious';
 
 interface Props {
     expandedRowsFromFilter: Set<string>;

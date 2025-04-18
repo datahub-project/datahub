@@ -1,5 +1,5 @@
-import { EventType } from '@app/analytics';
-import analytics from '@app/analytics/analytics';
+import { EventType } from '../../analytics';
+import analytics from '../../analytics/analytics';
 
 const useSearchFilterAnalytics = () => {
     const trackClearAllFiltersEvent = (total: number) => {

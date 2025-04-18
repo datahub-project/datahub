@@ -1,10 +1,9 @@
-import React from 'react';
-import styled from 'styled-components';
-
-import EmptyProposals from '@app/taskCenterV2/proposalsV2/proposalsTable/EmptyProposals';
-import { useGetColumns } from '@app/taskCenterV2/proposalsV2/proposalsTable/useGetColumns';
 import { Table } from '@src/alchemy-components';
 import { ActionRequest } from '@src/types.generated';
+import React from 'react';
+import styled from 'styled-components';
+import EmptyProposals from './EmptyProposals';
+import { useGetColumns } from './useGetColumns';
 
 const TableContainer = styled.div`
     display: flex;

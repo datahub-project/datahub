@@ -1,28 +1,20 @@
-import {
-    ApiOutlined,
-    CheckOutlined,
-    ClockCircleOutlined,
-    CloseOutlined,
-    CodeOutlined,
-    ConsoleSqlOutlined,
-    ExclamationCircleOutlined,
-    ProjectOutlined,
-    TableOutlined,
-} from '@ant-design/icons';
-import * as cronParser from 'cron-parser';
-import cronstrue from 'cronstrue';
-import * as moment from 'moment-timezone';
 import React from 'react';
 import styled from 'styled-components';
-
-import { AssertionGroup, AssertionStatusSummary } from '@app/entity/shared/tabs/Dataset/Validations/acrylTypes';
-import { sortAssertions } from '@app/entity/shared/tabs/Dataset/Validations/assertionUtils';
-import { GenericEntityProperties } from '@app/entity/shared/types';
-import { lowerFirstLetter } from '@app/shared/textUtil';
+import * as moment from 'moment-timezone';
+import * as cronParser from 'cron-parser';
+import cronstrue from 'cronstrue';
+import {
+    ClockCircleOutlined,
+    TableOutlined,
+    ProjectOutlined,
+    ConsoleSqlOutlined,
+    CheckOutlined,
+    CloseOutlined,
+    ApiOutlined,
+    CodeOutlined,
+    ExclamationCircleOutlined,
+} from '@ant-design/icons';
 import { EMBEDDED_EXECUTOR_POOL_NAME } from '@src/app/shared/constants';
-
-import { useIngestionSourceForEntityQuery } from '@graphql/ingestion.generated';
-import { GetDatasetAssertionsWithMonitorsQuery, MonitorDetailsFragment } from '@graphql/monitor.generated';
 import {
     Assertion,
     AssertionResultType,
@@ -33,7 +25,16 @@ import {
     EntityType,
     Monitor,
     MonitorMode,
-} from '@types';
+} from '../../../../../../types.generated';
+import { sortAssertions } from './assertionUtils';
+import { AssertionGroup, AssertionStatusSummary } from './acrylTypes';
+import { lowerFirstLetter } from '../../../../../shared/textUtil';
+import { useIngestionSourceForEntityQuery } from '../../../../../../graphql/ingestion.generated';
+import {
+    GetDatasetAssertionsWithMonitorsQuery,
+    MonitorDetailsFragment,
+} from '../../../../../../graphql/monitor.generated';
+import { GenericEntityProperties } from '../../../types';
 
 export const SUCCESS_COLOR_HEX = '#52C41A';
 export const FAILURE_COLOR_HEX = '#F5222D';

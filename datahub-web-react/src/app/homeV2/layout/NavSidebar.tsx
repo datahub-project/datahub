@@ -1,18 +1,17 @@
-import { Skeleton } from 'antd';
 import React, { useContext } from 'react';
-import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+import { Link } from 'react-router-dom';
+import { Skeleton } from 'antd';
 
-import { useUserContext } from '@app/context/useUserContext';
-import { NavLinks } from '@app/homeV2/layout/NavLinks';
-import OnboardingContext from '@app/onboarding/OnboardingContext';
-import CustomAvatar from '@app/shared/avatar/CustomAvatar';
-import { useAppConfig } from '@app/useAppConfig';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import { NavLinks } from './NavLinks';
+import { useAppConfig } from '../../useAppConfig';
+import { useUserContext } from '../../context/useUserContext';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { EntityType } from '../../../types.generated';
 
-import { EntityType } from '@types';
-
-import AcrylIcon from '@images/acryl-light-mark.svg?react';
+import CustomAvatar from '../../shared/avatar/CustomAvatar';
+import AcrylIcon from '../../../images/acryl-light-mark.svg?react';
+import OnboardingContext from '../../onboarding/OnboardingContext';
 
 const Container = styled.div`
     height: 100vh;

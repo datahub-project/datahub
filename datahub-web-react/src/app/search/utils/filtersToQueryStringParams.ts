@@ -1,7 +1,6 @@
-import { encodeComma } from '@app/entity/shared/utils';
-import { DEGREE_FILTER_NAME, FILTER_URL_PREFIX } from '@app/search/utils/constants';
-
-import { FacetFilterInput, FilterOperator } from '@types';
+import { FacetFilterInput, FilterOperator } from '../../../types.generated';
+import { encodeComma } from '../../entity/shared/utils';
+import { DEGREE_FILTER_NAME, FILTER_URL_PREFIX } from './constants';
 
 export const URL_PARAM_SEPARATOR = '___';
 

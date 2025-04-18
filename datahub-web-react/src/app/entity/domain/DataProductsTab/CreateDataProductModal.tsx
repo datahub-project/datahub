@@ -1,11 +1,9 @@
 import { Button, Modal, message } from 'antd';
 import React, { useState } from 'react';
-
-import DataProductBuilderForm from '@app/entity/domain/DataProductsTab/DataProductBuilderForm';
-import { DataProductBuilderState } from '@app/entity/domain/DataProductsTab/types';
-
-import { useCreateDataProductMutation } from '@graphql/dataProduct.generated';
-import { DataProduct, Domain } from '@types';
+import DataProductBuilderForm from './DataProductBuilderForm';
+import { DataProductBuilderState } from './types';
+import { useCreateDataProductMutation } from '../../../../graphql/dataProduct.generated';
+import { DataProduct, Domain } from '../../../../types.generated';
 
 export const MODAL_WIDTH = '75vw';
 

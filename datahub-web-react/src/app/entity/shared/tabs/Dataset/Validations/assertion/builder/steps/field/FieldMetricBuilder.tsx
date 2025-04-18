@@ -1,13 +1,11 @@
-import { Form, Select } from 'antd';
-import Typography from 'antd/lib/typography';
 import React, { useEffect } from 'react';
+import Typography from 'antd/lib/typography';
 import styled from 'styled-components';
-
-import { FieldMetricParameterBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/field/FieldMetricParameterBuilder';
-import { getFieldMetricTypeOptions } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/field/utils';
-import { AssertionMonitorBuilderState } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/types';
-
-import { FieldMetricType } from '@types';
+import { Form, Select } from 'antd';
+import { AssertionMonitorBuilderState } from '../../types';
+import { FieldMetricType } from '../../../../../../../../../../types.generated';
+import { getFieldMetricTypeOptions } from './utils';
+import { FieldMetricParameterBuilder } from './FieldMetricParameterBuilder';
 
 const Section = styled.div`
     margin-top: 16px;

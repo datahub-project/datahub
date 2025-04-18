@@ -1,8 +1,7 @@
-import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { Typography } from 'antd';
+import { ANTD_GRAY } from '../../constants';
 
 const HeaderInfoItem = styled.div<{ onClick?: () => void; width?: string }>`
     display: inline-block;

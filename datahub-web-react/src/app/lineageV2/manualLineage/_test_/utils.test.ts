@@ -1,6 +1,5 @@
-import { getValidEntityTypes } from '@app/lineageV2/manualLineage/utils';
-
-import { EntityType, LineageDirection } from '@types';
+import { EntityType, LineageDirection } from '../../../../types.generated';
+import { getValidEntityTypes } from '../utils';
 
 describe('getValidEntityTypes', () => {
     describe('For Downstream', () => {

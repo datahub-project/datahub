@@ -1,4 +1,4 @@
-import { DataTypeEntity, Entity, StructuredPropertyEntity } from '@types';
+import { DataTypeEntity, Entity, StructuredPropertyEntity } from '../../../../../types.generated';
 
 export interface ValueColumnData {
     value: string | number | null;

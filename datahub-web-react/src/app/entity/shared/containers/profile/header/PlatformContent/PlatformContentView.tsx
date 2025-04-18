@@ -1,21 +1,19 @@
-import { Image, Typography } from 'antd';
-import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import ContainerLink from '@app/entity/shared/containers/profile/header/PlatformContent/ContainerLink';
-import DatasetLink from '@app/entity/shared/containers/profile/header/PlatformContent/DatasetLink';
+import { Typography, Image } from 'antd';
+import { Maybe } from 'graphql/jsutils/Maybe';
+import { Container, Dataset, Entity } from '../../../../../../../types.generated';
+import { ANTD_GRAY } from '../../../../constants';
+import ContainerLink from './ContainerLink';
+import DatasetLink from './DatasetLink';
 import {
-    Ellipsis,
-    ParentNodesWrapper as ParentContainersWrapper,
     StyledRightOutlined,
+    ParentNodesWrapper as ParentContainersWrapper,
+    Ellipsis,
     StyledTooltip,
-} from '@app/entity/shared/containers/profile/header/PlatformContent/ParentNodesView';
-import ParentEntities from '@app/search/filters/ParentEntities';
-import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
-
-import { Container, Dataset, Entity } from '@types';
+} from './ParentNodesView';
+import ParentEntities from '../../../../../../search/filters/ParentEntities';
+import { useIsShowSeparateSiblingsEnabled } from '../../../../../../useAppConfig';
 
 export const LogoIcon = styled.span`
     display: flex;

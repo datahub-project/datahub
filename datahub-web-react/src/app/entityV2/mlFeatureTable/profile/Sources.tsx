@@ -1,14 +1,12 @@
 import { List, Typography } from 'antd';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
-
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
-import { PreviewType } from '@app/entityV2/Entity';
-import { notEmpty } from '@app/entityV2/shared/utils';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { GetMlFeatureTableQuery } from '@graphql/mlFeatureTable.generated';
-import { Dataset, EntityType } from '@types';
+import { GetMlFeatureTableQuery } from '../../../../graphql/mlFeatureTable.generated';
+import { Dataset, EntityType } from '../../../../types.generated';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import { PreviewType } from '../../Entity';
+import { useBaseEntity } from '../../../entity/shared/EntityContext';
+import { notEmpty } from '../../shared/utils';
 
 const ViewRawButtonContainer = styled.div`
     display: flex;

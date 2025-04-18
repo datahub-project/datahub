@@ -1,12 +1,12 @@
-import { InfoCircleFilled } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
 
-import { DefaultsCard } from '@app/settingsV2/platform/notifications/DefaultsCard';
-import { PlatformNotificationsScenarioSettings } from '@app/settingsV2/platform/notifications/PlatformNotificationsScenarioSettings';
-import { PageTitle, colors } from '@src/alchemy-components';
+import { InfoCircleFilled } from '@ant-design/icons';
+import { colors, PageTitle } from '@src/alchemy-components';
 
-import { useGetGlobalSettingsQuery } from '@graphql/settings.generated';
+import { PlatformNotificationsScenarioSettings } from './PlatformNotificationsScenarioSettings';
+import { DefaultsCard } from './DefaultsCard';
+import { useGetGlobalSettingsQuery } from '../../../../graphql/settings.generated';
 
 const Container = styled.div`
     width: 100%;

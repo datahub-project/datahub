@@ -1,6 +1,5 @@
-import { SourceConfig } from '@app/ingest/source/conf/types';
-
-import mongodbLogo from '@images/mongodblogo.png';
+import { SourceConfig } from '../types';
+import mongodbLogo from '../../../../../images/mongodblogo.png';
 
 const placeholderRecipe = `\
 source:

@@ -1,13 +1,12 @@
-import { ExpandAltOutlined, ShrinkOutlined } from '@ant-design/icons';
-import { Modal, Steps, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-
-import ClickOutside from '@app/shared/ClickOutside';
-import { TestBuilderStepComponent, TestBuilderStepTitles } from '@app/tests/builder/conf';
-import { Instructions } from '@app/tests/builder/tutorial/Instructions';
-import { DEFAULT_BUILDER_STATE, StepProps, TestBuilderState, TestBuilderStep } from '@app/tests/builder/types';
 import { Button } from '@src/alchemy-components';
+import { Modal, Steps, Typography } from 'antd';
+import { ExpandAltOutlined, ShrinkOutlined } from '@ant-design/icons';
+import ClickOutside from '../../shared/ClickOutside';
+import { TestBuilderStepComponent, TestBuilderStepTitles } from './conf';
+import { DEFAULT_BUILDER_STATE, StepProps, TestBuilderState, TestBuilderStep } from './types';
+import { Instructions } from './tutorial/Instructions';
 
 const modalStyle = {};
 const modalBodyStyle = { paddingRight: 48, paddingLeft: 48, paddingBottom: 20 };

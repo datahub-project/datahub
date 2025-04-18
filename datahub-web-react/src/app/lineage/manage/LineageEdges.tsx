@@ -1,13 +1,11 @@
 import { Empty } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import EntityEdge from '@app/lineage/manage/EntityEdge';
-import { Direction, FetchedEntity } from '@app/lineage/types';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { CorpUser, Entity, Maybe } from '@types';
+import { CorpUser, Entity, Maybe } from '../../../types.generated';
+import { ANTD_GRAY } from '../../entity/shared/constants';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { Direction, FetchedEntity } from '../types';
+import EntityEdge from './EntityEdge';
 
 const LineageEdgesWrapper = styled.div`
     height: 225px;

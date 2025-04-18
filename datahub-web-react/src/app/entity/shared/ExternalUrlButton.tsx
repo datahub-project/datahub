@@ -1,9 +1,7 @@
 import React from 'react';
-
-import analytics, { EntityActionType, EventType } from '@app/analytics';
-import UrlButton from '@app/entity/shared/UrlButton';
-
-import { EntityType } from '@types';
+import { EntityType } from '../../../types.generated';
+import analytics, { EventType, EntityActionType } from '../../analytics';
+import UrlButton from './UrlButton';
 
 const GITHUB_LINK = 'github.com';
 const GITHUB = 'GitHub';

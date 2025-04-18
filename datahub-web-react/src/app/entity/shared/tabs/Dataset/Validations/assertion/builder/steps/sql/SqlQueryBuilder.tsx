@@ -1,10 +1,9 @@
+import React from 'react';
+import Typography from 'antd/lib/typography';
+import styled from 'styled-components';
 import Editor from '@monaco-editor/react';
 import { Form, Input } from 'antd';
-import Typography from 'antd/lib/typography';
-import React from 'react';
-import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { ANTD_GRAY } from '../../../../../../../constants';
 
 const Section = styled.div`
     margin: 16px 0 24px;

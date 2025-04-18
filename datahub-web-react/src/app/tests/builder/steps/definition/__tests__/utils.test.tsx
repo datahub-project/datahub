@@ -1,9 +1,5 @@
-import {
-    deserializeTestDefinition,
-    serializeTestDefinition,
-    validateJsonDefinition,
-} from '@app/tests/builder/steps/definition/utils';
-import { DEFAULT_TEST_DEFINITION } from '@app/tests/builder/types';
+import { deserializeTestDefinition, serializeTestDefinition, validateJsonDefinition } from '../utils';
+import { DEFAULT_TEST_DEFINITION } from '../../../types';
 
 const MISSING_ON = `
 {

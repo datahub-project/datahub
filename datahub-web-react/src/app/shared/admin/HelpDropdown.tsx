@@ -1,15 +1,14 @@
+import { Link } from 'react-router-dom';
+import { useTheme } from 'styled-components/macro';
+import * as React from 'react';
+import styled from 'styled-components';
 import { QuestionCircleOutlined } from '@ant-design/icons';
 import { Button, Dropdown, Menu } from 'antd';
-import * as React from 'react';
-import { Link } from 'react-router-dom';
-import styled from 'styled-components';
-import { useTheme } from 'styled-components/macro';
-
-import { useGlobalSettingsContext } from '@app/context/GlobalSettings/GlobalSettingsContext';
-import { useUserContext } from '@app/context/useUserContext';
-import { useHandleOnboardingTour } from '@app/onboarding/useHandleOnboardingTour';
-import { MenuItem } from '@app/shared/admin/components';
-import { useAppConfig } from '@app/useAppConfig';
+import { MenuItem } from './components';
+import { useGlobalSettingsContext } from '../../context/GlobalSettings/GlobalSettingsContext';
+import { useAppConfig } from '../../useAppConfig';
+import { useUserContext } from '../../context/useUserContext';
+import { useHandleOnboardingTour } from '../../onboarding/useHandleOnboardingTour';
 
 const TourContainer = styled.div``;
 

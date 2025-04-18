@@ -1,13 +1,13 @@
-import { DeleteOutlined } from '@ant-design/icons';
-import { Modal, message } from 'antd';
 import React from 'react';
+
 import styled from 'styled-components';
+import { Modal, message } from 'antd';
+import { DeleteOutlined } from '@ant-design/icons';
 
-import { ActionItem } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/ActionItem';
-
-import { useDeleteAssertionMutation } from '@graphql/assertion.generated';
-import { useDeleteMonitorMutation } from '@graphql/monitor.generated';
-import { Assertion, Monitor } from '@types';
+import { ActionItem } from './ActionItem';
+import { Assertion, Monitor } from '../../../../../../../../../types.generated';
+import { useDeleteAssertionMutation } from '../../../../../../../../../graphql/assertion.generated';
+import { useDeleteMonitorMutation } from '../../../../../../../../../graphql/monitor.generated';
 
 const StyledDeleteOutlined = styled(DeleteOutlined)`
     && {

@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-import { convertFiltersMapToFilters } from '@app/searchV2/filtersV2/utils';
-=======
 import { convertFiltersMapToFilters } from '../utils';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 
 describe('convertFiltersMapToFilters', () => {
     const mockFiltersMap = new Map<string, { filters: { field: string; values?: string[] }[] }>([

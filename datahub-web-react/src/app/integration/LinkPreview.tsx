@@ -1,9 +1,7 @@
 import React from 'react';
-
-import SlackMessageLinkPreview from '@app/integration/SlackMessageLinkPreview';
-
-import { useGetLinkPreviewQuery } from '@graphql/integration.generated';
-import { InstitutionalMemoryMetadata, LinkPreviewType } from '@types';
+import { useGetLinkPreviewQuery } from '../../graphql/integration.generated';
+import { InstitutionalMemoryMetadata, LinkPreviewType } from '../../types.generated';
+import SlackMessageLinkPreview from './SlackMessageLinkPreview';
 
 interface Props {
     link: InstitutionalMemoryMetadata;

@@ -1,10 +1,8 @@
+import { colors } from '@src/alchemy-components/theme';
 import React, { forwardRef, useEffect, useRef } from 'react';
 import styled from 'styled-components';
-
-import { GLYPH_DROP_SHADOW_FILTER } from '@components/components/LineChart/constants';
-import { GlyphProps } from '@components/components/LineChart/types';
-
-import { colors } from '@src/alchemy-components/theme';
+import { GLYPH_DROP_SHADOW_FILTER } from './constants';
+import { GlyphProps } from './types';
 
 export const ChartWrapper = styled.div`
     width: 100%;

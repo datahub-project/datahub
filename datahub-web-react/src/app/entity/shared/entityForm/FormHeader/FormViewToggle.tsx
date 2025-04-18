@@ -1,14 +1,13 @@
 import { SwapOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
-import * as QueryString from 'query-string';
 import React from 'react';
-import { useHistory, useLocation } from 'react-router';
+import * as QueryString from 'query-string';
 import styled from 'styled-components';
-
-import { FormView, useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
-import { FORM_QUESTION_VIEW_BUTTON } from '@app/onboarding/config/FormOnboardingConfig';
-import { WhiteButton } from '@app/shared/components';
+import { useHistory, useLocation } from 'react-router';
 import analytics, { EventType } from '@src/app/analytics';
+import { FormView, useEntityFormContext } from '../EntityFormContext';
+import { WhiteButton } from '../../../../shared/components';
+import { FORM_QUESTION_VIEW_BUTTON } from '../../../../onboarding/config/FormOnboardingConfig';
 
 const buttonStypes = `
 padding: 12px 32px;

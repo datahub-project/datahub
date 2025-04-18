@@ -1,17 +1,17 @@
-import { green, red } from '@ant-design/colors';
-import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
-import { Modal, Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
 
-import { ModalButtonContainer } from '@app/shared/button/styledComponents';
-import { TEST_NOTIFICATION_RESULT_STATUS } from '@app/shared/notifications/constants';
+import { Modal, Typography } from 'antd';
+import styled from 'styled-components';
+import { green, red } from '@ant-design/colors';
 import { Button } from '@src/alchemy-components';
+import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
 import { ANTD_GRAY } from '@src/app/entity/shared/constants';
-import Loading from '@src/app/shared/Loading';
 import { NotificationConnectionTestResult } from '@src/app/shared/notifications/types';
 import { getErrorDisplayContentFromSlackErrorCode } from '@src/app/shared/notifications/utils';
 import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
+import Loading from '@src/app/shared/Loading';
+import { TEST_NOTIFICATION_RESULT_STATUS } from './constants';
+import { ModalButtonContainer } from '../button/styledComponents';
 
 const ModalHeader = styled.div`
     align-items: center;

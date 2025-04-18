@@ -1,7 +1,6 @@
-import { combineEntityDataWithSiblings, shouldEntityBeTreatedAsPrimary } from '@app/entity/shared/siblingUtils';
-import { dataset3WithLineage, dataset3WithSchema, dataset4WithLineage } from '@src/Mocks';
-
-import { EntityType, HealthStatus, HealthStatusType, SchemaFieldDataType } from '@types';
+import { dataset3WithLineage, dataset3WithSchema, dataset4WithLineage } from '../../../../Mocks';
+import { EntityType, HealthStatus, HealthStatusType, SchemaFieldDataType } from '../../../../types.generated';
+import { combineEntityDataWithSiblings, shouldEntityBeTreatedAsPrimary } from '../siblingUtils';
 
 const usageStats = {
     buckets: [

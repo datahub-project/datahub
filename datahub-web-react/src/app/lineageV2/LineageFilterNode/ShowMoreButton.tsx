@@ -1,10 +1,9 @@
-import KeyboardDoubleArrowDownIcon from '@mui/icons-material/KeyboardDoubleArrowDown';
+import { applyOpacity } from '@app/sharedV2/colors/colorUtils';
 import React, { useCallback, useContext, useMemo } from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { LINEAGE_FILTER_PAGINATION, LineageFilter, LineageNodesContext } from '@app/lineageV2/common';
-import { applyOpacity } from '@app/sharedV2/colors/colorUtils';
+import KeyboardDoubleArrowDownIcon from '@mui/icons-material/KeyboardDoubleArrowDown';
+import { LineageFilter, LineageNodesContext, LINEAGE_FILTER_PAGINATION } from '../common';
+import { ANTD_GRAY, REDESIGN_COLORS } from '../../entityV2/shared/constants';
 
 const MAX_INCREASE = 100;
 const LINE_HEIGHT = '1.5em';

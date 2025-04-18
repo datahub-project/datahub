@@ -1,8 +1,7 @@
 import { Icon } from '@components';
-import styled from 'styled-components';
-
-import { borders, colors, radius, spacing, typography } from '@src/alchemy-components/theme';
+import { colors, radius, spacing, typography, borders } from '@src/alchemy-components/theme';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
+import styled from 'styled-components';
 
 export const TableContainer = styled.div<{ isScrollable?: boolean; maxHeight?: string; isBorderless?: boolean }>(
     ({ isScrollable, maxHeight, isBorderless }) => ({

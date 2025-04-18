@@ -1,13 +1,12 @@
-import { Button } from '@components';
-import { Divider } from 'antd';
 import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
-
-import DomainSearch from '@app/domainV2/DomainSearch';
-import DomainsSidebarHeader from '@app/domainV2/nestedDomains/DomainsSidebarHeader';
-import DomainNavigator from '@app/domainV2/nestedDomains/domainNavigator/DomainNavigator';
-import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
+import { Divider } from 'antd';
+import { Button } from '@components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import useSidebarWidth from '../../sharedV2/sidebar/useSidebarWidth';
+import DomainsSidebarHeader from './DomainsSidebarHeader';
+import DomainNavigator from './domainNavigator/DomainNavigator';
+import DomainSearch from '../DomainSearch';
 
 const PLATFORM_BROWSE_TRANSITION_MS = 300;
 

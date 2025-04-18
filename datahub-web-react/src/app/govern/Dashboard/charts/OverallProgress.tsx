@@ -1,13 +1,16 @@
-import { sortBy } from 'lodash';
 import React, { useEffect } from 'react';
 
-import { BarChart, ChartCard } from '@app/dataviz';
-import { useFormAnalyticsContext } from '@app/govern/Dashboard/FormAnalyticsContext';
-import { ChartState, SectionWaiting } from '@app/govern/Dashboard/charts/AuxViews';
-import { ChartGroup, Row, SecondaryHeading } from '@app/govern/Dashboard/components';
-import { dateFormat, mergeRowAndHeaderData, statusOrdinalScale } from '@app/govern/Dashboard/utils';
+import { sortBy } from 'lodash';
 
-import { useFormAnalyticsQuery } from '@graphql/analytics.generated';
+import { ChartCard, BarChart } from '../../../dataviz';
+
+import { ChartGroup, Row, SecondaryHeading } from '../components';
+
+import { useFormAnalyticsQuery } from '../../../../graphql/analytics.generated';
+import { statusOrdinalScale, mergeRowAndHeaderData, dateFormat } from '../utils';
+import { useFormAnalyticsContext } from '../FormAnalyticsContext';
+
+import { SectionWaiting, ChartState } from './AuxViews';
 
 const OverallDocProgressByDate = () => {
     const {

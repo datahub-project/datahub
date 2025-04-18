@@ -1,12 +1,11 @@
-import moment from 'moment';
 import React from 'react';
+import moment from 'moment';
 import { useHistory, useLocation } from 'react-router';
-
-import analytics, { EventType } from '@app/analytics';
-import LineageTimeSelector from '@app/lineage/LineageTimeSelector';
-import { navigateToLineageUrl } from '@app/lineage/utils/navigateToLineageUrl';
-import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
-import { getTimeFromNow } from '@app/shared/time/timeUtils';
+import { navigateToLineageUrl } from '../utils/navigateToLineageUrl';
+import analytics, { EventType } from '../../analytics';
+import { getTimeFromNow } from '../../shared/time/timeUtils';
+import LineageTimeSelector from '../LineageTimeSelector';
+import { useGetLineageTimeParams } from '../utils/useGetLineageTimeParams';
 
 type Props = {
     isHideSiblingMode: boolean;

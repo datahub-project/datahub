@@ -1,13 +1,12 @@
-import { Tooltip } from '@components';
-import { Badge } from 'antd';
 import React from 'react';
+import { Badge } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { truncate } from '@app/entity/shared/utils';
-import { capitalizeFirstLetter } from '@app/shared/textUtil';
-
-import { SchemaFieldDataType } from '@types';
+import { capitalizeFirstLetter } from '../../../../../../shared/textUtil';
+import { SchemaFieldDataType } from '../../../../../../../types.generated';
+import { truncate } from '../../../../utils';
+import { ANTD_GRAY } from '../../../../constants';
 
 type Props = {
     type: SchemaFieldDataType;

@@ -1,8 +1,7 @@
 import { Image, Typography } from 'antd';
 import React from 'react';
 import styled, { useTheme } from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { ANTD_GRAY } from '../../entity/shared/constants';
 
 const Section = styled.div`
     width: auto;

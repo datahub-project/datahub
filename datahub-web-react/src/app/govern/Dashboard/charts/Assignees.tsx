@@ -1,25 +1,16 @@
-import { UserOutlined } from '@ant-design/icons';
-import { Table } from 'antd';
 import React, { useEffect } from 'react';
 
-import { ChartCard } from '@app/dataviz';
-import { useFormAnalyticsContext } from '@app/govern/Dashboard/FormAnalyticsContext';
-import { ChartNoData, ChartNotEnoughData, ChartState, SectionWaiting } from '@app/govern/Dashboard/charts/AuxViews';
-import {
-    ChartGroup,
-    ChartPerformanceItem,
-    ChartPerformanceItems,
-    Row,
-    SecondaryHeading,
-} from '@app/govern/Dashboard/components';
-import {
-    columnSorterFunction,
-    formatPercentage,
-    getEntityInfo,
-    mergeRowAndHeaderData,
-} from '@app/govern/Dashboard/utils';
+import { Table } from 'antd';
+import { UserOutlined } from '@ant-design/icons';
 
-import { useFormAnalyticsQuery } from '@graphql/analytics.generated';
+import { ChartGroup, Row, SecondaryHeading, ChartPerformanceItems, ChartPerformanceItem } from '../components';
+import { ChartCard } from '../../../dataviz';
+
+import { useFormAnalyticsQuery } from '../../../../graphql/analytics.generated';
+import { mergeRowAndHeaderData, getEntityInfo, formatPercentage, columnSorterFunction } from '../utils';
+import { useFormAnalyticsContext } from '../FormAnalyticsContext';
+
+import { SectionWaiting, ChartState, ChartNoData, ChartNotEnoughData } from './AuxViews';
 
 // March/2024 launch decision: hide performance cards
 const hidePerformanceCards = true;

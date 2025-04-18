@@ -1,10 +1,10 @@
-import type { Meta, StoryObj } from '@storybook/react';
+import { ColorValues, FontSizeValues } from '@components/theme/config';
 import React from 'react';
 
-import { GridList } from '@components/.docs/mdx-components';
-import { ColorValues, FontSizeValues } from '@components/theme/config';
+import type { Meta, StoryObj } from '@storybook/react';
 
-import { AVAILABLE_ICONS, Icon, IconProps, iconDefaults } from '.';
+import { GridList } from '@components/.docs/mdx-components';
+import { Icon, iconDefaults, AVAILABLE_ICONS, IconProps } from '.';
 
 const storyMaterialDefaults: Pick<IconProps, 'icon' | 'source'> = {
     icon: 'AccountCircle',

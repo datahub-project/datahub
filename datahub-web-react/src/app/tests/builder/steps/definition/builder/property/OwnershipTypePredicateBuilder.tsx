@@ -1,19 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-
-import { OWNERSHIP_TYPE_REFERENCE_PLACEHOLDER_ID } from '@app/tests/builder/steps/definition/builder/property/constants';
-import { OperatorSelect } from '@app/tests/builder/steps/definition/builder/property/select/OperatorSelect';
-import { ValueSelect } from '@app/tests/builder/steps/definition/builder/property/select/ValueSelect';
-import { OwnershipTypeSelect } from '@app/tests/builder/steps/definition/builder/property/select/ownership/OwnershipTypeSelect';
+import { PropertyPredicate } from '../types';
 import {
     extractOwnershipTypeReferenceUrn,
     getOwnershipTypeOperatorOptions,
     getOwnershipTypeValueOptions,
-} from '@app/tests/builder/steps/definition/builder/property/utils';
-import { PropertyPredicate } from '@app/tests/builder/steps/definition/builder/types';
-
-import { useGetOwnershipTypeLazyQuery } from '@graphql/ownershipTypes.generated';
-import { OwnershipTypeEntity } from '@types';
+} from './utils';
+import { OperatorSelect } from './select/OperatorSelect';
+import { ValueSelect } from './select/ValueSelect';
+import { OwnershipTypeEntity } from '../../../../../../../types.generated';
+import { OwnershipTypeSelect } from './select/ownership/OwnershipTypeSelect';
+import { useGetOwnershipTypeLazyQuery } from '../../../../../../../graphql/ownershipTypes.generated';
+import { OWNERSHIP_TYPE_REFERENCE_PLACEHOLDER_ID } from './constants';
 
 const PredicateContainer = styled.div`
     display: flex;

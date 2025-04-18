@@ -1,6 +1,6 @@
-import { BrowsePathResolver } from '@graphql-mock/fixtures/browsePathHelper';
-import { datasetBrowsePaths, filterDatasetByPath } from '@graphql-mock/fixtures/searchResult/datasetSearchResult';
-import { EntityType } from '@types';
+import { EntityType } from '../../../types.generated';
+import { BrowsePathResolver } from '../browsePathHelper';
+import { datasetBrowsePaths, filterDatasetByPath } from '../searchResult/datasetSearchResult';
 
 const browsePathResolver = new BrowsePathResolver({
     entityType: EntityType.Dataset,

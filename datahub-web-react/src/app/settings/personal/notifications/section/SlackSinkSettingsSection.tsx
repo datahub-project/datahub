@@ -1,16 +1,14 @@
 import { MoreOutlined } from '@ant-design/icons';
-import { Button, Form, Input, Switch, Typography } from 'antd';
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
-
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entity/shared/constants';
-import { getSlackSettingsChannel } from '@app/shared/subscribe/drawer/utils';
+import { Typography, Switch, Input, Button, Form } from 'antd';
 import { useUserContext } from '@src/app/context/useUserContext';
-import { SLACK_CONNECTION_URN } from '@src/app/settings/platform/slack/constants';
 import { TestNotificationButton } from '@src/app/shared/notifications/TestNotificationButton';
-
-import { SlackNotificationSettings, SlackNotificationSettingsInput } from '@types';
+import { SLACK_CONNECTION_URN } from '@src/app/settings/platform/slack/constants';
+import { ANTD_GRAY, REDESIGN_COLORS } from '../../../../entity/shared/constants';
+import { SlackNotificationSettings, SlackNotificationSettingsInput } from '../../../../../types.generated';
+import { getSlackSettingsChannel } from '../../../../shared/subscribe/drawer/utils';
 
 const SinkSettings = styled.div`
     margin-top: 12px;

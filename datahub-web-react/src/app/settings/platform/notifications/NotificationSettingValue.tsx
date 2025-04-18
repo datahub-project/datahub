@@ -1,18 +1,14 @@
-import { Tooltip } from '@components';
-import { Checkbox } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { Checkbox } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components';
 
-import {
-    isSinkNotificationTypeEnabled,
-    updateSinkNotificationTypeEnabled,
-} from '@app/settings/platform/notifications/settingUtils';
-import { EMAIL_SINK, FormattedNotificationSetting, NotificationSink } from '@app/settings/platform/types';
-import { isSinkEnabled } from '@app/settings/utils';
-import { useAppConfig } from '@app/useAppConfig';
-
-import { useUpdateGlobalNotificationSettingsMutation } from '@graphql/settings.generated';
-import { GlobalNotificationSettings, GlobalSettings, NotificationScenarioType } from '@types';
+import { GlobalNotificationSettings, GlobalSettings, NotificationScenarioType } from '../../../../types.generated';
+import { isSinkEnabled } from '../../utils';
+import { isSinkNotificationTypeEnabled, updateSinkNotificationTypeEnabled } from './settingUtils';
+import { EMAIL_SINK, FormattedNotificationSetting, NotificationSink } from '../types';
+import { useUpdateGlobalNotificationSettingsMutation } from '../../../../graphql/settings.generated';
+import { useAppConfig } from '../../../useAppConfig';
 
 const SettingValue = styled.div`
     width: 64px;

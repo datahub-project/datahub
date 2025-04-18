@@ -1,4 +1,4 @@
-import { CronSchedule, Monitor } from '@types';
+import { CronSchedule, Monitor } from '../../../../../../../../../types.generated';
 
 export const toReadableLocalDateTimeString = (timeMs: number) => {
     const date = new Date(timeMs);

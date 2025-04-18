@@ -1,20 +1,11 @@
-import { Form, Steps } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-
-import {
-    AssertionBuilderStepTitles,
-    getAssertionsBuilderStepComponent,
-} from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/conf';
-import { DEFAULT_BUILDER_STATE } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/constants';
-import {
-    AssertionBuilderStep,
-    AssertionMonitorBuilderState,
-    StepProps,
-} from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/types';
-import { useUpsertAssertionMonitor } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/useUpsertAssertionMonitor';
-
-import { Assertion, AssertionType, EntityType } from '@types';
+import { Form, Steps } from 'antd';
+import { AssertionMonitorBuilderState, StepProps, AssertionBuilderStep } from './types';
+import { AssertionBuilderStepTitles, getAssertionsBuilderStepComponent } from './conf';
+import { DEFAULT_BUILDER_STATE } from './constants';
+import { EntityType, Assertion, AssertionType } from '../../../../../../../../types.generated';
+import { useUpsertAssertionMonitor } from './useUpsertAssertionMonitor';
 
 const MainContent = styled.div`
     display: flex;

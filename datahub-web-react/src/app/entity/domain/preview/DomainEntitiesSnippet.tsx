@@ -2,13 +2,11 @@ import { DatabaseOutlined, FileDoneOutlined } from '@ant-design/icons';
 import { VerticalDivider } from '@remirror/react';
 import React from 'react';
 import styled from 'styled-components';
-
-import DomainIcon from '@app/domain/DomainIcon';
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
-import { pluralize } from '@app/shared/textUtil';
 import { useHoverEntityTooltipContext } from '@src/app/recommendations/HoverEntityTooltipContext';
-
-import { SearchResultFields_Domain_Fragment } from '@graphql/search.generated';
+import { SearchResultFields_Domain_Fragment } from '../../../../graphql/search.generated';
+import { ANTD_GRAY_V2 } from '../../shared/constants';
+import DomainIcon from '../../../domain/DomainIcon';
+import { pluralize } from '../../../shared/textUtil';
 
 const Wrapper = styled.div`
     color: ${ANTD_GRAY_V2[8]};

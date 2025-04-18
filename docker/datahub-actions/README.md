@@ -25,11 +25,7 @@ docker build -f docker/datahub-actions/Dockerfile . --no-cache
 # Running the Docker Image
 
 ```
-<<<<<<< HEAD
-docker image ls # Grab the container id
-=======
 docker image ls # Grab the container id 
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 docker run --env-file docker/actions.env --network datahub_network <image-id>
 ```
 

@@ -1,8 +1,7 @@
 import React from 'react';
-
-import generateUseListDataProductAssets from '@app/entity/dataProduct/generateUseListDataProductAssets';
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import { EmbeddedListSearchSection } from '@app/entity/shared/components/styled/search/EmbeddedListSearchSection';
+import { useEntityData } from '../shared/EntityContext';
+import { EmbeddedListSearchSection } from '../shared/components/styled/search/EmbeddedListSearchSection';
+import generateUseListDataProductAssets from './generateUseListDataProductAssets';
 
 export function DataProductEntitiesTab() {
     const { urn } = useEntityData();

@@ -1,9 +1,10 @@
 import _ from 'lodash';
 
-import { AUTOMATION_CATEGORY_NAME_TO_INFO } from '@app/automations/constants';
-import { templates } from '@app/automations/recipes';
-import type { AutomationTemplate } from '@app/automations/types';
 import { jsonToYaml } from '@app/ingest/source/utils';
+
+import { AUTOMATION_CATEGORY_NAME_TO_INFO } from '@app/automations/constants';
+import type { AutomationTemplate } from '@app/automations/types';
+import { templates } from '@app/automations/recipes';
 
 // Function to flatten nested data using Lodash
 // This will only flatten one level of nesting

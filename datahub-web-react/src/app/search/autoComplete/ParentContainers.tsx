@@ -2,11 +2,9 @@ import { FolderOpenOutlined } from '@ant-design/icons';
 import { Typography } from 'antd';
 import React, { Fragment } from 'react';
 import styled from 'styled-components/macro';
-
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { Container, EntityType } from '@types';
+import { Container, EntityType } from '../../../types.generated';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { ANTD_GRAY_V2 } from '../../entity/shared/constants';
 
 const NUM_VISIBLE_CONTAINERS = 2;
 

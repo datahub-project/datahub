@@ -1,19 +1,17 @@
-import { DeleteOutlined, EditOutlined, LinkOutlined } from '@ant-design/icons';
-import { Button, Form, Input, List, Modal, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
-
-import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { useEntityData, useMutationUrn } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { formatDateString } from '@app/entity/shared/containers/profile/utils';
-import LinkPreview from '@app/integration/LinkPreview';
-import { shouldTryLinkPreview } from '@app/integration/linkPreviews';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { useAddLinkMutation, useRemoveLinkMutation } from '@graphql/mutations.generated';
-import { InstitutionalMemoryMetadata } from '@types';
+import { message, Button, List, Typography, Modal, Form, Input } from 'antd';
+import { LinkOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
+import { InstitutionalMemoryMetadata } from '../../../../../../types.generated';
+import { useEntityData, useMutationUrn } from '../../../EntityContext';
+import { useEntityRegistry } from '../../../../../useEntityRegistry';
+import { ANTD_GRAY } from '../../../constants';
+import { formatDateString } from '../../../containers/profile/utils';
+import { useAddLinkMutation, useRemoveLinkMutation } from '../../../../../../graphql/mutations.generated';
+import { shouldTryLinkPreview } from '../../../../../integration/linkPreviews';
+import LinkPreview from '../../../../../integration/LinkPreview';
+import analytics, { EntityActionType, EventType } from '../../../../../analytics';
 
 const LinkListItem = styled(List.Item)`
     border-radius: 5px;

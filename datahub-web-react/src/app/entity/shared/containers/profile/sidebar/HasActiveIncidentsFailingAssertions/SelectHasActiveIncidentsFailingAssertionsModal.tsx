@@ -1,8 +1,7 @@
 import { Button, Form, Modal } from 'antd';
 import React, { useState } from 'react';
-
-import BooleanMoreFilter from '@app/search/filters/render/shared/BooleanMoreFilter';
-import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
+import BooleanMoreFilter from '../../../../../../search/filters/render/shared/BooleanMoreFilter';
 
 type Props = {
     onCloseModal: () => void;

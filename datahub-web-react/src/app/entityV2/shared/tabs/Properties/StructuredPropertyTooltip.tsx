@@ -1,9 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
-
-import PropertyTypeLabel from '@app/entity/shared/tabs/Dataset/Schema/components/PropertyTypeLabel';
-import CardinalityLabel from '@app/entityV2/shared/tabs/Properties/CardinalityLabel';
-import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
+import CardinalityLabel from './CardinalityLabel';
+import { PropertyRow } from './types';
+import PropertyTypeLabel from '../../../../entity/shared/tabs/Dataset/Schema/components/PropertyTypeLabel';
 
 const ContentWrapper = styled.div`
     font-size: 12px;

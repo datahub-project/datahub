@@ -1,5 +1,5 @@
-import { ListQueriesDocument, ListQueriesQuery } from '@graphql/query.generated';
-import { QueryEntity } from '@types';
+import { ListQueriesDocument, ListQueriesQuery } from '../../../../../../graphql/query.generated';
+import { QueryEntity } from '../../../../../../types.generated';
 
 export const removeQueryFromListQueriesCache = (urn, client, page, pageSize, datasetUrn) => {
     const currData: ListQueriesQuery | null = client.readQuery({

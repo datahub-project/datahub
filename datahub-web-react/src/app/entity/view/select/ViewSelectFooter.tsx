@@ -1,10 +1,9 @@
-import { PlusOutlined } from '@ant-design/icons';
-import { Button, Typography } from 'antd';
 import React, { useRef } from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY, ANTD_GRAY_V2 } from '@app/entity/shared/constants';
-import { NoMarginButton } from '@app/entity/view/select/styledComponents';
+import { Button, Typography } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
+import { ANTD_GRAY, ANTD_GRAY_V2 } from '../../shared/constants';
+import { NoMarginButton } from './styledComponents';
 
 const ButtonContainer = styled.div`
     display: flex;

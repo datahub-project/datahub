@@ -1,15 +1,19 @@
+import usePrevious from '@src/app/shared/usePrevious';
 import { isEqual } from 'lodash';
 import { useEffect, useMemo, useState } from 'react';
-
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import { getPromptAssociation } from '@app/entity/shared/containers/profile/sidebar/FormInfo/utils';
-import { FormView, useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
-import { SCHEMA_FIELD_PROMPT_TYPES } from '@app/entity/shared/entityForm/constants';
-import { useGetDefaultTerms } from '@app/entity/shared/entityForm/prompts/GlossaryTermsPrompt/useGetDefaultTerms';
-import { useGetEntityWithSchema } from '@app/entity/shared/tabs/Dataset/Schema/useGetEntitySchema';
-import usePrevious from '@src/app/shared/usePrevious';
-
-import { EditableSchemaMetadata, FormPrompt, FormPromptType, SchemaField, SubmitFormPromptInput } from '@types';
+import {
+    EditableSchemaMetadata,
+    FormPrompt,
+    FormPromptType,
+    SchemaField,
+    SubmitFormPromptInput,
+} from '../../../../../../types.generated';
+import { useEntityData } from '../../../EntityContext';
+import { getPromptAssociation } from '../../../containers/profile/sidebar/FormInfo/utils';
+import { useGetEntityWithSchema } from '../../../tabs/Dataset/Schema/useGetEntitySchema';
+import { FormView, useEntityFormContext } from '../../EntityFormContext';
+import { SCHEMA_FIELD_PROMPT_TYPES } from '../../constants';
+import { useGetDefaultTerms } from './useGetDefaultTerms';
 
 interface Props {
     prompt: FormPrompt;

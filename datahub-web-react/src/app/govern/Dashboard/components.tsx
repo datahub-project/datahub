@@ -1,8 +1,7 @@
 import { Select, Typography } from 'antd';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { ANTD_GRAY } from '../../entity/shared/constants';
+import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
 
 export const Layout = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     overflow: hidden;

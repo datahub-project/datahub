@@ -1,20 +1,10 @@
-import { CheckCircleFilled, QuestionCircleOutlined } from '@ant-design/icons';
-import { Tooltip, colors } from '@components';
-import { Typography, message, notification } from 'antd';
-import { DataNode } from 'antd/lib/tree';
-import _ from 'lodash';
 import React, { Key } from 'react';
+import _ from 'lodash';
+import { Typography, message, notification } from 'antd';
+import { colors, Tooltip } from '@components';
+import { DataNode } from 'antd/lib/tree';
+import { CheckCircleFilled, QuestionCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
-
-import { EventType } from '@app/analytics';
-import analytics from '@app/analytics/analytics';
-import { ActorTypes } from '@app/settings/personal/notifications/constants';
-
-import {
-    useCreateSubscriptionMutation,
-    useDeleteSubscriptionMutation,
-    useUpdateSubscriptionMutation,
-} from '@graphql/subscriptions.generated';
 import {
     Assertion,
     DataHubSubscription,
@@ -25,7 +15,15 @@ import {
     NotificationSettingsInput,
     SlackNotificationSettings,
     SubscriptionType,
-} from '@types';
+} from '../../../../types.generated';
+import {
+    useCreateSubscriptionMutation,
+    useDeleteSubscriptionMutation,
+    useUpdateSubscriptionMutation,
+} from '../../../../graphql/subscriptions.generated';
+import analytics from '../../../analytics/analytics';
+import { EventType } from '../../../analytics';
+import { ActorTypes } from '../../../settings/personal/notifications/constants';
 
 const REFETCH_DELAY = 3000;
 

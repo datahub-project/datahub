@@ -1,11 +1,10 @@
-import { ShareAltOutlined } from '@ant-design/icons';
-import { Dropdown } from 'antd';
 import React from 'react';
-
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ActionMenuItem } from '@app/entityV2/shared/EntityDropdown/styledComponents';
-import ShareButtonMenu from '@app/shared/share/v2/ShareButtonMenu';
-import { StyledMenu } from '@app/shared/share/v2/styledComponents';
+import { Dropdown } from 'antd';
+import { ShareAltOutlined } from '@ant-design/icons';
+import { ActionMenuItem } from '../../../entityV2/shared/EntityDropdown/styledComponents';
+import { useEntityData } from '../../../entity/shared/EntityContext';
+import ShareButtonMenu from './ShareButtonMenu';
+import { StyledMenu } from './styledComponents';
 
 export default function ShareMenuAction() {
     const { urn, entityType, entityData } = useEntityData();

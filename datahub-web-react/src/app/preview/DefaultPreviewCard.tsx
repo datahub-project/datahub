@@ -1,57 +1,26 @@
-<<<<<<< HEAD
-import { ArrowRightOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import { Divider, Typography } from 'antd';
-=======
 import DataProcessInstanceInfo from '@src/app/preview/DataProcessInstanceInfo';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
 import React, { ReactNode, useState } from 'react';
+import { Divider, Typography } from 'antd';
+import { Tooltip } from '@components';
+import { ArrowRightOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-
-import { PreviewType } from '@app/entity/Entity';
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import ExternalUrlButton from '@app/entity/shared/ExternalUrlButton';
-import { usePreviewData } from '@app/entity/shared/PreviewContext';
-import { DeprecationPill } from '@app/entity/shared/components/styled/DeprecationPill';
-import { ExpandedActorGroup } from '@app/entity/shared/components/styled/ExpandedActorGroup';
-import NoMarkdownViewer from '@app/entity/shared/components/styled/StripMarkdownText';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import EntityCount from '@app/entity/shared/containers/profile/header/EntityCount';
-import { EntityHealth } from '@app/entity/shared/containers/profile/header/EntityHealth';
-import PlatformContentView from '@app/entity/shared/containers/profile/header/PlatformContent/PlatformContentView';
-import { getNumberWithOrdinal } from '@app/entity/shared/utils';
-import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
-import { FORM_CHECK_RESPONSES_ID } from '@app/onboarding/config/FormOnboardingConfig';
-import EntityPaths from '@app/preview/EntityPaths/EntityPaths';
-import { getUniqueOwners } from '@app/preview/utils';
-import SearchTextHighlighter from '@app/search/matches/SearchTextHighlighter';
-import { DataProductLink } from '@app/shared/tags/DataProductLink';
-import TagTermGroup from '@app/shared/tags/TagTermGroup';
-import useContentTruncation from '@app/shared/useContentTruncation';
-import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
-import DataProcessInstanceInfo from '@src/app/preview/DataProcessInstanceInfo';
-
 import {
+    GlobalTags,
+    Owner,
+    GlossaryTerms,
+    SearchInsight,
     Container,
-    CorpUser,
-    DataProcessRunEvent,
-    DataProduct,
     Dataset,
+    ParentContainersResult,
+    Maybe,
+    CorpUser,
     Deprecation,
     Domain,
-    Entity,
-<<<<<<< HEAD
     EntityPath,
-    GlobalTags,
-    GlossaryTerms,
+    DataProduct,
     Health,
-    Maybe,
-    Owner,
-    ParentContainersResult,
-    SearchInsight,
-} from '@types';
-=======
+    Entity,
     DataProcessRunEvent,
 } from '../../types.generated';
 import TagTermGroup from '../shared/tags/TagTermGroup';
@@ -71,9 +40,10 @@ import { DataProductLink } from '../shared/tags/DataProductLink';
 import { EntityHealth } from '../entity/shared/containers/profile/header/EntityHealth';
 import SearchTextHighlighter from '../search/matches/SearchTextHighlighter';
 import { getUniqueOwners } from './utils';
-import StructuredPropertyBadge from '../entity/shared/containers/profile/header/StructuredPropertyBadge';
+import StructuredPropertyBadge from '../entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 import { usePreviewData } from '../entity/shared/PreviewContext';
->>>>>>> dbad52283b070c7cc136306c1553770db2f72105
+import { FORM_CHECK_RESPONSES_ID } from '../onboarding/config/FormOnboardingConfig';
+import { useEmbeddedProfileLinkProps } from '../shared/useEmbeddedProfileLinkProps';
 
 const PreviewContainer = styled.div`
     display: flex;

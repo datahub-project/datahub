@@ -1,5 +1,3 @@
-import { AssertionGroup } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
-import { AssertionWithMonitorDetails } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import {
     AssertionResultType,
     AssertionRunEvent,
@@ -12,6 +10,8 @@ import {
     Monitor,
     TagAssociation,
 } from '@src/types.generated';
+import { AssertionWithMonitorDetails } from '../acrylUtils';
+import { AssertionGroup } from '../acrylTypes';
 
 export type EntityStagedForAssertion = {
     urn: string;

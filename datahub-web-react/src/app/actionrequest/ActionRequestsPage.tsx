@@ -1,11 +1,9 @@
 import { Tabs, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-
-import { ActionRequestsGroupTab } from '@app/actionrequest/ActionRequestsGroupTab';
-import { useGetAuthenticatedUser } from '@app/useGetAuthenticatedUser';
-
-import { ActionRequestAssignee, AssigneeType, CorpGroup } from '@types';
+import { ActionRequestAssignee, AssigneeType, CorpGroup } from '../../types.generated';
+import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
+import { ActionRequestsGroupTab } from './ActionRequestsGroupTab';
 
 const PageContainer = styled.div`
     padding-top: 20px;

@@ -1,14 +1,8 @@
 import { Icon, Text } from '@components';
+import { StructuredPropertyEntity } from '@src/types.generated';
 import { Collapse } from 'antd';
 import React from 'react';
-
-import {
-    CollapseHeader,
-    RowContainer,
-    StyledCollapse,
-    StyledLabel,
-} from '@app/govern/structuredProperties/styledComponents';
-import { StructuredPropertyEntity } from '@src/types.generated';
+import { CollapseHeader, RowContainer, StyledCollapse, StyledLabel } from './styledComponents';
 
 interface Props {
     propEntity: StructuredPropertyEntity;

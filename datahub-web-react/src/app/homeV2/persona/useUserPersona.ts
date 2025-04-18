@@ -1,8 +1,7 @@
 import { useEffect } from 'react';
-
-import { useUserContext } from '@app/context/useUserContext';
-import { useLoadUserPersona } from '@app/homeV2/persona/useLoadUserPersona';
-import { PersonaType } from '@app/homeV2/shared/types';
+import { useUserContext } from '../../context/useUserContext';
+import { PersonaType } from '../shared/types';
+import { useLoadUserPersona } from './useLoadUserPersona';
 
 const DEFAULT_PERSONA = PersonaType.BUSINESS_USER;
 

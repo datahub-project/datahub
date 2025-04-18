@@ -1,24 +1,22 @@
-import {
-    CheckOutlined,
-    CopyOutlined,
-    DeleteOutlined,
-    LinkOutlined,
-    MinusOutlined,
-    PlaySquareOutlined,
-    PlusOutlined,
-    SettingOutlined,
-    StopOutlined,
-} from '@ant-design/icons';
-import { Menu } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-
-import { isMonitorActive } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
-import { useAssertionURNCopyLink } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/hooks';
-import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
-import { useAppConfig } from '@app/useAppConfig';
-
-import { Monitor } from '@types';
+import { Menu } from 'antd';
+import {
+    DeleteOutlined,
+    PlaySquareOutlined,
+    StopOutlined,
+    SettingOutlined,
+    PlusOutlined,
+    MinusOutlined,
+    LinkOutlined,
+    CheckOutlined,
+    CopyOutlined,
+} from '@ant-design/icons';
+import { Monitor } from '../../../../../../types.generated';
+import { isMonitorActive } from './acrylUtils';
+import { useAppConfig } from '../../../../../useAppConfig';
+import { useAssertionURNCopyLink } from './assertion/builder/hooks';
+import { useIsSeparateSiblingsMode } from '../../../useIsSeparateSiblingsMode';
 
 const StyledStopOutlined = styled(StopOutlined)`
     margin-right: 8px;

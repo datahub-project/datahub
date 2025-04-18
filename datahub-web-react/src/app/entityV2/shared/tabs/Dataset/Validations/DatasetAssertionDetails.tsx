@@ -1,28 +1,21 @@
-import { ArrowRightOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
 import { Typography } from 'antd';
+import { Tooltip } from '@components';
 import { SelectValue } from 'antd/lib/select';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import PrefixedSelect from '@app/entityV2/shared/tabs/Dataset/Stats/historical/shared/PrefixedSelect';
-import { LOOKBACK_WINDOWS } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
-import { BooleanDataPoint, BooleanTimeline } from '@app/entityV2/shared/tabs/Dataset/Validations/BooleanTimeline';
-import { DatasetAssertionResultDetails } from '@app/entityV2/shared/tabs/Dataset/Validations/DatasetAssertionResultDetails';
-import {
-    getResultColor,
-    getResultErrorMessage,
-    getResultIcon,
-    getResultText,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
-import { LinkWrapper } from '@app/shared/LinkWrapper';
-import { formatNumber } from '@app/shared/formatNumber';
-import { getFixedLookbackWindow, getLocaleTimezone } from '@app/shared/time/timeUtils';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { useGetAssertionRunsLazyQuery } from '@graphql/assertion.generated';
-import { AssertionResultType, AssertionRunStatus, EntityType } from '@types';
+import { ArrowRightOutlined } from '@ant-design/icons';
+import { useGetAssertionRunsLazyQuery } from '../../../../../../graphql/assertion.generated';
+import { AssertionResultType, AssertionRunStatus, EntityType } from '../../../../../../types.generated';
+import { formatNumber } from '../../../../../shared/formatNumber';
+import { getFixedLookbackWindow, getLocaleTimezone } from '../../../../../shared/time/timeUtils';
+import { ANTD_GRAY } from '../../../constants';
+import PrefixedSelect from '../Stats/historical/shared/PrefixedSelect';
+import { LOOKBACK_WINDOWS } from '../Stats/lookbackWindows';
+import { getResultColor, getResultErrorMessage, getResultIcon, getResultText } from './assertionUtils';
+import { DatasetAssertionResultDetails } from './DatasetAssertionResultDetails';
+import { LinkWrapper } from '../../../../../shared/LinkWrapper';
+import { useEntityRegistry } from '../../../../../useEntityRegistry';
+import { BooleanDataPoint, BooleanTimeline } from './BooleanTimeline';
 
 const RESULT_CHART_WIDTH_PX = 800;
 

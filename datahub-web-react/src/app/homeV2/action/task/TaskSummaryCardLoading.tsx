@@ -1,6 +1,6 @@
-import { Skeleton } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { Skeleton } from 'antd';
 
 const CardSkeleton = styled(Skeleton.Input)`
     && {

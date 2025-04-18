@@ -1,10 +1,10 @@
-import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
 import React, { useState } from 'react';
+
 import styled from 'styled-components';
+import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
 
-import { ActionItem } from '@app/entity/shared/tabs/Dataset/Validations/assertion/profile/actions/ActionItem';
-
-import { Assertion } from '@types';
+import { ActionItem } from './ActionItem';
+import { Assertion } from '../../../../../../../../../types.generated';
 
 const StyledCheckOutlined = styled(CheckOutlined)`
     && {

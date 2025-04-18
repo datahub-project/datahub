@@ -1,6 +1,5 @@
 import { TextProps } from '@visx/text/lib/Text';
-
-import { ColorSchemeSettings, WhiskerMetricType } from '@components/components/WhiskerChart/types';
+import { ColorSchemeSettings, WhiskerMetricType } from './types';
 
 export const DEFAULT_COLOR_SHEME: ColorSchemeSettings = {
     box: '#705EE4',

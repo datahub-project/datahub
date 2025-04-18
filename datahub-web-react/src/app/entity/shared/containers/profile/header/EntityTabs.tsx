@@ -1,9 +1,9 @@
-import { Tabs } from 'antd';
 import React, { useEffect } from 'react';
+import { Tabs } from 'antd';
 import styled from 'styled-components/macro';
 
-import { useBaseEntity, useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
-import { EntityTab } from '@app/entity/shared/types';
+import { EntityTab } from '../../../types';
+import { useBaseEntity, useEntityData, useRouteToTab } from '../../../EntityContext';
 
 type Props = {
     tabs: EntityTab[];
