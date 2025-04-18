@@ -59,6 +59,9 @@ query appConfig {
         viewsConfig {
             enabled
         }
+        searchBarConfig {
+            apiVariant
+        }
         featureFlags {
             readOnlyModeEnabled
             showSearchFiltersV2

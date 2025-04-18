@@ -531,6 +531,9 @@ entityChangeEvents:
 views:
   enabled: ${VIEWS_ENABLED:true}
 
+searchBar:
+  apiVariant: ${SEARCH_BAR_API_VARIANT:AUTOCOMPLETE_FOR_MULTIPLE}
+
 entityClient:
   retryInterval: ${ENTITY_CLIENT_RETRY_INTERVAL:2}
   numRetries: ${ENTITY_CLIENT_NUM_RETRIES:3}
