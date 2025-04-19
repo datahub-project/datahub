@@ -201,109 +201,169 @@ class ExcelFile:
             sheet.title,
         )
 
-    @staticmethod
-    def find_header_row(rows: List[List[Any]]) -> int:
+    def find_header_row(self, rows: List[List[Any]]) -> int:
         max_score = -1
         header_idx = 0
 
         # Skip empty rows at the beginning
-        start_idx = 0
-        for i, row in enumerate(rows):
-            if any(cell is not None and str(cell).strip() != "" for cell in row):
-                start_idx = i
-                break
+        start_idx = self._find_first_non_empty_row(rows)
 
         # Evaluate each potential header row with a lookahead
-        for i in range(start_idx, len(rows) - 3):
+        min_rows_required = 2
+
+        # Skip evaluation if there aren't enough rows
+        if len(rows) < start_idx + min_rows_required + 1:
+            return header_idx
+
+        for i in range(start_idx, len(rows) - min_rows_required):
             current_row = rows[i]
-            next_rows = rows[i + 1 : i + 4]
+            # Take as many next rows as available, up to 3
+            next_rows = rows[i + 1 : min(i + 4, len(rows))]
 
             # Skip empty rows
-            if not any(
-                cell is not None and str(cell).strip() != "" for cell in current_row
-            ):
+            if not self._is_non_empty_row(current_row):
                 continue
 
-            score = 0
-
-            # Check if this row has more non-empty cells than previous rows
-            non_empty_current = sum(
-                1
-                for cell in current_row
-                if cell is not None and str(cell).strip() != ""
-            )
-            if i > 0:
-                non_empty_prev = sum(
-                    1
-                    for cell in rows[i - 1]
-                    if cell is not None and str(cell).strip() != ""
-                )
-                if non_empty_current > non_empty_prev:
-                    score += 2
-
-            # Check for header-like text (capitalized words, no numbers)
-            header_like_cells = sum(
-                1
-                for cell in current_row
-                if cell is not None
-                and isinstance(cell, str)
-                and re.match(r"^[A-Z][a-zA-Z\s]*$", str(cell).strip())
-            )
-            score += header_like_cells
-
-            # Check for the pattern: header row (text) followed by data rows (mixed/numeric)
-            header_text_count = sum(
-                1 for cell in current_row if cell is not None and isinstance(cell, str)
-            )
-            next_rows_numeric_count = [
-                sum(
-                    1
-                    for cell in row
-                    if cell is not None
-                    and (
-                        isinstance(cell, (int, float))
-                        or (
-                            isinstance(cell, str)
-                            and re.match(r"^-?\d+(\.\d+)?$", str(cell).strip())
-                        )
-                    )
-                )
-                for row in next_rows
-            ]
-
-            if header_text_count > 0 and all(
-                count > 0 for count in next_rows_numeric_count
-            ):
-                score += 5
-
-            # Check column type consistency in the rows after the potential header
-            if len(next_rows) >= 3:
-                col_types = []
-                for col_idx in range(len(current_row)):
-                    if col_idx < len(current_row) and current_row[col_idx] is not None:
-                        col_type_counter: Counter = Counter()
-                        for row in next_rows:
-                            if col_idx < len(row) and row[col_idx] is not None:
-                                cell_type = type(row[col_idx]).__name__
-                                col_type_counter[cell_type] += 1
-
-                        # Column has consistent types in the following rows
-                        if (
-                            col_type_counter
-                            and col_type_counter.most_common(1)[0][1] >= 2
-                        ):
-                            col_types.append(col_type_counter.most_common(1)[0][0])
-
-                if (
-                    len(col_types) >= 2 and len(set(col_types)) >= 2
-                ):  # At least 2 different column types
-                    score += 3
+            score = self._calculate_header_row_score(i, current_row, next_rows, rows)
 
             if score > max_score:
                 max_score = score
                 header_idx = i
 
         return header_idx
+
+    def _find_first_non_empty_row(self, rows: List[List[Any]]) -> int:
+        for i, row in enumerate(rows):
+            if self._is_non_empty_row(row):
+                return i
+        return 0
+
+    @staticmethod
+    def _is_non_empty_row(row: List[Any]) -> bool:
+        return any(cell is not None and str(cell).strip() != "" for cell in row)
+
+    def _calculate_header_row_score(
+        self,
+        row_idx: int,
+        current_row: List[Any],
+        next_rows: List[List[Any]],
+        all_rows: List[List[Any]],
+    ) -> int:
+        score = 0
+
+        score += self._score_non_empty_cells(row_idx, current_row, all_rows)
+        score += self._score_header_like_text(current_row)
+        score += self._score_text_followed_by_numeric(current_row, next_rows)
+        score += self._score_column_type_consistency(current_row, next_rows)
+        score += self._score_metadata_patterns(row_idx, current_row, all_rows)
+
+        return score
+
+    @staticmethod
+    def _score_non_empty_cells(
+        row_idx: int, current_row: List[Any], all_rows: List[List[Any]]
+    ) -> int:
+        if row_idx <= 0:
+            return 0
+
+        non_empty_current = sum(
+            1 for cell in current_row if cell is not None and str(cell).strip() != ""
+        )
+
+        non_empty_prev = sum(
+            1
+            for cell in all_rows[row_idx - 1]
+            if cell is not None and str(cell).strip() != ""
+        )
+
+        return 2 if non_empty_current > non_empty_prev else 0
+
+    @staticmethod
+    def _score_header_like_text(row: List[Any]) -> int:
+        return sum(
+            1
+            for cell in row
+            if cell is not None
+            and isinstance(cell, str)
+            and re.match(r"^[A-Z][a-zA-Z\s]*$", str(cell).strip())
+        )
+
+    @staticmethod
+    def _score_text_followed_by_numeric(
+        current_row: List[Any], next_rows: List[List[Any]]
+    ) -> int:
+        if not next_rows:
+            return 0
+
+        header_text_count = sum(
+            1 for cell in current_row if cell is not None and isinstance(cell, str)
+        )
+
+        next_rows_numeric_count = [
+            sum(
+                1
+                for cell in row
+                if cell is not None
+                and (
+                    isinstance(cell, (int, float))
+                    or (
+                        isinstance(cell, str)
+                        and re.match(r"^-?\d+(\.\d+)?$", str(cell).strip())
+                    )
+                )
+            )
+            for row in next_rows
+        ]
+
+        if header_text_count > 0 and any(
+            count > 0 for count in next_rows_numeric_count
+        ):
+            return 6 + sum(1 for count in next_rows_numeric_count if count > 0)
+        return 0
+
+    @staticmethod
+    def _score_column_type_consistency(
+        current_row: List[Any], next_rows: List[List[Any]]
+    ) -> int:
+        if len(next_rows) < 2:
+            return 0
+
+        col_types = []
+        for col_idx in range(len(current_row)):
+            if col_idx < len(current_row) and current_row[col_idx] is not None:
+                col_type_counter: Counter = Counter()
+                for row in next_rows:
+                    if col_idx < len(row) and row[col_idx] is not None:
+                        cell_type = type(row[col_idx]).__name__
+                        col_type_counter[cell_type] += 1
+
+                if col_type_counter and col_type_counter.most_common(1)[0][1] >= 1:
+                    col_types.append(col_type_counter.most_common(1)[0][0])
+
+        return 3 if len(col_types) >= 2 and len(set(col_types)) >= 1 else 0
+
+    @staticmethod
+    def _score_metadata_patterns(
+        row_idx: int, current_row: List[Any], all_rows: List[List[Any]]
+    ) -> int:
+        score = 0
+
+        if row_idx == 0 and len(current_row) <= 2:
+            metadata_like = sum(
+                1
+                for cell in current_row
+                if cell is not None and isinstance(cell, str) and len(str(cell)) <= 20
+            )
+            if metadata_like <= 2:
+                score -= 1
+
+        if row_idx < len(all_rows) - 1 and len(current_row) >= 2:
+            if all(
+                isinstance(cell, str) for cell in current_row[:2] if cell is not None
+            ):
+                score -= 2
+
+        return score
 
     @staticmethod
     def find_footer_start(rows: List[List[Any]], header_row_idx: int) -> int:
