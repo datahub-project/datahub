@@ -1,0 +1,592 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,business_report.Business_Report,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "business_report.Business_Report",
+            "platform": "urn:li:dataPlatform:excel",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "Region",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "object",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Q1 Sales",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Q2 Sales",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Q3 Sales",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "YTD Total",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,business_report.Business_Report,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "author": "openpyxl",
+                "created": "2025-04-17 23:07:38",
+                "modified": "2025-04-17 23:07:38"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1ce8476be2087d627a7e0215868cdbac",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "excel",
+                "env": "PROD",
+                "folder_abs_path": "test-bucket"
+            },
+            "name": "test-bucket",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1ce8476be2087d627a7e0215868cdbac",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1ce8476be2087d627a7e0215868cdbac",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:excel"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1ce8476be2087d627a7e0215868cdbac",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1ce8476be2087d627a7e0215868cdbac",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3ab5cccca45eb4ea16ad4ee97cb78fb0",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:1ce8476be2087d627a7e0215868cdbac"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3ab5cccca45eb4ea16ad4ee97cb78fb0",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "excel",
+                "env": "PROD",
+                "folder_abs_path": "test-bucket/data"
+            },
+            "name": "data",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3ab5cccca45eb4ea16ad4ee97cb78fb0",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3ab5cccca45eb4ea16ad4ee97cb78fb0",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:excel"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3ab5cccca45eb4ea16ad4ee97cb78fb0",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3ab5cccca45eb4ea16ad4ee97cb78fb0",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:1ce8476be2087d627a7e0215868cdbac",
+                    "urn": "urn:li:container:1ce8476be2087d627a7e0215868cdbac"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:e9ed8ebf4d85eb3115502ff40f349eb8",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:3ab5cccca45eb4ea16ad4ee97cb78fb0"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:e9ed8ebf4d85eb3115502ff40f349eb8",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "excel",
+                "env": "PROD",
+                "folder_abs_path": "test-bucket/data/test"
+            },
+            "name": "test",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:e9ed8ebf4d85eb3115502ff40f349eb8",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:e9ed8ebf4d85eb3115502ff40f349eb8",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:excel"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:e9ed8ebf4d85eb3115502ff40f349eb8",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:e9ed8ebf4d85eb3115502ff40f349eb8",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:1ce8476be2087d627a7e0215868cdbac",
+                    "urn": "urn:li:container:1ce8476be2087d627a7e0215868cdbac"
+                },
+                {
+                    "id": "urn:li:container:3ab5cccca45eb4ea16ad4ee97cb78fb0",
+                    "urn": "urn:li:container:3ab5cccca45eb4ea16ad4ee97cb78fb0"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,business_report.Business_Report,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:e9ed8ebf4d85eb3115502ff40f349eb8"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,business_report.Business_Report,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1615443388098,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 5,
+            "columnCount": 5,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "Region",
+                    "uniqueCount": 5,
+                    "nullCount": 0,
+                    "sampleValues": [
+                        "North America",
+                        "Europe",
+                        "Asia-Pacific",
+                        "Latin America",
+                        "Middle East & Africa"
+                    ]
+                },
+                {
+                    "fieldPath": "Q1 Sales",
+                    "uniqueCount": 5,
+                    "nullCount": 0,
+                    "min": "658.5",
+                    "max": "1364.2",
+                    "mean": "1111.58",
+                    "median": "1251.0",
+                    "stdev": "262.07",
+                    "sampleValues": [
+                        "658.5",
+                        "1364.2",
+                        "1251.0",
+                        "979.3",
+                        "1304.9"
+                    ]
+                },
+                {
+                    "fieldPath": "Q2 Sales",
+                    "uniqueCount": 5,
+                    "nullCount": 0,
+                    "min": "562.5",
+                    "max": "1341.1",
+                    "mean": "899.18",
+                    "median": "817.0",
+                    "stdev": "270.79",
+                    "sampleValues": [
+                        "1047.3",
+                        "1341.1",
+                        "817.0",
+                        "728.0",
+                        "562.5"
+                    ]
+                },
+                {
+                    "fieldPath": "Q3 Sales",
+                    "uniqueCount": 5,
+                    "nullCount": 0,
+                    "min": "514.3",
+                    "max": "1314.3",
+                    "mean": "795.6",
+                    "median": "702.4",
+                    "stdev": "280.51",
+                    "sampleValues": [
+                        "514.3",
+                        "1314.3",
+                        "837.9",
+                        "702.4",
+                        "609.1"
+                    ]
+                },
+                {
+                    "fieldPath": "YTD Total",
+                    "uniqueCount": 5,
+                    "nullCount": 0,
+                    "min": "2220.1",
+                    "max": "4019.6",
+                    "mean": "2806.36",
+                    "median": "2476.5",
+                    "stdev": "646.79",
+                    "sampleValues": [
+                        "2220.1",
+                        "4019.6",
+                        "2905.9",
+                        "2409.7",
+                        "2476.5"
+                    ]
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,business_report.Business_Report,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,business_report.Business_Report,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:1ce8476be2087d627a7e0215868cdbac",
+                    "urn": "urn:li:container:1ce8476be2087d627a7e0215868cdbac"
+                },
+                {
+                    "id": "urn:li:container:3ab5cccca45eb4ea16ad4ee97cb78fb0",
+                    "urn": "urn:li:container:3ab5cccca45eb4ea16ad4ee97cb78fb0"
+                },
+                {
+                    "id": "urn:li:container:e9ed8ebf4d85eb3115502ff40f349eb8",
+                    "urn": "urn:li:container:e9ed8ebf4d85eb3115502ff40f349eb8"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
