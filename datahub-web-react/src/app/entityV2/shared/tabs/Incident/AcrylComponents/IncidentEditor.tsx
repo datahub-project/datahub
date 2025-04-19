@@ -1,5 +1,5 @@
 import { Form } from 'antd';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { IncidentAssigneeSelector } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentAssigneeSelector';
@@ -29,20 +29,19 @@ import { Input } from '@src/alchemy-components';
 import { Editor } from '@src/alchemy-components/components/Editor/Editor';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 import { useUserContext } from '@src/app/context/useUserContext';
-import { IncidentStage, IncidentState, IncidentType } from '@src/types.generated';
+import { CorpUser, IncidentStage, IncidentState, IncidentType } from '@src/types.generated';
 
 const HalfWidthInput = styled(Input)`
     width: 50%;
 `;
 
-export const IncidentEditor = ({
+export const IncidentEditor = memo(function IncidentEditor({
     entity,
     incidentUrn,
     onSubmit,
     data,
     mode = IncidentAction.CREATE,
-}: IncidentEditorProps) => {
-    const assigneeValues = data?.assignees && getAssigneeWithURN(data.assignees);
+}: IncidentEditorProps) {
     const isFormValid = Boolean(
         data?.title?.length &&
             data?.description &&
@@ -51,9 +50,8 @@ export const IncidentEditor = ({
     );
     const { user } = useUserContext();
     const userHasChangedState = useRef(false);
-    const isFirstRender = useRef(true);
-    const [cachedAssignees, setCachedAssignees] = useState<any[]>([]);
-    const [cachedLinkedAssets, setCachedLinkedAssets] = useState<any[]>([]);
+    const [cachedAssignees, setCachedAssignees] = useState<CorpUser[]>([]);
+    const [cachedLinkedAssets, setCachedLinkedAssets] = useState<string[]>([]);
     const [isLoadingAssigneeOrAssets, setIsLoadingAssigneeOrAssets] = useState(true);
 
     const [isRequiredFieldsFilled, setIsRequiredFieldsFilled] = useState<boolean>(
@@ -71,19 +69,15 @@ export const IncidentEditor = ({
     });
     const formValues = Form.useWatch([], form);
 
+    const assigneeValues = useMemo(() => {
+        return data?.assignees && getAssigneeWithURN(data.assignees);
+    }, [data?.assignees]);
+
     useEffect(() => {
+        if (!form) return;
         // Set the initial value for the custom category field when it becomes visible
         if (formValues?.type === IncidentType.Custom) {
             if (form.getFieldValue('customType') === '') form.setFieldValue('customType', data?.customType || '');
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [formValues]);
-
-    useEffect(() => {
-        // Skip effect on first render
-        if (isFirstRender.current) {
-            isFirstRender.current = false;
-            return;
         }
         // Ensure we don't override user's choice if they manually change the state
         if (
@@ -93,8 +87,7 @@ export const IncidentEditor = ({
         ) {
             form.setFieldValue('state', IncidentState.Resolved);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [formValues?.status]);
+    }, [formValues, form, data?.customType, mode]);
 
     const handleValuesChange = (changedValues: any) => {
         Object.keys(changedValues).forEach((fieldName) => form.setFields([{ name: fieldName, errors: [] }]));
@@ -133,19 +126,19 @@ export const IncidentEditor = ({
         actionButtonLabel
     );
 
-    const resolutionInput = form.getFieldValue('state') === IncidentState.Resolved && (
-        <SelectFormItem
-            label="Resolution Note"
-            name="message"
-            rules={[{ required: false }]}
-            customStyle={{
-                color: colors.gray[600],
-            }}
-        >
-            <HalfWidthInput label="" placeholder="Add a resolution note......" id="incident-message" />
-        </SelectFormItem>
-    );
-
+    const resolutionInput =
+        form.getFieldValue('state') === IncidentState.Resolved ? (
+            <SelectFormItem
+                label="Resolution Note"
+                name="message"
+                rules={[{ required: false }]}
+                customStyle={{
+                    color: colors.gray[600],
+                }}
+            >
+                <HalfWidthInput label="" placeholder="Add a resolution note......" id="incident-message" />
+            </SelectFormItem>
+        ) : null;
     return (
         <StyledForm
             form={form}
@@ -254,4 +247,4 @@ export const IncidentEditor = ({
             </IncidentFooter>
         </StyledForm>
     );
-};
+});

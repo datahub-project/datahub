@@ -68,13 +68,11 @@ export const IncidentLinkedAssetsList = ({
 
     useEffect(() => {
         if (mode === IncidentAction.CREATE && initialUrn) {
-            if (initialUrn) {
-                getEntities({
-                    variables: {
-                        urns: [initialUrn],
-                    },
-                });
-            }
+            getEntities({
+                variables: {
+                    urns: [initialUrn],
+                },
+            });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);

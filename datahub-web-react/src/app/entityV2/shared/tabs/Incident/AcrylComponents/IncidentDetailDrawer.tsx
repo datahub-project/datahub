@@ -1,5 +1,5 @@
 import { Drawer, Modal } from 'antd';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 
 import { IncidentDrawerHeader } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentDrawerHeader';
 import { IncidentEditor } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentEditor';
@@ -30,6 +30,7 @@ export const IncidentDetailDrawer = ({
 }: IncidentDetailDrawerProps) => {
     const [isEditView, setIsEditView] = useState<boolean>(false);
     const showEditor = isEditView || mode === IncidentAction.CREATE;
+    const memoizedIncident = useMemo(() => incident, [incident?.urn]);
 
     const onCloseModal = () => {
         if (showEditor) {
@@ -69,21 +70,21 @@ export const IncidentDetailDrawer = ({
                     onClose={onCancel}
                     isEditActive={isEditView}
                     setIsEditActive={setIsEditView}
-                    data={incident}
+                    data={memoizedIncident}
                     platform={entity?.platform}
                     privileges={privileges}
                 />
                 {showEditor ? (
                     <IncidentEditor
                         onClose={onCancel}
-                        data={incident}
+                        data={memoizedIncident}
                         mode={mode}
-                        incidentUrn={incident?.urn}
+                        incidentUrn={memoizedIncident?.urn}
                         entity={entity}
                         onSubmit={handleSubmit}
                     />
                 ) : (
-                    <IncidentView incident={incident as IncidentTableRow} />
+                    <IncidentView incident={memoizedIncident as IncidentTableRow} />
                 )}
             </Drawer>
         </ClickOutside>

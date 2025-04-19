@@ -7,7 +7,7 @@ import styled from 'styled-components';
 import { LoadingWrapper } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
 import { IncidentResolutionPopup } from '@app/entityV2/shared/tabs/Incident/IncidentResolutionPopup';
 import { ResolvedSection } from '@app/entityV2/shared/tabs/Incident/ResolvedSection';
-import { noPermissionsMessage } from '@app/entityV2/shared/tabs/Incident/constant';
+import { NO_PERMISSIONS_MESSAGE } from '@app/entityV2/shared/tabs/Incident/constant';
 import { ResolverNameContainer } from '@app/entityV2/shared/tabs/Incident/styledComponents';
 import { IncidentTableRow } from '@app/entityV2/shared/tabs/Incident/types';
 import { Button, Pill, Popover, colors } from '@src/alchemy-components';
@@ -125,7 +125,7 @@ export const IncidentResolveButton = ({
             data-testid="incident-resolve-button-container"
         >
             {incident?.state === IncidentState.Active ? (
-                <Tooltip showArrow={false} title={!canEditIncidents ? noPermissionsMessage : null}>
+                <Tooltip showArrow={false} title={!canEditIncidents ? NO_PERMISSIONS_MESSAGE : null}>
                     <ResolveButton disabled={!canEditIncidents} variant="text" onClick={handleShowPopup}>
                         Resolve
                     </ResolveButton>
