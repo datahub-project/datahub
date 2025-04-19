@@ -198,7 +198,7 @@ class ExcelFile:
             row_count,
             column_count,
             metadata,
-            sheet.title,
+            sheet.title.strip(),
         )
 
     def find_header_row(self, rows: List[List[Any]]) -> int:
