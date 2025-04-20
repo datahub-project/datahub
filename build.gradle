@@ -391,6 +391,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     exclude group: "org.codehaus.jackson", module: "jackson-mapper-asl"
     exclude group: "javax.mail", module: "mail"
     exclude group: 'org.glassfish', module: 'javax.json'
+    exclude group: 'org.glassfish', module: 'jakarta.json'
 
     resolutionStrategy.force externalDependency.antlr4Runtime
     resolutionStrategy.force externalDependency.antlr4
