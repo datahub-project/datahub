@@ -17,6 +17,7 @@ import {
 } from '@components/components/Select/components';
 import DropdownSearchBar from '@components/components/Select/private/DropdownSearchBar';
 import SelectActionButtons from '@components/components/Select/private/SelectActionButtons';
+import useSelectDropdown from '@components/components/Select/private/hooks/useSelectDropdown';
 import { SelectProps } from '@components/components/Select/types';
 
 const NoSuggestions = styled.div`
@@ -83,43 +84,36 @@ export default function AutoCompleteSelect<T>({
     ...props
 }: Props<T>) {
     const [query, setQuery] = useState('');
-    const [isOpen, setIsOpen] = useState(false);
     const [selectedValue, setSelectedValue] = useState<Suggestion<T> | undefined>(undefined);
     const selectRef = useRef<HTMLDivElement>(null);
-
-    const handleDocumentClick = useCallback((e: MouseEvent) => {
-        if (selectRef.current && !selectRef.current.contains(e.target as Node)) {
-            setIsOpen(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        document.addEventListener('click', handleDocumentClick);
-        return () => {
-            document.removeEventListener('click', handleDocumentClick);
-        };
-    }, [handleDocumentClick]);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+    const {
+        isOpen,
+        isVisible,
+        close: closeDropdown,
+        toggle: toggleDropdown,
+    } = useSelectDropdown(false, selectRef, dropdownRef);
 
     const handleSelectClick = useCallback(() => {
         if (!isDisabled && !isReadOnly) {
-            setIsOpen((prev) => !prev);
+            toggleDropdown();
         }
-    }, [isDisabled, isReadOnly]);
+    }, [toggleDropdown, isDisabled, isReadOnly]);
 
     const handleOptionChange = useCallback(
         (option: Suggestion<T>) => {
             setSelectedValue(option);
             onUpdate?.(option.data);
-            setIsOpen(false);
+            closeDropdown();
         },
-        [onUpdate],
+        [closeDropdown, onUpdate],
     );
 
     const handleClearSelection = useCallback(() => {
         setSelectedValue(undefined);
-        setIsOpen(false);
+        closeDropdown();
         onUpdate?.(undefined);
-    }, [onUpdate]);
+    }, [closeDropdown, onUpdate]);
 
     const isQuerySet = !!query;
     const [displayedSuggestions, setDisplayedSuggestions] = useState<Suggestion<T>[]>([]);
@@ -140,69 +134,71 @@ export default function AutoCompleteSelect<T>({
             isSelected={selectedValue !== undefined}
         >
             {label && <SelectLabel onClick={handleSelectClick}>{label}</SelectLabel>}
-            <Dropdown
-                open={isOpen}
-                disabled={isDisabled}
-                placement="bottomRight"
-                dropdownRender={() => (
-                    <DropdownContainer>
-                        <DropdownSearchBar
-                            placeholder={searchPlaceholder || ''}
-                            value={query}
-                            onChange={(value) => {
-                                setQuery(value);
-                                onSearch(value);
-                            }}
-                        />
-                        <OptionList data-testid={optionListTestId}>
-                            {!displayedSuggestions.length && (
-                                <NoSuggestions>
-                                    <Text type="span" color="gray" weight="semiBold">
-                                        No results found
-                                    </Text>
-                                </NoSuggestions>
-                            )}
-                            {displayedSuggestions?.map((option) => (
-                                <OptionLabel
-                                    key={option.value}
-                                    onClick={() => handleOptionChange(option)}
-                                    isSelected={selectedValue?.value === option.value}
-                                    isDisabled={disabledValues?.includes(option.value)}
-                                >
-                                    <OptionContainer>{render(option.data)}</OptionContainer>
-                                </OptionLabel>
-                            ))}
-                        </OptionList>
-                    </DropdownContainer>
-                )}
-            >
-                <SelectBase
-                    isDisabled={isDisabled}
-                    isReadOnly={isReadOnly}
-                    isRequired={isRequired}
-                    isOpen={isOpen}
-                    onClick={handleSelectClick}
-                    fontSize={size}
-                    {...props}
+            {isVisible && (
+                <Dropdown
+                    open={isOpen}
+                    disabled={isDisabled}
+                    placement="bottomRight"
+                    dropdownRender={() => (
+                        <DropdownContainer ref={dropdownRef}>
+                            <DropdownSearchBar
+                                placeholder={searchPlaceholder || ''}
+                                value={query}
+                                onChange={(value) => {
+                                    setQuery(value);
+                                    onSearch(value);
+                                }}
+                            />
+                            <OptionList data-testid={optionListTestId}>
+                                {!displayedSuggestions.length && (
+                                    <NoSuggestions>
+                                        <Text type="span" color="gray" weight="semiBold">
+                                            No results found
+                                        </Text>
+                                    </NoSuggestions>
+                                )}
+                                {displayedSuggestions?.map((option) => (
+                                    <OptionLabel
+                                        key={option.value}
+                                        onClick={() => handleOptionChange(option)}
+                                        isSelected={selectedValue?.value === option.value}
+                                        isDisabled={disabledValues?.includes(option.value)}
+                                    >
+                                        <OptionContainer>{render(option.data)}</OptionContainer>
+                                    </OptionLabel>
+                                ))}
+                            </OptionList>
+                        </DropdownContainer>
+                    )}
                 >
-                    <SelectLabelContainer>
-                        {icon && <StyledIcon icon={icon} size="lg" />}
-                        <LabelsWrapper>
-                            {!selectedValue && placeholder && <Placeholder>{placeholder}</Placeholder>}
-                            {selectedValue && render(selectedValue.data)}
-                        </LabelsWrapper>
-                    </SelectLabelContainer>
-                    <SelectActionButtons
-                        hasSelectedValues={!!selectedValue}
+                    <SelectBase
+                        isDisabled={isDisabled}
+                        isReadOnly={isReadOnly}
+                        isRequired={isRequired}
                         isOpen={isOpen}
-                        isDisabled={!!isDisabled}
-                        isReadOnly={!!isReadOnly}
-                        handleClearSelection={handleClearSelection}
-                        showClear
-                    />
-                </SelectBase>
-                <input type="hidden" name={name} value={selectedValue?.value || ''} readOnly />
-            </Dropdown>
+                        onClick={handleSelectClick}
+                        fontSize={size}
+                        {...props}
+                    >
+                        <SelectLabelContainer>
+                            {icon && <StyledIcon icon={icon} size="lg" />}
+                            <LabelsWrapper>
+                                {!selectedValue && placeholder && <Placeholder>{placeholder}</Placeholder>}
+                                {selectedValue && render(selectedValue.data)}
+                            </LabelsWrapper>
+                        </SelectLabelContainer>
+                        <SelectActionButtons
+                            hasSelectedValues={!!selectedValue}
+                            isOpen={isOpen}
+                            isDisabled={!!isDisabled}
+                            isReadOnly={!!isReadOnly}
+                            handleClearSelection={handleClearSelection}
+                            showClear
+                        />
+                    </SelectBase>
+                    <input type="hidden" name={name} value={selectedValue?.value || ''} readOnly />
+                </Dropdown>
+            )}
         </Container>
     );
 }
