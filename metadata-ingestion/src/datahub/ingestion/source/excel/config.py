@@ -17,7 +17,7 @@ from datahub.ingestion.source_config.operation_config import is_profiling_enable
 
 class ExcelSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     path_list: List[str] = Field(
-        description="List of paths to HDF5 files or directories to ingest."
+        description="List of paths to Excel files or folders to ingest."
     )
 
     path_pattern: AllowDenyPattern = Field(
@@ -48,9 +48,21 @@ class ExcelSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         description="Enable to convert the Excel asset urns to lowercase",
     )
 
+    active_sheet_only: bool = Field(
+        default=False,
+        description="Enable to only ingest the active sheet of the workbook. If not set, all sheets will be ingested.",
+    )
+
+    worksheet_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for worksheets to ingest. Worksheets are specified as 'filename_without_extension.worksheet_name'. "
+        "For example to allow the worksheet Sheet1 from file report.xlsx, use the pattern: 'report.Sheet1'.",
+    )
+
     profile_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for workbook paths to profile",
+        description="Regex patterns for worksheets to profile. Worksheets are specified as 'filename_without_extension.worksheet_name'. "
+        "For example to allow the worksheet Sheet1 from file report.xlsx, use the pattern: 'report.Sheet1'.",
     )
 
     profiling: GEProfilingConfig = Field(

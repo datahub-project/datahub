@@ -1,0 +1,20 @@
+# Ingest from S3
+source:
+  type: excel
+  config:
+    path_list:
+      - "s3://bucket/data/excel/*/*.xlsx"
+    aws_config:
+      aws_access_key_id: *****
+      aws_secret_access_key: *****
+      aws_region: us-east-1
+    profiling:
+      enabled: false
+# Ingest from the local filesystem
+source:
+  type: excel
+  config:
+    path_list:
+      - "/data/path/reporting/excel/*.xlsx"
+    profiling:
+      enabled: false

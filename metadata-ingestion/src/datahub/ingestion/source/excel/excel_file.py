@@ -4,7 +4,7 @@ import re
 from collections import Counter
 from dataclasses import dataclass
 from io import TextIOBase
-from typing import Any, BinaryIO, Dict, List, Union
+from typing import Any, BinaryIO, Dict, List, Optional, Union
 
 import openpyxl
 import pandas as pd
@@ -101,9 +101,10 @@ class ExcelFile:
     def workbook_properties(self) -> Dict[str, Any]:
         return self.properties
 
-    def get_tables(self) -> List[ExcelTable]:
+    def get_tables(self, active_only: Optional[bool] = False) -> List[ExcelTable]:
         results: List[ExcelTable] = []
-        for sheet in self.sheet_list:
+        sheet_list = [self.active_sheet] if active_only else self.sheet_list
+        for sheet in sheet_list:
             results.append(self.get_table(sheet))
         return results
 

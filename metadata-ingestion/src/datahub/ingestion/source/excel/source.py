@@ -373,7 +373,13 @@ class ExcelSource(StatefulIngestionSourceBase):
         result = xls.load_workbook()
 
         if result:
-            for table in xls.get_tables():
+            for table in xls.get_tables(active_only=self.config.active_sheet_only):
+                dataset_name = gen_dataset_name(
+                    filename, table.sheet_name, self.config.convert_urns_to_lowercase
+                )
+                if not self.config.worksheet_pattern.allowed(dataset_name):
+                    self.report.report_dropped(dataset_name)
+                    continue
                 yield from self.process_dataset(path, filename, table)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:

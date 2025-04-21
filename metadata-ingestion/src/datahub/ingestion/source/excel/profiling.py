@@ -97,7 +97,14 @@ class ExcelProfiler:
 
     def generate_profile(self) -> Iterable[MetadataWorkUnit]:
         if (
-            not self.config.profile_pattern.allowed(self.sheet_name)
+            not self.config.profile_pattern.allowed(
+                gen_dataset_name(
+                    self.filename,
+                    self.sheet_name,
+                    self.config.convert_urns_to_lowercase,
+                )
+            )
+            and self.config.profiling.report_dropped_profiles
             and self.config.profiling.report_dropped_profiles
         ):
             self.report.profiling_skipped_table_profile_pattern[self.filename] += 1
