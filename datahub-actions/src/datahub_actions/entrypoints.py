@@ -129,7 +129,7 @@ def main(**kwargs):
             )
         )
         logger.info(
-            f"DataHub Actions version: {datahub_package.__version__} at {datahub_package.__file__}"
+            f"DataHub Actions version: {actions_version.__version__} at {actions_version.__file__}"
         )
         logger.info(
             f"Python version: {sys.version} at {sys.executable} on {platform.platform()}"
