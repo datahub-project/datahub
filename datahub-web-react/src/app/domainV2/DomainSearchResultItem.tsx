@@ -4,15 +4,15 @@ import Highlight from 'react-highlighter';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
+import { getParentDomains } from '@app/domainV2/utils';
+import { IconStyleType } from '@app/entity/Entity';
+import EntityRegistry from '@app/entity/EntityRegistry';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
+import ParentEntities from '@app/search/filters/ParentEntities';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 
-import { Domain, Entity, EntityType } from '../../types.generated';
-import { IconStyleType } from '../entity/Entity';
-import EntityRegistry from '../entity/EntityRegistry';
-import { ANTD_GRAY } from '../entity/shared/constants';
-import { DomainColoredIcon } from '../entityV2/shared/links/DomainColoredIcon';
-import ParentEntities from '../search/filters/ParentEntities';
-import { getParentDomains } from './utils';
+import { Domain, Entity, EntityType } from '@types';
 
 type Props = {
     entity: Entity;

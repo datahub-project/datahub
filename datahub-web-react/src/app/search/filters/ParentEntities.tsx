@@ -4,11 +4,11 @@ import { CaretRight } from 'phosphor-react';
 import React from 'react';
 import styled from 'styled-components';
 
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 
-import { Entity } from '../../../types.generated';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { useEntityRegistry } from '../../useEntityRegistry';
+import { Entity } from '@types';
 
 const ParentNodesWrapper = styled.div`
     font-size: 12px;
