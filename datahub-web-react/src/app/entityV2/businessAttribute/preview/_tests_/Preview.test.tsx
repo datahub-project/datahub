@@ -18,10 +18,11 @@ describe('Preview', () => {
                         description="definition"
                         owners={null}
                         previewType={PreviewType.PREVIEW}
+                        data={{}}
                     />
                 </TestPageContainer>
             </MockedProvider>,
         );
-        expect(getByText('definition')).toBeInTheDocument();
+        expect(getByText('name')).toBeInTheDocument();
     });
 });
