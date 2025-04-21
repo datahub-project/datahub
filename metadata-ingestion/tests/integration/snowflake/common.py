@@ -192,10 +192,6 @@ def default_query_results(  # noqa: C901
         return [{"CURRENT_ROLE()": "TEST_ROLE"}]
     elif query == SnowflakeQuery.current_version():
         return [{"CURRENT_VERSION()": "X.Y.Z"}]
-    elif query == SnowflakeQuery.current_database():
-        return [{"CURRENT_DATABASE()": "TEST_DB"}]
-    elif query == SnowflakeQuery.current_schema():
-        return [{"CURRENT_SCHEMA()": "TEST_SCHEMA"}]
     elif query == SnowflakeQuery.current_warehouse():
         return [{"CURRENT_WAREHOUSE()": "TEST_WAREHOUSE"}]
     elif query == SnowflakeQuery.show_databases():
