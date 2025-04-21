@@ -20,7 +20,7 @@ import QuickFilters from '@app/searchV2/autoComplete/quickFilters/QuickFilters';
 import useFocusElementByCommandK from '@app/searchV2/searchBarV2/hooks/useFocusSearchBarByCommandK';
 import useSearchViewAll from '@app/searchV2/useSearchViewAll';
 import { combineSiblingsInAutoComplete } from '@app/searchV2/utils/combineSiblingsInAutoComplete';
-import { EXACT_SEARCH_PREFIX } from '@app/searchV2/utils/constants';
+import { EXACT_SEARCH_PREFIX, SEARCH_BAR_CLASS_NAME } from '@app/searchV2/utils/constants';
 import filterSearchQuery from '@app/searchV2/utils/filterSearchQuery';
 import { getFiltersWithQuickFilter } from '@app/searchV2/utils/filterUtils';
 import usePrevious from '@app/shared/usePrevious';
@@ -408,6 +408,7 @@ export const SearchBar = ({
                     id={id}
                     style={viewsEnabled ? viewsEnabledStyle : style}
                     ref={searchBarWrapperRef}
+                    className={SEARCH_BAR_CLASS_NAME}
                 >
                     <StyledAutoComplete
                         data-testid="search-bar"
