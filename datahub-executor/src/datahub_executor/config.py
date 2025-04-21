@@ -193,6 +193,10 @@ VOLUME_MIN_TRAINING_SAMPLES_TIMESPAN_SECONDS = env_to_int(
 
 VOLUME_DEFAULT_SENSITIVITY_LEVEL = env_to_int("VOLUME_DEFAULT_SENSITIVITY_LEVEL", 5)
 
+# The maximum age of a dataset profile in hours from the current time to consider it as valid 'latest' metric.
+METRIC_RESOLVER_DATAHUB_DATASET_PROFILE_MAX_AGE_HOURS = env_to_int(
+    "METRIC_RESOLVER_DATAHUB_DATASET_PROFILE_MAX_AGE_HOURS", 24
+)
 
 # The time between subsequent training runs.
 FRESHNESS_MIN_TRAINING_INTERVAL_SECONDS = env_to_int(

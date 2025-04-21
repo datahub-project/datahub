@@ -55,7 +55,7 @@ from datahub_executor.common.types import (
     VolumeAssertionType,
 )
 
-TEST_START = 1687643700064
+TEST_START = int(time.time() * 1000)
 
 TEST_ENTITY_URN = (
     "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.test_table,PROD)"

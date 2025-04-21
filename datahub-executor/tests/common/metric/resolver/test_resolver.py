@@ -1,3 +1,4 @@
+import time
 from unittest.mock import MagicMock
 
 import pytest
@@ -121,7 +122,10 @@ class TestMetricResolver:
         """Test fetching row count from DataHub profile."""
         # Setup mock dataset profile
         dataset_profile = DatasetProfileClass(
-            timestampMillis=1, rowCount=1000, columnCount=10, fieldProfiles=[]
+            timestampMillis=int(time.time() * 1000),
+            rowCount=1000,
+            columnCount=10,
+            fieldProfiles=[],
         )
         mock_connection_provider.graph.get_latest_timeseries_value.return_value = (
             dataset_profile
@@ -187,7 +191,7 @@ class TestMetricResolver:
         """Test that profile with missing rowCount raises InsufficientDataException."""
         # Setup mock to return profile without rowCount
         dataset_profile = DatasetProfileClass(
-            timestampMillis=1, columnCount=10, fieldProfiles=[]
+            timestampMillis=int(time.time() * 1000), columnCount=10, fieldProfiles=[]
         )
         mock_connection_provider.graph.get_latest_timeseries_value.return_value = (
             dataset_profile
@@ -373,7 +377,7 @@ class TestMetricResolver:
         )
 
         dataset_profile = DatasetProfileClass(
-            timestampMillis=1,
+            timestampMillis=int(time.time() * 1000),
             rowCount=1000,
             columnCount=10,
             fieldProfiles=[field_profile],
@@ -473,7 +477,9 @@ class TestMetricResolver:
         )
 
         dataset_profile = DatasetProfileClass(
-            timestampMillis=1, rowCount=1000, fieldProfiles=[field_profile]
+            timestampMillis=int(time.time() * 1000),
+            rowCount=1000,
+            fieldProfiles=[field_profile],
         )
 
         mock_connection_provider.graph.get_latest_timeseries_value.return_value = (
@@ -523,7 +529,9 @@ class TestMetricResolver:
         )
 
         dataset_profile = DatasetProfileClass(
-            timestampMillis=1, rowCount=1000, fieldProfiles=[field_profile]
+            timestampMillis=int(time.time() * 1000),
+            rowCount=1000,
+            fieldProfiles=[field_profile],
         )
 
         mock_connection_provider.graph.get_latest_timeseries_value.return_value = (
@@ -704,6 +712,94 @@ class TestMetricResolver:
             f"Unable to retrieve valid connection for Data Platform with urn={entity_urn}"
             in str(excinfo.value)
         )
+
+    def test_dataset_profile_staleness_threshold(
+        self,
+        resolver: MetricResolver,
+        entity_urn: str,
+        mock_connection_provider: MagicMock,
+    ) -> None:
+        """Test that stale dataset profiles are rejected based on the configured threshold."""
+        # Import the config value for the staleness threshold
+        # Calculate a timestamp that is just beyond the staleness threshold
+        import time
+
+        from datahub_executor.config import (
+            METRIC_RESOLVER_DATAHUB_DATASET_PROFILE_MAX_AGE_HOURS,
+        )
+
+        now_ms = int(time.time() * 1000)
+        hours_to_ms = 1000 * 60 * 60
+        max_age_ms = hours_to_ms * METRIC_RESOLVER_DATAHUB_DATASET_PROFILE_MAX_AGE_HOURS
+        stale_timestamp = now_ms - max_age_ms - 1000  # 1 second beyond the threshold
+
+        # Create a stale dataset profile
+        dataset_profile = DatasetProfileClass(
+            timestampMillis=stale_timestamp,
+            rowCount=1000,
+            columnCount=10,
+            fieldProfiles=[],
+        )
+
+        # Setup mock to return the stale profile
+        mock_connection_provider.graph.get_latest_timeseries_value.return_value = (
+            dataset_profile
+        )
+
+        # Call with strategy to use DataHub profile
+        strategy = MetricResolverStrategy(
+            source_type=MetricSourceType.DATAHUB_DATASET_PROFILE
+        )
+
+        # Test that stale profile raises InsufficientDataException
+        with pytest.raises(InsufficientDataException) as excinfo:
+            resolver.get_metric(
+                entity_urn=entity_urn,
+                metric_name="row_count",
+                database_params=AssertionDatabaseParams(
+                    qualified_name="my_schema.my_database.my_table",
+                    table_name="my_table",
+                ),
+                filter_params=None,
+                strategy=strategy,
+            )
+
+        # Verify the error message contains information about the staleness
+        assert "too stale to use" in str(excinfo.value)
+        assert (
+            f"maximum age of {METRIC_RESOLVER_DATAHUB_DATASET_PROFILE_MAX_AGE_HOURS} hours"
+            in str(excinfo.value)
+        )
+
+        # Now test with a fresh profile (just within the threshold)
+        fresh_timestamp = now_ms - max_age_ms + 1000  # 1 second within the threshold
+        fresh_profile = DatasetProfileClass(
+            timestampMillis=fresh_timestamp,
+            rowCount=1000,
+            columnCount=10,
+            fieldProfiles=[],
+        )
+
+        # Setup mock to return the fresh profile
+        mock_connection_provider.graph.get_latest_timeseries_value.return_value = (
+            fresh_profile
+        )
+
+        # This should not raise an exception
+        metric = resolver.get_metric(
+            entity_urn=entity_urn,
+            metric_name="row_count",
+            database_params=AssertionDatabaseParams(
+                qualified_name="my_schema.my_database.my_table",
+                table_name="my_table",
+            ),
+            filter_params=None,
+            strategy=strategy,
+        )
+
+        # Verify the metric was returned correctly
+        assert isinstance(metric, Metric)
+        assert metric.value == 1000
 
     def test_default_strategy_behavior(
         self,

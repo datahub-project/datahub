@@ -30,8 +30,16 @@ from datahub_executor.common.types import (
     FieldMetricType,
     SchemaFieldSpec,
 )
+from datahub_executor.config import (
+    METRIC_RESOLVER_DATAHUB_DATASET_PROFILE_MAX_AGE_HOURS,
+)
 
 logger = logging.getLogger(__name__)
+
+HOURS_TO_MS = 1000 * 60 * 60
+DATASET_PROFILE_MAX_AGE_MS = (
+    HOURS_TO_MS * METRIC_RESOLVER_DATAHUB_DATASET_PROFILE_MAX_AGE_HOURS
+)
 
 
 class MetricResolver:
@@ -177,6 +185,14 @@ class MetricResolver:
                 message=f"Unable to find dataset field profile for {entity_urn} {field.path}"
             )
 
+        now_ms = int(time.time() * 1000)
+        oldest_valid_timestamp = now_ms - DATASET_PROFILE_MAX_AGE_MS
+
+        if dataset_profile.timestampMillis < oldest_valid_timestamp:
+            msg = f"Dataset profile for {entity_urn} {field.path} is too stale to use: timestamp={dataset_profile.timestampMillis} is older than the maximum age of {METRIC_RESOLVER_DATAHUB_DATASET_PROFILE_MAX_AGE_HOURS} hours."
+            logger.warning(msg)
+            raise InsufficientDataException(message=msg)
+
         metric_value = self._get_field_metric_value_from_dataset_field_profile(
             dataset_field_profile,
             metric,
@@ -187,8 +203,7 @@ class MetricResolver:
                 message=f"Unable to find dataset field profile data for for {entity_urn} {metric.name}"
             )
 
-        now_time = int(time.time() * 1000)
-        return Metric(value=metric_value, timestamp_ms=now_time)
+        return Metric(value=metric_value, timestamp_ms=now_ms)
 
     def _fetch_field_aggregation_metric_from_source(
         self,
@@ -361,6 +376,14 @@ class MetricResolver:
             logger.warning(msg)
             raise InsufficientDataException(message=msg)
 
+        now_ms = int(time.time() * 1000)
+        oldest_valid_timestamp = now_ms - DATASET_PROFILE_MAX_AGE_MS
+
+        if dataset_profile.timestampMillis < oldest_valid_timestamp:
+            msg = f"Dataset profile for {entity_urn} is too stale to use: timestamp={dataset_profile.timestampMillis} is older than the maximum age of {METRIC_RESOLVER_DATAHUB_DATASET_PROFILE_MAX_AGE_HOURS} hours."
+            logger.warning(msg)
+            raise InsufficientDataException(message=msg)
+
         row_count = dataset_profile.rowCount
         logger.info(
             "Retrieved rowCount=%d from dataset profile for entity_urn=%s",
@@ -368,9 +391,7 @@ class MetricResolver:
             entity_urn,
         )
 
-        now_time = int(time.time() * 1000)
-
-        return Metric(value=row_count, timestamp_ms=now_time)
+        return Metric(value=row_count, timestamp_ms=now_ms)
 
     def _get_dataset_field_profile(
         self,
