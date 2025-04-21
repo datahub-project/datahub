@@ -1,4 +1,4 @@
-import { Button, Typography } from 'antd';
+import { Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -9,6 +9,7 @@ import { DeprecationIcon } from '@app/entityV2/shared/components/styled/Deprecat
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { FieldPopularity } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldPopularity';
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
+import { Button } from '@src/alchemy-components';
 import MarkAsDeprecatedButton from '@src/app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
 
 import { Deprecation, SubResourceType, UsageQueryResult } from '@types';
@@ -42,7 +43,6 @@ const NotesWrapper = styled.div`
     align-items: start;
     display: flex;
     flex-direction: column;
-    gap: 8px;
     padding: 0px 16px;
 `;
 
@@ -50,7 +50,6 @@ const DeprecationWrapper = styled.div`
     align-items: start;
     display: flex;
     flex-direction: column;
-    gap: 8px;
     padding: 0px 16px;
 `;
 
@@ -72,6 +71,11 @@ const DetailValue = styled(Typography.Text)`
     font-weight: 500;
     line-height: 16px;
     width: max-content;
+`;
+
+const StyledButton = styled(Button)`
+    padding-left: 4px;
+    padding-right: 4px;
 `;
 
 type FieldDetailsProps = {
@@ -129,20 +133,16 @@ export const FieldDetails = ({ fieldPath, deprecation, usageStats, refetch, refe
                 <NotesWrapper>
                     <DetailLabel>Notes</DetailLabel>
                     {isSchemaEditable && (
-                        <Button
-                            type="text"
-                            style={{
-                                width: 70,
-                                padding: 0,
-                                marginTop: -8,
-                                color: REDESIGN_COLORS.LINK_GREY,
-                            }}
+                        <StyledButton
+                            variant="text"
+                            size="sm"
+                            color="gray"
                             onClick={() => {
                                 setIsPostModalVisible(true);
                             }}
                         >
                             + Add Note
-                        </Button>
+                        </StyledButton>
                     )}
                 </NotesWrapper>
                 <DeprecationWrapper>

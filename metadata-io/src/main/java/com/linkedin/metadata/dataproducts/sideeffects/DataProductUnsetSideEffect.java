@@ -4,7 +4,6 @@ import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
 
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.dataproduct.DataProductAssociation;
 import com.linkedin.dataproduct.DataProductAssociationArray;
@@ -32,6 +31,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -118,7 +118,7 @@ public class DataProductUnsetSideEffect extends MCPSideEffect {
                       "urn", dataProductAssociation.getDestinationUrn().toString()),
                   null,
                   EMPTY_FILTER,
-                  ImmutableList.of("DataProductContains"),
+                  Set.of("DataProductContains"),
                   QueryUtils.newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
                   Collections.emptyList(),
                   null,
