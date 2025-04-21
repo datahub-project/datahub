@@ -30,7 +30,7 @@ export const IncidentDetailDrawer = ({
 }: IncidentDetailDrawerProps) => {
     const [isEditView, setIsEditView] = useState<boolean>(false);
     const showEditor = isEditView || mode === IncidentAction.CREATE;
-    const memoizedIncident = useMemo(() => incident, [incident?.urn]);
+    const memoizedIncident = useMemo(() => incident, [incident]);
 
     const onCloseModal = () => {
         if (showEditor) {

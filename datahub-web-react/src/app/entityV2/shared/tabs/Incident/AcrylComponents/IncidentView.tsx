@@ -60,7 +60,7 @@ const IncidentStates = {
     },
 };
 
-export const IncidentView = memo(function IncidentView({ incident }: { incident: IncidentTableRow }) {
+export const IncidentView = memo(({ incident }: { incident: IncidentTableRow }) => {
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const [getAssigneeEntities, { data: resolvedAssignees, loading }] = useGetEntitiesLazyQuery();
@@ -84,10 +84,11 @@ export const IncidentView = memo(function IncidentView({ incident }: { incident:
         if (urns.length) {
             getAssigneeEntities({ variables: { urns } });
         }
-    }, [creatorUrn, lastUpdatedUrn]);
+    }, [creatorUrn, lastUpdatedUrn, getAssigneeEntities]);
 
     const { incidentCreator, incidentResolver } = useMemo(() => {
-        let creator, resolver;
+        let creator;
+        let resolver;
         resolvedAssignees?.entities?.forEach((entity) => {
             if (creatorUrn === lastUpdatedUrn) {
                 creator = entity;

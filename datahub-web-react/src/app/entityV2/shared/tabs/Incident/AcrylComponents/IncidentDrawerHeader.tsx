@@ -1,12 +1,5 @@
 import React from 'react';
-import { Button } from '@src/alchemy-components';
-import { Tooltip2 } from '@src/alchemy-components/components/Tooltip2';
-import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
-import { DataPlatform, EntityPrivileges } from '@src/types.generated';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { useIncidentURNCopyLink } from '../hooks';
-import { IncidentAction, NO_PERMISSIONS_MESSAGE } from '../constant';
-import { IncidentTableRow } from '../types';
+
 import {
     ForPlatformWrapper,
     StyledHeader,
@@ -14,6 +7,14 @@ import {
     StyledHeaderTitleContainer,
     StyledTitle,
 } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
+import { IncidentAction, NO_PERMISSIONS_MESSAGE } from '@app/entityV2/shared/tabs/Incident/constant';
+import { useIncidentURNCopyLink } from '@app/entityV2/shared/tabs/Incident/hooks';
+import { IncidentTableRow } from '@app/entityV2/shared/tabs/Incident/types';
+import { Button } from '@src/alchemy-components';
+import { Tooltip2 } from '@src/alchemy-components/components/Tooltip2';
+import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { DataPlatform, EntityPrivileges } from '@src/types.generated';
 
 type IncidentDrawerHeaderProps = {
     mode: IncidentAction;

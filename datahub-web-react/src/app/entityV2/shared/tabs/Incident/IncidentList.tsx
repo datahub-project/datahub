@@ -1,5 +1,5 @@
 import { Empty } from 'antd';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import { combineEntityDataWithSiblings } from '@app/entity/shared/siblingUtils';
@@ -58,13 +58,9 @@ export const IncidentList = () => {
         const combinedData = isSeparateSiblingsMode ? data : combineEntityDataWithSiblings(data);
 
         const incidents =
-            combinedData &&
-            'entity' in combinedData &&
-            combinedData.entity &&
-            'incidents' in combinedData.entity &&
-            Array.isArray(combinedData.entity.incidents?.incidents)
-                ? combinedData.entity.incidents.incidents
-                : [];
+            (combinedData &&
+                (combinedData as any).entity?.incidents?.incidents?.map((incident) => incident as Incident)) ||
+            [];
 
         return incidents.map((incident) => incident as Incident);
     }, [data, isSeparateSiblingsMode]);
@@ -78,9 +74,9 @@ export const IncidentList = () => {
         setVisibleIncidents(filteredIncidentTable);
     }, [allIncidents, filteredIncidentTable]);
 
-    const handleFilterChange = (filter) => {
+    const handleFilterChange = useCallback((filter) => {
         setSelectedFilters(filter);
-    };
+    }, []);
 
     const refetch = () => {
         refetchEntity();
