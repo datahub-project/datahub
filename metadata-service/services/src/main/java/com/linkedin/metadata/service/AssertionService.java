@@ -216,7 +216,7 @@ public class AssertionService extends BaseService {
       final EntityRelationships relationships =
           _graphClient.getRelatedEntities(
               entityUrn.toString(),
-              ImmutableList.of(ASSERTS_RELATIONSHIP_NAME),
+              ImmutableSet.of(ASSERTS_RELATIONSHIP_NAME),
               RelationshipDirection.INCOMING,
               0,
               MAX_ASSERTIONS_TO_LIST,
@@ -252,7 +252,7 @@ public class AssertionService extends BaseService {
       final EntityRelationships relationships =
           _graphClient.getRelatedEntities(
               assertionUrn.toString(),
-              ImmutableList.of(ASSERTS_RELATIONSHIP_NAME),
+              ImmutableSet.of(ASSERTS_RELATIONSHIP_NAME),
               RelationshipDirection.OUTGOING,
               0,
               1,
@@ -282,7 +282,7 @@ public class AssertionService extends BaseService {
       final EntityRelationships relationships =
           _graphClient.getRelatedEntities(
               assertionUrn.toString(),
-              ImmutableList.of(MONITOR_EVALUATES_RELATIONSHIP_NAME),
+              ImmutableSet.of(MONITOR_EVALUATES_RELATIONSHIP_NAME),
               RelationshipDirection.INCOMING,
               0,
               1,

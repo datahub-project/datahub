@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.assertion;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
@@ -54,7 +54,7 @@ public class AssertionMonitorResolver implements DataFetcher<CompletableFuture<M
       final EntityRelationships relationships =
           this.graphClient.getRelatedEntities(
               assertionUrn.toString(),
-              ImmutableList.of(ASSERTION_MONITOR_RELATIONSHIP_NAME),
+              ImmutableSet.of(ASSERTION_MONITOR_RELATIONSHIP_NAME),
               RelationshipDirection.INCOMING,
               0,
               1,

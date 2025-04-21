@@ -9,6 +9,7 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationshipArray;
 import com.linkedin.common.EntityRelationships;
@@ -237,7 +238,7 @@ public class GroupServiceTest {
   public void testMigrateGroupMembershipToNativeGroupMembershipPasses() throws Exception {
     when(_graphClient.getRelatedEntities(
             eq(EXTERNAL_GROUP_URN_STRING),
-            eq(ImmutableList.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME)),
+            eq(ImmutableSet.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME)),
             eq(RelationshipDirection.INCOMING),
             anyInt(),
             anyInt(),
@@ -294,7 +295,7 @@ public class GroupServiceTest {
   public void testGetExistingGroupMembersPasses() {
     when(_graphClient.getRelatedEntities(
             eq(GROUP_URN_STRING),
-            eq(ImmutableList.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME)),
+            eq(ImmutableSet.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME)),
             eq(RelationshipDirection.INCOMING),
             anyInt(),
             anyInt(),

@@ -5,6 +5,7 @@ import static org.mockito.Mockito.mock;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationshipArray;
 import com.linkedin.common.EntityRelationships;
@@ -71,7 +72,7 @@ public class DataContractServiceTest {
     Mockito.when(
             mockGraphClient.getRelatedEntities(
                 Mockito.eq(TEST_DATASET_URN.toString()),
-                Mockito.eq(ImmutableList.of("ContractFor")),
+                Mockito.eq(ImmutableSet.of("ContractFor")),
                 Mockito.eq(RelationshipDirection.INCOMING),
                 Mockito.eq(0),
                 Mockito.eq(1),
@@ -107,7 +108,7 @@ public class DataContractServiceTest {
     Mockito.when(
             mockGraphClient.getRelatedEntities(
                 Mockito.eq(TEST_DATASET_URN.toString()),
-                Mockito.eq(ImmutableList.of("ContractFor")),
+                Mockito.eq(ImmutableSet.of("ContractFor")),
                 Mockito.eq(RelationshipDirection.INCOMING),
                 Mockito.eq(0),
                 Mockito.eq(1),
@@ -132,7 +133,7 @@ public class DataContractServiceTest {
     Mockito.when(
             mockGraphClient.getRelatedEntities(
                 Mockito.eq(TEST_DATASET_URN.toString()),
-                Mockito.eq(ImmutableList.of("ContractFor")),
+                Mockito.eq(ImmutableSet.of("ContractFor")),
                 Mockito.eq(RelationshipDirection.INCOMING),
                 Mockito.eq(0),
                 Mockito.eq(1),

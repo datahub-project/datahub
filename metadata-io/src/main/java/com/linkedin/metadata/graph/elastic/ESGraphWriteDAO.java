@@ -3,14 +3,11 @@ package com.linkedin.metadata.graph.elastic;
 import static com.linkedin.metadata.graph.elastic.ESGraphQueryDAO.buildQuery;
 import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDEX_NAME;
 
-import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
-import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.query.filter.RelationshipFilter;
+import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import io.datahubproject.metadata.context.OperationContext;
-import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -59,49 +56,16 @@ public class ESGraphWriteDAO {
   }
 
   public BulkByScrollResponse deleteByQuery(
-      @Nonnull final OperationContext opContext,
-      @Nullable final String sourceType,
-      @Nonnull final Filter sourceEntityFilter,
-      @Nullable final String destinationType,
-      @Nonnull final Filter destinationEntityFilter,
-      @Nonnull final List<String> relationshipTypes,
-      @Nonnull final RelationshipFilter relationshipFilter) {
-    BoolQueryBuilder finalQuery =
-        buildQuery(
-            opContext,
-            graphQueryConfiguration,
-            sourceType == null ? ImmutableList.of() : ImmutableList.of(sourceType),
-            sourceEntityFilter,
-            destinationType == null ? ImmutableList.of() : ImmutableList.of(destinationType),
-            destinationEntityFilter,
-            relationshipTypes,
-            relationshipFilter);
-
-    return bulkProcessor
-        .deleteByQuery(finalQuery, indexConvention.getIndexName(INDEX_NAME))
-        .orElse(null);
+      @Nonnull final OperationContext opContext, @Nonnull final GraphFilters graphFilters) {
+    return deleteByQuery(opContext, graphFilters, null);
   }
 
   public BulkByScrollResponse deleteByQuery(
       @Nonnull final OperationContext opContext,
-      @Nullable final String sourceType,
-      @Nonnull final Filter sourceEntityFilter,
-      @Nullable final String destinationType,
-      @Nonnull final Filter destinationEntityFilter,
-      @Nonnull final List<String> relationshipTypes,
-      @Nonnull final RelationshipFilter relationshipFilter,
+      @Nonnull final GraphFilters graphFilters,
       String lifecycleOwner) {
     BoolQueryBuilder finalQuery =
-        buildQuery(
-            opContext,
-            graphQueryConfiguration,
-            sourceType == null ? ImmutableList.of() : ImmutableList.of(sourceType),
-            sourceEntityFilter,
-            destinationType == null ? ImmutableList.of() : ImmutableList.of(destinationType),
-            destinationEntityFilter,
-            relationshipTypes,
-            relationshipFilter,
-            lifecycleOwner);
+        buildQuery(opContext, graphQueryConfiguration, graphFilters, lifecycleOwner);
 
     return bulkProcessor
         .deleteByQuery(finalQuery, indexConvention.getIndexName(INDEX_NAME))

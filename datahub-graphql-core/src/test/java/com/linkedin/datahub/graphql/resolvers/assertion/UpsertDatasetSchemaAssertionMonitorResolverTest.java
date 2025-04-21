@@ -8,6 +8,7 @@ import static org.testng.Assert.*;
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.AssertionActions;
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionSource;
@@ -192,7 +193,7 @@ public class UpsertDatasetSchemaAssertionMonitorResolverTest {
         .thenReturn(assertionInfo);
     when(graphClient.getRelatedEntities(
             Mockito.eq(TEST_ASSERTION_URN),
-            Mockito.eq(ImmutableList.of("Evaluates")),
+            Mockito.eq(ImmutableSet.of("Evaluates")),
             Mockito.eq(RelationshipDirection.INCOMING),
             Mockito.eq(0),
             Mockito.eq(1),

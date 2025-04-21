@@ -4,7 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
 
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Striped;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
@@ -359,7 +359,7 @@ public class ScimGroupRepository
             QueryUtils.newFilter("urn", urn.toString()),
             null,
             QueryUtils.EMPTY_FILTER,
-            ImmutableList.of(GROUP_MEMBERSHIP_RELATIONSHIP_NAME),
+            ImmutableSet.of(GROUP_MEMBERSHIP_RELATIONSHIP_NAME),
             QueryUtils.newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
             0,
             MAX_RELATIONSHIPS);

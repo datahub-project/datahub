@@ -990,11 +990,11 @@ public class ESAccessControlUtilTest {
             .build(USER_A_AUTH, false);
 
     when(mockGraphRetriever.scrollRelatedEntities(
-            eq(List.of(DOMAIN_ENTITY_NAME)),
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
             nullable(Filter.class),
-            eq(List.of(DOMAIN_ENTITY_NAME)),
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
             any(),
-            eq(List.of(Constants.IS_PART_OF_RELATIONSHIP_NAME)),
+            eq(Set.of(Constants.IS_PART_OF_RELATIONSHIP_NAME)),
             eq(new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING)),
             any(),
             eq(null),

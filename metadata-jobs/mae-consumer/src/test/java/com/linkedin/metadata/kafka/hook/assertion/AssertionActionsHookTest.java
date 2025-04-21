@@ -1007,7 +1007,7 @@ public class AssertionActionsHookTest {
     // Setup mock to return the relationship when queried
     when(mockGraphClient.getRelatedEntities(
             eq(TEST_ASSERTION_URN.toString()),
-            eq(ImmutableList.of("Evaluates")),
+            eq(ImmutableSet.of("Evaluates")),
             eq(RelationshipDirection.INCOMING),
             eq(0),
             eq(1),
@@ -1038,7 +1038,7 @@ public class AssertionActionsHookTest {
     verify(mockGraphClient, times(1))
         .getRelatedEntities(
             eq(TEST_ASSERTION_URN.toString()),
-            eq(ImmutableList.of("Evaluates")),
+            eq(ImmutableSet.of("Evaluates")),
             eq(RelationshipDirection.INCOMING),
             eq(0),
             eq(1),
@@ -1153,7 +1153,7 @@ public class AssertionActionsHookTest {
     verify(mockGraphClient, times(0))
         .getRelatedEntities(
             anyString(),
-            anyList(),
+            anySet(),
             any(RelationshipDirection.class),
             anyInt(),
             anyInt(),
@@ -1216,7 +1216,7 @@ public class AssertionActionsHookTest {
 
     when(mockGraphClient.getRelatedEntities(
             eq(TEST_ASSERTION_URN.toString()),
-            eq(ImmutableList.of("Evaluates")),
+            eq(ImmutableSet.of("Evaluates")),
             eq(RelationshipDirection.INCOMING),
             eq(0),
             eq(1),
@@ -1244,7 +1244,7 @@ public class AssertionActionsHookTest {
     verify(mockGraphClient, times(1))
         .getRelatedEntities(
             eq(TEST_ASSERTION_URN.toString()),
-            eq(ImmutableList.of("Evaluates")),
+            eq(ImmutableSet.of("Evaluates")),
             eq(RelationshipDirection.INCOMING),
             eq(0),
             eq(1),

@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.datacontract;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
@@ -48,7 +48,7 @@ public class EntityDataContractResolver implements DataFetcher<CompletableFuture
             final EntityRelationships relationships =
                 _graphClient.getRelatedEntities(
                     entityUrn,
-                    ImmutableList.of(CONTRACT_FOR_RELATIONSHIP),
+                    ImmutableSet.of(CONTRACT_FOR_RELATIONSHIP),
                     RelationshipDirection.INCOMING,
                     0,
                     1,

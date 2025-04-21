@@ -5,6 +5,7 @@ import static com.linkedin.metadata.search.utils.QueryUtils.*;
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -93,7 +94,7 @@ public class DeleteEntityService {
             newFilter("urn", urn.toString()),
             null,
             EMPTY_FILTER,
-            ImmutableList.of(),
+            ImmutableSet.of(),
             newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
             0,
             10000);
@@ -131,7 +132,7 @@ public class DeleteEntityService {
                 newFilter("urn", urn.toString()),
                 null,
                 EMPTY_FILTER,
-                ImmutableList.of(),
+                ImmutableSet.of(),
                 newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
                 0,
                 10000);
