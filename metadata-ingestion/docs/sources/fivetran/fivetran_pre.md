@@ -62,9 +62,22 @@ grant role fivetran_datahub to user snowflake_user;
 
 ### Working with Platform Instances
 
-If you've multiple instances of source/destination systems that are referred in your `fivetran` setup, you'd need to configure platform instance for these systems in `fivetran` recipe to generate correct lineage edges. Refer the document [Working with Platform Instances](https://datahubproject.io/docs/platform-instances) to understand more about this.
+If you have multiple instances of source/destination systems that are referred in your `fivetran` setup, you'd need to configure platform instance for these systems in `fivetran` recipe to generate correct lineage edges. Refer the document [Working with Platform Instances](https://datahubproject.io/docs/platform-instances) to understand more about this.
 
-While configuration of platform instance for source system you need to provide connector id as key and for destination system provide destination id as key.
+While configuring the platform instance for source system you need to provide connector id as key and for destination system provide destination id as key.
+When creating the conection details in the fivetran UI make a note of the destination Group ID of the service account, as that will need to be used in the `destination_to_platform_instance` configuration.
+I.e:
+<p align="center">
+  <img width="70%"  src="https://github.com/datahub-project/static-assets/raw/main/imgs/integrations/bigquery/bq-connection-id.png"/>
+</p>
+
+In this case the configuration would be something like:
+```yaml
+destination_to_platform_instance:
+  greyish_positive: <--- this comes from bigquery destination - see screenshot
+    database: <big query project ID>
+    env: PROD
+```
 
 #### Example - Multiple Postgres Source Connectors each reading from different postgres instance
 
