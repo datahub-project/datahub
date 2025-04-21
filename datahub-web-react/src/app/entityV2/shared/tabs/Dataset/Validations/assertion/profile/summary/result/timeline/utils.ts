@@ -1,5 +1,6 @@
-import { AssertionRunEventDetailsFragment } from '../../../../../../../../../../../graphql/assertion.generated';
-import { LOOKBACK_WINDOWS, LookbackWindow } from '../../../../../../Stats/lookbackWindows';
+import { LOOKBACK_WINDOWS, LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
+
+import { AssertionRunEventDetailsFragment } from '@graphql/assertion.generated';
 
 const ONE_HOUR_IN_MS = 60 * 60 * 1000; // Milliseconds in one hour
 const ONE_DAY_IN_MS = 24 * ONE_HOUR_IN_MS; // Milliseconds in one day

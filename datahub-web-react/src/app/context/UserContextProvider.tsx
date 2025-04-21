@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useGetMeLazyQuery } from '../../graphql/me.generated';
-import { useGetGlobalViewsSettingsLazyQuery } from '../../graphql/app.generated';
-import { CorpUser, PlatformPrivileges } from '../../types.generated';
-import { UserContext, LocalState, DEFAULT_STATE, State } from './userContext';
+
+import { DEFAULT_STATE, LocalState, State, UserContext } from '@app/context/userContext';
+
+import { useGetGlobalViewsSettingsLazyQuery } from '@graphql/app.generated';
+import { useGetMeLazyQuery } from '@graphql/me.generated';
+import { CorpUser, PlatformPrivileges } from '@types';
 
 // TODO: Migrate all usage of useAuthenticatedUser to using this provider.
 

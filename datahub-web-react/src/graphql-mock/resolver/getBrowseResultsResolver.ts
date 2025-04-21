@@ -1,7 +1,7 @@
-import * as fixtures from '../fixtures';
-import { BrowseInput } from '../../types.generated';
-import { EntityBrowseFn, GetBrowseResults } from '../types';
-import { toLowerCaseEntityType, toTitleCase } from '../helper';
+import * as fixtures from '@graphql-mock/fixtures';
+import { toLowerCaseEntityType, toTitleCase } from '@graphql-mock/helper';
+import { EntityBrowseFn, GetBrowseResults } from '@graphql-mock/types';
+import { BrowseInput } from '@types';
 
 const toPathTitle = (paths: string[]): string => {
     return paths?.map((p) => toTitleCase(p)).join('');

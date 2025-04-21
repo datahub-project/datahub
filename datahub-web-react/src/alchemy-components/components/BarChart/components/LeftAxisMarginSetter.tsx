@@ -1,7 +1,7 @@
+import { TickFormatter } from '@visx/axis';
+import { getTicks } from '@visx/scale';
 import { DataContext } from '@visx/xychart';
 import { useCallback, useContext, useEffect } from 'react';
-import { getTicks } from '@visx/scale';
-import { TickFormatter } from '@visx/axis';
 
 interface LeftAxisMarginSetterProps {
     setLeftMargin?: (margin: number) => void;

@@ -48,7 +48,7 @@ def default_query_results(
     query, connector_query_results=default_connector_query_results
 ):
     fivetran_log_query = FivetranLogQuery()
-    fivetran_log_query.set_db("test")
+    fivetran_log_query.set_schema("test")
     if query == fivetran_log_query.use_database("test_database"):
         return []
     elif query == fivetran_log_query.get_connectors_query():

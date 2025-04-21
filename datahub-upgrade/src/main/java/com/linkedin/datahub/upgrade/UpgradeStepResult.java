@@ -24,5 +24,4 @@ public interface UpgradeStepResult {
   default Action action() {
     return Action.CONTINUE;
   }
-  ;
 }

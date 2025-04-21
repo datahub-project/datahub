@@ -1,20 +1,22 @@
 import { HomeOutlined } from '@ant-design/icons';
-import LineageVisualizationContext from '@app/lineageV2/LineageVisualizationContext';
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { NodeProps } from 'reactflow';
 import styled from 'styled-components';
-import { EntityType, LineageDirection } from '../../../types.generated';
-import { LINEAGE_COLORS } from '../../entityV2/shared/constants';
+
+import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
+import NodeContents from '@app/lineageV2/LineageEntityNode/NodeContents';
+import useDisplayedColumns from '@app/lineageV2/LineageEntityNode/useDisplayedColumns';
+import LineageVisualizationContext from '@app/lineageV2/LineageVisualizationContext';
 import {
     LineageDisplayContext,
     LineageEntity,
     LineageNodesContext,
     TRANSITION_DURATION_MS,
     useIgnoreSchemaFieldStatus,
-} from '../common';
-import useSearchAcrossLineage from '../useSearchAcrossLineage';
-import NodeContents from './NodeContents';
-import useDisplayedColumns from './useDisplayedColumns';
+} from '@app/lineageV2/common';
+import useSearchAcrossLineage from '@app/lineageV2/useSearchAcrossLineage';
+
+import { EntityType, LineageDirection } from '@types';
 
 export const LINEAGE_ENTITY_NODE_NAME = 'lineage-entity';
 const MAX_NODES_FOR_TRANSITION = 50;

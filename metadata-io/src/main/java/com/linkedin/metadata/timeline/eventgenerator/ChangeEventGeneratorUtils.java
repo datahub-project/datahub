@@ -9,38 +9,12 @@ import com.linkedin.metadata.timeline.data.dataset.schema.SchemaFieldGlossaryTer
 import com.linkedin.metadata.timeline.data.dataset.schema.SchemaFieldTagChangeEvent;
 import com.linkedin.metadata.timeline.data.entity.GlossaryTermChangeEvent;
 import com.linkedin.metadata.timeline.data.entity.TagChangeEvent;
-import com.linkedin.schema.SchemaField;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 public class ChangeEventGeneratorUtils {
-
-  public static Urn getSchemaFieldUrn(
-      @Nonnull String datasetUrnStr, @Nonnull String schemaFieldPath) {
-    return UrnUtils.getUrn(
-        String.format("urn:li:schemaField:(%s,%s)", datasetUrnStr, schemaFieldPath));
-  }
-
-  public static Urn getSchemaFieldUrn(@Nonnull Urn datasetUrn, @Nonnull String schemaFieldPath) {
-    return UrnUtils.getUrn(
-        String.format("urn:li:schemaField:(%s,%s)", datasetUrn.toString(), schemaFieldPath));
-  }
-
-  public static Urn getSchemaFieldUrn(@Nonnull Urn datasetUrn, @Nonnull SchemaField schemaField) {
-    return UrnUtils.getUrn(
-        String.format("urn:li:schemaField:(%s,%s)", datasetUrn, getFieldPathV1(schemaField)));
-  }
-
-  public static String getFieldPathV1(@Nonnull SchemaField field) {
-    String[] v1PathTokens =
-        Arrays.stream(field.getFieldPath().split("\\."))
-            .filter(x -> !(x.startsWith("[") || x.endsWith("]")))
-            .toArray(String[]::new);
-    return String.join(".", v1PathTokens);
-  }
 
   public static List<ChangeEvent> convertEntityTagChangeEvents(
       @Nonnull String fieldPath,

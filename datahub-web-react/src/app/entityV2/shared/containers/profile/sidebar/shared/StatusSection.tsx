@@ -2,16 +2,18 @@ import { KeyboardArrowDown, KeyboardArrowRight } from '@mui/icons-material';
 import { Collapse, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { EntityType } from '../../../../../../../types.generated';
-import { useEntityData } from '../../../../../../entity/shared/EntityContext';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { REDESIGN_COLORS } from '../../../../constants';
-import { getPlatformName } from '../../../../utils';
-import { SidebarSection } from '../SidebarSection';
-import EntityProperty from './EntityProperty';
-import SyncedOrShared from './SyncedOrShared';
-import TimeProperty from './TimeProperty';
-import { ActionType } from './utils';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import EntityProperty from '@app/entityV2/shared/containers/profile/sidebar/shared/EntityProperty';
+import SyncedOrShared from '@app/entityV2/shared/containers/profile/sidebar/shared/SyncedOrShared';
+import TimeProperty from '@app/entityV2/shared/containers/profile/sidebar/shared/TimeProperty';
+import { ActionType } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
+import { getPlatformName } from '@app/entityV2/shared/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType } from '@types';
 
 const SyncedAssetContainer = styled.div`
     display: flex;

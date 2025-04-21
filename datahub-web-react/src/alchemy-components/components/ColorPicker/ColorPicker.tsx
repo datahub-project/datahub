@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import styled from 'styled-components';
-import { CirclePicker, ColorResult } from 'react-color';
 import { Input, colors } from '@components';
+import React, { useCallback, useEffect, useState } from 'react';
+import { CirclePicker, ColorResult } from 'react-color';
+import styled from 'styled-components';
 
 // Constants
 const DEFAULT_COLORS = [

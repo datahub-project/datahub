@@ -1,8 +1,9 @@
-import React from 'react';
 import { Divider } from 'antd';
-import './ERModelRelationshipTab.less';
-import { ERModelRelationPreview } from '../../components/styled/ERModelRelationship/ERModelRelationPreview';
-import { useEntityData, useRefetch } from '../../EntityContext';
+import React from 'react';
+
+import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { ERModelRelationPreview } from '@app/entity/shared/components/styled/ERModelRelationship/ERModelRelationPreview';
+import '@app/entity/shared/tabs/ERModelRelationship/ERModelRelationshipTab.less';
 
 export const ERModelRelationshipTab = () => {
     const { entityData } = useEntityData();

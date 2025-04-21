@@ -1,7 +1,8 @@
 import { Form, Table } from 'antd';
 import styled, { keyframes } from 'styled-components';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
+
 import { Button, colors } from '@src/alchemy-components';
+import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 
 export const IncidentListStyledTable = styled(Table)`
     max-width: none;
@@ -150,7 +151,6 @@ export const ActivityStatusText = styled.div`
 export const Header = styled.div`
     display: flex;
     align-items: center;
-    cursor: pointer;
     margin-bottom: 1rem;
 `;
 

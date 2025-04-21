@@ -1,7 +1,7 @@
 // Create a new component called SearchResultItem.js
 import React from 'react';
-import { Link } from 'react-router-dom';
 import Highlight from 'react-highlighter';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 import { Domain, Entity, EntityType } from '../../types.generated';
