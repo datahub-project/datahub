@@ -1,7 +1,6 @@
 import json
 import random
 from datetime import datetime, timezone
-from unittest.mock import MagicMock
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
@@ -187,7 +186,8 @@ def inject_rowcount(func):
         result = func(*args, **kwargs)
         if result is None or isinstance(result, RowCountList):
             return result
-        assert isinstance(result, list)
+        if not isinstance(result, list):
+            raise ValueError(f"Mocked result is not a list: {result}")
         result = RowCountList(result)
         return result
 
@@ -497,8 +497,7 @@ def default_query_results(  # noqa: C901
             email_filter=AllowDenyPattern.allow_all(),
         )
     ):
-        mock = MagicMock()
-        mock.__iter__.return_value = [
+        return [
             {
                 "OBJECT_NAME": f"TEST_DB.TEST_SCHEMA.TABLE_{i}{random.randint(99, 999) if i > num_tables else ''}",
                 "BUCKET_START_TIME": datetime(2022, 6, 6, 0, 0, 0, 0).replace(
@@ -520,7 +519,6 @@ def default_query_results(  # noqa: C901
             }
             for i in range(num_usages)
         ]
-        return mock
     elif query in (
         snowflake_query.SnowflakeQuery.table_to_table_lineage_history_v2(
             start_time_millis=1654473600000,
