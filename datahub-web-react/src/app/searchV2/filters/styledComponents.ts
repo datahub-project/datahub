@@ -16,8 +16,8 @@ export const SearchFilterLabel = styled(Button)<{ $isActive: boolean }>`
     ${(props) =>
         props.$isActive &&
         `
-        background-color: ${SEARCH_COLORS.TITLE_PURPLE};
-        border: 1px solid ${SEARCH_COLORS.BACKGROUND_PURPLE};
+        background-color: ${getColor('primary', 500, props.theme)};
+        border: 1px solid ${getColor('primary', 0, props.theme)};
         color: white;
     `}
 `;
@@ -34,12 +34,12 @@ export const MoreFilterOptionLabel = styled.div<{ $isActive: boolean; isOpen?: b
         background-color: ${ANTD_GRAY[3]};
     }
 
-    ${(props) => props.$isActive && `color: ${SEARCH_COLORS.TITLE_PURPLE};`}
+    ${(props) => props.$isActive && `color: ${getColor('primary', 500, props.theme)};`}
     ${(props) => props.isOpen && `background-color: ${ANTD_GRAY[3]};`}
 `;
 
 export const TextButton = styled(Button)<{ marginTop?: number; height?: number }>`
-    color: ${SEARCH_COLORS.TITLE_PURPLE};
+    color: ${(p) => getColor('primary', 500, p.theme)};
     padding: 0px 6px;
     margin-top: ${(props) => (props.marginTop !== undefined ? `${props.marginTop}px` : '8px')};
     ${(props) => props.height !== undefined && `height: ${props.height}px;`}

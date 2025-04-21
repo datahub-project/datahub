@@ -25,7 +25,7 @@ const UnborderedTabs = styled(Tabs)`
         justify-content: center;
     }
     &&& .ant-tabs-tab-active {
-        background-color: #533fd1;
+        background-color: ${(p) => getColor('primary', 500, p.theme)};
     }
     &&& .ant-tabs-tab-active .ant-tabs-tab-btn {
         color: #ffffff;

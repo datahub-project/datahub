@@ -1,4 +1,5 @@
 import { HTMLAttributes } from 'react';
+import { Theme } from '@src/conf/theme/types';
 
 import { ColorOptions, PillVariantOptions, SizeOptions } from '@src/alchemy-components/theme/config';
 
@@ -7,6 +8,7 @@ export interface PillPropsDefaults {
     size: SizeOptions;
     color: ColorOptions;
     clickable: boolean;
+    theme?: Theme;
 }
 
 export interface PillProps extends Partial<PillPropsDefaults>, Omit<HTMLAttributes<HTMLElement>, 'color'> {

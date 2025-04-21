@@ -52,9 +52,9 @@ const DefaultViewIconContainer = styled.div<{ selected?: boolean; $isShowNavBarR
     border: 1px solid
         ${(props) => {
             if (props.$isShowNavBarRedesign) {
-                return props.selected ? colors.violet[500] : 'transparent';
+                return props.selected ? getColor('primary', 500, props.theme) : 'transparent';
             }
-            return props.selected ? SEARCH_COLORS.TITLE_PURPLE : REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK;
+            return props.selected ? getColor('primary', 500, props.theme) : REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK;
         }};
     border-radius: 100%;
 `;
@@ -113,6 +113,7 @@ export const ViewOptionName = ({
     selectView,
 }: Props) => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
+    const { theme } = useCustomTheme();
 
     const renderViewIcon = () => {
         if (isShowNavBarRedesign) {
@@ -139,7 +140,7 @@ export const ViewOptionName = ({
                                 >
                                     <UserDefaultViewIcon
                                         title="Your default View."
-                                        color={colors.violet[500]}
+                                        color={getColor('primary', 500, theme)}
                                         size={5}
                                     />
                                 </DefaultViewIconContainer>

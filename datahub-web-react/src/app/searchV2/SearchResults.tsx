@@ -9,7 +9,7 @@ import { PreviewType } from '@app/entity/Entity';
 import { EntityAndType } from '@app/entity/shared/types';
 import { isListSubset } from '@app/entity/shared/utils';
 import { SearchSelectBar } from '@app/entityV2/shared/components/styled/search/SearchSelectBar';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { useSearchContext } from '@app/search/context/SearchContext';
 import { SearchEntitySidebarContainer } from '@app/searchV2/SearchEntitySidebarContainer';
 import { SearchResultList } from '@app/searchV2/SearchResultList';
@@ -30,6 +30,7 @@ import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
 import SearchMenuItems from '@app/sharedV2/search/SearchMenuItems';
 import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+import { getColor } from '@src/alchemy-components/theme/utils';
 import { SearchCfg } from '@src/conf';
 
 import { Entity, FacetFilterInput, FacetMetadata, MatchedField, SearchSuggestion } from '@types';
@@ -154,7 +155,7 @@ const IconContainer = styled.div<{ isActive?: boolean }>`
     ${(props) =>
         props.isActive &&
         `
-        background: ${REDESIGN_COLORS.TITLE_PURPLE};
+        background: ${getColor('primary', 500, props.theme)};
         border-radius: 100%;
         color: white;
     `}

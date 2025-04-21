@@ -7,7 +7,6 @@ import { PreviewType } from '@app/entity/Entity';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { EntityAndType } from '@app/entity/shared/types';
 import { useInitializeSearchResultCards } from '@app/entityV2/shared/components/styled/search/useInitializeSearchResultCards';
-import { SEARCH_COLORS } from '@app/entityV2/shared/constants';
 import { useSearchContext } from '@app/search/context/SearchContext';
 import EmptySearchResults from '@app/searchV2/EmptySearchResults';
 import { MatchContextContainer } from '@app/searchV2/matches/MatchContextContainer';
@@ -16,6 +15,7 @@ import { CombinedSearchResult } from '@app/searchV2/utils/combineSiblingsInSearc
 import { PreviewSection } from '@app/shared/MatchesContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+import { getColor } from '@src/alchemy-components/theme/utils';
 
 import { SearchResult, SearchSuggestion } from '@types';
 
@@ -58,7 +58,7 @@ export const ResultWrapper = styled.div<{
         border-bottom: 1px solid ${ANTD_GRAY[5]};
         cursor: pointer;
         :hover {
-            ${!props.selected && `outline: 1px solid ${SEARCH_COLORS.TITLE_PURPLE};}`};
+            ${!props.selected && `outline: 1px solid ${getColor('primary', 500, props.theme)}`};
         }
     `}
     position: relative;
@@ -66,8 +66,8 @@ export const ResultWrapper = styled.div<{
     ${(props) =>
         props.selected &&
         `
-        outline: 1px solid ${SEARCH_COLORS.TITLE_PURPLE};
-        border-left: 5px solid ${SEARCH_COLORS.TITLE_PURPLE};
+        outline: 1px solid ${getColor('primary', 500, props.theme)};
+        border-left: 5px solid ${getColor('primary', 500, props.theme)};
         left: -5px;
         width: calc(100% + 5px);
         position: relative;

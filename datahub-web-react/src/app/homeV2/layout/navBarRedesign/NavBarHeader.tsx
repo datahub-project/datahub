@@ -27,6 +27,7 @@ const Logotype = styled.div`
     border-radius: 4px;
     position: relative;
     object-fit: contain;
+
     & svg,
     img {
         max-height: 24px;
@@ -45,8 +46,10 @@ const Title = styled.div`
     overflow: hidden;
     max-width: calc(100% - 30px);
     text-overflow: ellipsis;
+    height: 24px;
     display: flex;
     align-items: end;
+    margin-left: 12px;
 `;
 
 const StyledLink = styled(Link)`

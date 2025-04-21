@@ -9,4 +9,5 @@ export interface TextProps extends HTMLAttributes<HTMLElement> {
     colorLevel?: keyof Color;
     weight?: FontWeightOptions;
     lineHeight?: SpacingOptions;
+    theme?: Theme;
 }

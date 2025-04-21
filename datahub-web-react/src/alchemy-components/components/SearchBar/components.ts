@@ -28,7 +28,7 @@ export const StyledSearchBar = styled(Input)<{ $width?: string }>`
     &:hover,
     &:focus,
     &:focus-within {
-        border-color: ${colors.violet[300]} !important;
+        border-color: ${({ theme }) => getColor('primary', 300, theme)} !important;
         box-shadow: none !important;
     }
 `;

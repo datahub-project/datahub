@@ -53,8 +53,8 @@ const NodeWrapper = styled.div<{
     border: ${({ selected }) => (selected ? 2 : 1)}px solid;
     border-color: ${({ selected }) => (selected ? LINEAGE_COLORS.PURPLE_3 : LINEAGE_COLORS.NODE_BORDER)};
     border-radius: 50%;
-    box-shadow: ${({ isSearchedEntity }) =>
-        isSearchedEntity ? `0 0 3px 3px ${REDESIGN_COLORS.TITLE_PURPLE}95` : 'none'};
+    box-shadow: ${({ isSearchedEntity, theme }) =>
+        isSearchedEntity ? `0 0 3px 3px ${getColor('primary', 500, theme)}95` : 'none'};
     opacity: ${({ opacity }) => opacity};
 
     align-items: center;

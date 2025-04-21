@@ -46,10 +46,12 @@ const StyledLink = styled(Link)<{ $disabled?: boolean }>`
     }
 
     :hover {
-        color: ${({ $disabled }) => ($disabled ? REDESIGN_COLORS.LINK_GREY : colors.violet[500])};
+        color: ${({ $disabled, theme }) => ($disabled ? REDESIGN_COLORS.LINK_GREY : getColor('primary', 500, theme))};
         cursor: ${({ $disabled }) => ($disabled ? 'default' : 'pointer')};
+
         && svg {
-            color: ${({ $disabled }) => ($disabled ? REDESIGN_COLORS.LINK_GREY : colors.violet[500])};
+            color: ${({ $disabled, theme }) =>
+                $disabled ? REDESIGN_COLORS.LINK_GREY : getColor('primary', 500, theme)};
         }
     }
 `;

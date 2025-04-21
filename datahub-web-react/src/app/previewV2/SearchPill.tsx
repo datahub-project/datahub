@@ -2,8 +2,8 @@ import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { pluralize } from '@app/shared/textUtil';
+import { getColor } from '@src/alchemy-components/theme/utils';
 
 type Props = {
     icon: any;
@@ -16,7 +16,7 @@ type Props = {
     highlightedText?: string;
 };
 
-const getColor = (enabled?: boolean, active?: boolean) => {
+const computeColor = (enabled?: boolean, active?: boolean) => {
     let color = '#b0a2c2';
     if (enabled) {
         if (active) {
@@ -32,7 +32,7 @@ export const PillContainer = styled.div<{ enabled?: boolean; active?: boolean; i
     height: 24px;
     padding-left: 8px;
     padding-right: ${({ isHighlightedTextPresent }) => (isHighlightedTextPresent ? '0px' : '8px')};
-    background-color: ${({ active }) => (active ? `${REDESIGN_COLORS.TITLE_PURPLE}` : '#f7f7f7')};
+    background-color: ${({ active, theme }) => (active ? `${getColor('primary', 500, theme)}` : '#f7f7f7')};
     cursor: pointer;
     border-radius: 20px;
     text-align: center;
@@ -41,19 +41,19 @@ export const PillContainer = styled.div<{ enabled?: boolean; active?: boolean; i
     justify-content: center;
     align-items: center;
     gap: 6px;
-    color: ${(props) => getColor(props.enabled, props.active)};
+    color: ${(props) => computeColor(props.enabled, props.active)};
     font-size: 10px;
     font-weight: 400;
 
     & svg {
         font-size: 12px;
-        color: ${(props) => getColor(props.enabled, props.active)};
-        fill: ${(props) => getColor(props.enabled, props.active)};
+        color: ${(props) => computeColor(props.enabled, props.active)};
+        fill: ${(props) => computeColor(props.enabled, props.active)};
     }
 
     :hover {
         color: ${({ enabled }) => (enabled ? 'white' : '#b0a2c2')};
-        background-color: ${({ enabled }) => (enabled ? `${REDESIGN_COLORS.TITLE_PURPLE}` : '#f7f7f7')};
+        background-color: ${({ enabled, theme }) => (enabled ? `${getColor('primary', 500, theme)}` : '#f7f7f7')};
 
         svg {
             color: ${({ enabled }) => (enabled ? 'white' : '#b0a2c2')};

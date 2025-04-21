@@ -6,7 +6,7 @@ import styled from 'styled-components';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 const InfoWrapper = styled.div`
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    color: ${(props) => getColor('primary', 500, props.theme)};
 `;
 
 interface Props {

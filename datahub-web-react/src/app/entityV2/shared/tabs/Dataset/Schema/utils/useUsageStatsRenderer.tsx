@@ -30,7 +30,7 @@ const IconWrapper = styled.div<{ hasStats: boolean; isFieldSelected: boolean }>`
         width: 18px;
         height: 18px;
         color: ${(props) => {
-            return props.hasStats ? '#533fd1' : '#C6C0E0';
+            return props.hasStats ? getColor('primary', 500, props.theme) : '#C6C0E0';
         }};
         opacity: ${(props) => (props.isFieldSelected && !props.hasStats ? '0.5' : '')};
     }

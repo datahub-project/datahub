@@ -27,7 +27,7 @@ const Container = styled.div`
     background-color: ${REDESIGN_COLORS.LIGHT_GREY};
     border-top-left-radius: 4px;
     border-bottom-left-radius: 4px;
-    border-left: 2px solid ${REDESIGN_COLORS.TITLE_PURPLE};
+    border-left: 2px solid ${(props) => getColor('primary', 500, props.theme)};
     padding: 8px 20px !important;
     margin: 2px 14px 2px 12px;
     & button {

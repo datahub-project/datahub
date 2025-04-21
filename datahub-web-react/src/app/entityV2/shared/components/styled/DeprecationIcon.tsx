@@ -70,7 +70,7 @@ const IconGroup = styled.div`
     color: ${REDESIGN_COLORS.TEXT_HEADING};
 
     &:hover {
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        color: ${(props) => getColor('primary', 500, props.theme)};
         cursor: pointer;
     }
 `;

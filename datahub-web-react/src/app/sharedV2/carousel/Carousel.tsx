@@ -45,7 +45,7 @@ const ButtonContainer = styled.div<{ left?: boolean; right?: boolean }>`
 
     :hover {
         color: ${REDESIGN_COLORS.WHITE};
-        background-color: ${SEARCH_COLORS.TITLE_PURPLE};
+        background-color: ${(props) => getColor('primary', 500, props.theme)};
     }
 
     ${({ left }) => left && 'left: -10px;'}

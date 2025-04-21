@@ -3,7 +3,6 @@ import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { NodeProps } from 'reactflow';
 import styled from 'styled-components';
 
-import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
 import NodeContents from '@app/lineageV2/LineageEntityNode/NodeContents';
 import useDisplayedColumns from '@app/lineageV2/LineageEntityNode/useDisplayedColumns';
 import LineageVisualizationContext from '@app/lineageV2/LineageVisualizationContext';
@@ -15,6 +14,7 @@ import {
     useIgnoreSchemaFieldStatus,
 } from '@app/lineageV2/common';
 import useSearchAcrossLineage from '@app/lineageV2/useSearchAcrossLineage';
+import { getColor } from '@src/alchemy-components/theme/utils';
 
 import { EntityType, LineageDirection } from '@types';
 
@@ -23,7 +23,7 @@ const MAX_NODES_FOR_TRANSITION = 50;
 
 const HomeNodeBubble = styled.div`
     align-items: center;
-    background-color: ${LINEAGE_COLORS.PURPLE_3};
+    background-color: ${(p) => getColor('primary', 500, p.theme)};
     border-radius: 10px;
     color: white;
     display: flex;

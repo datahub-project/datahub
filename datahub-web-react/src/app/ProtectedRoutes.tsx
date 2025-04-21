@@ -16,6 +16,7 @@ import { useIsThemeV2, useSetThemeIsV2 } from '@app/useIsThemeV2';
 import { useSetNavBarRedesignEnabled } from '@app/useShowNavBarRedesign';
 import { NEW_ROUTE_MAP, PageRoutes } from '@conf/Global';
 import { getRedirectUrl } from '@conf/utils';
+import { useSetAppTheme } from '@app/useSetAppTheme';
 
 const StyledLayout = styled(Layout)`
     background-color: transparent;
@@ -25,6 +26,7 @@ const StyledLayout = styled(Layout)`
  * Container for all views behind an authentication wall.
  */
 export const ProtectedRoutes = (): JSX.Element => {
+    useSetAppTheme();
     useSetThemeIsV2();
     useSetUserPersona();
     useSetUserTitle();

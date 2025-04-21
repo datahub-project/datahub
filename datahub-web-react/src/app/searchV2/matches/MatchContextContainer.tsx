@@ -16,7 +16,7 @@ const MatchesContainer = styled.div<{ expanded: boolean; selected: boolean; comp
     margin: 0 auto 12px auto;
     padding: 4px;
     :hover {
-        ${(props) => !props.selected && `outline: 1px solid ${SEARCH_COLORS.TITLE_PURPLE};}`};
+        ${(props) => !props.selected && `outline: 1px solid ${getColor('primary', 500, props.theme)};}`};
     }
 
     position: absolute;
@@ -33,7 +33,7 @@ const MatchesContainer = styled.div<{ expanded: boolean; selected: boolean; comp
     ${(props) =>
         props.selected &&
         `
-        outline: 1px solid ${SEARCH_COLORS.TITLE_PURPLE};
+        outline: 1px solid ${getColor('primary', 500, props.theme)};
         left: -5px;
         width: calc(100% + 5px);
     `}

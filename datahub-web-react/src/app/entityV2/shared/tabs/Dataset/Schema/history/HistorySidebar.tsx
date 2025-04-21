@@ -36,7 +36,7 @@ const FieldHeaderWrapper = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: ${REDESIGN_COLORS.BACKGROUND_PURPLE};
+    background: ${(p) => getColor('primary', 500, p.theme)};
     color: #fff;
     font-size: 14px;
     font-weight: 700;

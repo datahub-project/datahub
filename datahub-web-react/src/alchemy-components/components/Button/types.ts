@@ -3,6 +3,8 @@ import { ButtonHTMLAttributes } from 'react';
 import { IconProps } from '@components/components/Icon/types';
 import type { ColorOptions, SizeOptions } from '@components/theme/config';
 
+import { Theme } from '@src/conf/theme/types';
+
 export enum ButtonVariantValues {
     filled = 'filled',
     outline = 'outline',
@@ -20,6 +22,7 @@ export interface ButtonPropsDefaults {
     isLoading: boolean;
     isDisabled: boolean;
     isActive: boolean;
+    theme?: Theme;
 }
 
 export interface ButtonProps

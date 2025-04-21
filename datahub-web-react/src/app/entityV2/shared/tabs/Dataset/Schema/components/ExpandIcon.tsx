@@ -27,8 +27,8 @@ const Padding = styled.span<{ padding: number }>`
 
 const Down = styled(DownOutlined)<{ $isCompact?: boolean }>`
     :hover {
-        color: ${SEARCH_COLORS.TITLE_PURPLE};
-        stroke: ${SEARCH_COLORS.TITLE_PURPLE};
+        color: ${(props) => getColor('primary', 500, props.theme)};
+        stroke: ${(props) => getColor('primary', 500, props.theme)};
         stroke-width: 140px;
     }
     color: ${REDESIGN_COLORS.DARK_GREY};
@@ -45,8 +45,8 @@ const Down = styled(DownOutlined)<{ $isCompact?: boolean }>`
 
 const Right = styled(RightOutlined)<{ isCompact?: boolean }>`
     :hover {
-        stroke: ${SEARCH_COLORS.TITLE_PURPLE};
-        color: ${SEARCH_COLORS.TITLE_PURPLE};
+        stroke: ${(props) => getColor('primary', 500, props.theme)};
+        color: ${(props) => getColor('primary', 500, props.theme)};
         stroke-width: 140px;
     }
     color: ${REDESIGN_COLORS.DARK_GREY};

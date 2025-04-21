@@ -4,6 +4,10 @@ import { Container, SubTitle, Title } from '@components/components/PageTitle/com
 import { PageTitleProps } from '@components/components/PageTitle/types';
 import { Pill } from '@components/components/Pills';
 
+const StyledSubTitle = styled(SubTitle)`
+    margin-top: 4px;
+`;
+
 export const PageTitle = ({ title, subTitle, pillLabel, variant = 'pageHeader' }: PageTitleProps) => {
     return (
         <Container>
@@ -12,7 +16,7 @@ export const PageTitle = ({ title, subTitle, pillLabel, variant = 'pageHeader' }
                 {pillLabel ? <Pill label={pillLabel} size="sm" clickable={false} /> : null}
             </Title>
 
-            {subTitle ? <SubTitle variant={variant}>{subTitle}</SubTitle> : null}
+            {subTitle ? <StyledSubTitle variant={variant}>{subTitle}</StyledSubTitle> : null}
         </Container>
     );
 };

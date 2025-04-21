@@ -16,6 +16,7 @@ type Props = {
  */
 export const SetUserDefaultItem = ({ key, onClick }: Props) => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
+    const { theme } = useCustomTheme();
 
     return (
         <ViewItem
@@ -26,7 +27,7 @@ export const SetUserDefaultItem = ({ key, onClick }: Props) => {
             title="Make my default"
             icon={
                 <UserDefaultViewIcon
-                    color={isShowNavBarRedesign ? colors.violet[500] : REDESIGN_COLORS.TERTIARY_GREEN}
+                    color={isShowNavBarRedesign ? getColor('primary', 500, theme) : REDESIGN_COLORS.TERTIARY_GREEN}
                 />
             }
         />

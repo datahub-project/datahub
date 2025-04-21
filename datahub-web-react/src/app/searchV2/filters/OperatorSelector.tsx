@@ -25,8 +25,8 @@ const SelectedOperatorText = styled.div`
     border: 1.5px solid transparent;
     padding: 2px;
     :hover {
-        border: 1.5px solid ${SEARCH_COLORS.TITLE_PURPLE};
-        background-color: ${SEARCH_COLORS.TITLE_PURPLE};
+        border: 1.5px solid ${(p) => getColor('primary', 500, p.theme)};
+        background-color: ${(p) => getColor('primary', 500, p.theme)};
         color: #fff;
     }
 `;

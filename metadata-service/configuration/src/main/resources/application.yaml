@@ -150,6 +150,8 @@ visualConfig:
     # Experimental! This env var is subject to change and may be deprecated in the future. The Queries tab has a larger
     # overhaul coming.
     queriesTabResultSize: ${REACT_APP_QUERIES_TAB_RESULT_SIZE:5}
+  theme:
+    themeId: ${REACT_APP_CUSTOM_THEME_ID:} # we have an enum defined on the frontend that this themeId maps to to render a specific custom theme file
   assets:
     logoUrl: ${REACT_APP_LOGO_URL:/assets/platforms/datahublogo.png}
     faviconUrl: ${REACT_APP_FAVICON_URL:/assets/icons/favicon.ico}
@@ -522,6 +524,7 @@ featureFlags:
   showHasSiblingsFilter: ${SHOW_HAS_SIBLINGS_FILTER:false} # If turned on, the "has siblings" filter will be visible in search results page
   showSearchBarAutocompleteRedesign: ${SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN:false} # If turned on, show the redesigned search bar's autocomplete
   showManageTags: ${SHOW_MANAGE_TAGS:true} # If turned on, allow users to manage tags in the UI
+  showIntroducePage: ${SHOW_INTRODUCE_PAGE:true} # If turned on, we will show the introduce page in the V2 UI experience to add a title and select platforms
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

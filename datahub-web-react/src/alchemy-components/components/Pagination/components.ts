@@ -1,4 +1,5 @@
 import styled from 'styled-components';
+import { getColor } from '@src/alchemy-components/theme/utils';
 
 import { colors, spacing } from '@src/alchemy-components/theme';
 
@@ -27,7 +28,7 @@ export const PaginationContainer = styled.div`
         background: ${colors.violet[0]};
 
         a {
-            color: ${colors.violet[500]};
+            color: ${({ theme }) => getColor('primary', 500, theme)};
             font-weight: 700;
         }
     }
@@ -81,7 +82,7 @@ export const PaginationContainer = styled.div`
     .ant-pagination-jump-prev {
         :hover {
             .ant-pagination-item-link-icon {
-                color: ${colors.violet[500]};
+                color: ${({ theme }) => getColor('primary', 500, theme)};
             }
         }
     }

@@ -25,12 +25,12 @@ const Container = styled.div`
 
 const LineageButton = styled(Button)<{ $isSelected: boolean }>`
     &&& {
-        background-color: ${(props) => (props.$isSelected ? SEARCH_COLORS.TITLE_PURPLE : 'none')};
+        background-color: ${(props) => (props.$isSelected ? getColor('primary', 500, props.theme) : 'none')};
         color: ${(props) => (props.$isSelected ? '#ffffff' : ANTD_GRAY[7])};
         border-radius: 8px;
         margin-right: 12px;
         min-height: 32px;
-        ${(props) => props.$isSelected && `border-color: ${SEARCH_COLORS.TITLE_PURPLE}`};
+        ${(props) => props.$isSelected && `border-color: ${getColor('primary', 500, props.theme)}`};
     }
 `;
 
@@ -65,8 +65,8 @@ const LevelFilter = styled.div<{ $isSelected: boolean }>`
     padding: 2px 8px;
     margin-right: 12px;
     border-radius: 8px;
-    color: ${(props) => (props.$isSelected ? SEARCH_COLORS.TITLE_PURPLE : ANTD_GRAY[7])};
-    border: 1px solid ${(props) => (props.$isSelected ? SEARCH_COLORS.TITLE_PURPLE : ANTD_GRAY[7])};
+    color: ${(props) => (props.$isSelected ? getColor('primary', 500, props.theme) : ANTD_GRAY[7])};
+    border: 1px solid ${(props) => (props.$isSelected ? getColor('primary', 500, props.theme) : ANTD_GRAY[7])};
     &:hover {
         opacity: 0.8;
         cursor: pointer;

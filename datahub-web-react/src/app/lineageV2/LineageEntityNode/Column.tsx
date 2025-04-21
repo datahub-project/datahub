@@ -98,7 +98,7 @@ const ColumnLinkWrapper = styled(Link)`
     color: inherit;
 
     :hover {
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        color: ${(props) => getColor('primary', 500, props.theme)};
     }
 `;
 

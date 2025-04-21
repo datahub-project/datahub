@@ -3,6 +3,7 @@
 */
 import {
     ColorOptions,
+    CustomTheme,
     DEFAULT_VALUE,
     FontSizeOptions,
     MiscColorOptions,
@@ -17,14 +18,23 @@ const { colors, typography, transform } = foundations;
 	Falls back to `color.black` if the color is not found
 	@param color - the color to get the value for
 */
-export const getColor = (color?: MiscColorOptions | ColorOptions, value: number | string = DEFAULT_VALUE) => {
-    if (!color) return colors.black;
-    if (color === 'inherit' || color === 'transparent' || color === 'current') return colors;
-    if (color === 'white') return colors.white;
-    if (color === 'black') return colors.black;
-    const colorValue = colors[color];
-    if (!colorValue) return colors.black;
-    return colors[color][value];
+export const getColor = (
+    color?: MiscColorOptions | ColorOptions,
+    value: number | string = DEFAULT_VALUE,
+    theme?: Theme,
+) => {
+    let finalColors = colors;
+    if (theme?.colors) {
+        finalColors = { ...colors, ...theme.colors };
+    }
+
+    if (!color) return finalColors.black;
+    if (color === 'inherit' || color === 'transparent' || color === 'current') return finalColors;
+    if (color === 'white') return finalColors.white;
+    if (color === 'black') return finalColors.black;
+    const colorValue = finalColors[color];
+    if (!colorValue) return finalColors.black;
+    return finalColors[color][value];
 };
 
 /*

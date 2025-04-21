@@ -29,6 +29,7 @@ type Props = {
 };
 
 export default function EntityProfileSidebarSearchHeader({ showViewDetails = true }: Props) {
+    const { theme } = useCustomTheme();
     const entitySidebarContext = useContext(EntitySidebarContext);
     const entityRegistry = useEntityRegistry();
     const { urn, entityType } = useEntityData();
@@ -44,7 +45,7 @@ export default function EntityProfileSidebarSearchHeader({ showViewDetails = tru
                 <Button
                     size="small"
                     type="primary"
-                    color={SEARCH_COLORS.TITLE_PURPLE}
+                    color={getColor('primary', 500, theme)}
                     href={entityRegistry.getEntityUrl(entityType, urn)}
                 >
                     View more

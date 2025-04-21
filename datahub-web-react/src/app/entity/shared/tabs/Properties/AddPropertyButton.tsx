@@ -19,7 +19,8 @@ import { EntityType, Maybe, StructuredProperties, StructuredPropertyEntity } fro
 
 const AddButton = styled.div<{ isThemeV2: boolean; isV1Drawer?: boolean }>`
     border-radius: 200px;
-    background-color: ${(props) => (props.isThemeV2 ? colors.violet[500] : REDESIGN_COLORS.LINK_HOVER_BLUE)};
+    background-color: ${(props) =>
+        props.isThemeV2 ? getColor('primary', 500, props.theme) : REDESIGN_COLORS.LINK_HOVER_BLUE};
     width: ${(props) => (props.isV1Drawer ? '24px' : '32px')};
     height: ${(props) => (props.isV1Drawer ? '24px' : '32px')};
     display: flex;

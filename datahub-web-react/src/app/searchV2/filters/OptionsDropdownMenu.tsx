@@ -11,7 +11,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 const StyledButton = styled(Button)`
     width: 100%;
     text-align: center;
-    background-color: ${SEARCH_COLORS.TITLE_PURPLE};
+    background-color: ${(p) => getColor('primary', 500, p.theme)};
     color: white;
     border-radius: 0;
 `;

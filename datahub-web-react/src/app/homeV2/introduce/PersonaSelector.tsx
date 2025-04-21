@@ -1,6 +1,5 @@
 import React from 'react';
 import styled from 'styled-components';
-
 import {
     PERSONA_TYPES_TO_DISPLAY,
     PERSONA_TYPE_TO_DESCRIPTION,
@@ -21,10 +20,10 @@ const PersonaCard = styled.div<{ selected: boolean }>`
 
     &:hover {
         cursor: pointer;
-        ${(props) => !props.selected && `border: 1.5px ${colors.violet[200]} solid;`}
+        ${(props) => !props.selected && `border: 1.5px ${getColor('primary', 200, props.theme)} solid;`}
     }
 
-    ${(props) => props.selected && `border: 1.5px ${colors.violet[500]} solid;`}
+    ${(props) => props.selected && `border: 1.5px ${getColor('primary', 500, props.theme)} solid;`}
 `;
 const StyledIcon = styled.div`
     display: flex;

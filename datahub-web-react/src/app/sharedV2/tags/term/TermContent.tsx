@@ -29,7 +29,7 @@ const TermContainer = styled.div`
 
     :hover {
         .ant-tag.ant-tag {
-            border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
+            border: 1px solid ${(props) => getColor('primary', 500, props.theme)};
         }
     }
 `;
@@ -75,7 +75,7 @@ const CloseButtonContainer = styled.div`
     position: absolute;
     top: -10px;
     right: -10px;
-    background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    background-color: ${(props) => getColor('primary', 500, props.theme)};
     align-items: center;
     border-radius: 100%;
     padding: 5px;
@@ -137,12 +137,13 @@ export default function TermContent({
     const entityRegistry = useEntityRegistry();
     const [removeTermMutation] = useRemoveTermMutation();
     const { parentNodes, urn, type } = term.term;
+    const generateColor = useGenerateGlossaryColorFromPalette();
 
     const highlightTerm = useHasMatchedFieldByUrn(urn, 'glossaryTerms');
     const lastParentNode = parentNodes && parentNodes.count > 0 && parentNodes.nodes[parentNodes.count - 1];
     const termColor = lastParentNode
-        ? lastParentNode.displayProperties?.colorHex || generateColorFromPalette(lastParentNode.urn)
-        : generateColorFromPalette(urn);
+        ? lastParentNode.displayProperties?.colorHex || generateColor(lastParentNode.urn)
+        : generateColor(urn);
     const displayName = entityRegistry.getDisplayName(type, term.term);
     const removeTerm = (termToRemove: GlossaryTermAssociation) => {
         onOpenModal?.();

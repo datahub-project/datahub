@@ -1,6 +1,7 @@
 import { Tabs } from 'antd';
 import React, { useEffect } from 'react';
 import styled from 'styled-components/macro';
+import { getColor } from '@src/alchemy-components/theme/utils';
 
 import { useBaseEntity, useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
 import { EntityTab } from '@app/entityV2/shared/types';
@@ -43,7 +44,7 @@ const UnborderedTabs = styled(Tabs)`
     }
 
     &&& .ant-tabs-tab-active {
-        background-color: #5c3fd1;
+        background-color: ${(p) => getColor('primary', 500, p.theme)};
     }
 
     &&& .ant-tabs-tab-active .ant-tabs-tab-btn {

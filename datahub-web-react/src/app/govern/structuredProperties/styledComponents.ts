@@ -1,4 +1,5 @@
 import { Checkbox, Collapse, Divider, Drawer, Form, Modal, Select, Spin, Typography } from 'antd';
+import { getColor } from '@src/alchemy-components/theme/utils';
 import styled from 'styled-components';
 
 import { Icon, colors, typography } from '@src/alchemy-components';
@@ -152,8 +153,8 @@ export const CheckboxWrapper = styled.div`
 
 export const StyledCheckbox = styled(Checkbox)`
     .ant-checkbox-checked .ant-checkbox-inner {
-        background-color: ${colors.violet[500]};
-        border-color: ${colors.violet[500]} !important;
+        background-color: ${(props) => getColor('primary', 500, props.theme)};
+        border-color: ${(props) => getColor('primary', 500, props.theme)} !important;
     },
 `;
 
@@ -243,7 +244,7 @@ export const TogglesContainer = styled.div`
 
 export const StyledSpin = styled(Spin)`
     max-height: 100% !important;
-    color: ${colors.violet[500]};
+    color: ${(props) => getColor('primary', 500, props.theme)};
 `;
 
 export const CreatedByContainer = styled.div`

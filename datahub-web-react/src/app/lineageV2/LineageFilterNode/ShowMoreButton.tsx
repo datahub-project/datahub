@@ -1,5 +1,6 @@
 import KeyboardDoubleArrowDownIcon from '@mui/icons-material/KeyboardDoubleArrowDown';
 import React, { useCallback, useContext, useMemo } from 'react';
+import { getColor } from '@src/alchemy-components/theme/utils';
 import styled from 'styled-components';
 
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
@@ -48,8 +49,8 @@ const Button = styled.div`
     width: fit-content;
 
     :hover {
-        background-color: ${applyOpacity(REDESIGN_COLORS.TITLE_PURPLE, REDESIGN_COLORS.WHITE, 10)};
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        background-color: ${(props) => applyOpacity(getColor('primary', 500, props.theme), REDESIGN_COLORS.WHITE, 10)};
+        color: ${(props) => getColor('primary', 500, props.theme)};
     }
 `;
 

@@ -54,6 +54,17 @@ type ReferenceSection = {
 
 const ALL_SECTIONS: ReferenceSection[] = [
     {
+        id: 'GroupsYouAreIn',
+        component: GroupsYouAreIn,
+        hideIfEmpty: true,
+        personas: [
+            PersonaType.BUSINESS_USER,
+            PersonaType.TECHNICAL_USER,
+            PersonaType.DATA_ENGINEER,
+            PersonaType.DATA_STEWARD,
+        ],
+    },
+    {
         id: 'AssetsYouOwn',
         component: AssetsYouOwn,
         personas: [
@@ -91,17 +102,6 @@ const ALL_SECTIONS: ReferenceSection[] = [
             PersonaType.DATA_STEWARD,
             PersonaType.DATA_LEADER,
             PersonaType.DATA_ENGINEER,
-        ],
-    },
-    {
-        id: 'GroupsYouAreIn',
-        component: GroupsYouAreIn,
-        hideIfEmpty: true,
-        personas: [
-            PersonaType.BUSINESS_USER,
-            PersonaType.TECHNICAL_USER,
-            PersonaType.DATA_ENGINEER,
-            PersonaType.DATA_STEWARD,
         ],
     },
 ];

@@ -311,6 +311,11 @@ type VisualConfig {
   Show full title in lineage view by default
   """
   showFullTitleInLineage: Boolean
+
+  """
+  Configuration for custom theme-ing
+  """
+  theme: ThemeConfig
 }
 
 """
@@ -641,6 +646,11 @@ type FeatureFlagsConfig {
   If enabled, users will be able to view the tags management experience
   """
   showManageTags: Boolean!
+
+  """
+  If enabled, we will show the introduce page in the V2 UI experience to add a title and select platforms
+  """
+  showIntroducePage: Boolean!
 }
 
 """
@@ -697,4 +707,14 @@ type ChromeExtensionConfig {
   Whether lineage is enabled
   """
   lineageEnabled: Boolean!
+}
+
+"""
+Configuration for any custom theme-ing
+"""
+type ThemeConfig {
+  """
+  The optional custom theme ID to determine which theme config we use in the frontend
+  """
+  themeId: String
 }

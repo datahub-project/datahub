@@ -10,7 +10,7 @@ import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuA
 import MoreOptionsMenuAction from '@app/entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
 import { usePreviewData } from '@app/entityV2/shared/PreviewContext';
 import { useSearchCardContext } from '@app/entityV2/shared/SearchCardContext';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { GlossaryPreviewCardDecoration } from '@app/entityV2/shared/containers/profile/header/GlossaryPreviewCardDecoration';
 import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
@@ -26,6 +26,7 @@ import { useRemoveDataProductAssets, useRemoveDomainAssets, useRemoveGlossaryTer
 import { useSearchContext } from '@app/search/context/SearchContext';
 import useContentTruncation from '@app/shared/useContentTruncation';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { getColor } from '@src/alchemy-components/theme/utils';
 import DataProcessInstanceInfo from '@src/app/preview/DataProcessInstanceInfo';
 
 import {
@@ -47,7 +48,7 @@ import {
 } from '@types';
 
 const TransparentButton = styled(Button)`
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    color: ${(p) => getColor('primary', 500, p.theme)};
     font-size: 12px;
     box-shadow: none;
     border: none;
@@ -62,7 +63,7 @@ const TransparentButton = styled(Button)`
         display: flex;
         align-items: center;
         opacity: 0.9;
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        color: ${(p) => getColor('primary', 500, p.theme)};
     }
 `;
 

@@ -24,6 +24,7 @@ import com.linkedin.datahub.graphql.generated.SearchBarConfig;
 import com.linkedin.datahub.graphql.generated.SearchResultsVisualConfig;
 import com.linkedin.datahub.graphql.generated.TelemetryConfig;
 import com.linkedin.datahub.graphql.generated.TestsConfig;
+import com.linkedin.datahub.graphql.generated.ThemeConfig;
 import com.linkedin.datahub.graphql.generated.ViewsConfig;
 import com.linkedin.datahub.graphql.generated.VisualConfig;
 import com.linkedin.metadata.config.ChromeExtensionConfiguration;
@@ -171,6 +172,13 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       }
       visualConfig.setSearchResult(searchResultsVisualConfig);
     }
+    if (_visualConfiguration != null && _visualConfiguration.getTheme() != null) {
+      ThemeConfig themeConfig = new ThemeConfig();
+      if (_visualConfiguration.getTheme().getThemeId() != null) {
+        themeConfig.setThemeId(_visualConfiguration.getTheme().getThemeId());
+      }
+      visualConfig.setTheme(themeConfig);
+    }
     appConfig.setVisualConfig(visualConfig);
 
     final TelemetryConfig telemetryConfig = new TelemetryConfig();
@@ -223,6 +231,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setShowSearchBarAutocompleteRedesign(
                 _featureFlags.isShowSearchBarAutocompleteRedesign())
             .setShowManageTags(_featureFlags.isShowManageTags())
+            .setShowIntroducePage(_featureFlags.isShowIntroducePage())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

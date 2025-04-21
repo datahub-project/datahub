@@ -18,31 +18,33 @@ const ViewDetailsContainer = styled.div<{ selected: boolean; $isShowNavBarRedesi
     display: flex;
     align-items: center;
     position: relative;
-    background: ${(props) => (props.selected ? SEARCH_COLORS.TITLE_PURPLE : '')};
+    background: ${(props) => (props.selected ? getColor('primary', 500, props.theme) : '')};
     ${(props) => !props.$isShowNavBarRedesign && 'padding: 10px;'}
     border-radius: 16px;
     ${(props) =>
         !props.$isShowNavBarRedesign &&
         `
-        border: 1px solid ${props.selected ? SEARCH_COLORS.TITLE_PURPLE : REDESIGN_COLORS.BORDER_1};
+        border: 1px solid ${props.selected ? getColor('primary', 500, props.theme) : REDESIGN_COLORS.BORDER_1};
     `}
 
     &:hover {
         ${(props) =>
             !props.$isShowNavBarRedesign &&
             `
-            border: ${`1px solid ${SEARCH_COLORS.TITLE_PURPLE}`};
+            border: ${`1px solid ${getColor('primary', 500, props.theme)}`};
             padding: 10px;
         `}
         border-radius: 16px;
         & .create-view-icon {
-            background: ${SEARCH_COLORS.TITLE_PURPLE} !important;
-            border: ${(props) => (!props.selected ? `1px solid ${SEARCH_COLORS.TITLE_PURPLE} !important` : '')};
+            background: ${(props) => getColor('primary', 500, props.theme)} !important;
+            border: ${(props) =>
+                !props.selected ? `1px solid ${getColor('primary', 500, props.theme)} !important` : ''};
         }
     }
     & .default-view-icon-container {
         border: 1px solid
-            ${(props) => (props.selected ? SEARCH_COLORS.TITLE_PURPLE : REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK)};
+            ${(props) =>
+                props.selected ? getColor('primary', 500, props.theme) : REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK};
         border-radius: 100%;
     }
     & .close-container {
@@ -60,7 +62,7 @@ const ViewDetailsContainer = styled.div<{ selected: boolean; $isShowNavBarRedesi
 
 const CloseIconStyle = styled(CloseIcon)`
     font-size: 14px !important;
-    color: ${SEARCH_COLORS.TITLE_PURPLE};
+    color: ${(props) => getColor('primary', 500, props.theme)};
 `;
 
 type Props = {

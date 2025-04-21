@@ -33,7 +33,7 @@ const Count = styled.div`
 const NameWrapper = styled(Typography.Text)<{ $isSelected: boolean; $addLeftPadding: boolean }>`
     flex: 1;
     padding: 2px;
-    ${(props) => props.$isSelected && `color: ${SEARCH_COLORS.TITLE_PURPLE};`}
+    ${(props) => props.$isSelected && `color: ${getColor('primary', 500, props.theme)};`}
     ${(props) => props.$addLeftPadding && 'padding-left: 20px;'}
 
     &:hover {
@@ -50,7 +50,7 @@ const DisplayName = styled.span<{ $isSelected: boolean }>`
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    color: ${(props) => (props.$isSelected ? REDESIGN_COLORS.TITLE_PURPLE : REDESIGN_COLORS.BODY_TEXT_GREY)};
+    color: ${(props) => (props.$isSelected ? getColor('primary', 500, props.theme) : REDESIGN_COLORS.BODY_TEXT_GREY)};
 `;
 
 const ButtonWrapper = styled.span<{ $addLeftPadding: boolean; $isSelected: boolean }>`
@@ -60,7 +60,7 @@ const ButtonWrapper = styled.span<{ $addLeftPadding: boolean; $isSelected: boole
     svg {
         font-size: 16px !important;
         color: ${(props) =>
-            props.$isSelected ? REDESIGN_COLORS.TITLE_PURPLE : REDESIGN_COLORS.BODY_TEXT_GREY} !important;
+            props.$isSelected ? getColor('primary', 500, props.theme) : REDESIGN_COLORS.BODY_TEXT_GREY} !important;
     }
 
     .ant-btn {
@@ -81,11 +81,11 @@ const RowWrapper = styled.div<{ $isSelected: boolean; isOpen?: boolean }>`
         background-color: ${REDESIGN_COLORS.COLD_GREY_TEXT_BLUE_1};
         ${ButtonWrapper} {
             svg {
-                color: ${REDESIGN_COLORS.TITLE_PURPLE} !important;
+                color: ${(props) => getColor('primary', 500, props.theme)} !important;
             }
         }
         ${DisplayName} {
-            color: ${REDESIGN_COLORS.TITLE_PURPLE};
+            color: ${(props) => getColor('primary', 500, props.theme)};
         }
     }
 `;

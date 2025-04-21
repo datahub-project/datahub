@@ -74,6 +74,7 @@ export const DEFAULT_APP_CONFIG = {
         showHasSiblingsFilter: false,
         showSearchBarAutocompleteRedesign: false,
         showManageTags: false,
+        showIntroducePage: false,
     },
     chromeExtensionConfig: {
         enabled: false,

@@ -28,13 +28,13 @@ const EntityDetailsRightColumn = styled.div`
     }
 `;
 
-const BookmarkIconWrapper = styled.div<{ urnText: string }>`
+const BookmarkIconWrapper = styled.div<{ $background: string }>`
     width: 40px;
     height: 40px;
     display: flex;
     justify-content: center;
     align-items: center;
-    background-color: ${(props) => generateColorFromPalette(props.urnText)};
+    background-color: ${(props) => props.$background};
     border-radius: 11px;
     margin-right: 12px;
     position: relative;
@@ -97,7 +97,7 @@ const NameAndDescription = styled.div`
     overflow hidden;
 `;
 
-const BookmarkRibbon = styled.span<{ urnText: string }>`
+const BookmarkRibbon = styled.span`
     position: absolute;
     left: -11px;
     top: 7px;
@@ -161,13 +161,14 @@ const GlossaryListCard = (props: Props) => {
     const isDescriptionTruncated = description && description.length > MAX_DESCRIPTION_LENGTH;
     const truncatedDescription = description?.slice(0, MAX_DESCRIPTION_LENGTH);
     const isExceedingMaxDepth = (props.maxDepth || 0) > MAX_DEPTH_QUERIED;
+    const generateColor = useGenerateGlossaryColorFromPalette();
 
     return (
         <EntityDetailsWrapper type={props.type}>
             {type === EntityType.GlossaryNode ? (
                 <EntityTitleWrapper>
-                    <BookmarkIconWrapper urnText={entityData?.urn || ''}>
-                        <BookmarkRibbon urnText={entityData?.urn || ''} />
+                    <BookmarkIconWrapper $background={generateColor(entityData?.urn || '')}>
+                        <BookmarkRibbon />
                         <BookmarksSimple color="white" size="16px" weight="bold" />
                     </BookmarkIconWrapper>
                     <NameAndDescription>
@@ -184,8 +185,8 @@ const GlossaryListCard = (props: Props) => {
                 </EntityTitleWrapper>
             ) : (
                 <EntityTitleWrapper>
-                    <BookmarkIconWrapper urnText={entityData?.urn || ''}>
-                        <BookmarkRibbon urnText={entityData?.urn || ''} />
+                    <BookmarkIconWrapper $background={generateColor(entityData?.urn || '')}>
+                        <BookmarkRibbon />
                         <BookmarkSimple color="white" size="16px" weight="bold" />
                     </BookmarkIconWrapper>
                     <NameAndDescription>

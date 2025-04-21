@@ -21,7 +21,7 @@ export const CardContainer = styled.div<{ hasButton?: boolean; width?: string; m
 
         '&:hover': hasButton
             ? {
-                  border: `1px solid ${colors.violet[500]}`,
+                  border: `1px solid ${({ theme }) => getColor('primary', 500, theme)}`,
                   cursor: 'pointer',
               }
             : {},

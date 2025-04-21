@@ -16,7 +16,7 @@ const Wrapper = styled.div`
     top: 8px;
 
     :hover {
-        color: ${Colors.violet[500]};
+        color: ${(p) => getColor('primary', 500, p.theme)};
     }
 `;
 

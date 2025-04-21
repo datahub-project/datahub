@@ -12,7 +12,7 @@ import { useGetGlossaryTermQuery } from '@graphql/glossaryTerm.generated';
 import { EntityType, TermRelationshipType } from '@types';
 
 const TransparentButton = styled(Button)`
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    color: ${(props) => getColor('primary', 500, props.theme)};
     font-size: 12px;
     box-shadow: none;
     border: none;
@@ -25,7 +25,7 @@ const TransparentButton = styled(Button)`
     &:hover {
         transition: 0.15s;
         opacity: 0.9;
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        color: ${(props) => getColor('primary', 500, props.theme)};
     }
 `;
 
@@ -38,7 +38,7 @@ const ListItem = styled.div`
         display: inline-block;
     }
     &:hover {
-        border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
+        border: 1px solid ${(props) => getColor('primary', 500, props.theme)};
     }
 `;
 

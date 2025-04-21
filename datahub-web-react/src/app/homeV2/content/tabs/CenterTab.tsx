@@ -4,6 +4,7 @@ import styled from 'styled-components/macro';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { CountBadge } from '@app/homeV2/content/tabs/CountBadge';
+import { getColor } from '@src/alchemy-components/theme/utils';
 
 const Tab = styled.div<{ selected: boolean; disabled: boolean }>`
     font-size: 14px;
@@ -15,13 +16,13 @@ const Tab = styled.div<{ selected: boolean; disabled: boolean }>`
     justify-content: space-between;
     ${(props) => !props.selected && `color: ${ANTD_GRAY[9]};`}
     ${(props) => props.disabled && `color: ${ANTD_GRAY[6]};`}
-    ${(props) => props.selected && 'background-color: #3F54D1;'}
+    ${(props) => props.selected && `background-color: ${getColor('primary', 500, props.theme)};`}
     ${(props) => props.selected && 'color: #ffffff;'}
     ${(props) =>
         !props.disabled &&
         `:hover {
             cursor: pointer;
-            ${!props.selected && 'color: #3F54D1;'}
+            ${!props.selected && `color: ${getColor('primary', 500, props.theme)};`}
         }`}
 `;
 

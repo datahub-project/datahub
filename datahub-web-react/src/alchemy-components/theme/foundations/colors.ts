@@ -44,6 +44,22 @@ const colors = {
         1100: '#E5E2F8',
     },
 
+    // by default, our primary pallette is the same as our violet pallette
+    primary: {
+        0: '#F1F3FD',
+        100: '#CAC3F1',
+        200: '#B0A7EA',
+        300: '#8C7EE0',
+        400: '#7565DA',
+        500: '#533FD1', // primary value
+        600: '#4C39BE',
+        700: '#3B2D94',
+        800: '#2E2373',
+        900: '#231A58',
+        1000: '#E5E2F8',
+        1100: '#E5E2F8',
+    },
+
     green: {
         0: '#F1F8EE',
         100: '#D5E9C9',

@@ -14,15 +14,15 @@ const SelectButton = styled(Button)<{ $selectedViewName: string; $isShowNavBarRe
         if (props.$isShowNavBarRedesign) {
             return props.$selectedViewName ? colors.gray[1000] : 'transparent';
         }
-        return props.$selectedViewName ? SEARCH_COLORS.TITLE_PURPLE : 'transparent';
+        return props.$selectedViewName ? getColor('primary', 500, props.theme) : 'transparent';
     }};
     border-color: ${(props) => {
         if (props.$isShowNavBarRedesign) {
             return props.$selectedViewName ? 'transparent' : colors.gray[100];
         }
-        return props.$selectedViewName ? SEARCH_COLORS.TITLE_PURPLE : 'transparent';
+        return props.$selectedViewName ? getColor('primary', 500, props.theme) : 'transparent';
     }};
-    color: ${(props) => (props.$isShowNavBarRedesign ? colors.violet[500] : ANTD_GRAY[1])};
+    color: ${(props) => (props.$isShowNavBarRedesign ? getColor('primary', 500, props.theme) : ANTD_GRAY[1])};
     max-width: ${(props) => (props.$isShowNavBarRedesign ? '120px' : '150px')};
 
     ${(props) =>
@@ -45,20 +45,21 @@ const SelectButton = styled(Button)<{ $selectedViewName: string; $isShowNavBarRe
             if (props.$isShowNavBarRedesign) {
                 return props.$selectedViewName ? colors.gray[1000] : 'transparent';
             }
-            return SEARCH_COLORS.TITLE_PURPLE;
+            return getColor('primary', 500, props.theme);
         }};
-        color: ${(props) => (props.$isShowNavBarRedesign ? colors.violet[500] : ANTD_GRAY[1])};
+        color: ${(props) => (props.$isShowNavBarRedesign ? getColor('primary', 500, props.theme) : ANTD_GRAY[1])};
 
         border-color: ${(props) => {
-            if (props.$isShowNavBarRedesign) return colors.violet[500];
-            return props.$selectedViewName ? SEARCH_COLORS.TITLE_PURPLE : 'transparent';
+            if (props.$isShowNavBarRedesign) return getColor('primary', 500, props.theme);
+            return props.$selectedViewName ? getColor('primary', 500, props.theme) : 'transparent';
         }};
     }
 
     &: focus {
-        background-color: ${(props) => (props.$selectedViewName ? SEARCH_COLORS.TITLE_PURPLE : 'transparent')};
-        color: ${(props) => (props.$isShowNavBarRedesign ? colors.violet[500] : ANTD_GRAY[1])};
-        border-color: ${(props) => (props.$selectedViewName ? SEARCH_COLORS.TITLE_PURPLE : 'transparent')};
+        background-color: ${(props) =>
+            props.$selectedViewName ? getColor('primary', 500, props.theme) : 'transparent'};
+        color: ${(props) => (props.$isShowNavBarRedesign ? getColor('primary', 500, props.theme) : ANTD_GRAY[1])};
+        border-color: ${(props) => (props.$selectedViewName ? getColor('primary', 500, props.theme) : 'transparent')};
 
         ${(props) =>
             props.$isShowNavBarRedesign &&
@@ -100,7 +101,7 @@ const CloseButtonContainer = styled.div`
 
 const CloseIconStyle = styled(CloseIcon)`
     font-size: 10px !important;
-    color: ${SEARCH_COLORS.TITLE_PURPLE};
+    color: ${(props) => getColor('primary', 500, props.theme)};
 `;
 
 const StyledViewIcon = styled(FadersHorizontal)<{ $isShowNavBarRedesign?: boolean }>`

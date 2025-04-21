@@ -40,10 +40,10 @@ export const ViewContainer = styled.div<{ $selected?: boolean; $isShowNavBarRede
         width: 100%;
         width: 260px;
         height: 64px;
-        border: 1px solid ${props.$selected ? colors.violet[500] : colors.gray[100]};
+        border: 1px solid ${props.$selected ? getColor('primary', 500, props.theme) : colors.gray[100]};
 
         :hover {
-            border: 1px solid ${colors.violet[500]};
+            border: 1px solid ${getColor('primary', 500, props.theme)};
             box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
         }
     `}
@@ -57,7 +57,7 @@ export const ViewIcon = styled.div<{ $selected?: boolean }>`
     padding: 20px;
     position: relative;
     border: ${(props) => (props.$selected ? `1px solid ${ANTD_GRAY[1]} !important` : '')};
-    background: ${(props) => (props.$selected ? SEARCH_COLORS.TITLE_PURPLE : REDESIGN_COLORS.BORDER_1)};
+    background: ${(props) => (props.$selected ? getColor('primary', 500, props.theme) : REDESIGN_COLORS.BORDER_1)};
     &.static {
         border: 1px solid ${ANTD_GRAY[1]};
     }

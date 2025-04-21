@@ -65,7 +65,11 @@ const AutoCompleteContainer = styled.div<{ viewsEnabled?: boolean; $isShowNavBar
         `
         border-radius: 8px;
         &:focus-within {
-            border-color: ${props.$isShowNavBarRedesign ? colors.violet[500] : props.theme.styles['primary-color']};
+            border-color: ${
+                props.$isShowNavBarRedesign
+                    ? getColor('primary', 500, props.theme)
+                    : props.theme.styles['primary-color']
+            };
         }
     `}
 `;

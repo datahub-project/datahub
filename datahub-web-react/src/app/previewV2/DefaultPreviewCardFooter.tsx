@@ -56,7 +56,7 @@ const EntityLink = styled.div`
     .ant-btn-link {
         display: flex;
         align-items: center;
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        color: ${(props) => getColor('primary', 500, props.theme)};
         height: 100%;
 
         :hover {

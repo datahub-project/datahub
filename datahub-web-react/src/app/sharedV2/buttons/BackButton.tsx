@@ -4,15 +4,15 @@ import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { getColor } from '@src/alchemy-components/theme/utils';
 
 const StyledButton = styled(Button)`
     height: 25px;
     width: 25px;
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    color: ${(p) => getColor('primary', 500, p.theme)};
     padding: 0px;
     border-radius: 20px;
-    border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
+    border: 1px solid ${(p) => getColor('primary', 500, p.theme)};
     display: flex;
     align-items: center;
     justify-content: center;
@@ -21,8 +21,8 @@ const StyledButton = styled(Button)`
     margin-top: 2px;
 
     &:hover {
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
-        border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        color: ${(p) => getColor('primary', 500, p.theme)};
+        border-color: ${(p) => getColor('primary', 500, p.theme)};
     }
 `;
 

@@ -30,7 +30,7 @@ const Container = styled.div`
 `;
 
 const StyledButton = styled(Button)`
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    color: ${(props) => getColor('primary', 500, props.theme)};
     display: flex;
     width: fit-content;
 

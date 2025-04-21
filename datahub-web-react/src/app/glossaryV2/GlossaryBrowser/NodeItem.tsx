@@ -51,24 +51,25 @@ const NodeWrapper = styled.div<{ $isSelected: boolean; $depth: number }>`
 
 const StyledRightOutlined = styled(KeyboardArrowRightRounded)<{ isSelected: boolean }>`
     color: ${(props) =>
-        props.isSelected ? `${REDESIGN_COLORS.TITLE_PURPLE}` : `${REDESIGN_COLORS.SECONDARY_LIGHT_GREY}`};
+        props.isSelected ? `${getColor('primary', 500, props.theme)}` : `${REDESIGN_COLORS.SECONDARY_LIGHT_GREY}`};
     cursor: pointer;
     margin-right: 6px;
     line-height: 0;
     :hover {
         stroke: ${(props) =>
-            props.isSelected ? `${REDESIGN_COLORS.TITLE_PURPLE}` : `${REDESIGN_COLORS.SECONDARY_LIGHT_GREY}`};
+            props.isSelected ? `${getColor('primary', 500, props.theme)}` : `${REDESIGN_COLORS.SECONDARY_LIGHT_GREY}`};
     }
 `;
 
 const StyledDownOutlined = styled(KeyboardArrowDownRounded)<{ isSelected: boolean }>`
-    color: ${(props) => (props.isSelected ? `${REDESIGN_COLORS.TITLE_PURPLE}` : `${REDESIGN_COLORS.HOVER_PURPLE_2}`)};
+    color: ${(props) =>
+        props.isSelected ? `${getColor('primary', 500, props.theme)}` : `${REDESIGN_COLORS.HOVER_PURPLE_2}`};
     cursor: pointer;
     margin-right: 6px;
     line-height: 0;
     :hover {
         stroke: ${(props) =>
-            props.isSelected ? `${REDESIGN_COLORS.TITLE_PURPLE}` : `${REDESIGN_COLORS.HOVER_PURPLE_2}`};
+            props.isSelected ? `${getColor('primary', 500, props.theme)}` : `${REDESIGN_COLORS.HOVER_PURPLE_2}`};
     }
 `;
 
@@ -138,6 +139,7 @@ function NodeItem(props: Props) {
     } = props;
     const shouldHideNode = nodeUrnToHide === node.urn;
 
+    const generateColor = useGenerateGlossaryColorFromPalette();
     const [areChildrenVisible, setAreChildrenVisible] = useState(false);
     const entityRegistry = useEntityRegistry();
     const { entityData, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
@@ -188,7 +190,7 @@ function NodeItem(props: Props) {
 
     if (shouldHideNode) return null;
 
-    const glossaryColor = node.displayProperties?.colorHex || generateColorFromPalette(node.urn);
+    const glossaryColor = node.displayProperties?.colorHex || generateColor(node.urn);
 
     return (
         <ItemWrapper $isSelected={entityData?.urn === node.urn} $isChildNode={isChildNode}>

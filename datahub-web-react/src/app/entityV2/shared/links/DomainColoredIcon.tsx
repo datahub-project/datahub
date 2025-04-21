@@ -48,8 +48,9 @@ export const DomainColoredIcon = ({ iconColor, domain, size = 40, fontSize = 20,
     const iconName = domain?.displayProperties?.icon?.name || '';
     const MaterialIcon = getIcon(iconName);
 
-    const domainColor = domain?.displayProperties?.colorHex || generateColor.hex(domain?.urn || '');
-    const domainBackgroundColor = hexToRgba(iconColor || domainColor, 0.75);
+    const generateColor = useGenerateDomainColorFromPalette();
+    const domainColor = domain?.displayProperties?.colorHex || generateColor(domain?.urn || '');
+    const domainBackgroundColor = hexToRgba(iconColor || domainColor, 1.0);
 
     return (
         <DomainIconContainer color={domainBackgroundColor} size={size} onClick={onClick}>

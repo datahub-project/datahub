@@ -5,10 +5,10 @@ import styled from 'styled-components/macro';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
 import CompactContext from '@app/shared/CompactContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { getColor } from '@src/alchemy-components/theme/utils';
 import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
 
 import { useUpdateNameMutation } from '@graphql/mutations.generated';
@@ -16,14 +16,14 @@ import { EntityType } from '@types';
 
 const EntityTitle = styled(Typography.Text)<{ $showEntityLink?: boolean }>`
     font-weight: 700;
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    color: ${(p) => getColor('primary', 500, p.theme)};
     line-height: normal;
 
     ${(props) =>
         props.$showEntityLink &&
         `
     :hover {
-        color: ${REDESIGN_COLORS.HOVER_PURPLE};
+        color: ${(p) => getColor('primary', 600, p.theme)};
     }
     `}
     &&& {
@@ -38,7 +38,7 @@ const EntityTitle = styled(Typography.Text)<{ $showEntityLink?: boolean }>`
         margin-left: 2px;
 
         & svg {
-            fill: #533fd1;
+            fill: ${(p) => getColor('primary', 500, p.theme)};
         }
     }
 `;

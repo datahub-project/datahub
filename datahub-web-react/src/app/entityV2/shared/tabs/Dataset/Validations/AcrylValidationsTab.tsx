@@ -19,7 +19,7 @@ const TabTitle = styled.span`
 const TabButton = styled.div<{ selected: boolean; disabled: boolean }>`
     display: flex;
     background-color: ${(props) => (props.selected && '#f1f3fd') || 'none'};
-    color: ${(props) => (props.selected ? REDESIGN_COLORS.TITLE_PURPLE : 'none')};
+    color: ${(props) => (props.selected ? getColor('primary', 500, props.theme) : 'none')};
     align-items: center;
     justify-content: center;
     cursor: ${(props) => (props.disabled ? 'not-allowed' : 'pointer')};

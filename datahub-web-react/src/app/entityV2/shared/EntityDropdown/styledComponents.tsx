@@ -26,8 +26,8 @@ export const ActionMenuItem = styled(Button)<{ disabled?: boolean; fontSize?: nu
     box-shadow: none;
     &&:hover {
         background-color: ${ANTD_GRAY[3]};
-        color: ${SEARCH_COLORS.TITLE_PURPLE};
-        border-color: ${SEARCH_COLORS.TITLE_PURPLE};
+        color: ${(props) => getColor('primary', 500, props.theme)};
+        border-color: ${(props) => getColor('primary', 500, props.theme)};
     }
     ${(props) =>
         props.disabled

@@ -1,6 +1,7 @@
 import { colors } from '@components';
 import { CaretLeft, CaretRight } from 'phosphor-react';
 import React, { useCallback, useMemo } from 'react';
+import { getColor } from '@src/alchemy-components/theme/utils';
 import styled from 'styled-components';
 
 import { ExtendedInputRenderProps } from '@components/components/DatePicker/types';
@@ -41,7 +42,7 @@ const Content = styled(Text)<{ $disabled?: boolean }>`
     cursor: ${(props) => (props.$disabled ? 'not-allowed' : 'pointer')};
 
     :hover {
-        ${(props) => !props.$disabled && `color: ${colors.violet[500]};`}
+        ${(props) => !props.$disabled && `color: ${getColor('primary', 500, props.theme)};`}
     }
 `;
 
@@ -53,7 +54,7 @@ const CaretWrapper = styled.div<{ $disabled?: boolean }>`
         cursor: ${(props) => (props.$disabled ? 'not-allowed' : 'pointer')};
 
         :hover {
-            ${(props) => !props.$disabled && `color: ${colors.violet[500]};`}
+            ${(props) => !props.$disabled && `color: ${getColor('primary', 500, props.theme)};`}
         }
     }
 `;

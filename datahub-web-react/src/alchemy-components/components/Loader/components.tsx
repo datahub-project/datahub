@@ -24,7 +24,7 @@ export const StyledLoadingOutlined = styled(LoadingOutlined)<{ $height: number }
     position: absolute;
 
     svg {
-        fill: ${colors.violet[500]};
+        fill: ${({ theme }) => getColor('primary', 500, theme)};
     }
 `;
 
