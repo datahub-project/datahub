@@ -20,7 +20,7 @@ import click
 import stackprinter
 from prometheus_client import start_http_server
 
-import datahub_actions as datahub_package
+import datahub_actions._version as actions_version
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub_actions.cli.actions import actions
 
@@ -59,8 +59,8 @@ MAX_CONTENT_WIDTH = 120
 )
 @click.option("--debug/--no-debug", default=False)
 @click.version_option(
-    version=datahub_package.nice_version_name(),
-    prog_name=datahub_package.__package_name__,
+    version=actions_version.nice_version_name(),
+    prog_name=actions_version.__package_name__,
 )
 @click.option(
     "-dl",
