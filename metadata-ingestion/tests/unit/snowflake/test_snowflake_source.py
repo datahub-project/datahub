@@ -39,6 +39,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
 from datahub.sql_parsing.sql_parsing_aggregator import TableRename, TableSwap
 from datahub.testing.doctest import assert_doctest
+from tests.integration.snowflake.common import inject_rowcount
 from tests.test_helpers import test_connection_helpers
 
 default_oauth_dict: Dict[str, Any] = {
@@ -335,6 +336,7 @@ class MissingQueryMock(Exception):
 
 
 def setup_mock_connect(mock_connect, extra_query_results=None):
+    @inject_rowcount
     def query_results(query):
         if extra_query_results is not None:
             try:

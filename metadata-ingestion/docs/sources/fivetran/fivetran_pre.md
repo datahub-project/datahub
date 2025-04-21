@@ -67,11 +67,13 @@ If you have multiple instances of source/destination systems that are referred i
 While configuring the platform instance for source system you need to provide connector id as key and for destination system provide destination id as key.
 When creating the conection details in the fivetran UI make a note of the destination Group ID of the service account, as that will need to be used in the `destination_to_platform_instance` configuration.
 I.e:
+
 <p align="center">
   <img width="70%"  src="https://github.com/datahub-project/static-assets/raw/main/imgs/integrations/bigquery/bq-connection-id.png"/>
 </p>
 
 In this case the configuration would be something like:
+
 ```yaml
 destination_to_platform_instance:
   greyish_positive: <--- this comes from bigquery destination - see screenshot
