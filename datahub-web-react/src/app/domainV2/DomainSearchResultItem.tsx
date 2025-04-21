@@ -3,14 +3,16 @@ import React from 'react';
 import Highlight from 'react-highlighter';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
+
 import colors from '@src/alchemy-components/theme/foundations/colors';
+
 import { Domain, Entity, EntityType } from '../../types.generated';
 import { IconStyleType } from '../entity/Entity';
+import EntityRegistry from '../entity/EntityRegistry';
 import { ANTD_GRAY } from '../entity/shared/constants';
+import { DomainColoredIcon } from '../entityV2/shared/links/DomainColoredIcon';
 import ParentEntities from '../search/filters/ParentEntities';
 import { getParentDomains } from './utils';
-import EntityRegistry from '../entity/EntityRegistry';
-import { DomainColoredIcon } from '../entityV2/shared/links/DomainColoredIcon';
 
 type Props = {
     entity: Entity;

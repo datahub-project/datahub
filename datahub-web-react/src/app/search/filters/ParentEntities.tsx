@@ -1,9 +1,11 @@
 import { FolderOpenOutlined } from '@ant-design/icons';
 import { Tooltip, Typography } from 'antd';
+import { CaretRight } from 'phosphor-react';
 import React from 'react';
 import styled from 'styled-components';
-import { CaretRight } from 'phosphor-react';
+
 import colors from '@src/alchemy-components/theme/foundations/colors';
+
 import { Entity } from '../../../types.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { useEntityRegistry } from '../../useEntityRegistry';
