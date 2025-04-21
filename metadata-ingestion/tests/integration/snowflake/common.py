@@ -173,6 +173,28 @@ large_sql_query = """WITH object_access_history AS
                                                """
 
 
+class RowCountList(list):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    @property
+    def rowcount(self):
+        return len(self)
+
+
+def inject_rowcount(func):
+    def wrapper(*args, **kwargs):
+        result = func(*args, **kwargs)
+        if result is None or isinstance(result, RowCountList):
+            return result
+        assert isinstance(result, list)
+        result = RowCountList(result)
+        return result
+
+    return wrapper
+
+
+@inject_rowcount
 def default_query_results(  # noqa: C901
     query,
     num_tables=NUM_TABLES,
