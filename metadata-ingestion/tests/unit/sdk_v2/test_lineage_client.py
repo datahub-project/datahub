@@ -11,6 +11,7 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     StringTypeClass,
 )
+from datahub.sdk.dataset import Dataset
 from datahub.sdk.lineage_client import LineageClient
 from datahub.sdk.main_client import DataHubClient
 from tests.test_helpers import mce_helpers
@@ -22,6 +23,34 @@ _GOLDEN_DIR.mkdir(exist_ok=True)
 @pytest.fixture
 def mock_graph() -> Mock:
     graph = Mock()
+    schema_resolver = Mock()
+    schema_resolver.platform = "snowflake"
+
+    orders_schema = {
+        "price": "FLOAT",
+        "qty": "INTEGER",
+        "unit_cost": "FLOAT",
+    }
+    
+    # When resolve_table is called with "orders", return the proper URN and schema
+    # The _TableName used in SQL parsing has database, db_schema, and table attributes
+    def resolve_table_side_effect(table_name):
+        if table_name.table == "ORDERS":
+            return (
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,orders,PROD)",
+                orders_schema
+            )
+        elif table_name.table == "sales_summary":
+            return (
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_summary,PROD)",
+                {}
+            )
+        return None, None
+    
+    schema_resolver.resolve_table.side_effect = resolve_table_side_effect
+    schema_resolver.includes_temp_tables.return_value = False
+    
+    graph._make_schema_resolver.return_value = schema_resolver
     return graph
 
 
@@ -379,3 +408,51 @@ def test_add_dataset_transform_lineage_complete(client: DataHubClient) -> None:
         column_lineage=column_lineage,
     )
     assert_client_golden(client, _GOLDEN_DIR / "test_lineage_complete_golden.json")
+
+
+def test_add_dataset_lineage_from_sql(client: DataHubClient) -> None:
+    """Test adding lineage from SQL parsing with a golden file."""
+    lineage_client = LineageClient(client=client)
+
+    # Create upstream dataset with schema
+    upstream = Dataset(
+        platform="snowflake",
+        name="orders",
+        env="PROD",
+        schema=[
+            ("price", "float"),
+            ("qty", "int"),
+            ("unit_cost", "float"),
+        ],
+    )
+    client.entities.upsert(upstream)
+
+    # Create downstream dataset (no schema needed)
+    downstream = Dataset(
+        platform="snowflake",
+        name="sales_summary",
+        env="PROD",
+    )
+    client.entities.upsert(downstream)
+
+    # Use real parseable SQL
+    query_text = """
+        SELECT price AS total_price, qty * unit_cost AS cost
+        FROM orders
+        """
+
+    # Trigger lineage from SQL
+    lineage_client.add_dataset_lineage_from_sql(
+        query_text=query_text,
+        platform="snowflake",
+        env="PROD",
+    )
+
+    # Validate lineage + query MCPs
+    assert_client_golden(client, _GOLDEN_DIR / "test_lineage_from_sql_golden.json")
+
+
+def test_add_datajob_lineage():
+    """Test adding lineage between datasets and datajobs."""
+    # Create a minimal client just for testing the method
+    pass

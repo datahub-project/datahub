@@ -1,0 +1,53 @@
+[
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,example_dag,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airflow"
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,example_dag,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "example_dag"
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,example_dag,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "institutionalMemory",
+    "aspect": {
+        "json": {
+            "elements": [
+                {
+                    "url": "https://example.com/doc2",
+                    "description": "Documentation 2",
+                    "createStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:__ingestion"
+                    }
+                },
+                {
+                    "url": "https://example.com/doc3",
+                    "description": "Documentation 3",
+                    "createStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:__ingestion"
+                    }
+                }
+            ]
+        }
+    }
+}
+]

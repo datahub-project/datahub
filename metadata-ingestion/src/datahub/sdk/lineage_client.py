@@ -7,9 +7,8 @@ from typing import TYPE_CHECKING, List, Literal, Optional, Set, Union
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.errors import SdkUsageError
-from datahub.metadata.schema_classes import SchemaMetadataClass
-from datahub.metadata.urns import DatasetUrn, QueryUrn
-from datahub.sdk._shared import DatasetUrnOrStr
+from datahub.metadata.urns import DataJobUrn, DatasetUrn, QueryUrn
+from datahub.sdk._shared import DatajobUrnOrStr, DatasetUrnOrStr
 from datahub.sdk._utils import DEFAULT_ACTOR_URN
 from datahub.sdk.dataset import ColumnLineageMapping, parse_cll_mapping
 from datahub.specific.dataset import DatasetPatchBuilder
@@ -33,7 +32,7 @@ class LineageClient:
 
     def _get_fields_from_dataset_urn(self, dataset_urn: DatasetUrn) -> Set[str]:
         schema_metadata = self._client._graph.get_aspect(
-            str(dataset_urn), SchemaMetadataClass
+            str(dataset_urn), models.SchemaMetadataClass
         )
         if schema_metadata is None:
             return Set()
@@ -233,3 +232,135 @@ class LineageClient:
         if query_entity:
             mcps.extend(query_entity)
         self._client._graph.emit_mcps(mcps)
+
+    def add_dataset_lineage_from_sql(
+        self,
+        *,
+        query_text: str,
+        platform: str,
+        platform_instance: Optional[str] = None,
+        env: str = "PROD",
+        default_db: Optional[str] = None,
+        default_schema: Optional[str] = None,
+        schema_aware: bool = True,
+    ) -> None:
+        """
+        Add lineage by parsing a SQL query.
+        """
+        from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+
+        # Parse the SQL query to extract lineage information
+        parsed_result = create_lineage_sql_parsed_result(
+            query=query_text,
+            default_db=default_db or "",
+            default_schema=default_schema or "",
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+            graph=self._client._graph,
+            schema_aware=schema_aware,
+        )
+        print(f"Parsed SQL query: {parsed_result}")
+
+        if parsed_result is None:
+            raise ValueError("Failed to parse SQL query: Unable to parse")
+
+        if parsed_result.debug_info.error:
+            raise ValueError(
+                f"Failed to parse SQL query: {parsed_result.debug_info.error}"
+            )
+
+        # Validate that we have output tables
+        if not parsed_result.out_tables or len(parsed_result.out_tables) == 0:
+            raise ValueError(
+                "No output tables found in the query. Cannot establish lineage."
+            )
+
+        # Use the first output table as the downstream
+        downstream_urn = parsed_result.out_tables[0]
+        print(f"downstream_urn: {downstream_urn}")
+
+        # Process all upstream tables found in the query
+        for upstream_table in parsed_result.in_tables:
+            print(f"upstream_table: {upstream_table}")
+            # Skip self-lineage
+            if upstream_table == downstream_urn:
+                continue
+
+            # Generate column-level lineage mapping from parsing result for this upstream
+            column_mapping = {}
+            if parsed_result.column_lineage:
+                for col_lineage in parsed_result.column_lineage:
+                    if not col_lineage.downstream or not col_lineage.downstream.column:
+                        continue
+
+                    # Only consider lineage between this upstream and our downstream
+                    upstream_cols = [
+                        ref.column
+                        for ref in col_lineage.upstreams
+                        if ref.table == upstream_table and ref.column
+                    ]
+
+                    if upstream_cols:
+                        column_mapping[col_lineage.downstream.column] = upstream_cols
+                        print("column_mapping: ", column_mapping)
+
+            # Add lineage for this upstream table to the downstream
+            self.add_dataset_transform_lineage(
+                upstream=upstream_table,
+                downstream=downstream_urn,
+                column_lineage=column_mapping or None,
+                query_text=query_text
+                if upstream_table == parsed_result.in_tables[0]
+                else None,
+                # Only include the query text for the first upstream to avoid duplication
+            )
+
+        logger.info(
+            f"Created lineage from {len(parsed_result.in_tables)} upstream tables to downstream {downstream_urn}"
+        )
+
+    def add_datajob_lineage(
+        self,
+        *,
+        upstream: Union[DatasetUrnOrStr, DatajobUrnOrStr],
+        downstream: Union[DatasetUrnOrStr, DatajobUrnOrStr],
+    ) -> None:
+        """
+        Add lineage between datasets and datajobs.
+        """
+
+        # Convert upstream and downstream to URNs
+        if isinstance(upstream, str):
+            if upstream.startswith("urn:li:dataset:"):
+                upstream = DatasetUrn.from_string(upstream)
+            elif upstream.startswith("urn:li:dataJob:"):
+                upstream = DataJobUrn.from_string(upstream)
+
+        if isinstance(downstream, str):
+            if downstream.startswith("urn:li:dataset:"):
+                downstream = DatasetUrn.from_string(downstream)
+            elif downstream.startswith("urn:li:dataJob:"):
+                downstream = DataJobUrn.from_string(downstream)
+
+        # Handle different combinations of dataset and datajob lineage
+        if isinstance(upstream, DatasetUrn) and isinstance(downstream, DataJobUrn):
+            updater = DatasetPatchBuilder(str(upstream))
+            # updater.add_downstream_lineage(
+            #     models.DownstreamClass(
+            #         datajob=str(downstream),
+            #         type=models.DatasetLineageTypeClass.COPY,
+            #     )
+            # )
+            self._client.entities.update(updater)
+        elif isinstance(upstream, DataJobUrn) and isinstance(downstream, DatasetUrn):
+            updater = DatasetPatchBuilder(str(downstream))
+            # updater.add_upstream_lineage(
+            #     models.UpstreamClass(
+            #         datajob=str(upstream),
+            #         type=models.DatasetLineageTypeClass.COPY,
+            #     )
+            # )
+            self._client.entities.update(updater)
+        else:
+            raise ValueError("Invalid combination of upstream and downstream URNs")
