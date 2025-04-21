@@ -1,6 +1,7 @@
 import { Tooltip } from '@components';
 import { Form, FormInstance } from 'antd';
 import React, { useEffect, useRef } from 'react';
+
 import {
     AddButtonContainer,
     DeleteIconContainer,
@@ -31,7 +32,6 @@ const AllowedValuesDrawer = ({
     noOfExistingValues,
     form,
 }: Props) => {
-    const { theme } = useCustomTheme();
     useEffect(() => {
         form.setFieldsValue({ allowedValues: allowedValues || [{}] });
     }, [form, showAllowedValuesDrawer, allowedValues]);

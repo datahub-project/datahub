@@ -8,7 +8,7 @@ import styled from 'styled-components';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
 import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import { LineageDisplayColumn } from '@app/lineageV2/LineageEntityNode/useDisplayedColumns';

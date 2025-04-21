@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { SEARCH_COLORS } from '@app/entityV2/shared/constants';
 import { useSearchContext } from '@app/search/context/SearchContext';
 import { SearchCardSlideoutContent } from '@app/searchV2/searchSlideout/SearchCardSlideoutContent';
 import { CombinedSearchResult } from '@app/searchV2/utils/combineSiblingsInSearchResults';

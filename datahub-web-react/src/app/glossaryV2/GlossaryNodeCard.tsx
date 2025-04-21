@@ -5,7 +5,7 @@ import React from 'react';
 import styled from 'styled-components/macro';
 
 import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { generateColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { colors } from '@src/alchemy-components';
 
 import { DisplayProperties } from '@types';

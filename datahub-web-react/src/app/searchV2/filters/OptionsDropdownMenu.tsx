@@ -3,7 +3,7 @@ import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY, SEARCH_COLORS } from '@app/entityV2/shared/constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { SearchBar } from '@app/searchV2/SearchBar';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { useEntityRegistry } from '@app/useEntityRegistry';

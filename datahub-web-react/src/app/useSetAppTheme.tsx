@@ -1,9 +1,8 @@
 import { useEffect } from 'react';
 
+import { useAppConfig } from '@app/useAppConfig';
+import { useIsThemeV2 } from '@app/useIsThemeV2';
 import { useCustomTheme } from '@src/customThemeContext';
-
-import { useAppConfig } from './useAppConfig';
-import { useIsThemeV2 } from './useIsThemeV2';
 
 // add new theme ids here
 // eslint-disable-next-line @typescript-eslint/no-unused-vars

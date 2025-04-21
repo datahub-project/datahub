@@ -6,7 +6,7 @@ import { GlobeHemisphereEast, Lock } from '@phosphor-icons/react';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY, REDESIGN_COLORS, SEARCH_COLORS } from '@app/entityV2/shared/constants';
+import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { ViewDropdownMenu } from '@app/entityV2/view/menu/ViewDropdownMenu';
 import { ViewOptionTooltipTitle } from '@app/entityV2/view/select/ViewOptionTooltipTitle';
 import {
@@ -20,6 +20,7 @@ import {
 import { GlobalDefaultViewIcon } from '@app/entityV2/view/shared/GlobalDefaultViewIcon';
 import { UserDefaultViewIcon } from '@app/entityV2/view/shared/UserDefaultViewIcon';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import { useCustomTheme } from '@src/customThemeContext';
 
 import { DataHubView } from '@types';
 

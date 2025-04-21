@@ -2,7 +2,6 @@ import { Dropdown } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { SEARCH_COLORS } from '@app/entityV2/shared/constants';
 import {
     SEARCH_FILTER_CONDITION_TYPE_TO_INFO,
     getOperatorOptionsForPredicate,

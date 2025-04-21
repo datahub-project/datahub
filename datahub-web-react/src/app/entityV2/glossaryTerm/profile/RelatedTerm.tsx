@@ -5,7 +5,6 @@ import styled from 'styled-components/macro';
 
 import { PreviewType } from '@app/entityV2/Entity';
 import useRemoveRelatedTerms from '@app/entityV2/glossaryTerm/profile/useRemoveRelatedTerms';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetGlossaryTermQuery } from '@graphql/glossaryTerm.generated';

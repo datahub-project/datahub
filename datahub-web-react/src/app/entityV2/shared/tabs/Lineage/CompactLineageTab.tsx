@@ -6,7 +6,7 @@ import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
-import { ANTD_GRAY, SEARCH_COLORS } from '@app/entityV2/shared/constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { ImpactAnalysis } from '@app/entityV2/shared/tabs/Lineage/ImpactAnalysis';
 import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
 import { UnionType } from '@app/search/utils/constants';

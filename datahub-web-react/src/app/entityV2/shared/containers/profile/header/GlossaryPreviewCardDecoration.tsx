@@ -2,7 +2,7 @@ import React from 'react';
 import styled from 'styled-components/macro';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { generateColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 
 import { DisplayProperties } from '@types';
 

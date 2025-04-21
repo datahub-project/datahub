@@ -13,10 +13,10 @@ import { useSetUserPersona } from '@app/homeV2/persona/useUserPersona';
 import { useSetUserTitle } from '@app/identity/user/useUserTitle';
 import { OnboardingContextProvider } from '@app/onboarding/OnboardingContextProvider';
 import { useIsThemeV2, useSetThemeIsV2 } from '@app/useIsThemeV2';
+import { useSetAppTheme } from '@app/useSetAppTheme';
 import { useSetNavBarRedesignEnabled } from '@app/useShowNavBarRedesign';
 import { NEW_ROUTE_MAP, PageRoutes } from '@conf/Global';
 import { getRedirectUrl } from '@conf/utils';
-import { useSetAppTheme } from '@app/useSetAppTheme';
 
 const StyledLayout = styled(Layout)`
     background-color: transparent;

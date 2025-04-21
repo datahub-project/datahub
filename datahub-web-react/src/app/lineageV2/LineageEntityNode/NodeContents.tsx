@@ -2,7 +2,6 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { KeyboardArrowDown, KeyboardArrowUp } from '@mui/icons-material';
 import { Skeleton, Spin } from 'antd';
-import { getColor } from '@src/alchemy-components/theme/utils';
 import React, { Dispatch, SetStateAction, useCallback } from 'react';
 import { Handle, Position } from 'reactflow';
 import styled from 'styled-components';
@@ -33,6 +32,7 @@ import getTypeIcon from '@app/sharedV2/icons/getTypeIcon';
 import MatchTextSizeWrapper from '@app/sharedV2/text/MatchTextSizeWrapper';
 import OverflowTitle from '@app/sharedV2/text/OverflowTitle';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { getColor } from '@src/alchemy-components/theme/utils';
 import { DeprecationIcon } from '@src/app/entityV2/shared/components/styled/DeprecationIcon';
 import StructuredPropertyBadge from '@src/app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 

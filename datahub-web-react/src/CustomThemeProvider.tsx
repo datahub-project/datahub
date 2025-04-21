@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ThemeProvider } from 'styled-components';
 
+import { loadThemeIdFromLocalStorage } from '@app/useSetAppTheme';
 import defaultThemeConfig from '@conf/theme/theme_light.config.json';
 import { Theme } from '@conf/theme/types';
 import { CustomThemeContext } from '@src/customThemeContext';

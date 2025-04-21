@@ -3,7 +3,6 @@
 */
 import {
     ColorOptions,
-    CustomTheme,
     DEFAULT_VALUE,
     FontSizeOptions,
     MiscColorOptions,
@@ -11,6 +10,8 @@ import {
 } from '@components/theme/config';
 import { foundations } from '@components/theme/foundations';
 import { semanticTokens } from '@components/theme/semantic-tokens';
+
+import { Theme } from '@conf/theme/types';
 
 const { colors, typography, transform } = foundations;
 /*

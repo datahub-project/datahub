@@ -6,7 +6,6 @@ import Highlight from 'react-highlighter';
 import styled from 'styled-components';
 
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { generateColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
 import LabelPropagationDetails from '@app/sharedV2/propagation/LabelPropagationDetails';
 import { useEntityRegistry } from '@app/useEntityRegistry';

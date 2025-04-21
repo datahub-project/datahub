@@ -1,7 +1,7 @@
 import { HTMLAttributes } from 'react';
-import { Theme } from '@src/conf/theme/types';
 
 import { ColorOptions, PillVariantOptions, SizeOptions } from '@src/alchemy-components/theme/config';
+import { Theme } from '@src/conf/theme/types';
 
 export interface PillPropsDefaults {
     variant: PillVariantOptions;

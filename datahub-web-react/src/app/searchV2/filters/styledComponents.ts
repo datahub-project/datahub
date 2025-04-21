@@ -2,7 +2,7 @@ import { Button, Typography } from 'antd';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { REDESIGN_COLORS, SEARCH_COLORS } from '@app/entityV2/shared/constants';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 export const SearchFilterLabel = styled(Button)<{ $isActive: boolean }>`
     font-size: 14px;

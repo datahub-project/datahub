@@ -2,6 +2,8 @@ import { CSSObject } from 'styled-components';
 
 import { PillStyleProps } from '@components/components/Pills/types';
 import { ColorOptions, PillVariantOptions, SizeOptions } from '@components/theme/config';
+
+import { Theme } from '@conf/theme/types';
 import { typography } from '@src/alchemy-components/theme';
 import { getColor, getFontSize } from '@src/alchemy-components/theme/utils';
 

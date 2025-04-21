@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
+
 import { getColor } from '@src/alchemy-components/theme/utils';
 
 const Bar = styled.div<{ status: number; bar: number; isFieldSelected: boolean; size: string }>`

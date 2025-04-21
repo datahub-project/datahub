@@ -1,10 +1,10 @@
 import { Tabs } from 'antd';
 import React, { useEffect } from 'react';
 import styled from 'styled-components/macro';
-import { getColor } from '@src/alchemy-components/theme/utils';
 
 import { useBaseEntity, useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
 import { EntityTab } from '@app/entityV2/shared/types';
+import { getColor } from '@src/alchemy-components/theme/utils';
 
 type Props = {
     tabs: EntityTab[];

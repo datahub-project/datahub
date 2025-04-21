@@ -1,5 +1,6 @@
 import React, { useContext } from 'react';
-import { Theme } from './conf/theme/types';
+
+import { Theme } from '@conf/theme/types';
 
 export const CustomThemeContext = React.createContext<{
     theme?: Theme;

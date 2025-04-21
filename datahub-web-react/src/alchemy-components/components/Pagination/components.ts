@@ -1,7 +1,7 @@
 import styled from 'styled-components';
-import { getColor } from '@src/alchemy-components/theme/utils';
 
 import { colors, spacing } from '@src/alchemy-components/theme';
+import { getColor } from '@src/alchemy-components/theme/utils';
 
 export const PaginationContainer = styled.div`
     display: flex;

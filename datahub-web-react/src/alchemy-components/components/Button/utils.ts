@@ -5,8 +5,10 @@ import { CSSObject } from 'styled-components';
 
 import { ButtonStyleProps, ButtonVariant } from '@components/components/Button/types';
 import { colors, radius, shadows, spacing, typography } from '@components/theme';
-import { ColorOptions, CustomTheme, SizeOptions } from '@components/theme/config';
+import { ColorOptions, SizeOptions } from '@components/theme/config';
 import { getColor, getFontSize } from '@components/theme/utils';
+
+import { Theme } from '@conf/theme/types';
 
 interface ColorStyles {
     bgColor: string;

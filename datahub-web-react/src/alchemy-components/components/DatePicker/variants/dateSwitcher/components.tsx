@@ -1,12 +1,13 @@
 import { colors } from '@components';
 import { CaretLeft, CaretRight } from 'phosphor-react';
 import React, { useCallback, useMemo } from 'react';
-import { getColor } from '@src/alchemy-components/theme/utils';
 import styled from 'styled-components';
 
 import { ExtendedInputRenderProps } from '@components/components/DatePicker/types';
 import { SwitcherDirection } from '@components/components/DatePicker/variants/dateSwitcher/types';
 import { Text } from '@components/components/Text/Text';
+
+import { getColor } from '@src/alchemy-components/theme/utils';
 
 const StyledContainer = styled.div<{ $opened?: boolean; $disabled?: boolean }>`
     border: 1px solid ${(props) => (props.$opened || props.$disabled ? colors.gray[1800] : colors.gray[100])};

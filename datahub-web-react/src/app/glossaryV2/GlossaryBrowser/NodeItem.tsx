@@ -9,7 +9,7 @@ import { sortGlossaryTerms } from '@app/entityV2/glossaryTerm/utils';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import TermItem, { NameWrapper, TermLink as NodeLink } from '@app/glossaryV2/GlossaryBrowser/TermItem';
-import { generateColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { GlossaryNodeFragment } from '@graphql/fragments.generated';

@@ -1,11 +1,11 @@
 import KeyboardDoubleArrowDownIcon from '@mui/icons-material/KeyboardDoubleArrowDown';
 import React, { useCallback, useContext, useMemo } from 'react';
-import { getColor } from '@src/alchemy-components/theme/utils';
 import styled from 'styled-components';
 
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { LINEAGE_FILTER_PAGINATION, LineageFilter, LineageNodesContext } from '@app/lineageV2/common';
 import { applyOpacity } from '@app/sharedV2/colors/colorUtils';
+import { getColor } from '@src/alchemy-components/theme/utils';
 
 const MAX_INCREASE = 100;
 const LINE_HEIGHT = '1.5em';

@@ -6,7 +6,7 @@ import styled from 'styled-components';
 
 import { useDomainsContext as useDomainsContextV2 } from '@app/domainV2/DomainsContext';
 import useListDomains from '@app/domainV2/useListDomains';
-import { REDESIGN_COLORS, SEARCH_COLORS } from '@app/entityV2/shared/constants';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import { BodyContainer, BodyGridExpander } from '@app/shared/components';
 import useToggle from '@app/shared/useToggle';

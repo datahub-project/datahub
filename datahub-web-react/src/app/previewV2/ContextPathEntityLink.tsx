@@ -7,7 +7,6 @@ import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import ContextPathEntityIcon from '@app/previewV2/ContextPathEntityIcon';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { colors } from '@src/alchemy-components';
 
 import { Entity } from '@types';
 

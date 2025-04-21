@@ -3,7 +3,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { generateColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 

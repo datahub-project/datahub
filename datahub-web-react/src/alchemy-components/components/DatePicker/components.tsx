@@ -1,8 +1,7 @@
 import { DatePicker as AntdDatePicker } from 'antd';
 import styled from 'styled-components';
-import { getColor } from '@src/alchemy-components/theme/utils';
 
-import { colors } from '@src/alchemy-components/theme';
+import { getColor } from '@src/alchemy-components/theme/utils';
 
 export const StyledAntdDatePicker = styled(AntdDatePicker)<{ $noDefaultPaddings?: boolean }>`
     &.ant-picker {

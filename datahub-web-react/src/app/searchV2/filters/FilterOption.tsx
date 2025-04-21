@@ -5,7 +5,6 @@ import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { generateColor } from '@app/entityV2/shared/components/styled/StyledTag';
-import { SEARCH_COLORS } from '@app/entityV2/shared/constants';
 import ParentEntities from '@app/searchV2/filters/ParentEntities';
 import { Label } from '@app/searchV2/filters/styledComponents';
 import { FilterOptionType } from '@app/searchV2/filters/types';

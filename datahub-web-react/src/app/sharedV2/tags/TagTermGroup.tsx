@@ -127,7 +127,6 @@ export default function TagTermGroup({
     const entityRegistry = useEntityRegistry();
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState(EntityType.Tag);
-    const generateColor = useGenerateGlossaryColorFromPalette();
 
     const tagsEmpty = !editableTags?.tags?.length && !uneditableTags?.tags?.length;
 

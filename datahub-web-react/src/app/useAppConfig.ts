@@ -39,7 +39,6 @@ export function useIsShowSeparateSiblingsEnabled() {
     return appConfig.config.featureFlags.showSeparateSiblings;
 }
 
-
 export function useShowIntroducePage() {
     const appConfig = useAppConfig();
     return appConfig.config.featureFlags.showIntroducePage;

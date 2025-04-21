@@ -3,8 +3,8 @@ import React from 'react';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { ViewItem } from '@app/entityV2/view/menu/item/ViewItem';
 import { UserDefaultViewIcon } from '@app/entityV2/view/shared/UserDefaultViewIcon';
-import { colors } from '@src/alchemy-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import { useCustomTheme } from '@src/customThemeContext';
 
 type Props = {
     key: string;
