@@ -1,8 +1,7 @@
 import { debounce } from 'lodash';
 import * as QueryString from 'query-string';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
-import { useDebounce } from 'react-use';
 import styled, { useTheme } from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -13,10 +12,8 @@ import { NavSidebar as NavSidebarRedesign } from '@app/homeV2/layout/navBarRedes
 import { useSelectedSortOption } from '@app/search/context/SearchContext';
 import { SearchHeader } from '@app/searchV2/SearchHeader';
 import { FieldToAppliedFieldFiltersMap } from '@app/searchV2/filtersV2/types';
-import { convertFiltersMapToFilters } from '@app/searchV2/filtersV2/utils';
-import { UnionType } from '@app/searchV2/utils/constants';
+import { useSearchBarData } from '@app/searchV2/useSearchBarData';
 import { getAutoCompleteInputFromQuickFilter } from '@app/searchV2/utils/filterUtils';
-import { generateOrFilters } from '@app/searchV2/utils/generateOrFilters';
 import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
 import useFilters from '@app/searchV2/utils/useFilters';
 import { useAppConfig } from '@app/useAppConfig';
@@ -82,7 +79,7 @@ export const SearchablePage = ({ children }: Props) => {
     const location = useLocation();
     const appConfig = useAppConfig();
     const showSearchBarAutocompleteRedesign = appConfig.config.featureFlags?.showSearchBarAutocompleteRedesign;
-
+    const searchBarApiVariant = appConfig.config.searchBarConfig.apiVariant;
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramFilters: Array<FacetFilterInput> = useFilters(params);
     const filters = isSearchResultPage(location.pathname) ? paramFilters : [];
@@ -97,8 +94,7 @@ export const SearchablePage = ({ children }: Props) => {
     const themeConfig = useTheme();
     const { selectedQuickFilter } = useQuickFiltersContext();
 
-    const [getAutoCompleteResults, { data: suggestionsData, loading: isSuggestionsLoading }] =
-        useGetAutoCompleteMultipleResultsLazyQuery();
+    const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery();
     const userContext = useUserContext();
     const [newSuggestionData, setNewSuggestionData] = useState<GetAutoCompleteMultipleResultsQuery | undefined>();
     const viewUrn = userContext.localState?.selectedViewUrn;
@@ -111,6 +107,15 @@ export const SearchablePage = ({ children }: Props) => {
             setNewSuggestionData(suggestionsData);
         }
     }, [suggestionsData]);
+
+    // Search response for the SearchBarV2 (when showSearchBarAutocompleteRedesign is enabled)
+    const searchResponse = useSearchBarData(
+        searchQuery,
+        appliedFilters,
+        viewUrn,
+        searchBarApiVariant,
+        showSearchBarAutocompleteRedesign,
+    );
 
     const search = (query: string, newFilters?: FacetFilterInput[]) => {
         analytics.event({
@@ -146,37 +151,9 @@ export const SearchablePage = ({ children }: Props) => {
         }
     }, FIFTH_SECOND_IN_MS);
 
-    const autoCompleteWithFilters = useCallback(
-        (query: string, appliedFiltersFprAutocomplete: FieldToAppliedFieldFiltersMap | undefined) => {
-            if (query.trim() === '') return null;
-            if (!showSearchBarAutocompleteRedesign) return null;
-
-            const convertedFilters = convertFiltersMapToFilters(appliedFiltersFprAutocomplete);
-            const orFilters = generateOrFilters(UnionType.AND, convertedFilters);
-
-            getAutoCompleteResults({
-                variables: {
-                    input: {
-                        query,
-                        viewUrn,
-                        orFilters,
-                    },
-                },
-            });
-            return null;
-        },
-        [getAutoCompleteResults, showSearchBarAutocompleteRedesign, viewUrn],
-    );
-
-    useDebounce(() => autoCompleteWithFilters(searchQuery, appliedFilters), FIFTH_SECOND_IN_MS, [
-        searchQuery,
-        appliedFilters,
-        autoCompleteWithFilters,
-    ]);
-
     // Load correct autocomplete results on initial page load.
     useEffect(() => {
-        if (currentQuery && currentQuery.trim() !== '') {
+        if (!showSearchBarAutocompleteRedesign && currentQuery && currentQuery.trim() !== '') {
             getAutoCompleteResults({
                 variables: {
                     input: {
@@ -186,7 +163,7 @@ export const SearchablePage = ({ children }: Props) => {
                 },
             });
         }
-    }, [currentQuery, getAutoCompleteResults, viewUrn]);
+    }, [currentQuery, getAutoCompleteResults, viewUrn, showSearchBarAutocompleteRedesign]);
 
     const FinalNavBar = isShowNavBarRedesign ? NavSidebarRedesign : NavSidebar;
 
@@ -201,11 +178,11 @@ export const SearchablePage = ({ children }: Props) => {
                         newSuggestionData.autoCompleteForMultiple.suggestions) ||
                     []
                 }
-                isSuggestionsLoading={isSuggestionsLoading}
                 onSearch={search}
                 onQueryChange={showSearchBarAutocompleteRedesign ? setSearchQuery : autoComplete}
                 entityRegistry={entityRegistry}
                 onFilter={(newFilters) => setAppliedFilters(newFilters)}
+                searchResponse={searchResponse}
             />
             <BodyBackground $isShowNavBarRedesign={isShowNavBarRedesign} />
             <Body>
