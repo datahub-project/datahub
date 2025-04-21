@@ -1,14 +1,16 @@
+import { DeleteOutlined, LinkOutlined } from '@ant-design/icons';
+import { Button, List, Typography, message } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
-import { message, Button, List, Typography } from 'antd';
-import { LinkOutlined, DeleteOutlined } from '@ant-design/icons';
-import { InstitutionalMemoryMetadata } from '../../../../../../types.generated';
-import { useEntityData } from '../../../../../entity/shared/EntityContext';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { ANTD_GRAY } from '../../../constants';
-import { formatDateString } from '../../../containers/profile/utils';
-import { useRemoveLinkMutation } from '../../../../../../graphql/mutations.generated';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useRemoveLinkMutation } from '@graphql/mutations.generated';
+import { InstitutionalMemoryMetadata } from '@types';
 
 const LinkListItem = styled(List.Item)`
     border-radius: 5px;

@@ -1,7 +1,7 @@
+import { getUniqueItemsByKey } from '@app/searchV2/filtersV2/utils';
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { isDomain } from '@src/app/entityV2/domain/utils';
 import { Domain } from '@src/types.generated';
-import { getUniqueItemsByKey } from '../../utils';
 
 export function domainKeyAccessor(domain: Domain) {
     return domain.urn;

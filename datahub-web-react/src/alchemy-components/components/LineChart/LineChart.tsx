@@ -1,25 +1,27 @@
-import { abbreviateNumber } from '@src/app/dataviz/utils';
 import { curveMonotoneX } from '@visx/curve';
 import { ParentSize } from '@visx/responsive';
 import { AreaSeries, Axis, AxisScale, GlyphSeries, Grid, Tooltip, XYChart } from '@visx/xychart';
 import React, { useMemo, useState } from 'react';
-import usePrepareScales from '../BarChart/hooks/usePrepareScales';
-import useMergedProps from '../BarChart/hooks/useMergedProps';
-import { AxisProps, GridProps } from '../BarChart/types';
-import { getMockedProps } from '../BarChart/utils';
-import { Popover } from '../Popover';
-import { ChartWrapper } from './components';
-import { Datum, LineChartProps } from './types';
+
 // FIY: tooltip has a bug when glyph and vertical/horizontal crosshair can be shown behind the graph
 // issue: https://github.com/airbnb/visx/issues/1333
 // We have this problem when LineChart shown on Drawer
 // That can be fixed by adding z-idex
 // But there are no ways to do it with StyledComponents as glyph and crosshairs rendered in portals
 // https://github.com/styled-components/styled-components/issues/2620
-import LeftAxisMarginSetter from '../BarChart/components/LeftAxisMarginSetter';
-import './customTooltip.css';
-import { lineChartDefault } from './defaults';
-import useMinDataValue from '../BarChart/hooks/useMinDataValue';
+import LeftAxisMarginSetter from '@components/components/BarChart/components/LeftAxisMarginSetter';
+import useMergedProps from '@components/components/BarChart/hooks/useMergedProps';
+import useMinDataValue from '@components/components/BarChart/hooks/useMinDataValue';
+import usePrepareScales from '@components/components/BarChart/hooks/usePrepareScales';
+import { AxisProps, GridProps } from '@components/components/BarChart/types';
+import { getMockedProps } from '@components/components/BarChart/utils';
+import { ChartWrapper } from '@components/components/LineChart/components';
+import '@components/components/LineChart/customTooltip.css';
+import { lineChartDefault } from '@components/components/LineChart/defaults';
+import { Datum, LineChartProps } from '@components/components/LineChart/types';
+import { Popover } from '@components/components/Popover';
+
+import { abbreviateNumber } from '@src/app/dataviz/utils';
 
 export function LineChart({
     data,

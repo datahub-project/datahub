@@ -41,7 +41,7 @@ buildscript {
   ext.springVersion = '6.2.5'
   ext.springBootVersion = '3.4.4'
   ext.springKafkaVersion = '3.3.4'
-  ext.openTelemetryVersion = '1.45.0'
+  ext.openTelemetryVersion = '1.49.0'
   ext.neo4jVersion = '5.20.0'
   ext.neo4jTestVersion = '5.20.0'
   ext.neo4jApocVersion = '5.20.0'
@@ -231,7 +231,7 @@ project.ext.externalDependency = [
     'opentelemetryExporter': 'io.opentelemetry:opentelemetry-exporter-otlp:' + openTelemetryVersion,
     'openTelemetryExporterLogging': 'io.opentelemetry:opentelemetry-exporter-logging:' + openTelemetryVersion,
     'openTelemetryExporterCommon': 'io.opentelemetry:opentelemetry-exporter-otlp-common:' + openTelemetryVersion,
-    'opentelemetryAnnotations': 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.11.0',
+    'opentelemetryAnnotations': 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.15.0',
     'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
     'parquet': 'org.apache.parquet:parquet-avro:1.15.1',
     'parquetHadoop': 'org.apache.parquet:parquet-hadoop:1.13.1',
@@ -390,6 +390,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     exclude group: "org.slf4j", module: "slf4j-ext"
     exclude group: "org.codehaus.jackson", module: "jackson-mapper-asl"
     exclude group: "javax.mail", module: "mail"
+    exclude group: 'org.glassfish', module: 'javax.json'
 
     resolutionStrategy.force externalDependency.antlr4Runtime
     resolutionStrategy.force externalDependency.antlr4
@@ -556,4 +557,18 @@ subprojects {
 wrapper {
   gradleVersion = project.versionGradle
   distributionType = Wrapper.DistributionType.ALL
+}
+
+tasks.register('format') {
+  dependsOn(':datahub-web-react:graphqlPrettierWrite')
+  dependsOn(':datahub-web-react:githubActionsPrettierWrite')
+  dependsOn(':datahub-web-react:mdPrettierWrite')
+  dependsOn('spotlessApply')
+}
+
+tasks.register('formatChanged') {
+  dependsOn(':datahub-web-react:graphqlPrettierWriteChanged')
+  dependsOn(':datahub-web-react:githubActionsPrettierWriteChanged')
+  dependsOn(':datahub-web-react:mdPrettierWriteChanged')
+  dependsOn('spotlessApply')
 }

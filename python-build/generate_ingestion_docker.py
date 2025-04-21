@@ -87,5 +87,6 @@ if __name__ == "__main__":
     for file in [
         "docker/datahub-ingestion-base/Dockerfile",
         "docker/datahub-ingestion/Dockerfile",
+        "docker/datahub-actions/Dockerfile",
     ]:
         update_template(Path(_repo_root / file), check_only=check_only)

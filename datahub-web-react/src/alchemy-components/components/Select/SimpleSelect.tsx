@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Dropdown, Text } from '@components';
 import { isEqual } from 'lodash';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
 import {
     ActionButtonsContainer,
     Container,
@@ -15,11 +16,11 @@ import {
     StyledCheckbox,
     StyledClearButton,
     StyledIcon,
-} from './components';
-import { ActionButtonsProps, SelectOption, SelectProps } from './types';
-import SelectLabelRenderer from './private/SelectLabelRenderer/SelectLabelRenderer';
-import DropdownSearchBar from './private/DropdownSearchBar';
-import DropdownSelectAllOption from './private/DropdownSelectAllOption';
+} from '@components/components/Select/components';
+import DropdownSearchBar from '@components/components/Select/private/DropdownSearchBar';
+import DropdownSelectAllOption from '@components/components/Select/private/DropdownSelectAllOption';
+import SelectLabelRenderer from '@components/components/Select/private/SelectLabelRenderer/SelectLabelRenderer';
+import { ActionButtonsProps, SelectOption, SelectProps } from '@components/components/Select/types';
 
 const SelectActionButtons = ({
     selectedValues,

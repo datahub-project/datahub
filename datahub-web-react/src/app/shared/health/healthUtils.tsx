@@ -9,9 +9,11 @@ import {
 } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
+
+import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@app/entity/shared/tabs/Incident/incidentUtils';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
-import { HealthStatus, HealthStatusType, Health } from '../../../types.generated';
-import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '../../entity/shared/tabs/Incident/incidentUtils';
+
+import { Health, HealthStatus, HealthStatusType } from '@types';
 
 const HEALTH_INDICATOR_COLOR = '#d48806';
 

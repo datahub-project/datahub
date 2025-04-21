@@ -1,8 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
-import { UnionType } from '../../search/utils/constants';
-import { EmbeddedListSearchSection } from '../shared/components/styled/search/EmbeddedListSearchSection';
-import useGetUserGroupUrns from './useGetUserGroupUrns';
+
+import { EmbeddedListSearchSection } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchSection';
+import useGetUserGroupUrns from '@app/entityV2/user/useGetUserGroupUrns';
+import { UnionType } from '@app/search/utils/constants';
 
 const UserAssetsWrapper = styled.div`
     height: 100%;

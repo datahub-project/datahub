@@ -4,13 +4,14 @@ import { Button, DatePicker } from 'antd';
 import moment from 'moment';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { SEARCH_COLORS } from '../../entityV2/shared/constants';
-import OperatorSelector from './OperatorSelector';
-import { operatorRequiresValues } from './operator/operator';
-import { FilterOperatorType, FilterPredicate, FilterValue } from './types';
-import ValueSelector from './value/ValueSelector';
-import ValueName from './value/ValueName';
-import { getIsDateRangeFilter, useFilterDisplayName } from './utils';
+
+import { SEARCH_COLORS } from '@app/entityV2/shared/constants';
+import OperatorSelector from '@app/searchV2/filters/OperatorSelector';
+import { operatorRequiresValues } from '@app/searchV2/filters/operator/operator';
+import { FilterOperatorType, FilterPredicate, FilterValue } from '@app/searchV2/filters/types';
+import { getIsDateRangeFilter, useFilterDisplayName } from '@app/searchV2/filters/utils';
+import ValueName from '@app/searchV2/filters/value/ValueName';
+import ValueSelector from '@app/searchV2/filters/value/ValueSelector';
 
 const Values = styled.div`
     border: 1.5px solid transparent;

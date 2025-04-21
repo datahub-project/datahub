@@ -12,18 +12,18 @@ The Timeline API is available in server versions `0.8.28` and higher. The `cli` 
 # Concepts
 
 ## Entity Timeline Conceptually
-For the visually inclined, here is a conceptual diagram that illustrates how to think about the entity timeline with categorical changes overlaid on it.
 
+For the visually inclined, here is a conceptual diagram that illustrates how to think about the entity timeline with categorical changes overlaid on it.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/timeline/timeline-conceptually.png"/>
 </p>
 
-
 ## Change Event
-Each modification is modeled as a 
+
+Each modification is modeled as a
 [ChangeEvent](../../metadata-service/services/src/main/java/com/linkedin/metadata/timeline/data/ChangeEvent.java)
-which are grouped under [ChangeTransactions](../../metadata-service/services/src/main/java/com/linkedin/metadata/timeline/data/ChangeTransaction.java) 
+which are grouped under [ChangeTransactions](../../metadata-service/services/src/main/java/com/linkedin/metadata/timeline/data/ChangeTransaction.java)
 based on timestamp. A `ChangeEvent` consists of:
 
 - `changeType`: An operational type for the change, either `ADD`, `MODIFY`, or `REMOVE`
@@ -36,10 +36,11 @@ based on timestamp. A `ChangeEvent` consists of:
 - `modificationCategory`: Specifies the type of modification made to a schema field within an Entity change event. Options are `RENAME`, `TYPE_CHANGE` and `OTHER`.
 
 ### Change Event Examples
-- A tag was applied to a *field* of a dataset through the UI:
+
+- A tag was applied to a _field_ of a dataset through the UI:
   - `changeType`: `ADD`
   - `target`: `urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:<platform>,<name>,<fabric_type>),<fieldPath>)` -> The field the tag is being added to
-  - `category`: `TAG` 
+  - `category`: `TAG`
   - `elementId`: `urn:li:tag:<tagName>` -> The ID of the tag being added
   - `semVerChange`: `MINOR`
   - `modificationCategory`: `OTHER`
@@ -54,20 +55,22 @@ based on timestamp. A `ChangeEvent` consists of:
 Note the `target` and `elementId` fields in the examples above to familiarize yourself with the semantics.
 
 ## Change Transaction
+
 Each `ChangeTransaction` is assigned a computed semantic version based on the `ChangeEvents` that occurred within it,
-starting at `0.0.0` and updating based on whether the most significant change in the transaction is a `MAJOR`, `MINOR`, or 
-`PATCH` change. The logic for what changes constitute a Major, Minor or Patch change are encoded in the category specific `Differ` implementation. 
+starting at `0.0.0` and updating based on whether the most significant change in the transaction is a `MAJOR`, `MINOR`, or
+`PATCH` change. The logic for what changes constitute a Major, Minor or Patch change are encoded in the category specific `Differ` implementation.
 For example, the [SchemaMetadataDiffer](../../metadata-io/src/main/java/com/linkedin/metadata/timeline/eventgenerator/SchemaMetadataChangeEventGenerator.java) has baked-in logic for determining what level of semantic change an event is based on backwards and forwards incompatibility. Read on to learn about the different categories of changes, and how semantic changes are interpreted in each.
 
 # Categories
+
 ChangeTransactions contain a `category` that represents a kind of change that happened. The `Timeline API` allows the caller to specify which categories of changes they are interested in. Categories allow us to abstract away the low-level technical change that happened in the metadata (e.g. the `schemaMetadata` aspect changed) to a high-level semantic change that happened in the metadata (e.g. the `Technical Schema` of the dataset changed). Read on to learn about the different categories that are supported today.
 
 The Dataset entity currently supports the following categories:
 
 ## Technical Schema
 
-- Any structural changes in the technical schema of the dataset, such as adding, dropping, renaming columns. 
-- Driven by the `schemaMetadata` aspect. 
+- Any structural changes in the technical schema of the dataset, such as adding, dropping, renaming columns.
+- Driven by the `schemaMetadata` aspect.
 - Changes are marked with the appropriate semantic version marker based on well-understood rules for backwards and forwards compatibility.
 
 **_NOTE_**: Changes in field descriptions are not communicated via this category, use the Documentation category for that.
@@ -76,6 +79,7 @@ The Dataset entity currently supports the following categories:
 
 We have provided some example scripts that demonstrate making changes to an aspect within each category and use then use the Timeline API to query the result.
 All examples can be found in [smoke-test/test_resources/timeline](../../smoke-test/test_resources/timeline) and should be executed from that directory.
+
 ```console
 % ./test_timeline_schema.sh
 [2022-02-24 15:31:52,617] INFO     {datahub.cli.delete_cli:130} - DataHub configured with http://localhost:8080
@@ -102,14 +106,15 @@ http://localhost:8080/openapi/v2/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3A
 
 ## Ownership
 
-- Any changes in ownership of the dataset, adding an owner, or changing the type of the owner. 
-- Driven by the `ownership` aspect. 
+- Any changes in ownership of the dataset, adding an owner, or changing the type of the owner.
+- Driven by the `ownership` aspect.
 - All changes are currently marked as `MINOR`.
 
 ### Example Usage
 
 We have provided some example scripts that demonstrate making changes to an aspect within each category and use then use the Timeline API to query the result.
 All examples can be found in [smoke-test/test_resources/timeline](../../smoke-test/test_resources/timeline) and should be executed from that directory.
+
 ```console
 % ./test_timeline_ownership.sh
 [2022-02-24 15:40:25,367] INFO     {datahub.cli.delete_cli:130} - DataHub configured with http://localhost:8080
@@ -148,7 +153,7 @@ http://localhost:8080/openapi/v2/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3A
 
 ## Tags
 
-- Any changes in tags applied to the dataset or to fields of the dataset. 
+- Any changes in tags applied to the dataset or to fields of the dataset.
 - Driven by the `schemaMetadata`, `editableSchemaMetadata` and `globalTags` aspects.
 - All changes are currently marked as `MINOR`.
 
@@ -156,6 +161,7 @@ http://localhost:8080/openapi/v2/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3A
 
 We have provided some example scripts that demonstrate making changes to an aspect within each category and use then use the Timeline API to query the result.
 All examples can be found in [smoke-test/test_resources/timeline](../../smoke-test/test_resources/timeline) and should be executed from that directory.
+
 ```console
 % ./test_timeline_tags.sh
 [2022-02-24 15:44:04,279] INFO     {datahub.cli.delete_cli:130} - DataHub configured with http://localhost:8080
@@ -176,7 +182,7 @@ http://localhost:8080/openapi/v2/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3A
 
 ## Documentation
 
-- Any changes to documentation at the dataset level or at the field level. 
+- Any changes to documentation at the dataset level or at the field level.
 - Driven by the `datasetProperties`, `institutionalMemory`, `schemaMetadata` and `editableSchemaMetadata`.
 - Addition or removal of documentation or links is marked as `MINOR` while edits to existing documentation are marked as `PATCH` changes.
 
@@ -184,6 +190,7 @@ http://localhost:8080/openapi/v2/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3A
 
 We have provided some example scripts that demonstrate making changes to an aspect within each category and use then use the Timeline API to query the result.
 All examples can be found in [smoke-test/test_resources/timeline](../../smoke-test/test_resources/timeline) and should be executed from that directory.
+
 ```console
 % ./test_timeline_documentation.sh
 [2022-02-24 15:45:53,950] INFO     {datahub.cli.delete_cli:130} - DataHub configured with http://localhost:8080
@@ -205,7 +212,7 @@ http://localhost:8080/openapi/v2/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3A
 
 ## Glossary Terms
 
-- Any changes to applied glossary terms to the dataset or to fields in the dataset. 
+- Any changes to applied glossary terms to the dataset or to fields in the dataset.
 - Driven by the `schemaMetadata`, `editableSchemaMetadata`, `glossaryTerms` aspects.
 - All changes are currently marked as `MINOR`.
 
@@ -213,6 +220,7 @@ http://localhost:8080/openapi/v2/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3A
 
 We have provided some example scripts that demonstrate making changes to an aspect within each category and use then use the Timeline API to query the result.
 All examples can be found in [smoke-test/test_resources/timeline](../../smoke-test/test_resources/timeline) and should be executed from that directory.
+
 ```console
 % ./test_timeline_glossary.sh
 [2022-02-24 15:44:56,152] INFO     {datahub.cli.delete_cli:130} - DataHub configured with http://localhost:8080
@@ -240,11 +248,9 @@ Here are a few screenshots showing how to navigate to it. You can try out the AP
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/timeline/dropdown-apis.png"/>
 </p>
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/timeline/swagger-ui.png"/>
 </p>
-
 
 ## Future Work
 
@@ -253,4 +259,3 @@ Here are a few screenshots showing how to navigate to it. You can try out the AP
 - Adding GraphQL API support
 - Supporting materialization of computed versions for entity categories (compared to the current read-time version computation)
 - Support in the UI to visualize the timeline in various places (e.g. schema history, etc.)
-

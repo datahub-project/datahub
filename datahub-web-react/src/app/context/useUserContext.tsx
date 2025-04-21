@@ -1,5 +1,6 @@
 import { useContext } from 'react';
-import { UserContext } from './userContext';
+
+import { UserContext } from '@app/context/userContext';
 
 /**
  * Fetch an instance of User Context
