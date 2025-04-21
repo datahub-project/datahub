@@ -1,5 +1,7 @@
 import React from 'react';
 import { Redirect, Route, Switch } from 'react-router-dom';
+import { Spin } from 'antd';
+import { LoadingOutlined } from '@ant-design/icons';
 
 import { AnalyticsPage } from '@app/analyticsDashboard/components/AnalyticsPage';
 import { BrowseResultsPage } from '@app/browse/BrowseResultsPage';
@@ -32,6 +34,7 @@ import {
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useIsThemeV2 } from '@app/useIsThemeV2';
 import { PageRoutes } from '@conf/Global';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 /**
  * Container for all searchable page routes
@@ -57,6 +60,10 @@ export const SearchRoutes = (): JSX.Element => {
     const showTags =
         config?.featureFlags?.showManageTags &&
         (me.platformPrivileges?.manageTags || me.platformPrivileges?.viewManageTags);
+
+    if (me.platformPrivileges === undefined) {
+        return <Spin indicator={<LoadingOutlined style={{ color: ANTD_GRAY[7] }} />} />;
+    }
 
     return (
         <FinalSearchablePage>
