@@ -1,4 +1,4 @@
-This connector ingests Excel worksheet datasets into DataHub. Workbooks (Excel files) can be ingested from the local filesystem or from S3 buckets. An asterisk (`*`) can be used in place of a directory or as part of a file name to match multiple directories or files with a single path specification.
+This connector ingests Excel worksheet datasets into DataHub. Workbooks (Excel files) can be ingested from the local filesystem, from S3 buckets, or from Azure Blob Storage. An asterisk (`*`) can be used in place of a directory or as part of a file name to match multiple directories or files with a single path specification.
 
 :::tip
 By default, this connector will ingest all worksheets in a workbook (an Excel file). To filter worksheets use the `worksheet_pattern` config option, or to only ingest the active worksheet use the `active_sheet_only` config option.

@@ -5,6 +5,7 @@ from pydantic.fields import Field
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+from datahub.ingestion.source.azure.azure_common import AzureConnectionConfig
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -41,6 +42,25 @@ class ExcelSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     verify_ssl: Union[bool, str] = Field(
         default=True,
         description="Either a boolean, in which case it controls whether we verify the server's TLS certificate, or a string, in which case it must be a path to a CA bundle to use.",
+    )
+
+    azure_config: Optional[AzureConnectionConfig] = Field(
+        default=None, description="Azure configuration"
+    )
+
+    use_abs_container_properties: Optional[bool] = Field(
+        None,
+        description="Whether to create tags in datahub from the abs container properties",
+    )
+    # Whether to create Datahub Azure blob tags
+    use_abs_blob_tags: Optional[bool] = Field(
+        None,
+        description="Whether to create tags in datahub from the abs blob tags",
+    )
+    # Whether to create Datahub Azure blob properties
+    use_abs_blob_properties: Optional[bool] = Field(
+        None,
+        description="Whether to create tags in datahub from the abs blob properties",
     )
 
     convert_urns_to_lowercase: bool = Field(

@@ -27,6 +27,15 @@ from datahub.ingestion.source.aws.s3_util import (
     get_bucket_relative_path,
     strip_s3_prefix,
 )
+
+# from datahub.ingestion.source.azure.abs_folder_utils import (
+#     get_abs_properties,
+#     get_abs_tags,
+# )
+from datahub.ingestion.source.azure.abs_utils import (
+    get_container_relative_path,
+    strip_abs_prefix,
+)
 from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.excel.config import ExcelSourceConfig
 from datahub.ingestion.source.excel.excel_file import ExcelFile, ExcelTable
@@ -115,6 +124,7 @@ class UriType(Enum):
     ABSOLUTE_PATH = auto()
     S3 = auto()
     S3A = auto()
+    ABS = auto()
     UNKNOWN = auto()
 
 
@@ -166,7 +176,10 @@ class ExcelSource(StatefulIngestionSourceBase):
         if scheme == "http":
             return UriType.HTTP, uri[7:]
         elif scheme == "https":
-            return UriType.HTTPS, uri[8:]
+            if parsed.netloc and ".blob.core.windows.net" in parsed.netloc:
+                return UriType.ABS, uri[8:]
+            else:
+                return UriType.HTTPS, uri[8:]
         elif scheme == "file":
             if uri.startswith("file:///"):
                 return UriType.LOCAL_FILE, uri[7:]
@@ -217,6 +230,15 @@ class ExcelSource(StatefulIngestionSourceBase):
     def create_s3_path(bucket_name: str, key: str) -> str:
         return f"s3://{bucket_name}/{key}"
 
+    def create_abs_path(self, key: str) -> str:
+        if self.config.azure_config:
+            account_name = self.config.azure_config.account_name
+            container_name = self.config.azure_config.container_name
+            return (
+                f"https://{account_name}.blob.core.windows.net/{container_name}/{key}"
+            )
+        return ""
+
     @staticmethod
     def strip_file_prefix(path: str) -> str:
         if path.startswith("/"):
@@ -263,6 +285,62 @@ class ExcelSource(StatefulIngestionSourceBase):
             self.report.report_file_dropped(path_spec)
             self.report.warning(
                 message="Error reading Excel file from S3",
+                context=f"Path={path_spec}",
+                exc=e,
+            )
+            return None
+
+    def abs_browser(self, path_spec: str) -> Iterable[BrowsePath]:
+        if self.config.azure_config is None:
+            raise ValueError("azure_config not set. Cannot browse Azure Blob Storage")
+        abs_blob_service_client = self.config.azure_config.get_blob_service_client()
+        container_client = abs_blob_service_client.get_container_client(
+            self.config.azure_config.container_name
+        )
+
+        container_name = self.config.azure_config.container_name
+        logger.debug(f"Scanning container: {container_name}")
+
+        prefix = self.get_prefix(get_container_relative_path(path_spec))
+        logger.debug(f"Scanning objects with prefix: {prefix}")
+
+        for obj in container_client.list_blobs(
+            name_starts_with=f"{prefix}", results_per_page=1000
+        ):
+            abs_path = self.create_abs_path(obj.name)
+            logger.debug(f"Path: {abs_path}")
+
+            yield BrowsePath(
+                file=abs_path,
+                timestamp=obj.last_modified,
+                size=obj.size,
+                partitions=[],
+                content_type=None,
+            )
+
+    def get_abs_file(self, path_spec: str) -> Union[BytesIO, None]:
+        if self.config.azure_config is None:
+            raise ValueError("azure_config not set. Cannot browse Azure Blob Storage")
+        abs_blob_service_client = self.config.azure_config.get_blob_service_client()
+        container_client = abs_blob_service_client.get_container_client(
+            self.config.azure_config.container_name
+        )
+
+        container_name = self.config.azure_config.container_name
+        blob_path = get_container_relative_path(path_spec)
+        logger.debug(f"Getting file: {blob_path} from container: {container_name}")
+
+        try:
+            blob_client = container_client.get_blob_client(blob_path)
+            download_stream = blob_client.download_blob()
+            file_content = download_stream.readall()
+            binary_stream = io.BytesIO(file_content)
+            binary_stream.seek(0)
+            return binary_stream
+        except Exception as e:
+            self.report.report_file_dropped(path_spec)
+            self.report.warning(
+                message="Error reading Excel file from Azure Blob Storage",
                 context=f"Path={path_spec}",
                 exc=e,
             )
@@ -438,6 +516,30 @@ class ExcelSource(StatefulIngestionSourceBase):
 
                         logger.debug(f"Processing {browse_path.file}")
                         file_data = self.get_s3_file(browse_path.file)
+
+                        if file_data is None:
+                            continue
+
+                        yield from self.process_file(file_data, uri_path, filename)
+
+                elif uri_type == UriType.ABS:
+                    logger.debug(f"Searching Azure Blob Storage path: {path}")
+
+                    for browse_path in self.abs_browser(path_spec):
+                        if not self.config.path_pattern.allowed(browse_path.file):
+                            self.report.report_dropped(browse_path.file)
+                            continue
+
+                        if not self.is_excel_file(browse_path.file):
+                            logger.debug(f"No files found on path {browse_path.file}")
+                            continue
+
+                        uri_path = strip_abs_prefix(browse_path.file)
+                        basename = os.path.basename(uri_path)
+                        filename = os.path.splitext(basename)[0]
+
+                        logger.debug(f"Processing {browse_path.file}")
+                        file_data = self.get_abs_file(browse_path.file)
 
                         if file_data is None:
                             continue

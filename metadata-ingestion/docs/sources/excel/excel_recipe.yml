@@ -10,6 +10,18 @@ source:
       aws_region: us-east-1
     profiling:
       enabled: false
+# Ingest from Azure Blob Storage
+source:
+  type: excel
+  config:
+    path_list:
+      - "https://storageaccountname.blob.core.windows.net/abs-data/excel/*/*.xlsx"
+    azure_config:
+      account_name: storageaccountname
+      sas_token: *****
+      container_name: abs-data
+    profiling:
+      enabled: false
 # Ingest from the local filesystem
 source:
   type: excel
