@@ -24,7 +24,7 @@ interface Props {
     isSearching?: boolean;
 }
 
-export default function AutocompleteDropdown({ menu, query, filters, updateFilters, facets, isSearching }: Props) {
+export default function SearchBarDropdown({ menu, query, filters, updateFilters, facets, isSearching }: Props) {
     return (
         <DropdownContainer>
             {isSearching && (

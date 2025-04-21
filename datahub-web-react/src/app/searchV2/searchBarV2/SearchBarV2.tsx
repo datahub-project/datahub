@@ -4,8 +4,8 @@ import styled from 'styled-components/macro';
 
 import { SearchBarProps } from '@app/searchV2/SearchBar';
 import useAppliedFilters from '@app/searchV2/filtersV2/context/useAppliedFilters';
-import AutocompleteDropdown from '@app/searchV2/searchBarV2/components/AutocompleteDropdown';
 import AutocompletePlaceholder from '@app/searchV2/searchBarV2/components/AutocompletePlaceholder';
+import SearchBarDropdown from '@app/searchV2/searchBarV2/components/SearchBarDropdown';
 import SearchBarInput from '@app/searchV2/searchBarV2/components/SearchBarInput';
 import {
     AUTOCOMPLETE_DROPDOWN_ALIGN,
@@ -141,7 +141,7 @@ export const SearchBarV2 = ({
                 options={options}
                 filterOption={false}
                 dropdownRender={(menu) => (
-                    <AutocompleteDropdown
+                    <SearchBarDropdown
                         menu={menu}
                         query={searchQuery}
                         filters={appliedFilters}
