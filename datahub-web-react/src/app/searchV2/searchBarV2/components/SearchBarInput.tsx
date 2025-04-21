@@ -94,11 +94,19 @@ const SearchBarInput = forwardRef<InputRef, Props>(
             onBlur?.();
         }, [onBlur]);
 
+        const onKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+            // disable changing position of cursor by keys used to change selected item in the search bar's response
+            if (['ArrowUp', 'ArrowDown'].includes(e.key)) {
+                e.preventDefault();
+            }
+        }, []);
+
         return (
             <Wrapper $open={isDropdownOpened} $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <StyledSearchBar
                     placeholder={placeholder}
                     onPressEnter={onSearch}
+                    onKeyDown={onKeyDown}
                     value={value}
                     onChange={(_, event) => onChange?.(event)}
                     data-testid="search-input"
