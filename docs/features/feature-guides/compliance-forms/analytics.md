@@ -5,6 +5,7 @@ title: Form Analytics
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # DataHub Compliance Form Analytics
+
 <FeatureAvailability saasOnly />
 
 DataHub Cloud provides out-of-the-box analytics to help you monitor and track the success of your Compliance Form initiatives. This guide will walk you through the available reporting views and how to leverage them effectively.
@@ -23,6 +24,7 @@ Form Analytics provides out-of-the-box reporting for Compliance Form completion,
 4. Assignee Performance Tracking
 
 Each reporting view can be filtered by Assigned Date with the following preset ranges:
+
 - Last 7 days
 - Last 30 days
 - Last 90 days
@@ -64,6 +66,7 @@ Assets can have multiple Forms assigned simultaneously. An Asset's overall statu
 The Overall view provides a high-level summary of Form completion across your organization, helping you quickly identify which Forms, Domains, or Assignees need attention. Use this view as your starting point to determine which drill-down view (Form-specific, Domain-based, or Assignee) will be most helpful for addressing completion gaps.
 
 Key features:
+
 - Aggregated view of all assets and their Form status
 - Total number of assets in each state
 - High-level compliance progress metrics
@@ -79,6 +82,7 @@ Key features:
 ### Form-Specific Analysis
 
 The Form-specific view allows you to drill down into individual Forms to understand their completion status. This view is particularly useful for:
+
 - Tracking progress of specific compliance initiatives
 - Identifying questions that users might be slow to address
 - Generating form-specific reports
@@ -94,6 +98,7 @@ The Form-specific view allows you to drill down into individual Forms to underst
 ### Domain-Based Insights
 
 The Domain view provides visibility into Form completion rates across different business domains. This perspective helps:
+
 - Domain managers focus on their area of responsibility
 - Compare progress across different domains
 - Identify if specific Forms within a domain need attention
@@ -109,6 +114,7 @@ The Domain view provides visibility into Form completion rates across different 
 ### Assignee Performance Tracking
 
 The Assignee view allows you to monitor how specific Users or User Groups are tracking toward their assigned tasks. Use this view to:
+
 - Track individual user's compliance tasks
 - Monitor workload distribution
 - Identify potential bottlenecks
