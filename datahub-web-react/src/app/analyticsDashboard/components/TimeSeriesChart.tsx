@@ -1,5 +1,3 @@
-import React, { useMemo } from 'react';
-import styled from 'styled-components';
 import { colors } from '@components';
 import { AxisScaleOutput } from '@visx/axis';
 import { curveMonotoneX } from '@visx/curve';

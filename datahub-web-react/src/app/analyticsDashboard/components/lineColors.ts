@@ -1,4 +1,4 @@
-import { colors } from '../../../alchemy-components/theme';
+import { colors } from '@components/theme';
 
 export const lineColors = [
     colors.violet[600], // Darkest violet
