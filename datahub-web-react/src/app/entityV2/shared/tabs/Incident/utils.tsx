@@ -1,17 +1,20 @@
-import React from 'react';
-import {
-    EntityType,
-    Incident,
-    IncidentPriority,
-    IncidentStage,
-    IncidentState,
-    IncidentType,
-} from '@src/types.generated';
-import Fuse from 'fuse.js';
 import { format } from 'date-fns';
-import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
-import { SortingState } from '@src/alchemy-components/components/Table/types';
-import { GenericEntityProperties } from '@src/app/entity/shared/types';
+import Fuse from 'fuse.js';
+import React from 'react';
+
+import {
+    INCIDENT_PRIORITY,
+    INCIDENT_PRIORITY_NAME_MAP,
+    INCIDENT_STAGES_TYPES,
+    INCIDENT_STAGE_NAME_MAP,
+    INCIDENT_STATES_TYPES,
+    INCIDENT_STATE_NAME_MAP,
+    INCIDENT_TYPES,
+    INCIDENT_TYPE_NAME_MAP,
+    PRIORITY_ORDER,
+    STAGE_ORDER,
+    STATE_ORDER,
+} from '@app/entityV2/shared/tabs/Incident/constant';
 import {
     IncidentBuilderSiblingOptions,
     IncidentFilterOptions,
@@ -21,21 +24,19 @@ import {
     IncidentRecommendedFilter,
     IncidentTable,
     IncidentTableRow,
-} from './types';
+} from '@app/entityV2/shared/tabs/Incident/types';
+import { getPlatformName } from '@app/entityV2/shared/utils';
+import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
+import { SortingState } from '@src/alchemy-components/components/Table/types';
+import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import {
-    INCIDENT_PRIORITY,
-    INCIDENT_PRIORITY_NAME_MAP,
-    INCIDENT_STAGE_NAME_MAP,
-    INCIDENT_STAGES_TYPES,
-    INCIDENT_STATE_NAME_MAP,
-    INCIDENT_STATES_TYPES,
-    INCIDENT_TYPE_NAME_MAP,
-    INCIDENT_TYPES,
-    PRIORITY_ORDER,
-    STAGE_ORDER,
-    STATE_ORDER,
-} from './constant';
-import { getPlatformName } from '../../utils';
+    EntityType,
+    Incident,
+    IncidentPriority,
+    IncidentStage,
+    IncidentState,
+    IncidentType,
+} from '@src/types.generated';
 
 //  Fuse.js setup for search functionality
 const fuse = new Fuse<any>([], {
@@ -70,7 +71,7 @@ const mapIncidentData = (incidents: Incident[]): IncidentTableRow[] => {
                 source: incident?.source,
                 lastUpdated: incident?.status?.lastUpdated,
                 message: incident?.status?.message,
-            } as IncidentTableRow),
+            }) as IncidentTableRow,
     );
 };
 
@@ -125,14 +126,15 @@ const orderedIncidents = (priorityIncidentGroups) => {
     return newOrderedIncidents;
 };
 
+export const getIncidentType = (incident: Incident) =>
+    incident.incidentType === IncidentType.Custom ? incident.customType : incident.incidentType;
+
 export const createIncidentGroups = (incidents: Array<Incident>): IncidentGroupBy => {
     // Pre-sort the list of incidents based on which has been most recently created.
     incidents?.sort((a, b) => a?.created?.time - b?.created?.time);
 
     // Group incidents by type, stage, and priority
-    const typeToIncidents = groupIncidentsBy(incidents, (incident) =>
-        incident?.incidentType === IncidentType.Custom ? incident?.customType : incident?.incidentType,
-    );
+    const typeToIncidents = groupIncidentsBy(incidents, (incident) => getIncidentType(incident));
     const stageToIncidents = groupIncidentsBy(incidents, (incident) => incident?.status?.stage);
     const stateToIncidents = groupIncidentsBy(incidents, (incident) => incident?.status?.state);
     const priorityToIncidents = groupIncidentsBy(incidents, (incident) => incident.priority);
@@ -307,9 +309,10 @@ const extractFilterOptionListFromIncidents = (incidents: Incident[]) => {
             if (index > -1) {
                 remainingIncidentTypes.splice(index, 1);
             }
-            const categoryName =
-                category === IncidentType.Custom && incident.customType ? incident.customType : incident.incidentType;
-            filterGroupCounts.category[categoryName] = (filterGroupCounts.category[categoryName] || 0) + 1;
+            const categoryName = getIncidentType(incident);
+            if (categoryName) {
+                filterGroupCounts.category[categoryName] = (filterGroupCounts.category[categoryName] || 0) + 1;
+            }
         }
 
         // filter out tracked stages
@@ -389,8 +392,7 @@ const getFilteredIncidents = (incidents: Incident[], filter: IncidentListFilter)
 
     // Apply cateory, priority, and stage
     return incidents.filter((incident: Incident) => {
-        const categoryName =
-            incident.incidentType === IncidentType.Custom ? incident.customType : incident.incidentType;
+        const categoryName = getIncidentType(incident);
         const matchesCategory = category.length === 0 || (categoryName ? category.includes(categoryName) : false);
         const matchesPriority = priority.length === 0 || priority.includes(incident.priority || 'None');
         const matchesStage = stage.length === 0 || stage.includes(incident.status.stage || 'None');
@@ -508,10 +510,7 @@ export const getSortedIncidents = (record: any, sortedOptions: { sortColumn: str
 };
 
 export const getExistingIncidents = (currData) => {
-    return [
-        ...(currData?.entity?.incidents?.incidents || []),
-        ...(currData?.entity?.siblingsSearch?.searchResults[0]?.entity?.incidents?.incidents || []),
-    ];
+    return [...(currData?.entity?.incidents?.incidents || [])];
 };
 
 /**

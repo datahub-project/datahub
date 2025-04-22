@@ -1,13 +1,13 @@
 import React from 'react';
-
 import styled from 'styled-components';
+
+import { Actions } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/Actions';
+import { CloseButton } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/CloseButton';
+import { AssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/AssertionDescription';
+import { AssertionResultPill } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/AssertionResultPill';
 import { AssertionType } from '@src/types.generated';
 
-import { Assertion, AssertionResult, DataContract } from '../../../../../../../../types.generated';
-import { AssertionDescription } from './summary/AssertionDescription';
-import { AssertionResultPill } from './summary/shared/AssertionResultPill';
-import { Actions } from './actions/Actions';
-import { CloseButton } from './shared/CloseButton';
+import { Assertion, AssertionResult, DataContract } from '@types';
 
 const Container = styled.div`
     display: flex;

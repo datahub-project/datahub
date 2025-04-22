@@ -180,12 +180,17 @@
                 "op": "add",
                 "path": "/customProperties/IS_HYBRID",
                 "value": "true"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://app.abc12345.ap-south-1.privatelink.snowflakecomputing.com/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_3/"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ad3hnf",
+        "runId": "snowflake-2022_06_07-17_00_00-9hbbfo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -631,12 +636,17 @@
                 "op": "add",
                 "path": "/customProperties/IS_SECURE",
                 "value": "true"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://app.abc12345.ap-south-1.privatelink.snowflakecomputing.com/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/view/VIEW_1/"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ivthci",
+        "runId": "snowflake-2022_06_07-17_00_00-9hbbfo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -899,12 +909,17 @@
                 "op": "add",
                 "path": "/customProperties/IS_ICEBERG",
                 "value": "true"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://app.abc12345.ap-south-1.privatelink.snowflakecomputing.com/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_1/"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ad3hnf",
+        "runId": "snowflake-2022_06_07-17_00_00-9hbbfo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1586,12 +1601,17 @@
                 "op": "add",
                 "path": "/customProperties/CLUSTERING_KEY",
                 "value": "LINEAR(COL_1)"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://app.abc12345.ap-south-1.privatelink.snowflakecomputing.com/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_10/"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ad3hnf",
+        "runId": "snowflake-2022_06_07-17_00_00-9hbbfo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1847,12 +1867,17 @@
                 "op": "add",
                 "path": "/customProperties/CLUSTERING_KEY",
                 "value": "LINEAR(COL_1)"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://app.abc12345.ap-south-1.privatelink.snowflakecomputing.com/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_5/"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ad3hnf",
+        "runId": "snowflake-2022_06_07-17_00_00-9hbbfo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1901,12 +1926,17 @@
                 "op": "add",
                 "path": "/customProperties/IS_DYNAMIC",
                 "value": "true"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://app.abc12345.ap-south-1.privatelink.snowflakecomputing.com/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_2/"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ad3hnf",
+        "runId": "snowflake-2022_06_07-17_00_00-9hbbfo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2485,12 +2515,17 @@
                 "op": "add",
                 "path": "/customProperties/CLUSTERING_KEY",
                 "value": "LINEAR(COL_1)"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://app.abc12345.ap-south-1.privatelink.snowflakecomputing.com/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_6/"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ad3hnf",
+        "runId": "snowflake-2022_06_07-17_00_00-9hbbfo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2827,12 +2862,17 @@
                 "op": "add",
                 "path": "/customProperties/CLUSTERING_KEY",
                 "value": "LINEAR(COL_1)"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://app.abc12345.ap-south-1.privatelink.snowflakecomputing.com/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_7/"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ad3hnf",
+        "runId": "snowflake-2022_06_07-17_00_00-9hbbfo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2892,12 +2932,17 @@
                 "op": "add",
                 "path": "/customProperties/CLUSTERING_KEY",
                 "value": "LINEAR(COL_1)"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://app.abc12345.ap-south-1.privatelink.snowflakecomputing.com/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_4/"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ad3hnf",
+        "runId": "snowflake-2022_06_07-17_00_00-9hbbfo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3412,12 +3457,17 @@
                 "op": "add",
                 "path": "/customProperties/CLUSTERING_KEY",
                 "value": "LINEAR(COL_1)"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://app.abc12345.ap-south-1.privatelink.snowflakecomputing.com/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_8/"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ad3hnf",
+        "runId": "snowflake-2022_06_07-17_00_00-9hbbfo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3574,12 +3624,17 @@
                 "op": "add",
                 "path": "/customProperties/CLUSTERING_KEY",
                 "value": "LINEAR(COL_1)"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://app.abc12345.ap-south-1.privatelink.snowflakecomputing.com/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_9/"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ad3hnf",
+        "runId": "snowflake-2022_06_07-17_00_00-9hbbfo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3896,12 +3951,17 @@
                 "op": "add",
                 "path": "/qualifiedName",
                 "value": "TEST_DB.TEST_SCHEMA.VIEW_2"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://app.abc12345.ap-south-1.privatelink.snowflakecomputing.com/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/view/VIEW_2/"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ad3hnf",
+        "runId": "snowflake-2022_06_07-17_00_00-9hbbfo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4459,12 +4519,17 @@
                 "op": "add",
                 "path": "/customProperties/STALE_AFTER",
                 "value": "2021-06-22T00:00:00+00:00"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://app.abc12345.ap-south-1.privatelink.snowflakecomputing.com/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/view/STREAM_1/"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ftc9zc",
+        "runId": "snowflake-2022_06_07-17_00_00-9hbbfo",
         "lastRunId": "no-run-id-provided"
     }
 },

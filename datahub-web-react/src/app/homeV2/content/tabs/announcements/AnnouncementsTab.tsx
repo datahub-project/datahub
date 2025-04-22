@@ -1,10 +1,11 @@
 import React from 'react';
 import styled from 'styled-components';
-import { useGetAnnouncements } from './useGetAnnouncements';
-import AnnouncementsSkeleton from './AnnouncementsSkeleton';
-import { AnnouncementCard } from './AnnouncementCard';
-import { V2_HOME_PAGE_ANNOUNCEMENTS_ID } from '../../../../onboarding/configV2/HomePageOnboardingConfig';
-import { EmptyAnnouncements } from './EmptyAnnouncements';
+
+import { AnnouncementCard } from '@app/homeV2/content/tabs/announcements/AnnouncementCard';
+import AnnouncementsSkeleton from '@app/homeV2/content/tabs/announcements/AnnouncementsSkeleton';
+import { EmptyAnnouncements } from '@app/homeV2/content/tabs/announcements/EmptyAnnouncements';
+import { useGetAnnouncements } from '@app/homeV2/content/tabs/announcements/useGetAnnouncements';
+import { V2_HOME_PAGE_ANNOUNCEMENTS_ID } from '@app/onboarding/configV2/HomePageOnboardingConfig';
 
 const List = styled.div`
     display: flex;

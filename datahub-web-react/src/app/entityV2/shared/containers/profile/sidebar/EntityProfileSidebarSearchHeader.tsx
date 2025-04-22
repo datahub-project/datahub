@@ -1,12 +1,13 @@
 import { Button } from 'antd';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
-import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
 
-import SidebarBackArrow from '../../../../../../images/sidebarBackArrow.svg?react';
-import { useEntityData } from '../../../../../entity/shared/EntityContext';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { SEARCH_COLORS } from '../../../constants';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { SEARCH_COLORS } from '@app/entityV2/shared/constants';
+import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import SidebarBackArrow from '@images/sidebarBackArrow.svg?react';
 
 const Container = styled.div`
     display: flex;

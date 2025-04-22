@@ -1,7 +1,9 @@
 import { useContext, useMemo } from 'react';
 import { Node, useReactFlow } from 'reactflow';
-import { LineageDirection } from '../../types.generated';
-import { createEdgeId, LineageNode, LineageNodesContext, NodeContext } from './common';
+
+import { LineageNode, LineageNodesContext, NodeContext, createEdgeId } from '@app/lineageV2/common';
+
+import { LineageDirection } from '@types';
 
 export default function useNodeHighlighting(hoveredNode: string | null): {
     highlightedNodes: Set<string>;

@@ -1,9 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { colors, Pill } from '@src/alchemy-components';
-import NavBarToggler from './NavBarToggler';
-import { useNavBarContext } from './NavBarContext';
+
+import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
+import NavBarToggler from '@app/homeV2/layout/navBarRedesign/NavBarToggler';
+import { Pill, colors } from '@src/alchemy-components';
 
 const Container = styled.div`
     display: flex;
@@ -44,7 +45,6 @@ const Title = styled.div`
     overflow: hidden;
     max-width: calc(100% - 30px);
     text-overflow: ellipsis;
-    height: 24px;
     display: flex;
     align-items: end;
 `;

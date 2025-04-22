@@ -1,14 +1,15 @@
-import { PageRoutes } from '../../conf/Global';
-import { useDeleteAssertionMutation } from '../../graphql/assertion.generated';
-import { useDeleteDataProductMutation } from '../../graphql/dataProduct.generated';
-import { useDeleteDomainMutation } from '../../graphql/domain.generated';
-import { useDeleteGlossaryEntityMutation } from '../../graphql/glossary.generated';
-import { useDeleteBusinessAttributeMutation } from '../../graphql/businessAttribute.generated';
-import { useRemoveGroupMutation } from '../../graphql/group.generated';
-import { useDeleteTagMutation } from '../../graphql/tag.generated';
-import { useRemoveUserMutation } from '../../graphql/user.generated';
-import { EntityType } from '../../types.generated';
-import { GenericEntityProperties } from '../entity/shared/types';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { PageRoutes } from '@conf/Global';
+
+import { useDeleteAssertionMutation } from '@graphql/assertion.generated';
+import { useDeleteBusinessAttributeMutation } from '@graphql/businessAttribute.generated';
+import { useDeleteDataProductMutation } from '@graphql/dataProduct.generated';
+import { useDeleteDomainMutation } from '@graphql/domain.generated';
+import { useDeleteGlossaryEntityMutation } from '@graphql/glossary.generated';
+import { useRemoveGroupMutation } from '@graphql/group.generated';
+import { useDeleteTagMutation } from '@graphql/tag.generated';
+import { useRemoveUserMutation } from '@graphql/user.generated';
+import { EntityType } from '@types';
 
 /**
  * Returns a relative redirect path which is used after an Entity has been deleted from it's profile page.

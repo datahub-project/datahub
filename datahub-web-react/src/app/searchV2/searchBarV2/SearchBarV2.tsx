@@ -1,36 +1,39 @@
 import { CloseCircleFilled, SearchOutlined } from '@ant-design/icons';
-import { colors, radius, spacing, transition } from '@src/alchemy-components';
-import { AutoComplete } from '@src/alchemy-components/components/AutoComplete';
 import { Input, Skeleton } from 'antd';
 import { debounce } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
-import analytics, { Event, EventType } from '../../analytics';
-import { ANTD_GRAY_V2 } from '../../entity/shared/constants';
-import { getEntityPath } from '../../entity/shared/containers/profile/utils';
-import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
-import { ViewSelect } from '../../entityV2/view/select/ViewSelect';
-import { V2_SEARCH_BAR_VIEWS } from '../../onboarding/configV2/HomePageOnboardingConfig';
-import { useAppConfig, useIsShowSeparateSiblingsEnabled } from '../../useAppConfig';
-import { CommandK } from '../CommandK';
-import useAppliedFilters from '../filtersV2/context/useAppliedFilters';
-import filterSearchQuery from '../utils/filterSearchQuery';
-import AutocompleteFooter from './components/AutocompleteFooter';
-import AutocompletePlaceholder from './components/AutocompletePlaceholder';
-import Filters from './components/Filters';
+
+import analytics, { Event, EventType } from '@app/analytics';
+import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { ViewSelect } from '@app/entityV2/view/select/ViewSelect';
+import { V2_SEARCH_BAR_VIEWS } from '@app/onboarding/configV2/HomePageOnboardingConfig';
+import { CommandK } from '@app/searchV2/CommandK';
+import { SearchBarProps } from '@app/searchV2/SearchBar';
+import useAppliedFilters from '@app/searchV2/filtersV2/context/useAppliedFilters';
+import AutocompleteFooter from '@app/searchV2/searchBarV2/components/AutocompleteFooter';
+import AutocompletePlaceholder from '@app/searchV2/searchBarV2/components/AutocompletePlaceholder';
+import Filters from '@app/searchV2/searchBarV2/components/Filters';
 import {
     AUTOCOMPLETE_DROPDOWN_ALIGN_WITH_NEW_NAV_BAR,
     DEBOUNCE_ON_SEARCH_TIMEOUT_MS,
     EXACT_AUTOCOMPLETE_OPTION_TYPE,
     RELEVANCE_QUERY_OPTION_TYPE,
-} from './constants';
-import useAutocompleteSuggestionsOptions from './hooks/useAutocompleteSuggestionsOptions';
-import useFocusElementByCommandK from './hooks/useFocusSearchBarByCommandK';
-import useRecentlySearchedQueriesOptions from './hooks/useRecentlySearchedQueriesOptions';
-import useRecentlyViewedEntitiesOptions from './hooks/useRecentlyViewedEntitiesOptions';
-import useViewAllResultsOptions from './hooks/useViewAllResultsOptions';
-import { SearchBarProps } from '../SearchBar';
+} from '@app/searchV2/searchBarV2/constants';
+import useSearchResultsOptions from '@app/searchV2/searchBarV2/hooks/useAutocompleteSuggestionsOptions';
+import useFocusElementByCommandK from '@app/searchV2/searchBarV2/hooks/useFocusSearchBarByCommandK';
+import useRecentlySearchedQueriesOptions from '@app/searchV2/searchBarV2/hooks/useRecentlySearchedQueriesOptions';
+import useRecentlyViewedEntitiesOptions from '@app/searchV2/searchBarV2/hooks/useRecentlyViewedEntitiesOptions';
+import useViewAllResultsOptions from '@app/searchV2/searchBarV2/hooks/useViewAllResultsOptions';
+import { MIN_CHARACTER_COUNT_FOR_SEARCH } from '@app/searchV2/utils/constants';
+import filterSearchQuery from '@app/searchV2/utils/filterSearchQuery';
+import { useAppConfig, useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
+import { colors, radius, spacing, transition } from '@src/alchemy-components';
+import { AutoComplete } from '@src/alchemy-components/components/AutoComplete';
+import { SearchBarApi } from '@src/types.generated';
 
 const BOX_SHADOW = `0px -3px 12px 0px rgba(236, 240, 248, 0.5) inset,
 0px 3px 12px 0px rgba(255, 255, 255, 0.5) inset,
@@ -175,8 +178,6 @@ export const SearchBarV2 = ({
     isLoading,
     initialQuery,
     placeholderText,
-    suggestions,
-    isSuggestionsLoading,
     onSearch,
     onQueryChange,
     onFilter,
@@ -194,6 +195,7 @@ export const SearchBarV2 = ({
     textColor,
     placeholderColor,
     isShowNavBarRedesign,
+    searchResponse,
 }: SearchBarProps) => {
     const history = useHistory();
     const appConfig = useAppConfig();
@@ -202,9 +204,15 @@ export const SearchBarV2 = ({
     const finalCombineSiblings = isShowSeparateSiblingsEnabled ? false : combineSiblings;
 
     const [searchQuery, setSearchQuery] = useState<string>(initialQuery || '');
+
+    const entities = searchResponse?.entities;
+    const facets = searchResponse?.facets;
+    const isDataLoading = searchResponse?.loading;
+    const searchAPIVariant = searchResponse?.searchAPIVariant;
+
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
     // used to show Loader when we searching for suggestions in both cases for the first time and after clearing searchQuery
-    const [isSuggestionsInitialized, setIsSuggestionsInitialized] = useState<boolean>(false);
+    const [isDataInitialized, setIsDataInitialized] = useState<boolean>(false);
     const [isSearchBarFocused, setIsFocused] = useState(false);
     const { appliedFilters, hasAppliedFilters, flatAppliedFilters, clear, updateFieldFilters } = useAppliedFilters();
 
@@ -214,12 +222,12 @@ export const SearchBarV2 = ({
     useEffect(() => onFilter?.(appliedFilters), [appliedFilters, onFilter]);
 
     useEffect(() => {
-        if (searchQuery === '') setIsSuggestionsInitialized(false);
+        if (searchQuery === '') setIsDataInitialized(false);
     }, [searchQuery]);
 
     useEffect(() => {
-        if (!isSuggestionsLoading) setIsSuggestionsInitialized(true);
-    }, [isSuggestionsLoading]);
+        if (!isDataLoading) setIsDataInitialized(true);
+    }, [isDataLoading]);
 
     const recentlySearchedQueriesOptions = useRecentlySearchedQueriesOptions();
     const recentlyViewedEntitiesOptions = useRecentlyViewedEntitiesOptions();
@@ -231,17 +239,21 @@ export const SearchBarV2 = ({
     const viewAllResultsOptions = useViewAllResultsOptions(searchQuery, showViewAllResults);
 
     const isSearching = useMemo(() => {
-        const hasSearchQuery = searchQuery !== '';
-        return hasSearchQuery || hasAppliedFilters;
-    }, [searchQuery, hasAppliedFilters]);
+        const minimalLengthOfQuery = searchAPIVariant === SearchBarApi.SearchAcrossEntities ? 3 : 1;
 
-    const hasAutocompleteResults = useMemo(() => suggestions.length > 0, [suggestions.length]);
+        const hasSearchQuery = searchQuery.length >= minimalLengthOfQuery;
+        const hasAnyAppliedFilters = flatAppliedFilters.length > 0;
 
-    const autocompleteSuggestionsOptions = useAutocompleteSuggestionsOptions(
-        suggestions,
+        return hasSearchQuery || hasAnyAppliedFilters;
+    }, [searchQuery, flatAppliedFilters, searchAPIVariant]);
+
+    const hasResults = useMemo(() => (entities?.length ?? 0) > 0, [entities?.length]);
+
+    const searchResultsOptions = useSearchResultsOptions(
+        entities,
         searchQuery,
-        isSuggestionsLoading,
-        isSuggestionsInitialized,
+        isDataLoading,
+        isDataInitialized,
         finalCombineSiblings,
     );
 
@@ -249,19 +261,19 @@ export const SearchBarV2 = ({
         if (!isSearching) return initialOptions;
 
         if (showAutoCompleteResults) {
-            if (!isSuggestionsLoading && !hasAutocompleteResults) return [];
-            return [...viewAllResultsOptions, ...autocompleteSuggestionsOptions];
+            if (!isDataLoading && !hasResults) return [];
+            return [...viewAllResultsOptions, ...searchResultsOptions];
         }
 
         return [];
     }, [
         isSearching,
-        hasAutocompleteResults,
+        hasResults,
         initialOptions,
-        autocompleteSuggestionsOptions,
+        searchResultsOptions,
         viewAllResultsOptions,
         showAutoCompleteResults,
-        isSuggestionsLoading,
+        isDataLoading,
     ]);
 
     const searchBarWrapperRef = useRef<HTMLDivElement>(null);
@@ -297,7 +309,7 @@ export const SearchBarV2 = ({
         let cleanedQuery = filteredSearchQuery.trim();
         if (cleanedQuery.length === 0) {
             cleanedQuery = '*';
-        } else if (!cleanedQuery.includes('*') && cleanedQuery.length < 3) {
+        } else if (!cleanedQuery.includes('*') && cleanedQuery.length < MIN_CHARACTER_COUNT_FOR_SEARCH) {
             cleanedQuery = `${cleanedQuery}*`;
         }
 
@@ -386,6 +398,7 @@ export const SearchBarV2 = ({
                                                 query={searchQuery ?? ''}
                                                 appliedFilters={appliedFilters}
                                                 updateFieldAppliedFilters={updateFieldFilters}
+                                                facets={facets}
                                             />
                                         )}
                                         {props}
