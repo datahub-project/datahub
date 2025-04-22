@@ -18,6 +18,7 @@ import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -51,7 +52,7 @@ public class EntityRelationshipsResultResolver
     final RelationshipsInput input =
         bindArgument(environment.getArgument("input"), RelationshipsInput.class);
 
-    final List<String> relationshipTypes = input.getTypes();
+    final Set<String> relationshipTypes = new HashSet<>(input.getTypes());
     final com.linkedin.datahub.graphql.generated.RelationshipDirection relationshipDirection =
         input.getDirection();
     final Integer start = input.getStart(); // Optional!
@@ -74,7 +75,7 @@ public class EntityRelationshipsResultResolver
 
   private EntityRelationships fetchEntityRelationships(
       final String urn,
-      final List<String> types,
+      final Set<String> types,
       final RelationshipDirection direction,
       final Integer start,
       final Integer count,
