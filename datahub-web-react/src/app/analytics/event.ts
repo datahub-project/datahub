@@ -11,6 +11,7 @@ import {
     PropertyValueInput,
     RecommendationRenderType,
     ScenarioType,
+    SearchBarApi,
 } from '@types';
 
 /**
@@ -667,6 +668,8 @@ export interface SelectAutoCompleteOption extends BaseEvent {
     optionType: string;
     entityType?: EntityType;
     entityUrn?: string;
+    showSearchBarAutocompleteRedesign?: boolean;
+    apiVariant?: SearchBarApi;
 }
 
 export interface SelectQuickFilterEvent extends BaseEvent {

@@ -51,10 +51,10 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
     });
     useEffect(() => getGlobalViewSettings(), [getGlobalViewSettings]);
 
-    const updateLocalState = (newState: LocalState) => {
+    const updateLocalState = useCallback((newState: LocalState) => {
         saveLocalState(newState);
         setLocalState(newState);
-    };
+    }, []);
 
     const setDefaultSelectedView = useCallback(
         (newViewUrn) => {
@@ -63,7 +63,7 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
                 selectedViewUrn: newViewUrn,
             });
         },
-        [localState],
+        [localState, updateLocalState],
     );
 
     // Update the global default views in local state
