@@ -4,7 +4,15 @@ const email = `example${test_id}@example.com`;
 const password = "Example password";
 const group_name = `Test group ${test_id}`;
 
-const addOwner = (owner, type, elementId) => {
+const loginAndGoToDataset = () => {
+  cy.loginWithCredentials();
+  cy.goToDataset(
+    "urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)",
+    "SampleCypressHiveDataset",
+  );
+};
+
+const addOwner = (owner, type) => {
   cy.clickOptionWithTestId("add-owners-button");
   cy.contains("Search for users or groups...").click({ force: true });
   cy.focused().type(owner);
@@ -17,9 +25,17 @@ const addOwner = (owner, type, elementId) => {
   cy.clickOptionWithText("Done");
   cy.waitTextVisible("Owners Added");
   cy.waitTextVisible(type);
-  cy.waitTextVisible(owner).wait(3000);
+  cy.waitTextVisible(owner);
+};
+
+const verifyAssetInOwnedAssets = (owner) => {
+  // ensure elastic is consistent before checking
+  cy.wait(3000);
   cy.clickOptionWithText(owner);
   cy.waitTextVisible("SampleCypressHiveDataset");
+};
+
+const removeOwner = (owner, elementId) => {
   cy.goToDataset(
     "urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)",
     "SampleCypressHiveDataset",
@@ -28,6 +44,13 @@ const addOwner = (owner, type, elementId) => {
   cy.clickOptionWithText("Yes");
   cy.waitTextVisible("Owner Removed");
   cy.ensureTextNotPresent(owner);
+};
+
+const addAndRemoveOwnerOnDataset = (owner, type, elementId) => {
+  loginAndGoToDataset();
+  addOwner(owner, type);
+  verifyAssetInOwnedAssets(owner);
+  removeOwner(owner, elementId);
 };
 
 describe("add, remove ownership for dataset", () => {
@@ -49,12 +72,7 @@ describe("add, remove ownership for dataset", () => {
   });
 
   it("open test dataset page, add and remove user ownership (Business Owner)", () => {
-    cy.loginWithCredentials();
-    cy.goToDataset(
-      "urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)",
-      "SampleCypressHiveDataset",
-    );
-    addOwner(
+    addAndRemoveOwnerOnDataset(
       username,
       "Business Owner",
       `[href="/user/urn:li:corpuser:example${test_id}@example.com/owner of"]`,
@@ -62,12 +80,7 @@ describe("add, remove ownership for dataset", () => {
   });
 
   it("open test dataset page, add and remove user ownership (Data Steward)", () => {
-    cy.loginWithCredentials();
-    cy.goToDataset(
-      "urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)",
-      "SampleCypressHiveDataset",
-    );
-    addOwner(
+    addAndRemoveOwnerOnDataset(
       username,
       "Data Steward",
       `[href="/user/urn:li:corpuser:example${test_id}@example.com/owner of"]`,
@@ -75,12 +88,7 @@ describe("add, remove ownership for dataset", () => {
   });
 
   it("open test dataset page, add and remove user ownership (None)", () => {
-    cy.loginWithCredentials();
-    cy.goToDataset(
-      "urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)",
-      "SampleCypressHiveDataset",
-    );
-    addOwner(
+    addAndRemoveOwnerOnDataset(
       username,
       "None",
       `[href="/user/urn:li:corpuser:example${test_id}@example.com/owner of"]`,
@@ -88,12 +96,7 @@ describe("add, remove ownership for dataset", () => {
   });
 
   it("open test dataset page, add and remove user ownership (Technical Owner)", () => {
-    cy.loginWithCredentials();
-    cy.goToDataset(
-      "urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)",
-      "SampleCypressHiveDataset",
-    );
-    addOwner(
+    addAndRemoveOwnerOnDataset(
       username,
       "Technical Owner",
       `[href="/user/urn:li:corpuser:example${test_id}@example.com/owner of"]`,
@@ -101,12 +104,7 @@ describe("add, remove ownership for dataset", () => {
   });
 
   it("open test dataset page, add and remove group ownership (Business Owner)", () => {
-    cy.loginWithCredentials();
-    cy.goToDataset(
-      "urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)",
-      "SampleCypressHiveDataset",
-    );
-    addOwner(
+    addAndRemoveOwnerOnDataset(
       group_name,
       "Business Owner",
       `[href="/group/urn:li:corpGroup:${test_id}/owner of"]`,
@@ -114,13 +112,7 @@ describe("add, remove ownership for dataset", () => {
   });
 
   it("open test dataset page, add and remove group ownership (Data Steward)", () => {
-    cy.loginWithCredentials();
-    cy.goToDataset(
-      "urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)",
-      "SampleCypressHiveDataset",
-    );
-    // data steward
-    addOwner(
+    addAndRemoveOwnerOnDataset(
       group_name,
       "Data Steward",
       `[href="/group/urn:li:corpGroup:${test_id}/owner of"]`,
@@ -128,12 +120,7 @@ describe("add, remove ownership for dataset", () => {
   });
 
   it("open test dataset page, add and remove group ownership (None)", () => {
-    cy.loginWithCredentials();
-    cy.goToDataset(
-      "urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)",
-      "SampleCypressHiveDataset",
-    );
-    addOwner(
+    addAndRemoveOwnerOnDataset(
       group_name,
       "None",
       `[href="/group/urn:li:corpGroup:${test_id}/owner of"]`,
@@ -141,12 +128,7 @@ describe("add, remove ownership for dataset", () => {
   });
 
   it("open test dataset page, add and remove group ownership (Technical Owner)", () => {
-    cy.loginWithCredentials();
-    cy.goToDataset(
-      "urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)",
-      "SampleCypressHiveDataset",
-    );
-    addOwner(
+    addAndRemoveOwnerOnDataset(
       group_name,
       "Technical Owner",
       `[href="/group/urn:li:corpGroup:${test_id}/owner of"]`,
