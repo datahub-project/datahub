@@ -175,6 +175,24 @@ type PlatformPrivileges {
 }
 
 """
+Variants of APIs used in the Search bar to get data
+"""
+enum SearchBarAPI {
+  AUTOCOMPLETE_FOR_MULTIPLE
+  SEARCH_ACROSS_ENTITIES
+}
+
+"""
+Configurations related to the Search bar
+"""
+type SearchBarConfig {
+  """
+  API variant
+  """
+  apiVariant: SearchBarAPI!
+}
+
+"""
 Config loaded at application boot time
 This configuration dictates the behavior of the UI, such as which features are enabled or disabled
 """
@@ -233,6 +251,11 @@ type AppConfig {
   Configurations related to DataHub Views
   """
   viewsConfig: ViewsConfig!
+
+  """
+  Configurations related to the Search bar
+  """
+  searchBarConfig: SearchBarConfig!
 
   """
   Feature flags telling the UI whether a feature is enabled or not
