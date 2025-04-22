@@ -110,7 +110,7 @@
       "json": {
         "customProperties": {
           "job_snapshot_id": "28d03bf7b3138bea153a21f70f29e7c3ffa6ab0a",
-          "execution_plan_snapshot_id": "0f504b218cd28750ffa8d90a40e9647acba72021",
+          "execution_plan_snapshot_id": "834efb7cde870e3a78a6a8249c14733e089b7470",
           "has_repository_load_data": "False",
           "tags": "{}",
           "steps_succeeded": "2",
