@@ -1,11 +1,13 @@
 import React from 'react';
-import { Tab } from '@src/alchemy-components/components/Tabs/Tabs';
+
+import { Tab } from '@components/components/Tabs/Tabs';
+
+import { AnnouncementsTab } from '@app/homeV2/content/tabs/announcements/AnnouncementsTab';
+import { DiscoveryTab } from '@app/homeV2/content/tabs/discovery/DiscoveryTab';
 import {
     V2_HOME_PAGE_ANNOUNCEMENTS_ID,
     V2_HOME_PAGE_DISCOVER_ID,
-} from '../../../onboarding/configV2/HomePageOnboardingConfig';
-import { DiscoveryTab } from './discovery/DiscoveryTab';
-import { AnnouncementsTab } from './announcements/AnnouncementsTab';
+} from '@app/onboarding/configV2/HomePageOnboardingConfig';
 
 export enum TabType {
     Discover = 'Discover',

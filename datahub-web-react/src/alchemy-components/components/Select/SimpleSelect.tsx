@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Dropdown, Text } from '@components';
 import { isEqual } from 'lodash';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
 import {
     ActionButtonsContainer,
     Container,
@@ -13,35 +14,13 @@ import {
     SelectLabel,
     SelectLabelContainer,
     StyledCheckbox,
-    StyledClearButton,
     StyledIcon,
-} from './components';
-import { ActionButtonsProps, SelectOption, SelectProps } from './types';
-import SelectLabelRenderer from './private/SelectLabelRenderer/SelectLabelRenderer';
-import DropdownSearchBar from './private/DropdownSearchBar';
-import DropdownSelectAllOption from './private/DropdownSelectAllOption';
-
-const SelectActionButtons = ({
-    selectedValues,
-    isOpen,
-    isDisabled,
-    isReadOnly,
-    showClear,
-    handleClearSelection,
-}: ActionButtonsProps) => {
-    return (
-        <ActionButtonsContainer>
-            {showClear && selectedValues.length > 0 && !isDisabled && !isReadOnly && (
-                <StyledClearButton
-                    icon={{ icon: 'Close', source: 'material', size: 'lg' }}
-                    isCircle
-                    onClick={handleClearSelection}
-                />
-            )}
-            <StyledIcon icon="CaretDown" source="phosphor" rotate={isOpen ? '180' : '0'} size="md" color="gray" />
-        </ActionButtonsContainer>
-    );
-};
+} from '@components/components/Select/components';
+import DropdownSearchBar from '@components/components/Select/private/DropdownSearchBar';
+import DropdownSelectAllOption from '@components/components/Select/private/DropdownSelectAllOption';
+import SelectActionButtons from '@components/components/Select/private/SelectActionButtons';
+import SelectLabelRenderer from '@components/components/Select/private/SelectLabelRenderer/SelectLabelRenderer';
+import { SelectOption, SelectProps } from '@components/components/Select/types';
 
 export const selectDefaults: SelectProps = {
     options: [],
@@ -65,9 +44,10 @@ export const selectDefaults: SelectProps = {
 export const SimpleSelect = ({
     options = selectDefaults.options,
     label = selectDefaults.label,
-    values = [],
+    values,
     initialValues,
     onUpdate,
+    onClear,
     showSearch = selectDefaults.showSearch,
     isDisabled = selectDefaults.isDisabled,
     isReadOnly = selectDefaults.isReadOnly,
@@ -90,6 +70,7 @@ export const SimpleSelect = ({
     optionListStyle,
     optionSwitchable,
     selectLabelProps,
+    selectedOptionListStyle,
     position,
     applyHoverWidth,
     ignoreMaxHeight = selectDefaults.ignoreMaxHeight,
@@ -97,13 +78,13 @@ export const SimpleSelect = ({
 }: SelectProps) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [isOpen, setIsOpen] = useState(false);
-    const [selectedValues, setSelectedValues] = useState<string[]>(initialValues || values);
+    const [selectedValues, setSelectedValues] = useState<string[]>(initialValues || values || []);
     const selectRef = useRef<HTMLDivElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const [areAllSelected, setAreAllSelected] = useState(false);
 
     useEffect(() => {
-        if (values?.length > 0 && !isEqual(selectedValues, values)) {
+        if (values !== undefined && !isEqual(selectedValues, values)) {
             setSelectedValues(values);
         }
     }, [values, selectedValues]);
@@ -164,7 +145,10 @@ export const SimpleSelect = ({
         if (onUpdate) {
             onUpdate([]);
         }
-    }, [onUpdate]);
+        if (onClear) {
+            onClear();
+        }
+    }, [onUpdate, onClear]);
 
     const handleSelectAll = () => {
         if (areAllSelected) {
@@ -300,11 +284,12 @@ export const SimpleSelect = ({
                             disabledValues={disabledValues}
                             showDescriptions={showDescriptions}
                             renderCustomSelectedValue={renderCustomSelectedValue}
+                            selectedOptionListStyle={selectedOptionListStyle}
                             {...(selectLabelProps || {})}
                         />
                     </SelectLabelContainer>
                     <SelectActionButtons
-                        selectedValues={selectedValues}
+                        hasSelectedValues={selectedValues.length > 0}
                         isOpen={isOpen}
                         isDisabled={!!isDisabled}
                         isReadOnly={!!isReadOnly}

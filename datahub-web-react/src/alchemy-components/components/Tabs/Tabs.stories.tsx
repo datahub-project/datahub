@@ -1,7 +1,8 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
-import { Tabs } from './Tabs';
+
+import { Tabs } from '@components/components/Tabs/Tabs';
 
 const exampleTabs = [
     {

@@ -1,11 +1,12 @@
 import { Popover } from '@components';
 import React from 'react';
 import styled from 'styled-components';
+
+import PropagationEntityLink from '@app/sharedV2/propagation/PropagationEntityLink';
+import { PropagateThunderbolt, PropagateThunderboltFilled } from '@app/sharedV2/propagation/PropagationIcon';
+import { PropagationRelationshipType } from '@app/sharedV2/propagation/utils';
+import { PropagationContext, usePropagationContextEntities } from '@app/sharedV2/tags/usePropagationContextEntities';
 import { EntityType } from '@src/types.generated';
-import { usePropagationContextEntities, PropagationContext } from '../tags/usePropagationContextEntities';
-import PropagationEntityLink from './PropagationEntityLink';
-import { PropagateThunderbolt, PropagateThunderboltFilled } from './PropagationIcon';
-import { PropagationRelationshipType } from './utils';
 
 const PopoverWrapper = styled.div`
     display: flex;

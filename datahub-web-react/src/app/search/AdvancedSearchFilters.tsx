@@ -1,13 +1,15 @@
 import * as React from 'react';
 import styled from 'styled-components';
-import { FacetFilterInput, FacetMetadata } from '../../types.generated';
-import { ANTD_GRAY } from '../entity/shared/constants';
-import { AdvancedSearchFilter } from './AdvancedSearchFilter';
-import { AdvancedSearchFilterOverallUnionTypeSelect } from './AdvancedSearchFilterOverallUnionTypeSelect';
-import { AdvancedFilterSelectValueModal } from './AdvancedFilterSelectValueModal';
-import { UnionType } from './utils/constants';
-import { AdvancedSearchAddFilterSelect } from './AdvancedSearchAddFilterSelect';
-import useAdvancedSearchSelectFilters from './useAdvancedSearchSelectFilters';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { AdvancedFilterSelectValueModal } from '@app/search/AdvancedFilterSelectValueModal';
+import { AdvancedSearchAddFilterSelect } from '@app/search/AdvancedSearchAddFilterSelect';
+import { AdvancedSearchFilter } from '@app/search/AdvancedSearchFilter';
+import { AdvancedSearchFilterOverallUnionTypeSelect } from '@app/search/AdvancedSearchFilterOverallUnionTypeSelect';
+import useAdvancedSearchSelectFilters from '@app/search/useAdvancedSearchSelectFilters';
+import { UnionType } from '@app/search/utils/constants';
+
+import { FacetFilterInput, FacetMetadata } from '@types';
 
 const AnyAllSection = styled.div`
     padding: 6px;

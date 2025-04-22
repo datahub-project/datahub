@@ -1,7 +1,8 @@
-import React from 'react';
 import { Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../../constants';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 export const EntityCountText = styled(Typography.Text)`
     display: inline-block;

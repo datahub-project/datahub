@@ -1,11 +1,12 @@
+import { Tooltip } from '@components';
+import { ArrowLineLeft, ArrowLineRight } from '@phosphor-icons/react';
+import { Tabs } from 'antd';
 import React, { useContext } from 'react';
 import styled from 'styled-components/macro';
-import { Tabs } from 'antd';
-import { ArrowLineLeft, ArrowLineRight } from '@phosphor-icons/react';
-import { Tooltip } from '@components';
-import { EntitySidebarTab } from '../../../types';
-import { useBaseEntity, useEntityData } from '../../../../../entity/shared/EntityContext';
-import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
+
+import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
+import { EntitySidebarTab } from '@app/entityV2/shared/types';
+import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 
 type Props = {
     tabs: EntitySidebarTab[];
@@ -64,6 +65,9 @@ const UnborderedTabs = styled(Tabs)<{ $isClosed: boolean }>`
         height: 52px;
         transition: none !important;
         overflow: visible;
+        .anticon {
+            margin-right: 0;
+        }
         .ant-tabs-tab-btn {
             color: inherit !important;
             transition: none !important;
@@ -243,6 +247,11 @@ const IconWrapper = styled.div<{ $isSelected?: boolean }>`
             max-height: 20px !important;
         }
     }
+
+    /* Ensure Phosphor icon weights are correctly applied */
+    & .ph-fill {
+        fill: ${(props) => (props.$isSelected ? 'url(#menu-item-selected-gradient) #533fd1' : '#8088a3')};
+    }
 `;
 
 const GradientDefs = () => (
@@ -320,6 +329,7 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab, hideColl
                 )}
                 {tabs.map((tab) => {
                     const TabIcon = tab.icon;
+                    const SelectedTabIcon = tab.selectedIcon || tab.icon;
                     const { name } = tab;
                     const isDisabled = !tab.display?.enabled(entityData, baseEntity);
                     const isSelected = !isClosed && selectedTab?.name === tab.name;
@@ -330,12 +340,10 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab, hideColl
                             tab={
                                 <TabIconContainer $isSelected={isSelected}>
                                     <IconWrapper $isSelected={isSelected}>
-                                        {typeof TabIcon === 'function' &&
-                                        (TabIcon.toString().includes('@phosphor-icons') ||
-                                            (TabIcon.displayName && TabIcon.displayName.includes('Phosphor'))) ? (
-                                            <TabIcon size={20} weight="regular" />
+                                        {isSelected ? (
+                                            <SelectedTabIcon size={20} weight="fill" />
                                         ) : (
-                                            <TabIcon />
+                                            <TabIcon size={20} weight="regular" />
                                         )}
                                     </IconWrapper>
                                     <TabTextWithTooltip

@@ -1,12 +1,13 @@
+import { Tabs } from '@components';
+import { Skeleton } from 'antd';
 import React, { useContext, useState } from 'react';
 import styled from 'styled-components';
-import { Skeleton } from 'antd';
+
+import { DEFAULT_TAB } from '@app/homeV2/content/tabs/tabs';
+import { useGetActiveTabs } from '@app/homeV2/content/tabs/useGetVisibleTabs';
+import OnboardingContext from '@app/onboarding/OnboardingContext';
+import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { Tabs } from '@src/alchemy-components';
-import OnboardingContext from '../../../onboarding/OnboardingContext';
-import { useGetActiveTabs } from './useGetVisibleTabs';
-import { DEFAULT_TAB } from './tabs';
-import { useAppConfig } from '../../../useAppConfig';
 
 const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     flex: 1;

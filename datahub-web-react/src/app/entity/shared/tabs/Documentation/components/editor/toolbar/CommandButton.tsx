@@ -1,7 +1,7 @@
-import React, { MouseEventHandler, useCallback } from 'react';
-import { Button, ButtonProps, Tooltip } from 'antd';
 import { capitalCase } from '@remirror/core';
 import { useHelpers } from '@remirror/react';
+import { Button, ButtonProps, Tooltip } from 'antd';
+import React, { MouseEventHandler, useCallback } from 'react';
 
 export interface CommandButtonProps extends Omit<ButtonProps, 'type'> {
     active?: boolean;

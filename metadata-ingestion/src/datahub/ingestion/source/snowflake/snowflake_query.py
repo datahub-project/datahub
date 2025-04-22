@@ -72,14 +72,6 @@ class SnowflakeQuery:
         return "select CURRENT_WAREHOUSE()"
 
     @staticmethod
-    def current_database() -> str:
-        return "select CURRENT_DATABASE()"
-
-    @staticmethod
-    def current_schema() -> str:
-        return "select CURRENT_SCHEMA()"
-
-    @staticmethod
     def show_databases() -> str:
         return "show databases"
 
@@ -107,8 +99,8 @@ class SnowflakeQuery:
         order by database_name"""
 
     @staticmethod
-    def schemas_for_database(db_name: Optional[str]) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
+    def schemas_for_database(db_name: str) -> str:
+        db_clause = f'"{db_name}".'
         return f"""
         SELECT schema_name AS "SCHEMA_NAME",
         created AS "CREATED",
@@ -119,8 +111,8 @@ class SnowflakeQuery:
         order by schema_name"""
 
     @staticmethod
-    def tables_for_database(db_name: Optional[str]) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
+    def tables_for_database(db_name: str) -> str:
+        db_clause = f'"{db_name}".'
         return f"""
         SELECT table_catalog AS "TABLE_CATALOG",
         table_schema AS "TABLE_SCHEMA",
@@ -142,8 +134,8 @@ class SnowflakeQuery:
         order by table_schema, table_name"""
 
     @staticmethod
-    def tables_for_schema(schema_name: str, db_name: Optional[str]) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
+    def tables_for_schema(schema_name: str, db_name: str) -> str:
+        db_clause = f'"{db_name}".'
         return f"""
         SELECT table_catalog AS "TABLE_CATALOG",
         table_schema AS "TABLE_SCHEMA",
@@ -165,8 +157,8 @@ class SnowflakeQuery:
         order by table_schema, table_name"""
 
     @staticmethod
-    def procedures_for_database(db_name: Optional[str]) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
+    def procedures_for_database(db_name: str) -> str:
+        db_clause = f'"{db_name}".'
         return f"""
         SELECT procedure_catalog AS "PROCEDURE_CATALOG",
         procedure_schema AS "PROCEDURE_SCHEMA",
@@ -382,26 +374,6 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         ORDER BY query_start_time DESC
         ;"""
 
-    @staticmethod
-    def view_dependencies() -> str:
-        return """
-        SELECT
-          concat(
-            referenced_database, '.', referenced_schema,
-            '.', referenced_object_name
-          ) AS "VIEW_UPSTREAM",
-          referenced_object_domain as "REFERENCED_OBJECT_DOMAIN",
-          concat(
-            referencing_database, '.', referencing_schema,
-            '.', referencing_object_name
-          ) AS "DOWNSTREAM_VIEW",
-          referencing_object_domain AS "REFERENCING_OBJECT_DOMAIN"
-        FROM
-          snowflake.account_usage.object_dependencies
-        WHERE
-          referencing_object_domain in ('VIEW', 'MATERIALIZED VIEW')
-        """
-
     # Note on use of `upstreams_deny_pattern` to ignore temporary tables:
     # Snowflake access history may include temporary tables in DIRECT_OBJECTS_ACCESSED and
     # OBJECTS_MODIFIED->columns->directSources. We do not need these temporary tables and filter these in the query.
@@ -424,32 +396,6 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 end_time_millis,
                 upstreams_deny_pattern,
             )
-
-    @staticmethod
-    def view_dependencies_v2() -> str:
-        return """
-        SELECT
-            ARRAY_UNIQUE_AGG(
-                OBJECT_CONSTRUCT(
-                    'upstream_object_name', concat(
-                                    referenced_database, '.', referenced_schema,
-                                    '.', referenced_object_name
-                                ),
-                    'upstream_object_domain', referenced_object_domain
-                )
-                ) as "UPSTREAM_TABLES",
-          concat(
-            referencing_database, '.', referencing_schema,
-            '.', referencing_object_name
-          ) AS "DOWNSTREAM_TABLE_NAME",
-          ANY_VALUE(referencing_object_domain) AS "DOWNSTREAM_TABLE_DOMAIN"
-        FROM
-          snowflake.account_usage.object_dependencies
-        WHERE
-          referencing_object_domain in ('VIEW', 'MATERIALIZED VIEW')
-        GROUP BY
-            DOWNSTREAM_TABLE_NAME
-        """
 
     @staticmethod
     def show_external_tables() -> str:
@@ -1000,4 +946,4 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         from_clause = (
             f"""FROM '{stream_pagination_marker}'""" if stream_pagination_marker else ""
         )
-        return f"""SHOW STREAMS IN DATABASE {db_name} LIMIT {limit} {from_clause};"""
+        return f"""SHOW STREAMS IN DATABASE "{db_name}" LIMIT {limit} {from_clause};"""

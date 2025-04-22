@@ -1,9 +1,11 @@
+import { Tabs as AntTabs } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Tabs as AntTabs } from 'antd';
+
+import { Pill } from '@components/components/Pills';
+import { Tooltip } from '@components/components/Tooltip';
+
 import { colors } from '@src/alchemy-components/theme';
-import { Pill } from '../Pills';
-import { Tooltip } from '../Tooltip';
 
 const StyledTabs = styled(AntTabs)`
     flex: 1;

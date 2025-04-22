@@ -1,13 +1,13 @@
-import React from 'react';
-
-import styled from 'styled-components';
-
 import { Divider, Typography } from 'antd';
+import React from 'react';
+import styled from 'styled-components';
 import { v4 as uuidv4 } from 'uuid';
 
-import { Feature, FeatureType } from './Feature';
-
-import { useGetDocPropagationSettings, useUpdateDocPropagationSettings } from './useDocPropagationSettings';
+import { Feature, FeatureType } from '@app/settings/features/Feature';
+import {
+    useGetDocPropagationSettings,
+    useUpdateDocPropagationSettings,
+} from '@app/settings/features/useDocPropagationSettings';
 
 const Page = styled.div`
     width: 100%;

@@ -1,8 +1,8 @@
-import { Button } from 'antd';
 import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { REDESIGN_COLORS } from '../../../constants';
-import { Editor } from './editor/Editor';
+
+import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
+import { Button } from '@src/alchemy-components';
 
 const LINE_HEIGHT = 1.5;
 
@@ -31,8 +31,7 @@ const MarkdownContainer = styled.div<{ lineLimit?: number | null }>`
 `;
 
 const CustomButton = styled(Button)`
-    padding: 0;
-    color: ${REDESIGN_COLORS.ACTION_ICON_GREY};
+    padding: 8px 0px;
 `;
 
 const MarkdownViewContainer = styled.div<{ scrollableY: boolean }>`
@@ -44,6 +43,9 @@ const MarkdownViewContainer = styled.div<{ scrollableY: boolean }>`
 `;
 
 const CompactEditor = styled(Editor)<{ limit: number | null; customStyle?: React.CSSProperties }>`
+    .remirror-theme {
+        max-width: 100%;
+    }
     .remirror-editor.ProseMirror {
         ${({ limit }) => limit && `max-height: ${limit * LINE_HEIGHT}em;`}
         h1 {
@@ -150,8 +152,15 @@ export default function CompactMarkdownViewer({
                 (isShowingMore || isTruncated) && ( // "show more" when isTruncated, "show less" when isShowingMore
                     <ShowMoreWrapper>
                         <CustomButton
-                            type="link"
-                            onClick={() => (handleShowMore ? handleShowMore() : setIsShowingMore(!isShowingMore))}
+                            variant="text"
+                            onClick={(e) => {
+                                if (handleShowMore) {
+                                    handleShowMore();
+                                } else {
+                                    setIsShowingMore(!isShowingMore);
+                                }
+                                e.stopPropagation();
+                            }}
                         >
                             {isShowingMore ? 'show less' : 'show more'}
                         </CustomButton>

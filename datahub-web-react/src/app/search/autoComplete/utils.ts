@@ -1,5 +1,6 @@
-import { Entity } from '../../../types.generated';
-import EntityRegistry from '../../entity/EntityRegistry';
+import EntityRegistry from '@app/entity/EntityRegistry';
+
+import { Entity } from '@types';
 
 export function getAutoCompleteEntityText(displayName: string, query: string) {
     const isPrefixMatch = displayName.toLowerCase().startsWith(query.toLowerCase());
