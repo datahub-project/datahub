@@ -1,5 +1,5 @@
-import { RightOutlined } from '@ant-design/icons';
 import { countries } from 'country-data-list';
+import { CaretRight } from 'phosphor-react';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -21,7 +21,7 @@ export function RotatingTriangle({ isOpen, onClick }: { isOpen: boolean; onClick
             size="small"
             type="ghost"
             deg={isOpen ? 90 : 0}
-            icon={<RightOutlined style={{ color: 'black' }} />}
+            icon={<CaretRight style={{ color: 'black' }} />}
             onClick={onClick}
         />
     );
