@@ -9,10 +9,10 @@ library to extract metadata from them. The recipe for the source consists of 2 p
 2. The remaining configuration consists of parameters, such as `env` or `stateful_ingestion` which are standard
    DataHub's ingestor configuration parameters and are described in the (Config Details)[#config-details] chapter.
 
-This chapter discusses various examples of setting up connection to a catalog, depending on underlying implementation.
-Iceberg is designed to have catalog and warehouse separated, which is reflected in how we configure it. It is especially
-visible when using Iceberg REST Catalog - which can use many blob storages (AWS S3, Azure Blob Storage, MinIO) as a
-warehouse.
+This chapter showcases several examples of setting up connections to an Iceberg catalog, varying based on the underlying
+implementation. Iceberg is designed to have catalog and warehouse separated, which is reflected in how we configure it.
+It is especially visible when using Iceberg REST Catalog - which can use many blob storages
+(AWS S3, Azure Blob Storage, MinIO) as a warehouse.
 
 Note that, for advanced users, it is possible to specify a custom catalog client implementation via `py-catalog-impl`
 configuration option - refer to `pyiceberg` documentation on details.
