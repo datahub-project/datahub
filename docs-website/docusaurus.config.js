@@ -110,21 +110,23 @@ module.exports = {
               .cloud-cta {
                 color: var(--ifm-menu-color-active);
                 font-weight: 600;
-                transition: all 0.3s ease;
-                padding: 0.25rem 0;
-                display: inline;
-              }
-              .cloud-cta:hover {
-                background: linear-gradient(40deg, var(--ifm-menu-color-active), #ff1493);
+                background: linear-gradient(40deg, var(--ifm-menu-color-active), var(--ifm-menu-color-active));
+                background-size: 200% 100%;
                 -webkit-background-clip: text;
                 background-clip: text;
+                transition: background-image 0.3s ease;
+              }
+              .cloud-cta:hover {
                 color: transparent;
-                animation: gradientShift 3s infinite;
+                background: linear-gradient(40deg, var(--ifm-menu-color-active), #ff1493);
+                background-size: 200% 100%;
+                -webkit-background-clip: text;
+                background-clip: text;
+                animation: gradientShift 3s ease infinite;
               }
               @keyframes gradientShift {
-                0% { background-position: 0% 50%; }
+                0%, 100% { background-position: 0% 50%; }
                 50% { background-position: 100% 50%; }
-                100% { background-position: 0% 50%; }
               }
             </style>
             <div class='cloud-cta'>Get Cloud</div>
