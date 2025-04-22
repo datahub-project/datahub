@@ -50,6 +50,6 @@ DataHub supports ingestion by UI and CLI.
 For additional information and assistance, feel free to visit one of these channels!
 
 - [Slack](https://datahubspace.slack.com)
-- [Blog](https://blog.datahubproject.io/)
+- [Blog](https://blog.datahub.com/)
 - [LinkedIn](https://www.linkedin.com/company/acryl-data/)
 - Our champions - [Data Practitioners Guild](https://datahubproject.io/guild/)

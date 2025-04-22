@@ -18,7 +18,7 @@ export const Logo = (props) => {
 <!--
 HOSTED_DOCS_ONLY-->
 <p align="center">
-<a href="https://datahubproject.io">
+<a href="https://datahub.com">
 <img alt="DataHub" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-logo-color-mark.svg" height="150" />
 </a>
 </p>
@@ -40,7 +40,7 @@ HOSTED_DOCS_ONLY-->
     <img alt="Slack" src="https://img.shields.io/badge/slack-join_community-red.svg?logo=slack&labelColor=133554&color=1890ff" /></a>
   <a href="https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w">
     <img alt="YouTube" src="https://img.shields.io/youtube/channel/subscribers/UC3qFQC5IiwR5fvWEqi_tJ5w?style=flat&logo=youtube&label=subscribers&labelColor=133554&color=1890ff"/></a>
-  <a href="https://blog.datahubproject.io/">
+  <a href="https://blog.datahub.com/">
     <img alt="Medium" src="https://img.shields.io/badge/blog-DataHub-red.svg?style=flat&logo=medium&logoColor=white&labelColor=133554&color=1890ff" /></a>
   <a href="https://x.com/datahubproject">
     <img alt="X (formerly Twitter) Follow" src="https://img.shields.io/badge/follow-datahubproject-red.svg?style=flat&logo=x&labelColor=133554&color=1890ff" /></a>
@@ -48,25 +48,25 @@ HOSTED_DOCS_ONLY-->
 
 ---
 
-### 🏠 Docs: [datahubproject.io](https://datahubproject.io/docs)
+### 🏠 Docs: [docs.datahub.com](https://docs.datahub.com/)
 
-[Quickstart](https://datahubproject.io/docs/quickstart) |
-[Features](https://datahubproject.io/docs/) |
+[Quickstart](https://docs.datahub.com/quickstart) |
+[Features](https://docs.datahub.com) |
 [Roadmap](https://feature-requests.datahubproject.io/roadmap) |
 [Adoption](#adoption) |
-[Demo](https://demo.datahubproject.io/) |
-[Town Hall](https://datahubproject.io/docs/townhalls)
+[Demo](https://demo.datahub.com/) |
+[Town Hall](https://docs.datahub.com/townhalls)
 
 ---
 
-> 📣 DataHub Town Hall is the 4th Thursday at 9am US PT of every month - [add it to your calendar!](https://rsvp.datahubproject.io/)
+> 📣 DataHub Town Hall is the 4th Thursday at 9am US PT of every month - [add it to your calendar!](https://lu.ma/datahubevents/)
 >
 > - Town-hall Zoom link: [zoom.datahubproject.io](https://zoom.datahubproject.io)
 > - [Meeting details](docs/townhalls.md) & [past recordings](docs/townhall-history.md)
 
 > ✨ DataHub Community Highlights:
 >
-> - Read our Monthly Project Updates [here](https://blog.datahubproject.io/tagged/project-updates).
+> - Read our Monthly Project Updates [here](https://medium.com/datahub-project/tagged/project-updates).
 > - Bringing The Power Of The DataHub Real-Time Metadata Graph To Everyone At DataHub: [Data Engineering Podcast](https://www.dataengineeringpodcast.com/acryl-data-datahub-metadata-graph-episode-230/)
 > - Check out our most-read blog post, [DataHub: Popular Metadata Architectures Explained](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained) @ LinkedIn Engineering Blog.
 > - Join us on [Slack](docs/slack.md)! Ask questions and keep up with the latest announcements.
@@ -82,18 +82,18 @@ Check out DataHub's [Features](docs/features.md) & [Roadmap](https://feature-req
 
 ## Demo and Screenshots
 
-There's a [hosted demo environment](https://demo.datahubproject.io/) courtesy of [DataHub](https://acryldata.io) where you can explore DataHub without installing it locally.
+There's a [hosted demo environment](https://demo.datahub.com/) courtesy of DataHub where you can explore DataHub without installing it locally.
 
 ## Quickstart
 
-Please follow the [DataHub Quickstart Guide](https://datahubproject.io/docs/quickstart) to run DataHub locally using [Docker](https://docker.com).
+Please follow the [DataHub Quickstart Guide](https://docs.datahub.com/quickstart) to run DataHub locally using [Docker](https://docker.com).
 
 ## Development
 
-If you're looking to build & modify datahub please take a look at our [Development Guide](https://datahubproject.io/docs/developers).
+If you're looking to build & modify datahub please take a look at our [Development Guide](https://docs.datahub.com/developers).
 
 <p align="center">
-<a href="https://demo.datahubproject.io/">
+<a href="https://demo.datahub.com/">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/entity.png"/>
 </a>
 </p>
@@ -174,7 +174,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 
 ## Select Articles & Talks
 
-- [DataHub Blog](https://blog.datahubproject.io/)
+- [DataHub Blog](https://blog.datahub.com/)
 - [DataHub YouTube Channel](https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w)
 - [Optum: Data Mesh via DataHub](https://opensource.optum.com/blog/2022/03/23/data-mesh-via-datahub)
 - [Saxo Bank: Enabling Data Discovery in Data Mesh](https://medium.com/datahub-project/enabling-data-discovery-in-a-data-mesh-the-saxo-journey-451b06969c8f)
