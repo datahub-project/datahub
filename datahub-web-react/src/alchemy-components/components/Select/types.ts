@@ -66,7 +66,7 @@ export interface SelectStyleProps {
 }
 
 export interface ActionButtonsProps {
-    selectedValues: string[];
+    hasSelectedValues: boolean;
     isOpen: boolean;
     isDisabled: boolean;
     isReadOnly: boolean;

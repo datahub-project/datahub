@@ -163,7 +163,7 @@ export const SettingsPage = () => {
                             )}
                         </Menu.ItemGroup>
                     )}
-                    {(showViews || showOwnershipTypes || showHomePagePosts) && (
+                    {(showViews || showOwnershipTypes || showHomePagePosts || showFeatures) && (
                         <Menu.ItemGroup title="Manage">
                             {showFeatures && (
                                 <MenuItem key="features">
