@@ -36,7 +36,7 @@ lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
     "ruff==0.11.6",
-    "mypy==1.11.2",
+    "mypy==1.10.1",
 }
 
 base_requirements = {
