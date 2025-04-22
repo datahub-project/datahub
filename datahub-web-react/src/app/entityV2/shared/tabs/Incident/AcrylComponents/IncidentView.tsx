@@ -87,17 +87,17 @@ export const IncidentView = memo(({ incident }: { incident: IncidentTableRow }) 
     }, [creatorUrn, lastUpdatedUrn, getAssigneeEntities]);
 
     const { incidentCreator, incidentResolver } = useMemo(() => {
-        if (!resolvedAssignees?.entities) return { incidentCreator: undefined, incidentResolver: undefined };
+        const entities = resolvedAssignees?.entities || [];
 
-        const entitiesByUrn = Object.fromEntries(resolvedAssignees.entities.map((entity) => [entity?.urn!, entity]));
+        if (creatorUrn === lastUpdatedUrn) {
+            const commonEntity = entities.find((e) => e?.urn === creatorUrn);
+            return { incidentCreator: commonEntity, incidentResolver: commonEntity };
+        }
 
-        const sameUrn = creatorUrn === lastUpdatedUrn;
-        const commonEntity = entitiesByUrn[creatorUrn!];
+        const creator = entities.find((e) => e?.urn === creatorUrn);
+        const resolver = entities.find((e) => e?.urn === lastUpdatedUrn);
 
-        return {
-            incidentCreator: commonEntity,
-            incidentResolver: sameUrn ? commonEntity : entitiesByUrn[lastUpdatedUrn!],
-        };
+        return { incidentCreator: creator, incidentResolver: resolver };
     }, [resolvedAssignees, creatorUrn, lastUpdatedUrn]);
 
     const navigateToUser = (user) => {
