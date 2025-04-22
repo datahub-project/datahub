@@ -19,7 +19,7 @@ configuration option - refer to `pyiceberg` documentation on details.
 
 ### Glue catalog + S3 warehouse
 
-The minimal config for connecting to such
+The minimal configuration for connecting to Glue catalog with S3 warehouse:
 
 ```yaml
 source:
@@ -125,7 +125,7 @@ source:
 
 #### Special REST connection parameters for resiliency
 
-Unlike other parameters provided in the dictionary under `catalog` key, `connection` parameter is a custom feature in
+Unlike other parameters provided in the dictionary under the `catalog` key, `connection` parameter is a custom feature in
 DataHub, allowing to inject connection resiliency parameters to the REST connection made by the ingestor. `connection`
 allows for 2 parameters:
 
@@ -193,8 +193,8 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 
 Each processing thread will open several files/sockets to download manifest files from blob storage. If you experience
 exceptions appearing when increasing `processing_threads` configuration parameter, try to increase limit of open
-files (i.e. using `ulimit` in Linux).
+files (e.g. using `ulimit` in Linux).
 
 ## DataHub Iceberg REST Catalog
 
-DataHub also implements the Iceberg REST Catalog. See [here](docs/iceberg-catalog.md) for more details.
+DataHub also implements the Iceberg REST Catalog. See the [Iceberg Catalog documentation](docs/iceberg-catalog.md) for more details.
