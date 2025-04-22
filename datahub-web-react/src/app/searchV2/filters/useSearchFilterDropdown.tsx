@@ -1,9 +1,11 @@
 import { useEffect, useMemo } from 'react';
+
+import { filterEmptyAggregations, getNewFilters, getNumActiveFiltersForFilter } from '@app/searchV2/filters/utils';
+import useGetSearchQueryInputs from '@app/searchV2/useGetSearchQueryInputs';
+import { ENTITY_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { useAggregateAcrossEntitiesLazyQuery } from '@src/graphql/search.generated';
-import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
-import { filterEmptyAggregations, getNewFilters, getNumActiveFiltersForFilter } from './utils';
-import useGetSearchQueryInputs from '../useGetSearchQueryInputs';
-import { ENTITY_FILTER_NAME } from '../utils/constants';
+
+import { FacetFilterInput, FacetMetadata } from '@types';
 
 interface Props {
     filter: FacetMetadata;

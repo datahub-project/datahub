@@ -1,7 +1,8 @@
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import moment from 'moment';
-import { DateInterval } from '../../../types.generated';
+
+import { DateInterval } from '@types';
 
 dayjs.extend(relativeTime);
 

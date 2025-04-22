@@ -27,6 +27,7 @@ docker {
     files fileTree(rootProject.projectDir) {
         include '.dockerignore'
         include "docker/${docker_dir}/*"
+        include "docker/snippets/*"
         include "metadata-ingestion/**"
         include "metadata-ingestion-modules/**"
         include "python-build/**"

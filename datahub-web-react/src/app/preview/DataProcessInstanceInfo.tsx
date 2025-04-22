@@ -1,23 +1,25 @@
+import { Pill, Popover } from '@components';
+import { capitalize } from 'lodash';
+import React from 'react';
+import styled from 'styled-components';
+
 import {
     formatDetailedDuration,
     formatDuration,
     toLocalDateTimeString,
     toRelativeTimeString,
 } from '@app/shared/time/timeUtils';
-import { Pill, Popover } from '@components';
-import { capitalize } from 'lodash';
-import React from 'react';
-import styled from 'styled-components';
 import colors from '@src/alchemy-components/theme/foundations/colors';
-import { DataProcessInstanceRunResultType } from '../../types.generated';
+
+import { DataProcessInstanceRunResultType, DataProcessRunEvent } from '@types';
 
 const StatContainer = styled.div`
     display: flex;
-    margin-top: 40px;
-    height: 25px;
-    padding-left: 20px;
+    margin-top: 20px;
+    height: 20px;
     color: ${colors.gray[500]};
-    width: 150px;
+    width: 130px;
+    justify-content: center;
 `;
 
 const PopoverContent = styled.div`
@@ -41,18 +43,16 @@ const popoverStyles = {
     },
 };
 
-interface Props {
-    startTime?: number;
-    duration?: number;
-    status?: string;
-}
-
-export default function DataProcessInstanceRightColumn({ startTime, duration, status }: Props) {
-    const statusPillColor = status === DataProcessInstanceRunResultType.Success ? 'green' : 'red';
+export default function DataProcessInstanceInfo(lastRunEvent: DataProcessRunEvent) {
+    const statusPillColor =
+        lastRunEvent.result?.resultType === DataProcessInstanceRunResultType.Success ? 'green' : 'red';
+    const startTime = lastRunEvent.timestampMillis ?? 0;
+    const duration = lastRunEvent.durationMillis;
+    const status = lastRunEvent.result?.resultType;
 
     return (
         <>
-            {startTime && (
+            {!!startTime && (
                 <Popover
                     content={<PopoverContent>{toLocalDateTimeString(startTime)}</PopoverContent>}
                     title={<Title>Start Time</Title>}
@@ -63,7 +63,7 @@ export default function DataProcessInstanceRightColumn({ startTime, duration, st
                     <StatContainer>{toRelativeTimeString(startTime)}</StatContainer>
                 </Popover>
             )}
-            {duration && (
+            {!!duration && (
                 <Popover
                     content={<PopoverContent>{formatDetailedDuration(duration)}</PopoverContent>}
                     title={<Title>Duration</Title>}
@@ -74,7 +74,7 @@ export default function DataProcessInstanceRightColumn({ startTime, duration, st
                     <StatContainer>{formatDuration(duration)}</StatContainer>
                 </Popover>
             )}
-            {status && (
+            {!!status && (
                 <>
                     <StatContainer>
                         <Pill label={capitalize(status)} color={statusPillColor} clickable={false} />

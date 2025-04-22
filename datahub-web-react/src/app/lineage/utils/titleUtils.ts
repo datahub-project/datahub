@@ -1,5 +1,6 @@
-import { SchemaField } from '../../../types.generated';
-import { COLUMN_HEIGHT, EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT, NUM_COLUMNS_PER_PAGE } from '../constants';
+import { COLUMN_HEIGHT, EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT, NUM_COLUMNS_PER_PAGE } from '@app/lineage/constants';
+
+import { SchemaField } from '@types';
 
 interface OptionalOptions {
     font?: string;

@@ -1,39 +1,41 @@
+import { CloseCircleFilled, SearchOutlined } from '@ant-design/icons';
+import { AutoComplete, Button, Input } from 'antd';
 import React, {
+    EventHandler,
+    MutableRefObject,
+    SyntheticEvent,
+    useCallback,
     useEffect,
     useMemo,
-    useState,
     useRef,
-    useCallback,
-    EventHandler,
-    SyntheticEvent,
-    MutableRefObject,
+    useState,
 } from 'react';
-import { Input, AutoComplete, Button } from 'antd';
-import { CloseCircleFilled, SearchOutlined } from '@ant-design/icons';
-import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
-import { AutoCompleteResultForEntity, EntityType, FacetFilterInput, ScenarioType } from '../../types.generated';
-import EntityRegistry from '../entity/EntityRegistry';
-import filterSearchQuery from './utils/filterSearchQuery';
-import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '../entity/shared/constants';
-import { getEntityPath } from '../entity/shared/containers/profile/utils';
-import { EXACT_SEARCH_PREFIX } from './utils/constants';
-import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
-import AutoCompleteItem from './autoComplete/AutoCompleteItem';
-import { useQuickFiltersContext } from '../../providers/QuickFiltersContext';
-import QuickFilters from './autoComplete/quickFilters/QuickFilters';
-import { getFiltersWithQuickFilter } from './utils/filterUtils';
-import usePrevious from '../shared/usePrevious';
-import analytics, { Event, EventType } from '../analytics';
-import RecommendedOption from './autoComplete/RecommendedOption';
-import SectionHeader, { EntityTypeLabel } from './autoComplete/SectionHeader';
-import { useUserContext } from '../context/useUserContext';
-import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
-import ViewAllSearchItem from './ViewAllSearchItem';
-import { ViewSelect } from '../entity/view/select/ViewSelect';
-import { combineSiblingsInAutoComplete } from './utils/combineSiblingsInAutoComplete';
-import { CommandK } from './CommandK';
-import { useIsShowSeparateSiblingsEnabled } from '../useAppConfig';
+import styled from 'styled-components/macro';
+
+import analytics, { Event, EventType } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
+import EntityRegistry from '@app/entity/EntityRegistry';
+import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '@app/entity/shared/constants';
+import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
+import { ViewSelect } from '@app/entity/view/select/ViewSelect';
+import { CommandK } from '@app/search/CommandK';
+import ViewAllSearchItem from '@app/search/ViewAllSearchItem';
+import AutoCompleteItem from '@app/search/autoComplete/AutoCompleteItem';
+import RecommendedOption from '@app/search/autoComplete/RecommendedOption';
+import SectionHeader, { EntityTypeLabel } from '@app/search/autoComplete/SectionHeader';
+import QuickFilters from '@app/search/autoComplete/quickFilters/QuickFilters';
+import { combineSiblingsInAutoComplete } from '@app/search/utils/combineSiblingsInAutoComplete';
+import { EXACT_SEARCH_PREFIX } from '@app/search/utils/constants';
+import filterSearchQuery from '@app/search/utils/filterSearchQuery';
+import { getFiltersWithQuickFilter } from '@app/search/utils/filterUtils';
+import { navigateToSearchUrl } from '@app/search/utils/navigateToSearchUrl';
+import usePrevious from '@app/shared/usePrevious';
+import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
+import { useQuickFiltersContext } from '@providers/QuickFiltersContext';
+
+import { useListRecommendationsQuery } from '@graphql/recommendations.generated';
+import { AutoCompleteResultForEntity, EntityType, FacetFilterInput, ScenarioType } from '@types';
 
 const StyledAutoComplete = styled(AutoComplete)`
     width: 100%;

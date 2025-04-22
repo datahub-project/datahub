@@ -87,7 +87,7 @@ def _parse_upstream_input(
         assert_never(upstream_input)
 
 
-def _parse_cll_mapping(
+def parse_cll_mapping(
     *,
     upstream: DatasetUrnOrStr,
     downstream: DatasetUrnOrStr,
@@ -142,7 +142,7 @@ def _parse_upstream_lineage_input(
                 )
             )
             cll.extend(
-                _parse_cll_mapping(
+                parse_cll_mapping(
                     upstream=dataset_urn,
                     downstream=downstream_urn,
                     cll_mapping=column_lineage,

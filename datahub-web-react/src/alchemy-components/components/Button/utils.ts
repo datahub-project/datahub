@@ -1,12 +1,12 @@
 /*
  * Button Style Utilities
  */
+import { CSSObject } from 'styled-components';
 
-import { typography, colors, shadows, radius, spacing } from '@components/theme';
+import { ButtonStyleProps, ButtonVariant } from '@components/components/Button/types';
+import { colors, radius, shadows, spacing, typography } from '@components/theme';
 import { ColorOptions, SizeOptions } from '@components/theme/config';
 import { getColor, getFontSize } from '@components/theme/utils';
-import { CSSObject } from 'styled-components';
-import { ButtonStyleProps, ButtonVariant } from './types';
 
 interface ColorStyles {
     bgColor: string;

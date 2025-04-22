@@ -1,5 +1,6 @@
 import styled from 'styled-components';
-import { MoreFilterOptionLabel } from '../../styledComponents';
+
+import { MoreFilterOptionLabel } from '@app/searchV2/filters/styledComponents';
 
 export const SearchFilterWrapper = styled.div`
     padding: 0 25px 15px 25px;

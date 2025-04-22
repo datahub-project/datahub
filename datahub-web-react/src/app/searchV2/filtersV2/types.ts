@@ -1,5 +1,6 @@
-import { FacetFilterInput, FacetMetadata } from '@src/types.generated';
 import React from 'react';
+
+import { FacetFilterInput, FacetMetadata } from '@src/types.generated';
 
 export type FieldName = string;
 

@@ -1,15 +1,16 @@
-import * as React from 'react';
-import { Button, Select } from 'antd';
-import { Tooltip } from '@components';
-import { CaretDownOutlined } from '@ant-design/icons';
-import styled from 'styled-components/macro';
 import { blue } from '@ant-design/colors';
+import { CaretDownOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
+import { Button, Select } from 'antd';
+import * as React from 'react';
 import { useHistory, useLocation } from 'react-router';
-import { ImpactAnalysisIcon } from '../Dataset/Schema/components/MenuColumn';
-import updateQueryParams from '../../../../shared/updateQueryParams';
-import { downgradeV2FieldPath } from '../../../dataset/profile/schema/utils/utils';
-import { useEntityData } from '../../../../entity/shared/EntityContext';
-import { useGetEntityWithSchema } from '../Dataset/Schema/useGetEntitySchema';
+import styled from 'styled-components/macro';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { downgradeV2FieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import { ImpactAnalysisIcon } from '@app/entityV2/shared/tabs/Dataset/Schema/components/MenuColumn';
+import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
+import updateQueryParams from '@app/shared/updateQueryParams';
 
 const StyledSelect = styled(Select)`
     margin-right: 5px;

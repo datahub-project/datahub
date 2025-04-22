@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+
+import { Announcements } from '@app/homeV2/action/announcement/Announcements';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { Announcements } from '../action/announcement/Announcements';
 
 const Container = styled.div<{ $isHidden?: boolean; $isShowNavBarRedesign?: boolean }>`
     overflow-y: auto;

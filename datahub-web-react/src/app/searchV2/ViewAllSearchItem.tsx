@@ -1,7 +1,7 @@
 import { Icon } from '@components';
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Typography } from 'antd';
 
 const ExploreForEntity = styled.span`
     font-weight: light;

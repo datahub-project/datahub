@@ -28,7 +28,7 @@ spark.extraListeners                         datahub.spark.DatahubSparkListener
 spark.datahub.rest.server                    http://localhost:8080
 ```
 
-### Configuration Instructions:  Amazon EMR
+### Configuration Instructions: Amazon EMR
 
 Set the following spark-defaults configuration properties as it stated [here](https://docs.aws.amazon.com/emr/latest/ReleaseGuide/emr-spark-configure.html)
 
@@ -68,9 +68,9 @@ spark = SparkSession.builder()
         .config("spark.datahub.rest.server", "http://localhost:8080")
         .enableHiveSupport()
         .getOrCreate();
- ```
+```
 
-### Configuration Instructions:  Databricks
+### Configuration Instructions: Databricks
 
 The Spark agent can be configured using Databricks Cluster [Spark configuration](https://docs.databricks.com/clusters/configure.html#spark-configuration) and [Init script](https://docs.databricks.com/clusters/configure.html#init-scripts).
 
@@ -79,27 +79,27 @@ The Spark agent can be configured using Databricks Cluster [Spark configuration]
 - Download `datahub-spark-lineage` jar from [the Maven central repository](https://search.maven.org/search?q=a:datahub-spark-lineage).
 - Create `init.sh` with below content
 
-    ```sh
-    #!/bin/bash
-    cp /dbfs/datahub/datahub-spark-lineage*.jar /databricks/jars
-    ```
+  ```sh
+  #!/bin/bash
+  cp /dbfs/datahub/datahub-spark-lineage*.jar /databricks/jars
+  ```
 
 - Install and configure [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html).
 - Copy jar and init script to Databricks File System(DBFS) using Databricks CLI.
 
-    ```sh
-    databricks fs mkdirs dbfs:/datahub
-    databricks fs cp --overwrite datahub-spark-lineage*.jar dbfs:/datahub
-    databricks fs cp --overwrite init.sh dbfs:/datahub
-    ```
+  ```sh
+  databricks fs mkdirs dbfs:/datahub
+  databricks fs cp --overwrite datahub-spark-lineage*.jar dbfs:/datahub
+  databricks fs cp --overwrite init.sh dbfs:/datahub
+  ```
 
 - Open Databricks Cluster configuration page. Click the **Advanced Options** toggle. Click the **Spark** tab. Add below configurations under `Spark Config`.
 
-    ```text
-    spark.extraListeners                datahub.spark.DatahubSparkListener
-    spark.datahub.rest.server           http://localhost:8080
-    spark.datahub.databricks.cluster    cluster-name<any preferred cluster identifier>
-    ```
+  ```text
+  spark.extraListeners                datahub.spark.DatahubSparkListener
+  spark.datahub.rest.server           http://localhost:8080
+  spark.datahub.databricks.cluster    cluster-name<any preferred cluster identifier>
+  ```
 
 - Click the **Init Scripts** tab. Set cluster init script as `dbfs:/datahub/init.sh`.
 
@@ -112,6 +112,7 @@ The Spark agent can be configured using Databricks Cluster [Spark configuration]
     ```
 
   - Alternatively, Databricks secrets can be used to secure token.
+
     - Create secret using Databricks CLI.
 
       ```sh
@@ -119,9 +120,9 @@ The Spark agent can be configured using Databricks Cluster [Spark configuration]
       databricks secrets put --scope datahub --key rest-token
       databricks secrets list --scope datahub &lt;&lt;Edit prompted file with token value&gt;&gt;
       ```
-  
+
     - Add in spark config
-  
+
       ```text
       spark.datahub.rest.token {{secrets/datahub/rest-token}}
       ```
@@ -129,10 +130,10 @@ The Spark agent can be configured using Databricks Cluster [Spark configuration]
 ## Configuration Options
 
 | Field                                            | Required | Default | Description                                                                                                                                                                               |
-|--------------------------------------------------|----------|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| spark.jars.packages                              | ✅        |         | Set with latest/required version  io.acryl:datahub-spark-lineage:0.8.23                                                                                                                   |
-| spark.extraListeners                             | ✅        |         | datahub.spark.DatahubSparkListener                                                                                                                                                        |
-| spark.datahub.rest.server                        | ✅        |         | Datahub server url  eg:<http://localhost:8080>                                                                                                                                            |
+| ------------------------------------------------ | -------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| spark.jars.packages                              | ✅       |         | Set with latest/required version io.acryl:datahub-spark-lineage:0.8.23                                                                                                                    |
+| spark.extraListeners                             | ✅       |         | datahub.spark.DatahubSparkListener                                                                                                                                                        |
+| spark.datahub.rest.server                        | ✅       |         | Datahub server url eg:<http://localhost:8080>                                                                                                                                             |
 | spark.datahub.rest.token                         |          |         | Authentication token.                                                                                                                                                                     |
 | spark.datahub.rest.disable_ssl_verification      |          | false   | Disable SSL certificate validation. Caution: Only use this if you know what you are doing!                                                                                                |
 | spark.datahub.metadata.pipeline.platformInstance |          |         | Pipeline level platform instance                                                                                                                                                          |
@@ -165,7 +166,7 @@ The following custom properties in pipelines and tasks relate to the Spark UI:
 - appName and appId in a pipeline can be used to determine the Spark application
 - description and SQLQueryId in a task can be used to determine the Query Execution within the application on the SQL tab of Spark UI
 - Other custom properties of pipelines and tasks capture the start and end times of execution etc.
-- The query plan is captured in the *queryPlan* property of a task.
+- The query plan is captured in the _queryPlan_ property of a task.
 
 For Spark on Databricks, pipeline start time is the cluster start time.
 

@@ -1,16 +1,21 @@
-import React, { useEffect, useState } from 'react';
 import { LoadingOutlined } from '@ant-design/icons';
-import { Button, Pill } from '@src/alchemy-components';
 import { Plus } from 'phosphor-react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
+
+import { SearchSelectModal } from '@app/entityV2/shared/components/styled/search/SearchSelectModal';
+import {
+    AssetWrapper,
+    LinkedAssets,
+    LoadingWrapper,
+} from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
+import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
+import { LinkedAssetsContainer } from '@app/entityV2/shared/tabs/Incident/styledComponents';
+import { IncidentLinkedAssetsListProps } from '@app/entityV2/shared/tabs/Incident/types';
+import { Button, Pill } from '@src/alchemy-components';
 import { EntityCapabilityType } from '@src/app/entityV2/Entity';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { IncidentLinkedAssetsListProps } from '../types';
-import { AssetWrapper, LinkedAssets, LoadingWrapper } from './styledComponents';
-import { LinkedAssetsContainer } from '../styledComponents';
-import { SearchSelectModal } from '../../../components/styled/search/SearchSelectModal';
-import { IncidentAction } from '../constant';
+import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
 
 const RESOURCE_URN_FIELD_NAME = 'resourceUrns';
 
@@ -20,12 +25,12 @@ const StyledButton = styled(Button)`
 `;
 
 export const IncidentLinkedAssetsList = ({
+    initialUrn,
     form,
     data,
     mode,
     setCachedLinkedAssets,
     setIsLinkedAssetsLoading,
-    urn,
 }: IncidentLinkedAssetsListProps) => {
     const [getEntities, { data: resolvedLinkedAssets, loading: entitiesLoading }] = useGetEntitiesLazyQuery();
     const entityRegistry = useEntityRegistryV2();
@@ -62,11 +67,11 @@ export const IncidentLinkedAssetsList = ({
     };
 
     useEffect(() => {
-        if (mode === IncidentAction.CREATE) {
-            if (urn) {
+        if (mode === IncidentAction.CREATE && initialUrn) {
+            if (initialUrn) {
                 getEntities({
                     variables: {
-                        urns: [urn],
+                        urns: [initialUrn],
                     },
                 });
             }
@@ -77,7 +82,7 @@ export const IncidentLinkedAssetsList = ({
     useEffect(() => {
         setLinkedAssets(resolvedLinkedAssets?.entities as any);
         if (mode === IncidentAction.CREATE) {
-            form.setFieldValue(RESOURCE_URN_FIELD_NAME, [urn]);
+            form.setFieldValue(RESOURCE_URN_FIELD_NAME, [initialUrn]);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [resolvedLinkedAssets]);

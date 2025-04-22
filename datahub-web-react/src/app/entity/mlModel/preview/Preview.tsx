@@ -1,10 +1,12 @@
 import React from 'react';
-import { EntityPath, EntityType, MlModel } from '../../../../types.generated';
-import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
-import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType } from '../../Entity';
-import { getDataProduct } from '../../shared/utils';
+
+import { IconStyleType } from '@app/entity/Entity';
+import { getDataProduct } from '@app/entity/shared/utils';
+import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityPath, EntityType, MlModel } from '@types';
 
 export const Preview = ({
     model,

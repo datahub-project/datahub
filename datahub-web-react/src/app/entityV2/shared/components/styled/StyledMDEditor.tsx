@@ -1,6 +1,7 @@
 import MDEditor from '@uiw/react-md-editor';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../constants';
+
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 
 export default styled(MDEditor)`
     height: calc(100% - 46px) !important;

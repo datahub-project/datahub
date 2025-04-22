@@ -1,7 +1,8 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
-import Dropdown from './Dropdown';
+
+import Dropdown from '@components/components/Dropdown/Dropdown';
 
 // Auto Docs
 const meta = {

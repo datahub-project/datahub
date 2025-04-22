@@ -1,8 +1,10 @@
-import React from 'react';
 import { Image, Typography } from 'antd';
-import { OnboardingStep } from '../OnboardingStep';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import dataHubFlowDiagram from '../../../images/datahub-flow-diagram-light.png';
+import React from 'react';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { OnboardingStep } from '@app/onboarding/OnboardingStep';
+
+import dataHubFlowDiagram from '@images/datahub-flow-diagram-light.png';
 
 export const GLOBAL_WELCOME_TO_DATAHUB_ID = 'global-welcome-to-datahub';
 export const HOME_PAGE_INGESTION_ID = 'home-page-ingestion';
