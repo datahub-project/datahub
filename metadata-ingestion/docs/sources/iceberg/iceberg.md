@@ -33,7 +33,7 @@ source:
         region_name: "us-west-2"
 ```
 
-Where `us-west-2` is the region from which you want to ingest. Above will work assuming your pod or environment in which
+Where `us-west-2` is the region from which you want to ingest. The above configuration will work assuming your pod or environment in which
 you run your datahub CLI is already authenticated to AWS and has proper permissions granted (see below). If you need
 to specify secrets directly, then use below as the template:
 
