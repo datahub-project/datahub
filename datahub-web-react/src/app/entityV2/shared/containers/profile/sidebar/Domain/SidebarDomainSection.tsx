@@ -11,12 +11,13 @@ import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/Em
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import { ENTITY_PROFILE_DOMAINS_ID } from '@app/onboarding/config/EntityProfileOnboardingConfig';
+import ProposalModal from '@app/shared/tags/ProposalModal';
 import { DomainContent, DomainLink } from '@app/sharedV2/tags/DomainLink';
 import { colors } from '@src/alchemy-components';
 import ProposedIcon from '@src/app/entityV2/shared/sidebarSection/ProposedIcon';
 import { getProposedItemsByType } from '@src/app/entityV2/shared/utils';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { ActionRequestType, EntityType } from '@src/types.generated';
+import { ActionRequest, ActionRequestType, EntityType } from '@src/types.generated';
 
 import { useUnsetDomainMutation } from '@graphql/mutations.generated';
 
@@ -62,11 +63,13 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
     const [showModal, setShowModal] = useState(false);
     const domain = entityData?.domain?.domain;
 
+    const [selectedActionRequest, setSelectedActionRequest] = useState<ActionRequest | undefined | null>(null);
+
     const proposedDomainRequests = getProposedItemsByType(
         entityData?.proposals || [],
         ActionRequestType.DomainAssociation,
     );
-    const proposedDomains = proposedDomainRequests.flatMap((request) => request.params?.domainProposal?.domain || []);
+
     const canEditDomains = !!entityData?.privileges?.canEditDomains;
 
     const removeDomain = (urnToRemoveFrom) => {
@@ -117,20 +120,31 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                                 />
                             </DomainLinkWrapper>
                         )}
-                        {proposedDomains.map((proposedDomain) => {
+                        {proposedDomainRequests.map((request) => {
+                            const proposedDomain = request.params?.domainProposal?.domain;
                             const displayName = entityRegistry.getDisplayName(EntityType.Domain, proposedDomain);
+
                             return (
-                                <ProposedDomain>
-                                    <DomainContent
-                                        domain={proposedDomain}
-                                        name={displayName}
-                                        closable={false}
-                                        iconSize={24}
-                                    />
-                                    <ProposedIcon propertyName="Domain" />
-                                </ProposedDomain>
+                                <>
+                                    {proposedDomain && (
+                                        <ProposedDomain
+                                            onClick={() => {
+                                                setSelectedActionRequest(request);
+                                            }}
+                                        >
+                                            <DomainContent
+                                                domain={proposedDomain}
+                                                name={displayName}
+                                                closable={false}
+                                                iconSize={24}
+                                            />
+                                            <ProposedIcon propertyName="Domain" />
+                                        </ProposedDomain>
+                                    )}
+                                </>
                             );
                         })}
+
                         {(!domain || !!updateOnly) && (
                             <>{!domain && <EmptySectionText message={EMPTY_MESSAGES.domain.title} />}</>
                         )}
@@ -154,6 +168,13 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                     onCloseModal={() => {
                         setShowModal(false);
                     }}
+                />
+            )}
+            {selectedActionRequest && (
+                <ProposalModal
+                    actionRequest={selectedActionRequest}
+                    selectedActionRequest={selectedActionRequest}
+                    setSelectedActionRequest={setSelectedActionRequest}
                 />
             )}
         </div>

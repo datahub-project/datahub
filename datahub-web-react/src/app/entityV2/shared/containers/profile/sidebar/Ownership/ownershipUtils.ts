@@ -1,6 +1,6 @@
 import { forcePluralize } from '@app/shared/textUtil';
 
-import { Owner, OwnershipType, OwnershipTypeEntity } from '@types';
+import { ActionRequest, Owner, OwnershipType, OwnershipTypeEntity } from '@types';
 
 /**
  * A mapping from OwnershipType to it's display name & description. In the future,
@@ -46,11 +46,11 @@ export function getOwnershipTypeName(ownershipType?: OwnershipTypeEntity | null)
     return (ownershipType?.info?.name && forcePluralize(ownershipType?.info?.name)) || 'Other';
 }
 
-type WithProposedFlag<T> = T & { isProposed?: boolean };
+type ProposedOwner<T> = T & { isProposed?: boolean; request?: ActionRequest };
 
-export type ExtendedOwner = WithProposedFlag<Owner>;
+export type ExtendedOwner = ProposedOwner<Owner>;
 
-export const combineOwners = (owners: Owner[], proposedOwners: Owner[]): ExtendedOwner[] => {
+export const combineOwners = (owners: Owner[], proposedOwners: ExtendedOwner[]): ExtendedOwner[] => {
     const proposedOwnersWithFlag = proposedOwners.map((owner) => ({
         ...owner,
         isProposed: true,

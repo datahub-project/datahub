@@ -1,12 +1,11 @@
 import { ClockCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { BookmarkSimple } from '@phosphor-icons/react';
-import { Tag as AntTag, Button, Typography, message } from 'antd';
+import { Tag as AntTag, Button, Typography } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
 
-import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { StyledTag } from '@app/entity/shared/components/styled/StyledTag';
 import { ANTD_GRAY, EMPTY_MESSAGES } from '@app/entity/shared/constants';
 import EditTagTermsModal from '@app/shared/tags/AddTagsTermsModal';
@@ -17,7 +16,6 @@ import StyledTerm from '@app/shared/tags/term/StyledTerm';
 import { shouldShowProposeButton } from '@app/shared/tags/utils/proposalUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { useAcceptProposalsMutation, useRejectProposalsMutation } from '@graphql/actionRequest.generated';
 import { ActionRequest, Domain, EntityType, GlobalTags, GlossaryTerms, SubResourceType } from '@types';
 
 type Props = {
@@ -89,61 +87,7 @@ export default function TagTermGroup({
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState(EntityType.Tag);
 
-    const [acceptProposalsMutation] = useAcceptProposalsMutation();
-    const [rejectProposalsMutation] = useRejectProposalsMutation();
-    const [showProposalDecisionModal, setShowProposalDecisionModal] = useState(false);
-
-    const onCloseProposalDecisionModal = (e) => {
-        e.stopPropagation();
-        setShowProposalDecisionModal(false);
-        setTimeout(() => refetch?.(), 2000);
-    };
-
-    const onProposalAcceptance = (actionRequest: ActionRequest) => {
-        acceptProposalsMutation({ variables: { urns: [actionRequest.urn] } })
-            .then(() => {
-                if (entityUrn) {
-                    analytics.event({
-                        type: EventType.EntityActionEvent,
-                        actionType: EntityActionType.ProposalAccepted,
-                        actionQualifier: actionRequest.type,
-                        entityType,
-                        entityUrn,
-                    });
-                }
-                message.success('Successfully accepted the proposal!');
-            })
-            .then(refetch)
-            .catch((err) => {
-                console.log(err);
-                message.error('Failed to accept proposal. :(');
-            });
-    };
-
-    const onProposalRejection = (actionRequest: ActionRequest) => {
-        rejectProposalsMutation({ variables: { urns: [actionRequest.urn] } })
-            .then(() => {
-                if (entityUrn) {
-                    analytics.event({
-                        type: EventType.EntityActionEvent,
-                        actionType: EntityActionType.ProposalRejected,
-                        actionQualifier: actionRequest.type,
-                        entityType,
-                        entityUrn,
-                    });
-                }
-                message.info('Proposal declined.');
-            })
-            .then(refetch)
-            .catch((err) => {
-                console.log(err);
-                message.error('Failed to reject proposal. :(');
-            });
-    };
-
-    const onActionRequestUpdate = () => {
-        refetch?.();
-    };
+    const [selectedActionRequest, setSelectedActionRequest] = useState<ActionRequest | null | undefined>(null);
 
     const tagsEmpty = !editableTags?.tags?.length && !uneditableTags?.tags?.length && !proposedTags?.length;
     const termsEmpty =
@@ -211,20 +155,11 @@ export default function TagTermGroup({
                                 closable={false}
                                 data-testid={`proposed-term-${proposedTerm?.name}`}
                                 onClick={() => {
-                                    setShowProposalDecisionModal(true);
+                                    setSelectedActionRequest(actionRequest);
                                 }}
                             >
                                 <BookmarkSimple style={{ marginRight: '3%' }} />
                                 {entityRegistry.getDisplayName(EntityType.GlossaryTerm, proposedTerm)}
-                                <ProposalModal
-                                    actionRequest={actionRequest}
-                                    showProposalDecisionModal={showProposalDecisionModal}
-                                    onCloseProposalDecisionModal={onCloseProposalDecisionModal}
-                                    onProposalAcceptance={onProposalAcceptance}
-                                    onProposalRejection={onProposalRejection}
-                                    onActionRequestUpdate={onActionRequestUpdate}
-                                    elementName={entityRegistry.getDisplayName(EntityType.GlossaryTerm, proposedTerm)}
-                                />
                                 <Tooltip overlay="Proposed Term - Pending Approval" showArrow={false}>
                                     <ClockCircleOutlined style={{ color: ANTD_GRAY[7], marginLeft: '5px' }} />
                                 </Tooltip>
@@ -286,20 +221,11 @@ export default function TagTermGroup({
                                 $colorHash={proposedTag?.urn}
                                 $color={proposedTag?.properties?.colorHex}
                                 onClick={() => {
-                                    setShowProposalDecisionModal(true);
+                                    setSelectedActionRequest(actionRequest);
                                 }}
                             >
                                 <span>
                                     {entityRegistry.getDisplayName(EntityType.Tag, proposedTag)}
-                                    <ProposalModal
-                                        actionRequest={actionRequest}
-                                        showProposalDecisionModal={showProposalDecisionModal}
-                                        onCloseProposalDecisionModal={onCloseProposalDecisionModal}
-                                        onProposalAcceptance={onProposalAcceptance}
-                                        onProposalRejection={onProposalRejection}
-                                        onActionRequestUpdate={onActionRequestUpdate}
-                                        elementName={proposedTag?.properties?.name}
-                                    />
                                     <Tooltip overlay="Proposed Tag - Pending Approval" showArrow={false}>
                                         <ClockCircleOutlined style={{ color: ANTD_GRAY[7], marginLeft: '5px' }} />
                                     </Tooltip>
@@ -363,6 +289,14 @@ export default function TagTermGroup({
                     ]}
                     showPropose={shouldShowProposeButton(entityType)}
                     entityType={entityType}
+                />
+            )}
+            {selectedActionRequest && (
+                <ProposalModal
+                    actionRequest={selectedActionRequest}
+                    selectedActionRequest={selectedActionRequest}
+                    setSelectedActionRequest={setSelectedActionRequest}
+                    refetch={refetch}
                 />
             )}
         </>

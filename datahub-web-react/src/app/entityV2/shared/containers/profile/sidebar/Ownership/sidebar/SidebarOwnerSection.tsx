@@ -15,7 +15,6 @@ import { OwnershipTypeSection } from '@app/entityV2/shared/containers/profile/si
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import { ENTITY_PROFILE_OWNERS_ID } from '@app/onboarding/config/EntityProfileOnboardingConfig';
-// import { ExpandedOwner } from '../../../../../components/styled/ExpandedOwner/ExpandedOwner';
 import { getProposedItemsByType } from '@src/app/entityV2/shared/utils';
 
 import { ActionRequestType, OwnershipType, OwnershipTypeEntity } from '@types';
@@ -53,7 +52,13 @@ export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
         entityData?.proposals || [],
         ActionRequestType.OwnerAssociation,
     );
-    const proposedOwners = proposedOwnerRequests.flatMap((request) => request.params?.ownerProposal?.owners || []);
+    const proposedOwners = proposedOwnerRequests.flatMap(
+        (request) =>
+            request.params?.ownerProposal?.owners.map((owner) => ({
+                ...owner,
+                request,
+            })) || [],
+    );
     const combinedOwners = combineOwners(entityData?.ownership?.owners || [], proposedOwners);
     const ownersEmpty = !combinedOwners?.length;
 

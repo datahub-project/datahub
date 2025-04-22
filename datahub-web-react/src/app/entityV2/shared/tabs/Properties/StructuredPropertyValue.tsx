@@ -53,6 +53,10 @@ const EntityWrapper = styled.div<{ $isProposed?: boolean }>`
 `;
 
 const BorderedContainer = styled.div<{ $isProposed?: boolean }>`
+    span {
+        color: ${colors.gray[500]};
+    }
+
     ${(props) =>
         props.$isProposed &&
         `

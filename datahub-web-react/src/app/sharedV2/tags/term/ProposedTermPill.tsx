@@ -36,6 +36,7 @@ const ProposedTermText = styled.span`
     margin-left: 8px;
     text-overflow: ellipsis;
     overflow: hidden;
+    color: ${colors.gray[500]};
 `;
 
 interface Props {

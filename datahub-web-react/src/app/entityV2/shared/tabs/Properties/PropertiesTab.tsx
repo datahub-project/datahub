@@ -20,7 +20,7 @@ import { filterStructuredProperties } from '@app/entityV2/shared/tabs/Properties
 import { TabRenderType } from '@app/entityV2/shared/types';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { EditColumn } from '@src/app/entity/shared/tabs/Properties/Edit/EditColumn';
-import { Maybe, SchemaFieldEntity, StructuredProperties } from '@src/types.generated';
+import { ActionRequest, Maybe, SchemaFieldEntity, StructuredProperties } from '@src/types.generated';
 
 const StyledTable = styled(Table)`
     &&& .ant-table-cell-with-append {
@@ -78,7 +78,7 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
         .concat(customPropertyRows)
         .filter((row) => !row.structuredProperty?.settings?.isHidden);
 
-    const finalDataSource = [...dataSource, ...filteredProposedRows];
+    const finalDataSource: (PropertyRow & { request?: ActionRequest })[] = [...dataSource, ...filteredProposedRows];
 
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
@@ -100,7 +100,7 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
         {
             title: 'Value',
             ellipsis: true,
-            render: (propertyRow: PropertyRow) => (
+            render: (propertyRow: PropertyRow & { request?: ActionRequest }) => (
                 <ValuesColumn
                     propertyRow={propertyRow}
                     filterText={filterText}

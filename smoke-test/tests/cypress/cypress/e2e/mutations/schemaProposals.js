@@ -34,7 +34,7 @@ const acceptProposalDatasetPage = (to_type, thing) => {
     .first()
     .should("be.visible")
     .click({ force: true });
-  cy.get(`[data-testid="proposal-accept-button-${to_type}"]`).click({
+  cy.get(`[data-testid="proposal-accept-button"]`).click({
     force: true,
   });
   cy.get(`[data-testid="proposed-${thing}-${to_type}"]`).should("not.exist");
@@ -46,7 +46,7 @@ const rejectProposalDatasetPage = (to_type, thing) => {
     .first()
     .should("be.visible")
     .click({ force: true });
-  cy.get(`[data-testid="proposal-reject-button-${to_type}"]`).click({
+  cy.get(`[data-testid="proposal-reject-button"]`).click({
     force: true,
   });
   cy.get(`[data-testid="proposed-${thing}-${to_type}"]`).should("not.exist");

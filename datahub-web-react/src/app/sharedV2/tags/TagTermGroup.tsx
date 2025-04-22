@@ -1,5 +1,5 @@
 import { PlusOutlined } from '@ant-design/icons';
-import { Tag as AntTag, Typography, message } from 'antd';
+import { Tag as AntTag, Typography } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
@@ -17,7 +17,6 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { colors } from '@src/alchemy-components';
 import ProposedIcon from '@src/app/entityV2/shared/sidebarSection/ProposedIcon';
 
-import { useAcceptProposalsMutation, useRejectProposalsMutation } from '@graphql/actionRequest.generated';
 import { ActionRequest, Domain as DomainEntity, EntityType, GlobalTags, GlossaryTerms } from '@types';
 
 type Props = {
@@ -158,43 +157,7 @@ export default function TagTermGroup({
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState(EntityType.Tag);
 
-    const [acceptProposalsMutation] = useAcceptProposalsMutation();
-    const [rejectProposalsMutation] = useRejectProposalsMutation();
-    const [showProposalDecisionModal, setShowProposalDecisionModal] = useState(false);
-
-    const onCloseProposalDecisionModal = (e) => {
-        e.stopPropagation();
-        setShowProposalDecisionModal(false);
-        setTimeout(() => refetch?.(), 2000);
-    };
-
-    const onProposalAcceptance = (actionRequest: ActionRequest) => {
-        acceptProposalsMutation({ variables: { urns: [actionRequest.urn] } })
-            .then(() => {
-                message.success('Successfully accepted the proposal!');
-            })
-            .then(refetch)
-            .catch((err) => {
-                console.log(err);
-                message.error('Failed to accept proposal. :(');
-            });
-    };
-
-    const onProposalRejection = (actionRequest: ActionRequest) => {
-        rejectProposalsMutation({ variables: { urns: [actionRequest.urn] } })
-            .then(() => {
-                message.info('Proposal declined.');
-            })
-            .then(refetch)
-            .catch((err) => {
-                console.log(err);
-                message.error('Failed to reject proposal. :(');
-            });
-    };
-
-    const onActionRequestUpdate = () => {
-        refetch?.();
-    };
+    const [selectedActionRequest, setSelectedActionRequest] = useState<ActionRequest | null | undefined>(null);
 
     const tagsEmpty = !editableTags?.tags?.length && !uneditableTags?.tags?.length && !proposedTags?.length;
 
@@ -304,22 +267,10 @@ export default function TagTermGroup({
                                             term={proposedTerm}
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                setShowProposalDecisionModal(true);
+                                                setSelectedActionRequest(actionRequest);
                                             }}
                                         />
                                     )}
-                                    <ProposalModal
-                                        actionRequest={actionRequest}
-                                        showProposalDecisionModal={showProposalDecisionModal}
-                                        onCloseProposalDecisionModal={onCloseProposalDecisionModal}
-                                        onProposalAcceptance={onProposalAcceptance}
-                                        onProposalRejection={onProposalRejection}
-                                        onActionRequestUpdate={onActionRequestUpdate}
-                                        elementName={entityRegistry.getDisplayName(
-                                            EntityType.GlossaryTerm,
-                                            proposedTerm,
-                                        )}
-                                    />
                                 </>
                             );
                         })}
@@ -404,20 +355,11 @@ export default function TagTermGroup({
                                             $showOneAndCount={showOneAndCount}
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                setShowProposalDecisionModal(true);
+                                                setSelectedActionRequest(actionRequest);
                                             }}
                                         >
                                             <ProposedTagContent>
                                                 {entityRegistry.getDisplayName(EntityType.Tag, proposedTag)}
-                                                <ProposalModal
-                                                    actionRequest={actionRequest}
-                                                    showProposalDecisionModal={showProposalDecisionModal}
-                                                    onCloseProposalDecisionModal={onCloseProposalDecisionModal}
-                                                    onProposalAcceptance={onProposalAcceptance}
-                                                    onProposalRejection={onProposalRejection}
-                                                    onActionRequestUpdate={onActionRequestUpdate}
-                                                    elementName={proposedTag?.properties?.name}
-                                                />
                                                 <ProposedIcon propertyName="Tag" />
                                             </ProposedTagContent>
                                         </ProposedTag>
@@ -468,6 +410,14 @@ export default function TagTermGroup({
                 addModalType={addModalType}
                 refetch={refetch}
             />
+            {selectedActionRequest && (
+                <ProposalModal
+                    actionRequest={selectedActionRequest}
+                    selectedActionRequest={selectedActionRequest}
+                    setSelectedActionRequest={setSelectedActionRequest}
+                    refetch={refetch}
+                />
+            )}
         </TagTermWrapper>
     );
 }

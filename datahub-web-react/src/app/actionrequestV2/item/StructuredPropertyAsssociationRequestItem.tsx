@@ -25,6 +25,7 @@ const ValuesContainerFlex = styled.div`
     font-size: 14px;
     // align all items in the center vertically
     align-items: center;
+    gap: 6px;
 `;
 
 const ValueContainer = styled.div<{ $showBorder?: boolean }>`
@@ -32,11 +33,11 @@ const ValueContainer = styled.div<{ $showBorder?: boolean }>`
     display: flex;
     max-width: 200px;
     border-radius: 200px;
-    padding: 0px 4px;
     ${(props) =>
         props.$showBorder &&
         `
         border: 1px solid ${colors.gray[200]};
+        padding: 0px 6px;
         `}
 `;
 
@@ -107,10 +108,18 @@ const StructuredPropertyAssociationRequestItem = ({ actionRequest }: Props) => {
 
                 return (
                     <>
-                        {index > 0 && index === properties.length - 1 && 'and'}
-                        {index > 0 && index < properties.length - 1 && ','}
+                        {index > 0 && index === properties.length - 1 && (
+                            <Text color="gray" type="span">
+                                and{' '}
+                            </Text>
+                        )}
+                        {index > 0 && index < properties.length - 1 && (
+                            <Text color="gray" type="span">
+                                ,
+                            </Text>
+                        )}
                         <Text weight="bold" color="gray" type="span">{`${propertyName}`}</Text>
-                        {` to `}
+                        <Text color="gray" type="span">{` to `}</Text>
 
                         {/* add the value of the property */}
                         <ValuesContainer>

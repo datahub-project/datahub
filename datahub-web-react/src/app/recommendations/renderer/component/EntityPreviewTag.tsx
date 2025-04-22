@@ -1,4 +1,4 @@
-import { Tooltip, colors } from '@components';
+import { Text, Tooltip, colors } from '@components';
 import { Divider, Image, Tag } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
@@ -129,7 +129,15 @@ export const EntityPreviewTag = ({
                     </IconContainer>
                     <DisplayNameContainer>
                         <Tooltip title={displayName} showArrow={false} open={showNameTooltip ? undefined : false}>
-                            <span className="test-mini-preview-class">{displayName}</span>
+                            <Text
+                                type="span"
+                                color="gray"
+                                size="sm"
+                                lineHeight="sm"
+                                className="test-mini-preview-class"
+                            >
+                                {displayName}
+                            </Text>
                         </Tooltip>
                         {columnName && (
                             <Tooltip title={columnName} showArrow={false} open={showNameTooltip ? undefined : false}>
