@@ -3,8 +3,8 @@
 There are multiple servers compatible with the Iceberg Catalog specification. DataHub's `iceberg` connector uses `pyiceberg`
 library to extract metadata from them. The recipe for the source consists of 2 parts:
 
-1. `catalog` part which is passed as-is to the `pyiceberg` library and configures connection and its details (i.e. authentication).
-   The name of catalog specified in the recipe has no consequence, it is just a formal requirement from he library.
+1. `catalog` part which is passed as-is to the `pyiceberg` library and configures the connection and its details (i.e. authentication).
+   The name of catalog specified in the recipe has no consequence, it is just a formal requirement from the library.
    Only one catalog will be considered for the ingestion.
 2. Other part consists of parameters, such as `env` or `stateful_ingestion` which are standard DataHub's ingestor
    configuration parameters and are described in another chapter.
@@ -14,7 +14,7 @@ Iceberg is designed to have catalog and warehouse separated, which is reflected 
 visible when using Iceberg REST Catalog - which can use many blob storages (AWS S3, Azure Blob Storage, MinIO) as a
 warehouse.
 
-Note that, for advanced users, it is possible to specify custom catalog client implementation via `py-catalog-impl`
+Note that, for advanced users, it is possible to specify a custom catalog client implementation via `py-catalog-impl`
 configuration option - refer to `pyiceberg` documentation on details.
 
 ### Glue catalog + S3 warehouse
@@ -106,9 +106,9 @@ source:
 
 ### Iceberg REST Catalog (with authentication) + S3
 
-This example assume IRC requires token authentication (via `Authorization` header). There are more options available,
-see https://py.iceberg.apache.org/configuration/#rest-catalog for details. Moreover, the assumption here is that environment
-(i.e. pod) is already authenticated to perform actions against AWS S3.
+This example assumes IRC requires token authentication (via `Authorization` header). There are more options available,
+see https://py.iceberg.apache.org/configuration/#rest-catalog for details. Moreover, the assumption here is that the
+environment (i.e. pod) is already authenticated to perform actions against AWS S3.
 
 ```yaml
 source:
@@ -123,10 +123,10 @@ source:
         s3.region: "us-west-2"
 ```
 
-#### Special REST connection parameter for resiliency
+#### Special REST connection parameters for resiliency
 
 Unlike other parameters provided in the dictionary under `catalog` key, `connection` parameter is a custom feature in
-DataHub allowing to inject connection resiliency parameters to the REST connection made by the ingestor. `connection`
+DataHub, allowing to inject connection resiliency parameters to the REST connection made by the ingestor. `connection`
 allows for 2 parameters:
 
 - `timeout` is provided as amount of seconds, it needs to be whole number (or `null` to turn it off)
