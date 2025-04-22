@@ -54,25 +54,24 @@ export const IncidentList = () => {
         fetchPolicy: 'cache-first',
     });
 
-    const allIncidents = useMemo(() => {
-        const combinedData = isSeparateSiblingsMode ? data : combineEntityDataWithSiblings(data);
+    // get filtered Incident as per the filter object
+    const getFilteredIncidents = useCallback(
+        (incidents: Incident[]) => {
+            const filteredIncidentData: IncidentTable = getFilteredTransformedIncidentData(incidents, selectedFilters);
+            setVisibleIncidents(filteredIncidentData);
+        },
+        [selectedFilters],
+    );
 
-        const incidents =
+    useEffect(() => {
+        const combinedData = isSeparateSiblingsMode ? data : combineEntityDataWithSiblings(data);
+        const allIncidents =
             (combinedData &&
                 (combinedData as any).entity?.incidents?.incidents?.map((incident) => incident as Incident)) ||
             [];
-
-        return incidents.map((incident) => incident as Incident);
-    }, [data, isSeparateSiblingsMode]);
-
-    const filteredIncidentTable = useMemo(() => {
-        return getFilteredTransformedIncidentData(allIncidents, selectedFilters);
-    }, [allIncidents, selectedFilters]);
-
-    useEffect(() => {
         setAllIncidentData(allIncidents);
-        setVisibleIncidents(filteredIncidentTable);
-    }, [allIncidents, filteredIncidentTable]);
+        getFilteredIncidents(allIncidents);
+    }, [data, isSeparateSiblingsMode, getFilteredIncidents]);
 
     const handleFilterChange = useCallback((filter) => {
         setSelectedFilters(filter);
