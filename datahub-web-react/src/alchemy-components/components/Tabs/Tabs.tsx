@@ -52,7 +52,7 @@ const TabViewWrapper = styled.div`
 function TabView({ tab }: { tab: Tab }) {
     return (
         <Tooltip title={tab.tooltip}>
-            <TabViewWrapper>
+            <TabViewWrapper id={tab.id}>
                 {tab.name}
                 {!!tab.count && <Pill label={`${tab.count}`} size="xs" color="violet" />}
             </TabViewWrapper>
