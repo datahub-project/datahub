@@ -277,6 +277,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                             isReadOnly={!!isReadOnly}
                             handleClearSelection={handleClearSelection}
                             showClear={!!showClear}
+                            fontSize={size}
                         />
                     </SelectBase>
                 </Dropdown>

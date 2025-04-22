@@ -1,60 +1,24 @@
-import { Dropdown, Icon } from '@components';
+import { Dropdown } from '@components';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { NestedOption } from '@components/components/Select/Nested/NestedOption';
 import { NestedSelectOption } from '@components/components/Select/Nested/types';
 import { filterNestedSelectOptions } from '@components/components/Select/Nested/utils';
 import {
-    ActionButtonsContainer,
     Container,
     DropdownContainer,
     OptionList,
     SelectBase,
     SelectLabel,
-    StyledClearButton,
 } from '@components/components/Select/components';
 import DropdownFooterActions from '@components/components/Select/private/DropdownFooterActions';
 import DropdownSearchBar from '@components/components/Select/private/DropdownSearchBar';
+import SelectActionButtons from '@components/components/Select/private/SelectActionButtons';
 import SelectLabelRenderer from '@components/components/Select/private/SelectLabelRenderer/SelectLabelRenderer';
 import useSelectDropdown from '@components/components/Select/private/hooks/useSelectDropdown';
 import { CustomOptionRenderer, SelectLabelProps, SelectSizeOptions } from '@components/components/Select/types';
 
 const NO_PARENT_VALUE = 'no_parent_value';
-
-export interface ActionButtonsProps<OptionType extends NestedSelectOption = NestedSelectOption> {
-    fontSize?: SelectSizeOptions;
-    selectedOptions: OptionType[];
-    isOpen: boolean;
-    isDisabled: boolean;
-    isReadOnly: boolean;
-    handleClearSelection: () => void;
-    showClear?: boolean;
-}
-
-const SelectActionButtons = <OptionType extends NestedSelectOption = NestedSelectOption>({
-    selectedOptions,
-    isOpen,
-    isDisabled,
-    isReadOnly,
-    handleClearSelection,
-    fontSize = 'md',
-    showClear = false,
-}: ActionButtonsProps<OptionType>) => {
-    return (
-        <ActionButtonsContainer>
-            {showClear && !!selectedOptions.length && !isDisabled && !isReadOnly && (
-                <StyledClearButton
-                    icon={{ icon: 'Close', source: 'material', size: 'lg' }}
-                    isCircle
-                    onClick={handleClearSelection}
-                    size={fontSize}
-                    data-testid="dropdown-option-clear-icon"
-                />
-            )}
-            <Icon icon="CaretDown" source="phosphor" rotate={isOpen ? '180' : '0'} size="md" color="gray" />
-        </ActionButtonsContainer>
-    );
-};
 
 export interface SelectProps<OptionType extends NestedSelectOption = NestedSelectOption> {
     options: OptionType[];
@@ -339,7 +303,7 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
                             {...(selectLabelProps || {})}
                         />
                         <SelectActionButtons
-                            selectedOptions={selectedOptions}
+                            hasSelectedValues={selectedOptions.length > 0}
                             isOpen={isOpen}
                             isDisabled={!!isDisabled}
                             isReadOnly={!!isReadOnly}

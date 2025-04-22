@@ -193,6 +193,7 @@ export default function AutoCompleteSelect<T>({
                             isDisabled={!!isDisabled}
                             isReadOnly={!!isReadOnly}
                             handleClearSelection={handleClearSelection}
+                            fontSize={size}
                             showClear
                         />
                     </SelectBase>
