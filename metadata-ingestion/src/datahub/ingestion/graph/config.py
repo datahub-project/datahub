@@ -17,3 +17,4 @@ class DatahubClientConfig(ConfigModel):
     ca_certificate_path: Optional[str] = None
     client_certificate_path: Optional[str] = None
     disable_ssl_verification: bool = False
+    openapi_ingestion: Optional[bool] = None
