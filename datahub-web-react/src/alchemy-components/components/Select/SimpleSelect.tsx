@@ -287,6 +287,7 @@ export const SimpleSelect = ({
                             isDisabled={!!isDisabled}
                             isReadOnly={!!isReadOnly}
                             handleClearSelection={handleClearSelection}
+                            fontSize={size}
                             showClear={!!showClear}
                         />
                     </SelectBase>
