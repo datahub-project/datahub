@@ -19,15 +19,14 @@ from tests.test_helpers.state_helpers import (
     validate_all_providers_have_committed_successfully,
 )
 
+logger = logging.getLogger(__name__)
+
 pytestmark = pytest.mark.integration_batch_1
 FROZEN_TIME = "2021-10-25 13:00:00"
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
 KAFKA_CONNECT_SERVER = "http://localhost:28083"
 KAFKA_CONNECT_ENDPOINT = f"{KAFKA_CONNECT_SERVER}/connectors"
-
-
-logger = logging.getLogger(__name__)
 
 
 def check_connectors_ready(
@@ -44,14 +43,12 @@ def check_connectors_ready(
         bool: True if all connectors are running, False otherwise
     """
     try:
-        # First check if the API is responsive
+        # Check connector plugins are installed
         response = requests.get(f"{server_url}/connector-plugins")
         logger.debug(
             f"check-connectors-ready: connector-plugins: {response.status_code} {response.json()}"
         )
-        if response.status_code != 200:
-            return False
-
+        response.raise_for_status()
         if not response.json():
             return False
 
@@ -63,39 +60,33 @@ def check_connectors_ready(
         logger.debug(
             f"check-connectors-ready: connector: {connectors_response.status_code} {connectors_response.json()}"
         )
-        if connectors_response.status_code != 200:
-            return False
-
+        connectors_response.raise_for_status()
         connectors = connectors_response.json()
         if not connectors:  # Empty list means no connectors yet
             return False
 
-        # Check status of each connector
-        all_running = True
         for connector in connectors:
-            # These connectors can be in FAILED state and still work for tests:
+            # Based on experience, these connectors can be in FAILED state and still work for tests:
             if connector in ["mysql_sink", "bigquery-sink-connector"]:
                 logger.debug(
                     f"check-connectors-ready: skipping validation for {connector} as it can be in FAILED state for tests"
                 )
                 continue
 
+            # Check status of each connector
             status_response = requests.get(
                 f"{server_url}/connectors/{connector}/status"
             )
             logger.debug(
                 f"check-connectors-ready: connector {connector}: {status_response.status_code} {status_response.json()}"
             )
-            if status_response.status_code != 200:
-                return False
-
+            status_response.raise_for_status()
             status = status_response.json()
             if status.get("connector", {}).get("state") != "RUNNING":
                 logger.debug(
                     f"check-connectors-ready: connector {connector} is not running"
                 )
-                all_running = False
-                break
+                return False
 
             # Check all tasks are running
             for task in status.get("tasks", []):
@@ -103,13 +94,24 @@ def check_connectors_ready(
                     logger.debug(
                         f"check-connectors-ready: connector {connector} task {task} is not running"
                     )
-                    all_running = False
-                    break
+                    return False
 
-            if not all_running:
-                break
+            # Check topics were provisioned
+            topics_response = requests.get(
+                f"{server_url}/connectors/{connector}/topics"
+            )
+            topics_response.raise_for_status()
+            topics_data = topics_response.json()
 
-        return all_running
+            if topics_data and topics_data.get(connector, {}).get("topics"):
+                logger.debug(
+                    f"Connector {connector} topics: {topics_data[connector]['topics']}"
+                )
+            else:
+                logger.debug(f"Connector {connector} topics not found yet!")
+                return False
+
+        return True
     except Exception as e:  # This will catch any exception and return False
         logger.debug(f"check-connectors-ready: exception: {e}")
         return False
@@ -340,6 +342,14 @@ def loaded_kafka_connect(kafka_connect_runner):
     r.raise_for_status()
     assert r.status_code == 201  # Created
 
+    print("Populating MongoDB with test data...")
+    # we populate the database before creating the connector
+    # and we use copy_existing mode to copy the data from the database to the kafka topic
+    # so ingestion is consistent and deterministic
+    command = "docker exec test_mongo mongosh test_db -f /scripts/mongo-populate.js"
+    ret = subprocess.run(command, shell=True, capture_output=True)
+    assert ret.returncode == 0
+
     # Creating MongoDB source
     r = requests.post(
         KAFKA_CONNECT_ENDPOINT,
@@ -351,17 +361,13 @@ def loaded_kafka_connect(kafka_connect_runner):
                 "connection.uri": "mongodb://test_mongo:27017",
                 "topic.prefix": "mongodb",
                 "database": "test_db",
-                "collection": "purchases"
+                "collection": "purchases",
+                "startup.mode": "copy_existing"
             }
         }""",
     )
     r.raise_for_status()
     assert r.status_code == 201  # Created
-
-    print("Populating MongoDB with test data...")
-    command = "docker exec test_mongo mongosh test_db -f /scripts/mongo-populate.js"
-    ret = subprocess.run(command, shell=True, capture_output=True)
-    assert ret.returncode == 0
 
     # Creating S3 Sink source
     r = requests.post(
