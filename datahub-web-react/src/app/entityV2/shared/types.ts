@@ -63,7 +63,8 @@ export type EntityTab = {
     };
     properties?: any;
     id?: string;
-    getDynamicName?: (GenericEntityProperties, T, loading: boolean) => ReactElement;
+    getCount?: (GenericEntityProperties, T, loading: boolean) => number | undefined;
+    // getDynamicName?: (GenericEntityProperties, T, loading: boolean) => ReactElement;
 };
 
 export type EntitySidebarTab = {

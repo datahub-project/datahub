@@ -155,7 +155,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Columns',
                     component: SchemaTab,
                     icon: LayoutOutlined,
-                    getDynamicName: ColumnTabNameHeader,
+                    getCount: ColumnTabNameHeader,
                 },
                 {
                     name: 'View Definition',

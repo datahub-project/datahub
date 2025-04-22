@@ -1,9 +1,12 @@
-import { Tabs } from 'antd';
+import { Tabs } from '@components';
+import { Tabs as AntTabs } from 'antd';
 import React, { useEffect } from 'react';
 import styled from 'styled-components/macro';
 
+import { Tab } from '@components/components/Tabs/Tabs';
+
 import { useBaseEntity, useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
-import { EntityTab } from '@app/entityV2/shared/types';
+import { EntityTab, TabContextType, TabRenderType } from '@app/entityV2/shared/types';
 
 type Props = {
     tabs: EntityTab[];
@@ -15,7 +18,7 @@ const Header = styled.div`
     align-items: center;
 `;
 
-const UnborderedTabs = styled(Tabs)`
+const UnborderedTabs = styled(AntTabs)`
     width: 100%;
     padding: 12px 14px 10px 12px;
 
@@ -65,10 +68,22 @@ const UnborderedTabs = styled(Tabs)`
     background-color: #ffffff;
 `;
 
-const Tab = styled(Tabs.TabPane)`
-    font-size: 10px;
-    line-height: normal;
-    font-weight: 400;
+// const Tab = styled(AntTabs.TabPane)`
+//     font-size: 10px;
+//     line-height: normal;
+//     font-weight: 400;
+// `;
+
+const TabContent = styled.div`
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: auto;
+    height: 100%;
+`;
+
+const TabsWrapper = styled.div`
+    padding: 8px;
 `;
 
 const tabIconStyle = { fontSize: 14, marginRight: 6 };
@@ -86,42 +101,60 @@ export const EntityTabs = <T,>({ tabs, selectedTab }: Props) => {
         }
     }, [loading, enabledTabs, selectedTab, routeToTab]);
 
-    return (
-        <UnborderedTabs
-            animated={false}
-            activeKey={selectedTab?.name || ''}
-            size="large"
-            onTabClick={(tab: string) => routeToTab({ tabName: tab })}
-        >
-            {tabs.map((tab) => {
-                const TabIcon = tab.icon;
-                const tabName = (tab.getDynamicName && tab.getDynamicName(entityData, baseEntity, loading)) || tab.name;
-                if (!tab.display?.enabled(entityData, baseEntity)) {
-                    return (
-                        <Tab
-                            tab={
-                                <span data-testid={`${tab.name}-entity-tab-header`}>
-                                    {TabIcon && <TabIcon style={tabIconStyle} />}
-                                    {tab.name}
-                                </span>
-                            }
-                            key={tab.name}
-                            disabled
-                        />
-                    );
-                }
-                return (
-                    <Tab
-                        tab={
-                            <Header data-testid={`${tab.name}-entity-tab-header`}>
-                                {TabIcon && <TabIcon style={tabIconStyle} />}
-                                {tabName}
-                            </Header>
-                        }
-                        key={tab.name}
-                    />
-                );
-            })}
-        </UnborderedTabs>
-    );
+    const finalTabs: Tab[] = tabs.map((t) => ({
+        key: t.name,
+        name: t.name,
+        component: (
+            <TabContent>
+                <t.component
+                    properties={t.properties}
+                    contextType={TabContextType.PROFILE}
+                    renderType={TabRenderType.DEFAULT}
+                />
+            </TabContent>
+        ),
+        disabled: !t.display?.enabled(entityData, baseEntity),
+        dataTestId: `${t.name}-entity-tab-header`,
+        count: t.getCount?.(entityData, baseEntity, loading),
+    }));
+
+    return <Tabs onChange={(t) => routeToTab({ tabName: t })} selectedTab={selectedTab?.name} tabs={finalTabs} />;
+    // return (
+    //     <UnborderedTabs
+    //         animated={false}
+    //         activeKey={selectedTab?.name || ''}
+    //         size="large"
+    //         onTabClick={(tab: string) => routeToTab({ tabName: tab })}
+    //     >
+    //         {tabs.map((tab) => {
+    //             const TabIcon = tab.icon;
+    //             const tabName = (tab.getDynamicName && tab.getDynamicName(entityData, baseEntity, loading)) || tab.name;
+    //             if (!tab.display?.enabled(entityData, baseEntity)) {
+    //                 return (
+    //                     <Tab
+    //                         tab={
+    //                             <span data-testid={`${tab.name}-entity-tab-header`}>
+    //                                 {TabIcon && <TabIcon style={tabIconStyle} />}
+    //                                 {tab.name}
+    //                             </span>
+    //                         }
+    //                         key={tab.name}
+    //                         disabled
+    //                     />
+    //                 );
+    //             }
+    //             return (
+    //                 <Tab
+    //                     tab={
+    //                         <Header data-testid={`${tab.name}-entity-tab-header`}>
+    //                             {TabIcon && <TabIcon style={tabIconStyle} />}
+    //                             {tabName}
+    //                         </Header>
+    //                     }
+    //                     key={tab.name}
+    //                 />
+    //             );
+    //         })}
+    //     </UnborderedTabs>
+    // );
 };

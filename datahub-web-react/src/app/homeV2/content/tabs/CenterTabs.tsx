@@ -37,7 +37,7 @@ export const CenterTabs = () => {
             {showSkeleton ? (
                 <SkeletonButton shape="square" size="large" active />
             ) : (
-                <Tabs selectedTab={selectedTab} onChange={setSelectedTab} tabs={activeTabs} />
+                <Tabs selectedTab={selectedTab} onChange={setSelectedTab} tabs={activeTabs} removePaddingLeft />
             )}
         </Container>
     );

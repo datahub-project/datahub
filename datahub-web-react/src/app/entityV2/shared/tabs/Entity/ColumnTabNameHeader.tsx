@@ -7,7 +7,7 @@ const ColumnTabNameHeader = () => {
     const { entityWithSchema, loading } = useGetEntityWithSchema();
     const fieldsCount = entityWithSchema?.schemaMetadata?.fields?.length || 0;
 
-    return <TabNameWithCount name="Columns" count={fieldsCount} loading={loading} />;
+    return !loading ? fieldsCount : undefined;
 };
 
 export default ColumnTabNameHeader;

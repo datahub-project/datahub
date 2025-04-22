@@ -155,6 +155,7 @@ const Body = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 `;
 
 const BodyContent = styled.div<{ $isShowNavBarRedesign?: boolean }>`
+    padding-top: 8px;
     background-color: #ffffff;
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
@@ -401,11 +402,11 @@ export const EntityProfile = <T, U>({
                                     <Body $isShowNavBarRedesign={isShowNavBarRedesign}>
                                         <BodyContent $isShowNavBarRedesign={isShowNavBarRedesign}>
                                             {!isTabFullsize && (
-                                                <TabsWrapper>
-                                                    <EntityTabs tabs={visibleTabs} selectedTab={routedTab} />
-                                                </TabsWrapper>
+                                                // <TabsWrapper>
+                                                // </TabsWrapper>
+                                                <EntityTabs tabs={visibleTabs} selectedTab={routedTab} />
                                             )}
-                                            <TabContent>
+                                            {/* <TabContent>
                                                 {routedTab && (
                                                     <routedTab.component
                                                         properties={routedTab.properties}
@@ -413,7 +414,7 @@ export const EntityProfile = <T, U>({
                                                         renderType={TabRenderType.DEFAULT}
                                                     />
                                                 )}
-                                            </TabContent>
+                                            </TabContent> */}
                                         </BodyContent>
                                     </Body>
                                 </HeaderAndTabsFlex>

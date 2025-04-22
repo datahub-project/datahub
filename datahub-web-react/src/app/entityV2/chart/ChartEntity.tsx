@@ -195,9 +195,8 @@ export class ChartEntity implements Entity<Chart> {
                 },
                 {
                     name: 'Incidents',
-                    getDynamicName: (_, chart, loading) => {
-                        const activeIncidentCount = chart?.chart?.activeIncidents?.total;
-                        return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
+                    getCount: (_, chart, loading) => {
+                        return !loading ? chart?.chart?.activeIncidents?.total : undefined;
                     },
                     icon: WarningOutlined,
                     component: IncidentTab,
