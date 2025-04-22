@@ -22,16 +22,15 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws.s3_boto_utils import get_s3_tags
 from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
     get_bucket_relative_path,
     strip_s3_prefix,
 )
-
-# from datahub.ingestion.source.azure.abs_folder_utils import (
-#     get_abs_properties,
-#     get_abs_tags,
-# )
+from datahub.ingestion.source.azure.abs_folder_utils import (
+    get_abs_tags,
+)
 from datahub.ingestion.source.azure.abs_utils import (
     get_container_relative_path,
     strip_abs_prefix,
@@ -49,10 +48,13 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.common import TimeStamp
 from datahub.metadata.schema_classes import (
     BooleanTypeClass,
+    ChangeTypeClass,
     DatasetPropertiesClass,
     DateTypeClass,
+    GlobalTagsClass,
     NullTypeClass,
     NumberTypeClass,
     OtherSchemaClass,
@@ -290,6 +292,26 @@ class ExcelSource(StatefulIngestionSourceBase):
             )
             return None
 
+    def process_s3_tags(
+        self, path_spec: str, dataset_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        bucket_name = get_bucket_name(path_spec)
+        key = get_bucket_relative_path(path_spec)
+
+        s3_tags = get_s3_tags(
+            bucket_name,
+            key,
+            dataset_urn,
+            self.config.aws_config,
+            self.ctx,
+            self.config.use_s3_bucket_tags,
+            self.config.use_s3_object_tags,
+            self.config.verify_ssl,
+        )
+
+        if s3_tags:
+            yield from self.process_global_tags(s3_tags, dataset_urn)
+
     def abs_browser(self, path_spec: str) -> Iterable[BrowsePath]:
         if self.config.azure_config is None:
             raise ValueError("azure_config not set. Cannot browse Azure Blob Storage")
@@ -346,6 +368,28 @@ class ExcelSource(StatefulIngestionSourceBase):
             )
             return None
 
+    def process_abs_tags(
+        self, path_spec: str, dataset_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        if (
+            self.config.azure_config
+            and self.config.azure_config.container_name is not None
+        ):
+            container_name = self.config.azure_config.container_name
+            blob_path = get_container_relative_path(path_spec)
+
+            abs_tags = get_abs_tags(
+                container_name,
+                blob_path,
+                dataset_urn,
+                self.config.azure_config,
+                self.ctx,
+                self.config.use_abs_blob_tags,
+            )
+
+            if abs_tags:
+                yield from self.process_global_tags(abs_tags, dataset_urn)
+
     @staticmethod
     def get_field_type(field_type: str) -> SchemaFieldDataType:
         type_class = field_type_mapping.get(field_type, NullTypeClass)
@@ -394,11 +438,27 @@ class ExcelSource(StatefulIngestionSourceBase):
             result[key] = str(value)
         return result
 
+    @staticmethod
+    def process_global_tags(
+        global_tags: GlobalTagsClass, dataset_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        yield MetadataChangeProposalWrapper(
+            entityType="dataset",
+            entityUrn=dataset_urn,
+            aspect=global_tags,
+            changeType=ChangeTypeClass.UPSERT,
+        ).as_workunit()
+
     def process_dataset(
-        self, path: str, filename: str, table: ExcelTable
+        self,
+        relative_path: str,
+        full_path: str,
+        filename: str,
+        table: ExcelTable,
+        source_type: UriType,
     ) -> Iterable[MetadataWorkUnit]:
         dataset_name = gen_dataset_name(
-            filename, table.sheet_name, self.config.convert_urns_to_lowercase
+            relative_path, table.sheet_name, self.config.convert_urns_to_lowercase
         )
         dataset_urn = make_dataset_urn_with_platform_instance(
             platform=self.platform,
@@ -408,9 +468,17 @@ class ExcelSource(StatefulIngestionSourceBase):
         )
 
         attributes = self.get_dataset_attributes(table.metadata)
+        created: Optional[datetime] = table.metadata.get("created")
+        modified: Optional[datetime] = table.metadata.get("modified")
         dataset_properties = DatasetPropertiesClass(
             tags=[],
             customProperties=attributes,
+            created=(
+                TimeStamp(time=int(created.timestamp() * 1000)) if created else None
+            ),
+            lastModified=(
+                TimeStamp(time=int(modified.timestamp() * 1000)) if modified else None
+            ),
         )
 
         schema_metadata = self.construct_schema_metadata(
@@ -429,8 +497,15 @@ class ExcelSource(StatefulIngestionSourceBase):
         ).as_workunit()
 
         yield from self.container_WU_creator.create_container_hierarchy(
-            path, dataset_urn
+            relative_path, dataset_urn
         )
+
+        if source_type == UriType.S3 and (
+            self.config.use_s3_bucket_tags or self.config.use_s3_object_tags
+        ):
+            yield from self.process_s3_tags(full_path, dataset_urn)
+        elif source_type == UriType.ABS and self.config.use_abs_blob_tags:
+            yield from self.process_abs_tags(full_path, dataset_urn)
 
         if self.config.is_profiling_enabled():
             profiler = ExcelProfiler(
@@ -440,12 +515,17 @@ class ExcelSource(StatefulIngestionSourceBase):
                 filename,
                 table.sheet_name,
                 dataset_urn,
-                path,
+                relative_path,
             )
             yield from profiler.get_workunits()
 
     def process_file(
-        self, file_content: BytesIO, path: str, filename: str
+        self,
+        file_content: BytesIO,
+        relative_path: str,
+        full_path: str,
+        filename: str,
+        source_type: UriType,
     ) -> Iterable[MetadataWorkUnit]:
         xls = ExcelFile(filename, file_content, self.report)
         result = xls.load_workbook()
@@ -453,12 +533,16 @@ class ExcelSource(StatefulIngestionSourceBase):
         if result:
             for table in xls.get_tables(active_only=self.config.active_sheet_only):
                 dataset_name = gen_dataset_name(
-                    filename, table.sheet_name, self.config.convert_urns_to_lowercase
+                    relative_path,
+                    table.sheet_name,
+                    self.config.convert_urns_to_lowercase,
                 )
                 if not self.config.worksheet_pattern.allowed(dataset_name):
                     self.report.report_dropped(dataset_name)
                     continue
-                yield from self.process_dataset(path, filename, table)
+                yield from self.process_dataset(
+                    relative_path, full_path, filename, table, source_type
+                )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.container_WU_creator = ContainerWUCreator(
@@ -496,7 +580,13 @@ class ExcelSource(StatefulIngestionSourceBase):
                             file_content = f.read()
                         bytes_io = io.BytesIO(file_content)
 
-                        yield from self.process_file(bytes_io, file_path, filename)
+                        yield from self.process_file(
+                            bytes_io,
+                            file_path,
+                            browse_path.file,
+                            filename,
+                            UriType.LOCAL_FILE,
+                        )
 
                 elif uri_type == UriType.S3 or uri_type == UriType.S3A:
                     logger.debug(f"Searching S3 path: {path}")
@@ -520,7 +610,9 @@ class ExcelSource(StatefulIngestionSourceBase):
                         if file_data is None:
                             continue
 
-                        yield from self.process_file(file_data, uri_path, filename)
+                        yield from self.process_file(
+                            file_data, uri_path, browse_path.file, filename, UriType.S3
+                        )
 
                 elif uri_type == UriType.ABS:
                     logger.debug(f"Searching Azure Blob Storage path: {path}")
@@ -544,7 +636,9 @@ class ExcelSource(StatefulIngestionSourceBase):
                         if file_data is None:
                             continue
 
-                        yield from self.process_file(file_data, uri_path, filename)
+                        yield from self.process_file(
+                            file_data, uri_path, browse_path.file, filename, UriType.ABS
+                        )
 
             time_taken = timer.elapsed_seconds()
 

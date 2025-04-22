@@ -31,11 +31,12 @@ class ExcelSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     )
 
     use_s3_bucket_tags: Optional[bool] = Field(
-        None, description="Whether or not to create tags in datahub from the s3 bucket"
+        default=False,
+        description="Whether or not to create tags in datahub from the s3 bucket",
     )
 
     use_s3_object_tags: Optional[bool] = Field(
-        None,
+        default=False,
         description="Whether or not to create tags in datahub from the s3 object",
     )
 
@@ -48,19 +49,9 @@ class ExcelSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         default=None, description="Azure configuration"
     )
 
-    use_abs_container_properties: Optional[bool] = Field(
-        None,
-        description="Whether to create tags in datahub from the abs container properties",
-    )
-    # Whether to create Datahub Azure blob tags
     use_abs_blob_tags: Optional[bool] = Field(
-        None,
+        default=False,
         description="Whether to create tags in datahub from the abs blob tags",
-    )
-    # Whether to create Datahub Azure blob properties
-    use_abs_blob_properties: Optional[bool] = Field(
-        None,
-        description="Whether to create tags in datahub from the abs blob properties",
     )
 
     convert_urns_to_lowercase: bool = Field(

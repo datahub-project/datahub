@@ -99,7 +99,7 @@ class ExcelProfiler:
         if (
             not self.config.profile_pattern.allowed(
                 gen_dataset_name(
-                    self.filename,
+                    self.path,
                     self.sheet_name,
                     self.config.convert_urns_to_lowercase,
                 )
@@ -184,7 +184,7 @@ class ExcelProfiler:
     def collect_column_data(self, profile_data: ProfileData) -> ProfileData:
         dropped_fields = set()
         dataset_name = gen_dataset_name(
-            self.filename, self.sheet_name, self.config.convert_urns_to_lowercase
+            self.path, self.sheet_name, self.config.convert_urns_to_lowercase
         )
 
         logger.info(f"Attempting to profile dataset {dataset_name}")
