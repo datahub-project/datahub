@@ -6,8 +6,8 @@ library to extract metadata from them. The recipe for the source consists of 2 p
 1. `catalog` part which is passed as-is to the `pyiceberg` library and configures the connection and its details (i.e. authentication).
    The name of catalog specified in the recipe has no consequence, it is just a formal requirement from the library.
    Only one catalog will be considered for the ingestion.
-2. Other part consists of parameters, such as `env` or `stateful_ingestion` which are standard DataHub's ingestor
-   configuration parameters and are described in another chapter.
+2. The remaining configuration consists of parameters, such as `env` or `stateful_ingestion` which are standard
+   DataHub's ingestor configuration parameters and are described in the (Config Details)[#config-details] chapter.
 
 This chapter discusses various examples of setting up connection to a catalog, depending on underlying implementation.
 Iceberg is designed to have catalog and warehouse separated, which is reflected in how we configure it. It is especially
