@@ -67,7 +67,7 @@ buildscript {
   ext.logbackClassicJava8 = '1.2.12'
   ext.awsSdk2Version = '2.30.33'
 
-  ext.sentry = '8.2.0'
+  ext.sentry = '8.8.0'
 
   ext.docker_registry = '795586375822.dkr.ecr.us-west-2.amazonaws.com'
 
