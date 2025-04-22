@@ -1,7 +1,6 @@
 # Sources
 
-
-Sources are **the data systems that we are extracting metadata from.** 
+Sources are **the data systems that we are extracting metadata from.**
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sources-sinks.png"/>
@@ -9,17 +8,17 @@ Sources are **the data systems that we are extracting metadata from.**
 
 In general, the source will be defined at the top of the [recipe](./recipe_overview.md) like below.
 
-
 ```yaml
 #my_recipe.yml
-source: 
+source:
   type: <source_name>
-  config: 
+  config:
     option_1: <value>
     ...
 ```
 
 ## Types of Source
+
 The `Sources` tab on the left in the sidebar shows you all the sources that are available for you to ingest metadata from. For example, we have sources for [BigQuery](https://datahubproject.io/docs/generated/ingestion/sources/bigquery), [Looker](https://datahubproject.io/docs/generated/ingestion/sources/looker), [Tableau](https://datahubproject.io/docs/generated/ingestion/sources/tableau) and many others.
 
 :::tip Find an Integration Source

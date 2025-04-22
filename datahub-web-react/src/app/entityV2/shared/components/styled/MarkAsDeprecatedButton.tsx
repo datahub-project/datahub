@@ -1,11 +1,13 @@
 import React from 'react';
 import styled from 'styled-components';
+
 import { Button } from '@src/alchemy-components';
-import DeprecatedIcon from '../../../../../images/deprecated-status.svg?react';
+
+import DeprecatedIcon from '@images/deprecated-status.svg?react';
 
 const StyledButton = styled(Button)`
-    padding: 4px;
-    margin-top: -8px;
+    padding-left: 4px;
+    padding-right: 4px;
 `;
 
 const FlexContainer = styled.div`
@@ -45,7 +47,7 @@ export const MarkAsDeprecatedButtonContents = ({ internalText }: MarkAsDeprecate
 // Main Component
 const MarkAsDeprecatedButton = ({ onClick, internalText }: DeprecatedButtonProps) => {
     return (
-        <StyledButton onClick={onClick} variant="text">
+        <StyledButton onClick={onClick} variant="text" size="sm" color="gray">
             <MarkAsDeprecatedButtonContents internalText={internalText} />
         </StyledButton>
     );

@@ -1,8 +1,10 @@
+import { Button, Form, Input, Modal, Tooltip, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
-import { message, Button, Input, Modal, Typography, Form, Tooltip } from 'antd';
-import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
-import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
-import { useAppConfig } from '../../useAppConfig';
+
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useAppConfig } from '@app/useAppConfig';
+
+import { useUpdateCorpUserPropertiesMutation } from '@graphql/user.generated';
 
 type PropsData = {
     name: string | undefined;

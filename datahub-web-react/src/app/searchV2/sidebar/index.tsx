@@ -1,3 +1,3 @@
-import BrowseSidebar from './BrowseSidebar';
+import BrowseSidebar from '@app/searchV2/sidebar/BrowseSidebar';
 
 export default BrowseSidebar;

@@ -41,11 +41,15 @@ outputs:
   smoke-test-change:
     description: "Smoke test change"
     value: ${{ steps.filter.outputs.smoke-test == 'true' }}
+  actions-change:
+    description: "Actions code has changed"
+    value: ${{ steps.filter.outputs.actions == 'true' }}
+
 runs:
   using: "composite"
   steps:
     - name: Check trigger type
-      id: trigger  # Add an ID to reference this step
+      id: trigger # Add an ID to reference this step
       shell: bash
       run: |
         if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
@@ -97,3 +101,6 @@ runs:
             - "docker/elasticsearch-setup/**"
           smoke-test:
             - "smoke-test/**"
+          actions:
+            - "datahub-actions/**"
+            - "docker/datahub-actions/**"

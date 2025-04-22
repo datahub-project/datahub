@@ -1,6 +1,7 @@
 import React from 'react';
-import { Button, Text } from '@src/alchemy-components';
 import styled from 'styled-components';
+
+import { Button, Text } from '@src/alchemy-components';
 
 const Container = styled.div`
     display: flex;

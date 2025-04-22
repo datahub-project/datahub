@@ -1,11 +1,13 @@
 import { Tooltip } from '@components';
 import React, { useContext } from 'react';
 import styled from 'styled-components/macro';
-import { EntityPath, EntityType, LineageDirection, SchemaFieldEntity } from '../../../types.generated';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import ColumnsRelationshipText from './ColumnsRelationshipText';
-import DisplayedColumns from './DisplayedColumns';
-import { LineageTabContext } from '../../entityV2/shared/tabs/Lineage/LineageTabContext';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
+import ColumnsRelationshipText from '@app/previewV2/EntityPaths/ColumnsRelationshipText';
+import DisplayedColumns from '@app/previewV2/EntityPaths/DisplayedColumns';
+
+import { EntityPath, EntityType, LineageDirection, SchemaFieldEntity } from '@types';
 
 export const ResultText = styled.span`
     white-space: nowrap;

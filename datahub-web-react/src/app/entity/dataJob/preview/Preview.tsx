@@ -1,7 +1,13 @@
+import { ClockCircleOutlined } from '@ant-design/icons';
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Typography } from 'antd';
-import { ClockCircleOutlined } from '@ant-design/icons';
+
+import { IconStyleType } from '@app/entity/Entity';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
+import { toRelativeTimeString } from '@app/shared/time/timeUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import {
     DataProduct,
@@ -14,12 +20,7 @@ import {
     Owner,
     ParentContainersResult,
     SearchInsight,
-} from '../../../../types.generated';
-import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType } from '../../Entity';
-import { ANTD_GRAY } from '../../shared/constants';
-import { toRelativeTimeString } from '../../../shared/time/timeUtils';
+} from '@types';
 
 const StatText = styled(Typography.Text)`
     color: ${ANTD_GRAY[8]};

@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
-import { Typography, Button } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
+import { Button, Typography } from 'antd';
+import React, { useState } from 'react';
+
+import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
 // import { ExpandedOwner } from '../../../../../components/styled/ExpandedOwner/ExpandedOwner';
-import { EMPTY_MESSAGES } from '../../../../../constants';
-import { Owner, OwnershipType, OwnershipTypeEntity } from '../../../../../../../../types.generated';
-import { useEntityData, useMutationUrn, useRefetch } from '../../../../../EntityContext';
-import { SidebarHeader } from '../../SidebarHeader';
-import { EditOwnersModal } from '../EditOwnersModal';
-import { ENTITY_PROFILE_OWNERS_ID } from '../../../../../../../onboarding/config/EntityProfileOnboardingConfig';
-import { OwnershipTypeSection } from './OwnershipTypeSection';
-import { getOwnershipTypeName } from '../ownershipUtils';
+import { EMPTY_MESSAGES } from '@app/entity/shared/constants';
+import { EditOwnersModal } from '@app/entity/shared/containers/profile/sidebar/Ownership/EditOwnersModal';
+import { getOwnershipTypeName } from '@app/entity/shared/containers/profile/sidebar/Ownership/ownershipUtils';
+import { OwnershipTypeSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/OwnershipTypeSection';
+import { SidebarHeader } from '@app/entity/shared/containers/profile/sidebar/SidebarHeader';
+import { ENTITY_PROFILE_OWNERS_ID } from '@app/onboarding/config/EntityProfileOnboardingConfig';
+
+import { Owner, OwnershipType, OwnershipTypeEntity } from '@types';
 
 interface Props {
     properties?: any;

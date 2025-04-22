@@ -1,9 +1,11 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import { ANTD_GRAY } from '../../../entityV2/shared/constants';
-import { Post } from '../../../../types.generated';
-import { Editor } from '../../../entityV2/shared/tabs/Documentation/components/editor/Editor';
-import { toRelativeTimeString } from '../../../shared/time/timeUtils';
+
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
+import { toRelativeTimeString } from '@app/shared/time/timeUtils';
+
+import { Post } from '@types';
 
 const Content = styled.div`
     max-height: 368px;

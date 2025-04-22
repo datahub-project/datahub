@@ -1,12 +1,18 @@
+import { Image, Typography } from 'antd';
+import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';
-import { Typography, Image } from 'antd';
+
+import ContainerLink from '@app/entityV2/shared/containers/profile/header/PlatformContent/ContainerLink';
+import {
+    Ellipsis,
+    ParentNodesWrapper as ParentContainersWrapper,
+    StyledTooltip,
+} from '@app/entityV2/shared/containers/profile/header/PlatformContent/ParentNodesView';
+import ParentEntities from '@app/search/filters/ParentEntities';
 import { useIsShowSeparateSiblingsEnabled } from '@src/app/useAppConfig';
-import { Maybe } from 'graphql/jsutils/Maybe';
-import { Container, Entity } from '../../../../../../../types.generated';
-import ContainerLink from './ContainerLink';
-import { ParentNodesWrapper as ParentContainersWrapper, Ellipsis, StyledTooltip } from './ParentNodesView';
-import ParentEntities from '../../../../../../search/filters/ParentEntities';
+
+import { Container, Entity } from '@types';
 
 const LogoIcon = styled.span`
     display: flex;

@@ -1,8 +1,14 @@
 import styled from 'styled-components';
-import { borders, colors, spacing, transform, zIndices, radius } from '@components/theme';
+
+import {
+    getCheckboxColor,
+    getCheckboxHoverBackgroundColor,
+    getCheckboxSize,
+} from '@components/components/Checkbox/utils';
+import { formLabelTextStyles } from '@components/components/commonStyles';
+import { borders, colors, radius, spacing, transform, zIndices } from '@components/theme';
+
 import { SizeOptions } from '@src/alchemy-components/theme/config';
-import { getCheckboxColor, getCheckboxHoverBackgroundColor, getCheckboxSize } from './utils';
-import { formLabelTextStyles } from '../commonStyles';
 
 export const CheckboxContainer = styled.div({
     display: 'flex',
