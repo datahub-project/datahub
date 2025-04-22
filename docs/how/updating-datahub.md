@@ -45,12 +45,13 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 - #12716: Fix the `platform_instance` being added twice to the URN. If you want to have the previous behavior back, you need to add your platform_instance twice (i.e. `plat.plat`).
 
-- #12797: Previously endpoints when used in ASYNC mode would not validate URNs, entity & aspect names immediately. Starting with this release, even in ASYNC mode, these requests will be returned with http code 400.
+- #12797: Previously endpoints when used in ASYNC mode would not validate URNs, entity & aspect names immediately. Starting with this release, even in ASYNC mode, these requests will be returned with http code 4xx. This includes URN, Entity Type names, Entity & Aspect names.
 
 ### Known Issues
 
 - #12601: Jetty 12 introduces a stricter handling of url encoding. We are currently applying a workaround to prevent a regression, while technically breaking the official specifications.
 - #12714: API Tracing requires at least one mutation of the aspect being updated using this version of DataHub.
+- #12797: See Breaking Change above. Entity Type names are case sensitive, this will result in 4xx exceptions when this rule is violated.
 
 ### Potential Downtime
 

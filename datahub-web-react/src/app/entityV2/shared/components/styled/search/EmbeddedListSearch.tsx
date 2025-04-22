@@ -1,5 +1,5 @@
 import { ApolloError } from '@apollo/client';
-import React, { useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -14,6 +14,7 @@ import {
     GetSearchResultsParams,
     SearchResultsInterface,
 } from '@app/entityV2/shared/components/styled/search/types';
+import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
 import { isListSubset } from '@app/entityV2/shared/utils';
 import { DEGREE_FILTER_NAME, UnionType } from '@app/search/utils/constants';
 import { mergeFilterSets } from '@app/search/utils/filterUtils';
@@ -183,6 +184,7 @@ export const EmbeddedListSearch = ({
         finalFilters = combineOrFilters(fixedOrFilters, finalFilters);
     }
 
+    const { setLineageSearchPath, lineageSearchPath } = useContext(LineageTabContext);
     const [showFilters, setShowFilters] = useState(defaultShowFilters || false);
     const [isSelectMode, setIsSelectMode] = useState(false);
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
@@ -230,6 +232,13 @@ export const EmbeddedListSearch = ({
         variables: { input: searchInput },
         fetchPolicy: skipCache ? undefined : 'cache-first',
     });
+    const searchPath = data?.lineageSearchPath;
+
+    useEffect(() => {
+        if (searchPath && lineageSearchPath !== searchPath) {
+            setLineageSearchPath?.(searchPath);
+        }
+    }, [searchPath, lineageSearchPath, setLineageSearchPath]);
 
     const useGetViewSearchData = (viewUrn: string | undefined) => {
         return useGetSearchCountResult({
