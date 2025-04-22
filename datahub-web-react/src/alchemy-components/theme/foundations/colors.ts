@@ -66,7 +66,7 @@ const colors = {
         200: '#F2C1C1',
         300: '#ECA5A5',
         400: '#E99393',
-        500: '#E37878', // primary value
+        500: '#CD0D24', // primary value
         600: '#CF6D6D',
         700: '#A15555',
         800: '#7D4242',
