@@ -12,6 +12,7 @@ import {
     AUTOCOMPLETE_DROPDOWN_ALIGN_WITH_NEW_NAV_BAR,
     BOX_SHADOW,
 } from '@app/searchV2/searchBarV2/constants';
+import useFiltersMapFromQueryParams from '@app/searchV2/searchBarV2/hooks/useFiltersMapFromQueryParams';
 import useFocusElementByCommandK from '@app/searchV2/searchBarV2/hooks/useFocusSearchBarByCommandK';
 import useOptions from '@app/searchV2/searchBarV2/hooks/useOptions';
 import { useSearchBarData } from '@app/searchV2/searchBarV2/hooks/useSearchBarData';
@@ -51,7 +52,9 @@ export const SearchBarV2 = ({
 
     const [searchQuery, setSearchQuery] = useState<string>(initialQuery || '');
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
-    const { appliedFilters, hasAppliedFilters, flatAppliedFilters, clear, updateFieldFilters } = useAppliedFilters();
+    const filtersFromQueryParams = useFiltersMapFromQueryParams();
+    const { appliedFilters, hasAppliedFilters, flatAppliedFilters, clear, updateFieldFilters } =
+        useAppliedFilters(filtersFromQueryParams);
     const { hasSelectedView, clearSelectedView } = useSelectedView();
     const {
         entitiesWithMatchedFields,
