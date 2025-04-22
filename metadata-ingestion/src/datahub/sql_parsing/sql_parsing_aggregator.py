@@ -32,6 +32,7 @@ from datahub.metadata.urns import (
     SchemaFieldUrn,
     Urn,
 )
+from datahub.sql_parsing.fingerprint_utils import generate_hash
 from datahub.sql_parsing.schema_resolver import (
     SchemaResolver,
     SchemaResolverInterface,
@@ -49,7 +50,6 @@ from datahub.sql_parsing.sqlglot_lineage import (
 )
 from datahub.sql_parsing.sqlglot_utils import (
     _parse_statement,
-    generate_hash,
     get_query_fingerprint,
     try_format_query,
 )
@@ -154,6 +154,47 @@ class QueryMetadata:
             or 0,
             actor=(self.actor or _DEFAULT_USER_URN).urn(),
         )
+
+    def get_subjects(
+        self,
+        downstream_urn: Optional[str],
+        include_fields: bool,
+    ) -> List[UrnStr]:
+        query_subject_urns = OrderedSet[UrnStr]()
+        for upstream in self.upstreams:
+            query_subject_urns.add(upstream)
+            if include_fields:
+                for column in sorted(self.column_usage.get(upstream, [])):
+                    query_subject_urns.add(
+                        builder.make_schema_field_urn(upstream, column)
+                    )
+        if downstream_urn:
+            query_subject_urns.add(downstream_urn)
+            if include_fields:
+                for column_lineage in self.column_lineage:
+                    query_subject_urns.add(
+                        builder.make_schema_field_urn(
+                            downstream_urn, column_lineage.downstream.column
+                        )
+                    )
+        return list(query_subject_urns)
+
+    def make_query_properties(self) -> models.QueryPropertiesClass:
+        return models.QueryPropertiesClass(
+            statement=models.QueryStatementClass(
+                value=self.formatted_query_string,
+                language=models.QueryLanguageClass.SQL,
+            ),
+            source=models.QuerySourceClass.SYSTEM,
+            created=self.make_created_audit_stamp(),
+            lastModified=self.make_last_modified_audit_stamp(),
+        )
+
+
+def make_query_subjects(urns: List[UrnStr]) -> models.QuerySubjectsClass:
+    return models.QuerySubjectsClass(
+        subjects=[models.QuerySubjectClass(entity=urn) for urn in urns]
+    )
 
 
 @dataclasses.dataclass
@@ -1440,42 +1481,15 @@ class SqlParsingAggregator(Closeable):
             self.report.num_queries_skipped_due_to_filters += 1
             return
 
-        query_subject_urns = OrderedSet[UrnStr]()
-        for upstream in query.upstreams:
-            query_subject_urns.add(upstream)
-            if self.generate_query_subject_fields:
-                for column in sorted(query.column_usage.get(upstream, [])):
-                    query_subject_urns.add(
-                        builder.make_schema_field_urn(upstream, column)
-                    )
-        if downstream_urn:
-            query_subject_urns.add(downstream_urn)
-            if self.generate_query_subject_fields:
-                for column_lineage in query.column_lineage:
-                    query_subject_urns.add(
-                        builder.make_schema_field_urn(
-                            downstream_urn, column_lineage.downstream.column
-                        )
-                    )
-
         yield from MetadataChangeProposalWrapper.construct_many(
             entityUrn=self._query_urn(query_id),
             aspects=[
-                models.QueryPropertiesClass(
-                    statement=models.QueryStatementClass(
-                        value=query.formatted_query_string,
-                        language=models.QueryLanguageClass.SQL,
-                    ),
-                    source=models.QuerySourceClass.SYSTEM,
-                    created=query.make_created_audit_stamp(),
-                    lastModified=query.make_last_modified_audit_stamp(),
-                    origin=query.origin.urn() if query.origin else None,
-                ),
-                models.QuerySubjectsClass(
-                    subjects=[
-                        models.QuerySubjectClass(entity=urn)
-                        for urn in query_subject_urns
-                    ]
+                query.make_query_properties(),
+                make_query_subjects(
+                    query.get_subjects(
+                        downstream_urn=downstream_urn,
+                        include_fields=self.generate_query_subject_fields,
+                    )
                 ),
                 models.DataPlatformInstanceClass(
                     platform=self.platform.urn(),

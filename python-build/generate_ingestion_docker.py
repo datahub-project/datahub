@@ -87,6 +87,7 @@ if __name__ == "__main__":
     for file in [
         "docker/datahub-ingestion-base/Dockerfile",
         "docker/datahub-ingestion/Dockerfile",
+        "docker/datahub-actions/Dockerfile",
         # SaaS only.
         "docker/datahub-executor/Dockerfile",
         "docker/datahub-integrations-service/Dockerfile",

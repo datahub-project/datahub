@@ -2,61 +2,83 @@
 services:
   connect:
     image: confluentinc/cp-kafka-connect:7.4.0
+    platform: linux/amd64
     env_file: ./../kafka-connect/setup/connect.env
     container_name: test_connect
     hostname: test_connect
     depends_on:
-      - zookeeper
-      - broker
-      - mysqldb
-      - mongo
+      zookeeper:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+      mysqldb:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
     ports:
       - "28083:28083"
-#    volumes:        
-#      - ./../kafka-connect/setup/confluentinc-kafka-connect-jdbc-10.2.5:/usr/local/share/kafka/plugins/confluentinc-kafka-connect-jdbc-10.2.5
-#      - ./../kafka-connect/setup/confluentinc-connect-transforms-1.4.1:/usr/local/share/kafka/plugins/confluentinc-connect-transforms-1.4.1
-#      - ./../kafka-connect/setup/debezium-debezium-connector-mysql-1.7.0:/usr/local/share/kafka/plugins/debezium-debezium-connector-mysql-1.7.0
-#      - ./../kafka-connect/setup/gcp-bigquery-project-keyfile.json:/usr/local/share/gcp-bigquery-project-keyfile.json
+    restart: on-failure:3
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+        reservations:
+          memory: 384M
     command:
       - bash
       - -c
       - |
-        echo "Install confluent CLI"
-        # https://docs.confluent.io/confluent-cli/current/install.html#tarball-or-zip-installation
-        wget https://packages.confluent.io/confluent-cli/archives/4.16.0/confluent_linux_amd64.tar.gz
-        mkdir -p /tmp/confluent-cli
-        tar -xvf confluent_linux_amd64.tar.gz -C /tmp/confluent-cli
-        export PATH=/tmp/confluent-cli/confluent:$PATH
-        echo "Done!"
-        echo "Installing Connectors"
-        #
-        confluent connect plugin install --force confluentinc/kafka-connect-jdbc:10.2.5      
-        #
-        confluent connect plugin install --force confluentinc/connect-transforms:1.4.1
-        #
-        confluent connect plugin install --force confluentinc/kafka-connect-datagen:0.6.0
-        #
-        confluent connect plugin install --force debezium/debezium-connector-mysql:1.7.0
-        #
-        confluent connect plugin install --force wepay/kafka-connect-bigquery:1.6.8
-        #
-        confluent connect plugin install --force mongodb/kafka-connect-mongodb:1.10.1
-        #
-        confluent connect plugin install --force confluentinc/kafka-connect-s3:10.5.1
-        #
+        echo "Installing connectors using confluent-hub"
+        
+        # First verify that confluent-hub exists
+        if ! [ -x "$(command -v confluent-hub)" ]; then
+          echo "Error: confluent-hub is not installed." >&2
+          exit 1
+        fi
+        
+        echo "confluent-hub installation verified"
+        echo "Installing connectors..."
+        
+        # Install with confluent-hub - ensure all connectors install correctly
+        confluent-hub install --no-prompt confluentinc/kafka-connect-jdbc:10.2.5 || { echo "Failed to install JDBC connector"; exit 1; }
+        confluent-hub install --no-prompt confluentinc/connect-transforms:1.4.1 || { echo "Failed to install transforms"; exit 1; }
+        confluent-hub install --no-prompt confluentinc/kafka-connect-datagen:0.6.0 || { echo "Failed to install datagen"; exit 1; }
+        confluent-hub install --no-prompt debezium/debezium-connector-mysql:1.7.0 || { echo "Failed to install Debezium"; exit 1; }
+        confluent-hub install --no-prompt wepay/kafka-connect-bigquery:1.6.8 || { echo "Failed to install BigQuery"; exit 1; }
+        confluent-hub install --no-prompt mongodb/kafka-connect-mongodb:1.10.1 || { echo "Failed to install MongoDB"; exit 1; }
+        confluent-hub install --no-prompt confluentinc/kafka-connect-s3:10.5.1 || { echo "Failed to install S3"; exit 1; }
+        
+        echo "All connectors installed successfully"
+        
+        # Install MySQL JDBC Driver
         mkdir -p /usr/share/confluent-hub-components/confluentinc-kafka-connect-jdbc/lib
-        #
+        echo "Installing MySQL JDBC Driver..."
         curl -k -SL "https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-8.0.27.tar.gz" \
              | tar -xzf - -C /usr/share/confluent-hub-components/confluentinc-kafka-connect-jdbc/lib \
-             --strip-components=1 mysql-connector-java-8.0.27/mysql-connector-java-8.0.27.jar
+             --strip-components=1 mysql-connector-java-8.0.27/mysql-connector-java-8.0.27.jar \
+             || { echo "Failed to install MySQL JDBC driver"; exit 1; }
+        
+        # Install EnvVar Config Provider
+        echo "Installing EnvVar Config Provider..."
         curl -k -SL "https://repo1.maven.org/maven2/io/strimzi/kafka-env-var-config-provider/0.1.1/kafka-env-var-config-provider-0.1.1.tar.gz" \
-             | tar -xzf - -C /usr/share/confluent-hub-components/
-        #             
-        echo "Launching Kafka Connect worker"
-        #
-        /etc/confluent/docker/run &
-        #
-        sleep infinity
+             | tar -xzf - -C /usr/share/confluent-hub-components/ \
+             || { echo "Failed to install EnvVar Config Provider"; exit 1; }
+             
+        echo "All components installed successfully, launching Kafka Connect worker..."
+        
+        # Create a flag file to indicate installation is complete for the healthcheck
+        # However, this results on a healtcheck not very trustable, as the service startup just after this takes a significant amount of time
+        # So client validation is needed; see check_connectors_ready
+        touch /tmp/connectors_installed
+        
+        # Launch connect worker and ensure it's in the foreground to catch any startup errors
+        exec /etc/confluent/docker/run
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/connectors_installed || (echo 'Not all plugins installed yet' && exit 1)"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 60s
   mysqldb:
     image: mysql:8.0
     environment:
@@ -71,6 +93,19 @@ services:
     volumes:  
       - ./../kafka-connect/setup/conf/mysqld.cnf:/etc/mysql/mysql.conf.d/mysqld.cnf
       - ./../kafka-connect/setup/mysql-setup.sql:/docker-entrypoint-initdb.d/mysql-setup.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpwd"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: on-failure:3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
 
   postgresdb:
     image: postgres:alpine
@@ -81,6 +116,19 @@ services:
       - ./../kafka-connect/setup/mysql-setup.sql:/docker-entrypoint-initdb.d/postgres_setup.sql
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: on-failure:3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
 
   mongo:
     hostname: mongo
@@ -95,6 +143,19 @@ services:
       - MONGO_INITDB_DATABASE=test_db
     volumes:
       - ./../kafka-connect/setup/conf/:/scripts/
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.runCommand({ ping: 1 })"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: on-failure:3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
 
   s3mock:
     image: adobe/s3mock:2.13.0
@@ -102,3 +163,16 @@ services:
       - initialBuckets=test-bucket
     ports:
       - "9090:9090"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -f http://localhost:9090/ || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    restart: on-failure:3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M

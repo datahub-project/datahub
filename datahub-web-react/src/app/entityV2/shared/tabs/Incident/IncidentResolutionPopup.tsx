@@ -1,12 +1,8 @@
-import { useApolloClient } from '@apollo/client';
 import { Form, Input, Modal, message } from 'antd';
 import React from 'react';
 
-import { useUserContext } from '@app/context/useUserContext';
 import { IncidentSelectField } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentSelectedField';
-import { getCacheIncident } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/hooks/useIncidentHandler';
 import { INCIDENT_OPTION_LABEL_MAPPING, INCIDENT_RESOLUTION_STAGES } from '@app/entityV2/shared/tabs/Incident/constant';
-import { PAGE_SIZE, updateActiveIncidentInCache } from '@app/entityV2/shared/tabs/Incident/incidentUtils';
 import { FormItem, ModalHeading, ModalTitleContainer } from '@app/entityV2/shared/tabs/Incident/styledComponents';
 import { IncidentTableRow } from '@app/entityV2/shared/tabs/Incident/types';
 import { Button, colors } from '@src/alchemy-components';
@@ -34,8 +30,6 @@ const ModalTitle = () => (
 );
 
 export const IncidentResolutionPopup = ({ incident, refetch, handleClose }: IncidentResolutionPopupProps) => {
-    const client = useApolloClient();
-    const { user } = useUserContext();
     const { urn, entityType } = useEntityData();
     const [updateIncidentStatusMutation] = useUpdateIncidentStatusMutation();
     const [form] = Form.useForm();
@@ -62,33 +56,12 @@ export const IncidentResolutionPopup = ({ incident, refetch, handleClose }: Inci
                     entityUrn: urn,
                     actionType: EntityActionType.ResolvedIncident,
                 });
-
-                const values = {
-                    title: incident.title,
-                    description: incident.description,
-                    type: incident.type,
-                    priority: incident.priority,
-                    state: IncidentState.Resolved,
-                    customType: incident.customType,
-                    stage: formData?.status || IncidentStage.Fixed,
-                    message: formData?.note,
-                    linkedAssets: incident.linkedAssets,
-                    assignees: incident.assignees,
-                    created: incident.created,
-                };
-
-                const updatedIncident = getCacheIncident({
-                    values,
-                    incidentUrn: incident.urn,
-                    user,
-                });
-                updateActiveIncidentInCache(client, urn, updatedIncident, PAGE_SIZE);
                 message.success({ content: 'Incident updated!', duration: 2 });
                 refetch();
                 handleClose?.();
             })
             .catch((error) => {
-                console.error(error);
+                console.log(error);
                 handleGraphQLError({
                     error,
                     defaultMessage: 'Failed to update incident! An unexpected error occurred',

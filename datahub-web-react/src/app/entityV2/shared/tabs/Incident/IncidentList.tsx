@@ -126,7 +126,6 @@ export const IncidentList = () => {
             {renderListTable()}
             {showIncidentBuilder && (
                 <IncidentDetailDrawer
-                    urn={urn}
                     entity={entity}
                     mode={IncidentAction.CREATE}
                     onSubmit={() => {

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 
+import { Wrapper } from '@components/components/Utils/ClickOutside/components';
 import { ClickOutsideProps } from '@components/components/Utils/ClickOutside/types';
 
 export default function ClickOutside({
@@ -27,6 +28,7 @@ export default function ClickOutside({
 
             // Trigger `onClickOutside` if the click is on an element matching `outsideSelector`
             if (outsideSelector && target.closest(outsideSelector)) {
+                onClickOutside(event);
                 return;
             }
 
@@ -42,5 +44,5 @@ export default function ClickOutside({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [onClickOutside, ignoreSelector, outsideSelector, ignoreWrapper]);
 
-    return <div ref={wrapperRef}>{children}</div>;
+    return <Wrapper ref={wrapperRef}>{children}</Wrapper>;
 }

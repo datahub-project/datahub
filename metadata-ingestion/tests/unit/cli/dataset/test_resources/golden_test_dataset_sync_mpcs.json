@@ -1,0 +1,213 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,user.clicksv2,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/customProperties",
+                "value": {
+                    "test_property": "test_value"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/name",
+                "value": "user.clicksv2"
+            }
+        ]
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,user.clicksv2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "user.clicksv2",
+            "platform": "urn:li:dataPlatform:hive",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": "fields:\n- description: The IP address of the user\n  id: ip\n  structured_properties:\n    io.acryl.privacy.retentionTime:\n    - '30'\n    - '90'\n  type: string\n- description: The user ID of the user\n  id: user_id\n  type: string\n"
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "ip",
+                    "nullable": false,
+                    "description": "The IP address of the user",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "user_id",
+                    "nullable": false,
+                    "description": "The user ID of the user",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,user.clicksv2,PROD),ip)",
+    "changeType": "UPSERT",
+    "aspectName": "structuredProperties",
+    "aspect": {
+        "json": {
+            "properties": [
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime",
+                    "values": [
+                        {
+                            "string": "30"
+                        },
+                        {
+                            "string": "90"
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,user.clicksv2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,user.clicksv3,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/customProperties",
+                "value": {}
+            },
+            {
+                "op": "add",
+                "path": "/description",
+                "value": "clicks v3 description"
+            },
+            {
+                "op": "add",
+                "path": "/name",
+                "value": "clicks v3"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "http://foo.bar"
+            }
+        ]
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,user.clicksv3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "clicks v3",
+            "platform": "urn:li:dataPlatform:hive",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": "fields:\n- description: The IP address of the user\n  id: ip\n  type: string\n- description: The user ID of the user\n  id: user_id\n  type: string\n"
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "ip",
+                    "nullable": false,
+                    "description": "The IP address of the user",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "user_id",
+                    "nullable": false,
+                    "description": "The user ID of the user",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,user.clicksv3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
+    }
+}
+]

@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.AbstractArrayTemplate;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultEntity;
 import com.linkedin.metadata.browse.BrowseResultEntityArray;
@@ -197,6 +198,8 @@ public class ValidationUtils {
                   .setMetadata(lineageSearchResult.getMetadata())
                   .setFrom(lineageSearchResult.getFrom())
                   .setPageSize(lineageSearchResult.getPageSize())
+                  .setLineageSearchPath(
+                      lineageSearchResult.getLineageSearchPath(), SetMode.IGNORE_NULL)
                   .setNumEntities(lineageSearchResult.getNumEntities());
 
           LineageSearchEntityArray validatedEntities =

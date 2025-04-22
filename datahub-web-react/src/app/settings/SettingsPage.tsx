@@ -260,7 +260,7 @@ export const SettingsPage = () => {
                         )
                     }
 
-                    {(showOwnershipTypes || showHomePagePosts || showCustomHelpLink) && (
+                    {(showViews || showOwnershipTypes || showHomePagePosts || showFeatures) && (
                         <Menu.ItemGroup title="Manage">
                             {showFeatures && (
                                 <MenuItem key="features">

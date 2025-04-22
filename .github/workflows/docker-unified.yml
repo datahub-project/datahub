@@ -319,7 +319,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_GMS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@0.30.0
         env:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2,795586375822.dkr.ecr.us-west-2.amazonaws.com/ghcr/aquasecurity/trivy-db:2
@@ -403,7 +403,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@0.30.0
         env:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2,795586375822.dkr.ecr.us-west-2.amazonaws.com/ghcr/aquasecurity/trivy-db:2
@@ -487,7 +487,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@0.30.0
         env:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2,795586375822.dkr.ecr.us-west-2.amazonaws.com/ghcr/aquasecurity/trivy-db:2
@@ -571,7 +571,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@0.30.0
         env:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2,795586375822.dkr.ecr.us-west-2.amazonaws.com/ghcr/aquasecurity/trivy-db:2
@@ -655,7 +655,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_FRONTEND_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@0.30.0
         env:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2,795586375822.dkr.ecr.us-west-2.amazonaws.com/ghcr/aquasecurity/trivy-db:2
@@ -740,7 +740,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@0.30.0
         env:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
@@ -824,7 +824,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@0.30.0
         env:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
@@ -908,7 +908,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@0.30.0
         env:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
@@ -1116,7 +1116,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.tag }}
       - name: Run Trivy vulnerability scanner Slim Image
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@0.30.0
         env:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2,795586375822.dkr.ecr.us-west-2.amazonaws.com/ghcr/aquasecurity/trivy-db:2
@@ -1215,7 +1215,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_full_build.outputs.tag }}
       - name: Run Trivy vulnerability scanner Full Image
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@0.30.0
         env:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2,795586375822.dkr.ecr.us-west-2.amazonaws.com/ghcr/aquasecurity/trivy-db:2
@@ -1234,7 +1234,138 @@ jobs:
           timeout: 15m
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
-        if: ${{ false }}
+        if: ${{ false }} # Disabled in Saas
+        with:
+          sarif_file: "trivy-results.sarif"
+
+  datahub_actions_build:
+    name: Build and Push DataHub Actions Docker Image
+    runs-on: depot-ubuntu-24.04
+    needs: [setup]
+    if: ${{ false }}
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@v3
+
+      - name: Set up Depot CLI
+        if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
+        uses: depot/setup-action@v1
+
+      - name: Build and push
+        uses: ./.github/actions/docker-custom-build-and-push
+        with:
+          images: |
+            ${{ env.DATAHUB_ACTIONS_IMAGE }}
+          image_tag: ${{ needs.setup.outputs.tag }}
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+          build-args: |
+            RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
+          context: .
+          file: ./docker/datahub-actions/Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
+  datahub_actions_scan:
+    name: "[Monitoring] Scan Datahub Actions images for vulnerabilities"
+    runs-on: depot-ubuntu-24.04
+    needs: [setup, smoke_test_lint, datahub_actions_build]
+    if: ${{ false }}
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
+    steps:
+      - name: Checkout # adding checkout step just to make trivy upload happy
+        uses: actions/checkout@v4
+      - name: Download image
+        uses: ishworkh/container-image-artifact-download@v2.0.0
+        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
+        with:
+          image: ${{ env.DATAHUB_ACTIONS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.30.0
+        env:
+          TRIVY_OFFLINE_SCAN: true
+          TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
+          TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1,ghcr.io/aquasecurity/trivy-java-db:1
+        with:
+          image-ref: ${{ env.DATAHUB_ACTIONS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+          format: "template"
+          template: "@/contrib/sarif.tpl"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: "trivy-results.sarif"
+  datahub_actions_slim_build:
+    name: Build and Push DataHub Actions Slim Docker Image
+    runs-on: depot-ubuntu-24.04
+    needs: [setup]
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      needs_artifact_download: ${{ needs.setup.outputs.actions_change == 'true' && ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true') }}
+    if: ${{ needs.setup.outputs.actions_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true'}}
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@v3
+      - name: Build and push Slim image
+        if: ${{ needs.setup.outputs.actions_change == 'true' }}
+        uses: ./.github/actions/docker-custom-build-and-push
+        with:
+          images: |
+            ${{ env.DATAHUB_ACTIONS_IMAGE }}
+          image_tag: ${{ needs.setup.outputs.slim_tag }}
+          flavor: slim
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+          build-args: |
+            APP_ENV=slim
+            RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
+          context: .
+          file: ./docker/datahub-actions/Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
+          depot-project: ${{ vars.DEPOT_PROJECT_ID }}
+      - name: Compute Tag
+        id: tag
+        run: echo "tag=${{ needs.setup.outputs.actions_change == 'true' && needs.setup.outputs.unique_slim_tag || 'head-slim' }}" >> "$GITHUB_OUTPUT"
+
+  datahub_actions_slim_scan:
+    name: "[Monitoring] Scan Datahub Actions Slim images for vulnerabilities"
+    runs-on: depot-ubuntu-24.04
+    needs: [setup, smoke_test_lint, datahub_actions_slim_build]
+    if: ${{ needs.setup.outputs.actions_change == 'true' || needs.setup.outputs.publish == 'true' }}
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
+    steps:
+      - name: Checkout # adding checkout step just to make trivy upload happy
+        uses: actions/checkout@v4
+      - name: Download image
+        uses: ishworkh/container-image-artifact-download@v2.0.0
+        if: ${{ needs.datahub_actions_slim_build.outputs.needs_artifact_download == 'true' }}
+        with:
+          image: ${{ env.DATAHUB_ACTIONS_IMAGE }}:${{ needs.setup.outputs.slim_tag }}
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.30.0
+        env:
+          TRIVY_OFFLINE_SCAN: true
+          TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
+          TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1,ghcr.io/aquasecurity/trivy-java-db:1
+        with:
+          image-ref: ${{ env.DATAHUB_ACTIONS_IMAGE }}:${{ needs.setup.outputs.slim_tag }}
+          format: "template"
+          template: "@/contrib/sarif.tpl"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: "trivy-results.sarif"
 

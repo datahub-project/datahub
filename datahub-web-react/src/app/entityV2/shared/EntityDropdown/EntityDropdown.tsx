@@ -409,7 +409,6 @@ const EntityDropdown = (props: Props) => {
                         entityType,
                         platform: entityData?.platform ?? entityData?.dataPlatformInstance?.platform,
                     }}
-                    urn={urn}
                     mode={IncidentAction.CREATE}
                     onSubmit={() => {
                         setIsRaiseIncidentModalVisible(false);

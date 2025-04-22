@@ -1,4 +1,5 @@
 import logging
+import threading
 from typing import Any, Dict, Optional
 
 import pydantic
@@ -402,13 +403,30 @@ class SnowflakeConnection(Closeable):
     def __init__(self, connection: NativeSnowflakeConnection):
         self._connection = connection
 
+        self._query_num_lock = threading.Lock()
+        self._query_num = 1
+
     def native_connection(self) -> NativeSnowflakeConnection:
         return self._connection
 
+    def get_query_no(self) -> int:
+        with self._query_num_lock:
+            no = self._query_num
+            self._query_num += 1
+            return no
+
     def query(self, query: str) -> Any:
         try:
-            logger.info(f"Query: {query}", stacklevel=2)
+            # We often run multiple queries in parallel across multiple threads,
+            # so we need to number them to help with log readability.
+            query_num = self.get_query_no()
+            logger.info(f"Query #{query_num}: {query}", stacklevel=2)
             resp = self._connection.cursor(DictCursor).execute(query)
+            if resp is not None and resp.rowcount is not None:
+                logger.info(
+                    f"Query #{query_num} got {resp.rowcount} row(s) back from Snowflake",
+                    stacklevel=2,
+                )
             return resp
 
         except Exception as e:
