@@ -104,34 +104,31 @@ module.exports = {
       },
       items: [
         {
-          type: "dropdown",
-          label: "Solutions",
-          position: "right",
-          items: [
-            {
-              to: "/solutions/discovery",
-              label: "Discovery",
-            },
-            {
-              to: "/solutions/observability",
-              label: "Observability",
-            },
-            {
-              to: "/solutions/governance",
-              label: "Governance",
-            },
-          ]
-        },
-        {
-          to: "/cloud",
-          activeBasePath: "cloud",
-          label: "Cloud",
-          position: "right",
-        },
-        {
-          to: "docs/",
-          activeBasePath: "docs",
-          label: "Docs",
+          href: "https://datahub.com/products/why-datahub-cloud/",
+          html: `
+            <style>
+              .cloud-cta {
+                color: var(--ifm-menu-color-active);
+                font-weight: 600;
+                transition: all 0.3s ease;
+                padding: 0.25rem 0;
+                display: inline;
+              }
+              .cloud-cta:hover {
+                background: linear-gradient(40deg, var(--ifm-menu-color-active), #ff1493);
+                -webkit-background-clip: text;
+                background-clip: text;
+                color: transparent;
+                animation: gradientShift 3s infinite;
+              }
+              @keyframes gradientShift {
+                0% { background-position: 0% 50%; }
+                50% { background-position: 100% 50%; }
+                100% { background-position: 0% 50%; }
+              }
+            </style>
+            <div class='cloud-cta'>Get Cloud</div>
+          `,
           position: "right",
         },
         {
@@ -178,10 +175,6 @@ module.exports = {
               label: "Join Slack",
             },
             {
-              href: "https://forum.datahubproject.io/",
-              label: "Community Forum",
-            },
-            {
               to: "/events",
               label: "Events",
             },
@@ -196,6 +189,77 @@ module.exports = {
           ],
         },
         {
+          type: "docsVersionDropdown",
+          position: "left",
+          dropdownActiveClassDisabled: true,
+            dropdownItemsAfter: [
+                {
+                type: 'html',
+                value: '<hr class="dropdown-separator" style="margin: 0.4rem;">',
+                },
+                {
+                type: 'html',
+                value: '<div class="dropdown__link"><b>Archived versions</b></div>',
+                },
+                {
+                  value: `
+                     <a class="dropdown__link" href="https://docs-website-8jkm4uler-acryldata.vercel.app/docs/0.14.1/features">0.14.1
+                     <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
+                     </a>
+                     `,
+                  type: "html",
+                },
+                {
+                  value: `
+                     <a class="dropdown__link" href="https://docs-website-eue2qafvn-acryldata.vercel.app/docs/features">0.14.0
+                     <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
+                     </a>
+                     `,
+                  type: "html",
+                },
+                {
+                value: `
+                   <a class="dropdown__link" href="https://docs-website-psat3nzgi-acryldata.vercel.app/docs/features">0.13.1
+                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
+                   </a>
+                   `,
+                type: "html",
+                },
+                {
+                  value: `
+                     <a class="dropdown__link" href="https://docs-website-lzxh86531-acryldata.vercel.app/docs/features">0.13.0
+                     <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
+                     </a>
+                     `,
+                  type: "html",
+                },
+                {
+                value: `
+                   <a class="dropdown__link" href="https://docs-website-2uuxmgza2-acryldata.vercel.app/docs/features">0.12.1
+                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
+                   </a>
+                   `,
+                type: "html",
+                },
+                {
+                value: `
+                   <a class="dropdown__link" href="https://docs-website-irpoe2osc-acryldata.vercel.app/docs/features">0.11.0
+                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
+                   </a>
+                   `,
+                type: "html",
+                },
+                {
+                value: `
+                   <a class="dropdown__link" href="https://docs-website-1gv2yzn9d-acryldata.vercel.app/docs/features">0.10.5
+                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
+                   </a>
+                   `,
+                type: "html",
+                },
+            ],
+        },
+        {
           href: "https://pages.acryl.io/slack?utm_source=docs&utm_medium=header&utm_campaign=docs_header",
           html: `
             <style>
@@ -207,18 +271,6 @@ module.exports = {
           `,
           position: "right",
         },
-        {
-          href: "/cloud",
-          html: `
-            <style>
-              .cloud-cta:hover {
-                opacity: 0.8;
-              }
-            </style>
-            <div class='cloud-cta button button--primary' alt='try-datahub-cloud' style='font-weight: 700;'>Get DataHub Cloud</div>
-          `,
-          position: "right",
-        }
       ],
     },
     footer: {
@@ -343,8 +395,6 @@ module.exports = {
             require.resolve("./src/styles/global.scss"),
             require.resolve("./src/styles/sphinx.scss"),
             require.resolve("./src/styles/config-table.scss"),
-            require.resolve("./src/components/SecondNavbar/styles.module.scss"),
-            require.resolve("./src/components/SolutionsDropdown/styles.module.css"),
           ],
         },
         pages: {

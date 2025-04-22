@@ -143,7 +143,7 @@ const ALL_GUIDES = [
     {
         id: 'blog',
         title: 'Subscribe to the Blog',
-        url: 'https://www.acryldata.io/blog?utm_source=acryl_datahub_app&utm_content=blog',
+        url: 'https://www.blog.datahub.com',
         icon: AutoStoriesOutlinedIcon,
         personas: [
             PersonaType.TECHNICAL_USER,

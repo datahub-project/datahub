@@ -9,7 +9,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 <FeatureAvailability saasOnly />
 
 > The **Volume Assertions** feature is available as part of the **DataHub Cloud Observe** module of DataHub Cloud.
-> If you are interested in learning more about **DataHub Cloud Observe** or trying it out, please [visit our website](https://www.acryldata.io/observe).
+> If you are interested in learning more about **DataHub Cloud Observe** or trying it out, please [visit our website](https://datahub.com/products/data-observability/).
 
 ## Introduction
 
