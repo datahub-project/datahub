@@ -112,6 +112,7 @@ jobs:
             -x :datahub-frontend:build \
             -x :datahub-web-react:build \
             -x :metadata-integration:java:datahub-schematron:cli:test \
+            -x :datahub-actions:build \
             --parallel
       - name: Gradle build (and test) for frontend
         if: ${{  matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' }}
