@@ -2,9 +2,11 @@ import { CaretLeftOutlined, CaretRightOutlined, CloseOutlined } from '@ant-desig
 import { Button } from 'antd';
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY_V2 } from '../../../../../constants';
-import { SchemaField } from '../../../../../../../../types.generated';
-import { pluralize } from '../../../../../../../shared/textUtil';
+
+import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+import { pluralize } from '@app/shared/textUtil';
+
+import { SchemaField } from '@types';
 
 const HeaderWrapper = styled.div`
     border-bottom: 1px solid ${ANTD_GRAY_V2[4]};

@@ -1,11 +1,12 @@
-import React from 'react';
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
-import { GraphCard } from './GraphCard';
-import { CalendarChart } from '../CalendarChart';
-import { getMockedProps } from '../CalendarChart/utils';
-import { Button } from '../Button';
-import { SimpleSelect } from '../Select';
+import React from 'react';
+
+import { Button } from '@components/components/Button';
+import { CalendarChart } from '@components/components/CalendarChart';
+import { getMockedProps } from '@components/components/CalendarChart/utils';
+import { GraphCard } from '@components/components/GraphCard/GraphCard';
+import { SimpleSelect } from '@components/components/Select';
 
 const meta = {
     title: 'Charts / GraphCard',

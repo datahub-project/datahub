@@ -1,10 +1,18 @@
 import React, { useMemo } from 'react';
-import { IncidentTable } from './types';
-import { INCIDENT_DEFAULT_FILTERS, INCIDENT_GROUP_BY_FILTER_OPTIONS } from './constant';
-import { FiltersContainer, SearchFilterContainer, StyledFilterContainer } from './styledComponents';
-import { GroupBySelect } from '../../GroupBySelect';
-import { InlineListSearch } from '../../components/search/InlineListSearch';
-import { FilterSelect } from '../../FilterSelect';
+
+import { FilterSelect } from '@app/entityV2/shared/FilterSelect';
+import { GroupBySelect } from '@app/entityV2/shared/GroupBySelect';
+import { InlineListSearch } from '@app/entityV2/shared/components/search/InlineListSearch';
+import {
+    INCIDENT_DEFAULT_FILTERS,
+    INCIDENT_GROUP_BY_FILTER_OPTIONS,
+} from '@app/entityV2/shared/tabs/Incident/constant';
+import {
+    FiltersContainer,
+    SearchFilterContainer,
+    StyledFilterContainer,
+} from '@app/entityV2/shared/tabs/Incident/styledComponents';
+import { IncidentTable } from '@app/entityV2/shared/tabs/Incident/types';
 
 interface FilterItem {
     name: string;
@@ -46,7 +54,7 @@ export const IncidentFilterContainer: React.FC<IncidentAssigneeAvatarStack> = ({
                 acc[selectedfilter.category].push(selectedfilter.name);
                 return acc;
             },
-            { type: [], stage: [], priority: [], state: [] },
+            { category: [], stage: [], priority: [], state: [] },
         );
 
         handleFilterChange({
@@ -57,14 +65,14 @@ export const IncidentFilterContainer: React.FC<IncidentAssigneeAvatarStack> = ({
 
     const initialSelectedOptions = useMemo(() => {
         const recommendedFilters = originalFilterOptions?.recommendedFilters || [];
-        const { stage, type, priority, state } =
+        const { stage, category, priority, state } =
             selectedFilters.filterCriteria || INCIDENT_DEFAULT_FILTERS.filterCriteria;
 
         const appliedRecommendedFilters = recommendedFilters.filter(
             (item) =>
                 (state.includes(item.name) && item.category === 'state') ||
                 (stage.includes(item.name) && item.category === 'stage') ||
-                (type.includes(item.name) && item.category === 'type') ||
+                (category.includes(item.name) && item.category === 'category') ||
                 (priority.includes(item.name) && item.category === 'priority'),
         );
         return appliedRecommendedFilters?.map((filter) => ({

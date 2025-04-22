@@ -1,28 +1,33 @@
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import React, { useEffect, useState } from 'react';
-import { useHistory, useLocation } from 'react-router';
 import { debounce } from 'lodash';
 import * as QueryString from 'query-string';
+import React, { useEffect, useState } from 'react';
+import { useHistory, useLocation } from 'react-router';
 import styled, { useTheme } from 'styled-components';
+
+import analytics, { EventType } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { NavSidebar } from '@app/homeV2/layout/NavSidebar';
+import { NavSidebar as NavSidebarRedesign } from '@app/homeV2/layout/navBarRedesign/NavSidebar';
+import { useSelectedSortOption } from '@app/search/context/SearchContext';
+import { SearchHeader } from '@app/searchV2/SearchHeader';
+import { FieldToAppliedFieldFiltersMap } from '@app/searchV2/filtersV2/types';
+import { useSearchBarData } from '@app/searchV2/useSearchBarData';
+import { getAutoCompleteInputFromQuickFilter } from '@app/searchV2/utils/filterUtils';
+import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
+import useFilters from '@app/searchV2/utils/useFilters';
+import { useAppConfig } from '@app/useAppConfig';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+import { PageRoutes } from '@conf/Global';
+import { useQuickFiltersContext } from '@providers/QuickFiltersContext';
 import { colors } from '@src/alchemy-components';
-import { SearchHeader } from './SearchHeader';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { FacetFilterInput } from '../../types.generated';
+
 import {
     GetAutoCompleteMultipleResultsQuery,
     useGetAutoCompleteMultipleResultsLazyQuery,
-} from '../../graphql/search.generated';
-import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
-import analytics, { EventType } from '../analytics';
-import useFilters from './utils/useFilters';
-import { PageRoutes } from '../../conf/Global';
-import { getAutoCompleteInputFromQuickFilter } from './utils/filterUtils';
-import { useQuickFiltersContext } from '../../providers/QuickFiltersContext';
-import { useUserContext } from '../context/useUserContext';
-import { useSelectedSortOption } from '../search/context/SearchContext';
-import { NavSidebar as NavSidebarRedesign } from '../homeV2/layout/navBarRedesign/NavSidebar';
-import { NavSidebar } from '../homeV2/layout/NavSidebar';
-import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
+} from '@graphql/search.generated';
+import { FacetFilterInput } from '@types';
 
 const Body = styled.div`
     display: flex;
@@ -72,6 +77,9 @@ const isSearchResultPage = (path: string) => {
  */
 export const SearchablePage = ({ children }: Props) => {
     const location = useLocation();
+    const appConfig = useAppConfig();
+    const showSearchBarAutocompleteRedesign = appConfig.config.featureFlags?.showSearchBarAutocompleteRedesign;
+    const searchBarApiVariant = appConfig.config.searchBarConfig.apiVariant;
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramFilters: Array<FacetFilterInput> = useFilters(params);
     const filters = isSearchResultPage(location.pathname) ? paramFilters : [];
@@ -91,13 +99,25 @@ export const SearchablePage = ({ children }: Props) => {
     const [newSuggestionData, setNewSuggestionData] = useState<GetAutoCompleteMultipleResultsQuery | undefined>();
     const viewUrn = userContext.localState?.selectedViewUrn;
 
+    const [appliedFilters, setAppliedFilters] = useState<FieldToAppliedFieldFiltersMap | undefined>(new Map());
+    const [searchQuery, setSearchQuery] = useState<string>(currentQuery);
+
     useEffect(() => {
         if (suggestionsData !== undefined) {
             setNewSuggestionData(suggestionsData);
         }
     }, [suggestionsData]);
 
-    const search = (query: string, quickFilters?: FacetFilterInput[]) => {
+    // Search response for the SearchBarV2 (when showSearchBarAutocompleteRedesign is enabled)
+    const searchResponse = useSearchBarData(
+        searchQuery,
+        appliedFilters,
+        viewUrn,
+        searchBarApiVariant,
+        showSearchBarAutocompleteRedesign,
+    );
+
+    const search = (query: string, newFilters?: FacetFilterInput[]) => {
         analytics.event({
             type: EventType.SearchEvent,
             query,
@@ -107,11 +127,11 @@ export const SearchablePage = ({ children }: Props) => {
             selectedQuickFilterValues: selectedQuickFilter ? [selectedQuickFilter.value] : undefined,
         });
 
-        const appliedFilters = quickFilters && quickFilters?.length > 0 ? quickFilters : filters;
+        const newAppliedFilters = newFilters && newFilters?.length > 0 ? newFilters : filters;
 
         navigateToSearchUrl({
             query,
-            filters: appliedFilters,
+            filters: newAppliedFilters,
             history,
             selectedSortOption,
         });
@@ -133,7 +153,7 @@ export const SearchablePage = ({ children }: Props) => {
 
     // Load correct autocomplete results on initial page load.
     useEffect(() => {
-        if (currentQuery && currentQuery.trim() !== '') {
+        if (!showSearchBarAutocompleteRedesign && currentQuery && currentQuery.trim() !== '') {
             getAutoCompleteResults({
                 variables: {
                     input: {
@@ -143,7 +163,7 @@ export const SearchablePage = ({ children }: Props) => {
                 },
             });
         }
-    }, [currentQuery, getAutoCompleteResults, viewUrn]);
+    }, [currentQuery, getAutoCompleteResults, viewUrn, showSearchBarAutocompleteRedesign]);
 
     const FinalNavBar = isShowNavBarRedesign ? NavSidebarRedesign : NavSidebar;
 
@@ -159,8 +179,10 @@ export const SearchablePage = ({ children }: Props) => {
                     []
                 }
                 onSearch={search}
-                onQueryChange={autoComplete}
+                onQueryChange={showSearchBarAutocompleteRedesign ? setSearchQuery : autoComplete}
                 entityRegistry={entityRegistry}
+                onFilter={(newFilters) => setAppliedFilters(newFilters)}
+                searchResponse={searchResponse}
             />
             <BodyBackground $isShowNavBarRedesign={isShowNavBarRedesign} />
             <Body>

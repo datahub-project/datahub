@@ -1,25 +1,15 @@
+import { Check, Warning } from '@phosphor-icons/react';
 import React, { useEffect, useState } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
-import { IncidentStagePill } from '@src/alchemy-components/components/IncidentStagePill';
-import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
-import { EntityLinkList } from '@src/app/homeV2/reference/sections/EntityLinkList';
-import { IncidentPriorityLabel } from '@src/alchemy-components/components/IncidentPriorityLabel';
-import { Avatar } from '@src/alchemy-components';
+
+import { getPlainTextDescriptionFromAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/utils';
+import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
+import { IncidentActivitySection } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentActivitySection';
 import {
-    Assertion,
-    AssertionInfo,
-    CorpUser,
-    EntityType,
-    IncidentSourceType,
-    IncidentState,
-} from '@src/types.generated';
-import { Check, Warning } from '@phosphor-icons/react';
-import { IconLabel } from '@src/alchemy-components/components/IconLabel';
-import { IconType } from '@src/alchemy-components/components/IconLabel/types';
-import colors from '@src/alchemy-components/theme/foundations/colors';
-import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
+    DEFAULT_MAX_ENTITIES_TO_SHOW,
+    INCIDENT_STATE_TO_ACTIVITY,
+} from '@app/entityV2/shared/tabs/Incident/AcrylComponents/constant';
 import {
     CategoryText,
     Container,
@@ -31,14 +21,29 @@ import {
     ListContainer,
     ListItemContainer,
     Text,
-} from './styledComponents';
-import CompactMarkdownViewer from '../../Documentation/components/CompactMarkdownViewer';
-import { getAssigneeNamesWithAvatarUrl } from '../utils';
-import { IncidentTableRow } from '../types';
-import { getPlainTextDescriptionFromAssertion } from '../../Dataset/Validations/assertion/profile/summary/utils';
-import { INCIDENT_STATE_TO_ACTIVITY, DEFAULT_MAX_ENTITIES_TO_SHOW } from './constant';
-import { IncidentActivitySection } from './IncidentActivitySection';
-import { getOnOpenAssertionLink } from '../hooks';
+} from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
+import { getOnOpenAssertionLink } from '@app/entityV2/shared/tabs/Incident/hooks';
+import { IncidentTableRow } from '@app/entityV2/shared/tabs/Incident/types';
+import { getAssigneeNamesWithAvatarUrl } from '@app/entityV2/shared/tabs/Incident/utils';
+import { Avatar } from '@src/alchemy-components';
+import { IconLabel } from '@src/alchemy-components/components/IconLabel';
+import { IconType } from '@src/alchemy-components/components/IconLabel/types';
+import { IncidentPriorityLabel } from '@src/alchemy-components/components/IncidentPriorityLabel';
+import { IncidentStagePill } from '@src/alchemy-components/components/IncidentStagePill';
+import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
+import colors from '@src/alchemy-components/theme/foundations/colors';
+import { EntityLinkList } from '@src/app/homeV2/reference/sections/EntityLinkList';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
+import {
+    Assertion,
+    AssertionInfo,
+    CorpUser,
+    EntityType,
+    IncidentSourceType,
+    IncidentState,
+    IncidentType,
+} from '@src/types.generated';
 
 const ThinDivider = styled(Divider)`
     margin: 12px 0px;
@@ -130,49 +135,27 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
     };
 
     const renderActivities = (() => {
-        // TODO Amit: Move this into a separate utilities file.
-        const { creator, lastUpdated } = incidentActivityActors;
-        const isCreatedAndUpdatedBySameUser = creator === lastUpdated;
+        const baseActivity = {
+            actor: incidentCreator,
+            action: INCIDENT_STATE_TO_ACTIVITY.RAISED,
+            time: incident?.creator?.time,
+        };
 
-        if (isCreatedAndUpdatedBySameUser) {
-            if (incident?.state === IncidentState.Resolved) {
-                return [
-                    {
-                        actor: incidentCreator,
-                        action: INCIDENT_STATE_TO_ACTIVITY.RAISED,
-                        time: incident?.creator?.time,
-                    },
-                    {
-                        actor: incidentResolver,
-                        action: INCIDENT_STATE_TO_ACTIVITY.RESOLVED,
-                        time: incident?.lastUpdated?.time,
-                    },
-                ];
-            }
-
-            if (incident?.state === IncidentState.Active) {
-                return [
-                    {
-                        actor: incidentCreator,
-                        action: INCIDENT_STATE_TO_ACTIVITY.RAISED,
-                        time: incident?.creator?.time,
-                    },
-                ];
-            }
+        // Only add the resolved activity if the incident state is Resolved
+        if (incident?.state === IncidentState.Resolved) {
+            return [
+                baseActivity,
+                {
+                    actor: incidentResolver,
+                    action: INCIDENT_STATE_TO_ACTIVITY.RESOLVED,
+                    time: incident?.lastUpdated?.time,
+                    message: incident?.message,
+                },
+            ];
         }
 
-        return [
-            {
-                actor: incidentCreator,
-                action: INCIDENT_STATE_TO_ACTIVITY.RAISED,
-                time: incident?.creator?.time,
-            },
-            {
-                actor: incidentResolver,
-                action: INCIDENT_STATE_TO_ACTIVITY.RESOLVED,
-                time: incident?.lastUpdated?.time,
-            },
-        ];
+        // Otherwise just return the base activity
+        return [baseActivity];
     })();
 
     /** Assertion Related Logic. */
@@ -184,6 +167,10 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
     if (isAssertionFailureIncident && source) {
         assertionDescription = getPlainTextDescriptionFromAssertion(assertion.info as AssertionInfo);
     }
+
+    const categoryName = getCapitalizeWord(
+        incident?.type === IncidentType.Custom ? incident.customType : incident.type,
+    );
 
     return (
         <Container>
@@ -200,7 +187,7 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
             </DescriptionSection>
             <DetailsSection>
                 <DetailsLabel>Category</DetailsLabel>
-                <CategoryText>{incident?.type && getCapitalizeWord(incident?.type)}</CategoryText>
+                <CategoryText>{categoryName}</CategoryText>
             </DetailsSection>
             <DetailsSection>
                 <DetailsLabel>Priority</DetailsLabel>

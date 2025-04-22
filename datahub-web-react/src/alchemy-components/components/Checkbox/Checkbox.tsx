@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { CheckboxProps, CheckboxGroupProps } from './types';
+
 import {
     CheckboxBase,
     CheckboxContainer,
@@ -9,7 +9,8 @@ import {
     Label,
     Required,
     StyledCheckbox,
-} from './components';
+} from '@components/components/Checkbox/components';
+import { CheckboxGroupProps, CheckboxProps } from '@components/components/Checkbox/types';
 
 export const checkboxDefaults: CheckboxProps = {
     error: '',

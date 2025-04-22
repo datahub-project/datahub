@@ -1,7 +1,6 @@
+import { SelectStyleProps } from '@components/components/Select/types';
 import { colors, radius, spacing, typography } from '@components/theme';
 import { getFontSize } from '@components/theme/utils';
-
-import { SelectStyleProps } from './types';
 
 export const getOptionLabelStyle = (
     isSelected: boolean,
@@ -89,6 +88,22 @@ export const getSearchPadding = (size) => {
     return paddingStyles[size];
 };
 
+export const getMinHeight = (size) => {
+    const minHeightStyles = {
+        sm: {
+            minHeight: '32px',
+        },
+        md: {
+            minHeight: '42px',
+        },
+        lg: {
+            minHeight: '42px',
+        },
+    };
+
+    return minHeightStyles[size];
+};
+
 export const getSelectStyle = (props: SelectStyleProps) => {
     const { isDisabled, isReadOnly, fontSize, isOpen } = props;
 
@@ -126,10 +141,12 @@ export const getSelectStyle = (props: SelectStyleProps) => {
 
     const fontStyles = getSelectFontStyles(fontSize);
     const paddingStyles = getSelectPadding(fontSize);
+    const minHeightStyles = getMinHeight(fontSize);
 
     return {
         ...baseStyle,
         ...fontStyles,
         ...paddingStyles,
+        ...minHeightStyles,
     };
 };

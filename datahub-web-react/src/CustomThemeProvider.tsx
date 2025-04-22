@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { ThemeProvider } from 'styled-components';
-import { Theme } from './conf/theme/types';
-import defaultThemeConfig from './conf/theme/theme_light.config.json';
-import { CustomThemeContext } from './customThemeContext';
+
+import defaultThemeConfig from '@conf/theme/theme_light.config.json';
+import { Theme } from '@conf/theme/types';
+import { CustomThemeContext } from '@src/customThemeContext';
 
 interface Props {
     children: React.ReactNode;

@@ -1,12 +1,17 @@
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
+
+import { AcrylAssertionRecommendedFilters } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionRecommendedFilters';
+import {
+    ASSERTION_DEFAULT_FILTERS,
+    ASSERTION_FILTER_TYPES,
+    ASSERTION_GROUP_BY_FILTER_OPTIONS,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/constant';
+import { useSetFilterFromURLParams } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/hooks';
+import { AssertionListFilter, AssertionTable } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
 import { FilterSelect } from '@src/app/entityV2/shared/FilterSelect';
 import { GroupBySelect } from '@src/app/entityV2/shared/GroupBySelect';
 import { InlineListSearch } from '@src/app/entityV2/shared/components/search/InlineListSearch';
-import { AcrylAssertionRecommendedFilters } from './AcrylAssertionRecommendedFilters';
-import { AssertionListFilter, AssertionTable } from './types';
-import { ASSERTION_GROUP_BY_FILTER_OPTIONS, ASSERTION_DEFAULT_FILTERS, ASSERTION_FILTER_TYPES } from './constant';
-import { useSetFilterFromURLParams } from './hooks';
 
 interface FilterItem {
     name: string;

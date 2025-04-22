@@ -1,7 +1,8 @@
+import { BookOpen } from '@phosphor-icons/react';
 import React from 'react';
 import styled from 'styled-components';
-import { BookOpen } from '@phosphor-icons/react';
-import { REDESIGN_COLORS } from '../constants';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 export const SUMMARY_TAB_ICON = BookOpen;
 

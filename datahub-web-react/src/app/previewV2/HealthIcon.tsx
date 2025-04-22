@@ -1,12 +1,15 @@
-import React from 'react';
-import { Popover } from '@components';
-import styled from 'styled-components';
 import { CheckCircleOutlined } from '@ant-design/icons';
-import AmbulanceIcon from '../../images/ambulance-icon.svg?react';
-import { isHealthy, isUnhealthy } from '../shared/health/healthUtils';
-import { COLORS } from '../sharedV2/colors';
-import HealthPopover from './HealthPopover';
-import { Health } from '../../types.generated';
+import { Popover } from '@components';
+import React from 'react';
+import styled from 'styled-components';
+
+import HealthPopover from '@app/previewV2/HealthPopover';
+import { isHealthy, isUnhealthy } from '@app/shared/health/healthUtils';
+import { COLORS } from '@app/sharedV2/colors';
+
+import { Health } from '@types';
+
+import AmbulanceIcon from '@images/ambulance-icon.svg?react';
 
 const IconContainer = styled.div`
     display: flex;

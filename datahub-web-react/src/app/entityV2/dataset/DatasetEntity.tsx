@@ -11,57 +11,65 @@ import {
     UnorderedListOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
-import { DBT_URN } from '@app/ingest/source/builder/constants';
 import ViewComfyOutlinedIcon from '@mui/icons-material/ViewComfyOutlined';
-import { GovernanceTab } from '@src/app/entity/shared/tabs/Dataset/Governance/GovernanceTab';
-import { ListBullets, TreeStructure, Columns } from '@phosphor-icons/react';
+import { Columns, ListBullets, TreeStructure } from '@phosphor-icons/react';
 import * as React from 'react';
-import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '../../../graphql/dataset.generated';
-import GovernMenuIcon from '../../../images/governMenuIcon.svg?react';
-import { Dataset, DatasetProperties, EntityType, FeatureFlagsConfig, SearchResult } from '../../../types.generated';
-import { GenericEntityProperties } from '../../entity/shared/types';
-import { MatchedFieldList } from '../../searchV2/matches/MatchedFieldList';
-import { matchedFieldPathsRenderer } from '../../searchV2/matches/matchedFieldPathsRenderer';
-import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-import { useAppConfig } from '../../useAppConfig';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
-import { SubType, TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import SidebarDatasetHeaderSection from '../shared/containers/profile/sidebar/Dataset/Header/SidebarDatasetHeaderSection';
-import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import SidebarLineageSection from '../shared/containers/profile/sidebar/Lineage/SidebarLineageSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import SidebarQueryOperationsSection from '../shared/containers/profile/sidebar/Query/SidebarQueryOperationsSection';
-import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
-import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
-import { SidebarDatasetViewDefinitionSection } from '../shared/containers/profile/sidebar/SidebarLogicSection';
-import { SidebarSiblingsSection } from '../shared/containers/profile/sidebar/SidebarSiblingsSection';
-import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
-import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
-import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
-import AccessManagement from '../shared/tabs/Dataset/AccessManagement/AccessManagement';
-import QueriesTab from '../shared/tabs/Dataset/Queries/QueriesTab';
-import { SchemaTab } from '../shared/tabs/Dataset/Schema/SchemaTab';
-import { AcrylValidationsTab } from '../shared/tabs/Dataset/Validations/AcrylValidationsTab';
-import ViewDefinitionTab from '../shared/tabs/Dataset/View/ViewDefinitionTab';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
-import ColumnTabNameHeader from '../shared/tabs/Entity/ColumnTabNameHeader';
-import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
-import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
-import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { SidebarTitleActionType, getDataProduct, getDatasetLastUpdatedMs, isOutputPort } from '../shared/utils';
-import { Preview } from './preview/Preview';
-import { OperationsTab } from './profile/OperationsTab';
-import { DatasetStatsSummarySubHeader } from './profile/stats/stats/DatasetStatsSummarySubHeader';
-import StatsTab from '../shared/tabs/Dataset/Stats/StatsTab';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { Preview } from '@app/entityV2/dataset/preview/Preview';
+import { OperationsTab } from '@app/entityV2/dataset/profile/OperationsTab';
+import { DatasetStatsSummarySubHeader } from '@app/entityV2/dataset/profile/stats/stats/DatasetStatsSummarySubHeader';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { SubType, TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import SidebarDatasetHeaderSection from '@app/entityV2/shared/containers/profile/sidebar/Dataset/Header/SidebarDatasetHeaderSection';
+import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import SidebarLineageSection from '@app/entityV2/shared/containers/profile/sidebar/Lineage/SidebarLineageSection';
+import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import SidebarQueryOperationsSection from '@app/entityV2/shared/containers/profile/sidebar/Query/SidebarQueryOperationsSection';
+import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
+import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
+import { SidebarDatasetViewDefinitionSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarLogicSection';
+import { SidebarSiblingsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSiblingsSection';
+import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
+import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import EmbeddedProfile from '@app/entityV2/shared/embed/EmbeddedProfile';
+import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
+import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
+import AccessManagement from '@app/entityV2/shared/tabs/Dataset/AccessManagement/AccessManagement';
+import QueriesTab from '@app/entityV2/shared/tabs/Dataset/Queries/QueriesTab';
+import { SchemaTab } from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTab';
+import StatsTab from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTab';
+import { AcrylValidationsTab } from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylValidationsTab';
+import ViewDefinitionTab from '@app/entityV2/shared/tabs/Dataset/View/ViewDefinitionTab';
+import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
+import { EmbedTab } from '@app/entityV2/shared/tabs/Embed/EmbedTab';
+import ColumnTabNameHeader from '@app/entityV2/shared/tabs/Entity/ColumnTabNameHeader';
+import TabNameWithCount from '@app/entityV2/shared/tabs/Entity/TabNameWithCount';
+import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
+import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
+import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import {
+    SidebarTitleActionType,
+    getDataProduct,
+    getDatasetLastUpdatedMs,
+    isOutputPort,
+} from '@app/entityV2/shared/utils';
+import { DBT_URN } from '@app/ingest/source/builder/constants';
+import { MatchedFieldList } from '@app/searchV2/matches/MatchedFieldList';
+import { matchedFieldPathsRenderer } from '@app/searchV2/matches/matchedFieldPathsRenderer';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { useAppConfig } from '@app/useAppConfig';
+import { GovernanceTab } from '@src/app/entity/shared/tabs/Dataset/Governance/GovernanceTab';
+
+import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '@graphql/dataset.generated';
+import { Dataset, DatasetProperties, EntityType, FeatureFlagsConfig, SearchResult } from '@types';
+
+import GovernMenuIcon from '@images/governMenuIcon.svg?react';
 
 const SUBTYPES = {
     VIEW: 'view',
