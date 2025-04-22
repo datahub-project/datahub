@@ -7,7 +7,7 @@ library to extract metadata from them. The recipe for the source consists of 2 p
    The name of catalog specified in the recipe has no consequence, it is just a formal requirement from the library.
    Only one catalog will be considered for the ingestion.
 2. The remaining configuration consists of parameters, such as `env` or `stateful_ingestion` which are standard
-   DataHub's ingestor configuration parameters and are described in the (Config Details)[#config-details] chapter.
+   DataHub's ingestor configuration parameters and are described in the [Config Details](#config-details) chapter.
 
 This chapter showcases several examples of setting up connections to an Iceberg catalog, varying based on the underlying
 implementation. Iceberg is designed to have catalog and warehouse separated, which is reflected in how we configure it.
