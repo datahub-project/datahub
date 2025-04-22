@@ -1,20 +1,23 @@
-import React, { useContext, useState } from 'react';
-import { Button, Layout } from 'antd';
-import styled from 'styled-components';
 import { ArrowRight } from '@phosphor-icons/react';
-import { V2_SEARCH_BAR_ID } from '../onboarding/configV2/HomePageOnboardingConfig';
-import { SearchBar } from './SearchBar';
-import { AutoCompleteResultForEntity } from '../../types.generated';
-import { EntityRegistry } from '../../entityRegistryContext';
-import { useAppConfig } from '../useAppConfig';
-import OnboardingContext from '../onboarding/OnboardingContext';
-import { useNavBarContext } from '../homeV2/layout/navBarRedesign/NavBarContext';
-import NavBarToggler from '../homeV2/layout/navBarRedesign/NavBarToggler';
-import { REDESIGN_COLORS } from '../entityV2/shared/constants';
-import useSearchViewAll from './useSearchViewAll';
-import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
-import { FiltersAppliedHandler } from './filtersV2/types';
-import { SearchBarV2 } from './searchBarV2/SearchBarV2';
+import { Button, Layout } from 'antd';
+import React, { useContext, useState } from 'react';
+import styled from 'styled-components';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
+import NavBarToggler from '@app/homeV2/layout/navBarRedesign/NavBarToggler';
+import OnboardingContext from '@app/onboarding/OnboardingContext';
+import { V2_SEARCH_BAR_ID } from '@app/onboarding/configV2/HomePageOnboardingConfig';
+import { SearchBar } from '@app/searchV2/SearchBar';
+import { FiltersAppliedHandler } from '@app/searchV2/filtersV2/types';
+import { SearchBarV2 } from '@app/searchV2/searchBarV2/SearchBarV2';
+import { SearchResponse } from '@app/searchV2/useSearchBarData';
+import useSearchViewAll from '@app/searchV2/useSearchViewAll';
+import { useAppConfig } from '@app/useAppConfig';
+import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+import { EntityRegistry } from '@src/entityRegistryContext';
+
+import { AutoCompleteResultForEntity } from '@types';
 
 const getStyles = ($isShowNavBarRedesign?: boolean) => {
     return {
@@ -125,11 +128,11 @@ type Props = {
     initialQuery: string;
     placeholderText: string;
     suggestions: Array<AutoCompleteResultForEntity>;
-    isSuggestionsLoading?: boolean;
     onSearch: (query: string) => void;
     onQueryChange: (query: string) => void;
     onFilter?: FiltersAppliedHandler;
     entityRegistry: EntityRegistry;
+    searchResponse?: SearchResponse;
 };
 
 /**
@@ -139,11 +142,11 @@ export const SearchHeader = ({
     initialQuery,
     placeholderText,
     suggestions,
-    isSuggestionsLoading,
     onSearch,
     onQueryChange,
     entityRegistry,
     onFilter,
+    searchResponse,
 }: Props) => {
     const [, setIsSearchBarFocused] = useState(false);
     const appConfig = useAppConfig();
@@ -177,7 +180,6 @@ export const SearchHeader = ({
                             initialQuery={initialQuery}
                             placeholderText={placeholderText}
                             suggestions={suggestions}
-                            isSuggestionsLoading={isSuggestionsLoading}
                             onSearch={onSearch}
                             onQueryChange={onQueryChange}
                             entityRegistry={entityRegistry}
@@ -190,6 +192,7 @@ export const SearchHeader = ({
                             showQuickFilters
                             showViewAllResults
                             showCommandK
+                            searchResponse={searchResponse}
                         />
                         {isShowNavBarRedesign && (
                             <StyledButton type="link" onClick={searchViewAll}>

@@ -1,7 +1,8 @@
 import Link from 'antd/lib/typography/Link';
 import React from 'react';
 import styled from 'styled-components';
-import DataHubLogo from '../../images/datahublogo.png';
+
+import DataHubLogo from '@images/datahublogo.png';
 
 const BannerWrapper = styled.div`
     padding: 12px;

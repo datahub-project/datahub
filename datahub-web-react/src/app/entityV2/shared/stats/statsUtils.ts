@@ -1,4 +1,4 @@
-import { ANTD_GRAY } from '../constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 
 /**
  * Normalizes a percentile integer to a 3-tier

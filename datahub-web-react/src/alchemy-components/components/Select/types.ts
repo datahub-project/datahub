@@ -1,5 +1,6 @@
 import React from 'react';
-import { IconNames } from '../Icon';
+
+import { IconNames } from '@components/components/Icon';
 
 export type SelectSizeOptions = 'sm' | 'md' | 'lg';
 export interface SelectOption {
@@ -65,7 +66,7 @@ export interface SelectStyleProps {
 }
 
 export interface ActionButtonsProps {
-    selectedValues: string[];
+    hasSelectedValues: boolean;
     isOpen: boolean;
     isDisabled: boolean;
     isReadOnly: boolean;

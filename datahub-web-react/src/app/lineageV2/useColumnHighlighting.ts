@@ -1,26 +1,28 @@
-import EntityRegistry from '@app/entityV2/EntityRegistry';
-import { TENTATIVE_EDGE_NAME } from '@app/lineageV2/LineageEdge/TentativeEdge';
 import { useContext, useEffect, useMemo } from 'react';
 import { Edge, MarkerType, useReactFlow } from 'reactflow';
-import { EntityType, LineageDirection } from '@types';
+
+import EntityRegistry from '@app/entityV2/EntityRegistry';
+import { TENTATIVE_EDGE_NAME } from '@app/lineageV2/LineageEdge/TentativeEdge';
 import {
     ColumnRef,
-    createLineageFilterNodeId,
     FineGrainedLineage,
     FineGrainedLineageMap,
     FineGrainedOperationRef,
-    HighlightedColumns,
     HOVER_COLOR,
-    isTransformational,
-    isUrnQuery,
+    HighlightedColumns,
     LineageNodesContext,
     NodeContext,
-    parseColumnRef,
     SELECT_COLOR,
+    createLineageFilterNodeId,
+    isTransformational,
+    isUrnQuery,
+    parseColumnRef,
     setDefault,
     setDifference,
-} from './common';
-import { useEntityRegistryV2 } from '../useEntityRegistry';
+} from '@app/lineageV2/common';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+
+import { EntityType, LineageDirection } from '@types';
 
 export default function useColumnHighlighting(
     selectedColumn: ColumnRef | null,

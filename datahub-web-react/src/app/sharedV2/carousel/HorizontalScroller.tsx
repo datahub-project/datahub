@@ -1,8 +1,9 @@
+import NavigateBeforeOutlinedIcon from '@mui/icons-material/NavigateBeforeOutlined';
+import NavigateNextOutlinedIcon from '@mui/icons-material/NavigateNextOutlined';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
-import NavigateNextOutlinedIcon from '@mui/icons-material/NavigateNextOutlined';
-import NavigateBeforeOutlinedIcon from '@mui/icons-material/NavigateBeforeOutlined';
-import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 const ScrollButton = styled.button<{
     alwaysVisible: boolean;
@@ -29,7 +30,9 @@ const ScrollButton = styled.button<{
     border-radius: 50%;
     color: ${REDESIGN_COLORS.BLACK};
     background-color: ${REDESIGN_COLORS.WHITE};
-    transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
+    transition:
+        background-color 0.3s ease-in-out,
+        color 0.3s ease-in-out;
     box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.3);
 
     &:hover {

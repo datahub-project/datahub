@@ -1,38 +1,35 @@
 import { ColumnsType } from 'antd/es/table';
-import type { FixedType } from 'rc-table/lib/interface';
 import { SorterResult } from 'antd/lib/table/interface';
 import ResizeObserver from 'rc-resize-observer';
+import type { FixedType } from 'rc-table/lib/interface';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 import { useVT } from 'virtualizedtableforantd4';
-import { useDebounce } from 'react-use';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
+
+import SchemaRow from '@app/entityV2/dataset/profile/schema/components/SchemaRow';
+import useSchemaTitleRenderer from '@app/entityV2/dataset/profile/schema/utils/schemaTitleRenderer';
+import useSchemaTypeRenderer from '@app/entityV2/dataset/profile/schema/utils/schemaTypeRenderer';
+import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/translateFieldPath';
+import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
+import { findIndexOfFieldPathExcludingCollapsedFields } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import ExpandIcon from '@app/entityV2/shared/tabs/Dataset/Schema/components/ExpandIcon';
+import SchemaFieldDrawer from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawer';
+import useKeyboardControls from '@app/entityV2/shared/tabs/Dataset/Schema/useKeyboardControls';
+import useDescriptionRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useDescriptionRenderer';
+import useExtractFieldDescriptionInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldDescriptionInfo';
+import useExtractFieldGlossaryTermsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldGlossaryTermsInfo';
+import useExtractFieldTagsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldTagsInfo';
+import { useGetStructuredPropColumns } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useGetStructuredPropColumns';
+import { useGetTableColumnProperties } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useGetTableColumnProperties';
+import useTagsAndTermsRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useTagsAndTermsRenderer';
+import useUsageStatsRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useUsageStatsRenderer';
 import { colors } from '@src/alchemy-components';
-import {
-    EditableSchemaMetadata,
-    SchemaField,
-    SchemaMetadata,
-    UsageQueryResult,
-} from '../../../../../../types.generated';
-import SchemaRow from '../../../../dataset/profile/schema/components/SchemaRow';
-import useSchemaTitleRenderer from '../../../../dataset/profile/schema/utils/schemaTitleRenderer';
-import useSchemaTypeRenderer from '../../../../dataset/profile/schema/utils/schemaTypeRenderer';
-import translateFieldPath from '../../../../dataset/profile/schema/utils/translateFieldPath';
-import { ExtendedSchemaFields } from '../../../../dataset/profile/schema/utils/types';
-import { StyledTable } from '../../../components/styled/StyledTable';
-import { REDESIGN_COLORS } from '../../../constants';
-import ExpandIcon from './components/ExpandIcon';
-import SchemaFieldDrawer from './components/SchemaFieldDrawer/SchemaFieldDrawer';
-import useDescriptionRenderer from './utils/useDescriptionRenderer';
-import useTagsAndTermsRenderer from './utils/useTagsAndTermsRenderer';
-import useUsageStatsRenderer from './utils/useUsageStatsRenderer';
-import useKeyboardControls from './useKeyboardControls';
-import { findIndexOfFieldPathExcludingCollapsedFields } from '../../../../dataset/profile/schema/utils/utils';
-import useExtractFieldGlossaryTermsInfo from './utils/useExtractFieldGlossaryTermsInfo';
-import useExtractFieldTagsInfo from './utils/useExtractFieldTagsInfo';
-import useExtractFieldDescriptionInfo from './utils/useExtractFieldDescriptionInfo';
-import { useGetTableColumnProperties } from './utils/useGetTableColumnProperties';
-import { useGetStructuredPropColumns } from './utils/useGetStructuredPropColumns';
+import { useEntityData } from '@src/app/entity/shared/EntityContext';
+
+import { EditableSchemaMetadata, SchemaField, SchemaMetadata, UsageQueryResult } from '@types';
 
 const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: boolean }>`
     overflow: inherit;

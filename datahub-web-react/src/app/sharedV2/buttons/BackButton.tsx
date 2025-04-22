@@ -1,9 +1,10 @@
-import React from 'react';
-import styled from 'styled-components';
-import { Button } from 'antd';
 import { Tooltip } from '@components';
 import KeyboardBackspaceIcon from '@mui/icons-material/KeyboardBackspace';
-import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
+import { Button } from 'antd';
+import React from 'react';
+import styled from 'styled-components';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 const StyledButton = styled(Button)`
     height: 25px;

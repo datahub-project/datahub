@@ -1,12 +1,20 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { IncidentStage, IncidentState, IncidentType } from '@src/types.generated';
-import { Input } from '@src/alchemy-components';
-import colors from '@src/alchemy-components/theme/foundations/colors';
-import { Editor } from '@src/alchemy-components/components/Editor/Editor';
-import { useUserContext } from '@src/app/context/useUserContext';
 import { Form } from 'antd';
+import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
+import { IncidentAssigneeSelector } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentAssigneeSelector';
+import { IncidentLinkedAssetsList } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentLinkedAssetsList';
+import { IncidentSelectField } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentSelectedField';
+import { useIncidentHandler } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/hooks/useIncidentHandler';
+import {
+    IncidentFooter,
+    InputFormItem,
+    SaveButton,
+    SelectFormItem,
+    StyledForm,
+    StyledFormElements,
+    StyledSpinner,
+} from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
 import {
     INCIDENT_CATEGORIES,
     INCIDENT_OPTION_LABEL_MAPPING,
@@ -14,34 +22,25 @@ import {
     INCIDENT_STAGES,
     INCIDENT_STATES,
     IncidentAction,
-} from '../constant';
-import { getAssigneeWithURN, getLinkedAssetsData, validateForm } from '../utils';
-import {
-    IncidentFooter,
-    SelectFormItem,
-    SaveButton,
-    StyledForm,
-    StyledFormElements,
-    InputFormItem,
-    StyledSpinner,
-} from './styledComponents';
-import { IncidentEditorProps } from '../types';
-import { IncidentLinkedAssetsList } from './IncidentLinkedAssetsList';
-import { IncidentSelectField } from './IncidentSelectedField';
-import { IncidentAssigneeSelector } from './IncidentAssigneeSelector';
-import { useIncidentHandler } from './hooks/useIncidentHandler';
+} from '@app/entityV2/shared/tabs/Incident/constant';
+import { IncidentEditorProps } from '@app/entityV2/shared/tabs/Incident/types';
+import { getAssigneeWithURN, getLinkedAssetsData, validateForm } from '@app/entityV2/shared/tabs/Incident/utils';
+import { Input } from '@src/alchemy-components';
+import { Editor } from '@src/alchemy-components/components/Editor/Editor';
+import colors from '@src/alchemy-components/theme/foundations/colors';
+import { useUserContext } from '@src/app/context/useUserContext';
+import { IncidentStage, IncidentState, IncidentType } from '@src/types.generated';
 
 const HalfWidthInput = styled(Input)`
     width: 50%;
 `;
 
 export const IncidentEditor = ({
+    entity,
     incidentUrn,
     onSubmit,
     data,
     mode = IncidentAction.CREATE,
-    entity,
-    urn,
 }: IncidentEditorProps) => {
     const assigneeValues = data?.assignees && getAssigneeWithURN(data.assignees);
     const isFormValid = Boolean(
@@ -53,8 +52,8 @@ export const IncidentEditor = ({
     const { user } = useUserContext();
     const userHasChangedState = useRef(false);
     const isFirstRender = useRef(true);
-    const [cachedAssignees, setCachedAssignees] = useState<any>([]);
-    const [cachedLinkedAssets, setCachedLinkedAssets] = useState<any>([]);
+    const [cachedAssignees, setCachedAssignees] = useState<any[]>([]);
+    const [cachedLinkedAssets, setCachedLinkedAssets] = useState<any[]>([]);
     const [isLoadingAssigneeOrAssets, setIsLoadingAssigneeOrAssets] = useState(true);
 
     const [isRequiredFieldsFilled, setIsRequiredFieldsFilled] = useState<boolean>(
@@ -69,8 +68,6 @@ export const IncidentEditor = ({
         assignees: cachedAssignees,
         linkedAssets: cachedLinkedAssets,
         entity,
-        currentIncident: data,
-        urn,
     });
     const formValues = Form.useWatch([], form);
 
@@ -88,7 +85,6 @@ export const IncidentEditor = ({
             isFirstRender.current = false;
             return;
         }
-
         // Ensure we don't override user's choice if they manually change the state
         if (
             mode === IncidentAction.EDIT &&
@@ -118,15 +114,37 @@ export const IncidentEditor = ({
         }
     };
 
-    const actionButtonLabel = mode === IncidentAction.CREATE ? 'Create' : 'Update';
     const showCustomCategory = form.getFieldValue('type') === IncidentType.Custom;
-    const isLinkedAssetPresent = !formValues?.resourceUrns?.length;
+    const isLinkedAssetMissing = !formValues?.resourceUrns?.length;
     const isSubmitButtonDisabled =
         !validateForm(form) ||
         !isRequiredFieldsFilled ||
         isLoadingAssigneeOrAssets ||
-        isLinkedAssetPresent ||
+        isLinkedAssetMissing ||
         isLoading;
+
+    const actionButtonLabel = mode === IncidentAction.CREATE ? 'Create' : 'Update';
+    const actionButton = isLoading ? (
+        <>
+            <StyledSpinner />
+            {actionButtonLabel === 'Create' ? 'Creating...' : 'Updating...'}
+        </>
+    ) : (
+        actionButtonLabel
+    );
+
+    const resolutionInput = form.getFieldValue('state') === IncidentState.Resolved && (
+        <SelectFormItem
+            label="Resolution Note"
+            name="message"
+            rules={[{ required: false }]}
+            customStyle={{
+                color: colors.gray[600],
+            }}
+        >
+            <HalfWidthInput label="" placeholder="Add a resolution note......" id="incident-message" />
+        </SelectFormItem>
+    );
 
     return (
         <StyledForm
@@ -209,12 +227,12 @@ export const IncidentEditor = ({
                     initialValue={getLinkedAssetsData(data?.linkedAssets) || []}
                 >
                     <IncidentLinkedAssetsList
+                        initialUrn={entity?.urn}
                         form={form}
                         data={data}
                         mode={mode}
                         setCachedLinkedAssets={setCachedLinkedAssets}
                         setIsLinkedAssetsLoading={setIsLoadingAssigneeOrAssets}
-                        urn={urn}
                     />
                 </SelectFormItem>
                 {mode === IncidentAction.EDIT && (
@@ -227,30 +245,11 @@ export const IncidentEditor = ({
                         value={formValues?.[INCIDENT_OPTION_LABEL_MAPPING.state.fieldName]}
                     />
                 )}
-                {form.getFieldValue('state') === IncidentState.Resolved && (
-                    <SelectFormItem
-                        label="Resolution Note"
-                        name="message"
-                        rules={[{ required: false }]}
-                        customStyle={{
-                            color: colors.gray[600],
-                        }}
-                    >
-                        <HalfWidthInput label="" placeholder="Add a resolution note......" id="incident-message" />
-                    </SelectFormItem>
-                )}
+                {resolutionInput}
             </StyledFormElements>
             <IncidentFooter>
                 <SaveButton data-testid="incident-create-button" type="submit" disabled={isSubmitButtonDisabled}>
-                    {/* {actionButtonLabel} */}
-                    {isLoading ? (
-                        <>
-                            <StyledSpinner />
-                            {actionButtonLabel === 'Create' ? 'Creating...' : 'Updating...'}
-                        </>
-                    ) : (
-                        actionButtonLabel
-                    )}
+                    {actionButton}
                 </SaveButton>
             </IncidentFooter>
         </StyledForm>

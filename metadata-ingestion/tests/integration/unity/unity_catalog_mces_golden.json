@@ -292,13 +292,19 @@
                 "op": "add",
                 "path": "/customProperties/created_at",
                 "value": "2022-06-22 05:14:56"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://dummy.cloud.databricks.com/explore/data/hive_metastore/bronze_kambi/view1"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
         "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-test-pipeline"
     }
 },
 {
@@ -1389,13 +1395,19 @@
                 "op": "add",
                 "path": "/customProperties/created_at",
                 "value": "2022-06-22 05:14:56"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://dummy.cloud.databricks.com/explore/data/hive_metastore/bronze_kambi/bet"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
         "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-test-pipeline"
     }
 },
 {
@@ -1599,13 +1611,19 @@
                 "op": "add",
                 "path": "/customProperties/created_at",
                 "value": "2022-06-22 05:14:56"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://dummy.cloud.databricks.com/explore/data/hive_metastore/bronze_kambi/external_metastore"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
         "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-test-pipeline"
     }
 },
 {
@@ -1677,13 +1695,19 @@
                 "op": "add",
                 "path": "/customProperties/table_id",
                 "value": "hive_metastore.bronze_kambi.delta_error_table"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://dummy.cloud.databricks.com/explore/data/hive_metastore/bronze_kambi/delta_error_table"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
         "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-test-pipeline"
     }
 },
 {
@@ -2679,13 +2703,19 @@
                 "op": "add",
                 "path": "/customProperties/created_at",
                 "value": "2022-10-19 13:21:38.688000+00:00"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog/quickstart_schema/quickstart_table_external"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
         "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-test-pipeline"
     }
 },
 {
@@ -2974,13 +3004,19 @@
                 "op": "add",
                 "path": "/customProperties/created_at",
                 "value": "2022-10-19 13:21:38.688000+00:00"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog/quickstart_schema/quickstart_table"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
         "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-test-pipeline"
     }
 },
 {

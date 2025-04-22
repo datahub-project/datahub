@@ -1,8 +1,8 @@
 import { Dropdown, Text } from '@components';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
+
 import {
-    ActionButtonsContainer,
     Container,
     DropdownContainer,
     LabelsWrapper,
@@ -13,11 +13,11 @@ import {
     SelectBase,
     SelectLabel,
     SelectLabelContainer,
-    StyledClearButton,
     StyledIcon,
-} from './components';
-import { ActionButtonsProps, SelectProps } from './types';
-import DropdownSearchBar from './private/DropdownSearchBar';
+} from '@components/components/Select/components';
+import DropdownSearchBar from '@components/components/Select/private/DropdownSearchBar';
+import SelectActionButtons from '@components/components/Select/private/SelectActionButtons';
+import { SelectProps } from '@components/components/Select/types';
 
 const NoSuggestions = styled.div`
     padding: 8px;
@@ -193,7 +193,7 @@ export default function AutoCompleteSelect<T>({
                         </LabelsWrapper>
                     </SelectLabelContainer>
                     <SelectActionButtons
-                        selectedValues={selectedValue ? [selectedValue.value] : []}
+                        hasSelectedValues={!!selectedValue}
                         isOpen={isOpen}
                         isDisabled={!!isDisabled}
                         isReadOnly={!!isReadOnly}
@@ -204,27 +204,5 @@ export default function AutoCompleteSelect<T>({
                 <input type="hidden" name={name} value={selectedValue?.value || ''} readOnly />
             </Dropdown>
         </Container>
-    );
-}
-
-function SelectActionButtons({
-    selectedValues,
-    isOpen,
-    isDisabled,
-    isReadOnly,
-    showClear,
-    handleClearSelection,
-}: ActionButtonsProps) {
-    return (
-        <ActionButtonsContainer>
-            {showClear && selectedValues.length > 0 && !isDisabled && !isReadOnly && (
-                <StyledClearButton
-                    icon={{ icon: 'Close', source: 'material', size: 'lg' }}
-                    isCircle
-                    onClick={handleClearSelection}
-                />
-            )}
-            <StyledIcon icon="CaretDown" source="phosphor" rotate={isOpen ? '180' : '0'} size="md" color="gray" />
-        </ActionButtonsContainer>
     );
 }
