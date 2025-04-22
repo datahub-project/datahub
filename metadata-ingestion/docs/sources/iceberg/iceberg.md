@@ -35,7 +35,7 @@ source:
 
 Where `us-west-2` is the region from which you want to ingest. The above configuration will work assuming your pod or environment in which
 you run your datahub CLI is already authenticated to AWS and has proper permissions granted (see below). If you need
-to specify secrets directly, then use below as the template:
+to specify secrets directly, use the following configuration as the template:
 
 ```yaml
 source:
@@ -56,7 +56,7 @@ source:
         region_name: "us-west-2"
 ```
 
-Above example uses references to fill credentials (either from Secrets defined in Managed Ingestion or environmental variables).
+This example uses references to fill credentials (either from Secrets defined in Managed Ingestion or environmental variables).
 It is possible (but not recommended due to security concerns) to provide those values in plaintext, directly in the recipe.
 
 #### Glue and S3 permissions required
@@ -86,8 +86,8 @@ The role used by the ingestor for ingesting metadata from Glue Iceberg Catalog a
 
 ### Iceberg REST Catalog + MinIO
 
-Below assumes MinIO defines authentication specified with `s3.*` prefix. Note specification of `s3.endpoint`, assuming
-MinIO listens on port `9000` at `minio-host`. The `uri` parameter points at IRC endpoint (in this case `iceberg-catalog:8181`).
+The following configuration assumes MinIO defines authentication using the `s3.*` prefix. Note the specification of `s3.endpoint`, assuming
+MinIO listens on port `9000` at `minio-host`. The `uri` parameter points at Iceberg REST Catalog (IRC) endpoint (in this case `iceberg-catalog:8181`).
 
 ```yaml
 source:
