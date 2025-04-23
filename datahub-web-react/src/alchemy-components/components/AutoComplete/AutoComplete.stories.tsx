@@ -3,6 +3,7 @@ import { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 
 import AutoComplete from '@components/components/AutoComplete/AutoComplete';
+import { Input } from '@components/components/Input';
 
 // Auto Docs
 const meta = {
@@ -117,7 +118,7 @@ export const sandbox: Story = {
     tags: ['dev'],
     render: (props) => (
         <AutoComplete {...props}>
-            <input />
+            <Input label="" />
         </AutoComplete>
     ),
 };

@@ -78,9 +78,11 @@ module.exports = {
     overrides: [
         {
             files: ['src/app/searchV2/**/*.tsx', 'src/app/entityV2/**/*.tsx'],
-            rules: {
-                'import/no-cycle': 'off',
-            },
+            rules: { 'import/no-cycle': 'off' },
+        },
+        {
+            files: ['src/alchemy-components/theme/**/*.ts'],
+            rules: { 'import/no-relative-packages': 'off', 'import-alias/import-alias': 'off' },
         },
     ],
 };
