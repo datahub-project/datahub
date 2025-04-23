@@ -249,7 +249,7 @@ export default function SchemaTable({
         });
     }, [expandedRowsFromFilter]);
 
-    const rowLimit = 35;
+    const rowLimit = 400;
     const [VT, setVT] = useVT(() => ({ scroll: { y: tableHeight } }), [tableHeight]);
     useMemo(() => setVT({ body: { row: SchemaRow } }), [setVT]);
     const scrollConfig = rows.length > rowLimit ? undefined : { y: tableHeight };
