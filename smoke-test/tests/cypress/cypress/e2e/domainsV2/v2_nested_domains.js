@@ -1,5 +1,5 @@
 const domainName = "CypressNestedDomain";
-const chartUrn = "urn:li:chart:(looker,baz2)";
+const chartUrn = "urn:li:chart:(looker,cypress_baz2)";
 
 const handledResizeLoopErrors = () => {
   const resizeObserverLoopLimitErrRe = "ResizeObserver loop limit exceeded";

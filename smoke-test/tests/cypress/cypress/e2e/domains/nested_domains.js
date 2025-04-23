@@ -1,5 +1,5 @@
 const domainName = "CypressNestedDomain";
-const chartUrn = "urn:li:chart:(looker,baz1)";
+const chartUrn = "urn:li:chart:(looker,cypress_baz1)";
 
 const createDomain = () => {
   cy.get(".anticon-plus").first().click();
