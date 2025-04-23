@@ -44,8 +44,7 @@ describe("add remove domain", () => {
     cy.get(".ant-modal-content").within(() => {
       cy.get('[data-testid="search-input"]')
         .click()
-        .invoke("val", "cypress_project.jaffle_shop.")
-        .type("customer");
+        .type("cypress_project.jaffle_shop.customer");
       cy.contains("BigQuery", { timeout: 30000 });
       cy.get(".ant-checkbox-input").first().click();
       cy.get("#continueButton").click();
