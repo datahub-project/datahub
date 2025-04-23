@@ -6,6 +6,7 @@ const Container = styled.div<{
     $gap?: number;
     $shouldFillAllAvailableSpace?: boolean;
     $justifyContent: 'end' | 'start';
+    $alignItems?: React.CSSProperties['alignItems'];
 }>`
     display: flex;
     flex-direction: row;
@@ -13,6 +14,7 @@ const Container = styled.div<{
     width: ${(props) => (props.$shouldFillAllAvailableSpace ? '100%' : 'fit-content')};
     overflow: hidden;
     ${(props) => props.$gap !== undefined && `gap: ${props.$gap}px;`}
+    ${(props) => props.$alignItems !== undefined && `align-items: ${props.$alignItems};`}
 `;
 
 const HiddenContainer = styled.div`
@@ -36,6 +38,7 @@ interface Props<Item extends OverflowListItem> {
     gap?: number;
     shouldFillAllAvailableSpace?: boolean;
     justifyContent?: 'start' | 'end';
+    alignItems?: React.CSSProperties['alignItems'];
 }
 
 export default function OverflowList<Item extends OverflowListItem>({
@@ -44,6 +47,7 @@ export default function OverflowList<Item extends OverflowListItem>({
     gap,
     shouldFillAllAvailableSpace = true,
     justifyContent = 'end',
+    alignItems,
 }: Props<Item>) {
     const [itemsWidths, setItemsWidth] = useState<Map<string, number>>(new Map());
     const [containerWidth, setContainerWidth] = useState<number>(0);
@@ -132,6 +136,7 @@ export default function OverflowList<Item extends OverflowListItem>({
                     $gap={finalGap}
                     $shouldFillAllAvailableSpace={shouldFillAllAvailableSpace}
                     $justifyContent={justifyContent}
+                    $alignItems={alignItems}
                 >
                     <HiddenContainer>
                         {items.map((item) => (

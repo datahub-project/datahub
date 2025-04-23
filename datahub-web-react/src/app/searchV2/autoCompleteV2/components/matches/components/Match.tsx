@@ -32,8 +32,8 @@ export default function Match({ query, entityType, match }: Props) {
 
     return (
         <TextWrapper>
-            <Text color={MATCH_COLOR} colorLevel={MATCH_COLOR_LEVEL} type="span">
-                {label}: <MatchText type="span" text={value} highlight={query} />
+            <Text color={MATCH_COLOR} colorLevel={MATCH_COLOR_LEVEL} size="sm" type="span">
+                {label}: <MatchText size="sm" type="span" text={value} highlight={query} />
             </Text>
         </TextWrapper>
     );

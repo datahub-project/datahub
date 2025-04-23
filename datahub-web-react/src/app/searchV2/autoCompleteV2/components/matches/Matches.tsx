@@ -54,6 +54,7 @@ export default function Matches({ entity, query, displayName, matchedFields }: P
                 items={items}
                 gap={8}
                 justifyContent="start"
+                alignItems="center"
                 renderHiddenItems={(hiddenItems) => <MoreMatches items={hiddenItems} />}
             />
         </MatchedFieldsContainer>
