@@ -1,5 +1,5 @@
 This connector ingests AWS S3 datasets into DataHub. It allows mapping an individual file or a folder of files to a dataset in DataHub.
-Refer to the section [Path Specs](https://datahubproject.io/docs/generated/ingestion/sources/s3/#path-specs) for more details.
+Refer to the section [Path Specs](https://docs.datahub.com/docs/generated/ingestion/sources/s3/#path-specs) for more details.
 
 :::tip
 This connector can also be used to ingest local files.
@@ -29,10 +29,10 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 
 | Source Concept                           | DataHub Concept                                                                            | Notes               |
 | ---------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------- |
-| `"s3"`                                   | [Data Platform](https://datahubproject.io/docs/generated/metamodel/entities/dataplatform/) |                     |
-| s3 object / Folder containing s3 objects | [Dataset](https://datahubproject.io/docs/generated/metamodel/entities/dataset/)            |                     |
-| s3 bucket                                | [Container](https://datahubproject.io/docs/generated/metamodel/entities/container/)        | Subtype `S3 bucket` |
-| s3 folder                                | [Container](https://datahubproject.io/docs/generated/metamodel/entities/container/)        | Subtype `Folder`    |
+| `"s3"`                                   | [Data Platform](https://docs.datahub.com/docs/generated/metamodel/entities/dataplatform/) |                     |
+| s3 object / Folder containing s3 objects | [Dataset](https://docs.datahub.com/docs/generated/metamodel/entities/dataset/)            |                     |
+| s3 bucket                                | [Container](https://docs.datahub.com/docs/generated/metamodel/entities/container/)        | Subtype `S3 bucket` |
+| s3 folder                                | [Container](https://docs.datahub.com/docs/generated/metamodel/entities/container/)        | Subtype `Folder`    |
 
 ### Profiling
 

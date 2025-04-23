@@ -540,4 +540,4 @@ A: Check that:
 
 - [Apache Iceberg Documentation](https://iceberg.apache.org/)
 - [PyIceberg Documentation](https://py.iceberg.apache.org/)
-- [DataHub Documentation](https://datahubproject.io/docs/)
+- [DataHub Documentation](https://docs.datahub.com/docs/)

@@ -14,7 +14,7 @@ We've published a blog post on some of the technical details of the parser: [Ext
 
 ## Built-in SQL Parsing Support
 
-If you're using a tool that DataHub already [integrates with](https://datahubproject.io/integrations), check the documentation for that specific integration.
+If you're using a tool that DataHub already [integrates with](https://docs.datahub.com/integrations), check the documentation for that specific integration.
 Most of our integrations, including Snowflake, BigQuery, Redshift, dbt, Looker, PowerBI, Airflow, etc, use the SQL parser to generate column-level lineage and usage statistics.
 
 If you’re using a different database system for which we don’t support column-level lineage out of the box, but you do have a database query log available, the [SQL queries](../generated/ingestion/sources/sql-queries.md) connector can generate column-level lineage and table/column usage statistics from the query log.

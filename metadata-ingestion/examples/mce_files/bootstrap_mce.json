@@ -3605,7 +3605,7 @@
               "content": {
                   "title": "View Docs",
                   "type": "LINK",
-                  "link": "https://datahubproject.io/docs",
+                  "link": "https://docs.datahub.com/docs",
                   "media": {
                       "type": "IMAGE",
                       "location": "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-logo-color-mark.svg"
@@ -3632,10 +3632,10 @@
               "content": {
                   "title": "Upcoming Events",
                   "type": "LINK",
-                  "link": "https://datahubproject.io/events",
+                  "link": "https://docs.datahub.com/events",
                   "media": {
                       "type": "IMAGE",
-                      "location": "https://datahubproject.io/img/datahub-logo-color-mark.svg"
+                      "location": "https://docs.datahub.com/img/datahub-logo-color-mark.svg"
                   }
               },
               "created": 1712547268882,

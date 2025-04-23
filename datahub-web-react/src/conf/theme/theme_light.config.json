@@ -46,12 +46,12 @@
                 },
                 {
                     "label": "Docs",
-                    "path": "https://datahubproject.io/docs",
+                    "path": "https://docs.datahub.com/docs",
                     "shouldOpenInNewTab": true
                 },
                 {
                     "label": "Releases",
-                    "path": "https://datahubproject.io/docs/releases/",
+                    "path": "https://docs.datahub.com/docs/releases/",
                     "shouldOpenInNewTab": true
                 },
                 {

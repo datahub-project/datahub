@@ -16,7 +16,7 @@ export const EmptyAssetsYouOwn = () => {
             <a
                 target="_blank"
                 rel="noreferrer noopener"
-                href="https://datahubproject.io/docs/ownership/ownership-types"
+                href="https://docs.datahub.com/docs/ownership/ownership-types"
             >
                 Learn more
             </a>{' '}

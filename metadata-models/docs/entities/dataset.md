@@ -152,7 +152,7 @@ Fine-grained lineage at field level can be associated to a dataset in two ways -
 
 #### Querying lineage information
 
-The standard [GET APIs to retrieve entities](https://datahubproject.io/docs/metadata-service/#retrieving-entities) can be used to fetch the dataset/datajob created by the above example.
+The standard [GET APIs to retrieve entities](https://docs.datahub.com/docs/metadata-service/#retrieving-entities) can be used to fetch the dataset/datajob created by the above example.
 The response will include the fine-grained lineage information as well.
 
 <details>

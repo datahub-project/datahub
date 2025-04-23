@@ -109,14 +109,14 @@ const ALL_GUIDES = [
     {
         id: 'integrations',
         title: 'Connect Sources',
-        url: 'https://datahubproject.io/docs/ui-ingestion',
+        url: 'https://docs.datahub.com/docs/ui-ingestion',
         icon: ApiOutlined,
         personas: [PersonaType.TECHNICAL_USER, PersonaType.DATA_ENGINEER],
     },
     {
         id: 'features',
         title: 'Feature Guides',
-        url: 'https://datahubproject.io/docs/category/features?utm_source=acryl_datahub_app',
+        url: 'https://docs.datahub.com/docs/category/features?utm_source=acryl_datahub_app',
         icon: HelpCenterOutlined,
         personas: [
             PersonaType.TECHNICAL_USER,

@@ -550,7 +550,7 @@ Below is how column-level lineage can be set with dbt and Postgres tables.
 ### Ingestion Source
 
 If you're using an ingestion source that supports extraction of Lineage (e.g. **Table Lineage Capability**), then lineage information can be extracted automatically.
-For detailed instructions, refer to the [source documentation](https://datahubproject.io/integrations) for the source you are using.
+For detailed instructions, refer to the [source documentation](https://docs.datahub.com/integrations) for the source you are using.
 
 ### UI
 
@@ -674,7 +674,7 @@ This is a summary of automatic lineage extraciton support in our data source. Pl
 If you’re using a different database system for which we don’t support column-level lineage out of the box, but you do have a database query log available, 
 we have a SQL queries connector that generates column-level lineage and detailed table usage statistics from the query log.
 
-If these does not suit your needs, you can use the new `DataHubGraph.parse_sql_lineage()` method in our SDK. (See the source code [here](https://datahubproject.io/docs/python-sdk/clients/))
+If these does not suit your needs, you can use the new `DataHubGraph.parse_sql_lineage()` method in our SDK. (See the source code [here](https://docs.datahub.com/docs/python-sdk/clients/))
 
 For more information, refer to the [Extracting Column-Level Lineage from SQL](https://blog.datahubproject.io/extracting-column-level-lineage-from-sql-779b8ce17567) 
 

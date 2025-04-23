@@ -873,9 +873,9 @@ setuptools.setup(
     # Package metadata.
     name=package_metadata["__package_name__"],
     version=_version,
-    url="https://datahubproject.io/",
+    url="https://docs.datahub.com/",
     project_urls={
-        "Documentation": "https://datahubproject.io/docs/",
+        "Documentation": "https://docs.datahub.com/docs/",
         "Source": "https://github.com/datahub-project/datahub",
         "Changelog": "https://github.com/datahub-project/datahub/releases",
         "Releases": "https://github.com/acryldata/datahub/releases",
@@ -886,7 +886,7 @@ setuptools.setup(
 The `acryl-datahub` package contains a CLI and SDK for interacting with DataHub,
 as well as an integration framework for pulling/pushing metadata from external systems.
 
-See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
+See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
 """,
     long_description_content_type="text/markdown",
     classifiers=[

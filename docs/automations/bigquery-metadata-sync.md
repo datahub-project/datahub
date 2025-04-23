@@ -72,10 +72,10 @@ Ensure your service account has the following permissions:
 
    | Propagation Type                     | DataHub Entity                                                                              | BigQuery Entity                                                                 | Note                                                                                                                                                                                                                                                                                          |
    | ------------------------------------ | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-   | Table Tags as Labels                 | [Table Tag](https://datahubproject.io/docs/tags/)                                           | [BigQuery Label](https://cloud.google.com/bigquery/docs/labels-intro)           | -                                                                                                                                                                                                                                                                                             |
-   | Column Glossary Terms as Policy Tags | [Glossary Term on Table Column](https://datahubproject.io/docs/glossary/business-glossary/) | [Policy Tag](https://cloud.google.com/bigquery/docs/best-practices-policy-tags) | <ul><li>Assigned Policy tags are created under DataHub taxonomy.</li></ul><ul><li>Only the latest assigned glossary term set as policy tag. BigQuery only supports one assigned policy tag.</li></ul> <ul><li>Policy Tags are not synced to DataHub as glossary term from BigQuery.</li></ul> |
-   | Table Descriptions                   | [Table Description](https://datahubproject.io/docs/api/tutorials/descriptions/)             | Table Description                                                               | -                                                                                                                                                                                                                                                                                             |
-   | Column Descriptions                  | [Column Description](https://datahubproject.io/docs/api/tutorials/descriptions/)            | Column Description                                                              | -                                                                                                                                                                                                                                                                                             |
+   | Table Tags as Labels                 | [Table Tag](https://docs.datahub.com/docs/tags/)                                           | [BigQuery Label](https://cloud.google.com/bigquery/docs/labels-intro)           | -                                                                                                                                                                                                                                                                                             |
+   | Column Glossary Terms as Policy Tags | [Glossary Term on Table Column](https://docs.datahub.com/docs/glossary/business-glossary/) | [Policy Tag](https://cloud.google.com/bigquery/docs/best-practices-policy-tags) | <ul><li>Assigned Policy tags are created under DataHub taxonomy.</li></ul><ul><li>Only the latest assigned glossary term set as policy tag. BigQuery only supports one assigned policy tag.</li></ul> <ul><li>Policy Tags are not synced to DataHub as glossary term from BigQuery.</li></ul> |
+   | Table Descriptions                   | [Table Description](https://docs.datahub.com/docs/api/tutorials/descriptions/)             | Table Description                                                               | -                                                                                                                                                                                                                                                                                             |
+   | Column Descriptions                  | [Column Description](https://docs.datahub.com/docs/api/tutorials/descriptions/)            | Column Description                                                              | -                                                                                                                                                                                                                                                                                             |
 
    :::note
 
@@ -138,7 +138,7 @@ A: The following metadata elements support bi-directional syncing:
 
 ### Q: Are Policy Tags bi-directionally synced?
 
-A: No, BigQuery Policy Tags are only propagated from DataHub to BigQuery, not vice versa. This means that Policy Tags should be mastered in DataHub using the [Business Glossary](https://datahubproject.io/docs/glossary/business-glossary/).
+A: No, BigQuery Policy Tags are only propagated from DataHub to BigQuery, not vice versa. This means that Policy Tags should be mastered in DataHub using the [Business Glossary](https://docs.datahub.com/docs/glossary/business-glossary/).
 
 It is recommended to avoid enabling `extract_policy_tags_from_catalog` during
 ingestion, as this will ingest policy tags as BigQuery labels. Our sync process
@@ -186,7 +186,7 @@ No, the sync can only modify table description but it won't remove or clear a de
 
 ## Related Documentation
 
-- [DataHub Tags Documentation](https://datahubproject.io/docs/tags/)
-- [DataHub Glossary Documentation](https://datahubproject.io/docs/glossary/business-glossary/)
+- [DataHub Tags Documentation](https://docs.datahub.com/docs/tags/)
+- [DataHub Glossary Documentation](https://docs.datahub.com/docs/glossary/business-glossary/)
 - [BigQuery Labels Documentation](https://cloud.google.com/bigquery/docs/labels-intro)
 - [BigQuery Policy Tags Documentation](https://cloud.google.com/bigquery/docs/best-practices-policy-tags)

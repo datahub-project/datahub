@@ -49,7 +49,7 @@ const resources = [
     },
     {
         label: 'DataHub Docs',
-        path: 'https://datahubproject.io/docs',
+        path: 'https://docs.datahub.com/docs',
         shouldOpenInNewTab: true,
     },
     {

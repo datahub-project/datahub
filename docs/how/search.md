@@ -164,7 +164,7 @@ If you want to:
 
 ### GraphQL
 
-- [searchAcrossEntities](https://datahubproject.io/docs/graphql/queries/#searchacrossentities)
+- [searchAcrossEntities](https://docs.datahub.com/docs/graphql/queries/#searchacrossentities)
 - You can try out the API on the demo instance's public GraphQL interface: [here](https://demo.datahubproject.io/api/graphiql)
 
 The same GraphQL API that powers the Search UI can be used
@@ -216,7 +216,7 @@ query searchEntities {
 
 ### Searching at Scale
 
-For queries that return more than 10k entities we recommend using the [scrollAcrossEntities](https://datahubproject.io/docs/graphql/queries/#scrollacrossentities) GraphQL API:
+For queries that return more than 10k entities we recommend using the [scrollAcrossEntities](https://docs.datahub.com/docs/graphql/queries/#scrollacrossentities) GraphQL API:
 
 ```
 # Example query

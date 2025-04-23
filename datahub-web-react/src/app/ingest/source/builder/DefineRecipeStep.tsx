@@ -12,7 +12,7 @@ import { StepProps } from '@app/ingest/source/builder/types';
 import { getPlaceholderRecipe, getSourceConfigs, jsonToYaml } from '@app/ingest/source/utils';
 import { Button } from '@src/alchemy-components';
 
-const LOOKML_DOC_LINK = 'https://datahubproject.io/docs/generated/ingestion/sources/looker#module-lookml';
+const LOOKML_DOC_LINK = 'https://docs.datahub.com/docs/generated/ingestion/sources/looker#module-lookml';
 
 const Section = styled.div`
     display: flex;

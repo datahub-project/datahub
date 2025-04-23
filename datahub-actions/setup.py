@@ -190,9 +190,9 @@ setuptools.setup(
     # Package metadata.
     name=package_metadata["__package_name__"],
     version=package_metadata["__version__"],
-    url="https://datahubproject.io/",
+    url="https://docs.datahub.com/",
     project_urls={
-        "Documentation": "https://datahubproject.io/docs/actions",
+        "Documentation": "https://docs.datahub.com/docs/actions",
         "Source": "https://github.com/acryldata/datahub-actions",
         "Changelog": "https://github.com/acryldata/datahub-actions/releases",
     },

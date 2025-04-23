@@ -723,7 +723,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 
 ### Sources
 
-Please see our [Integrations page](https://datahubproject.io/integrations) if you want to filter on the features offered by each source.
+Please see our [Integrations page](https://docs.datahub.com/integrations) if you want to filter on the features offered by each source.
 
 | Plugin Name                                                                                    | Install Command                                            | Provides                                |
 | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------- |
