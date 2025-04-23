@@ -18,7 +18,7 @@ from typing import Dict, Set
 import setuptools
 
 package_metadata: dict = {}
-with open("./src/datahub_actions/__init__.py") as fp:
+with open("./src/datahub_actions/_version.py") as fp:
     exec(fp.read(), package_metadata)
 
 
@@ -35,7 +35,7 @@ acryl_datahub_min_version = os.environ.get("ACRYL_DATAHUB_MIN_VERSION") or "1.0.
 lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
-    "ruff==0.9.7",
+    "ruff==0.11.6",
     "mypy==1.10.1",
 }
 
