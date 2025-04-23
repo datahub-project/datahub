@@ -1,0 +1,43 @@
+interactions:
+- request:
+    body: '{"query": "\n    query getDataset($urn: String!) {\n        dataset(urn:
+      $urn) {\n            properties {\n                name\n                description\n            }\n        }\n    }\n    ",
+      "variables": {"urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_dataset,PROD)"}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '287'
+      Content-Type:
+      - application/json
+      User-Agent:
+      - python-requests/2.31.0
+      X-DataHub-Py-Cli-Version:
+      - unavailable (installed in develop mode)
+      X-RestLi-Protocol-Version:
+      - 2.0.0
+    method: POST
+    uri: http://localhost:8080/api/graphql
+  response:
+    body:
+      string: '{"data":{"dataset":{"properties":{"name":"test_dataset","description":"A
+        test dataset"}}},"extensions":{}}'
+    headers:
+      Content-Length:
+      - '106'
+      Content-Type:
+      - application/json;charset=utf-8
+      Date:
+      - Wed, 23 Apr 2025 12:42:08 GMT
+      Server:
+      - Jetty(12.0.16)
+      traceparent:
+      - 00-000633716dea5a2021591299233f810b-900e1e8b2c31253f-01
+    status:
+      code: 200
+      message: OK
+version: 1

@@ -1,0 +1,81 @@
+interactions:
+- request:
+    body: '{"entity": {"value": {"com.linkedin.metadata.snapshot.DatasetSnapshot":
+      {"urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_dataset,PROD)", "aspects":
+      [{"com.linkedin.dataset.DatasetProperties": {"customProperties": {}, "name":
+      "test_dataset", "description": "A test dataset", "tags": []}}]}}}, "systemMetadata":
+      {"lastObserved": 1745412128606, "runId": "no-run-id-provided", "lastRunId":
+      "no-run-id-provided", "properties": {"clientId": "acryl-datahub", "clientVersion":
+      "1!0.0.0.dev0"}}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '496'
+      Content-Type:
+      - application/json
+      User-Agent:
+      - python-requests/2.31.0
+      X-DataHub-Py-Cli-Version:
+      - unavailable (installed in develop mode)
+      X-RestLi-Protocol-Version:
+      - 2.0.0
+    method: POST
+    uri: http://localhost:8080/entities?action=ingest
+  response:
+    body:
+      string: ''
+    headers:
+      Content-Length:
+      - '0'
+      Date:
+      - Wed, 23 Apr 2025 12:42:08 GMT
+      Server:
+      - Jetty(12.0.16)
+      X-RestLi-Protocol-Version:
+      - 2.0.0
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      User-Agent:
+      - python-requests/2.31.0
+      X-DataHub-Py-Cli-Version:
+      - unavailable (installed in develop mode)
+      X-RestLi-Protocol-Version:
+      - 2.0.0
+    method: GET
+    uri: http://localhost:8080/aspects/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Abigquery%2Ctest_dataset%2CPROD%29?aspect=datasetProperties&version=0
+  response:
+    body:
+      string: '{"version":0,"aspect":{"com.linkedin.dataset.DatasetProperties":{"name":"test_dataset","description":"A
+        test dataset","customProperties":{},"tags":[]}}}'
+    headers:
+      Content-Length:
+      - '152'
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 23 Apr 2025 12:42:08 GMT
+      Server:
+      - Jetty(12.0.16)
+      X-RestLi-Protocol-Version:
+      - 2.0.0
+    status:
+      code: 200
+      message: OK
+version: 1

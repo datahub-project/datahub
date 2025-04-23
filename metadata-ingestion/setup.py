@@ -625,6 +625,7 @@ base_dev_requirements = {
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
     "pytest-random-order~=1.1.0",
+    "pytest-vcr>=1.0.2",
     "requests-mock",
     "freezegun",
     "jsonpickle",
