@@ -14,9 +14,9 @@ import {
     AutomationsContentHeader,
     AutomationsContentTab,
     AutomationsContentTabs,
+    AutomationsGrid,
     AutomationsPageContainer,
     AutomationsSidebar,
-    ScrollableContent,
 } from '@app/automations/Automations/components';
 import { env } from '@app/automations/constants';
 import { PageTitle } from '@src/alchemy-components/components/PageTitle';
@@ -66,8 +66,6 @@ const AutomationPage = React.memo(() => {
 
     const isShowNavBarRedesign = useShowNavBarRedesign();
 
-    const FinalScrollableContent = isShowNavBarRedesign ? ScrollableContent : React.Fragment;
-
     return (
         <>
             <AutomationsPageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
@@ -98,14 +96,14 @@ const AutomationPage = React.memo(() => {
                                 </AutomationsContentTab>
                             ))}
                         </AutomationsContentTabs>
-                        <FinalScrollableContent>
-                            <AutomationsBody>
+                        <AutomationsBody>
+                            <AutomationsGrid>
                                 {automationsData.map((automation) => (
                                     <AutomationsListCard key={automation.key} automation={automation} />
                                 ))}
-                            </AutomationsBody>
-                        </FinalScrollableContent>
-                        {!isLoading && automationsData && automationsData.length === 0 && <EmptyState />}
+                            </AutomationsGrid>
+                            {!isLoading && automationsData && automationsData.length === 0 && <EmptyState />}
+                        </AutomationsBody>
                     </AutomationsContentBody>
                 </AutomationsContent>
             </AutomationsPageContainer>

@@ -29,10 +29,6 @@ export const AutomationsPageContainer = styled.div<{ $isShowNavBarRedesign?: boo
         border-radius: ${props.theme.styles['border-radius-navbar-redesign']};
         margin: 5px;
     `}
-    // TODO: Readd for sidebar
-    // display: grid;
-    // grid-template-columns: ${sidebarWidth} 1fr;
-    // grid-template-rows: 1fr;
     gap: 16px;
 
     font-family: ${sharedStyles.fontFamily};
@@ -90,22 +86,23 @@ export const AutomationsContentHeader = styled.div<{ $isShowNavBarRedesign?: boo
 
 // Page Body
 
-export const ScrollableContent = styled.div`
-    overflow-x: hidden;
-    overflow-y: auto;
-    height: 100%;
-`;
-
 export const AutomationsContentBody = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding: 0px 20px;
     ${(props) => props.$isShowNavBarRedesign && 'height: calc(100% - 150px);'}
 `;
 
 export const AutomationsBody = styled.div`
+    height: 100%;
+    padding: 16px 0;
+
+    overflow-x: hidden;
+    overflow-y: auto;
+`;
+
+export const AutomationsGrid = styled.div`
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 16px;
-    padding: 16px 0;
 `;
 
 // Page Tabs
