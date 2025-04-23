@@ -178,7 +178,9 @@ These privileges are for DataHub operators to access & manage the administrative
 | Manage Monitors[^2]             | Allow actor to create, update, and delete any data asset monitors, including Custom SQL monitors. Grant with care. |
 
 [^1]: Only active if REST_API_AUTHORIZATION_ENABLED is true
+
 [^2]: DataHub Cloud only
+
 [^3]: Deprecated feature
 
 #### Entity Management
@@ -205,6 +207,7 @@ These privileges are for DataHub operators to access & manage the administrative
 | Manage System Operations                      | Allow actor to manage system operation controls. This setting includes all System Management privileges. |
 
 [^1]: Only active if REST_API_AUTHORIZATION_ENABLED is true
+
 [^2]: DataHub Cloud only
 
 ### Common Metadata Privileges
@@ -227,6 +230,7 @@ These privileges are to view & modify any entity within DataHub.
 | Share Entity[^2]                   | Allow actor to share an entity with another DataHub Cloud instance.                        |
 
 [^1]: Only active if REST_API_AUTHORIZATION_ENABLED is true
+
 [^2]: DataHub Cloud only
 
 #### Aspect Privileges
@@ -248,6 +252,7 @@ These privileges are to view & modify any entity within DataHub.
 | Get Timeseries Aspect API[^1] | Allow actor to use the GET Timeseries Aspect API.                  |
 
 [^1]: Only active if REST_API_AUTHORIZATION_ENABLED is true
+
 [^2]: DataHub Cloud only
 
 #### Proposals
@@ -262,6 +267,7 @@ These privileges are to view & modify any entity within DataHub.
 | Manage Documentation Proposals[^2] | Allow actor to manage a proposal update an asset's documentation     |
 
 [^1]: Only active if REST_API_AUTHORIZATION_ENABLED is true
+
 [^2]: DataHub Cloud only
 
 ### Specific Entity-level Privileges
@@ -280,6 +286,7 @@ These privileges are not generalizable.
 | User   | Edit User Profile                      | Allow actor to change the user's profile including display name, bio, title, profile image, etc. |
 
 [^1]: Only active if REST_API_AUTHORIZATION_ENABLED is true
+
 [^2]: DataHub Cloud only
 
 #### Dataset
@@ -309,6 +316,7 @@ These privileges are not generalizable.
 | GlossaryNode | Manage All Glossary Children              | Allow actor to create and delete everything underneath this entity.                                                                                                               |
 
 [^1]: Only active if REST_API_AUTHORIZATION_ENABLED is true
+
 [^2]: DataHub Cloud only
 
 #### Misc
@@ -321,6 +329,7 @@ These privileges are not generalizable.
 | GlossaryNode | Manage All Glossary Children    | Allow actor to create and delete everything underneath this entity.   |
 
 [^1]: Only active if REST_API_AUTHORIZATION_ENABLED is true
+
 [^2]: DataHub Cloud only
 
 ## Coming Soon

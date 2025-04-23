@@ -102,7 +102,6 @@ export type IncidentEditorProps = {
     onClose?: () => void;
     data?: IncidentTableRow;
     mode?: IncidentAction;
-    urn?: string;
 };
 
 export type IncidentLinkedAssetsListProps = {
@@ -132,13 +131,23 @@ export enum IncidentConstant {
 export type EntityStagedForIncident = {
     urn: string;
     platform?: DataPlatform;
-    entityType: EntityType;
+    entityType?: EntityType; // TODO remove this.
 };
 
 export type IncidentBuilderSiblingOptions = {
     title: string;
     disabled?: boolean;
 } & Partial<EntityStagedForIncident>;
+
+export type IncidentHandlerProps = {
+    mode: IncidentAction;
+    onSubmit?: () => void;
+    incidentUrn: string | undefined;
+    user: CorpUser | null | undefined;
+    entity: EntityStagedForIncident | undefined;
+    assignees: CorpUser[];
+    linkedAssets: string[];
+};
 
 export type CreateIncidentButtonProps = {
     privileges: EntityPrivileges;

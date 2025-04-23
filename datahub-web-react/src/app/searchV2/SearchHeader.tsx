@@ -9,7 +9,6 @@ import NavBarToggler from '@app/homeV2/layout/navBarRedesign/NavBarToggler';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { V2_SEARCH_BAR_ID } from '@app/onboarding/configV2/HomePageOnboardingConfig';
 import { SearchBar } from '@app/searchV2/SearchBar';
-import { FiltersAppliedHandler } from '@app/searchV2/filtersV2/types';
 import { SearchBarV2 } from '@app/searchV2/searchBarV2/SearchBarV2';
 import useSearchViewAll from '@app/searchV2/useSearchViewAll';
 import { useAppConfig } from '@app/useAppConfig';
@@ -127,10 +126,8 @@ type Props = {
     initialQuery: string;
     placeholderText: string;
     suggestions: Array<AutoCompleteResultForEntity>;
-    isSuggestionsLoading?: boolean;
     onSearch: (query: string) => void;
     onQueryChange: (query: string) => void;
-    onFilter?: FiltersAppliedHandler;
     entityRegistry: EntityRegistry;
 };
 
@@ -141,11 +138,9 @@ export const SearchHeader = ({
     initialQuery,
     placeholderText,
     suggestions,
-    isSuggestionsLoading,
     onSearch,
     onQueryChange,
     entityRegistry,
-    onFilter,
 }: Props) => {
     const [, setIsSearchBarFocused] = useState(false);
     const appConfig = useAppConfig();
@@ -179,14 +174,12 @@ export const SearchHeader = ({
                             initialQuery={initialQuery}
                             placeholderText={placeholderText}
                             suggestions={suggestions}
-                            isSuggestionsLoading={isSuggestionsLoading}
                             onSearch={onSearch}
                             onQueryChange={onQueryChange}
                             entityRegistry={entityRegistry}
                             setIsSearchBarFocused={setIsSearchBarFocused}
                             viewsEnabled={viewsEnabled}
                             isShowNavBarRedesign={isShowNavBarRedesign}
-                            onFilter={onFilter}
                             combineSiblings
                             fixAutoComplete
                             showQuickFilters

@@ -92,6 +92,7 @@ export class BusinessAttributeEntity implements Entity<BusinessAttribute> {
             <Preview
                 previewType={previewType}
                 urn={data.urn}
+                data={data}
                 name={this.displayName(data)}
                 description={data.properties?.description || ''}
                 owners={data.ownership?.owners}

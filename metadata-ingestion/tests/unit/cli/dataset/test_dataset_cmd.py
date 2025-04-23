@@ -6,6 +6,7 @@ import pytest
 from click.testing import CliRunner
 
 from datahub.cli.specific.dataset_cli import dataset
+from tests.test_helpers.mce_helpers import check_goldens_stream
 
 TEST_RESOURCES_DIR = Path(__file__).parent / "test_resources"
 
@@ -302,6 +303,14 @@ class TestDatasetCli:
         mock_graph.exists.return_value = True
         mock_get_default_graph.return_value.__enter__.return_value = mock_graph
 
+        emitted_items = []
+
+        def capture_emit(item, *args, **kwargs):
+            emitted_items.append(item)
+            return None
+
+        mock_graph.emit.side_effect = capture_emit
+
         runner = CliRunner()
         result = runner.invoke(
             dataset, ["sync", "--to-datahub", "-f", str(test_yaml_file)]
@@ -310,6 +319,9 @@ class TestDatasetCli:
         # Verify
         assert result.exit_code == 0
         assert mock_graph.emit.called
+
+        golden_file = Path(TEST_RESOURCES_DIR / "golden_test_dataset_sync_mpcs.json")
+        check_goldens_stream(emitted_items, golden_file)
 
     @patch("datahub.cli.specific.dataset_cli.get_default_graph")
     def test_run_sync_fail(self, mock_get_default_graph, invalid_value_yaml_file):

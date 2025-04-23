@@ -25,7 +25,7 @@ describe("incidents", () => {
   it("can view v1 incident", () => {
     cy.login();
     cy.visit(
-      "/dataset/urn:li:dataset:(urn:li:dataPlatform:kafka,incidents-sample-dataset,PROD)/Incidents",
+      "/dataset/urn:li:dataset:(urn:li:dataPlatform:kafka,incidents-sample-dataset-v2,PROD)/Incidents",
     );
     cy.get(`[data-testid="incident-row-${EXISTING_INCIDENT_TITLE}"]`)
       .contains(EXISTING_INCIDENT_TITLE)
@@ -35,7 +35,7 @@ describe("incidents", () => {
   it("create a v2 incident with all fields set", () => {
     cy.login();
     cy.visit(
-      "/dataset/urn:li:dataset:(urn:li:dataPlatform:kafka,incidents-sample-dataset,PROD)/Incidents",
+      "/dataset/urn:li:dataset:(urn:li:dataPlatform:kafka,incidents-sample-dataset-v2,PROD)/Incidents",
     );
     cy.get('[data-testid="create-incident-btn-main"]').click();
     cy.get('[data-testid="incident-name-input"]').type(
@@ -95,7 +95,7 @@ describe("incidents", () => {
   it("can update incident & resolve incident", () => {
     cy.login();
     cy.visit(
-      "/dataset/urn:li:dataset:(urn:li:dataPlatform:kafka,incidents-sample-dataset,PROD)/Incidents",
+      "/dataset/urn:li:dataset:(urn:li:dataPlatform:kafka,incidents-sample-dataset-v2,PROD)/Incidents",
     );
     cy.get(`[data-testid="incident-row-${newIncidentNameWithTimeStamp}"]`)
       .should("exist")

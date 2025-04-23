@@ -335,13 +335,12 @@
             "lastModified": {
                 "time": 1643871600000,
                 "actor": "urn:li:corpuser:bar"
-            },
-            "origin": "urn:li:dataPlatform:mode"
+            }
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00-e6s1u2",
+        "runId": "bigquery-2022_02_03-07_00_00-y4a2wl",
         "lastRunId": "no-run-id-provided"
     }
 },

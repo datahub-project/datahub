@@ -32,7 +32,7 @@ import lombok.extern.slf4j.Slf4j;
 public class CreateNotificationConnectionTestResolver
     implements DataFetcher<CompletableFuture<String>> {
 
-  private final String TEST_EVENT_NOTIFICATION_TITLE = "Hello from Acryl!";
+  private final String TEST_EVENT_NOTIFICATION_TITLE = "Hello from DataHub!";
   private final String TEST_EVENT_NOTIFICATION_BODY = "This is a test notification requested by %s";
   private static final String TEST_CONNECTION_TASK_NAME =
       Constants.NOTIFICATION_CONNECTION_TEST_EXECUTION_REQUEST_TASK_NAME;

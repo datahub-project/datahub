@@ -320,6 +320,7 @@ export const toProperTitleCase = (str: string) => {
  */
 export function isEntityType(entityType?: string): entityType is EntityType {
     if (entityType === undefined) return false;
+    if (entityType === null) return false;
 
     const possibleValues: Array<string> = Array.from(Object.values(EntityType));
     return possibleValues.includes(entityType);
