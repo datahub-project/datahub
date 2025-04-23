@@ -1325,6 +1325,7 @@ query getSearchResultsForMultipleTrimmed($input: SearchAcrossEntitiesInput!) {
                 entity {
                     urn
                     type
+                    ...entityDisplayNameFields
                 }
             }
         }
