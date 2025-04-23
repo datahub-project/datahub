@@ -1170,6 +1170,159 @@ def test_independent_soft_deleted_looks(
         assert looks[2].title == "Soft Deleted"
 
 
+def setup_mock_dashboard_multi_model_explores(mocked_client):
+    """Set up a dashboard element that references explores from different models."""
+    mocked_client.all_dashboards.return_value = [Dashboard(id="1")]
+    mocked_client.dashboard.return_value = Dashboard(
+        id="1",
+        title="Dashboard with Multi-Model Explores",
+        created_at=datetime.utcfromtimestamp(time.time()),
+        updated_at=datetime.utcfromtimestamp(time.time()),
+        description="A dashboard with elements that reference explores from different models",
+        dashboard_elements=[
+            DashboardElement(
+                id="2",
+                type="vis",
+                title="Multi-Model Element",
+                subtitle_text="Element referencing two explores from different models",
+                result_maker=mock.MagicMock(
+                    query=Query(
+                        model="model_1",
+                        view="explore_1",
+                        fields=["explore_1.field1", "explore_1.field2"],
+                    ),
+                    filterables=[
+                        mock.MagicMock(
+                            model="model_1",
+                            view="explore_1",
+                        ),
+                        mock.MagicMock(
+                            model="model_2",
+                            view="explore_2",
+                        ),
+                    ],
+                ),
+            )
+        ],
+        folder=FolderBase(name="Shared", id="shared-folder-id"),
+    )
+
+
+def setup_mock_multi_model_explores(mocked_client):
+    """Set up mocks for explores from different models."""
+
+    def lookml_model_explore_side_effect(model, name, *args, **kwargs):
+        if model == "model_1" and name == "explore_1":
+            return LookmlModelExplore(
+                id="1",
+                name="explore_1",
+                label="Explore 1",
+                description="First explore from model 1",
+                view_name="underlying_view_1",
+                project_name="project_1",
+                fields=LookmlModelExploreFieldset(
+                    dimensions=[
+                        LookmlModelExploreField(
+                            name="field1",
+                            type="string",
+                            description="field 1 description",
+                            label_short="Field 1",
+                        )
+                    ]
+                ),
+                source_file="model_1/explore_1.lkml",
+            )
+        elif model == "model_2" and name == "explore_2":
+            return LookmlModelExplore(
+                id="2",
+                name="explore_2",
+                label="Explore 2",
+                description="Second explore from model 2",
+                view_name="underlying_view_2",
+                project_name="project_2",
+                fields=LookmlModelExploreFieldset(
+                    dimensions=[
+                        LookmlModelExploreField(
+                            name="field1",
+                            type="string",
+                            description="field 1 description",
+                            label_short="Field 1",
+                        )
+                    ]
+                ),
+                source_file="model_2/explore_2.lkml",
+            )
+        return None
+
+    def lookml_model_side_effect(model, *args, **kwargs):
+        if model == "model_1":
+            mock_model = mock.MagicMock(project_name="project_1")
+            return mock_model
+        elif model == "model_2":
+            mock_model = mock.MagicMock(project_name="project_2")
+            return mock_model
+        return None
+
+    mocked_client.lookml_model.side_effect = lookml_model_side_effect
+    mocked_client.lookml_model_explore.side_effect = lookml_model_explore_side_effect
+
+
+@freeze_time(FROZEN_TIME)
+def test_looker_ingest_multi_model_explores(pytestconfig, tmp_path, mock_time):
+    """Test ingestion of dashboard elements with explores from different models."""
+    mocked_client = mock.MagicMock()
+    output_file = f"{tmp_path}/looker_multi_model_mces.json"
+
+    with mock.patch("looker_sdk.init40") as mock_sdk:
+        mock_sdk.return_value = mocked_client
+        setup_mock_dashboard_multi_model_explores(mocked_client)
+        setup_mock_multi_model_explores(mocked_client)
+        mocked_client.run_inline_query.side_effect = side_effect_query_inline
+
+        test_resources_dir = pytestconfig.rootpath / "tests/integration/looker"
+
+        pipeline = Pipeline.create(
+            {
+                "run_id": "looker-test",
+                "source": {
+                    "type": "looker",
+                    "config": {
+                        "base_url": "https://looker.company.com",
+                        "client_id": "foo",
+                        "client_secret": "bar",
+                        "extract_usage_history": False,
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": output_file,
+                    },
+                },
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        # Validate against a golden file
+        mce_out_file = "golden_test_multi_model_explores.json"
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=output_file,
+            golden_path=f"{test_resources_dir}/{mce_out_file}",
+        )
+
+        # Simply check that both model_1 and model_2 explores appear in the output file
+        with open(output_file, "r") as f:
+            output = f.read()
+            assert "model_1.explore.explore_1" in output, (
+                "Missing model_1.explore.explore_1 in output"
+            )
+            assert "model_2.explore.explore_2" in output, (
+                "Missing model_2.explore.explore_2 in output"
+            )
+
+
 @freeze_time(FROZEN_TIME)
 def test_upstream_cll(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     mocked_client = mock.MagicMock()

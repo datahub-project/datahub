@@ -14,6 +14,7 @@ task checkPythonVersion(type: Exec) {
 task buildWheels(type: Exec, dependsOn: [
   checkPythonVersion,
   ':metadata-ingestion:buildWheel',
+  ':datahub-actions:buildWheel',
   ':metadata-ingestion-modules:airflow-plugin:buildWheel',
   ':metadata-ingestion-modules:dagster-plugin:buildWheel',
   ':metadata-ingestion-modules:prefect-plugin:buildWheel',

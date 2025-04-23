@@ -15,6 +15,7 @@ const addNewQuery = () => {
 
 const editQuery = () => {
   cy.get('[data-testid="query-edit-button-0"]').click();
+  cy.wait(1000); // let Editor load existing content before we try to type
   cy.get('[data-mode-id="sql"]').click().type(` + Edited Query-${runId}`);
   cy.get('[data-testid="query-builder-title-input"]')
     .click()

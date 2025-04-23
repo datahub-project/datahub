@@ -637,8 +637,13 @@ def get_view_definition_patched(self, connection, view_name, schema=None, **kw):
             self.identifier_preparer.quote_identifier(schema),
             self.identifier_preparer.quote_identifier(view_name),
         )
-    row = connection.execute(f"SHOW CREATE TABLE {full_table}").fetchone()
-    return row[0]
+    # Hive responds to the SHOW CREATE TABLE with the full view DDL,
+    # including the view definition. However, for multiline view definitions,
+    # it returns multiple rows (of one column each), each with a part of the definition.
+    # Any whitespace at the beginning/end of each view definition line is lost.
+    rows = connection.execute(f"SHOW CREATE TABLE {full_table}").fetchall()
+    parts = [row[0] for row in rows]
+    return "\n".join(parts)
 
 
 HiveDialect.get_view_names = get_view_names_patched

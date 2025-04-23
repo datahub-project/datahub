@@ -22,7 +22,9 @@
     "aspectName": "containerProperties",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "location": "s3a://warehouse/wh/nyc"
+            },
             "name": "nyc",
             "qualifiedName": "nyc",
             "env": "PROD"
