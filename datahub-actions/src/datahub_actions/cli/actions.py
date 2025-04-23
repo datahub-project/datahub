@@ -23,7 +23,7 @@ import click
 from click_default_group import DefaultGroup
 from expandvars import UnboundVariable
 
-import datahub_actions as datahub_actions_package
+import datahub_actions._version as actions_version
 from datahub.configuration.config_loader import load_config_file
 from datahub_actions.pipeline.pipeline import Pipeline
 from datahub_actions.pipeline.pipeline_manager import PipelineManager
@@ -103,9 +103,7 @@ def is_pipeline_enabled(config: dict) -> bool:
 def run(ctx: Any, config: List[str], debug: bool) -> None:
     """Execute one or more Actions Pipelines"""
 
-    logger.info(
-        "DataHub Actions version: %s", datahub_actions_package.nice_version_name()
-    )
+    logger.info("DataHub Actions version: %s", actions_version.nice_version_name())
 
     if debug:
         logging.getLogger().setLevel(logging.DEBUG)
@@ -179,9 +177,7 @@ def run(ctx: Any, config: List[str], debug: bool) -> None:
 @actions.command()
 def version() -> None:
     """Print version number and exit."""
-    click.echo(
-        f"DataHub Actions version: {datahub_actions_package.nice_version_name()}"
-    )
+    click.echo(f"DataHub Actions version: {actions_version.nice_version_name()}")
     click.echo(f"Python version: {sys.version}")
 
 

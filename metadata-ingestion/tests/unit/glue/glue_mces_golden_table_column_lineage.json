@@ -77,6 +77,22 @@
     }
 },
 {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:89f32a7a37e2f61693aa4b720ace2a3c",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database-lineage.avro,PROD)",
@@ -401,6 +417,27 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,flights-database-lineage.avro,PROD),origin)"
                     ],
                     "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database-lineage.avro,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:89f32a7a37e2f61693aa4b720ace2a3c",
+                    "urn": "urn:li:container:89f32a7a37e2f61693aa4b720ace2a3c"
                 }
             ]
         }
