@@ -245,6 +245,11 @@ public class ElasticSearchSystemMetadataService
   }
 
   @Override
+  public ESIndexBuilder getIndexBuilder() {
+    return _indexBuilder;
+  }
+
+  @Override
   public void clear() {
     _esBulkProcessor.deleteByQuery(
         QueryBuilders.matchAllQuery(), true, _indexConvention.getIndexName(INDEX_NAME));

@@ -1,6 +1,7 @@
 package com.linkedin.metadata.shared;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
@@ -18,10 +19,23 @@ public interface ElasticSearchIndexed {
   List<ReindexConfig> buildReindexConfigs(
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties) throws IOException;
 
+  ESIndexBuilder getIndexBuilder();
+
   /**
    * Mirrors the service's functions which are expected to build/reindex as needed based on the
    * reindex configurations above
    */
   void reindexAll(Collection<Pair<Urn, StructuredPropertyDefinition>> properties)
       throws IOException;
+
+  public default void tweakReplicasAll(
+      Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
+    try {
+      for (ReindexConfig config : buildReindexConfigs(properties)) {
+        getIndexBuilder().tweakReplicas(config);
+      }
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
 }

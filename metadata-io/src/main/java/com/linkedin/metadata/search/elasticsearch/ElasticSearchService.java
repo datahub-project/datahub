@@ -13,6 +13,7 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
@@ -70,6 +71,11 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   public List<ReindexConfig> buildReindexConfigs(
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties) throws IOException {
     return indexBuilders.buildReindexConfigs(properties);
+  }
+
+  @Override
+  public ESIndexBuilder getIndexBuilder() {
+    return indexBuilders.getIndexBuilder();
   }
 
   @Override

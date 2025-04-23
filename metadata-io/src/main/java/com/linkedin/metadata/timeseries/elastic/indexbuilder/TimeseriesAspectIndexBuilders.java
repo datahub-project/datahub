@@ -30,6 +30,11 @@ public class TimeseriesAspectIndexBuilders implements ElasticSearchIndexed {
   @Nonnull private final IndexConvention indexConvention;
 
   @Override
+  public ESIndexBuilder getIndexBuilder() {
+    return indexBuilder;
+  }
+
+  @Override
   public void reindexAll(Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
     for (ReindexConfig config : buildReindexConfigs(properties)) {
       try {
