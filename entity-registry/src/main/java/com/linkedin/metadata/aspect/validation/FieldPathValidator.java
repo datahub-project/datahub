@@ -25,8 +25,8 @@ import lombok.experimental.Accessors;
  * 1. Validates the Schema Field Path specification, specifically that all field IDs must be unique
  * across all fields within a schema. 2. Validates that the field path id is not empty.
  *
- * @see <a href="https://docs.datahub.com/docs/advanced/field-path-spec-v2/#requirements">Field
- *     Path V2 docs</a>
+ * @see <a href="https://docs.datahub.com/docs/advanced/field-path-spec-v2/#requirements">Field Path
+ *     V2 docs</a>
  */
 @Setter
 @Getter

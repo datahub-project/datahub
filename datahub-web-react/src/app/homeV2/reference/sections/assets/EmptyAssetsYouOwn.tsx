@@ -13,11 +13,7 @@ export const EmptyAssetsYouOwn = () => {
         <Text>
             You do not own any assets yet.
             <br />
-            <a
-                target="_blank"
-                rel="noreferrer noopener"
-                href="https://docs.datahub.com/docs/ownership/ownership-types"
-            >
+            <a target="_blank" rel="noreferrer noopener" href="https://docs.datahub.com/docs/ownership/ownership-types">
                 Learn more
             </a>{' '}
             about ownership.
