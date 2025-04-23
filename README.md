@@ -50,12 +50,12 @@ HOSTED_DOCS_ONLY-->
 
 ### 🏠 Docs: [docs.datahub.com](https://docs.datahub.com/)
 
-[Quickstart](https://docs.datahub.com/quickstart) |
+[Quickstart](https://docs.datahub.com/docs/quickstart) |
 [Features](https://docs.datahub.com) |
 [Roadmap](https://feature-requests.datahubproject.io/roadmap) |
 [Adoption](#adoption) |
 [Demo](https://demo.datahub.com/) |
-[Town Hall](https://docs.datahub.com/townhalls)
+[Town Hall](https://docs.datahub.com/docs/townhalls)
 
 ---
 
@@ -86,11 +86,11 @@ There's a [hosted demo environment](https://demo.datahub.com/) courtesy of DataH
 
 ## Quickstart
 
-Please follow the [DataHub Quickstart Guide](https://docs.datahub.com/quickstart) to run DataHub locally using [Docker](https://docker.com).
+Please follow the [DataHub Quickstart Guide](https://docs.datahub.com/docs/quickstart) to run DataHub locally using [Docker](https://docker.com).
 
 ## Development
 
-If you're looking to build & modify datahub please take a look at our [Development Guide](https://docs.datahub.com/developers).
+If you're looking to build & modify datahub please take a look at our [Development Guide](https://docs.datahub.com/docs/developers).
 
 <p align="center">
 <a href="https://demo.datahub.com/">
