@@ -73,7 +73,8 @@ export default function NavbarContent(): JSX.Element {
   // among the right items, pick items except "Solution", "Learn", "Community"
   const rightItemsDropdown = rightItems.filter(
     (item) =>
-      item.label == 'Integrations'
+      item.label == 'Integrations' ||
+      item.label == 'Docs'
   );
 
   // pick items without labels 

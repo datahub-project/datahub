@@ -101,36 +101,13 @@ module.exports = {
         alt: "DataHub Logo",
         src: `img/${isSaas ? "acryl" : "datahub"}-logo-color-light-horizontal.svg`,
         srcDark: `img/${isSaas ? "acryl" : "datahub"}-logo-color-dark-horizontal.svg`,
+        href: "https://datahub.com",
       },
       items: [
         {
-          href: "https://datahub.com/products/why-datahub-cloud/",
-          html: `
-            <style>
-              .cloud-cta {
-                color: var(--ifm-menu-color-active);
-                font-weight: 600;
-                background: linear-gradient(40deg, var(--ifm-menu-color-active), var(--ifm-menu-color-active));
-                background-size: 200% 100%;
-                -webkit-background-clip: text;
-                background-clip: text;
-                transition: background-image 0.3s ease;
-              }
-              .cloud-cta:hover {
-                color: transparent;
-                background: linear-gradient(40deg, var(--ifm-menu-color-active), #ff1493);
-                background-size: 200% 100%;
-                -webkit-background-clip: text;
-                background-clip: text;
-                animation: gradientShift 3s ease infinite;
-              }
-              @keyframes gradientShift {
-                0%, 100% { background-position: 0% 50%; }
-                50% { background-position: 100% 50%; }
-              }
-            </style>
-            <div class='cloud-cta'>Get Cloud</div>
-          `,
+          to: "/docs",
+          activeBasePath: "docs",
+          label: "Docs",
           position: "right",
         },
         {
@@ -189,6 +166,36 @@ module.exports = {
               href: "/customer-stories-survey",
             },
           ],
+        },
+        {
+          href: "https://datahub.com/products/why-datahub-cloud/",
+          html: `
+            <style>
+              .cloud-cta {
+                color: var(--ifm-menu-color-active);
+                font-weight: 600;
+                background: linear-gradient(40deg, var(--ifm-menu-color-active), var(--ifm-menu-color-active));
+                background-size: 200% 100%;
+                -webkit-background-clip: text;
+                background-clip: text;
+                transition: background-image 0.3s ease;
+              }
+              .cloud-cta:hover {
+                color: transparent;
+                background: linear-gradient(40deg, var(--ifm-menu-color-active), #ff1493);
+                background-size: 200% 100%;
+                -webkit-background-clip: text;
+                background-clip: text;
+                animation: gradientShift 3s ease infinite;
+              }
+              @keyframes gradientShift {
+                0%, 100% { background-position: 0% 50%; }
+                50% { background-position: 100% 50%; }
+              }
+            </style>
+            <div class='cloud-cta'>Get Cloud</div>
+          `,
+          position: "right",
         },
         {
           type: "docsVersionDropdown",
