@@ -43,7 +43,7 @@ const StyledLink = styled(Link)`
     align-items: center;
     max-width: calc(100% - 40px);
     width: 100%;
-    gap: 0px;
+    gap: 8px;
 `;
 
 type Props = {
@@ -57,7 +57,7 @@ export default function NavBarHeader({ logotype }: Props) {
         <Container>
             <StyledLink to="/">
                 <Logotype>{logotype}</Logotype>
-                {!isCollapsed && <DatahubCoreLogo height={24} />}
+                {!isCollapsed && <DatahubCoreLogo />}
             </StyledLink>
             {!isCollapsed && <NavBarToggler />}
         </Container>
