@@ -28,8 +28,8 @@ export const ParentNodesWrapper = styled.div`
     overflow: hidden;
 `;
 
-export const Ellipsis = styled.span`
-    color: ${ANTD_GRAY[7]};
+export const Ellipsis = styled.span<{ $color?: string }>`
+    color: ${(props) => props.$color ?? ANTD_GRAY[7]};
     margin-right: 2px;
 `;
 

@@ -4,6 +4,7 @@ import { useDebounce } from 'react-use';
 import { FieldToAppliedFieldFiltersMap } from '@app/searchV2/filtersV2/types';
 import { convertFiltersMapToFilters } from '@app/searchV2/filtersV2/utils';
 import useSelectedView from '@app/searchV2/searchBarV2/hooks/useSelectedView';
+import { EntityWithMatchedFields } from '@app/searchV2/utils/combineSiblingsInEntitiesWithMatchedFields';
 import { MIN_CHARACTER_COUNT_FOR_SEARCH, UnionType } from '@app/searchV2/utils/constants';
 import { generateOrFilters } from '@app/searchV2/utils/generateOrFilters';
 import { useAppConfig } from '@app/useAppConfig';
@@ -11,20 +12,20 @@ import {
     useGetAutoCompleteMultipleResultsLazyQuery,
     useGetSearchResultsForMultipleTrimmedLazyQuery,
 } from '@src/graphql/search.generated';
-import { AndFilterInput, Entity, FacetMetadata, SearchBarApi } from '@src/types.generated';
+import { AndFilterInput, FacetMetadata, SearchBarApi } from '@src/types.generated';
 
 type UpdateDataFunction = (query: string, orFilters: AndFilterInput[], viewUrn: string | undefined | null) => void;
 
 type APIResponse = {
     updateData: UpdateDataFunction;
     facets?: FacetMetadata[];
-    entities?: Entity[];
+    entitiesWithMatchedFields?: EntityWithMatchedFields[];
     loading?: boolean;
 };
 
 export type SearchResponse = {
     facets?: FacetMetadata[];
-    entities?: Entity[];
+    entitiesWithMatchedFields?: EntityWithMatchedFields[];
     loading?: boolean;
     searchAPIVariant?: SearchBarApi;
 };
@@ -33,14 +34,14 @@ const SEARCH_API_RESPONSE_MAX_ITEMS = 20;
 const DEBOUNCE_MS = 300;
 
 const useAutocompleteAPI = (): APIResponse => {
-    const [entities, setEntities] = useState<Entity[] | undefined>();
+    const [entitiesWithMatchedFields, setEntitiesWithMatchedFields] = useState<EntityWithMatchedFields[] | undefined>();
     const [facets, setFacets] = useState<FacetMetadata[] | undefined>();
     const [getAutoCompleteMultipleResults, { data, loading }] = useGetAutoCompleteMultipleResultsLazyQuery();
 
     const updateData = useCallback(
         (query: string, orFilters: AndFilterInput[], viewUrn: string | undefined | null) => {
             if (query.length === 0) {
-                setEntities(undefined);
+                setEntitiesWithMatchedFields(undefined);
                 setFacets(undefined);
             } else {
                 getAutoCompleteMultipleResults({
@@ -59,16 +60,20 @@ const useAutocompleteAPI = (): APIResponse => {
 
     useEffect(() => {
         if (!loading) {
-            setEntities(data?.autoCompleteForMultiple?.suggestions?.flatMap((Suggestion) => Suggestion.entities) || []);
+            setEntitiesWithMatchedFields(
+                data?.autoCompleteForMultiple?.suggestions
+                    ?.flatMap((suggestion) => suggestion.entities)
+                    ?.map((entity) => ({ entity })) || [],
+            );
             setFacets(undefined);
         }
     }, [data, loading]);
 
-    return { updateData, entities, facets, loading };
+    return { updateData, entitiesWithMatchedFields, facets, loading };
 };
 
 const useSearchAPI = (): APIResponse => {
-    const [entities, setEntities] = useState<Entity[] | undefined>();
+    const [entitiesWithMatchedFields, setEntitiesWithMatchedFields] = useState<EntityWithMatchedFields[] | undefined>();
     const [facets, setFacets] = useState<FacetMetadata[] | undefined>();
 
     const [getSearchResultsForMultiple, { data, loading }] = useGetSearchResultsForMultipleTrimmedLazyQuery();
@@ -77,7 +82,7 @@ const useSearchAPI = (): APIResponse => {
         (query: string, orFilters: AndFilterInput[], viewUrn: string | undefined | null) => {
             // SearchAPI supports queries with 3 or more characters
             if (query.length < MIN_CHARACTER_COUNT_FOR_SEARCH) {
-                setEntities(undefined);
+                setEntitiesWithMatchedFields(undefined);
                 // set to empty array instead of undefined to forcibly control facets
                 // FYI: undefined triggers requests to get facets. see `filtersV2/SearchFilters` for details
                 setFacets([]);
@@ -99,12 +104,17 @@ const useSearchAPI = (): APIResponse => {
 
     useEffect(() => {
         if (!loading) {
-            setEntities(data?.searchAcrossEntities?.searchResults?.map((searchResult) => searchResult.entity) || []);
+            setEntitiesWithMatchedFields(
+                data?.searchAcrossEntities?.searchResults?.map((searchResult) => ({
+                    entity: searchResult.entity,
+                    matchedFields: searchResult.matchedFields,
+                })) || [],
+            );
             setFacets(data?.searchAcrossEntities?.facets || []);
         }
     }, [data, loading]);
 
-    return { updateData, entities, facets, loading };
+    return { updateData, entitiesWithMatchedFields, facets, loading };
 };
 
 export const useSearchBarData = (
@@ -132,7 +142,7 @@ export const useSearchBarData = (
     useDebounce(() => setDebouncedQuery(query), DEBOUNCE_MS, [query]);
 
     const updateData = useMemo(() => api.updateData, [api.updateData]);
-    const entities = useMemo(() => api.entities, [api.entities]);
+    const entitiesWithMatchedFields = useMemo(() => api.entitiesWithMatchedFields, [api.entitiesWithMatchedFields]);
     const facets = useMemo(() => api.facets, [api.facets]);
     const loading = useMemo(() => api.loading, [api.loading]);
 
@@ -143,5 +153,5 @@ export const useSearchBarData = (
         updateData(debouncedQuery, orFilters, selectedView);
     }, [updateData, debouncedQuery, appliedFilters, selectedView]);
 
-    return { entities, facets, loading, searchAPIVariant };
+    return { entitiesWithMatchedFields, facets, loading, searchAPIVariant };
 };
