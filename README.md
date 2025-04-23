@@ -51,7 +51,7 @@ HOSTED_DOCS_ONLY-->
 ### 🏠 Docs: [docs.datahub.com](https://docs.datahub.com/)
 
 [Quickstart](https://docs.datahub.com/docs/quickstart) |
-[Features](https://docs.datahub.com) |
+[Features](https://docs.datahub.com/docs/features) |
 [Roadmap](https://feature-requests.datahubproject.io/roadmap) |
 [Adoption](#adoption) |
 [Demo](https://demo.datahub.com/) |
