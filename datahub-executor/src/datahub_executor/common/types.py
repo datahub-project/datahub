@@ -940,6 +940,9 @@ class AssertionInfo(PermissiveBaseModel):
     # How the assertion was sourced
     source_type: Optional[AssertionSourceType] = Field(alias="sourceType")
 
+    # The time at which the assertion was initially created
+    source_created_time: Optional[int] = Field(alias="sourceCreatedTime")
+
     # Description for the assertion
     description: Optional[str]
 
@@ -972,15 +975,24 @@ class AssertionInfo(PermissiveBaseModel):
             "info" in values
             and "source" in values["info"]
             and values["info"]["source"] is not None
-            and "type" in values["info"]["source"]
         ):
-            values["sourceType"] = values["info"]["source"]["type"]
-        elif (
-            "source" in values
-            and values["source"] is not None
-            and "type" in values["source"]
-        ):
-            values["sourceType"] = values["source"]["type"]
+            if "type" in values["info"]["source"]:
+                values["sourceType"] = values["info"]["source"]["type"]
+            if (
+                "created" in values["info"]["source"]
+                and values["info"]["source"]["created"] is not None
+            ):
+                values["sourceCreatedTime"] = values["info"]["source"]["created"][
+                    "time"
+                ]
+        elif "source" in values and values["source"] is not None:
+            if "type" in values["source"]:
+                values["sourceType"] = values["source"]["type"]
+            if (
+                "created" in values["source"]
+                and values["source"]["created"] is not None
+            ):
+                values["sourceCreatedTime"] = values["source"]["created"]["time"]
 
         if (
             "freshnessAssertion" not in values
@@ -1279,12 +1291,46 @@ class AssertionMonitorSettings(PermissiveBaseModel):
     )
 
 
+class AssertionMonitorMetricsCubeBootstrapState(str, Enum):
+    """The state of the bootstrap process for an assertion."""
+
+    PENDING = "PENDING"
+    FAILED = "FAILED"
+    COMPLETED = "COMPLETED"
+
+
+class AssertionMonitorMetricsCubeBootstrapStatus(PermissiveBaseModel):
+    """The status of the bootstrap process for an assertion."""
+
+    state: AssertionMonitorMetricsCubeBootstrapState
+
+    message: Optional[str]
+
+    @root_validator(pre=True)
+    def extract_info(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        if "state" in values:
+            values["state"] = AssertionMonitorMetricsCubeBootstrapState(values["state"])
+        return values
+
+
+class AssertionMonitorBootstrapStatus(PermissiveBaseModel):
+    """The status of the bootstrap process for an assertion."""
+
+    metrics_cube_bootstrap_status: Optional[
+        AssertionMonitorMetricsCubeBootstrapStatus
+    ] = Field(alias="metricsCubeBootstrapStatus")
+
+
 class AssertionMonitor(PermissiveBaseModel):
     """A monitor that evaluates assertions"""
 
     assertions: List[AssertionEvaluationSpec]
 
     settings: Optional[AssertionMonitorSettings]
+
+    bootstrap_status: Optional[AssertionMonitorBootstrapStatus] = Field(
+        alias="bootstrapStatus"
+    )
 
 
 class Monitor(PermissiveBaseModel):

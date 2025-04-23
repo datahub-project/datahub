@@ -200,6 +200,49 @@ enum MonitorType {
   ASSERTION
 }
 
+enum AssertionMonitorMetricsCubeBootstrapState {
+  """
+  The metrics cube for this monitor has not been bootstrapped.
+  """
+  PENDING
+
+  """
+  The metrics cube for this monitor has failed to bootstrap.
+  """
+  FAILED
+
+  """
+  The metrics cube for this monitor has been bootstrapped.
+  """
+  COMPLETED
+}
+
+"""
+The status of the metrics cubebootstrap process for the assertion monitor.
+"""
+type AssertionMonitorMetricsCubeBootstrapStatus {
+  """
+  The state of the metrics cube bootstrap process for the assertion monitor.
+  """
+  state: AssertionMonitorMetricsCubeBootstrapState!
+
+  """
+  The message associated with the bootstrap status.
+  I.e., an error message if the bootstrap failed.
+  """
+  message: String
+}
+
+"""
+The status of the bootstrap process for the assertion monitor.
+"""
+type AssertionMonitorBootstrapStatus {
+  """
+  The status of the bootstrap process for the assertion monitor.
+  """
+  metricsCubeBootstrapStatus: AssertionMonitorMetricsCubeBootstrapStatus
+}
+
 """
 Information about an assertion evaluator monitor.
 """
@@ -213,6 +256,11 @@ type AssertionMonitor {
   The settings for the assertion monitor.
   """
   settings: AssertionMonitorSettings
+
+  """
+  The status of the bootstrap process for the assertion monitor.
+  """
+  bootstrapStatus: AssertionMonitorBootstrapStatus
 }
 
 """

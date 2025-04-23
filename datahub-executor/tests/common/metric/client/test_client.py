@@ -81,10 +81,10 @@ class TestMetricClient:
             metric_client.save_metric_value(metric_urn, test_metric)
 
         # Verify that emit_mcp was called once
-        mock_graph.emit_mcp.assert_called_once()
+        mock_graph.emit_mcps.assert_called_once()
 
         # Verify the MCP structure
-        mcp_arg = mock_graph.emit_mcp.call_args[0][0]
+        mcp_arg = mock_graph.emit_mcps.call_args[0][0][0]
         assert isinstance(mcp_arg, MetadataChangeProposalWrapper)
         assert mcp_arg.entityUrn == metric_urn
 
@@ -97,6 +97,47 @@ class TestMetricClient:
         # Verify system metadata
         assert isinstance(mcp_arg.systemMetadata, SystemMetadataClass)
         assert mcp_arg.systemMetadata.lastObserved == 1640995200000
+
+    def test_save_metric_values(
+        self, metric_client: MetricClient, metric_urn: str, mock_graph: MagicMock
+    ) -> None:
+        """Test saving multiple metric values."""
+        # Setup
+        test_metrics = [
+            Metric(timestamp_ms=1640995200000, value=150.0),  # 2022-01-01
+            Metric(timestamp_ms=1641081600000, value=200.0),  # 2022-01-02
+            Metric(timestamp_ms=1641168000000, value=250.0),  # 2022-01-03
+        ]
+
+        # Test
+        with patch("time.time", return_value=1641168000):  # 2022-01-03
+            metric_client.save_metric_values(metric_urn, test_metrics)
+
+        # Verify that emit_mcps was called once
+        mock_graph.emit_mcps.assert_called_once()
+
+        # Verify the MCPs structure
+        mcps = mock_graph.emit_mcps.call_args[0][0]
+        assert len(mcps) == 3
+
+        # Verify each MCP
+        for i, mcp in enumerate(mcps):
+            assert isinstance(mcp, MetadataChangeProposalWrapper)
+            assert mcp.entityUrn == metric_urn
+
+            # Verify aspect is DataHubMetricCubeEventClass with correct values
+            assert isinstance(mcp.aspect, DataHubMetricCubeEventClass)
+            assert mcp.aspect.timestampMillis == test_metrics[i].timestamp_ms
+            assert mcp.aspect.measure == test_metrics[i].value
+            assert mcp.aspect.reportedTimeMillis == 1641168000000
+
+            # Verify system metadata
+            assert isinstance(mcp.systemMetadata, SystemMetadataClass)
+            assert mcp.systemMetadata.lastObserved == 1641168000000
+            assert (
+                mcp.systemMetadata.runId is not None
+                and mcp.systemMetadata.runId.startswith("save-metric-")
+            )
 
     def test_fetch_metric_values(
         self,

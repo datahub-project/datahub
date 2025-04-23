@@ -8,15 +8,21 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     AssertionEvaluationContextClass,
     AssertionInferenceDetailsClass,
+    AssertionMonitorMetricsCubeBootstrapStateClass,
+    AssertionMonitorMetricsCubeBootstrapStatusClass,
 )
 
 from datahub_executor.common.metric.client.client import MetricClient
+from datahub_executor.common.metric.types import Metric
 from datahub_executor.common.monitor.client.client import MonitorClient
 from datahub_executor.common.monitor.inference.metric_projection.metric_predictor import (
     MetricPredictor,
 )
 from datahub_executor.common.monitor.inference.types import Event
-from datahub_executor.common.monitor.inference.utils import get_event_timespan_seconds
+from datahub_executor.common.monitor.inference.utils import (
+    check_is_metrics_cube_bootstrapped,
+    get_event_timespan_seconds,
+)
 from datahub_executor.common.types import (
     Assertion,
     AssertionAdjustmentSettings,
@@ -87,6 +93,15 @@ class BaseAssertionTrainer(Generic[Event], ABC):
         pass
 
     @abstractmethod
+    def try_get_historical_data_for_bootstrap(
+        self,
+        assertion: Assertion,
+        maybe_adjustment_settings: Optional[AssertionAdjustmentSettings],
+    ) -> Optional[List[Metric]]:
+        """Get historical data to bootstrap cube for training."""
+        pass
+
+    @abstractmethod
     def remove_inferred_assertion(
         self,
         monitor: Monitor,
@@ -145,6 +160,11 @@ class BaseAssertionTrainer(Generic[Event], ABC):
             else None
         )
 
+        # Bootstrap historical data if needed
+        self.try_bootstrap_historical_data(
+            monitor, assertion, maybe_adjustment_settings
+        )
+
         # Fetch historical metrics/operations
         historical_data = self.get_metric_data(
             monitor, assertion, maybe_adjustment_settings
@@ -179,6 +199,60 @@ class BaseAssertionTrainer(Generic[Event], ABC):
                 filtered_data,
                 maybe_adjustment_settings,
                 evaluation_spec,
+            )
+
+    def try_bootstrap_historical_data(
+        self,
+        monitor: Monitor,
+        assertion: Assertion,
+        maybe_adjustment_settings: Optional[AssertionAdjustmentSettings],
+    ) -> None:
+        """
+        Bootstrap historical data for training.
+        """
+
+        # 1. Check if the metrics cube has already been bootstrapped
+        if check_is_metrics_cube_bootstrapped(monitor):
+            logger.debug(
+                f"Metrics cube for assertion {assertion.urn} has already been bootstrapped. Skipping bootstrap."
+            )
+            return
+
+        # 2. Fetch the historical data
+        metrics_data = self.try_get_historical_data_for_bootstrap(
+            assertion, maybe_adjustment_settings
+        )
+        if metrics_data is None or len(metrics_data) == 0:
+            logger.debug(
+                f"No historical data found for assertion {assertion.urn}. Skipping bootstrap."
+            )
+            return
+
+        # 3. Bootstrap the metrics cube with the data
+        self.bootstrap_metrics_cube_with_data(monitor, metrics_data)
+
+    def bootstrap_metrics_cube_with_data(
+        self,
+        monitor: Monitor,
+        datahub_profile_metrics: List[Metric],
+    ) -> None:
+        if len(datahub_profile_metrics) > 0:
+            # 1. Store the metrics in the metrics cube
+            metric_cube_urn = self.get_metric_cube_urn(monitor.urn)
+            self.metrics_client.save_metric_values(
+                metric_cube_urn,
+                datahub_profile_metrics,
+            )
+
+            # 2. Mark the metrics cube as bootstrapped
+            metrics_cube_bootstrap_status = (
+                AssertionMonitorMetricsCubeBootstrapStatusClass(
+                    state=AssertionMonitorMetricsCubeBootstrapStateClass.COMPLETED,
+                )
+            )
+            self.monitor_client.patch_assertion_monitor_metrics_cube_bootstrap_status(
+                monitor.urn,
+                metrics_cube_bootstrap_status,
             )
 
     @classmethod

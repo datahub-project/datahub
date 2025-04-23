@@ -14,11 +14,15 @@ from datahub_executor.common.monitor.inference.base_assertion_trainer import (
 from datahub_executor.common.monitor.inference.metric_projection.metric_predictor import (
     MetricPredictor,
 )
+from datahub_executor.common.monitor.inference.utils import (
+    check_is_metrics_cube_bootstrapped,
+)
 from datahub_executor.common.types import (
     Assertion,
     AssertionAdjustmentSettings,
     AssertionEvaluationSpec,
     AssertionExclusionWindow,
+    AssertionMonitorMetricsCubeBootstrapState,
     Monitor,
 )
 from datahub_executor.config import (
@@ -42,6 +46,11 @@ class TestableAssertionTrainer(BaseAssertionTrainer[Metric]):
         self.mock_metric_data: List[Metric] = []
         self.remove_called: bool = False
         self.train_called: bool = False
+        self.mock_historical_data: Optional[List[Metric]] = None
+        self.bootstrap_called: bool = False
+        # Create mock objects for methods we want to verify
+        self.try_get_historical_data_for_bootstrap_mock = MagicMock()
+        self.bootstrap_metrics_cube_with_data_mock = MagicMock()
 
     def train(
         self,
@@ -65,6 +74,14 @@ class TestableAssertionTrainer(BaseAssertionTrainer[Metric]):
     def get_min_training_samples(self) -> int:
         # For testing, return a fixed value
         return 5
+
+    def bootstrap_historical_data(
+        self,
+        monitor: Monitor,
+        assertion: Assertion,
+        maybe_adjustment_settings: Optional[AssertionAdjustmentSettings],
+    ) -> None:
+        return
 
     def get_metric_data(
         self,
@@ -95,6 +112,27 @@ class TestableAssertionTrainer(BaseAssertionTrainer[Metric]):
         # For testing, just record that this was called
         self.train_called = True
         return assertion
+
+    def try_get_historical_data_for_bootstrap(
+        self,
+        assertion: Assertion,
+        maybe_adjustment_settings: Optional[AssertionAdjustmentSettings],
+    ) -> Optional[List[Metric]]:
+        # For testing, return mock data set during test setup
+        return self.mock_historical_data
+
+    def bootstrap_metrics_cube_with_data(
+        self,
+        monitor: Monitor,
+        datahub_profile_metrics: List[Metric],
+    ) -> None:
+        """Bootstrap metrics cube with data."""
+        # For testing, just record that this was called
+        self.bootstrap_called = True
+        # Call the base class implementation
+        super().bootstrap_metrics_cube_with_data(monitor, datahub_profile_metrics)
+        # Call the mock for verification
+        self.bootstrap_metrics_cube_with_data_mock(monitor, datahub_profile_metrics)
 
 
 @pytest.fixture
@@ -470,3 +508,217 @@ def test_get_metric_cube_urn(
     # Assert
     mock_encode_monitor_urn.assert_called_once_with("test-monitor-urn")
     assert result == "urn:li:dataHubMetricCube:encoded-monitor-urn"
+
+
+@patch(
+    "datahub_executor.common.monitor.inference.utils.try_extract_metrics_cube_bootstrap_status"
+)
+def test_check_is_metrics_cube_bootstrapped_completed(
+    mock_get_bootstrap_status: MagicMock, trainer: TestableAssertionTrainer
+) -> None:
+    """Test check_is_metrics_cube_bootstrapped when bootstrap is completed."""
+    # Setup
+    monitor = Mock(spec=Monitor)
+    mock_bootstrap_status = Mock()
+    mock_bootstrap_status.state = AssertionMonitorMetricsCubeBootstrapState.COMPLETED
+    mock_get_bootstrap_status.return_value = mock_bootstrap_status
+
+    # Execute
+    result = check_is_metrics_cube_bootstrapped(monitor)
+
+    # Assert
+    assert result is True
+    mock_get_bootstrap_status.assert_called_once_with(monitor)
+
+
+@patch(
+    "datahub_executor.common.monitor.inference.utils.try_extract_metrics_cube_bootstrap_status"
+)
+def test_check_is_metrics_cube_bootstrapped_not_completed(
+    mock_get_bootstrap_status: MagicMock, trainer: TestableAssertionTrainer
+) -> None:
+    """Test check_is_metrics_cube_bootstrapped when bootstrap is not completed."""
+    # Setup
+    monitor = Mock(spec=Monitor)
+    mock_bootstrap_status = Mock()
+    mock_bootstrap_status.state = AssertionMonitorMetricsCubeBootstrapState.PENDING
+    mock_get_bootstrap_status.return_value = mock_bootstrap_status
+
+    # Execute
+    result = check_is_metrics_cube_bootstrapped(monitor)
+
+    # Assert
+    assert result is False
+    mock_get_bootstrap_status.assert_called_once_with(monitor)
+
+
+@patch(
+    "datahub_executor.common.monitor.inference.utils.try_extract_metrics_cube_bootstrap_status"
+)
+def test_check_is_metrics_cube_bootstrapped_no_status(
+    mock_get_bootstrap_status: MagicMock, trainer: TestableAssertionTrainer
+) -> None:
+    """Test check_is_metrics_cube_bootstrapped when no bootstrap status exists."""
+    # Setup
+    monitor = Mock(spec=Monitor)
+    mock_get_bootstrap_status.return_value = None
+
+    # Execute
+    result = check_is_metrics_cube_bootstrapped(monitor)
+
+    # Assert
+    assert result is False
+    mock_get_bootstrap_status.assert_called_once_with(monitor)
+
+
+@patch(
+    "datahub_executor.common.monitor.inference.base_assertion_trainer.BaseAssertionTrainer.get_metric_cube_urn"
+)
+def test_bootstrap_metrics_cube_with_data(
+    mock_get_metric_cube_urn: MagicMock, trainer: TestableAssertionTrainer
+) -> None:
+    """Test bootstrap_metrics_cube_with_data with valid metrics data."""
+    # Setup
+    monitor = Mock(spec=Monitor)
+    monitor.urn = "test:monitor:urn"
+    metrics: List[Metric] = [Mock(spec=Metric), Mock(spec=Metric)]
+    mock_get_metric_cube_urn.return_value = "test:metric:cube:urn"
+
+    # Execute
+    trainer.bootstrap_metrics_cube_with_data(monitor, metrics)
+
+    # Assert
+    mock_get_metric_cube_urn.assert_called_once_with(monitor.urn)
+    trainer.metrics_client.save_metric_values.assert_called_once_with(  # type: ignore[attr-defined]
+        "test:metric:cube:urn", metrics
+    )
+    trainer.monitor_client.patch_assertion_monitor_metrics_cube_bootstrap_status.assert_called_once()  # type: ignore[attr-defined]
+
+
+@patch(
+    "datahub_executor.common.monitor.inference.base_assertion_trainer.BaseAssertionTrainer.get_metric_cube_urn"
+)
+def test_bootstrap_metrics_cube_with_data_empty_metrics(
+    mock_get_metric_cube_urn: MagicMock, trainer: TestableAssertionTrainer
+) -> None:
+    """Test bootstrap_metrics_cube_with_data with empty metrics data."""
+    # Setup
+    monitor = Mock(spec=Monitor)
+    monitor.urn = "test:monitor:urn"
+    metrics: List[Metric] = []
+    mock_get_metric_cube_urn.return_value = "test:metric:cube:urn"
+
+    # Execute
+    trainer.bootstrap_metrics_cube_with_data(monitor, metrics)
+
+    # Assert
+    mock_get_metric_cube_urn.assert_not_called()  # type: ignore[attr-defined]
+    trainer.metrics_client.save_metric_values.assert_not_called()  # type: ignore[attr-defined]
+    trainer.monitor_client.patch_assertion_monitor_metrics_cube_bootstrap_status.assert_not_called()  # type: ignore[attr-defined]
+
+
+def test_try_bootstrap_historical_data_already_bootstrapped(
+    trainer: TestableAssertionTrainer,
+) -> None:
+    """Test try_bootstrap_historical_data when metrics cube is already bootstrapped."""
+    # Setup
+    monitor = Mock(spec=Monitor)
+    monitor.urn = "test:monitor:urn"
+    monitor.assertion_monitor = Mock()
+    monitor.assertion_monitor.bootstrap_status = Mock()
+    monitor.assertion_monitor.bootstrap_status.metrics_cube_bootstrap_status = Mock()
+    monitor.assertion_monitor.bootstrap_status.metrics_cube_bootstrap_status.state = (
+        AssertionMonitorMetricsCubeBootstrapState.COMPLETED
+    )
+
+    assertion = Mock(spec=Assertion)
+    assertion.urn = "test:assertion:urn"
+    adjustment_settings = Mock(spec=AssertionAdjustmentSettings)
+
+    # Execute
+    trainer.try_bootstrap_historical_data(monitor, assertion, adjustment_settings)
+
+    # Assert
+    trainer.try_get_historical_data_for_bootstrap_mock.assert_not_called()
+    trainer.bootstrap_metrics_cube_with_data_mock.assert_not_called()
+
+
+def test_try_bootstrap_historical_data_no_historical_data(
+    trainer: TestableAssertionTrainer,
+) -> None:
+    """Test try_bootstrap_historical_data when no historical data is available."""
+    # Setup
+    monitor = Mock(spec=Monitor)
+    monitor.assertion_monitor = Mock()
+    monitor.assertion_monitor.bootstrap_status = Mock()
+    monitor.assertion_monitor.bootstrap_status.metrics_cube_bootstrap_status = Mock()
+    monitor.assertion_monitor.bootstrap_status.metrics_cube_bootstrap_status.state = (
+        AssertionMonitorMetricsCubeBootstrapState.PENDING
+    )
+
+    assertion = Mock(spec=Assertion)
+    assertion.urn = "test:assertion:urn"
+    adjustment_settings = Mock(spec=AssertionAdjustmentSettings)
+    trainer.mock_historical_data = None
+
+    # Execute
+    trainer.try_bootstrap_historical_data(monitor, assertion, adjustment_settings)
+
+    # Assert
+    trainer.try_get_historical_data_for_bootstrap_mock.assert_not_called()
+    trainer.bootstrap_metrics_cube_with_data_mock.assert_not_called()
+
+
+def test_try_bootstrap_historical_data_empty_historical_data(
+    trainer: TestableAssertionTrainer,
+) -> None:
+    """Test try_bootstrap_historical_data when historical data is empty."""
+    # Setup
+    monitor = Mock(spec=Monitor)
+    monitor.assertion_monitor = Mock()
+    monitor.assertion_monitor.bootstrap_status = Mock()
+    monitor.assertion_monitor.bootstrap_status.metrics_cube_bootstrap_status = Mock()
+    monitor.assertion_monitor.bootstrap_status.metrics_cube_bootstrap_status.state = (
+        AssertionMonitorMetricsCubeBootstrapState.PENDING
+    )
+
+    assertion = Mock(spec=Assertion)
+    assertion.urn = "test:assertion:urn"
+    adjustment_settings = Mock(spec=AssertionAdjustmentSettings)
+    trainer.mock_historical_data = []
+
+    # Execute
+    trainer.try_bootstrap_historical_data(monitor, assertion, adjustment_settings)
+
+    # Assert
+    trainer.try_get_historical_data_for_bootstrap_mock.assert_not_called()
+    trainer.bootstrap_metrics_cube_with_data_mock.assert_not_called()
+
+
+def test_try_bootstrap_historical_data_successful_bootstrap(
+    trainer: TestableAssertionTrainer,
+) -> None:
+    """Test try_bootstrap_historical_data when bootstrap is successful."""
+    # Setup
+    monitor = Mock(spec=Monitor)
+    monitor.urn = "test:monitor:urn"
+    monitor.assertion_monitor = Mock()
+    monitor.assertion_monitor.bootstrap_status = Mock()
+    monitor.assertion_monitor.bootstrap_status.metrics_cube_bootstrap_status = Mock()
+    monitor.assertion_monitor.bootstrap_status.metrics_cube_bootstrap_status.state = (
+        AssertionMonitorMetricsCubeBootstrapState.PENDING
+    )
+
+    assertion = Mock(spec=Assertion)
+    assertion.urn = "test:assertion:urn"
+    adjustment_settings = Mock(spec=AssertionAdjustmentSettings)
+    trainer.mock_historical_data = [Mock(spec=Metric), Mock(spec=Metric)]
+
+    # Execute
+    trainer.try_bootstrap_historical_data(monitor, assertion, adjustment_settings)
+
+    # Assert
+    trainer.try_get_historical_data_for_bootstrap_mock.assert_not_called()
+    trainer.bootstrap_metrics_cube_with_data_mock.assert_called_once_with(
+        monitor, trainer.mock_historical_data
+    )

@@ -185,6 +185,9 @@ fragment assertionInfoDetails on AssertionInfo {
     }
     source {
       type
+      created {
+        time
+      }
     }
 }
 
@@ -325,6 +328,12 @@ fragment MonitorDetails on Monitor {
       settings {
         inferenceSettings {
           ...assertionAdjustmentSettings
+        }
+      }
+      bootstrapStatus {
+        metricsCubeBootstrapStatus {
+          state
+          message
         }
       }
     }

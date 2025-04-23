@@ -5,6 +5,8 @@ import pytest
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.metadata.schema_classes import (
     AssertionEvaluationSpecClass,
+    AssertionMonitorMetricsCubeBootstrapStateClass,
+    AssertionMonitorMetricsCubeBootstrapStatusClass,
     CronScheduleClass,
     MonitorInfoClass,
     MonitorStateClass,
@@ -235,6 +237,43 @@ class TestMonitorPatchBuilder:
         assert patch_data[0]["op"] == "add"
         assert patch_data[0]["path"] == "/status/error"
         assert patch_data[0]["value"] == "Test error message"
+
+    def test_set_assertion_monitor_metrics_cube_bootstrap_status(
+        self, monitor_urn: str
+    ) -> None:
+        """Test setting the assertion monitor metrics cube bootstrap status."""
+        builder = MonitorPatchBuilder(urn=monitor_urn)
+
+        # Create a bootstrap status instance
+        bootstrap_status = AssertionMonitorMetricsCubeBootstrapStatusClass(
+            state=AssertionMonitorMetricsCubeBootstrapStateClass.COMPLETED,
+        )
+
+        # Set bootstrap status
+        result = builder.set_assertion_monitor_metrics_cube_bootstrap_status(
+            bootstrap_status
+        )
+        assert result == builder  # Should return self for chaining
+
+        # Verify patch was added correctly
+        patches = builder.build()
+        assert len(patches) == 1
+        mcp = patches[0]
+
+        # Verify basic properties
+        assert mcp.entityUrn == monitor_urn
+        assert mcp.aspectName == MonitorInfoClass.ASPECT_NAME
+
+        # Extract and check patch data
+        patch_json = mcp.aspect.value  # type: ignore
+        patch_data = json.loads(patch_json.decode("utf-8"))
+        assert len(patch_data) == 1
+        assert patch_data[0]["op"] == "add"
+        assert (
+            patch_data[0]["path"]
+            == "/assertionMonitor/bootstrapStatus/metricsCubeBootstrapStatus"
+        )
+        assert patch_data[0]["value"]["state"] == "COMPLETED"
 
     def test_chaining_methods(self, monitor_urn: str) -> None:
         """Test chaining multiple methods together."""

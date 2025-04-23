@@ -1,5 +1,5 @@
 import time
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Dict, List, Union, cast
 from unittest.mock import MagicMock, Mock, patch
 
@@ -692,3 +692,179 @@ def test_rebuild_assertion(
 
     # Check result
     assert result == mock_assertion
+
+
+def test_check_can_bootstrap_with_dataset_profile_no_volume_assertion(
+    trainer: VolumeAssertionTrainer,
+    mock_assertion: Mock,
+) -> None:
+    """Test that bootstrap check fails when volume assertion is None."""
+    # Arrange
+    mock_assertion.volume_assertion = None
+
+    # Act
+    result = trainer._check_can_bootstrap_with_dataset_profile(
+        cast(Assertion, mock_assertion)
+    )
+
+    # Assert
+    assert result is False
+
+
+def test_check_can_bootstrap_with_dataset_profile_with_filter(
+    trainer: VolumeAssertionTrainer,
+    mock_assertion: Mock,
+) -> None:
+    """Test that bootstrap check fails when volume assertion has a filter."""
+    # Arrange
+    mock_assertion.volume_assertion = Mock()
+    mock_assertion.volume_assertion.filter = "SELECT * FROM table WHERE id > 100"
+
+    # Act
+    result = trainer._check_can_bootstrap_with_dataset_profile(
+        cast(Assertion, mock_assertion)
+    )
+
+    # Assert
+    assert result is False
+
+
+def test_check_can_bootstrap_with_dataset_profile_no_row_count_total(
+    trainer: VolumeAssertionTrainer,
+    mock_assertion: Mock,
+) -> None:
+    """Test that bootstrap check fails when volume assertion has no row_count_total."""
+    # Arrange
+    mock_assertion.volume_assertion = Mock()
+    mock_assertion.volume_assertion.filter = None
+    mock_assertion.volume_assertion.row_count_total = None
+
+    # Act
+    result = trainer._check_can_bootstrap_with_dataset_profile(
+        cast(Assertion, mock_assertion)
+    )
+
+    # Assert
+    assert result is False
+
+
+def test_check_can_bootstrap_with_dataset_profile_valid(
+    trainer: VolumeAssertionTrainer,
+    mock_assertion: Mock,
+) -> None:
+    """Test that bootstrap check succeeds with valid volume assertion."""
+    # Arrange
+    mock_assertion.volume_assertion = Mock()
+    mock_assertion.volume_assertion.filter = None
+    mock_assertion.volume_assertion.row_count_total = Mock()
+
+    # Act
+    result = trainer._check_can_bootstrap_with_dataset_profile(
+        cast(Assertion, mock_assertion)
+    )
+
+    # Assert
+    assert result is True
+
+
+@patch(
+    "datahub_executor.common.monitor.inference.volume_assertion_trainer.VolumeAssertionTrainer._check_can_bootstrap_with_dataset_profile"
+)
+def test_try_get_historical_data_for_bootstrap_check_fails(
+    mock_check_can_bootstrap: MagicMock,
+    trainer: VolumeAssertionTrainer,
+    mock_assertion: Mock,
+) -> None:
+    """Test that bootstrap data retrieval fails when check fails."""
+    # Arrange
+    mock_check_can_bootstrap.return_value = False
+
+    # Act
+    result = trainer.try_get_historical_data_for_bootstrap(
+        cast(Assertion, mock_assertion), None
+    )
+
+    # Assert
+    assert result is None
+    mock_check_can_bootstrap.assert_called_once_with(cast(Assertion, mock_assertion))
+
+
+@patch(
+    "datahub_executor.common.monitor.inference.volume_assertion_trainer.VolumeAssertionTrainer._check_can_bootstrap_with_dataset_profile"
+)
+def test_try_get_historical_data_for_bootstrap_no_source_created_time(
+    mock_check_can_bootstrap: MagicMock,
+    trainer: VolumeAssertionTrainer,
+    mock_assertion: Mock,
+) -> None:
+    """Test that bootstrap data retrieval fails when source_created_time is None."""
+    # Arrange
+    mock_check_can_bootstrap.return_value = True
+    mock_assertion.source_created_time = None
+
+    # Act
+    result = trainer.try_get_historical_data_for_bootstrap(
+        cast(Assertion, mock_assertion), None
+    )
+
+    # Assert
+    assert result is None
+
+
+@patch(
+    "datahub_executor.common.monitor.inference.volume_assertion_trainer.VolumeAssertionTrainer._check_can_bootstrap_with_dataset_profile"
+)
+@patch(
+    "datahub_executor.common.monitor.inference.volume_assertion_trainer.VolumeAssertionTrainer.extract_lookback_days_from_adjustment_settings"
+)
+def test_try_get_historical_data_for_bootstrap_success(
+    mock_extract_lookback_days: MagicMock,
+    mock_check_can_bootstrap: MagicMock,
+    trainer: VolumeAssertionTrainer,
+    mock_assertion: Mock,
+    mock_dependencies: Dict[str, Union[MagicMock, Mock]],
+    mock_metrics_data: List[Metric],
+) -> None:
+    """Test successful bootstrap data retrieval."""
+    # Arrange
+    mock_check_can_bootstrap.return_value = True
+    mock_assertion.source_created_time = 1609459200000  # 2021-01-01 00:00:00 UTC
+    mock_extract_lookback_days.return_value = 30
+    mock_dependencies[
+        "metrics_client"
+    ].fetch_row_counts_from_dataset_profile.return_value = mock_metrics_data
+
+    # Act
+    result = trainer.try_get_historical_data_for_bootstrap(
+        cast(Assertion, mock_assertion), None
+    )
+
+    # Assert
+    assert result == mock_metrics_data
+    mock_check_can_bootstrap.assert_called_once_with(cast(Assertion, mock_assertion))
+    mock_extract_lookback_days.assert_called_once_with(None)
+
+    # Verify the correct time range was used
+    mock_dependencies[
+        "metrics_client"
+    ].fetch_row_counts_from_dataset_profile.assert_called_once()
+
+    # The method is called with positional arguments for the first parameter and keyword arguments for the rest
+    call_args = mock_dependencies[
+        "metrics_client"
+    ].fetch_row_counts_from_dataset_profile.call_args
+
+    # Check the first positional argument (dataset_urn)
+    assert call_args[0][0] == mock_assertion.entity.urn
+
+    # Check the keyword arguments
+    keyword_args = call_args[1]
+
+    # Calculate the expected start time based on the actual code logic
+    expected_start_time_ms = 1609459200000 - (
+        30 * 24 * 60 * 60 * 1000
+    )  # 30 days in milliseconds
+    expected_start_time = datetime.fromtimestamp(expected_start_time_ms / 1000)
+
+    assert keyword_args["start_time"].timestamp() == expected_start_time.timestamp()
+    assert keyword_args["end_time"].timestamp() == 1609459200  # 2021-01-01 00:00:00 UTC

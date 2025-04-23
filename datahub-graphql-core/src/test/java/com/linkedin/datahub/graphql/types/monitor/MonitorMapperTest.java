@@ -24,6 +24,9 @@ import com.linkedin.monitor.AssertionEvaluationParameters;
 import com.linkedin.monitor.AssertionEvaluationSpec;
 import com.linkedin.monitor.AssertionEvaluationSpecArray;
 import com.linkedin.monitor.AssertionMonitor;
+import com.linkedin.monitor.AssertionMonitorBootstrapStatus;
+import com.linkedin.monitor.AssertionMonitorMetricsCubeBootstrapState;
+import com.linkedin.monitor.AssertionMonitorMetricsCubeBootstrapStatus;
 import com.linkedin.monitor.AuditLogSpec;
 import com.linkedin.monitor.DatasetFreshnessAssertionParameters;
 import com.linkedin.monitor.DatasetFreshnessSourceType;
@@ -103,6 +106,14 @@ public class MonitorMapperTest {
         output.getAssertions().get(0).getRawParameters(),
         CODEC.mapToString(input.getAssertions().get(0).getParameters().data()));
 
+    if (input.hasBootstrapStatus()) {
+      Assert.assertEquals(
+          output.getBootstrapStatus().getMetricsCubeBootstrapStatus().getState().toString(),
+          input.getBootstrapStatus().getMetricsCubeBootstrapStatus().getState().toString());
+      Assert.assertEquals(
+          output.getBootstrapStatus().getMetricsCubeBootstrapStatus().getMessage(),
+          input.getBootstrapStatus().getMetricsCubeBootstrapStatus().getMessage());
+    }
     if (input.getAssertions().get(0).getParameters().hasDatasetFreshnessParameters()) {
       // Verify the dataset FRESHNESS parameters.
       DatasetFreshnessAssertionParameters inputParams =
@@ -226,6 +237,11 @@ public class MonitorMapperTest {
     info.setType(MonitorType.ASSERTION);
     info.setAssertionMonitor(
         new AssertionMonitor()
+            .setBootstrapStatus(
+                new AssertionMonitorBootstrapStatus()
+                    .setMetricsCubeBootstrapStatus(
+                        new AssertionMonitorMetricsCubeBootstrapStatus()
+                            .setState(AssertionMonitorMetricsCubeBootstrapState.COMPLETED)))
             .setAssertions(
                 new AssertionEvaluationSpecArray(
                     ImmutableList.of(

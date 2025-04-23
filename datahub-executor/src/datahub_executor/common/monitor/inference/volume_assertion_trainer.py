@@ -1,6 +1,6 @@
 import logging
 import time
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import List, Optional
 
 from datahub.metadata.schema_classes import (
@@ -40,6 +40,8 @@ from datahub_executor.config import (
 )
 
 logger = logging.getLogger(__name__)
+
+DAYS_TO_MILLIS = 24 * 60 * 60 * 1000
 
 
 class VolumeAssertionTrainer(BaseAssertionTrainer[Metric]):
@@ -89,6 +91,54 @@ class VolumeAssertionTrainer(BaseAssertionTrainer[Metric]):
         Get the minimum number of samples required for training.
         """
         return VOLUME_MIN_TRAINING_SAMPLES_TIMESPAN_SECONDS
+
+    def _check_can_bootstrap_with_dataset_profile(self, assertion: Assertion) -> bool:
+        """
+        Check if the assertion can be bootstrapped with dataset profile row counts.
+        """
+        if assertion.volume_assertion is None:
+            logger.warning(
+                f"Assertion {assertion.urn} does not have a volume assertion. Skipping bootstrap."
+            )
+            return False
+        if assertion.volume_assertion.filter is not None:
+            logger.warning(
+                f"Assertion {assertion.urn} has a custom SQL filter clause. Skipping bootstrap."
+            )
+            return False
+        if assertion.volume_assertion.row_count_total is None:
+            logger.warning(
+                f"Assertion {assertion.urn} is not for row count total. Skipping bootstrap."
+            )
+            return False
+        return True
+
+    def try_get_historical_data_for_bootstrap(
+        self,
+        assertion: Assertion,
+        maybe_adjustment_settings: Optional[AssertionAdjustmentSettings],
+    ) -> Optional[List[Metric]]:
+        # 1. Ensure this assertion can be bootstrapped with dataset profile row counts
+        if not self._check_can_bootstrap_with_dataset_profile(assertion):
+            return None
+
+        # 2. Fetch and return the historical data
+        if assertion.source_created_time is None:
+            logger.warning(
+                f"No source created time found for assertion {assertion.urn}. Skipping bootstrap."
+            )
+            return None
+        end_time_millis = assertion.source_created_time
+        lookback_days = self.extract_lookback_days_from_adjustment_settings(
+            maybe_adjustment_settings
+        )
+        start_time_millis = end_time_millis - (lookback_days * DAYS_TO_MILLIS)
+
+        return self.metrics_client.fetch_row_counts_from_dataset_profile(
+            assertion.entity.urn,
+            start_time=datetime.fromtimestamp(start_time_millis / 1000),
+            end_time=datetime.fromtimestamp(end_time_millis / 1000),
+        )
 
     def get_metric_data(
         self,

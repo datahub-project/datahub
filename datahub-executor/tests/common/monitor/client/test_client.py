@@ -11,6 +11,8 @@ from datahub.metadata.schema_classes import (
     AssertionEvaluationContextClass,
     AssertionInfoClass,
     AssertionMetricClass,
+    AssertionMonitorMetricsCubeBootstrapStateClass,
+    AssertionMonitorMetricsCubeBootstrapStatusClass,
     FreshnessFieldSpecClass,
     MonitorAnomalyEventClass,
     MonitorErrorClass,
@@ -392,6 +394,42 @@ class TestMonitorClient:
 
         # Verify set_error was called with the error
         mock_patch_builder.set_error.assert_called_once_with(error)
+
+        # Verify graph.emit_mcps was called with the MCPs returned by the patch builder
+        mock_graph.emit_mcps.assert_called_once_with(["mock_mcp"])
+
+    @patch("datahub_executor.common.monitor.client.client.MonitorPatchBuilder")
+    def test_patch_assertion_monitor_metrics_cube_bootstrap_status(
+        self,
+        mock_patch_builder_class: MagicMock,
+        monitor_client: MonitorClient,
+        test_monitor_urn: str,
+        mock_graph: MagicMock,
+    ) -> None:
+        """Test patching assertion monitor metrics cube bootstrap status."""
+        # Setup mock patch builder
+        mock_patch_builder = MagicMock()
+        mock_patch_builder_class.return_value = mock_patch_builder
+        mock_patch_builder.build.return_value = ["mock_mcp"]
+
+        # Create a bootstrap status instance
+        new_bootstrap_status = AssertionMonitorMetricsCubeBootstrapStatusClass(
+            state=AssertionMonitorMetricsCubeBootstrapStateClass.COMPLETED,
+        )
+
+        # Call method
+        monitor_client.patch_assertion_monitor_metrics_cube_bootstrap_status(
+            test_monitor_urn,
+            new_bootstrap_status,
+        )
+
+        # Verify the patch builder was created with the correct URN
+        mock_patch_builder_class.assert_called_once_with(urn=test_monitor_urn)
+
+        # Verify set_assertion_monitor_metrics_cube_bootstrap_status was called with the new status
+        mock_patch_builder.set_assertion_monitor_metrics_cube_bootstrap_status.assert_called_once_with(
+            new_bootstrap_status
+        )
 
         # Verify graph.emit_mcps was called with the MCPs returned by the patch builder
         mock_graph.emit_mcps.assert_called_once_with(["mock_mcp"])

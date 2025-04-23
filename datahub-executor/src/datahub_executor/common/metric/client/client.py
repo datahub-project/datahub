@@ -35,24 +35,34 @@ class MetricClient:
         """
         Save a new metric record.
         """
-        logger.debug("Saving metric %s for entity %s", metric, metric_urn)
+        self.save_metric_values(metric_urn, [metric])
 
-        timestamp = int(time.time() * 1000)
-        run_id = f"save-metric-{metric_urn}-{timestamp}"
+    def save_metric_values(self, metric_urn: str, metrics: List[Metric]) -> None:
+        """
+        Saves a list of metric values.
+        """
+        logger.debug("Saving %s metrics for entity %s", len(metrics), metric_urn)
 
-        metric_event = DataHubMetricCubeEventClass(
-            timestampMillis=timestamp,
-            measure=metric.value,
-            reportedTimeMillis=timestamp,
-        )
+        mcpws = []
+        for metric in metrics:
+            now_ms = int(time.time() * 1000)
+            run_id = f"save-metric-{metric_urn}-{now_ms}"
+            metric_event = DataHubMetricCubeEventClass(
+                timestampMillis=metric.timestamp_ms,
+                measure=metric.value,
+                reportedTimeMillis=now_ms,
+            )
+            mcpws.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=metric_urn,
+                    aspect=metric_event,
+                    systemMetadata=SystemMetadataClass(
+                        runId=run_id, lastObserved=now_ms
+                    ),
+                )
+            )
 
-        mcpw = MetadataChangeProposalWrapper(
-            entityUrn=metric_urn,
-            aspect=metric_event,
-            systemMetadata=SystemMetadataClass(runId=run_id, lastObserved=timestamp),
-        )
-
-        self.graph.emit_mcp(mcpw)
+        self.graph.emit_mcps(mcpws)
 
     def fetch_metric_values(
         self, metric_urn: str, lookback: timedelta, limit: int = _DEFAULT_METRIC_LIMIT
