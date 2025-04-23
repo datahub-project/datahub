@@ -33,10 +33,15 @@ REDACT_KEYS = {
 }
 REDACT_SUFFIXES = {
     "_password",
+    "-password",
     "_secret",
+    "-secret",
     "_token",
+    "-token",
     "_key",
+    "-key",
     "_key_id",
+    "-key-id",
 }
 
 
