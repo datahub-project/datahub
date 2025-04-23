@@ -609,7 +609,7 @@ debug_requirements = {
 lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
-    "ruff==0.11.4",
+    "ruff==0.11.6",
     "mypy==1.10.1",
 }
 
