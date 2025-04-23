@@ -37,7 +37,7 @@ const EntityTitleContainer = styled.div``;
 
 const IconContainer = styled.div`
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     width: 32px;
 `;
