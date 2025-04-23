@@ -60,7 +60,7 @@ describe("add, remove ownership for dataset", () => {
     cy.on("uncaught:exception", (err, runnable) => false);
   });
 
-  it.skip("create test user and test group, add user to a group", () => {
+  it("create test user and test group, add user to a group", () => {
     cy.loginWithCredentials();
     cy.createUser(username, password, email);
     cy.createGroup(group_name, "Test group description", test_id);
@@ -71,7 +71,7 @@ describe("add, remove ownership for dataset", () => {
     );
   });
 
-  it.skip("open test dataset page, add and remove user ownership (Business Owner)", () => {
+  it("open test dataset page, add and remove user ownership (Business Owner)", () => {
     addAndRemoveOwnerOnDataset(
       username,
       "Business Owner",
@@ -103,7 +103,7 @@ describe("add, remove ownership for dataset", () => {
     );
   });
 
-  it.skip("open test dataset page, add and remove group ownership (Business Owner)", () => {
+  it("open test dataset page, add and remove group ownership (Business Owner)", () => {
     addAndRemoveOwnerOnDataset(
       group_name,
       "Business Owner",

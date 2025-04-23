@@ -5,7 +5,6 @@ function readyToTypeEditor() {
 describe("run managed ingestion", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
-    cy.ignoreResizeObserverLoop();
   });
   it("create run managed ingestion source", () => {
     const number = Math.floor(Math.random() * 100000);
