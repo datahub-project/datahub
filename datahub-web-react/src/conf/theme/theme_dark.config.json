@@ -38,7 +38,7 @@
             "items": [
                 {
                     "label": "DataHub Project",
-                    "path": "https://datahubproject.io",
+                    "path": "https://docs.datahub.com",
                     "shouldOpenInNewTab": true
                 },
                 {

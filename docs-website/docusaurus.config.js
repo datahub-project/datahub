@@ -4,7 +4,7 @@ const isSaas = process.env.DOCUSAURUS_IS_SAAS === "true";
 module.exports = {
   title: process.env.DOCUSAURUS_CONFIG_TITLE || "DataHub",
   tagline: "The #1 Open Source Metadata Platform",
-  url: process.env.DOCUSAURUS_CONFIG_URL || "https://datahubproject.io",
+  url: process.env.DOCUSAURUS_CONFIG_URL || "https://docs.datahub.com",
   baseUrl: process.env.DOCUSAURUS_CONFIG_BASE_URL || "/",
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: "throw",
