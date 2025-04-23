@@ -1,8 +1,8 @@
 import { FileOutlined } from '@ant-design/icons';
 import * as React from 'react';
 
-import { Entity, IconStyleType } from '@app/entityV2/Entity';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import { Entity, IconStyleType } from '@app/entity/Entity';
+import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
 import { TYPE_ICON_CLASS_NAME } from '@src/app/shared/constants';
 import { DataContract, EntityType } from '@src/types.generated';
 
@@ -72,6 +72,7 @@ export class DataContractEntity implements Entity<DataContract> {
         return getDataForEntityType({
             data,
             entityType: this.type,
+            getOverrideProperties: (newData) => newData,
         });
     };
 
