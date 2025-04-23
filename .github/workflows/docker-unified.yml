@@ -1413,6 +1413,21 @@ jobs:
           fi
           echo "matrix={\"include\":[$includes] }" >> "$GITHUB_OUTPUT"
 
+  determine_runner:
+    name: Determine Runner Type
+    runs-on: depot-ubuntu-24.04-small
+    needs: setup
+    outputs:
+      runner_type: ${{ steps.set-runner.outputs.runner_type }}
+    steps:
+      - id: set-runner
+        run: |
+          if [[ "${{ env.DOCKER_CACHE }}" == "DEPOT" && "${{ env.DEPOT_PROJECT_ID }}" != "" ]]; then
+            echo "runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
+          else
+            echo "runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
+          fi
+
   smoke_test:
     name: Run Smoke Tests (${{ matrix.test_strategy }}, Batch ${{ matrix.batch }}/${{ matrix.batch_count }})
     runs-on: depot-ubuntu-24.04-4
@@ -1422,7 +1437,14 @@ jobs:
       matrix: ${{ fromJson(needs.smoke_test_matrix.outputs.matrix) }}
     if: ${{ always() && !failure() && !cancelled() && needs.smoke_test_matrix.outputs.matrix != '[]' }}
     steps:
-      - uses: actions/cache/restore@v3
+      - name: Free up disk space
+        if: ${{ needs.determine_runner.outputs.runner_type == 'ubuntu-latest' }}
+        run: |
+          sudo apt-get remove 'dotnet-*' azure-cli || true
+          sudo rm -rf /usr/local/lib/android/ || true
+          sudo docker image prune -a -f || true
+
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cache/uv
