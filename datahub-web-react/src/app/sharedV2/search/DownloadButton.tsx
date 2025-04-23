@@ -23,6 +23,7 @@ export default function DownloadButton({ setShowDownloadAsCsvModal, isDownloadin
                 variant="text"
                 color="gray"
                 size="sm"
+                data-testid="download-csv-button"
             >
                 {isDownloadingCsv ? 'Downloading...' : null}
             </StyledButton>
