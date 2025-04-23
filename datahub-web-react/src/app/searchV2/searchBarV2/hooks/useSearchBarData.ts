@@ -3,8 +3,10 @@ import { useDebounce } from 'react-use';
 
 import { FieldToAppliedFieldFiltersMap } from '@app/searchV2/filtersV2/types';
 import { convertFiltersMapToFilters } from '@app/searchV2/filtersV2/utils';
+import useSelectedView from '@app/searchV2/searchBarV2/hooks/useSelectedView';
 import { MIN_CHARACTER_COUNT_FOR_SEARCH, UnionType } from '@app/searchV2/utils/constants';
 import { generateOrFilters } from '@app/searchV2/utils/generateOrFilters';
+import { useAppConfig } from '@app/useAppConfig';
 import {
     useGetAutoCompleteMultipleResultsLazyQuery,
     useGetSearchResultsForMultipleTrimmedLazyQuery,
@@ -28,6 +30,7 @@ export type SearchResponse = {
 };
 
 const SEARCH_API_RESPONSE_MAX_ITEMS = 20;
+const DEBOUNCE_MS = 300;
 
 const useAutocompleteAPI = (): APIResponse => {
     const [entities, setEntities] = useState<Entity[] | undefined>();
@@ -72,7 +75,7 @@ const useSearchAPI = (): APIResponse => {
 
     const updateData = useCallback(
         (query: string, orFilters: AndFilterInput[], viewUrn: string | undefined | null) => {
-            // SearchAPI supports queries with 3 or longer characters
+            // SearchAPI supports queries with 3 or more characters
             if (query.length < MIN_CHARACTER_COUNT_FOR_SEARCH) {
                 setEntities(undefined);
                 // set to empty array instead of undefined to forcibly control facets
@@ -107,10 +110,10 @@ const useSearchAPI = (): APIResponse => {
 export const useSearchBarData = (
     query: string,
     appliedFilters: FieldToAppliedFieldFiltersMap | undefined,
-    viewUrn: string | undefined | null,
-    searchAPIVariant: SearchBarApi | undefined,
-    enabled: boolean,
 ): SearchResponse => {
+    const { selectedView } = useSelectedView();
+    const appConfig = useAppConfig();
+    const searchAPIVariant = appConfig.config.searchBarConfig.apiVariant;
     const [debouncedQuery, setDebouncedQuery] = useState<string>('');
     const autocompleteAPI = useAutocompleteAPI();
     const searchAPI = useSearchAPI();
@@ -126,7 +129,7 @@ export const useSearchBarData = (
         }
     }, [searchAPIVariant, autocompleteAPI, searchAPI]);
 
-    useDebounce(() => setDebouncedQuery(query), 300, [query]);
+    useDebounce(() => setDebouncedQuery(query), DEBOUNCE_MS, [query]);
 
     const updateData = useMemo(() => api.updateData, [api.updateData]);
     const entities = useMemo(() => api.entities, [api.entities]);
@@ -134,13 +137,11 @@ export const useSearchBarData = (
     const loading = useMemo(() => api.loading, [api.loading]);
 
     useEffect(() => {
-        if (enabled) {
-            const convertedFilters = convertFiltersMapToFilters(appliedFilters);
-            const orFilters = generateOrFilters(UnionType.AND, convertedFilters);
+        const convertedFilters = convertFiltersMapToFilters(appliedFilters);
+        const orFilters = generateOrFilters(UnionType.AND, convertedFilters);
 
-            updateData(debouncedQuery, orFilters, viewUrn);
-        }
-    }, [updateData, debouncedQuery, appliedFilters, viewUrn, enabled]);
+        updateData(debouncedQuery, orFilters, selectedView);
+    }, [updateData, debouncedQuery, appliedFilters, selectedView]);
 
     return { entities, facets, loading, searchAPIVariant };
 };

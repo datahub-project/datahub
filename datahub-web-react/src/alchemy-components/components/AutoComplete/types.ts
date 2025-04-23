@@ -10,6 +10,7 @@ export type AutocompleteDropdownAlign = AlignType;
 
 export interface AutoCompleteProps {
     dataTestId?: string;
+    id?: string;
     className?: string;
 
     value?: ValueType;
