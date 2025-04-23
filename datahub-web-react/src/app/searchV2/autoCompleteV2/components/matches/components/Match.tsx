@@ -3,7 +3,8 @@ import styled from 'styled-components';
 
 import { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
 import { MATCH_COLOR, MATCH_COLOR_LEVEL } from '@app/searchV2/autoCompleteV2/constants';
-import { getDescriptionSlice, isDescriptionField } from '@app/searchV2/matches/utils';
+import { getDescriptionSlice, isDescriptionField, isHighlightableEntityField } from '@app/searchV2/matches/utils';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { MatchText, Text } from '@src/alchemy-components';
 import { MatchesGroupedByFieldName } from '@src/app/search/matches/constants';
 import { getMatchedFieldLabel } from '@src/app/search/matches/utils';
@@ -23,10 +24,13 @@ interface Props {
 }
 
 export default function Match({ query, entityType, match }: Props) {
+    const entityRegistry = useEntityRegistryV2();
+
     const label = useMemo(
         () => capitalizeFirstLetterOnly(getMatchedFieldLabel(entityType, match.fieldName)),
         [entityType, match.fieldName],
     );
+
     const value = useMemo(() => {
         // show only the first value
         const field = match.matchedFields?.[0];
@@ -44,8 +48,13 @@ export default function Match({ query, entityType, match }: Props) {
             return getDescriptionSlice(cleanedValue, query);
         }
 
+        if (isHighlightableEntityField(field)) {
+            console.log('>>> match', field);
+            return field.entity ? entityRegistry.getDisplayName(field.entity.type, field.entity) : '';
+        }
+
         return field.value;
-    }, [match, query]);
+    }, [match, query, entityRegistry]);
 
     if (value === undefined) return null;
 
