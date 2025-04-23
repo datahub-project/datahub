@@ -90,7 +90,6 @@ describe("Verify nested domains test functionalities", () => {
     cy.setIsThemeV2Enabled(false);
     cy.loginWithCredentials();
     cy.goToDomainList();
-    cy.ignoreResizeObserverLoop();
   });
 
   it("Verify Create a new domain", () => {

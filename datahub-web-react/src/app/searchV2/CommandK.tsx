@@ -15,6 +15,7 @@ const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-left: 6px;
     margin-right: 4px;
     margin-left: 4px;
+    height: 24px;
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
