@@ -8,7 +8,8 @@ from requests.auth import HTTPBasicAuth
 def _format_header(name: str, value: Union[str, bytes]) -> str:
     if name == "Authorization":
         return f"{name!s}: <redacted>"
-    return f"{name!s}: {value!s}"
+    value_str = value.decode("utf-8") if isinstance(value, bytes) else str(value)
+    return f"{name!s}: {value_str}"
 
 
 def make_curl_command(

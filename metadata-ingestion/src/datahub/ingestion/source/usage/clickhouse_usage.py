@@ -2,7 +2,7 @@ import collections
 import dataclasses
 import logging
 from datetime import datetime
-from typing import Dict, Iterable, List
+from typing import Any, Dict, Iterable, List
 
 from dateutil import parser
 from pydantic.fields import Field
@@ -74,8 +74,10 @@ class ClickHouseUsageConfig(ClickHouseConfig, BaseUsageConfig, EnvConfigMixin):
     options: dict = Field(default={}, description="")
     query_log_table: str = Field(default="system.query_log", exclude=True)
 
-    def get_sql_alchemy_url(self):
-        return super().get_sql_alchemy_url()
+    def get_sql_alchemy_url(
+        self, uri_opts: dict[str, Any] | None = None, current_db: str | None = None
+    ) -> str:
+        return super().get_sql_alchemy_url(uri_opts=uri_opts, current_db=current_db)
 
 
 @platform_name("ClickHouse")

@@ -145,7 +145,9 @@ class ClickHouseConfig(
     )
     include_materialized_views: Optional[bool] = Field(default=True, description="")
 
-    def get_sql_alchemy_url(self, current_db=None):
+    def get_sql_alchemy_url(
+        self, uri_opts: dict[str, Any] | None = None, current_db: str | None = None
+    ) -> str:
         url = make_url(
             super().get_sql_alchemy_url(uri_opts=self.uri_opts, current_db=current_db)
         )
