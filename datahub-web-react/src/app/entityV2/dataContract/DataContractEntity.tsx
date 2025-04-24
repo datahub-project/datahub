@@ -34,7 +34,7 @@ export class DataContractEntity implements Entity<DataContract> {
 
     isSearchEnabled = () => true;
 
-    isBrowseEnabled = () => true;
+    isBrowseEnabled = () => false;
 
     isLineageEnabled = () => false;
 
