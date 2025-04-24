@@ -75,7 +75,7 @@ module.exports = {
     //   announcementBar: {
     //     id: "announcement",
     //     content:
-    //       '<div><img src="/img/acryl-logo-white-mark.svg" /><p><strong>DataHub Cloud</strong><span> &nbsp;DataHub delivers an easy to consume DataHub platform for the enterprise</span></p></div> <a href="https://www.datahub.com#sign-up-form?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup" target="_blank" class="button button--primary">Sign Up for DataHub Cloud&nbsp;→</a>',
+    //       '<div><img src="/img/acryl-logo-white-mark.svg" /><p><strong>DataHub Cloud</strong><span> &nbsp;DataHub delivers an easy to consume DataHub platform for the enterprise</span></p></div> <a href="https://www.datahub.com/demo?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup" target="_blank" class="button button--primary">Sign Up for DataHub Cloud&nbsp;→</a>',
     //     backgroundColor: "#070707",
     //     textColor: "#ffffff",
     //     isCloseable: false,
