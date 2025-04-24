@@ -5,11 +5,17 @@ import requests
 from requests.auth import HTTPBasicAuth
 
 
+def _decode_bytes(value: Union[str, bytes]) -> str:
+    """Decode bytes to string, if necessary."""
+    if isinstance(value, bytes):
+        return value.decode()
+    return value
+
+
 def _format_header(name: str, value: Union[str, bytes]) -> str:
     if name == "Authorization":
         return f"{name!s}: <redacted>"
-    value_str = value.decode("utf-8") if isinstance(value, bytes) else str(value)
-    return f"{name!s}: {value_str}"
+    return f"{name!s}: {_decode_bytes(value)}"
 
 
 def make_curl_command(
@@ -22,7 +28,9 @@ def make_curl_command(
 
     if session.auth:
         if isinstance(session.auth, HTTPBasicAuth):
-            fragments.extend(["-u", f"{session.auth.username}:<redacted>"])
+            fragments.extend(
+                ["-u", f"{_decode_bytes(session.auth.username)}:<redacted>"]
+            )
         else:
             # For other auth types, they should be handled via headers
             fragments.extend(["-H", "<unknown auth type>"])

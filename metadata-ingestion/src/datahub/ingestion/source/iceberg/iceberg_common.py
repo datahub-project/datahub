@@ -1,14 +1,13 @@
 import logging
 import threading
 from dataclasses import dataclass, field
-from typing import Any, Dict, Mapping, Optional, Tuple, Union
+from typing import Any, Dict, Optional
 
 from humanfriendly import format_timespan
 from pydantic import Field, validator
 from pyiceberg.catalog import Catalog, load_catalog
 from pyiceberg.catalog.rest import RestCatalog
 from requests.adapters import HTTPAdapter
-from requests.models import PreparedRequest, Response
 from sortedcontainers import SortedList
 from urllib3.util import Retry
 
@@ -41,27 +40,11 @@ class TimeoutHTTPAdapter(HTTPAdapter):
             del kwargs["timeout"]
         super().__init__(*args, **kwargs)
 
-    def send(
-        self,
-        request: PreparedRequest,
-        stream: bool = False,
-        timeout: Optional[Union[float, Tuple[float, float], Tuple[float, None]]] = None,
-        verify: Union[bool, str] = True,
-        cert: Optional[
-            Union[bytes, str, Tuple[Union[bytes, str], Union[bytes, str]]]
-        ] = None,
-        proxies: Optional[Mapping[str, str]] = None,
-    ) -> Response:
+    def send(self, request, *args, **kwargs):
+        timeout = kwargs.get("timeout")
         if timeout is None and hasattr(self, "timeout"):
-            timeout = self.timeout
-        return super().send(
-            request,
-            stream=stream,
-            timeout=timeout,
-            verify=verify,
-            cert=cert,
-            proxies=proxies,
-        )
+            kwargs["timeout"] = self.timeout
+        return super().send(request, *args, **kwargs)
 
 
 class IcebergProfilingConfig(ConfigModel):
