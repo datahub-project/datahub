@@ -2,19 +2,22 @@ import React, { useMemo } from 'react';
 
 import AutoCompleteEntityItem from '@app/searchV2/autoCompleteV2/AutoCompleteEntityItem';
 import SectionHeader from '@app/searchV2/searchBarV2/components/SectionHeader';
-import { combineSiblingsInEntities } from '@app/searchV2/utils/combineSiblingsInEntities';
+import { SectionOption } from '@app/searchV2/searchBarV2/types';
+import {
+    EntityWithMatchedFields,
+    combineSiblingsInEntitiesWithMatchedFields,
+} from '@app/searchV2/utils/combineSiblingsInEntitiesWithMatchedFields';
 import { Loader } from '@src/alchemy-components';
-import { Entity } from '@src/types.generated';
 
 export default function useSearchResultsOptions(
-    entities: Entity[] | undefined,
+    entitiesWithMatchedFields: EntityWithMatchedFields[] | undefined,
     searchQuery: string,
     isLoading?: boolean,
     isInitialized?: boolean,
     shouldCombineSiblings?: boolean,
-) {
+): SectionOption[] {
     return useMemo(() => {
-        const hasResults = (entities?.length ?? 0) > 0;
+        const hasResults = (entitiesWithMatchedFields?.length ?? 0) > 0;
         if (!isLoading && !hasResults) return [];
         if (!searchQuery) return [];
 
@@ -27,7 +30,10 @@ export default function useSearchResultsOptions(
                 },
             ];
 
-        const combinedEntities = combineSiblingsInEntities(entities, !!shouldCombineSiblings);
+        const combinedEntities = combineSiblingsInEntitiesWithMatchedFields(
+            entitiesWithMatchedFields,
+            !!shouldCombineSiblings,
+        );
 
         return [
             {
@@ -39,6 +45,7 @@ export default function useSearchResultsOptions(
                             entity={combinedEntity.entity}
                             query={searchQuery}
                             siblings={shouldCombineSiblings ? combinedEntity.matchedEntities : undefined}
+                            matchedFields={combinedEntity.matchedFields}
                         />
                     ),
                     type: combinedEntity.entity.type,
@@ -46,5 +53,5 @@ export default function useSearchResultsOptions(
                 })),
             },
         ];
-    }, [shouldCombineSiblings, entities, searchQuery, isLoading, isInitialized]);
+    }, [shouldCombineSiblings, entitiesWithMatchedFields, searchQuery, isLoading, isInitialized]);
 }

@@ -97,6 +97,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   for input and output dataset edges. This should not have any user-observable
   impact (time-based lineage viz will still continue working based on observed time), but could break assumptions previously being made by clients.
 - #12158 - Users provisioned with `user.props` will need to be enabled before login in order to be granted access to DataHub.
+- #13273 - When using Opensearch, we will use 'zstd-no-dict' codec instead of 'default'. Elasticsearch still uses 'default'
 
 ### Potential Downtime
 
