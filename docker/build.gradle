@@ -44,6 +44,11 @@ ext {
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
                     isDebug: true
             ],
+            'quickstartDebugMin': [
+                    profile: 'debug-min',
+                    modules: backend_profile_modules + [':datahub-frontend'],
+                    isDebug: true
+            ],
             'quickstartDebugConsumers': [
                     profile: 'debug-consumers',
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend',
