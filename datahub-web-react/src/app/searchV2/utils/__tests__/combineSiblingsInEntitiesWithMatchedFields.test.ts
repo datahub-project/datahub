@@ -1,5 +1,8 @@
-import { combineSiblingsInEntities } from '@app/searchV2/utils/combineSiblingsInEntities';
-import { Dataset, Entity, EntityType, FabricType } from '@src/types.generated';
+import {
+    EntityWithMatchedFields,
+    combineSiblingsInEntitiesWithMatchedFields,
+} from '@app/searchV2/utils/combineSiblingsInEntitiesWithMatchedFields';
+import { Dataset, Entity, EntityType, FabricType, MatchedField } from '@src/types.generated';
 
 function generateSampleEntity(urn: string, platformUrn: string, isPrimary: boolean, siblings: Entity[]): Dataset {
     return {
@@ -29,14 +32,21 @@ function generateSampleEntity(urn: string, platformUrn: string, isPrimary: boole
     };
 }
 
-describe('combineSiblingsInEntities', () => {
+function wrapWithMatchedFields(entity: Entity, matchedFields: MatchedField[] = []): EntityWithMatchedFields {
+    return {
+        entity,
+        matchedFields,
+    };
+}
+
+describe('combineSiblingsInEntitiesWithMatchedFields', () => {
     it('should return an empty array when input entities are undefined', () => {
-        const response = combineSiblingsInEntities(undefined, true);
+        const response = combineSiblingsInEntitiesWithMatchedFields(undefined, true);
         expect(response).toStrictEqual([]);
     });
 
     it('should return an empty array when input entities are empty', () => {
-        const response = combineSiblingsInEntities([], true);
+        const response = combineSiblingsInEntitiesWithMatchedFields([], true);
         expect(response).toStrictEqual([]);
     });
 
@@ -44,25 +54,34 @@ describe('combineSiblingsInEntities', () => {
         const sample1 = generateSampleEntity('test1', 'platform1', false, []);
         const sample2 = generateSampleEntity('test2', 'platform2', false, []);
 
-        const response = combineSiblingsInEntities([sample1, sample2], false);
+        const response = combineSiblingsInEntitiesWithMatchedFields(
+            [wrapWithMatchedFields(sample1), wrapWithMatchedFields(sample2)],
+            false,
+        );
 
-        expect(response).toStrictEqual([{ entity: sample1 }, { entity: sample2 }]);
+        expect(response).toStrictEqual([wrapWithMatchedFields(sample1), wrapWithMatchedFields(sample2)]);
     });
 
     it('should handle entities without siblings correctly when shouldSepareteSiblings is true', () => {
         const sample1 = generateSampleEntity('test1', 'platform1', false, []);
         const sample2 = generateSampleEntity('test2', 'platform2', false, []);
 
-        const response = combineSiblingsInEntities([sample1, sample2], true);
+        const response = combineSiblingsInEntitiesWithMatchedFields(
+            [wrapWithMatchedFields(sample1), wrapWithMatchedFields(sample2)],
+            true,
+        );
 
-        expect(response).toStrictEqual([{ entity: sample1 }, { entity: sample2 }]);
+        expect(response).toStrictEqual([wrapWithMatchedFields(sample1), wrapWithMatchedFields(sample2)]);
     });
 
     it('should combine entities with siblings when shouldSepareteSiblings is true', () => {
         const sample1 = generateSampleEntity('test1', 'platform1', false, []);
         const sample2 = generateSampleEntity('test2', 'platform2', false, [sample1]);
 
-        const response = combineSiblingsInEntities([sample2, sample1], true);
+        const response = combineSiblingsInEntitiesWithMatchedFields(
+            [wrapWithMatchedFields(sample2, [{ name: 'test', value: 'testValue' }]), wrapWithMatchedFields(sample1)],
+            true,
+        );
 
         expect(response).toStrictEqual([
             {
@@ -84,6 +103,12 @@ describe('combineSiblingsInEntities', () => {
                         siblingsSearch: null,
                     },
                 ],
+                matchedFields: [
+                    {
+                        name: 'test',
+                        value: 'testValue',
+                    },
+                ],
             },
         ]);
     });
@@ -93,7 +118,10 @@ describe('combineSiblingsInEntities', () => {
         const sample2 = generateSampleEntity('test2', 'platform2', false, [sample1]);
         const sample3 = generateSampleEntity('test3', 'platform3', false, [sample1, sample2]);
 
-        const response = combineSiblingsInEntities([sample3, sample2, sample1], true);
+        const response = combineSiblingsInEntitiesWithMatchedFields(
+            [wrapWithMatchedFields(sample3), wrapWithMatchedFields(sample2), wrapWithMatchedFields(sample1)],
+            true,
+        );
 
         expect(response).toStrictEqual([
             {
@@ -116,6 +144,7 @@ describe('combineSiblingsInEntities', () => {
                         siblingsSearch: null,
                     },
                 ],
+                matchedFields: [],
             },
         ]);
     });

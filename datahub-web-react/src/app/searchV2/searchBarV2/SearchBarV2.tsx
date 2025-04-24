@@ -16,6 +16,7 @@ import useFocusElementByCommandK from '@app/searchV2/searchBarV2/hooks/useFocusS
 import useOptions from '@app/searchV2/searchBarV2/hooks/useOptions';
 import { useSearchBarData } from '@app/searchV2/searchBarV2/hooks/useSearchBarData';
 import useSelectOption from '@app/searchV2/searchBarV2/hooks/useSelectOption';
+import useSelectedView from '@app/searchV2/searchBarV2/hooks/useSelectedView';
 import { MIN_CHARACTER_COUNT_FOR_SEARCH } from '@app/searchV2/utils/constants';
 import filterSearchQuery from '@app/searchV2/utils/filterSearchQuery';
 import { useAppConfig, useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
@@ -69,8 +70,9 @@ export const SearchBarV2 = ({
     const [searchQuery, setSearchQuery] = useState<string>(initialQuery || '');
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
     const { appliedFilters, hasAppliedFilters, flatAppliedFilters, clear, updateFieldFilters } = useAppliedFilters();
+    const { hasSelectedView, clearSelectedView } = useSelectedView();
     const {
-        entities,
+        entitiesWithMatchedFields,
         facets,
         loading: isDataLoading,
         searchAPIVariant,
@@ -91,7 +93,7 @@ export const SearchBarV2 = ({
     const options = useOptions(
         searchQuery,
         showViewAllResults,
-        entities,
+        entitiesWithMatchedFields,
         !!isDataLoading,
         shouldCombineSiblings,
         isSearching,
@@ -140,7 +142,10 @@ export const SearchBarV2 = ({
 
     const onDropdownVisibilityChangeHandler = useCallback((isOpen) => setIsDropdownVisible(isOpen), []);
 
-    const onClearFiltersHandler = useCallback(() => clear(), [clear]);
+    const onClearFiltersAndSelectedViewHandler = useCallback(() => {
+        clear();
+        clearSelectedView();
+    }, [clear, clearSelectedView]);
 
     const onClearHandler = useCallback(() => clearQueryAndFilters(), [clearQueryAndFilters]);
 
@@ -166,8 +171,9 @@ export const SearchBarV2 = ({
             notFoundContent={
                 <AutocompletePlaceholder
                     hasAppliedFilters={hasAppliedFilters}
+                    hasSelectedView={hasSelectedView}
                     isSearching={isSearching}
-                    onClearFilters={onClearFiltersHandler}
+                    onClearFilters={onClearFiltersAndSelectedViewHandler}
                 />
             }
             onSelect={onSelectHandler}
