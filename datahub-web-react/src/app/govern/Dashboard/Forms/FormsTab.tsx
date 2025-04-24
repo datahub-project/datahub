@@ -11,7 +11,6 @@ const Container = styled.div`
     margin-left: 20px;
     margin-right: 20px;
     margin-bottom: 16px;
-    overflow: auto;
     height: calc(100% - 16px);
 `;
 
@@ -46,7 +45,12 @@ const FormsTab = () => {
         <Container>
             <FormsSection>
                 <SectionHeader />
-                <SearchBar placeholder="Search" value={searchQuery} onChange={(value) => handleSearch(value)} />
+                <SearchBar
+                    placeholder="Search"
+                    value={searchQuery}
+                    onChange={(value) => handleSearch(value)}
+                    style={{ maxWidth: '330px' }}
+                />
                 <FormsContainer>
                     <FormsTable
                         searchQuery={searchQuery}
