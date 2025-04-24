@@ -4,6 +4,9 @@ import Cookies from 'js-cookie';
 import { Event, EventType } from '@app/analytics/event';
 import plugins from '@app/analytics/plugin';
 import { getBrowserId } from '@app/browserId';
+import { loadUserPersonaFromLocalStorage } from '@app/homeV2/persona/useUserPersona';
+import { loadUserTitleFromLocalStorage } from '@app/identity/user/useUserTitle';
+import { loadThemeV2FromLocalStorage } from '@app/useIsThemeV2';
 import { CLIENT_AUTH_COOKIE } from '@conf/Global';
 
 const appName = 'datahub-react';
@@ -15,6 +18,7 @@ const analytics = Analytics({
     plugins: plugins.filter((plugin) => plugin.isEnabled).map((plugin) => plugin.plugin),
 });
 
+export const SEVER_VERSION_KEY = 'dataHubServerVersion';
 const { NODE_ENV } = import.meta.env;
 
 export function getMergedTrackingOptions(options?: any) {
@@ -31,6 +35,10 @@ export function getMergedTrackingOptions(options?: any) {
 
 export default {
     page: (data?: PageData, options?: any, callback?: (...params: any[]) => any) => {
+        const isThemeV2Enabled = loadThemeV2FromLocalStorage();
+        const userPersona = loadUserPersonaFromLocalStorage();
+        const userTitle = loadUserTitleFromLocalStorage();
+        const serverVersion = localStorage.getItem(SEVER_VERSION_KEY);
         const actorUrn = Cookies.get(CLIENT_AUTH_COOKIE) || undefined;
         const modifiedData = {
             ...data,
@@ -40,6 +48,11 @@ export default {
             date: new Date().toString(),
             userAgent: navigator.userAgent,
             browserId: getBrowserId(),
+            origin: window.location.origin,
+            isThemeV2Enabled,
+            userPersona: userPersona || undefined,
+            userTitle: userTitle || undefined,
+            serverVersion,
         };
         if (NODE_ENV === 'test' || !actorUrn) {
             return null;
@@ -48,6 +61,10 @@ export default {
         return analytics.page(modifiedData, trackingOptions, callback);
     },
     event: (event: Event, options?: any, callback?: (...params: any[]) => any): Promise<any> => {
+        const isThemeV2Enabled = loadThemeV2FromLocalStorage();
+        const userPersona = loadUserPersonaFromLocalStorage();
+        const userTitle = loadUserTitleFromLocalStorage();
+        const serverVersion = localStorage.getItem(SEVER_VERSION_KEY);
         const eventTypeName = EventType[event.type];
         const modifiedEvent = {
             ...event,
@@ -57,6 +74,11 @@ export default {
             date: new Date().toString(),
             userAgent: navigator.userAgent,
             browserId: getBrowserId(),
+            origin: window.location.origin,
+            isThemeV2Enabled,
+            userPersona: userPersona || undefined,
+            userTitle: userTitle || undefined,
+            serverVersion,
         };
         if (NODE_ENV === 'test') {
             return Promise.resolve();
