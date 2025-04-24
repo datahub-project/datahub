@@ -203,6 +203,10 @@ class HTTPError429(HTTPError):
     pass
 
 
+class HTTPError504(HTTPError):
+    pass
+
+
 ModeRequestError = (HTTPError, JSONDecodeError)
 
 
@@ -456,9 +460,22 @@ class ModeSource(StatefulIngestionSourceBase):
         # Datasets
         datasets = []
         for imported_dataset_name in report_info.get("imported_datasets", {}):
-            mode_dataset = self._get_request_json(
-                f"{self.workspace_uri}/reports/{imported_dataset_name.get('token')}"
-            )
+            try:
+                mode_dataset = self._get_request_json(
+                    f"{self.workspace_uri}/reports/{imported_dataset_name.get('token')}"
+                )
+            except HTTPError as http_error:
+                status_code = http_error.response.status_code
+                if status_code == 404:
+                    self.report.report_warning(
+                        title="Missing Dataset",
+                        message="Can not get dataset by token",
+                        context=f"Report token: {report_token}",
+                    )
+                    continue
+                else:
+                    raise http_error
+
             dataset_urn = builder.make_dataset_urn_with_platform_instance(
                 self.platform,
                 str(mode_dataset.get("id")),
@@ -1481,7 +1498,9 @@ class ModeSource(StatefulIngestionSourceBase):
                 multiplier=self.config.api_options.retry_backoff_multiplier,
                 max=self.config.api_options.max_retry_interval,
             ),
-            retry=retry_if_exception_type((HTTPError429, ConnectionError)),
+            retry=retry_if_exception_type(
+                (HTTPError429, HTTPError504, ConnectionError)
+            ),
             stop=stop_after_attempt(self.config.api_options.max_attempts),
         )
 
@@ -1507,6 +1526,8 @@ class ModeSource(StatefulIngestionSourceBase):
                     if sleep_time is not None:
                         time.sleep(float(sleep_time))
                     raise HTTPError429 from None
+                elif error_response.status_code == 504:
+                    raise HTTPError504 from None
 
                 logger.debug(
                     f"Error response ({error_response.status_code}): {error_response.text}"
