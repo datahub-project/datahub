@@ -1,4 +1,4 @@
-import { Pill, colors } from '@components';
+import { colors } from '@components';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -7,6 +7,8 @@ import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContex
 import NavBarToggler from '@app/homeV2/layout/navBarRedesign/NavBarToggler';
 import analytics, { EventType } from '@src/app/analytics';
 import { useGlobalSettingsContext } from '@src/app/context/GlobalSettings/GlobalSettingsContext';
+
+import datahubCloudSvg from '@images/datahub_cloud.svg';
 
 const Container = styled.div`
     display: flex;
@@ -60,6 +62,12 @@ const StyledLink = styled(Link)`
     gap: 8px;
 `;
 
+const DatahubCloudLogo = styled.img`
+    height: 24px;
+    width: auto;
+    object-fit: contain;
+`;
+
 type Props = {
     logotype?: React.ReactElement;
 };
@@ -73,8 +81,8 @@ export default function NavBarHeader({ logotype }: Props) {
         <Container>
             <StyledLink to="/" onClick={() => analytics.event({ type: EventType.NavBarItemClick, label: 'Home' })}>
                 <Logotype>{logotype}</Logotype>
-                {!isCollapsed ? <Title>{customName || 'DataHub'}</Title> : null}
-                {!isCollapsed && !customName && <Pill label="Cloud" variant="filled" color="gray" size="sm" />}
+                {!isCollapsed && !customName && <DatahubCloudLogo src={datahubCloudSvg} alt="DataHub Cloud" />}
+                {!isCollapsed && customName && <Title>{customName}</Title>}
             </StyledLink>
             {!isCollapsed && <NavBarToggler />}
         </Container>
