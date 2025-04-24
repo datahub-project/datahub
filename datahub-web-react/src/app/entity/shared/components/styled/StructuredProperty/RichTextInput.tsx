@@ -1,8 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Editor } from '../../../tabs/Documentation/components/editor/Editor';
-import { ANTD_GRAY_V2 } from '../../../constants';
-import { useEntityFormContext } from '../../../entityForm/EntityFormContext';
+
+import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
+import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 
 const StyledEditor = styled(Editor)<{ displayBulkPromptStyles?: boolean }>`
     border: 1px solid ${ANTD_GRAY_V2[6]};

@@ -1,10 +1,11 @@
+import { CalendarOutlined, CaretDownOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
+import { Button, DatePicker, Space, Typography } from 'antd';
+import moment from 'moment';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
-import moment from 'moment';
-import { DatePicker, Space, Button, Typography } from 'antd';
-import { Tooltip } from '@components';
-import { CalendarOutlined, CaretDownOutlined } from '@ant-design/icons';
-import { REDESIGN_COLORS } from '../entityV2/shared/constants';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 const { RangePicker } = DatePicker;
 

@@ -102,6 +102,17 @@ class FieldAssertionTrainer(BaseAssertionTrainer[Metric]):
         """
         return FIELD_METRIC_MIN_TRAINING_SAMPLES_TIMESPAN_SECONDS
 
+    def try_get_historical_data_for_bootstrap(
+        self,
+        assertion: Assertion,
+        maybe_adjustment_settings: Optional[AssertionAdjustmentSettings],
+    ) -> Optional[List[Metric]]:
+        """
+        Bootstrap the historical data for field metric training.
+        """
+        # TODO: Implement this
+        return None
+
     def get_metric_data(
         self,
         monitor: Monitor,

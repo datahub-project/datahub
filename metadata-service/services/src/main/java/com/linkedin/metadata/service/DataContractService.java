@@ -1,7 +1,7 @@
 package com.linkedin.metadata.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
@@ -53,7 +53,7 @@ public class DataContractService extends BaseService {
       final EntityRelationships relationships =
           _graphClient.getRelatedEntities(
               entityUrn.toString(),
-              ImmutableList.of(CONTRACT_FOR_RELATIONSHIP),
+              ImmutableSet.of(CONTRACT_FOR_RELATIONSHIP),
               RelationshipDirection.INCOMING,
               0,
               1,

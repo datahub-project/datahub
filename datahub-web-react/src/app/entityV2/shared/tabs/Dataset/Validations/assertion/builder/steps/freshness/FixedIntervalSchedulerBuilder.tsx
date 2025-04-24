@@ -1,13 +1,15 @@
+import { InputNumber, Select, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { InputNumber, Select, Typography } from 'antd';
-import { DateInterval } from '../../../../../../../../../../types.generated';
+
 import {
     DEFAULT_ASSERTION_EVALUATION_INTERVAL_MULTIPLE,
     DEFAULT_ASSERTION_EVALUATION_INTERVAL_UNIT,
-} from '../../constants';
-import { StopPropagation } from '../../../../../../../../../shared/StopPropagation';
-import { FreshnessAssertionBuilderSchedule } from '../../types';
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/constants';
+import { FreshnessAssertionBuilderSchedule } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
+import { StopPropagation } from '@app/shared/StopPropagation';
+
+import { DateInterval } from '@types';
 
 const Form = styled.div``;
 

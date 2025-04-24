@@ -1,25 +1,27 @@
+import { Modal, message } from 'antd';
 import React, { useEffect, useRef, useState } from 'react';
-import { message, Modal } from 'antd';
 import styled from 'styled-components/macro';
-import { useAppConfig } from '@src/app/useAppConfig';
-import { useUpdateDescriptionMutation } from '../../../../../../graphql/mutations.generated';
-import { useProposeUpdateDescriptionMutation } from '../../../../../../graphql/proposals.generated';
-import { EntityType } from '../../../../../../types.generated';
-import analytics, { EntityActionType, EventType } from '../../../../../analytics';
-import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '../../../../../entity/shared/EntityContext';
-import { GenericEntityUpdate } from '../../../../../entity/shared/types';
-import { EDITED_DESCRIPTIONS_CACHE_NAME } from '../../../utils';
-import { DescriptionEditorToolbar } from './DescriptionEditorToolbar';
-import { Editor } from './editor/Editor';
-import SourceDescription from './SourceDescription';
-import { sanitizeRichText } from './editor/utils';
-import InferDocsPanel from '../../../components/inferredDocs/InferDocsPanel';
-import { getAssetDescriptionDetails } from '../utils';
+
+import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
+import { GenericEntityUpdate } from '@app/entity/shared/types';
+import InferDocsPanel from '@app/entityV2/shared/components/inferredDocs/InferDocsPanel';
 import {
     useIsDocumentationInferenceEnabled,
     useShouldShowInferDocumentationButton,
-} from '../../../components/inferredDocs/utils';
-import ProposalDescriptionModal from '../../../containers/profile/sidebar/ProposalDescriptionModal';
+} from '@app/entityV2/shared/components/inferredDocs/utils';
+import ProposalDescriptionModal from '@app/entityV2/shared/containers/profile/sidebar/ProposalDescriptionModal';
+import { DescriptionEditorToolbar } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionEditorToolbar';
+import SourceDescription from '@app/entityV2/shared/tabs/Documentation/components/SourceDescription';
+import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
+import { sanitizeRichText } from '@app/entityV2/shared/tabs/Documentation/components/editor/utils';
+import { getAssetDescriptionDetails } from '@app/entityV2/shared/tabs/Documentation/utils';
+import { EDITED_DESCRIPTIONS_CACHE_NAME } from '@app/entityV2/shared/utils';
+import { useAppConfig } from '@src/app/useAppConfig';
+
+import { useUpdateDescriptionMutation } from '@graphql/mutations.generated';
+import { useProposeUpdateDescriptionMutation } from '@graphql/proposals.generated';
+import { EntityType } from '@types';
 
 export const PROPOSAL_ENTITY_TYPES = [
     EntityType.GlossaryTerm,

@@ -1,14 +1,13 @@
-import React, { useState } from 'react';
-
-import styled from 'styled-components';
-import { TimeWindow, getFixedLookbackWindow } from '@src/app/shared/time/timeUtils';
-import { DateInterval } from '@src/types.generated';
 import { Typography } from 'antd';
 import dayjs from 'dayjs';
+import React, { useState } from 'react';
+import styled from 'styled-components';
 
-import { LOOKBACK_WINDOWS } from '../../../../../../Stats/lookbackWindows';
-import { SelectablePill } from '../../shared/SelectablePill';
-import { CustomTimeRangeSelectDropdown } from './CustomTimeRangeSelectDropdown';
+import { LOOKBACK_WINDOWS } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
+import { CustomTimeRangeSelectDropdown } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/CustomTimeRangeSelectDropdown';
+import { SelectablePill } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/SelectablePill';
+import { TimeWindow, getFixedLookbackWindow } from '@src/app/shared/time/timeUtils';
+import { DateInterval } from '@src/types.generated';
 
 const TimeWindowPills = styled.div`
     display: flex;

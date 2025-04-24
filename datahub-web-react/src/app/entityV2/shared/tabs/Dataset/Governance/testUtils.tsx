@@ -1,5 +1,6 @@
-import React from 'react';
 import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import React from 'react';
+
 import { TestResult, TestResultType } from '@src/types.generated';
 
 /**

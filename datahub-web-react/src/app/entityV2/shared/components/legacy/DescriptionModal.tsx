@@ -1,12 +1,13 @@
-import { Typography, Modal, Form } from 'antd';
+import { Form, Modal, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+
+import { useMutationUrn } from '@app/entity/shared/EntityContext';
+import InferDocsPanel from '@app/entityV2/shared/components/inferredDocs/InferDocsPanel';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
 import { Button } from '@src/alchemy-components';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
-import { Editor } from '../../tabs/Documentation/components/editor/Editor';
-import { ANTD_GRAY } from '../../constants';
-import InferDocsPanel from '../inferredDocs/InferDocsPanel';
-import { useMutationUrn } from '../../../../entity/shared/EntityContext';
 
 const FormLabel = styled(Typography.Text)`
     font-size: 10px;

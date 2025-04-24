@@ -1,12 +1,13 @@
 import React from 'react';
+
 import {
     ActionButtonsContainer,
     DescriptionContainer,
     LabelsWrapper,
     Placeholder,
     SelectValue,
-} from '../../../components';
-import { SelectLabelVariantProps, SelectOption } from '../../../types';
+} from '@components/components/Select/components';
+import { SelectLabelVariantProps, SelectOption } from '@components/components/Select/types';
 
 export default function SingleSelectCustom<OptionType extends SelectOption>({
     selectedOptions,

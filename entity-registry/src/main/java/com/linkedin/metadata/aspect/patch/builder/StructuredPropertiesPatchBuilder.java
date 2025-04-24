@@ -51,7 +51,9 @@ public class StructuredPropertiesPatchBuilder
 
     pathValues.add(
         ImmutableTriple.of(
-            PatchOperationType.ADD.getValue(), BASE_PATH + "/" + propertyUrn, newProperty));
+            PatchOperationType.ADD.getValue(),
+            BASE_PATH + "/" + encodeValueUrn(propertyUrn),
+            newProperty));
     return this;
   }
 
@@ -71,7 +73,9 @@ public class StructuredPropertiesPatchBuilder
 
     pathValues.add(
         ImmutableTriple.of(
-            PatchOperationType.ADD.getValue(), BASE_PATH + "/" + propertyUrn, newProperty));
+            PatchOperationType.ADD.getValue(),
+            BASE_PATH + "/" + encodeValueUrn(propertyUrn),
+            newProperty));
     return this;
   }
 
@@ -88,7 +92,9 @@ public class StructuredPropertiesPatchBuilder
 
     pathValues.add(
         ImmutableTriple.of(
-            PatchOperationType.ADD.getValue(), BASE_PATH + "/" + propertyUrn, newProperty));
+            PatchOperationType.ADD.getValue(),
+            BASE_PATH + "/" + encodeValueUrn(propertyUrn),
+            newProperty));
     return this;
   }
 
@@ -108,7 +114,9 @@ public class StructuredPropertiesPatchBuilder
 
     pathValues.add(
         ImmutableTriple.of(
-            PatchOperationType.ADD.getValue(), BASE_PATH + "/" + propertyUrn, newProperty));
+            PatchOperationType.ADD.getValue(),
+            BASE_PATH + "/" + encodeValueUrn(propertyUrn),
+            newProperty));
     return this;
   }
 

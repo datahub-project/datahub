@@ -1,8 +1,9 @@
 import React, { useMemo } from 'react';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import UrnInput from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/UrnInput/UrnInput';
+import { getInitialEntitiesForUrnPrompt } from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/utils';
 import { Maybe, PropertyCardinality, SchemaFieldEntity, StructuredPropertyEntity } from '@src/types.generated';
-import UrnInput from '../../../entityForm/prompts/StructuredPropertyPrompt/UrnInput/UrnInput';
-import { useEntityData } from '../../../EntityContext';
-import { getInitialEntitiesForUrnPrompt } from '../../../entityForm/prompts/StructuredPropertyPrompt/utils';
 
 interface Props {
     structuredProperty: StructuredPropertyEntity;

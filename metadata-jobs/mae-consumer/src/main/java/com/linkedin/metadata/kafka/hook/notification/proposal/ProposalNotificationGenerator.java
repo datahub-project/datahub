@@ -202,7 +202,7 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
       final EntityRelationships entityRelationships =
           this._graphClient.getRelatedEntities(
               role.toString(),
-              Collections.singletonList(IS_MEMBER_OF_ROLE_RELATIONSHIP_NAME),
+              ImmutableSet.of(IS_MEMBER_OF_ROLE_RELATIONSHIP_NAME),
               RelationshipDirection.INCOMING,
               start,
               ROLE_RESOLUTION_BATCH_SIZE,

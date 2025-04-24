@@ -1,12 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import moment from 'moment';
-import styled from 'styled-components/macro';
-import { DatePicker } from 'antd';
-import { Tooltip } from '@components';
 import { CalendarOutlined, CaretDownOutlined } from '@ant-design/icons';
-import ClickOutside from '../shared/ClickOutside';
-import { getTimeRangeDescription } from '../shared/time/timeUtils';
-import { ANTD_GRAY } from '../entity/shared/constants';
+import { Tooltip } from '@components';
+import { DatePicker } from 'antd';
+import moment from 'moment';
+import React, { useEffect, useState } from 'react';
+import styled from 'styled-components/macro';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import ClickOutside from '@app/shared/ClickOutside';
+import { getTimeRangeDescription } from '@app/shared/time/timeUtils';
 
 const RangePickerWrapper = styled.div`
     transition: color 0s;

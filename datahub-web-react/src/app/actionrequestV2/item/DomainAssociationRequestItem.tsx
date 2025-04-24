@@ -1,11 +1,12 @@
-import { colors } from '@src/alchemy-components';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { ActionRequest, ActionRequestResult, EntityType } from '@src/types.generated';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+
+import AddContentView from '@app/actionrequestV2/item/AddContentView';
+import { colors } from '@src/alchemy-components';
 import { DomainContent } from '@src/app/sharedV2/tags/DomainLink';
-import AddContentView from './AddContentView';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { ActionRequest, ActionRequestResult, EntityType } from '@src/types.generated';
 
 const Container = styled.div<{ $isApproved?: boolean }>`
     overflow: hidden;

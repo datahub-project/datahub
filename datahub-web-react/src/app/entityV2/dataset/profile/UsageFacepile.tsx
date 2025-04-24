@@ -1,9 +1,11 @@
-import React, { useMemo } from 'react';
 import { Tooltip } from '@components';
-import { EntityType, UserUsageCounts } from '../../../../types.generated';
-import { SpacedAvatarGroup } from '../../../shared/avatar/SpaceAvatarGroup';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import ActorAvatar from '../../shared/ActorAvatar';
+import React, { useMemo } from 'react';
+
+import ActorAvatar from '@app/entityV2/shared/ActorAvatar';
+import { SpacedAvatarGroup } from '@app/shared/avatar/SpaceAvatarGroup';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType, UserUsageCounts } from '@types';
 
 export type Props = {
     users?: (UserUsageCounts | null)[] | null;

@@ -1,9 +1,9 @@
 import React from 'react';
 
-import { EntityType, SubResourceType } from '../../../types.generated';
+import EditTagTermsModal from '@app/shared/tags/AddTagsTermsModal';
+import { shouldShowProposeButton } from '@app/shared/tags/utils/proposalUtils';
 
-import EditTagTermsModal from '../../shared/tags/AddTagsTermsModal';
-import { shouldShowProposeButton } from '../../shared/tags/utils/proposalUtils';
+import { EntityType, SubResourceType } from '@types';
 
 type Props = {
     onOpenModal?: () => void;

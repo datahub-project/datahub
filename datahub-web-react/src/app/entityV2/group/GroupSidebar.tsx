@@ -1,13 +1,15 @@
 import { message } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { useUpdateCorpGroupPropertiesMutation } from '../../../graphql/group.generated';
-import { SideBar, Content } from '../shared/SidebarStyledComponents';
-import { AboutSidebarSection } from '../shared/sidebarSection/AboutSidebarSection';
-import { REDESIGN_COLORS } from '../shared/constants';
-import { GroupProfileInfoCard, SidebarData } from './GroupProfileInfoCard';
-import { GroupSidebarOwnersSection } from './GroupSidebarOwnersSection';
-import { GroupSidebarMembersSection } from './GroupSidebarMembersSection';
+
+import { GroupProfileInfoCard, SidebarData } from '@app/entityV2/group/GroupProfileInfoCard';
+import { GroupSidebarMembersSection } from '@app/entityV2/group/GroupSidebarMembersSection';
+import { GroupSidebarOwnersSection } from '@app/entityV2/group/GroupSidebarOwnersSection';
+import { Content, SideBar } from '@app/entityV2/shared/SidebarStyledComponents';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { AboutSidebarSection } from '@app/entityV2/shared/sidebarSection/AboutSidebarSection';
+
+import { useUpdateCorpGroupPropertiesMutation } from '@graphql/group.generated';
 
 type Props = {
     sidebarData: SidebarData;

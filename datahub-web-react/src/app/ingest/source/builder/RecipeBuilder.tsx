@@ -1,17 +1,18 @@
-import React, { useState } from 'react';
-import { message, Typography } from 'antd';
-import { Button } from '@src/alchemy-components';
-import YAML from 'yamljs';
 import { CodeOutlined, FormOutlined } from '@ant-design/icons';
+import { Typography, message } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
-import { YamlEditor } from './YamlEditor';
-import RecipeForm from './RecipeForm/RecipeForm';
-import { SourceBuilderState, SourceConfig } from './types';
-import { CSV, LOOKER, LOOK_ML } from './constants';
-import { LookerWarning } from './LookerWarning';
-import { CSVInfo } from './CSVInfo';
-import { IngestionDocumentationHint } from './IngestionDocumentationHint';
+import YAML from 'yamljs';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { CSVInfo } from '@app/ingest/source/builder/CSVInfo';
+import { IngestionDocumentationHint } from '@app/ingest/source/builder/IngestionDocumentationHint';
+import { LookerWarning } from '@app/ingest/source/builder/LookerWarning';
+import RecipeForm from '@app/ingest/source/builder/RecipeForm/RecipeForm';
+import { YamlEditor } from '@app/ingest/source/builder/YamlEditor';
+import { CSV, LOOKER, LOOK_ML } from '@app/ingest/source/builder/constants';
+import { SourceBuilderState, SourceConfig } from '@app/ingest/source/builder/types';
+import { Button } from '@src/alchemy-components';
 
 export const ControlsContainer = styled.div`
     display: flex;

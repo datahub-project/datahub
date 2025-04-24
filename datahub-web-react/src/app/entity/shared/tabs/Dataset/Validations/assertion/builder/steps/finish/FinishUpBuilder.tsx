@@ -1,11 +1,11 @@
-import React, { useEffect } from 'react';
-
-import styled from 'styled-components';
 import { Typography } from 'antd';
 import TextArea from 'antd/lib/input/TextArea';
+import React, { useEffect } from 'react';
+import styled from 'styled-components';
 
-import { AssertionMonitorBuilderState } from '../../types';
-import { AssertionType } from '../../../../../../../../../../types.generated';
+import { AssertionMonitorBuilderState } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/types';
+
+import { AssertionType } from '@types';
 
 const Section = styled.div`
     display: flex;

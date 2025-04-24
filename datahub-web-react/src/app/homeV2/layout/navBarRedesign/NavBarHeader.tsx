@@ -1,11 +1,12 @@
+import { Pill, colors } from '@components';
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { colors, Pill } from '@components';
 import styled from 'styled-components';
-import { useGlobalSettingsContext } from '@src/app/context/GlobalSettings/GlobalSettingsContext';
+
+import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
+import NavBarToggler from '@app/homeV2/layout/navBarRedesign/NavBarToggler';
 import analytics, { EventType } from '@src/app/analytics';
-import NavBarToggler from './NavBarToggler';
-import { useNavBarContext } from './NavBarContext';
+import { useGlobalSettingsContext } from '@src/app/context/GlobalSettings/GlobalSettingsContext';
 
 const Container = styled.div`
     display: flex;

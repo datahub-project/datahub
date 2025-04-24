@@ -1,4 +1,4 @@
-import { Test } from '../../types.generated';
+import { Test } from '@types';
 
 /**
  * A single property predicate as it appears in a deserialized

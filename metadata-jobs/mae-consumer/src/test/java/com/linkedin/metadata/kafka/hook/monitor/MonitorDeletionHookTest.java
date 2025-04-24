@@ -80,7 +80,7 @@ public class MonitorDeletionHookTest {
     Mockito.verify(graphClient, Mockito.times(0))
         .getRelatedEntities(
             Mockito.anyString(),
-            Mockito.anyList(),
+            Mockito.anySet(),
             Mockito.any(RelationshipDirection.class),
             Mockito.anyInt(),
             Mockito.anyInt(),
@@ -107,7 +107,7 @@ public class MonitorDeletionHookTest {
     Mockito.verify(graphClient, Mockito.times(0))
         .getRelatedEntities(
             Mockito.anyString(),
-            Mockito.anyList(),
+            Mockito.anySet(),
             Mockito.any(RelationshipDirection.class),
             Mockito.anyInt(),
             Mockito.anyInt(),
@@ -128,7 +128,7 @@ public class MonitorDeletionHookTest {
     Mockito.verify(graphClient, Mockito.times(0))
         .getRelatedEntities(
             Mockito.anyString(),
-            Mockito.anyList(),
+            Mockito.anySet(),
             Mockito.any(RelationshipDirection.class),
             Mockito.anyInt(),
             Mockito.anyInt(),
@@ -148,7 +148,7 @@ public class MonitorDeletionHookTest {
     Mockito.verify(graphClient, Mockito.times(0))
         .getRelatedEntities(
             Mockito.anyString(),
-            Mockito.anyList(),
+            Mockito.anySet(),
             Mockito.any(RelationshipDirection.class),
             Mockito.anyInt(),
             Mockito.anyInt(),
@@ -276,7 +276,7 @@ public class MonitorDeletionHookTest {
     Mockito.when(
             graphClient.getRelatedEntities(
                 Mockito.eq(TEST_ASSERTION_URN.toString()),
-                Mockito.anyList(),
+                Mockito.anySet(),
                 Mockito.eq(RelationshipDirection.INCOMING),
                 Mockito.any(),
                 Mockito.any(),
@@ -290,7 +290,7 @@ public class MonitorDeletionHookTest {
     Mockito.when(
             graphClient.getRelatedEntities(
                 Mockito.eq(TEST_MONITOR_URN.toString()),
-                Mockito.anyList(),
+                Mockito.anySet(),
                 Mockito.eq(RelationshipDirection.OUTGOING),
                 Mockito.any(),
                 Mockito.any(),
@@ -304,7 +304,7 @@ public class MonitorDeletionHookTest {
     Mockito.when(
             graphClient.getRelatedEntities(
                 Mockito.eq(TEST_DATASET_URN.toString()),
-                Mockito.eq(ImmutableList.of("Monitors")),
+                Mockito.eq(ImmutableSet.of("Monitors")),
                 Mockito.eq(RelationshipDirection.INCOMING),
                 Mockito.any(),
                 Mockito.any(),

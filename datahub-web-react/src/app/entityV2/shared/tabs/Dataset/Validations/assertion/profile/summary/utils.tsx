@@ -1,8 +1,37 @@
+import { Tooltip } from '@components';
+import { Typography } from 'antd';
+import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 
-import { Typography } from 'antd';
-import { Tooltip } from '@components';
-import { Maybe } from 'graphql/jsutils/Maybe';
+import { ANTD_GRAY_V2 } from '@app/entityV2/shared/constants';
+import { DatasetAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/DatasetAssertionDescription';
+import { FieldAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/FieldAssertionDescription';
+import {
+    FreshnessAssertionDescription,
+    createCronText,
+    createFixedIntervalText,
+    createSinceTheLastCheckText,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/FreshnessAssertionDescription';
+import { SchemaAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/SchemaAssertionDescription';
+import { SqlAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/SqlAssertionDescription';
+import { VolumeAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/VolumeAssertionDescription';
+import { getFormattedParameterValue } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
+import {
+    getFieldDescription,
+    getFieldOperatorDescription,
+    getFieldParametersDescription,
+    getFieldTransformDescription,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/fieldDescriptionUtils';
+import {
+    getIsRowCountChange,
+    getOperatorDescription,
+    getParameterDescription,
+    getValueChangeTypeDescription,
+    getVolumeTypeDescription,
+    getVolumeTypeInfo,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { decodeSchemaField } from '@src/app/lineage/utils/columnLineageUtils';
 import {
     AssertionInfo,
     AssertionStdAggregation,
@@ -24,36 +53,8 @@ import {
     SchemaFieldRef,
     VolumeAssertionInfo,
 } from '@src/types.generated';
-import { decodeSchemaField } from '@src/app/lineage/utils/columnLineageUtils';
-import { DatasetAssertionDescription } from '../../../DatasetAssertionDescription';
-import {
-    createCronText,
-    createFixedIntervalText,
-    createSinceTheLastCheckText,
-    FreshnessAssertionDescription,
-} from '../../../FreshnessAssertionDescription';
-import { VolumeAssertionDescription } from '../../../VolumeAssertionDescription';
-import { SqlAssertionDescription } from '../../../SqlAssertionDescription';
-import { FieldAssertionDescription } from '../../../FieldAssertionDescription';
-import { SchemaAssertionDescription } from '../../../SchemaAssertionDescription';
-import { useEntityRegistry } from '../../../../../../../../useEntityRegistry';
-import { useGetUserQuery } from '../../../../../../../../../graphql/user.generated';
-import { ANTD_GRAY_V2 } from '../../../../../../constants';
-import { getFormattedParameterValue } from '../../../assertionUtils';
-import {
-    getIsRowCountChange,
-    getOperatorDescription,
-    getParameterDescription,
-    getValueChangeTypeDescription,
-    getVolumeTypeDescription,
-    getVolumeTypeInfo,
-} from '../../../utils';
-import {
-    getFieldDescription,
-    getFieldOperatorDescription,
-    getFieldParametersDescription,
-    getFieldTransformDescription,
-} from '../../../fieldDescriptionUtils';
+
+import { useGetUserQuery } from '@graphql/user.generated';
 
 /**
  * It refers the {@link getOperatorText} utility function to get plain text from html description.

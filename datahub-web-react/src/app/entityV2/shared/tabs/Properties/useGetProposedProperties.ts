@@ -1,8 +1,7 @@
-import { ActionRequestType } from '@src/types.generated';
+import { mapStructuredPropertyToPropertyRow } from '@app/entityV2/shared/tabs/Properties/useStructuredProperties';
+import { getProposedItemsByType } from '@app/entityV2/shared/utils';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import { getProposedItemsByType } from '../../utils';
-import { mapStructuredPropertyToPropertyRow } from './useStructuredProperties';
-import { PropertyRow, ValueColumnData } from './types';
+import { ActionRequestType } from '@src/types.generated';
 
 interface Props {
     fieldPath?: string;
@@ -26,7 +25,10 @@ export const useGetProposedProperties = ({ fieldPath, propertyUrn }: Props = {})
                   if (propertyUrn) {
                       properties = properties?.filter((prop) => prop.structuredProperty.urn === propertyUrn);
                   }
-                  return properties || [];
+                  return (properties || []).map((prop) => ({
+                      ...prop,
+                      request,
+                  }));
               }
               return [];
           })
@@ -38,18 +40,30 @@ export const useGetProposedProperties = ({ fieldPath, propertyUrn }: Props = {})
                   if (propertyUrn) {
                       properties = properties?.filter((prop) => prop.structuredProperty.urn === propertyUrn);
                   }
-                  return properties || [];
+                  return (properties || []).map((prop) => ({
+                      ...prop,
+                      request,
+                  }));
               }
               return [];
           });
 
-    const proposedRows: PropertyRow[] = proposedProperties.flatMap((property, index) => {
+    const proposedRows = proposedProperties.flatMap((property, index) => {
         const propertyRow = mapStructuredPropertyToPropertyRow(property, true);
         // need to add index to qualified name for unique keys in table
-        return { ...propertyRow, qualifiedName: `${propertyRow.qualifiedName}-${index}` };
+        return {
+            ...propertyRow,
+            qualifiedName: `${propertyRow.qualifiedName}-${index}`,
+            request: property.request,
+        };
     });
 
-    const proposedValues: ValueColumnData[] = proposedRows.flatMap((row) => row.values || []);
+    const proposedValues = proposedRows.flatMap((row) =>
+        (row.values || []).map((value) => ({
+            value,
+            request: row.request,
+        })),
+    );
 
     return { proposedProperties, proposedRows, proposedValues };
 };

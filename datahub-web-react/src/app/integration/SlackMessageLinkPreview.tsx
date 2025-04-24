@@ -1,11 +1,14 @@
+import { Image, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Image, Typography } from 'antd';
-import slackLogo from '../../images/slacklogo.png';
-import { toRelativeTimeString } from '../shared/time/timeUtils';
-import { LinkPreview } from '../../types.generated';
-import { decodeSlackMessagePreview } from './utils';
-import { ANTD_GRAY } from '../entity/shared/constants';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { decodeSlackMessagePreview } from '@app/integration/utils';
+import { toRelativeTimeString } from '@app/shared/time/timeUtils';
+
+import { LinkPreview } from '@types';
+
+import slackLogo from '@images/slacklogo.png';
 
 export const AuthorImage = styled(Image)`
     width: 36px;

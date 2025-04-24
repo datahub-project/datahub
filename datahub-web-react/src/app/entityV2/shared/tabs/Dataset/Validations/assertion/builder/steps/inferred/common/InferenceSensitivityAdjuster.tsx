@@ -1,6 +1,7 @@
 import { Form, Select } from 'antd';
 import React, { useEffect, useRef } from 'react';
-import { AssertionFormTitleAndTooltip } from './AssertionFormTitleAndTooltip';
+
+import { AssertionFormTitleAndTooltip } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/common/AssertionFormTitleAndTooltip';
 
 type Props = {
     sensitivity?: number;

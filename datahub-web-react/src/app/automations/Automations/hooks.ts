@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { ACTION_TYPES_MAP } from '../constants';
+
+import { ACTION_TYPES_MAP } from '@app/automations/constants';
 
 export const useIsFormDisabled = (recipe) => {
     return useMemo(() => {

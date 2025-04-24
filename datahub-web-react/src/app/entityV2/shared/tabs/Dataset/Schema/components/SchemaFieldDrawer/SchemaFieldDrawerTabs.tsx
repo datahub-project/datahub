@@ -1,8 +1,9 @@
+import { Tooltip } from '@components';
+import { Tabs } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Tabs } from 'antd';
-import { Tooltip } from '@components';
-import { EntitySidebarTab } from '../../../../../types';
+
+import { EntitySidebarTab } from '@app/entityV2/shared/types';
 
 export const TABS_WIDTH = 56;
 

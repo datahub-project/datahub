@@ -1,9 +1,11 @@
 import React, { useContext, useState } from 'react';
 import styled from 'styled-components/macro';
-import { EntityPath } from '../../../types.generated';
-import { LineageTabContext } from '../../entity/shared/tabs/Lineage/LineageTabContext';
-import ColumnPathsText from './ColumnPathsText';
-import EntityPathsModal from './EntityPathsModal';
+
+import { LineageTabContext } from '@app/entity/shared/tabs/Lineage/LineageTabContext';
+import ColumnPathsText from '@app/preview/EntityPaths/ColumnPathsText';
+import EntityPathsModal from '@app/preview/EntityPaths/EntityPathsModal';
+
+import { EntityPath } from '@types';
 
 const EntityPathsWrapper = styled.div`
     margin-bottom: 5px;

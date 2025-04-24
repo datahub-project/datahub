@@ -1,6 +1,7 @@
 import { useState } from 'react';
+
+import { ColumnSelectorProps } from '@app/entity/shared/entityForm/prompts/types';
 import { SchemaField } from '@src/types.generated';
-import { ColumnSelectorProps } from './types';
 
 export default function useColumnSelector(schemaFields?: SchemaField[]): ColumnSelectorProps {
     const [isBulkApplyingFieldPath, setIsBulkApplyingFieldPath] = useState(false);

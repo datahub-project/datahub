@@ -1,12 +1,14 @@
 import React from 'react';
-import { EntityType } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import CopyLinkMenuItem from './items/CopyLinkMenuItem';
-import CopyUrnMenuItem from './items/CopyUrnMenuItem';
-import EmailMenuItem from './items/EmailMenuItem';
-import { useAppConfig } from '../../../useAppConfig';
-import { useEntityData } from '../../../entity/shared/EntityContext';
-import MetadataShareItem from './items/MetadataShareItem/MetadataShareItem';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import CopyLinkMenuItem from '@app/shared/share/v2/items/CopyLinkMenuItem';
+import CopyUrnMenuItem from '@app/shared/share/v2/items/CopyUrnMenuItem';
+import EmailMenuItem from '@app/shared/share/v2/items/EmailMenuItem';
+import MetadataShareItem from '@app/shared/share/v2/items/MetadataShareItem/MetadataShareItem';
+import { useAppConfig } from '@app/useAppConfig';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType } from '@types';
 
 interface ShareButtonMenuProps {
     urn: string;

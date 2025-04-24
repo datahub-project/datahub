@@ -1,20 +1,21 @@
-import React from 'react';
-
-import styled from 'styled-components';
 import { Typography } from 'antd';
+import React from 'react';
+import styled from 'styled-components';
+
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { FreshnessResultChart } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/FreshnessResultChart';
+import { StatusOverTimeAssertionResultChart } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/StatusOverTimeAssertionResultChart';
+import { ValuesOverTimeAssertionResultChart } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/ValuesOverTimeAssertionResultChart';
 import {
-    Assertion,
-    AssertionRunEventsResult,
-    AssertionRunStatus,
-} from '../../../../../../../../../../../types.generated';
-import { ValuesOverTimeAssertionResultChart } from './charts/ValuesOverTimeAssertionResultChart';
-import { AssertionChartType, AssertionResultChartData, TimeRange } from './charts/types';
-import { getAssertionResultChartData } from './transformers';
-import { getBestChartTypeForAssertion } from './charts/utils';
-import { StatusOverTimeAssertionResultChart } from './charts/StatusOverTimeAssertionResultChart';
-import { ANTD_GRAY } from '../../../../../../../../constants';
-import { getTimeRangeDisplay } from './utils';
-import { FreshnessResultChart } from './charts/FreshnessResultChart';
+    AssertionChartType,
+    AssertionResultChartData,
+    TimeRange,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/types';
+import { getBestChartTypeForAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/utils';
+import { getAssertionResultChartData } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/transformers';
+import { getTimeRangeDisplay } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/utils';
+
+import { Assertion, AssertionRunEventsResult, AssertionRunStatus } from '@types';
 
 const VIZ_CONTAINER_TITLE_HEIGHT = 36;
 

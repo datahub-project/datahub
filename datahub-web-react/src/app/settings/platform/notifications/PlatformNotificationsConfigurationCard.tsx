@@ -1,29 +1,31 @@
+import { InfoCircleFilled } from '@ant-design/icons';
+import { Alert, Card, Divider, Image, Typography } from 'antd';
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
-import { Divider, Typography, Card, Image, Alert } from 'antd';
-import { InfoCircleFilled } from '@ant-design/icons';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
-import { Message } from '../../../shared/Message';
-import { NotificationTypeOptionsButton } from './NotificationTypeOptionButton';
-import { PlatformNotificationOptionsModal } from './PlatformNotificationOptionsModal';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { NotificationSettingValue } from '@app/settings/platform/notifications/NotificationSettingValue';
+import { NotificationTypeOptionsButton } from '@app/settings/platform/notifications/NotificationTypeOptionButton';
+import { PlatformNotificationOptionsModal } from '@app/settings/platform/notifications/PlatformNotificationOptionsModal';
 import {
-    RECOMMENDED_PLATFORM_NOTIFICATIONS,
+    EMAIL_ADDRESS_PARAM_NAME,
+    SLACK_CHANNEL_PARAM_NAME,
+    buildNotificationSettingsMap,
+    updateNotificationTypeParams,
+} from '@app/settings/platform/notifications/settingUtils';
+import {
     NON_RECOMMENDED_PLATFORM_NOTIFICATIONS,
     NOTIFICATION_SINKS,
     PlatformNotificationOptions,
-} from '../types';
-import { useUpdateGlobalNotificationSettingsMutation } from '../../../../graphql/settings.generated';
-import { GlobalSettings, NotificationScenarioType, StringMapEntry } from '../../../../types.generated';
-import { isSinkEnabled } from '../../utils';
-import {
-    updateNotificationTypeParams,
-    SLACK_CHANNEL_PARAM_NAME,
-    buildNotificationSettingsMap,
-    EMAIL_ADDRESS_PARAM_NAME,
-} from './settingUtils';
-import { NotificationSettingValue } from './NotificationSettingValue';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
-import { useAppConfig } from '../../../useAppConfig';
+    RECOMMENDED_PLATFORM_NOTIFICATIONS,
+} from '@app/settings/platform/types';
+import { isSinkEnabled } from '@app/settings/utils';
+import { Message } from '@app/shared/Message';
+import { useAppConfig } from '@app/useAppConfig';
+import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
+
+import { useUpdateGlobalNotificationSettingsMutation } from '@graphql/settings.generated';
+import { GlobalSettings, NotificationScenarioType, StringMapEntry } from '@types';
 
 const StyledCard = styled(Card)``;
 

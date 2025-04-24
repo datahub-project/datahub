@@ -1,15 +1,17 @@
-import React from 'react';
+import { Tooltip } from '@components';
 import { Typography } from 'antd';
 import { Info } from 'phosphor-react';
-import { Tooltip } from '@components';
+import React from 'react';
 import styled from 'styled-components';
+
+import { useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
+import { useSchemaRefetch } from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaContext';
+import useExtractFieldGlossaryTermsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldGlossaryTermsInfo';
+import useExtractFieldTagsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldTagsInfo';
+import TagTermGroup from '@app/sharedV2/tags/TagTermGroup';
 import colors from '@src/alchemy-components/theme/foundations/colors';
-import { EditableSchemaMetadata, EntityType, GlobalTags, SchemaField } from '../../../../../../../types.generated';
-import { useMutationUrn, useRefetch } from '../../../../../../entity/shared/EntityContext';
-import TagTermGroup from '../../../../../../sharedV2/tags/TagTermGroup';
-import { useSchemaRefetch } from '../SchemaContext';
-import useExtractFieldGlossaryTermsInfo from './useExtractFieldGlossaryTermsInfo';
-import useExtractFieldTagsInfo from './useExtractFieldTagsInfo';
+
+import { EditableSchemaMetadata, EntityType, GlobalTags, SchemaField } from '@types';
 
 const TagDisclaimer = styled(Typography.Text)`
     color: ${colors.gray[500]};

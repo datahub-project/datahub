@@ -1,8 +1,4 @@
 describe("manage tags", () => {
-  beforeEach(() => {
-    cy.ignoreResizeObserverLoop();
-  });
-
   it("Manage Tags Page - Verify search bar placeholder", () => {
     cy.login();
     cy.visit("/tags");

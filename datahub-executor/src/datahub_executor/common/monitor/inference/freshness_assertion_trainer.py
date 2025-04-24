@@ -14,7 +14,7 @@ from datahub.metadata.schema_classes import (
 )
 
 from datahub_executor.common.aspect_builder import get_assertion_info
-from datahub_executor.common.metric.types import Operation
+from datahub_executor.common.metric.types import Metric, Operation
 from datahub_executor.common.monitor.inference.base_assertion_trainer import (
     BaseAssertionTrainer,
 )
@@ -94,6 +94,14 @@ class FreshnessAssertionTrainer(BaseAssertionTrainer[Operation]):
         Get the minimum number of samples required for training.
         """
         return FRESHNESS_MIN_TRAINING_SAMPLES_TIMESPAN_SECONDS
+
+    def try_get_historical_data_for_bootstrap(
+        self,
+        assertion: Assertion,
+        maybe_adjustment_settings: Optional[AssertionAdjustmentSettings],
+    ) -> Optional[List[Metric]]:
+        """No bootstrap needed for freshness assertions as they are based on the Operation aspect."""
+        return None
 
     def get_metric_data(
         self,

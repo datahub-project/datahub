@@ -1,6 +1,6 @@
 ### Setup
 
-This integration pulls metadata directly from Cassandra databases, including both **DataStax Astra DB** and **Cassandra Enterprise Edition (EE)**. 
+This integration pulls metadata directly from Cassandra databases, including both **DataStax Astra DB** and **Cassandra Enterprise Edition (EE)**.
 
 You’ll need to have a Cassandra instance or an Astra DB setup with appropriate access permissions.
 
@@ -26,8 +26,7 @@ You’ll need to have a Cassandra instance or an Astra DB setup with appropriate
    - For Astra DB: Ensure the **Secure Connect Bundle** is used and configured correctly.
    - For Cassandra Opensource: Ensure the **contact point** and **port** are accessible.
 
-
-:::caution 
+:::caution
 
 When enabling profiling, make sure to set a limit on the number of rows to sample. Profiling large tables without a limit may lead to excessive resource consumption and slow performance.
 

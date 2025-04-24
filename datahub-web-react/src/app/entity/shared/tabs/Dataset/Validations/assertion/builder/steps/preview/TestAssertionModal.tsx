@@ -1,11 +1,13 @@
-import React, { useEffect } from 'react';
-import { Button, Modal, Typography } from 'antd';
-import styled from 'styled-components';
 import { LoadingOutlined } from '@ant-design/icons';
-import { AssertionResultType, TestAssertionInput } from '../../../../../../../../../../types.generated';
-import { AssertionStatusTag } from './AssertionStatusTag';
-import { RunAssertionResult } from './RunAssertionResult';
-import { useTestAssertionMutation } from '../../../../../../../../../../graphql/assertion.generated';
+import { Button, Modal, Typography } from 'antd';
+import React, { useEffect } from 'react';
+import styled from 'styled-components';
+
+import { AssertionStatusTag } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/preview/AssertionStatusTag';
+import { RunAssertionResult } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/preview/RunAssertionResult';
+
+import { useTestAssertionMutation } from '@graphql/assertion.generated';
+import { AssertionResultType, TestAssertionInput } from '@types';
 
 const LoadingIcon = styled(LoadingOutlined)`
     font-size: 22px;

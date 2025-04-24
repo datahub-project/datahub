@@ -399,11 +399,11 @@ public class ESAccessControlUtil {
               .getRetrieverContext()
               .getGraphRetriever()
               .scrollRelatedEntities(
-                  List.of(Constants.DOMAIN_ENTITY_NAME),
+                  Set.of(Constants.DOMAIN_ENTITY_NAME),
                   null,
-                  List.of(Constants.DOMAIN_ENTITY_NAME),
+                  Set.of(Constants.DOMAIN_ENTITY_NAME),
                   destinationFilter,
-                  List.of(Constants.IS_PART_OF_RELATIONSHIP_NAME),
+                  Set.of(Constants.IS_PART_OF_RELATIONSHIP_NAME),
                   new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING),
                   Edge.EDGE_SORT_CRITERION,
                   result == null ? null : result.getScrollId(),

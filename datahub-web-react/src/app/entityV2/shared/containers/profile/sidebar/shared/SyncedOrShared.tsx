@@ -1,17 +1,29 @@
-import React from 'react';
-import styled from 'styled-components';
+import { Tooltip } from '@components';
 import SwapHorizOutlinedIcon from '@mui/icons-material/SwapHorizOutlined';
 import { Typography } from 'antd';
-import { Tooltip } from '@components';
-import { REDESIGN_COLORS } from '../../../../constants';
-import AcrylIcon from '../../../../../../../images/acryl-logo.svg?react';
-import ShareIcon from '../../../../../../../images/share-icon-custom.svg?react';
-import { toLocalDateString, toRelativeTimeString } from '../../../../../../shared/time/timeUtils';
-import PlatformIcon from '../../../../../../sharedV2/icons/PlatformIcon';
-import { ContentText, InstanceIcon, LabelText, RelativeTime } from './styledComponents';
-import { DataPlatform, Maybe } from '../../../../../../../types.generated';
-import { ACRYL_PLATFORM, ActionType, getRelativeTimeColor } from './utils';
-import SyncedOrSharedTooltip from './SyncedOrSharedTooltip';
+import React from 'react';
+import styled from 'styled-components';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import SyncedOrSharedTooltip from '@app/entityV2/shared/containers/profile/sidebar/shared/SyncedOrSharedTooltip';
+import {
+    ContentText,
+    InstanceIcon,
+    LabelText,
+    RelativeTime,
+} from '@app/entityV2/shared/containers/profile/sidebar/shared/styledComponents';
+import {
+    ACRYL_PLATFORM,
+    ActionType,
+    getRelativeTimeColor,
+} from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
+import { toLocalDateString, toRelativeTimeString } from '@app/shared/time/timeUtils';
+import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
+
+import { DataPlatform, Maybe } from '@types';
+
+import AcrylIcon from '@images/acryl-logo.svg?react';
+import ShareIcon from '@images/share-icon-custom.svg?react';
 
 const DetailsContainer = styled.div`
     display: flex;

@@ -1,5 +1,5 @@
-import { FormView } from '../EntityFormContext';
-import { generateFormCompletionFilter } from '../utils';
+import { FormView } from '@app/entity/shared/entityForm/EntityFormContext';
+import { generateFormCompletionFilter } from '@app/entity/shared/entityForm/utils';
 
 describe('form utils tests', () => {
     it('should create the correct form completion filter for bulk verify view', () => {

@@ -1,14 +1,11 @@
+import { DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import type { Active, UniqueIdentifier } from '@dnd-kit/core';
+import { SortableContext, arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import React, { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-
-import type { Active, UniqueIdentifier } from '@dnd-kit/core';
-
-import { SortableContext, arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
-
-import { DragHandle, SortableItem } from './SortableItem';
-import { SortableOverlay } from './SortableOverlay';
+import { DragHandle, SortableItem } from '@app/automations/fields/ConditionSelector/SortableList/SortableItem';
+import { SortableOverlay } from '@app/automations/fields/ConditionSelector/SortableList/SortableOverlay';
 
 interface BaseItem {
     id: UniqueIdentifier;

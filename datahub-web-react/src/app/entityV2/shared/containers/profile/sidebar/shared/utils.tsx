@@ -1,8 +1,10 @@
 import moment from 'moment';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import { EntityRegistry } from '@src/entityRegistryContext';
-import { REDESIGN_COLORS } from '../../../../constants';
-import { CorpUser, ShareResult, ShareResultState } from '../../../../../../../types.generated';
+
+import { CorpUser, ShareResult, ShareResultState } from '@types';
 
 /**
  * A tier of popularity for the dataset.

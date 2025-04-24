@@ -1,13 +1,15 @@
-import React from 'react';
 import { PageTitle, colors } from '@components';
+import React from 'react';
 import styled from 'styled-components';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { HeaderContainer, PageContainer } from '@app/govern/structuredProperties/styledComponents';
+import { AssertionsSummary } from '@app/observe/dataset/assertion/AssertionsSummary';
+import { IncidentsSummary } from '@app/observe/dataset/incident/IncidentsSummary';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { useGetTotalDatasetsQuery } from '../../../graphql/dataset_health.generated';
-import { AssertionsSummary } from './assertion/AssertionsSummary';
-import { IncidentsSummary } from './incident/IncidentsSummary';
-import { EntityType } from '../../../types.generated';
-import { useUserContext } from '../../context/useUserContext';
-import { PageContainer, HeaderContainer } from '../../govern/structuredProperties/styledComponents';
+
+import { useGetTotalDatasetsQuery } from '@graphql/dataset_health.generated';
+import { EntityType } from '@types';
 
 const Content = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     background-color: ${(props) => (props.$isShowNavBarRedesign ? 'white' : colors.white)};

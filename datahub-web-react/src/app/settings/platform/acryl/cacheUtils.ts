@@ -1,7 +1,4 @@
-import {
-    GetSearchResultsForMultipleDocument,
-    GetSearchResultsForMultipleQuery,
-} from '../../../../graphql/search.generated';
+import { GetSearchResultsForMultipleDocument, GetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 
 const addToCache = (existingInstances, newInstance) => {
     return [...existingInstances, newInstance];

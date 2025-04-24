@@ -1,8 +1,9 @@
 import { SearchBar } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import FormsTable from './FormsTable';
-import { useGetFormsData } from './useGetFormsData';
+
+import FormsTable from '@app/govern/Dashboard/Forms/FormsTable';
+import { useGetFormsData } from '@app/govern/Dashboard/Forms/useGetFormsData';
 
 const Container = styled.div`
     display: flex;

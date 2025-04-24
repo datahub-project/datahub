@@ -3255,7 +3255,7 @@ public class ActionRequestService extends BaseService {
     EntityRelationships relationships =
         this.graphClient.getRelatedEntities(
             entityUrn.toString(),
-            ImmutableList.of("ContractFor"),
+            ImmutableSet.of("ContractFor"),
             RelationshipDirection.INCOMING,
             0,
             1,

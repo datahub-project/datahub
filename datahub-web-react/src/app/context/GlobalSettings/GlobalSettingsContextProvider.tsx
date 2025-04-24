@@ -1,7 +1,9 @@
 import React from 'react';
-import { useGetGlobalSettingsQuery } from '../../../graphql/settings.generated';
-import { GlobalSettingsContext } from './GlobalSettingsContext';
-import useHelpLinkState from './useHelpLinkState';
+
+import { GlobalSettingsContext } from '@app/context/GlobalSettings/GlobalSettingsContext';
+import useHelpLinkState from '@app/context/GlobalSettings/useHelpLinkState';
+
+import { useGetGlobalSettingsQuery } from '@graphql/settings.generated';
 
 export default function GlobalSettingsContextProvider({ children }: { children: React.ReactNode }) {
     const { data, refetch } = useGetGlobalSettingsQuery();

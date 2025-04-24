@@ -1,11 +1,12 @@
 import { Pill, Text } from '@components';
-import { abbreviateNumber } from '@src/app/dataviz/utils';
-import { pluralize } from '@src/app/shared/textUtil';
 import { Skeleton } from 'antd';
 import dayjs from 'dayjs';
 import LocalizedFormat from 'dayjs/plugin/localizedFormat';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
+
+import { abbreviateNumber } from '@src/app/dataviz/utils';
+import { pluralize } from '@src/app/shared/textUtil';
 
 dayjs.extend(LocalizedFormat);
 

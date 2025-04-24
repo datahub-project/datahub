@@ -1,14 +1,16 @@
+import { UnionType } from '@app/search/utils/constants';
+
 import {
     Entity,
     FacetFilterInput,
     FacetMetadata,
+    LineageSearchPath,
     MatchedField,
     Maybe,
     Scalars,
     SearchAcrossEntitiesInput,
     SearchInsight,
-} from '../../../../../../types.generated';
-import { UnionType } from '../../../../../search/utils/constants';
+} from '@types';
 
 export type GetSearchResultsParams = {
     variables: {
@@ -36,6 +38,8 @@ export type SearchResultsInterface = {
     searchResults: Array<SearchResultInterface>;
     /** Candidate facet aggregations used for search filtering */
     facets?: Maybe<Array<FacetMetadata>>;
+    /** The path taken when doing search across lineage */
+    lineageSearchPath?: Maybe<LineageSearchPath>;
 };
 
 /**

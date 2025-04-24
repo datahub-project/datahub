@@ -1,7 +1,9 @@
-import colors from '@src/alchemy-components/theme/foundations/colors';
 import React from 'react';
 import styled from 'styled-components';
-import { TooltipHeaderProps } from './types';
+
+import { TooltipHeaderProps } from '@components/components/Tooltip2/types';
+
+import colors from '@src/alchemy-components/theme/foundations/colors';
 
 const Container = styled.div`
     display: flex;

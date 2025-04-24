@@ -1,23 +1,21 @@
-import { useState, useEffect } from 'react';
-
 import { WatchQueryFetchPolicy } from '@apollo/client';
+import { useEffect, useState } from 'react';
 
-import { Form, FormType, FilterOperator } from '../../../../types.generated';
-import { SearchCfg } from '../../../../conf';
-
-import { useUserContext } from '../../../context/useUserContext';
-import useFormFilter from './useFormFilter';
-import useGetSearchQueryInputs from '../../../search/useGetSearchQueryInputs';
+import { useUserContext } from '@app/context/useUserContext';
+import { FormResponsesFilter, FormView } from '@app/entity/shared/entityForm/EntityFormContext';
+import useFormFilter from '@app/entity/shared/entityForm/useFormFilter';
+import { generateFormCompletionFilter } from '@app/entity/shared/entityForm/utils';
+import useGetSearchQueryInputs from '@app/search/useGetSearchQueryInputs';
+import { SearchCfg } from '@src/conf';
 
 import {
+    SearchForEntitiesByFormQuery,
     useGetFormQuery,
-    useSearchForEntityUrnsByFormQuery,
     useSearchForEntitiesByFormCountQuery,
     useSearchForEntitiesByFormQuery,
-    SearchForEntitiesByFormQuery,
-} from '../../../../graphql/form.generated';
-import { generateFormCompletionFilter } from './utils';
-import { FormResponsesFilter, FormView } from './EntityFormContext';
+    useSearchForEntityUrnsByFormQuery,
+} from '@graphql/form.generated';
+import { FilterOperator, Form, FormType } from '@types';
 
 export const MAX_ENTITY_URN_COUNT = 1000;
 

@@ -1,17 +1,16 @@
-import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
 import { Divider } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { useSearchAcrossLineageQuery } from '../../../../../graphql/search.generated';
-import { Dataset } from '../../../../../types.generated';
-import {
-    HAS_ACTIVE_INCIDENTS_FILTER_NAME,
-    HAS_FAILING_ASSERTIONS_FILTER_NAME,
-} from '../../../../search/utils/constants';
-import { useAppConfig } from '../../../../useAppConfig';
-import { useEntityData } from '../../EntityContext';
-import FailingInputs from './FailingInputs';
-import { DATASET_COUNT, generateQueryVariables } from './utils';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import FailingInputs from '@app/entity/shared/embed/UpstreamHealth/FailingInputs';
+import { DATASET_COUNT, generateQueryVariables } from '@app/entity/shared/embed/UpstreamHealth/utils';
+import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
+import { HAS_ACTIVE_INCIDENTS_FILTER_NAME, HAS_FAILING_ASSERTIONS_FILTER_NAME } from '@app/search/utils/constants';
+import { useAppConfig } from '@app/useAppConfig';
+
+import { useSearchAcrossLineageQuery } from '@graphql/search.generated';
+import { Dataset } from '@types';
 
 export const StyledDivider = styled(Divider)`
     margin: 16px 0;

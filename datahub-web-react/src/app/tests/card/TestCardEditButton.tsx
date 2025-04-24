@@ -1,7 +1,8 @@
-import React from 'react';
-import styled from 'styled-components';
 import { PencilSimpleLine } from '@phosphor-icons/react';
 import { Button } from 'antd';
+import React from 'react';
+import styled from 'styled-components';
+
 import { colors } from '@src/alchemy-components';
 
 const EditTestActionButton = styled(Button)`

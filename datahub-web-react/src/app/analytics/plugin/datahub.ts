@@ -1,4 +1,4 @@
-import analyticsConfig from '../../../conf/analytics';
+import analyticsConfig from '@conf/analytics';
 
 const { datahub } = analyticsConfig;
 const isEnabled: boolean = (datahub && datahub.enabled) || false;

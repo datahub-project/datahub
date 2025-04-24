@@ -2,11 +2,13 @@ import { Button } from 'antd';
 import React from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
-import { EntityType, RecommendationContent, Tag } from '../../../../types.generated';
-import { StyledTag } from '../../../entity/shared/components/styled/StyledTag';
-import { UnionType } from '../../../search/utils/constants';
-import { navigateToSearchUrl } from '../../../search/utils/navigateToSearchUrl';
-import { useEntityRegistry } from '../../../useEntityRegistry';
+
+import { StyledTag } from '@app/entity/shared/components/styled/StyledTag';
+import { UnionType } from '@app/search/utils/constants';
+import { navigateToSearchUrl } from '@app/search/utils/navigateToSearchUrl';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType, RecommendationContent, Tag } from '@types';
 
 const TagSearchListContainer = styled.div`
     display: flex;

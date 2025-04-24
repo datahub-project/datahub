@@ -1,4 +1,5 @@
-import { FieldName, FieldToAppliedFieldFiltersMap } from './types';
+import { FieldName, FieldToAppliedFieldFiltersMap, FieldToFacetStateMap } from '@app/searchV2/filtersV2/types';
+import { FacetMetadata } from '@src/types.generated';
 
 export function itemsToMap<T, K>(items: Array<T>, keyAccessor?: (item: T) => K | T) {
     const accessor = (item: T) => (keyAccessor ? keyAccessor(item) : item);
@@ -34,4 +35,12 @@ export function convertFiltersMapToFilters(
         )
         .flatMap(([_, value]) => value.filters)
         .filter((filter) => filter.values?.length);
+}
+
+export function convertFacetsToFieldToFacetStateMap(
+    facets: FacetMetadata[] | undefined,
+): FieldToFacetStateMap | undefined {
+    if (facets === undefined) return undefined;
+
+    return new Map(facets.map((facet) => [facet.field, { facet, loading: false }]));
 }

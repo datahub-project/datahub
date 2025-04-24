@@ -1,7 +1,8 @@
-import { EntityType } from '@src/types.generated';
 import { useMemo } from 'react';
+
+import useAutocompleteResults from '@app/searchV2/filtersV2/filters/BaseEntityFilter/hooks/useAutocompleteResults';
 import { isDomain } from '@src/app/entityV2/domain/utils';
-import useAutocompleteResults from '../../BaseEntityFilter/hooks/useAutocompleteResults';
+import { EntityType } from '@src/types.generated';
 
 const ENTITY_TYPES = [EntityType.Domain];
 

@@ -1,17 +1,23 @@
-import { message, Modal, Tag } from 'antd';
-import React from 'react';
+import { Modal, Tag, message } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { StyledLink } from '@src/app/previewV2/EntityHeader';
+
+import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import OwnerContent from '@app/entityV2/shared/components/styled/ExpandedOwner/OwnerContent';
+import {
+    ExtendedOwner,
+    getNameFromType,
+} from '@app/entityV2/shared/containers/profile/sidebar/Ownership/ownershipUtils';
+import ProposedIcon from '@app/entityV2/shared/sidebarSection/ProposedIcon';
+import ProposalModal from '@app/shared/tags/ProposalModal';
+import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { colors } from '@src/alchemy-components';
-import { useRemoveOwnerMutation } from '../../../../../../graphql/mutations.generated';
-import { EntityType } from '../../../../../../types.generated';
-import { ExtendedOwner, getNameFromType } from '../../../containers/profile/sidebar/Ownership/ownershipUtils';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import analytics, { EventType, EntityActionType } from '../../../../../analytics';
-import { useEntityData } from '../../../../../entity/shared/EntityContext';
-import OwnerContent from './OwnerContent';
-import { useEmbeddedProfileLinkProps } from '../../../../../shared/useEmbeddedProfileLinkProps';
-import ProposedIcon from '../../../sidebarSection/ProposedIcon';
+import { StyledLink } from '@src/app/previewV2/EntityHeader';
+
+import { useRemoveOwnerMutation } from '@graphql/mutations.generated';
+import { ActionRequest, EntityType } from '@types';
 
 const OwnerTag = styled(Tag)<{ $isProposedOwner?: boolean }>`
     padding: 1px;
@@ -41,6 +47,9 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
     const { entityType } = useEntityData();
     const linkProps = useEmbeddedProfileLinkProps();
     const [removeOwnerMutation] = useRemoveOwnerMutation();
+
+    const [selectedActionRequest, setSelectedActionRequest] = useState<ActionRequest | undefined | null>(null);
+
     let name = '';
     let ownershipTypeName = '';
     if (owner.owner.__typename === 'CorpGroup') {
@@ -103,29 +112,41 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
     const isProposedOwner = owner.isProposed;
 
     return (
-        <OwnerTag
-            onClose={onClose}
-            closable={!!entityUrn && !readOnly && !isProposedOwner}
-            $isProposedOwner={isProposedOwner}
-        >
-            {(readOnly || isProposedOwner) && (
-                <OwnerContent name={name} owner={owner} hidePopOver={hidePopOver} pictureLink={pictureLink} />
+        <>
+            <OwnerTag
+                onClose={onClose}
+                closable={!!entityUrn && !readOnly && !isProposedOwner}
+                $isProposedOwner={isProposedOwner}
+                onClick={() => {
+                    setSelectedActionRequest(owner.request);
+                }}
+            >
+                {(readOnly || isProposedOwner) && (
+                    <OwnerContent name={name} owner={owner} hidePopOver={hidePopOver} pictureLink={pictureLink} />
+                )}
+                {!readOnly && !isProposedOwner && (
+                    <StyledLink
+                        to={`${entityRegistry.getEntityUrl(owner.owner.type, owner.owner.urn)}/owner of`}
+                        {...linkProps}
+                    >
+                        <OwnerContent
+                            name={name}
+                            owner={owner}
+                            hidePopOver={hidePopOver}
+                            pictureLink={pictureLink}
+                            fontSize={fontSize}
+                        />
+                    </StyledLink>
+                )}
+                {isProposedOwner && <ProposedIcon propertyName="Owner" />}
+            </OwnerTag>
+            {selectedActionRequest && (
+                <ProposalModal
+                    actionRequest={selectedActionRequest}
+                    selectedActionRequest={selectedActionRequest}
+                    setSelectedActionRequest={setSelectedActionRequest}
+                />
             )}
-            {!readOnly && !isProposedOwner && (
-                <StyledLink
-                    to={`${entityRegistry.getEntityUrl(owner.owner.type, owner.owner.urn)}/owner of`}
-                    {...linkProps}
-                >
-                    <OwnerContent
-                        name={name}
-                        owner={owner}
-                        hidePopOver={hidePopOver}
-                        pictureLink={pictureLink}
-                        fontSize={fontSize}
-                    />
-                </StyledLink>
-            )}
-            {isProposedOwner && <ProposedIcon propertyName="Owner" />}
-        </OwnerTag>
+        </>
     );
 };

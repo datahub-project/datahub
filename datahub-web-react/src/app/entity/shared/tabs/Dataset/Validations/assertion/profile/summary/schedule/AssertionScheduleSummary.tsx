@@ -1,16 +1,16 @@
-import React from 'react';
-
-import styled from 'styled-components';
 import { ClockCircleOutlined, StopOutlined } from '@ant-design/icons';
+import React from 'react';
+import styled from 'styled-components';
+
+import { InferredAssertionLogo } from '@app/entity/shared/tabs/Dataset/Validations/InferredAssertionLogo';
+import { getCronAsText } from '@app/entity/shared/tabs/Dataset/Validations/acrylUtils';
+import { isExternalAssertion } from '@app/entity/shared/tabs/Dataset/Validations/assertion/profile/shared/isExternalAssertion';
+import { AssertionScheduleSummarySection } from '@app/entity/shared/tabs/Dataset/Validations/assertion/profile/summary/schedule/AssertionScheduleSummarySection';
+import { ProviderSummarySection } from '@app/entity/shared/tabs/Dataset/Validations/assertion/profile/summary/schedule/ProviderSummarySection';
+import { getLocaleTimezone } from '@app/shared/time/timeUtils';
 import { extractLatestGeneratedAt } from '@src/app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 
-import { Assertion, AssertionSourceType, CronSchedule, Monitor } from '../../../../../../../../../../types.generated';
-import { getLocaleTimezone } from '../../../../../../../../../shared/time/timeUtils';
-import { getCronAsText } from '../../../../acrylUtils';
-import { AssertionScheduleSummarySection } from './AssertionScheduleSummarySection';
-import { isExternalAssertion } from '../../shared/isExternalAssertion';
-import { ProviderSummarySection } from './ProviderSummarySection';
-import { InferredAssertionLogo } from '../../../../InferredAssertionLogo';
+import { Assertion, AssertionSourceType, CronSchedule, Monitor } from '@types';
 
 const Container = styled.div`
     margin-top: 20px;

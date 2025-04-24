@@ -1,22 +1,24 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Form, Input, InputRef, Space, Switch, Typography } from 'antd';
-import styled from 'styled-components/macro';
-import { useForm } from 'antd/lib/form/Form';
 import { EditTwoTone } from '@ant-design/icons';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
-import { ANTD_GRAY } from '../../../../entity/shared/constants';
-import { useGetGlobalSettingsQuery } from '../../../../../graphql/settings.generated';
-import { EMAIL_SINK, NOTIFICATION_SINKS } from '../../../../settings/platform/types';
-import { isSinkEnabled } from '../../../../settings/utils';
-import useDrawerActions from '../state/actions';
-import { ChannelSelections, EmailState } from '../state/types';
+import { Alert, Form, Input, InputRef, Space, Switch, Typography } from 'antd';
+import { useForm } from 'antd/lib/form/Form';
+import React, { useEffect, useRef, useState } from 'react';
+import styled from 'styled-components/macro';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { EMAIL_SINK, NOTIFICATION_SINKS } from '@app/settings/platform/types';
+import { isSinkEnabled } from '@app/settings/utils';
+import useDrawerActions from '@app/shared/subscribe/drawer/state/actions';
 import {
-    useDrawerSelector,
     selectEmail,
     selectEmailSettingsChannel,
     selectShouldShowUpdateEmailSettingsWarning,
-} from '../state/selectors';
-import { useAppConfig } from '../../../../useAppConfig';
+    useDrawerSelector,
+} from '@app/shared/subscribe/drawer/state/selectors';
+import { ChannelSelections, EmailState } from '@app/shared/subscribe/drawer/state/types';
+import { useAppConfig } from '@app/useAppConfig';
+import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
+
+import { useGetGlobalSettingsQuery } from '@graphql/settings.generated';
 
 const LEFT_PADDING = 36;
 

@@ -1,9 +1,11 @@
 import React from 'react';
-import { DataPlatform, DataProduct, EntityPath, EntityType, Owner } from '../../../../types.generated';
-import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
-import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType } from '../../Entity';
+
+import { IconStyleType } from '@app/entity/Entity';
+import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { DataPlatform, DataProduct, EntityPath, EntityType, Owner } from '@types';
 
 export const Preview = ({
     urn,

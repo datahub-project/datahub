@@ -1,10 +1,12 @@
 import React from 'react';
 import styled from 'styled-components';
-import { HeaderTitle } from './HeaderComponents';
-import { CorpGroup, CorpUser, EntityType } from '../../../../types.generated';
-import { useEntityRegistryV2 } from '../../../useEntityRegistry';
-import { REDESIGN_COLORS } from '../constants';
-import CustomAvatar from '../../../shared/avatar/CustomAvatar';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { HeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
+import CustomAvatar from '@app/shared/avatar/CustomAvatar';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+
+import { CorpGroup, CorpUser, EntityType } from '@types';
 
 const StyledTitle = styled(HeaderTitle)`
     margin-bottom: 12px;

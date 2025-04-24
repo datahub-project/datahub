@@ -1,17 +1,15 @@
 import React from 'react';
 import styled from 'styled-components';
+
+import { useTestAssertionModal } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/utils';
+import { AssertionActionsSection } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/actions/AssertionActionsSection';
+import { TestAssertionModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/preview/TestAssertionModal';
+import { SchemaAssertionBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/schema/SchemaAssertionBuilder';
+import { AssertionBuilderStep, StepProps } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
+import { builderStateToTestSchemaAssertionVariables } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/utils';
 import { Button } from '@src/alchemy-components';
-import { AssertionBuilderStep, StepProps } from '../types';
-import { AssertionActionsSection } from './actions/AssertionActionsSection';
-import { SchemaAssertionBuilder } from './schema/SchemaAssertionBuilder';
-import { useTestAssertionModal } from '../../../../../../../../entity/shared/tabs/Dataset/Validations/assertion/builder/steps/utils';
-import { TestAssertionModal } from './preview/TestAssertionModal';
-import {
-    AssertionEvaluationParametersInput,
-    AssertionType,
-    CreateSchemaAssertionInput,
-} from '../../../../../../../../../types.generated';
-import { builderStateToTestSchemaAssertionVariables } from '../utils';
+
+import { AssertionEvaluationParametersInput, AssertionType, CreateSchemaAssertionInput } from '@types';
 
 const Step = styled.div`
     height: 100%;

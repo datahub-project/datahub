@@ -13,4 +13,9 @@ record AssertionMonitor {
     * Specific settings for an assertion monitor
     */
     settings: optional AssertionMonitorSettings
+
+    /**
+     * The status of the bootstrap actions performed on the assertion.
+     */
+    bootstrapStatus: optional AssertionMonitorBootstrapStatus
 }

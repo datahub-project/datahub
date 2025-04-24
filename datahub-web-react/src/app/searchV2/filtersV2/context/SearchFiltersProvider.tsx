@@ -1,5 +1,9 @@
 import React, { useEffect } from 'react';
-import DefaultFiltersRenderer from '../defaults/DefaultFiltersRenderer';
+
+import SearchFiltersContext from '@app/searchV2/filtersV2/context/SearchFiltersContext';
+import DefaultFiltersRenderer from '@app/searchV2/filtersV2/defaults/DefaultFiltersRenderer';
+import defaultFiltersRegistry from '@app/searchV2/filtersV2/defaults/defaultFiltersRegistry';
+import FiltersRegistry from '@app/searchV2/filtersV2/filtersRegistry/filtersRegistry';
 import {
     AppliedFieldFilterUpdater,
     FieldName,
@@ -7,10 +11,7 @@ import {
     FieldToFacetStateMap,
     FiltersAppliedHandler,
     FiltersRenderer,
-} from '../types';
-import SearchFiltersContext from './SearchFiltersContext';
-import FiltersRegistry from '../filtersRegistry/filtersRegistry';
-import defaultFiltersRegistry from '../defaults/defaultFiltersRegistry';
+} from '@app/searchV2/filtersV2/types';
 
 export interface Props {
     fields: FieldName[];

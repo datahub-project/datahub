@@ -1,6 +1,7 @@
-import { colors } from '@src/alchemy-components/theme';
 import { Timeline as AntdTimeline } from 'antd';
 import styled from 'styled-components';
+
+import { colors } from '@src/alchemy-components/theme';
 
 export const StyledAntdTimeline = styled(AntdTimeline)`
     .ant-timeline-item-head {

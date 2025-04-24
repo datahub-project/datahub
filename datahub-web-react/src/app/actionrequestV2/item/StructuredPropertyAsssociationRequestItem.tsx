@@ -1,18 +1,19 @@
 import { Text } from '@components';
-import { colors } from '@src/alchemy-components';
-import StructuredPropertyValue from '@src/app/entityV2/shared/tabs/Properties/StructuredPropertyValue';
-import { mapStructuredPropertyValues } from '@src/app/entityV2/shared/tabs/Properties/useStructuredProperties';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { ActionRequest, ActionRequestOrigin, ActionRequestResult, EntityType, StdDataType } from '@src/types.generated';
 import { Popover } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+
+import AiActorLabel from '@app/actionrequestV2/item/AiActorLabel';
+import CreatedByView from '@app/actionrequestV2/item/CreatedByView';
+import RequestTargetEntityView from '@app/actionrequestV2/item/RequestTargetEntityView';
+import { ContentWrapper } from '@app/actionrequestV2/item/styledComponents';
+import { colors } from '@src/alchemy-components';
+import StructuredPropertyValue from '@src/app/entityV2/shared/tabs/Properties/StructuredPropertyValue';
 import { useHydratedEntityMap } from '@src/app/entityV2/shared/tabs/Properties/useHydratedEntityMap';
+import { mapStructuredPropertyValues } from '@src/app/entityV2/shared/tabs/Properties/useStructuredProperties';
 import { pluralize } from '@src/app/shared/textUtil';
-import AiActorLabel from './AiActorLabel';
-import CreatedByView from './CreatedByView';
-import RequestTargetEntityView from './RequestTargetEntityView';
-import { ContentWrapper } from './styledComponents';
+import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { ActionRequest, ActionRequestOrigin, ActionRequestResult, EntityType, StdDataType } from '@src/types.generated';
 
 const ValuesContainer = styled.div`
     display: inline-block;
@@ -24,6 +25,7 @@ const ValuesContainerFlex = styled.div`
     font-size: 14px;
     // align all items in the center vertically
     align-items: center;
+    gap: 6px;
 `;
 
 const ValueContainer = styled.div<{ $showBorder?: boolean }>`
@@ -31,11 +33,11 @@ const ValueContainer = styled.div<{ $showBorder?: boolean }>`
     display: flex;
     max-width: 200px;
     border-radius: 200px;
-    padding: 0px 4px;
     ${(props) =>
         props.$showBorder &&
         `
         border: 1px solid ${colors.gray[200]};
+        padding: 0px 6px;
         `}
 `;
 
@@ -106,10 +108,18 @@ const StructuredPropertyAssociationRequestItem = ({ actionRequest }: Props) => {
 
                 return (
                     <>
-                        {index > 0 && index === properties.length - 1 && 'and'}
-                        {index > 0 && index < properties.length - 1 && ','}
+                        {index > 0 && index === properties.length - 1 && (
+                            <Text color="gray" type="span">
+                                and{' '}
+                            </Text>
+                        )}
+                        {index > 0 && index < properties.length - 1 && (
+                            <Text color="gray" type="span">
+                                ,
+                            </Text>
+                        )}
                         <Text weight="bold" color="gray" type="span">{`${propertyName}`}</Text>
-                        {` to `}
+                        <Text color="gray" type="span">{` to `}</Text>
 
                         {/* add the value of the property */}
                         <ValuesContainer>

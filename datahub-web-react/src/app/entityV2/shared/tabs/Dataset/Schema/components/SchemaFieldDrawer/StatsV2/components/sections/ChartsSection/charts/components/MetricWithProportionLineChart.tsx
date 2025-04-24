@@ -1,12 +1,15 @@
 import React, { useMemo } from 'react';
+
+import MetricLineChart, {
+    MetricLineChartProps,
+} from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/components/sections/ChartsSection/charts/components/MetricLineChart';
+import { useExtractMetricStats } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/components/sections/ChartsSection/charts/hooks/useExtractMetricStats';
+import useStatsTabContext from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/hooks/useStatsTabContext';
 import { Datum } from '@src/alchemy-components/components/LineChart/types';
 import { isValuePresent } from '@src/app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import { decimalToPercentStr } from '@src/app/entityV2/shared/tabs/Dataset/Schema/utils/statsUtil';
+import { TimeInterval, groupTimeData } from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/utils';
 import { pluralize } from '@src/app/shared/textUtil';
-import { groupTimeData, TimeInterval } from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/utils';
-import useStatsTabContext from '../../../../../hooks/useStatsTabContext';
-import MetricLineChart, { MetricLineChartProps } from './MetricLineChart';
-import { useExtractMetricStats } from '../hooks/useExtractMetricStats';
 
 interface MetricWithProportionLineChartProps extends MetricLineChartProps {
     proportionMetric: string;

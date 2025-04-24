@@ -1,5 +1,6 @@
 import React from 'react';
-import MetricWithProportionLineChart from './components/MetricWithProportionLineChart';
+
+import MetricWithProportionLineChart from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/components/sections/ChartsSection/charts/components/MetricWithProportionLineChart';
 
 export default function DistinctValuesChart() {
     return (

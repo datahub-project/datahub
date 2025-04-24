@@ -1,28 +1,16 @@
-import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
-import { isEqual } from 'lodash';
-import { Button, Divider, Form, Input, message, Typography, Alert, Radio, Image, Modal } from 'antd';
-import { InfoCircleFilled } from '@ant-design/icons';
 import { blue, green } from '@ant-design/colors';
+import { InfoCircleFilled } from '@ant-design/icons';
+import { Alert, Button, Divider, Form, Image, Input, Modal, Radio, Typography, message } from 'antd';
+import { isEqual } from 'lodash';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useAppConfig } from '@src/app/useAppConfig';
-import { ANTD_GRAY } from '@src/app/entity/shared/constants';
-import { useConnectionQuery, useUpsertConnectionMutation } from '../../../../graphql/connection.generated';
-import {
-    useGetIntegrationSettingsQuery,
-    useUpdateGlobalIntegrationSettingsMutation,
-} from '../../../../graphql/settings.generated';
-import slackLogo from '../../../../images/slacklogo.png';
-import { DataHubConnectionDetailsType, SlackIntegrationSettings } from '../../../../types.generated';
-import { Message } from '../../../shared/Message';
-import { PlatformIntegrationBreadcrumb } from '../PlatformIntegrationBreadcrumb';
-import {
-    decodeSlackConnection,
-    encodeSlackConnection,
-    redirectToSlackInstall,
-    redirectToSlackRefreshInstallation,
-} from './utils';
-import { SlackConnection } from './types';
+import styled from 'styled-components';
+
+import { EventType } from '@app/analytics';
+import analytics from '@app/analytics/analytics';
+import { PlatformIntegrationBreadcrumb } from '@app/settings/platform/PlatformIntegrationBreadcrumb';
+import { SlackInstructions } from '@app/settings/platform/slack/SlackInstructions';
+import { SlackIntegrationHint } from '@app/settings/platform/slack/SlackIntegrationHint';
 import {
     APP_CONFIG_SELECT_ID,
     BOT_TOKEN_SELECT_ID,
@@ -32,11 +20,26 @@ import {
     SLACK_CONNECTION_OPTIONS,
     SLACK_CONNECTION_URN,
     SLACK_PLATFORM_URN,
-} from './constants';
-import { SlackInstructions } from './SlackInstructions';
-import analytics from '../../../analytics/analytics';
-import { EventType } from '../../../analytics';
-import { SlackIntegrationHint } from './SlackIntegrationHint';
+} from '@app/settings/platform/slack/constants';
+import { SlackConnection } from '@app/settings/platform/slack/types';
+import {
+    decodeSlackConnection,
+    encodeSlackConnection,
+    redirectToSlackInstall,
+    redirectToSlackRefreshInstallation,
+} from '@app/settings/platform/slack/utils';
+import { Message } from '@app/shared/Message';
+import { ANTD_GRAY } from '@src/app/entity/shared/constants';
+import { useAppConfig } from '@src/app/useAppConfig';
+
+import { useConnectionQuery, useUpsertConnectionMutation } from '@graphql/connection.generated';
+import {
+    useGetIntegrationSettingsQuery,
+    useUpdateGlobalIntegrationSettingsMutation,
+} from '@graphql/settings.generated';
+import { DataHubConnectionDetailsType, SlackIntegrationSettings } from '@types';
+
+import slackLogo from '@images/slacklogo.png';
 
 const Page = styled.div`
     width: 100%;

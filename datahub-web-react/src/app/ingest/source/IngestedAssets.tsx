@@ -1,15 +1,21 @@
 import { Button, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Maybe, ExecutionRequestResult } from '@src/types.generated';
-import { useGetSearchResultsForMultipleQuery } from '../../../graphql/search.generated';
-import { EmbeddedListSearchModal } from '../../entity/shared/components/styled/search/EmbeddedListSearchModal';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { UnionType } from '../../search/utils/constants';
-import { formatNumber } from '../../shared/formatNumber';
-import { Message } from '../../shared/Message';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { extractEntityTypeCountsFromFacets, getEntitiesIngestedByType, getTotalEntitiesIngested } from './utils';
+
+import { EmbeddedListSearchModal } from '@app/entity/shared/components/styled/search/EmbeddedListSearchModal';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import {
+    extractEntityTypeCountsFromFacets,
+    getEntitiesIngestedByType,
+    getTotalEntitiesIngested,
+} from '@app/ingest/source/utils';
+import { UnionType } from '@app/search/utils/constants';
+import { Message } from '@app/shared/Message';
+import { formatNumber } from '@app/shared/formatNumber';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { ExecutionRequestResult, Maybe } from '@src/types.generated';
+
+import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 
 const HeaderContainer = styled.div`
     display: flex;

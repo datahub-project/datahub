@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 
+import { AutomationContextProvider } from '@app/automations/Automations/AutomationProvider';
+import { AutomationEditModal } from '@app/automations/Automations/EditModal';
+import { ActionCard } from '@app/automations/Automations/ListCard/ActionCard';
+import { ListCard } from '@app/automations/Automations/components';
 import { parseJSON } from '@app/automations/utils';
-
-import { AutomationContextProvider } from '../AutomationProvider';
-import { ListCard } from '../components';
-import { AutomationEditModal } from '../EditModal';
-
-import { ActionCard } from './ActionCard';
 
 export const AutomationsListCard = ({ automation }: any) => {
     const { urn, details } = automation;

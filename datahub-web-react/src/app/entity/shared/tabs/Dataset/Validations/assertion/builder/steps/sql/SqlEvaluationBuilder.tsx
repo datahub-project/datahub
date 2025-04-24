@@ -1,11 +1,18 @@
-import React from 'react';
-import Typography from 'antd/lib/typography';
-import styled from 'styled-components';
 import { Select } from 'antd';
-import { AssertionMonitorBuilderState } from '../../types';
-import { SQL_OPERATION_OPTIONS, SqlOperationOptionEnum, getOperationOption, getSqlOperationOptions } from './utils';
-import { SqlParametersBuilder } from './SqlParametersBuilder';
-import { AssertionStdOperator, SqlAssertionType } from '../../../../../../../../../../types.generated';
+import Typography from 'antd/lib/typography';
+import React from 'react';
+import styled from 'styled-components';
+
+import { SqlParametersBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/sql/SqlParametersBuilder';
+import {
+    SQL_OPERATION_OPTIONS,
+    SqlOperationOptionEnum,
+    getOperationOption,
+    getSqlOperationOptions,
+} from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/sql/utils';
+import { AssertionMonitorBuilderState } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/types';
+
+import { AssertionStdOperator, SqlAssertionType } from '@types';
 
 const Section = styled.div`
     margin: 16px 0 24px;

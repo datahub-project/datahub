@@ -1,7 +1,8 @@
 import React from 'react';
 
-import { Assertion, Monitor } from '../../../../../../../../../types.generated';
-import { useBuildAssertionDescriptionLabels } from './utils';
+import { useBuildAssertionDescriptionLabels } from '@app/entity/shared/tabs/Dataset/Validations/assertion/profile/summary/utils';
+
+import { Assertion, Monitor } from '@types';
 
 type Props = {
     assertion: Assertion;

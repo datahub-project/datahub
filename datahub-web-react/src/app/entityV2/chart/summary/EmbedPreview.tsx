@@ -1,7 +1,8 @@
+import HeaderIcon from '@mui/icons-material/VisibilityOutlined';
 import React from 'react';
 import styled from 'styled-components';
-import HeaderIcon from '@mui/icons-material/VisibilityOutlined';
-import { SummaryTabHeaderTitle, SummaryTabHeaderWrapper } from '../../shared/summary/HeaderComponents';
+
+import { SummaryTabHeaderTitle, SummaryTabHeaderWrapper } from '@app/entityV2/shared/summary/HeaderComponents';
 
 const Wrapper = styled.div`
     height: fit-content;

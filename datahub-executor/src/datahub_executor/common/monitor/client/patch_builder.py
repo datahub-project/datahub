@@ -3,6 +3,7 @@ from typing import List, Optional
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.metadata.schema_classes import (
     AssertionEvaluationSpecClass,
+    AssertionMonitorMetricsCubeBootstrapStatusClass,
     KafkaAuditHeaderClass,
     MonitorErrorClass,
     MonitorInfoClass,
@@ -90,6 +91,19 @@ class MonitorPatchBuilder(MetadataPatchProposal):
             "add",
             path=("status",),
             value=status,
+        )
+        return self
+
+    def set_assertion_monitor_metrics_cube_bootstrap_status(
+        self,
+        new_metrics_cube_bootstrap_status: AssertionMonitorMetricsCubeBootstrapStatusClass,
+    ) -> "MonitorPatchBuilder":
+        """Sets the metrics cube bootstrap status for the assertion monitor"""
+        self._add_patch(
+            MonitorInfoClass.ASPECT_NAME,
+            "add",
+            path=("assertionMonitor", "bootstrapStatus", "metricsCubeBootstrapStatus"),
+            value=new_metrics_cube_bootstrap_status,
         )
         return self
 

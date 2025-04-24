@@ -1,13 +1,15 @@
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
-import { GetDatasetQuery } from '../../../../../../../../graphql/dataset.generated';
-import { useBaseEntity } from '../../../../../../../entity/shared/EntityContext';
-import { ANTD_GRAY_V2 } from '../../../../../constants';
-import { SectionHeader } from './components';
-import { pathMatchesNewPath } from '../../../../../../dataset/profile/schema/utils/utils';
-import { UsageBar } from '../../utils/useUsageStatsRenderer';
-import { SchemaField } from '../../../../../../../../types.generated';
-import { formatNumberWithoutAbbreviation } from '../../../../../../../shared/formatNumber';
+
+import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { pathMatchesNewPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import { ANTD_GRAY_V2 } from '@app/entityV2/shared/constants';
+import { SectionHeader } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
+import { UsageBar } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useUsageStatsRenderer';
+import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+
+import { GetDatasetQuery } from '@graphql/dataset.generated';
+import { SchemaField } from '@types';
 
 const USAGE_BAR_MAX_WIDTH = 100;
 

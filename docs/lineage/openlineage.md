@@ -63,7 +63,8 @@ Follow the Airflow guide to setup the Airflow DAGs to send lineage information t
 The transport should look like this:
 
 ```json
-{"type": "http",
+{
+  "type": "http",
   "url": "https://GMS_SERVER_HOST:GMS_PORT/openapi/openlineage/",
   "endpoint": "api/v1/lineage",
   "auth": {

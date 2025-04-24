@@ -1,16 +1,17 @@
-import React, { useEffect, useState } from 'react';
-import { Button, Dropdown, Input, message, Popover, Typography } from 'antd';
-import { ExecutionRequest, RemoteExecutor } from '@src/types.generated';
-import { formatDuration } from '@src/app/shared/formatDuration';
+import { Button, Dropdown, Input, Popover, Typography, message } from 'antd';
 import { Check, CheckCircle, Pencil, Plus, StopCircle, WarningCircle } from 'phosphor-react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+
+import { EXECUTOR_STALE_THRESHOLD_MS, checkIsExecutorStale } from '@app/ingest/executor_saas/utils';
+import { ExecutionDetailsModal } from '@app/ingest/source/executions/ExecutionRequestDetailsModal';
+import { checkIsExecutionRequestRunning, getExecutionRequestStatusDisplayText } from '@app/ingest/source/utils';
 import { colors } from '@src/alchemy-components';
 import Loading from '@src/app/shared/Loading';
+import { formatDuration } from '@src/app/shared/formatDuration';
 import { useGetIngestionSourceNameLazyQuery } from '@src/graphql/ingestion.generated';
 import { useUpdateRemoteExecutorPoolMutation } from '@src/graphql/remote_executor.saas.generated';
-import { checkIsExecutionRequestRunning, getExecutionRequestStatusDisplayText } from '../source/utils';
-import { ExecutionDetailsModal } from '../source/executions/ExecutionRequestDetailsModal';
-import { checkIsExecutorStale, EXECUTOR_STALE_THRESHOLD_MS } from './utils';
+import { ExecutionRequest, RemoteExecutor } from '@src/types.generated';
 
 export function TimeColumn(reportedAt: number) {
     const date = reportedAt && new Date(reportedAt);

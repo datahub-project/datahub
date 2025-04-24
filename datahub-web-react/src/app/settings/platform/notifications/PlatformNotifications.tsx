@@ -1,12 +1,13 @@
+import { InfoCircleFilled } from '@ant-design/icons';
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { InfoCircleFilled } from '@ant-design/icons';
-import { Typography } from 'antd';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
-import { PlatformNotificationsConfigurationCard } from './PlatformNotificationsConfigurationCard';
-import { DefaultsCard } from './DefaultsCard';
-import { useGetGlobalSettingsQuery } from '../../../../graphql/settings.generated';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { DefaultsCard } from '@app/settings/platform/notifications/DefaultsCard';
+import { PlatformNotificationsConfigurationCard } from '@app/settings/platform/notifications/PlatformNotificationsConfigurationCard';
+
+import { useGetGlobalSettingsQuery } from '@graphql/settings.generated';
 
 const Container = styled.div`
     width: 100%;

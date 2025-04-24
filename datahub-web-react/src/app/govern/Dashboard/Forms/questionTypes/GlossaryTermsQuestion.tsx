@@ -1,13 +1,19 @@
-import { Form } from 'antd';
 import { Tooltip } from '@components';
+import { Form } from 'antd';
 import { CheckboxChangeEvent } from 'antd/lib/checkbox';
 import React, { useState } from 'react';
+
+import CardinalityField from '@app/govern/Dashboard/Forms/questionTypes/CardinalityField';
+import GlossaryTermsSelector from '@app/govern/Dashboard/Forms/questionTypes/GlossaryTermsSelector';
+import {
+    AllowedItemsWrapper,
+    SelectorWrapper,
+    StyledCheckbox,
+    StyledLabel,
+} from '@app/govern/Dashboard/Forms/styledComponents';
+import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { EntityType, GlossaryTerm } from '@src/types.generated';
-import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
-import { AllowedItemsWrapper, StyledCheckbox, StyledLabel, SelectorWrapper } from '../styledComponents';
-import CardinalityField from './CardinalityField';
-import GlossaryTermsSelector from './GlossaryTermsSelector';
 
 export default function GlossaryTermsQuestion() {
     const entityRegistry = useEntityRegistryV2();

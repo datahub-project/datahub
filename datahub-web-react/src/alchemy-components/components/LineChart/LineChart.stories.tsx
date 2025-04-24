@@ -1,9 +1,10 @@
-import React from 'react';
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
-import { LineChart } from './LineChart';
-import { getMockedProps } from '../BarChart/utils';
-import { DEFAULT_MAX_DOMAIN_VALUE } from '../BarChart/hooks/usePrepareScales';
+import React from 'react';
+
+import { DEFAULT_MAX_DOMAIN_VALUE } from '@components/components/BarChart/hooks/usePrepareScales';
+import { getMockedProps } from '@components/components/BarChart/utils';
+import { LineChart } from '@components/components/LineChart/LineChart';
 
 const meta = {
     title: 'Charts / LineChart',

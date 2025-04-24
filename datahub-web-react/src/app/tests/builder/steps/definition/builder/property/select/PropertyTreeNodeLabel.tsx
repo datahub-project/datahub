@@ -1,9 +1,10 @@
-import React from 'react';
-import styled from 'styled-components';
 import { CaretRightFilled } from '@ant-design/icons';
 import { Typography } from 'antd';
-import { ANTD_GRAY } from '../../../../../../../entity/shared/constants';
-import { Property } from '../types/properties';
+import React from 'react';
+import styled from 'styled-components';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { Property } from '@app/tests/builder/steps/definition/builder/property/types/properties';
 
 const StyledCaret = styled(CaretRightFilled)`
     padding: 4px;

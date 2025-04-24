@@ -10,11 +10,9 @@ For a full reference to the Queries & Mutations available for consumption, check
 
 ### Connecting to the API
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/image-(3).png"/>
 </p>
-
 
 When you generate the token you will see an example of `curl` command which you can use to connect to the GraphQL API.
 

@@ -1,9 +1,10 @@
-import React, { useEffect } from 'react';
 import { Form, Select } from 'antd';
+import React, { useEffect } from 'react';
 import styled from 'styled-components';
-import { AssertionMonitorBuilderState } from '../../../types';
-import { onSetValueChange } from './utils';
-import { getFieldAssertionTypeKey } from '../utils';
+
+import { onSetValueChange } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/field/inputs/utils';
+import { getFieldAssertionTypeKey } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/field/utils';
+import { AssertionMonitorBuilderState } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/types';
 
 const StyledFormItem = styled(Form.Item)`
     width: 200px;

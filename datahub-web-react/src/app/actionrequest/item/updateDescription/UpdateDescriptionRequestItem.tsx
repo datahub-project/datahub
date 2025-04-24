@@ -1,7 +1,9 @@
 import React from 'react';
-import { ActionRequest } from '../../../../types.generated';
-import MetadataAssociationRequestItem from '../MetadataAssociationRequestItem';
-import UpdateDescriptionContentView from './UpdateDescriptionContentView';
+
+import MetadataAssociationRequestItem from '@app/actionrequest/item/MetadataAssociationRequestItem';
+import UpdateDescriptionContentView from '@app/actionrequest/item/updateDescription/UpdateDescriptionContentView';
+
+import { ActionRequest } from '@types';
 
 type Props = {
     actionRequest: ActionRequest;

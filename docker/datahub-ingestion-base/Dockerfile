@@ -36,8 +36,8 @@ RUN existing_group=$(getent group 1000 | cut -d: -f1) && \
     fi && \
     # Create and set proper permissions for datahub directories
     mkdir -p $HOME && \
-    chown -R datahub:datahub $HOME
-
+    chown -R datahub:datahub $HOME && \
+    chmod g-s $HOME
 
 # Setup the PPA for alternative Python versions.
 # TODO: Eventually we should switch to using uv's support for python-build-standalone.
@@ -119,7 +119,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y -qq \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-RUN --mount=type=bind,source=./docker/datahub-ingestion/oracle_instantclient.sh,target=/oracle_instantclient.sh \
+RUN --mount=type=bind,source=./docker/snippets/oracle_instantclient.sh,target=/oracle_instantclient.sh \
     /oracle_instantclient.sh
 
 USER datahub

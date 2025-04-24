@@ -1,4 +1,4 @@
-import { AssertionType } from '../../../../types.generated';
+import { AssertionType } from '@types';
 
 export const FAILING_ASSERTION_TYPE_FILTER_FIELD = 'failingAssertionType';
 export const HAS_FAILING_ASSERTIONS_FILTER_FIELD = 'hasFailingAssertions';

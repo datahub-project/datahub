@@ -1,12 +1,19 @@
 import { Button, Icon, Text, Tooltip } from '@components';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import React, { useContext, useState } from 'react';
+
+import ManageFormContext from '@app/govern/Dashboard/Forms/ManageFormContext';
+import { questionTypes } from '@app/govern/Dashboard/Forms/formUtils';
+import {
+    CardContainer,
+    CardData,
+    CardIcons,
+    DragIcon,
+    MandatoryTag,
+} from '@app/govern/Dashboard/Forms/styledComponents';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { FormPrompt, FormState } from '@src/types.generated';
-import React, { useContext, useState } from 'react';
-import { questionTypes } from './formUtils';
-import ManageFormContext from './ManageFormContext';
-import { CardContainer, CardData, CardIcons, DragIcon, MandatoryTag } from './styledComponents';
 
 interface Props {
     question: FormPrompt;

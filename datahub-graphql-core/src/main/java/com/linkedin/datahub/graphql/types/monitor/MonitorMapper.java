@@ -13,6 +13,9 @@ import com.linkedin.datahub.graphql.generated.AssertionEvaluationParameters;
 import com.linkedin.datahub.graphql.generated.AssertionEvaluationParametersType;
 import com.linkedin.datahub.graphql.generated.AssertionEvaluationSpec;
 import com.linkedin.datahub.graphql.generated.AssertionMonitor;
+import com.linkedin.datahub.graphql.generated.AssertionMonitorBootstrapStatus;
+import com.linkedin.datahub.graphql.generated.AssertionMonitorMetricsCubeBootstrapState;
+import com.linkedin.datahub.graphql.generated.AssertionMonitorMetricsCubeBootstrapStatus;
 import com.linkedin.datahub.graphql.generated.AssertionMonitorSettings;
 import com.linkedin.datahub.graphql.generated.AuditLogSpec;
 import com.linkedin.datahub.graphql.generated.CronSchedule;
@@ -116,7 +119,33 @@ public class MonitorMapper {
       assertionMonitor.setSettings(
           mapAssertionMonitorSettings(backendAssertionMonitor.getSettings()));
     }
+    if (backendAssertionMonitor.hasBootstrapStatus()) {
+      assertionMonitor.setBootstrapStatus(
+          mapBootstrapStatus(backendAssertionMonitor.getBootstrapStatus()));
+    }
     return assertionMonitor;
+  }
+
+  private static AssertionMonitorBootstrapStatus mapBootstrapStatus(
+      com.linkedin.monitor.AssertionMonitorBootstrapStatus backendBootstrapStatus) {
+    AssertionMonitorBootstrapStatus bootstrapStatus = new AssertionMonitorBootstrapStatus();
+    if (backendBootstrapStatus.hasMetricsCubeBootstrapStatus()) {
+      bootstrapStatus.setMetricsCubeBootstrapStatus(
+          mapMetricsCubeBootstrapStatus(backendBootstrapStatus.getMetricsCubeBootstrapStatus()));
+    }
+    return bootstrapStatus;
+  }
+
+  private static AssertionMonitorMetricsCubeBootstrapStatus mapMetricsCubeBootstrapStatus(
+      com.linkedin.monitor.AssertionMonitorMetricsCubeBootstrapStatus
+          backendMetricsCubeBootstrapStatus) {
+    AssertionMonitorMetricsCubeBootstrapStatus metricsCubeBootstrapStatus =
+        new AssertionMonitorMetricsCubeBootstrapStatus();
+    metricsCubeBootstrapStatus.setState(
+        AssertionMonitorMetricsCubeBootstrapState.valueOf(
+            backendMetricsCubeBootstrapStatus.getState().name()));
+    metricsCubeBootstrapStatus.setMessage(backendMetricsCubeBootstrapStatus.getMessage());
+    return metricsCubeBootstrapStatus;
   }
 
   private static AssertionMonitorSettings mapAssertionMonitorSettings(

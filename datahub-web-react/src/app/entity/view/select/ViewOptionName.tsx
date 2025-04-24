@@ -1,7 +1,8 @@
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
-import { Tooltip } from '@components';
-import { ViewOptionTooltipTitle } from './ViewOptionTooltipTitle';
+
+import { ViewOptionTooltipTitle } from '@app/entity/view/select/ViewOptionTooltipTitle';
 
 const ViewName = styled.span`
     width: 200px;

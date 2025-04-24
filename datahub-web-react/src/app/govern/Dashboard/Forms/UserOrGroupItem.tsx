@@ -1,12 +1,20 @@
+import { Tooltip } from '@components';
+import React, { useContext, useState } from 'react';
+
+import ManageFormContext from '@app/govern/Dashboard/Forms/ManageFormContext';
+import {
+    CardData,
+    CardIcons,
+    ItemDivider,
+    ListItem,
+    NameColumn,
+    VerticalFlexBox,
+} from '@app/govern/Dashboard/Forms/styledComponents';
 import { Icon, Text } from '@src/alchemy-components';
 import { CustomAvatar } from '@src/app/shared/avatar';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { CorpGroup, CorpUser, EntityType } from '@src/types.generated';
-import { Tooltip } from '@components';
-import React, { useContext, useState } from 'react';
-import ManageFormContext from './ManageFormContext';
-import { CardData, CardIcons, ItemDivider, ListItem, NameColumn, VerticalFlexBox } from './styledComponents';
 
 interface Props {
     userOrGroup: CorpUser | CorpGroup;

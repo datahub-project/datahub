@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import List, Optional
 
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
@@ -19,7 +19,13 @@ from datahub_executor.common.monitor.inference.metric_projection.metric_predicto
     MetricBoundary,
 )
 from datahub_executor.common.monitor.inference.types import Event
-from datahub_executor.common.types import Anomaly, CronSchedule
+from datahub_executor.common.types import (
+    Anomaly,
+    AssertionMonitorMetricsCubeBootstrapState,
+    AssertionMonitorMetricsCubeBootstrapStatus,
+    CronSchedule,
+    Monitor,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -208,3 +214,31 @@ def build_evaluation_schedule_from_fixed_interval(
         return CronSchedule(
             cron="0,5,10,15,20,25,30,35,40,45,50,55 * * * *", timezone="UTC"
         )  # Every 5 minutes
+
+
+def check_is_metrics_cube_bootstrapped(monitor: Monitor) -> bool:
+    """
+    Check if the metrics cube has already been bootstrapped.
+    """
+    bootstrap_status = try_extract_metrics_cube_bootstrap_status(monitor)
+    return bool(
+        bootstrap_status
+        and bootstrap_status.state
+        == AssertionMonitorMetricsCubeBootstrapState.COMPLETED
+    )
+
+
+def try_extract_metrics_cube_bootstrap_status(
+    monitor: Monitor,
+) -> Optional[AssertionMonitorMetricsCubeBootstrapStatus]:
+    """
+    Get the metrics cube bootstrap status for a monitor.
+    Returns None if any of the intermediate fields are None.
+    """
+    if not monitor.assertion_monitor:
+        return None
+
+    if not monitor.assertion_monitor.bootstrap_status:
+        return None
+
+    return monitor.assertion_monitor.bootstrap_status.metrics_cube_bootstrap_status

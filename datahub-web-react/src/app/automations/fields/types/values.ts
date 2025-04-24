@@ -1,5 +1,5 @@
+import { OperatorId } from '@app/automations/fields/ConditionSelector/operators';
 import { EntityType } from '@src/types.generated';
-import { OperatorId } from '../ConditionSelector/operators';
 
 /**
  * The value type of a particular well-supported Property.

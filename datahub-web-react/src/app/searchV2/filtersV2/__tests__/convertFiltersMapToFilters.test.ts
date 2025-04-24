@@ -1,4 +1,4 @@
-import { convertFiltersMapToFilters } from '../utils';
+import { convertFiltersMapToFilters } from '@app/searchV2/filtersV2/utils';
 
 describe('convertFiltersMapToFilters', () => {
     const mockFiltersMap = new Map<string, { filters: { field: string; values?: string[] }[] }>([

@@ -1454,7 +1454,7 @@ public class AssertionServiceTest {
     Mockito.when(
             mockGraphClient.getRelatedEntities(
                 Mockito.eq(TEST_DATASET_URN.toString()),
-                Mockito.eq(ImmutableList.of("Asserts")),
+                Mockito.eq(ImmutableSet.of("Asserts")),
                 Mockito.eq(RelationshipDirection.INCOMING),
                 Mockito.eq(0),
                 Mockito.eq(1000),
@@ -1513,7 +1513,7 @@ public class AssertionServiceTest {
     Mockito.when(
             mockGraphClient.getRelatedEntities(
                 Mockito.eq(TEST_ASSERTION_URN.toString()),
-                Mockito.eq(ImmutableList.of("Asserts")),
+                Mockito.eq(ImmutableSet.of("Asserts")),
                 Mockito.eq(RelationshipDirection.OUTGOING),
                 Mockito.eq(0),
                 Mockito.eq(1),

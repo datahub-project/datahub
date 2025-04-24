@@ -1,8 +1,9 @@
 import React, { useContext } from 'react';
 
-import { AndFilterInput, Entity, Form, FormFilter, FormPrompt, SearchResult, Test } from '../../../../types.generated';
-import { EntityAndType, GenericEntityProperties } from '../types';
-import { SearchForEntitiesByFormQuery } from '../../../../graphql/form.generated';
+import { EntityAndType, GenericEntityProperties } from '@app/entity/shared/types';
+
+import { SearchForEntitiesByFormQuery } from '@graphql/form.generated';
+import { AndFilterInput, Entity, Form, FormFilter, FormPrompt, SearchResult, Test } from '@types';
 
 export enum FormView {
     BY_ENTITY,

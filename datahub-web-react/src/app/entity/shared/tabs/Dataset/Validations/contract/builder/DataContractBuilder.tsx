@@ -1,31 +1,31 @@
-import React, { useState } from 'react';
-import { message, Button } from 'antd';
 import { Tooltip } from '@components';
-import styled from 'styled-components';
+import { Button, message } from 'antd';
 import lodash from 'lodash';
-import {
-    DataContract,
-    AssertionType,
-    DataContractProposalOperationType,
-    ActionRequestType,
-    EntityType,
-} from '../../../../../../../../types.generated';
-import { DataContractBuilderState, DataContractCategoryType, DEFAULT_BUILDER_STATE } from './types';
-import { buildUpsertDataContractMutationVariables, buildProposeDataContractMutationVariables } from './utils';
-import {
-    useProposeDataContractMutation,
-    useUpsertDataContractMutation,
-} from '../../../../../../../../graphql/contract.generated';
-import { useGetDatasetAssertionsWithMonitorsQuery } from '../../../../../../../../graphql/monitor.generated';
+import React, { useState } from 'react';
+import styled from 'styled-components';
+
+import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
 import {
     AssertionWithMonitorDetails,
     createAssertionGroups,
     tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery,
-} from '../../acrylUtils';
-import { DataContractAssertionGroupSelect } from './DataContractAssertionGroupSelect';
-import { ANTD_GRAY } from '../../../../../constants';
-import { DATA_QUALITY_ASSERTION_TYPES } from '../utils';
-import analytics, { EntityActionType, EventType } from '../../../../../../../analytics';
+} from '@app/entity/shared/tabs/Dataset/Validations/acrylUtils';
+import { DataContractAssertionGroupSelect } from '@app/entity/shared/tabs/Dataset/Validations/contract/builder/DataContractAssertionGroupSelect';
+import {
+    DEFAULT_BUILDER_STATE,
+    DataContractBuilderState,
+    DataContractCategoryType,
+} from '@app/entity/shared/tabs/Dataset/Validations/contract/builder/types';
+import {
+    buildProposeDataContractMutationVariables,
+    buildUpsertDataContractMutationVariables,
+} from '@app/entity/shared/tabs/Dataset/Validations/contract/builder/utils';
+import { DATA_QUALITY_ASSERTION_TYPES } from '@app/entity/shared/tabs/Dataset/Validations/contract/utils';
+
+import { useProposeDataContractMutation, useUpsertDataContractMutation } from '@graphql/contract.generated';
+import { useGetDatasetAssertionsWithMonitorsQuery } from '@graphql/monitor.generated';
+import { ActionRequestType, AssertionType, DataContract, DataContractProposalOperationType, EntityType } from '@types';
 
 const AssertionsSection = styled.div`
     border: 0.5px solid ${ANTD_GRAY[4]};

@@ -23,7 +23,7 @@ import {
     SchemaFieldDataType,
     SqlAssertionType,
     VolumeAssertionType,
-} from '../../../../../../../../types.generated';
+} from '@types';
 
 /**
  * The object represents the state of the Assertion Builder form.

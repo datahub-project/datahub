@@ -1,12 +1,14 @@
-import TableIcon from '@src/images/table-icon.svg?react';
 import * as React from 'react';
 import styled from 'styled-components';
-import { EntityType, SearchResult, StructuredPropertyEntity as StructuredProperty } from '../../../types.generated';
-import DefaultPreviewCard from '../../previewV2/DefaultPreviewCard';
-import { Entity, IconStyleType, PreviewType } from '../Entity';
-import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { urlEncodeUrn } from '../shared/utils';
+
+import { Entity, IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import { urlEncodeUrn } from '@app/entityV2/shared/utils';
+import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
+import TableIcon from '@src/images/table-icon.svg?react';
+
+import { EntityType, SearchResult, StructuredPropertyEntity as StructuredProperty } from '@types';
 
 const PreviewPropIcon = styled(TableIcon)`
     font-size: 20px;

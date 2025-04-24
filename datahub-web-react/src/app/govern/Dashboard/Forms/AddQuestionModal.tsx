@@ -1,19 +1,16 @@
-import { Button, Text } from '@src/alchemy-components';
-import analytics, { EventType } from '@src/app/analytics';
-import { WARNING_COLOR_HEX } from '@src/app/entityV2/shared/tabs/Incident/incidentUtils';
-import { FormPrompt, FormPromptType, FormState, PromptCardinality } from '@src/types.generated';
 import { Form, Select } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
 import { useParams } from 'react-router';
 import { v4 as uuidv4 } from 'uuid';
-import ManageFormContext from './ManageFormContext';
-import { questionTypes } from './formUtils';
-import CommonQuestionFields from './questionTypes/CommonQuestionFields';
-import DomainsQuestion from './questionTypes/DomainQuestion';
-import GlossaryTermsQuestion from './questionTypes/GlossaryTermsQuestion';
-import OwnershipQuestion from './questionTypes/OwnershipQuestion';
-import RequiredField from './questionTypes/RequiredField';
-import StructuredPropertyQuestion from './questionTypes/StructuredPropertyQuestion';
+
+import ManageFormContext from '@app/govern/Dashboard/Forms/ManageFormContext';
+import { questionTypes } from '@app/govern/Dashboard/Forms/formUtils';
+import CommonQuestionFields from '@app/govern/Dashboard/Forms/questionTypes/CommonQuestionFields';
+import DomainsQuestion from '@app/govern/Dashboard/Forms/questionTypes/DomainQuestion';
+import GlossaryTermsQuestion from '@app/govern/Dashboard/Forms/questionTypes/GlossaryTermsQuestion';
+import OwnershipQuestion from '@app/govern/Dashboard/Forms/questionTypes/OwnershipQuestion';
+import RequiredField from '@app/govern/Dashboard/Forms/questionTypes/RequiredField';
+import StructuredPropertyQuestion from '@app/govern/Dashboard/Forms/questionTypes/StructuredPropertyQuestion';
 import {
     CustomDropdown,
     FieldLabel,
@@ -25,7 +22,11 @@ import {
     StyledModal,
     StyledSelect,
     WarningWrapper,
-} from './styledComponents';
+} from '@app/govern/Dashboard/Forms/styledComponents';
+import { Button, Text } from '@src/alchemy-components';
+import analytics, { EventType } from '@src/app/analytics';
+import { WARNING_COLOR_HEX } from '@src/app/entityV2/shared/tabs/Incident/incidentUtils';
+import { FormPrompt, FormPromptType, FormState, PromptCardinality } from '@src/types.generated';
 
 export const DEFAULT_CARDINALITY = PromptCardinality.Multiple;
 

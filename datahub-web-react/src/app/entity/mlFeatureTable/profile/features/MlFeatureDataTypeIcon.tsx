@@ -1,24 +1,26 @@
 import {
-    UnorderedListOutlined,
-    FieldStringOutlined,
+    AudioOutlined,
     ClockCircleOutlined,
+    FieldBinaryOutlined,
+    FieldStringOutlined,
+    FileImageOutlined,
+    LineChartOutlined,
+    NumberOutlined,
+    OrderedListOutlined,
     QuestionOutlined,
     StopOutlined,
-    OrderedListOutlined,
-    NumberOutlined,
-    AudioOutlined,
+    UnorderedListOutlined,
     VideoCameraOutlined,
-    FileImageOutlined,
-    FieldBinaryOutlined,
-    LineChartOutlined,
 } from '@ant-design/icons';
-import { Typography } from 'antd';
 import { Tooltip } from '@components';
+import { Typography } from 'antd';
 import React, { FC } from 'react';
 import { VscFileBinary } from 'react-icons/vsc';
 import styled from 'styled-components';
-import { capitalizeFirstLetter } from '../../../../shared/textUtil';
-import { MlFeatureDataType } from '../../../../../types.generated';
+
+import { capitalizeFirstLetter } from '@app/shared/textUtil';
+
+import { MlFeatureDataType } from '@types';
 
 const TypeIconContainer = styled.div`
     display: flex;

@@ -1,8 +1,18 @@
+import { Tooltip } from '@components';
+import { Typography } from 'antd';
+import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 
-import { Typography } from 'antd';
-import { Tooltip } from '@components';
-import { Maybe } from 'graphql/jsutils/Maybe';
+import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+import { DatasetAssertionDescription } from '@app/entity/shared/tabs/Dataset/Validations/DatasetAssertionDescription';
+import { FieldAssertionDescription } from '@app/entity/shared/tabs/Dataset/Validations/FieldAssertionDescription';
+import { FreshnessAssertionDescription } from '@app/entity/shared/tabs/Dataset/Validations/FreshnessAssertionDescription';
+import { SchemaAssertionDescription } from '@app/entity/shared/tabs/Dataset/Validations/SchemaAssertionDescription';
+import { SqlAssertionDescription } from '@app/entity/shared/tabs/Dataset/Validations/SqlAssertionDescription';
+import { VolumeAssertionDescription } from '@app/entity/shared/tabs/Dataset/Validations/VolumeAssertionDescription';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetUserQuery } from '@graphql/user.generated';
 import {
     AssertionInfo,
     AssertionType,
@@ -13,16 +23,7 @@ import {
     FreshnessAssertionInfo,
     SchemaAssertionInfo,
     VolumeAssertionInfo,
-} from '../../../../../../../../../types.generated';
-import { DatasetAssertionDescription } from '../../../DatasetAssertionDescription';
-import { FreshnessAssertionDescription } from '../../../FreshnessAssertionDescription';
-import { VolumeAssertionDescription } from '../../../VolumeAssertionDescription';
-import { SqlAssertionDescription } from '../../../SqlAssertionDescription';
-import { FieldAssertionDescription } from '../../../FieldAssertionDescription';
-import { SchemaAssertionDescription } from '../../../SchemaAssertionDescription';
-import { useEntityRegistry } from '../../../../../../../../useEntityRegistry';
-import { useGetUserQuery } from '../../../../../../../../../graphql/user.generated';
-import { ANTD_GRAY_V2 } from '../../../../../../constants';
+} from '@types';
 
 /**
  * Returns a text element describing the given assertion

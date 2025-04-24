@@ -1,16 +1,18 @@
-import React from 'react';
+import { PageTitle, Switch, colors } from '@components';
 import { message } from 'antd';
-import { Switch, PageTitle, colors } from '@components';
+import React from 'react';
 import styled from 'styled-components';
-import { useUpdateUserSettingMutation } from '../../graphql/me.generated';
-import { UserSetting } from '../../types.generated';
-import analytics, { EventType } from '../analytics';
-import { useUserContext } from '../context/useUserContext';
-import { ANTD_GRAY } from '../entity/shared/constants';
-import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
-import { useIsThemeV2, useIsThemeV2EnabledForUser, useIsThemeV2Toggleable } from '../useIsThemeV2';
-import OrganizationInfo from './OrganizationInfo';
-import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
+
+import analytics, { EventType } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import OrganizationInfo from '@app/settingsV2/OrganizationInfo';
+import { useGetAuthenticatedUser } from '@app/useGetAuthenticatedUser';
+import { useIsThemeV2, useIsThemeV2EnabledForUser, useIsThemeV2Toggleable } from '@app/useIsThemeV2';
+import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+
+import { useUpdateUserSettingMutation } from '@graphql/me.generated';
+import { UserSetting } from '@types';
 
 const Page = styled.div`
     width: 100%;

@@ -1,9 +1,13 @@
-import React from 'react';
-
 import { Collapse } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
 
-import { AssertionMonitorBuilderState } from '../../types';
+import { EvaluationScheduleBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/common/EvaluationScheduleBuilder';
+import { DatasetFreshnessFilterBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/freshness/DatasetFreshnessFilterBuilder';
+import { DatasetFreshnessScheduleBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/freshness/DatasetFreshnessScheduleBuilder';
+import { DatasetFreshnessSourceBuilder } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/steps/freshness/DatasetFreshnessSourceBuilder';
+import { AssertionMonitorBuilderState } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/types';
+
 import {
     AssertionEvaluationParametersType,
     AssertionType,
@@ -12,11 +16,7 @@ import {
     DatasetFreshnessAssertionParameters,
     FreshnessAssertionSchedule,
     FreshnessAssertionScheduleType,
-} from '../../../../../../../../../../types.generated';
-import { EvaluationScheduleBuilder } from '../common/EvaluationScheduleBuilder';
-import { DatasetFreshnessScheduleBuilder } from './DatasetFreshnessScheduleBuilder';
-import { DatasetFreshnessSourceBuilder } from './DatasetFreshnessSourceBuilder';
-import { DatasetFreshnessFilterBuilder } from './DatasetFreshnessFilterBuilder';
+} from '@types';
 
 const Section = styled.div`
     display: flex;

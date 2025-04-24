@@ -1,5 +1,5 @@
+import { SLACK_INTEGRATION } from '@app/settingsV2/platform/types';
 import { NotificationScenarioType, NotificationSettingValue, NotificationSinkType } from '@src/types.generated';
-import { SLACK_INTEGRATION } from '../platform/types';
 
 /**
  * Types shared between Platform & Actor notifications.

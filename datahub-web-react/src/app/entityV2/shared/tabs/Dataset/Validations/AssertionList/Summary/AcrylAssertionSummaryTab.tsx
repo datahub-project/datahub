@@ -1,26 +1,27 @@
-import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
 import { Empty } from 'antd';
-import { Button } from '@src/alchemy-components';
 import { ArrowRight } from 'phosphor-react';
+import React, { useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import {
-    combineEntityDataWithSiblings,
-    SEPARATE_SIBLINGS_URL_PARAM,
-    useIsSeparateSiblingsMode,
-} from '@src/app/entity/shared/siblingUtils';
-import { useGetDatasetAssertionsWithMonitorsQuery } from '@src/graphql/monitor.generated';
+import styled from 'styled-components';
+
+import { AcrylAssertionSummaryCard } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/Summary/AcrylAssertionSummaryCard';
+import { AcrylAssertionsSummaryTabLoading } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/Summary/AcrylAssertionsSummaryLoading';
+import { getAssertionGroupsByDisplayOrder } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/utils';
+import { AssertionGroup } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
 import {
     AssertionWithMonitorDetails,
     createAssertionGroups,
     tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery,
-} from '../../acrylUtils';
-import { AcrylAssertionSummaryCard } from './AcrylAssertionSummaryCard';
-import { AssertionGroup } from '../../acrylTypes';
-import { getAssertionGroupsByDisplayOrder } from '../utils';
-import { AcrylAssertionsSummaryTabLoading } from './AcrylAssertionsSummaryLoading';
-import { useGetValidationsTab } from '../../useGetValidationsTab';
+} from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { useGetValidationsTab } from '@app/entityV2/shared/tabs/Dataset/Validations/useGetValidationsTab';
+import { Button } from '@src/alchemy-components';
+import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import {
+    SEPARATE_SIBLINGS_URL_PARAM,
+    combineEntityDataWithSiblings,
+    useIsSeparateSiblingsMode,
+} from '@src/app/entity/shared/siblingUtils';
+import { useGetDatasetAssertionsWithMonitorsQuery } from '@src/graphql/monitor.generated';
 
 const AcrylAssertionSummaryContainer = styled.div`
     display: grid;

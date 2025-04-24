@@ -1,11 +1,13 @@
-import React from 'react';
 import { Badge } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { capitalizeFirstLetterOnly } from '../../../../../../shared/textUtil';
-import { DataTypeEntity, SchemaFieldDataType } from '../../../../../../../types.generated';
-import { truncate } from '../../../../utils';
-import { ANTD_GRAY, ANTD_GRAY_V2 } from '../../../../constants';
-import { TypeData } from '../../../Properties/types';
+
+import { ANTD_GRAY, ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+import { TypeData } from '@app/entity/shared/tabs/Properties/types';
+import { truncate } from '@app/entity/shared/utils';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+
+import { DataTypeEntity, SchemaFieldDataType } from '@types';
 
 type Props = {
     type: TypeData;

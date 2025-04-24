@@ -1,14 +1,15 @@
-import { useAggregateAcrossEntitiesLazyQuery } from '@src/graphql/search.generated';
-import { FacetMetadata } from '@src/types.generated';
 import { useEffect, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
-import { generateOrFilters } from '@src/app/searchV2/utils/generateOrFilters';
-import { UnionType } from '../../../utils/constants';
-import { useSearchFiltersContext } from '../../context';
-import { FieldName, FieldToFacetStateMap } from '../../types';
-import { convertFiltersMapToFilters } from '../../utils';
 
-const DEBOUNCE_MS = 100;
+import { useSearchFiltersContext } from '@app/searchV2/filtersV2/context';
+import { FieldName, FieldToFacetStateMap } from '@app/searchV2/filtersV2/types';
+import { convertFiltersMapToFilters } from '@app/searchV2/filtersV2/utils';
+import { UnionType } from '@app/searchV2/utils/constants';
+import { generateOrFilters } from '@src/app/searchV2/utils/generateOrFilters';
+import { useAggregateAcrossEntitiesLazyQuery } from '@src/graphql/search.generated';
+import { FacetMetadata } from '@src/types.generated';
+
+const DEBOUNCE_MS = 300;
 
 interface Props {
     fieldNames: FieldName[] | FieldName;

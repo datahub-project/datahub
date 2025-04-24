@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
 import moment from 'moment';
-import { ShareResult, ShareResultState } from '../../../../../../../types.generated';
-import { useEntityContext } from '../../../../../../entity/shared/EntityContext';
-import { GenericEntityProperties } from '../../../../../../entity/shared/types';
+import { useCallback, useEffect, useState } from 'react';
+
+import { useEntityContext } from '@app/entity/shared/EntityContext';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+
+import { ShareResult, ShareResultState } from '@types';
 
 function isShareResultRunning(result: ShareResult) {
     const isRunning = result.status === ShareResultState.Running;

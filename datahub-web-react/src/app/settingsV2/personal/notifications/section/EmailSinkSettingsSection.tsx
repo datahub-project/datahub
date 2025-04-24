@@ -1,8 +1,8 @@
+import { Button, ToggleCard, colors } from '@components';
+import { Form } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
-import { Button, colors, ToggleCard } from '@components';
-import { Form } from 'antd';
-import { EmailNotificationSettings, EmailNotificationSettingsInput } from '../../../../../types.generated';
+
 import {
     CancelButton,
     SaveButton,
@@ -10,7 +10,9 @@ import {
     SinkConfigurationContainer,
     StyledFormItem,
     StyledInput,
-} from './styledComponents';
+} from '@app/settingsV2/personal/notifications/section/styledComponents';
+
+import { EmailNotificationSettings, EmailNotificationSettingsInput } from '@types';
 
 const HelperText = styled.div`
     color: ${colors.gray[1700]};

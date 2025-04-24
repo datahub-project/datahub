@@ -1,17 +1,18 @@
 import { CloseOutlined, FileDoneOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
+import { Button } from 'antd';
 import React, { useContext, useEffect, useMemo } from 'react';
 import styled from 'styled-components';
-import { Button } from 'antd';
-import { Tooltip } from '@components';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
-import { PendingProposals } from './PendingProposals';
-import { PendingRequests } from './PendingRequests';
-import { useUserContext } from '../../../context/useUserContext';
-import { useIsDocumentationFormsEnabled } from '../../../useAppConfig';
-import { V2_HOME_PAGE_PENDING_TASKS_ID } from '../../../onboarding/configV2/HomePageOnboardingConfig';
-import { PendingTasksSkeleton } from './PendingTasksSkeleton';
-import OnboardingContext from '../../../onboarding/OnboardingContext';
-import useShouldHidePendingTasks from './useShouldHidePendingTasks';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { PendingProposals } from '@app/homeV2/action/task/PendingProposals';
+import { PendingRequests } from '@app/homeV2/action/task/PendingRequests';
+import { PendingTasksSkeleton } from '@app/homeV2/action/task/PendingTasksSkeleton';
+import useShouldHidePendingTasks from '@app/homeV2/action/task/useShouldHidePendingTasks';
+import OnboardingContext from '@app/onboarding/OnboardingContext';
+import { V2_HOME_PAGE_PENDING_TASKS_ID } from '@app/onboarding/configV2/HomePageOnboardingConfig';
+import { useIsDocumentationFormsEnabled } from '@app/useAppConfig';
 
 const Card = styled.div`
     border: 1px solid ${ANTD_GRAY[4]};

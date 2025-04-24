@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { PrimaryButton } from './PrimaryButton';
+import { PrimaryButton } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/details/PrimaryButton';
 
 type Props = {
     title?: string;

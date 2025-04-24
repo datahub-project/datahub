@@ -1,6 +1,7 @@
 import React from 'react';
-import { spacing, Text } from '@src/alchemy-components';
 import styled from 'styled-components';
+
+import { Text, spacing } from '@src/alchemy-components';
 
 const StyledPopoverContainer = styled.div`
     display: flex;

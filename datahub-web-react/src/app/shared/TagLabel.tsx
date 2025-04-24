@@ -1,6 +1,6 @@
+import ColorHash from 'color-hash';
 import React from 'react';
 import styled, { css } from 'styled-components';
-import ColorHash from 'color-hash';
 
 type Props = {
     name: string;

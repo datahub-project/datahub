@@ -1,4 +1,4 @@
-import { ARRAY_TOKEN, UNION_TOKEN } from './constants';
+import { ARRAY_TOKEN, UNION_TOKEN } from '@app/entityV2/dataset/profile/schema/utils/constants';
 
 export default function translateFieldPathSegment(fieldPathSegment, i, fieldPathParts) {
     // for each segment, convert its fieldPath representation into a human readable version

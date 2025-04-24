@@ -1,5 +1,9 @@
-import { DataContractProposalOperationType, DataContract } from '../../../../../../../../types.generated';
-import { DataContractBuilderState, DataContractCategoryType } from './types';
+import {
+    DataContractBuilderState,
+    DataContractCategoryType,
+} from '@app/entity/shared/tabs/Dataset/Validations/contract/builder/types';
+
+import { DataContract, DataContractProposalOperationType } from '@types';
 
 /**
  * Creates a builder state instance from a Data Contract object.

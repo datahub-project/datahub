@@ -1,5 +1,17 @@
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import React, { useState } from 'react';
+
+import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
+import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
+import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
+import StructuredPropertyValue from '@app/entityV2/shared/tabs/Properties/StructuredPropertyValue';
+import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
+import { useGetProposedProperties } from '@app/entityV2/shared/tabs/Properties/useGetProposedProperties';
+import { useHydratedEntityMap } from '@app/entityV2/shared/tabs/Properties/useHydratedEntityMap';
+import ProposalModal from '@app/shared/tags/ProposalModal';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import EditStructuredPropertyModal from '@src/app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
@@ -16,6 +28,7 @@ import {
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import {
+    ActionRequest,
     EntityType,
     Maybe,
     SchemaFieldEntity,
@@ -23,16 +36,6 @@ import {
     StdDataType,
     StructuredPropertyEntity,
 } from '@src/types.generated';
-import React, { useState } from 'react';
-import { EMPTY_MESSAGES } from '../constants';
-import EmptySectionText from '../containers/profile/sidebar/EmptySectionText';
-import SectionActionButton from '../containers/profile/sidebar/SectionActionButton';
-import { SidebarSection } from '../containers/profile/sidebar/SidebarSection';
-import { StyledDivider } from '../tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
-import StructuredPropertyValue from '../tabs/Properties/StructuredPropertyValue';
-import { PropertyRow } from '../tabs/Properties/types';
-import { useHydratedEntityMap } from '../tabs/Properties/useHydratedEntityMap';
-import { useGetProposedProperties } from '../tabs/Properties/useGetProposedProperties';
 
 interface FieldProperties {
     isSchemaSidebar?: boolean;
@@ -52,6 +55,8 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
     const [isPropModalVisible, setIsPropModalVisible] = useState(false);
     const [selectedProperty, setSelectedProperty] = useState<SearchResult | undefined>();
     const isSchemaSidebar = properties?.isSchemaSidebar || false;
+
+    const [selectedActionRequest, setSelectedActionRequest] = useState<ActionRequest | undefined | null>(null);
 
     const inputs = {
         types: [EntityType.StructuredProperty],
@@ -130,7 +135,12 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                     propertyRow?.dataType?.info?.type === StdDataType.RichText ||
                     proposedPropRows[0]?.dataType?.info?.type === StdDataType.RichText;
 
-                const proposedValues = proposedPropRows.flatMap((row) => row.values || []);
+                const proposedValues = proposedPropRows.flatMap((row) =>
+                    (row.values || []).map((value) => ({
+                        value,
+                        request: row.request,
+                    })),
+                );
 
                 return (
                     <>
@@ -153,12 +163,27 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                                     {proposedValues.length > 0 && (
                                         <>
                                             {proposedValues.map((val) => (
-                                                <StructuredPropertyValue
-                                                    value={val}
-                                                    isRichText={isRichText}
-                                                    hydratedEntityMap={hydratedEntityMap}
-                                                    isProposed
-                                                />
+                                                <span
+                                                    // eslint needs keyboard listener for non-interactive elements
+                                                    role="button"
+                                                    tabIndex={0}
+                                                    onClick={() => {
+                                                        setSelectedActionRequest(val.request);
+                                                    }}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter' || e.key === ' ') {
+                                                            e.preventDefault();
+                                                            setSelectedActionRequest(val.request);
+                                                        }
+                                                    }}
+                                                >
+                                                    <StructuredPropertyValue
+                                                        value={val.value}
+                                                        isRichText={isRichText}
+                                                        hydratedEntityMap={hydratedEntityMap}
+                                                        isProposed
+                                                    />
+                                                </span>
                                             ))}
                                         </>
                                     )}
@@ -200,6 +225,14 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                     refetch={isSchemaSidebar ? properties?.refetch : undefined}
                     associatedUrn={isSchemaSidebar ? properties?.fieldEntity?.urn : undefined}
                     fieldEntity={isSchemaSidebar ? properties?.fieldEntity : undefined}
+                />
+            )}
+            {selectedActionRequest && (
+                <ProposalModal
+                    actionRequest={selectedActionRequest}
+                    selectedActionRequest={selectedActionRequest}
+                    setSelectedActionRequest={setSelectedActionRequest}
+                    refetch={isSchemaSidebar ? properties?.refetch : undefined}
                 />
             )}
         </>

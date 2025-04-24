@@ -3,23 +3,23 @@ import { Button, message } from 'antd';
 import DOMPurify from 'dompurify';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { SectionHeader, StyledDivider } from './components';
-import UpdateDescriptionModal from '../../../../../components/legacy/DescriptionModal';
+
+import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
+import UpdateDescriptionModal from '@app/entity/shared/components/legacy/DescriptionModal';
+import DescriptionSection from '@app/entity/shared/containers/profile/sidebar/AboutSection/DescriptionSection';
+import PropagationDetails from '@app/entity/shared/propagation/PropagationDetails';
+import { useSchemaRefetch } from '@app/entity/shared/tabs/Dataset/Schema/SchemaContext';
 import {
-    EditableSchemaFieldInfo,
-    EntityType,
-    SchemaField,
-    SubResourceType,
-} from '../../../../../../../../types.generated';
-import { getFieldDescriptionDetails } from '../../utils/getFieldDescriptionDetails';
-import PropagationDetails from '../../../../../propagation/PropagationDetails';
-import DescriptionSection from '../../../../../containers/profile/sidebar/AboutSection/DescriptionSection';
-import { useEntityData, useMutationUrn, useRefetch } from '../../../../../EntityContext';
-import { useSchemaRefetch } from '../../SchemaContext';
-import { useUpdateDescriptionMutation } from '../../../../../../../../graphql/mutations.generated';
-import analytics, { EntityActionType, EventType } from '../../../../../../../analytics';
-import SchemaEditableContext from '../../../../../../../shared/SchemaEditableContext';
-import { useProposeUpdateDescriptionMutation } from '../../../../../../../../graphql/proposals.generated';
+    SectionHeader,
+    StyledDivider,
+} from '@app/entity/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
+import { getFieldDescriptionDetails } from '@app/entity/shared/tabs/Dataset/Schema/utils/getFieldDescriptionDetails';
+import SchemaEditableContext from '@app/shared/SchemaEditableContext';
+
+import { useUpdateDescriptionMutation } from '@graphql/mutations.generated';
+import { useProposeUpdateDescriptionMutation } from '@graphql/proposals.generated';
+import { EditableSchemaFieldInfo, EntityType, SchemaField, SubResourceType } from '@types';
 
 const EditIcon = styled(Button)`
     border: none;

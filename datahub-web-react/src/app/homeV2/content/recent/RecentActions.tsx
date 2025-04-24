@@ -1,10 +1,11 @@
-import OnboardingContext from '@app/onboarding/OnboardingContext';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { RecentlyEditedOrViewed } from '@app/homeV2/content/recent/RecentlyEditedOrViewed';
+import { useGetRecentActions } from '@app/homeV2/content/recent/useGetRecentActions';
+import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { RecentlyEditedOrViewed } from './RecentlyEditedOrViewed';
-import { useGetRecentActions } from './useGetRecentActions';
-import { useUserContext } from '../../../context/useUserContext';
 
 const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     display: flex;

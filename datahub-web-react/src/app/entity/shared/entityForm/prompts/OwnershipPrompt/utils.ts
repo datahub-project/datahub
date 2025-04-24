@@ -1,5 +1,5 @@
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import { FormPrompt, PromptCardinality } from '@src/types.generated';
-import { GenericEntityProperties } from '../../../types';
 
 // Get default value of owners from the asset based on different conditions to show in the form
 export const getDefaultOwnerEntities = (entityData: GenericEntityProperties | null, prompt: FormPrompt) => {

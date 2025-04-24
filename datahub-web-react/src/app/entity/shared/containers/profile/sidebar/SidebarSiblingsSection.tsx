@@ -1,16 +1,22 @@
 import { blue } from '@ant-design/colors';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
-import { Dataset, Entity } from '../../../../../../types.generated';
-import { CompactEntityNameList } from '../../../../../recommendations/renderer/component/CompactEntityNameList';
-import { UnionType } from '../../../../../search/utils/constants';
-import { useIsShowSeparateSiblingsEnabled } from '../../../../../useAppConfig';
-import { useDataNotCombinedWithSiblings, useEntityData } from '../../../EntityContext';
-import { EmbeddedListSearchModal } from '../../../components/styled/search/EmbeddedListSearchModal';
-import { ANTD_GRAY } from '../../../constants';
-import { SEPARATE_SIBLINGS_URL_PARAM, stripSiblingsFromEntity, useIsSeparateSiblingsMode } from '../../../siblingUtils';
-import { SidebarHeader } from './SidebarHeader';
+
+import { useDataNotCombinedWithSiblings, useEntityData } from '@app/entity/shared/EntityContext';
+import { EmbeddedListSearchModal } from '@app/entity/shared/components/styled/search/EmbeddedListSearchModal';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { SidebarHeader } from '@app/entity/shared/containers/profile/sidebar/SidebarHeader';
+import {
+    SEPARATE_SIBLINGS_URL_PARAM,
+    stripSiblingsFromEntity,
+    useIsSeparateSiblingsMode,
+} from '@app/entity/shared/siblingUtils';
+import { CompactEntityNameList } from '@app/recommendations/renderer/component/CompactEntityNameList';
+import { UnionType } from '@app/search/utils/constants';
+import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
+
+import { GetDatasetQuery } from '@graphql/dataset.generated';
+import { Dataset, Entity } from '@types';
 
 const EntityListContainer = styled.div`
     display: flex;

@@ -1,12 +1,12 @@
 import React from 'react';
-
 import styled from 'styled-components';
 
-import { Assertion, AssertionResult, DataContract, Monitor } from '../../../../../../../../types.generated';
-import { AssertionDescription } from './summary/AssertionDescription';
-import { AssertionResultPill } from './summary/shared/AssertionResultPill';
-import { Actions } from './actions/Actions';
-import { CloseButton } from './shared/CloseButton';
+import { Actions } from '@app/entity/shared/tabs/Dataset/Validations/assertion/profile/actions/Actions';
+import { CloseButton } from '@app/entity/shared/tabs/Dataset/Validations/assertion/profile/shared/CloseButton';
+import { AssertionDescription } from '@app/entity/shared/tabs/Dataset/Validations/assertion/profile/summary/AssertionDescription';
+import { AssertionResultPill } from '@app/entity/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/AssertionResultPill';
+
+import { Assertion, AssertionResult, DataContract, Monitor } from '@types';
 
 const Container = styled.div`
     display: flex;

@@ -27,4 +27,3 @@ Extracts:
 ## Supported Sources
 
 SQL profiling is supported for all SQL sources. Check the individual source page to verify if it supports profiling.
-

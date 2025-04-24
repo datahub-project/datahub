@@ -1,9 +1,10 @@
 import { Sidebar } from '@phosphor-icons/react';
 import React from 'react';
 import styled from 'styled-components';
+
+import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import { colors } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
-import { useNavBarContext } from './NavBarContext';
 
 const Toggler = styled.button<{ $isCollapsed?: boolean }>`
     cursor: pointer;

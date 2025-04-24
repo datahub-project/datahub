@@ -1,6 +1,7 @@
 import React, { Dispatch, ReactNode, createContext, useContext, useReducer } from 'react';
-import { Action, State } from './types';
-import { createInitialState, reducer } from './reducer';
+
+import { createInitialState, reducer } from '@app/shared/subscribe/drawer/state/reducer';
+import { Action, State } from '@app/shared/subscribe/drawer/state/types';
 
 const DrawerStateContext = createContext<State | null>(null);
 const DrawerDispatchContext = createContext<Dispatch<Action> | null>(null);

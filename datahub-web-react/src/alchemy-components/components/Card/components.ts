@@ -1,6 +1,7 @@
+import styled from 'styled-components';
+
 import { colors, radius, spacing, typography } from '@src/alchemy-components/theme';
 import { IconAlignmentOptions } from '@src/alchemy-components/theme/config';
-import styled from 'styled-components';
 
 export const CardContainer = styled.div<{ hasButton?: boolean; width?: string; maxWidth?: string; height?: string }>(
     ({ hasButton, width, maxWidth, height }) => ({

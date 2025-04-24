@@ -1,17 +1,18 @@
-import { useGetTimeRangeUsageAggregationsLazyQuery } from '@src/graphql/dataset.generated';
-import { Maybe, TimeRange, UsageAggregation, UsageQueryResult } from '@src/types.generated';
-import { useEffect, useState } from 'react';
 import moment from 'moment';
-import { useStatsSectionsContext } from '../../StatsSectionsContext';
+import { useEffect, useState } from 'react';
+
+import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
 import {
+    MAX_VALUE_AGGREGATION,
+    SUM_VALUES_AGGREGATION,
+    TimeInterval,
     addMonthOverMonthValue,
     getCalendarStartTimeByTimeRange,
     groupTimeData,
-    MAX_VALUE_AGGREGATION,
     roundTimeByTimeRange,
-    SUM_VALUES_AGGREGATION,
-    TimeInterval,
-} from '../utils';
+} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/utils';
+import { useGetTimeRangeUsageAggregationsLazyQuery } from '@src/graphql/dataset.generated';
+import { Maybe, TimeRange, UsageAggregation, UsageQueryResult } from '@src/types.generated';
 
 const MAX_NUM_DAYS_PER_MONTH = 31;
 const MAX_NUM_DAYS_PER_QUARTER = 95;

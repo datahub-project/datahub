@@ -1,7 +1,9 @@
-import AutoCompleteSelect from '@src/alchemy-components/components/Select/AutoCompleteSelect';
-import EntitySearchInputResultV2 from '@app/entityV2/shared/EntitySearchInput/EntitySearchInputResultV2';
 import React, { useState } from 'react';
 import { useDebounce } from 'react-use';
+
+import EntitySearchInputResultV2 from '@app/entityV2/shared/EntitySearchInput/EntitySearchInputResultV2';
+import AutoCompleteSelect from '@src/alchemy-components/components/Select/AutoCompleteSelect';
+
 import {
     useGetAutoCompleteMultipleResultsLazyQuery,
     useGetSearchResultsForMultipleQuery,

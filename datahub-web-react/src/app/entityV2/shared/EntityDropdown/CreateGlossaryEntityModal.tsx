@@ -1,28 +1,27 @@
+import { EditOutlined } from '@ant-design/icons';
+import { Collapse, Form, Input, Typography, message } from 'antd';
+import DOMPurify from 'dompurify';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { EditOutlined } from '@ant-design/icons';
-import { message, Input, Typography, Form, Collapse } from 'antd';
-import DOMPurify from 'dompurify';
+
+import analytics, { EventType } from '@app/analytics';
+import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import NodeParentSelect from '@app/entityV2/shared/EntityDropdown/NodeParentSelect';
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
+import DescriptionModal from '@app/entityV2/shared/components/legacy/DescriptionModal';
+import ProposalDescriptionModal from '@app/entityV2/shared/containers/profile/sidebar/ProposalDescriptionModal';
+import { getGlossaryRootToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
+import { validateCustomUrnId } from '@app/shared/textUtil';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button, Modal } from '@src/alchemy-components';
 import { useAppConfig } from '@src/app/useAppConfig';
-import {
-    useCreateGlossaryTermMutation,
-    useCreateGlossaryNodeMutation,
-} from '../../../../graphql/glossaryTerm.generated';
-import { EntityType } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import NodeParentSelect from './NodeParentSelect';
-import { useEntityData, useRefetch } from '../../../entity/shared/EntityContext';
+
+import { useCreateGlossaryNodeMutation, useCreateGlossaryTermMutation } from '@graphql/glossaryTerm.generated';
 import {
     useProposeCreateGlossaryNodeMutation,
     useProposeCreateGlossaryTermMutation,
-} from '../../../../graphql/proposals.generated';
-import analytics, { EventType } from '../../../analytics';
-import DescriptionModal from '../components/legacy/DescriptionModal';
-import { validateCustomUrnId } from '../../../shared/textUtil';
-import { useGlossaryEntityData } from '../GlossaryEntityContext';
-import { getGlossaryRootToUpdate, updateGlossarySidebar } from '../../../glossary/utils';
-import ProposalDescriptionModal from '../containers/profile/sidebar/ProposalDescriptionModal';
+} from '@graphql/proposals.generated';
+import { EntityType } from '@types';
 
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;

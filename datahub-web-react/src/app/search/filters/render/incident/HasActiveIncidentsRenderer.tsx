@@ -1,8 +1,9 @@
-import React from 'react';
 import { WarningOutlined } from '@ant-design/icons';
-import { FilterRenderer } from '../FilterRenderer';
-import { FilterRenderProps } from '../types';
-import { HasActiveIncidentsFilter } from './HasActiveIncidentsFilter';
+import React from 'react';
+
+import { FilterRenderer } from '@app/search/filters/render/FilterRenderer';
+import { HasActiveIncidentsFilter } from '@app/search/filters/render/incident/HasActiveIncidentsFilter';
+import { FilterRenderProps } from '@app/search/filters/render/types';
 
 export class HasActiveIncidentsRenderer implements FilterRenderer {
     field = 'hasActiveIncidents';

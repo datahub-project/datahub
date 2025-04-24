@@ -1,6 +1,7 @@
 ---
 title: Configuration
 ---
+
 # Configuring Your Tableau Connector to DataHub
 
 Now that you have created a DataHub-specific user with the relevant access in Tableau in [the prior step](setup.md), it's now time to set up a connection via the DataHub UI.
@@ -25,12 +26,12 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
 
 3. Create a `username` secret
 
-  This will securely store your Tableau `username` within DataHub
+This will securely store your Tableau `username` within DataHub
 
-   * Enter a name like `TABLEAU_USERNAME` - we will use this later to refer in recipe
-   * Enter the `username`, setup in the [setup guide](setup.md)
-   * Optionally add a description
-   * Click **Create**
+- Enter a name like `TABLEAU_USERNAME` - we will use this later to refer in recipe
+- Enter the `username`, setup in the [setup guide](setup.md)
+- Optionally add a description
+- Click **Create**
 
   <p align="center">
     <img width="70%" alt="Tableau Username Secret" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/tableau/tableau-username-secret.png"/>
@@ -38,12 +39,12 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
 
 4. Create a `password` secret
 
-  This will securely store your Tableau `password` within DataHub
+This will securely store your Tableau `password` within DataHub
 
-   * Enter a name like `TABLEAU_PASSWORD` - we will use this later to refer in recipe
-   * Enter the `password` of the user, setup in the [setup guide](setup.md)
-   * Optionally add a description
-   * Click **Create**
+- Enter a name like `TABLEAU_PASSWORD` - we will use this later to refer in recipe
+- Enter the `password` of the user, setup in the [setup guide](setup.md)
+- Optionally add a description
+- Click **Create**
 
   <p align="center">
     <img width="70%" alt="Tableau Password Secret" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/tableau/tableau-user-password-secret.png"/>
@@ -66,15 +67,14 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
 7.  Fill in the Tableau Recipe form:
 
     You need to set minimum following fields in the recipe:
-    
+
     a. **Host URL:** URL of your Tableau instance (e.g., https://15az.online.tableau.com/). It is available in browser address bar on Tableau Portal.
 
     b. **Username:** Use the TABLEAU_USERNAME secret (e.g., "${TABLEAU_USERNAME}").
 
-    c. **Password:** Use the TABLEAU_PASSWORD secret (e.g., "${TABLEAU_PASSWORD}").   
+    c. **Password:** Use the TABLEAU_PASSWORD secret (e.g., "${TABLEAU_PASSWORD}").
 
     d. **Site**: Required only if using tableau cloud/ tableau online
-    
 
 To filter specific project, use `project_pattern` fields.
 
@@ -85,6 +85,7 @@ To filter specific project, use `project_pattern` fields.
               - "SalesProject"
 
 Your recipe should look something like this:
+
 <p align="center">
   <img width="70%" alt="tableau recipe in form format" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/tableau/tableau-recipe.png"/>
 </p>
@@ -99,12 +100,12 @@ Now it's time to schedule a recurring ingestion pipeline to regularly extract me
 
 <p align="center">
     <img width="75%" alt="schedule selector" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_set_execution_schedule.png"/>
-</p>  
+</p>
 
 9. Ensure you've configured your correct timezone
 <p align="center">
     <img width="75%" alt="timezone_selector" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_set_execution_timezone.png"/>
-</p>  
+</p>
 
 10. Click **Next** when you are done
 
@@ -113,13 +114,13 @@ Now it's time to schedule a recurring ingestion pipeline to regularly extract me
 11. Name your ingestion source, then click **Save and Run**
 <p align="center">
   <img width="75%" alt="Name your ingestion" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/tableau/tableau-ingestion-save-and-run.png"/>
-</p>  
+</p>
 
 You will now find your new ingestion source running
 
 <p align="center">
   <img width="75%" alt="ingestion_running" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/tableau/tableau-ingestion-running.png"/>
-</p>  
+</p>
 
 ## Validate Ingestion Runs
 
@@ -127,7 +128,7 @@ You will now find your new ingestion source running
 
 <p align="center">
   <img width="75%" alt="ingestion succeeded" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/tableau/tableau-ingestion-succeeded.png"/>
-</p>  
+</p>
 
 13. Click the plus sign to expand the full list of historical runs and outcomes; click **Details** to see the outcomes of a specific run
 
@@ -139,13 +140,12 @@ You will now find your new ingestion source running
 
 <p align="center">
   <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/tableau/tableau-ingestion-run-detail.png"/>
-</p>  
+</p>
 
-15. Pick an entity from the list to manually validate if it contains the detail you expected  
+15. Pick an entity from the list to manually validate if it contains the detail you expected
 
 <p align="center">
   <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/tableau/tableau-ingestion-assets.png"/>
-</p>  
+</p>
 
 **Congratulations!** You've successfully set up Tableau as an ingestion source for DataHub!
-

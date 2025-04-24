@@ -1,21 +1,23 @@
-import React, { useEffect, useState } from 'react';
-import { PageTitle, SearchBar } from '@src/alchemy-components';
 import { message } from 'antd';
-import { useLocation } from 'react-router';
 import * as QueryString from 'query-string';
-import { Tests } from './Tests';
-import { DEFAULT_TESTS_PAGE_SIZE } from './constants';
-import { useListTestsQuery } from '../../graphql/test.generated';
-import { Message } from '../shared/Message';
-import { filterTests } from './utils';
-import { NewTestButton } from './NewTestButton';
-import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
+import React, { useEffect, useState } from 'react';
+import { useLocation } from 'react-router';
+
 import {
     ButtonContainer,
-    PageContainer,
     HeaderContainer,
     HeaderContent,
-} from '../govern/structuredProperties/styledComponents';
+    PageContainer,
+} from '@app/govern/structuredProperties/styledComponents';
+import { Message } from '@app/shared/Message';
+import { NewTestButton } from '@app/tests/NewTestButton';
+import { Tests } from '@app/tests/Tests';
+import { DEFAULT_TESTS_PAGE_SIZE } from '@app/tests/constants';
+import { filterTests } from '@app/tests/utils';
+import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+import { PageTitle, SearchBar } from '@src/alchemy-components';
+
+import { useListTestsQuery } from '@graphql/test.generated';
 
 export const ManageTestsPage = () => {
     const location = useLocation();

@@ -1,8 +1,9 @@
-import React from 'react';
 import { MagnifyingGlass } from '@phosphor-icons/react';
+import React from 'react';
+import styled from 'styled-components/macro';
+
 import { Text } from '@src/alchemy-components';
 import colors from '@src/alchemy-components/theme/foundations/colors';
-import styled from 'styled-components/macro';
 
 const RecommendedOptionWrapper = styled.div`
     margin-left: 0;

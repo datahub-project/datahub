@@ -44,6 +44,7 @@ import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -79,7 +80,7 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
 
   private RelatedEntitiesResult getRelatedEntities(
       String rawUrn,
-      List<String> relationshipTypes,
+      Set<String> relationshipTypes,
       RelationshipDirection direction,
       @Nullable Integer start,
       @Nullable Integer count) {
@@ -132,7 +133,7 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity lineage: " + rawUrn);
     }
     RelationshipDirection direction = RelationshipDirection.valueOf(rawDirection);
-    final List<String> relationshipTypes = Arrays.asList(relationshipTypesParam);
+    final Set<String> relationshipTypes = Set.of(relationshipTypesParam);
     return RestliUtils.toTask(systemOperationContext,
         () -> {
           final RelatedEntitiesResult relatedEntitiesResult =

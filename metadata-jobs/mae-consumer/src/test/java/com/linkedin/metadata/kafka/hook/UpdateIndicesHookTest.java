@@ -63,8 +63,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Set;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Value;
 import org.testng.annotations.BeforeMethod;
@@ -175,7 +174,7 @@ public class UpdateIndicesHookTest {
         .removeEdgesFromNode(
             any(OperationContext.class),
             Mockito.eq(downstreamUrn),
-            Mockito.eq(new ArrayList<>(Collections.singleton(DOWNSTREAM_OF))),
+            Mockito.eq(Set.of(DOWNSTREAM_OF)),
             Mockito.eq(
                 newRelationshipFilter(
                     new Filter().setOr(new ConjunctiveCriterionArray()),
@@ -214,7 +213,7 @@ public class UpdateIndicesHookTest {
         .removeEdgesFromNode(
             any(OperationContext.class),
             Mockito.eq(downstreamUrn),
-            Mockito.eq(new ArrayList<>(Collections.singleton(DOWNSTREAM_OF))),
+            Mockito.eq(Set.of(DOWNSTREAM_OF)),
             Mockito.eq(
                 newRelationshipFilter(
                     new Filter().setOr(new ConjunctiveCriterionArray()),
@@ -264,7 +263,7 @@ public class UpdateIndicesHookTest {
         .removeEdgesFromNode(
             any(OperationContext.class),
             Mockito.eq(downstreamUrn),
-            Mockito.eq(new ArrayList<>(Collections.singleton(DOWNSTREAM_OF))),
+            Mockito.eq(Set.of(DOWNSTREAM_OF)),
             Mockito.eq(
                 newRelationshipFilter(
                     new Filter().setOr(new ConjunctiveCriterionArray()),

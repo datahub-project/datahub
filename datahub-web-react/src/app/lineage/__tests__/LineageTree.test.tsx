@@ -1,20 +1,16 @@
-import React from 'react';
+import { MockedProvider } from '@apollo/client/testing';
 import { render } from '@testing-library/react';
 import { Zoom } from '@visx/zoom';
-import { MockedProvider } from '@apollo/client/testing';
-import {
-    dataset3WithLineage,
-    dataset4WithLineage,
-    dataset5WithLineage,
-    dataset6WithLineage,
-    mocks,
-} from '../../../Mocks';
-import { Direction, EntityAndType } from '../types';
-import constructTree from '../utils/constructTree';
-import LineageTree from '../LineageTree';
-import extendAsyncEntities from '../utils/extendAsyncEntities';
-import TestPageContainer, { getTestEntityRegistry } from '../../../utils/test-utils/TestPageContainer';
-import { EntityType } from '../../../types.generated';
+import React from 'react';
+
+import LineageTree from '@app/lineage/LineageTree';
+import { Direction, EntityAndType } from '@app/lineage/types';
+import constructTree from '@app/lineage/utils/constructTree';
+import extendAsyncEntities from '@app/lineage/utils/extendAsyncEntities';
+import { dataset3WithLineage, dataset4WithLineage, dataset5WithLineage, dataset6WithLineage, mocks } from '@src/Mocks';
+import TestPageContainer, { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
+
+import { EntityType } from '@types';
 
 const margin = { top: 10, left: 280, right: 280, bottom: 10 };
 const [windowWidth, windowHeight] = [1000, 500];

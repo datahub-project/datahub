@@ -1,21 +1,22 @@
+import React, { useCallback, useMemo, useState } from 'react';
+
+import MetricChartPopover from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/components/sections/ChartsSection/charts/components/MetricChartPopover';
+import useDefaultLookbackWindowType from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/components/sections/ChartsSection/charts/hooks/useDefaultLookbackWindowType';
+import { useExtractMetricStats } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/components/sections/ChartsSection/charts/hooks/useExtractMetricStats';
+import useGetBottomAxisPropsByLookbackWindowType from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/components/sections/ChartsSection/charts/hooks/useGetBottomAxisPropsByLookbackWindowType';
+import { usePrepareMetricStats } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/components/sections/ChartsSection/charts/hooks/usePrepareMetricStats';
+import useStatsTabContext from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/hooks/useStatsTabContext';
 import { GraphCard, LineChart } from '@src/alchemy-components';
 import { Datum } from '@src/alchemy-components/components/LineChart/types';
+import MoreInfoModalContent from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/MoreInfoModalContent';
 import TimeRangeSelect from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/TimeRangeSelect';
 import {
     GRAPH_LOOKBACK_WINDOWS_OPTIONS,
     LookbackWindowType,
 } from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/constants';
 import useGetTimeRangeOptionsByLookbackWindow from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/hooks/useGetTimeRangeOptionsByLookbackWindow';
-import { capitalizeFirstLetterOnly } from '@src/app/shared/textUtil';
-import React, { useCallback, useMemo, useState } from 'react';
-import MoreInfoModalContent from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/MoreInfoModalContent';
 import { AggregationFunction } from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/utils';
-import useStatsTabContext from '../../../../../hooks/useStatsTabContext';
-import { useExtractMetricStats } from '../hooks/useExtractMetricStats';
-import { usePrepareMetricStats } from '../hooks/usePrepareMetricStats';
-import useGetBottomAxisPropsByLookbackWindowType from '../hooks/useGetBottomAxisPropsByLookbackWindowType';
-import MetricChartPopover from './MetricChartPopover';
-import useDefaultLookbackWindowType from '../hooks/useDefaultLookbackWindowType';
+import { capitalizeFirstLetterOnly } from '@src/app/shared/textUtil';
 
 export interface MetricLineChartProps {
     metric: string;

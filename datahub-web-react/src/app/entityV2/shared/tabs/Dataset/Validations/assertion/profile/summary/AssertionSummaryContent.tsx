@@ -1,14 +1,14 @@
+import { Divider } from 'antd';
 import React from 'react';
 
-import { Divider } from 'antd';
+import { getNextScheduleEvaluationTimeMs } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { tryGetScheduleFromMonitor } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/utils';
+import { AssertionSummarySection } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/AssertionSummarySection';
+import { AssertionResultsTable } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/table/AssertionResultsTable';
+import { AssertionResultsTimeline } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/AssertionResultsTimeline';
+import { AssertionScheduleSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/schedule/AssertionScheduleSummary';
 
-import { Assertion, Monitor, MonitorMode } from '../../../../../../../../../types.generated';
-import { getNextScheduleEvaluationTimeMs } from '../../../acrylUtils';
-import { AssertionSummarySection } from './AssertionSummarySection';
-import { AssertionResultsTimeline } from './result/timeline/AssertionResultsTimeline';
-import { AssertionResultsTable } from './result/table/AssertionResultsTable';
-import { AssertionScheduleSummary } from './schedule/AssertionScheduleSummary';
-import { tryGetScheduleFromMonitor } from '../shared/utils';
+import { Assertion, Monitor, MonitorMode } from '@types';
 
 type Props = {
     assertion: Assertion;

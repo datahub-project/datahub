@@ -1,8 +1,9 @@
-import { SelectOption } from '@src/alchemy-components';
 import { useCallback } from 'react';
-import { GRAPH_LOOKBACK_WINDOWS } from '../constants';
-import { getStartTimeByWindowSize } from '../utils';
-import useGetTimeRangeOptions from './useGetTimeRangeOptions';
+
+import { GRAPH_LOOKBACK_WINDOWS } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/constants';
+import useGetTimeRangeOptions from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/hooks/useGetTimeRangeOptions';
+import { getStartTimeByWindowSize } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/utils';
+import { SelectOption } from '@src/alchemy-components';
 
 export default function useGetTimeRangeOptionsByLookbackWindow(
     timeRangeOptions: SelectOption[],

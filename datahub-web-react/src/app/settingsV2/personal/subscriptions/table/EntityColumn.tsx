@@ -1,14 +1,16 @@
-import React from 'react';
-import { Typography } from 'antd';
 import { Tooltip } from '@components';
+import { Typography } from 'antd';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
-import { ANTD_GRAY } from '../../../../entity/shared/constants';
-import { DataHubSubscription, EntityType } from '../../../../../types.generated';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
-import { IconStyleType } from '../../../../entity/Entity';
-import { getEntityNameAndLogo } from '../../utils';
-import { SEPARATE_SIBLINGS_URL_PARAM } from '../../../../entity/shared/siblingUtils';
+
+import { IconStyleType } from '@app/entity/Entity';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { SEPARATE_SIBLINGS_URL_PARAM } from '@app/entity/shared/siblingUtils';
+import { getEntityNameAndLogo } from '@app/settingsV2/personal/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { DataHubSubscription, EntityType } from '@types';
 
 const EntityColumnContainer = styled.div`
     margin-bottom: 16px;

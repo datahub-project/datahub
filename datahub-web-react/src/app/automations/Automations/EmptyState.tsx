@@ -1,15 +1,15 @@
-import React from 'react';
-
-import styled from 'styled-components/macro';
-import { Empty, Typography } from 'antd';
-
 import { Icon } from '@components';
+import { Empty, Typography } from 'antd';
+import React from 'react';
+import styled from 'styled-components/macro';
+
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 const EmptyDomainContainer = styled.div`
     display: flex;
     justify-content: center;
     overflow-y: auto;
+    margin-top: 16px;
 `;
 
 const StyledEmpty = styled(Empty)`

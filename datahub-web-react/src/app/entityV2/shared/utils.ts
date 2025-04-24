@@ -1,28 +1,29 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { TITLE_CASE_EXCEPTION_WORDS } from '@app/entityV2/shared/constants';
+import { OUTPUT_PORTS_FIELD } from '@app/search/utils/constants';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { TimeWindowSize } from '@app/shared/time/timeUtils';
+
 import {
+    ActionRequest,
+    ActionRequestType,
+    ChartProperties,
     ChartStatsSummary,
     DashboardStatsSummary,
     DataProduct,
+    Dataset,
     DatasetProfile,
+    DatasetProperties,
     DatasetStatsSummary,
     DateInterval,
     Entity,
     EntityRelationshipsResult,
     EntityType,
-    SearchResult,
-    DatasetProperties,
-    ChartProperties,
     Operation,
-    Dataset,
-    ActionRequest,
-    ActionRequestType,
-} from '../../../types.generated';
-
-import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-import { GenericEntityProperties } from '../../entity/shared/types';
-import { OUTPUT_PORTS_FIELD } from '../../search/utils/constants';
-import { TimeWindowSize } from '../../shared/time/timeUtils';
-import { TITLE_CASE_EXCEPTION_WORDS } from './constants';
+    SearchResult,
+} from '@types';
 
 export function dictToQueryStringParams(params: Record<string, string | boolean>) {
     return Object.keys(params)
@@ -319,6 +320,7 @@ export const toProperTitleCase = (str: string) => {
  */
 export function isEntityType(entityType?: string): entityType is EntityType {
     if (entityType === undefined) return false;
+    if (entityType === null) return false;
 
     const possibleValues: Array<string> = Array.from(Object.values(EntityType));
     return possibleValues.includes(entityType);
@@ -349,10 +351,10 @@ export const tryExtractSubResourceDescription = (entity: Entity, subResource: st
 type RecursivelyReplaceNullWithUndefined<T> = T extends null
     ? undefined
     : T extends (infer U)[]
-    ? RecursivelyReplaceNullWithUndefined<U>[]
-    : T extends Record<string, unknown>
-    ? { [K in keyof T]: RecursivelyReplaceNullWithUndefined<T[K]> }
-    : T;
+      ? RecursivelyReplaceNullWithUndefined<U>[]
+      : T extends Record<string, unknown>
+        ? { [K in keyof T]: RecursivelyReplaceNullWithUndefined<T[K]> }
+        : T;
 
 export function nullsToUndefined<T>(obj: T): RecursivelyReplaceNullWithUndefined<T> {
     if (obj === null || obj === undefined) {

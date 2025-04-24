@@ -1,38 +1,31 @@
 import React, { useState } from 'react';
-
-import styled from 'styled-components';
 import { useParams } from 'react-router-dom';
+import styled from 'styled-components';
 
-import { SearchResults as NotAlchemySearchResults } from '../../../../search/SearchResults';
-import { SearchFilters as NotAlchemySearchFilers } from '../../../../search/filters/SearchFilters';
-
-import { SearchResults } from '../../../../searchV2/SearchResults';
-import SearchFilters from '../../../../searchV2/filters/SearchFilters';
-
-import { SearchCfg } from '../../../../../conf';
-import { Entity } from '../../../../../types.generated';
-import { PreviewType } from '../../../Entity';
-
-import useGetSearchQueryInputs from '../../../../search/useGetSearchQueryInputs';
-import useSearchPage from '../../../../search/useSearchPage';
-import useFilterMode from '../../../../search/filters/useFilterMode';
-import { FormResponsesFilter, useEntityFormContext } from '../EntityFormContext';
-import { useIsSearchV2 } from '../../../../search/useSearchAndBrowseVersion';
-import { OnboardingTour } from '../../../../onboarding/OnboardingTour';
+import { PreviewType } from '@app/entity/Entity';
+import ActiveTasks from '@app/entity/shared/entityForm/ActiveTasks';
+import { BulkVerifyEntityModal } from '@app/entity/shared/entityForm/BulkVerify/BulkVerifyEntityModal';
+import { EmptyStates } from '@app/entity/shared/entityForm/EmptyStates';
+import { FormResponsesFilter, useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
+import { extractTypeFromUrn } from '@app/entity/shared/utils';
+import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import {
     FORM_BULK_VERIFY_ID,
     FORM_BULK_VERIFY_INTRO_ID,
     FORM_CHECK_RESPONSES_ID,
-} from '../../../../onboarding/config/FormOnboardingConfig';
+} from '@app/onboarding/config/FormOnboardingConfig';
+import { SearchResults as NotAlchemySearchResults } from '@app/search/SearchResults';
+import { SearchFilters as NotAlchemySearchFilers } from '@app/search/filters/SearchFilters';
+import useFilterMode from '@app/search/filters/useFilterMode';
+import useGetSearchQueryInputs from '@app/search/useGetSearchQueryInputs';
+import { useIsSearchV2 } from '@app/search/useSearchAndBrowseVersion';
+import useSearchPage from '@app/search/useSearchPage';
+import { SearchResults } from '@app/searchV2/SearchResults';
+import SearchFilters from '@app/searchV2/filters/SearchFilters';
+import { useIsThemeV2 } from '@app/useIsThemeV2';
+import { SearchCfg } from '@src/conf';
 
-import { extractTypeFromUrn } from '../../utils';
-
-import { BulkVerifyEntityModal } from './BulkVerifyEntityModal';
-
-import { EmptyStates } from '../EmptyStates';
-
-import { useIsThemeV2 } from '../../../../useIsThemeV2';
-import ActiveTasks from '../ActiveTasks';
+import { Entity } from '@types';
 
 const FormByQuestionWrapper = styled.div`
     display: flex;

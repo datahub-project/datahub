@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
-import { useLocation, useHistory } from 'react-router';
 import { message } from 'antd';
-import { DatasetFreshnessSourceType } from '../../../../../../../../types.generated';
-import { getFreshnessSourceOption } from './utils';
-import { getQueryParams } from '../../assertionUtils';
+import { useEffect, useState } from 'react';
+import { useHistory, useLocation } from 'react-router';
+
+import { getFreshnessSourceOption } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/utils';
+import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
+
+import { DatasetFreshnessSourceType } from '@types';
 
 type ChangeSourceOptionContext = {
     sourceType: DatasetFreshnessSourceType;

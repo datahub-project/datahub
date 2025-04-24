@@ -1,24 +1,38 @@
-import React, { useEffect, useState } from 'react';
 import { Empty, message } from 'antd';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { combineEntityDataWithSiblings } from '@app/entity/shared/siblingUtils';
+import { AcrylAssertionListFilters } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionListFilters';
+import { AcrylAssertionListTable } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionListTable';
+import { AssertionListTitleContainer } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AssertionListTitleContainer';
+import {
+    ASSERTION_DEFAULT_FILTERS,
+    ASSERTION_DEFAULT_RAW_DATA,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/constant';
+import {
+    AssertionListFilter,
+    AssertionTable,
+    EntityStagedForAssertion,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
+import { getFilteredTransformedAssertionData } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/utils';
+import {
+    createCachedAssertionWithMonitor,
+    updateDatasetAssertionsCache,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/acrylCacheUtils';
+import {
+    AssertionWithMonitorDetails,
+    tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { AssertionMonitorBuilderDrawer } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/AssertionMonitorBuilderDrawer';
+import { useOpenAssertionBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/hooks';
+import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
+import { TableLoadingSkeleton } from '@src/app/entityV2/shared/TableLoadingSkeleton';
 import { useGetDatasetContractQuery } from '@src/graphql/contract.generated';
 import { DataContract, EntityPrivileges } from '@src/types.generated';
-import { TableLoadingSkeleton } from '@src/app/entityV2/shared/TableLoadingSkeleton';
 
-import { useGetDatasetAssertionsWithMonitorsQuery } from '../../../../../../../graphql/monitor.generated';
-import { useEntityData } from '../../../../../../entity/shared/EntityContext';
-import { useIsSeparateSiblingsMode } from '../../../../useIsSeparateSiblingsMode';
-import { AssertionWithMonitorDetails, tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery } from '../acrylUtils';
-import { combineEntityDataWithSiblings } from '../../../../../../entity/shared/siblingUtils';
-import { getFilteredTransformedAssertionData } from './utils';
-import { AssertionMonitorBuilderDrawer } from '../assertion/builder/AssertionMonitorBuilderDrawer';
-import { createCachedAssertionWithMonitor, updateDatasetAssertionsCache } from '../acrylCacheUtils';
-import { AssertionTable, AssertionListFilter, EntityStagedForAssertion } from './types';
-import { AssertionListTitleContainer } from './AssertionListTitleContainer';
-import { AcrylAssertionListFilters } from './AcrylAssertionListFilters';
-import { AcrylAssertionListTable } from './AcrylAssertionListTable';
-import { ASSERTION_DEFAULT_FILTERS, ASSERTION_DEFAULT_RAW_DATA } from './constant';
-import { useOpenAssertionBuilder } from '../assertion/builder/hooks';
+import { useGetDatasetAssertionsWithMonitorsQuery } from '@graphql/monitor.generated';
 
 const AssertionListContainer = styled.div`
     margin: 0px 20px;

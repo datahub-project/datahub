@@ -1,9 +1,10 @@
 import React from 'react';
 import styled from 'styled-components';
-import { EntitySidebarSections } from './EntitySidebar';
-import { EntitySidebarSection, TabContextType, TabRenderType } from '../../../types';
-import SidebarFormInfoWrapper from './FormInfo/SidebarFormInfoWrapper';
-import { useIsDocumentationFormsEnabled } from '../../../../../useAppConfig';
+
+import { EntitySidebarSections } from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebar';
+import SidebarFormInfoWrapper from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/SidebarFormInfoWrapper';
+import { EntitySidebarSection, TabContextType, TabRenderType } from '@app/entityV2/shared/types';
+import { useIsDocumentationFormsEnabled } from '@app/useAppConfig';
 
 const DEFAULT_SIDEBAR_SECTION = {
     visible: (_, _1) => true,

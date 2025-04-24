@@ -1,11 +1,10 @@
 import React from 'react';
 
-import { EntityContext, useEntityContext } from '../../../entity/shared/EntityContext';
-
-import FormByEntity from './FormByEntity';
-import { FormView, useEntityFormContext } from '../../../entity/shared/entityForm/EntityFormContext';
-import FormByQuestion from '../../../entity/shared/entityForm/FormByQuestion';
-import BulkVerify from '../../../entity/shared/entityForm/BulkVerify/BulkVerify';
+import { EntityContext, useEntityContext } from '@app/entity/shared/EntityContext';
+import BulkVerify from '@app/entity/shared/entityForm/BulkVerify/BulkVerify';
+import { FormView, useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
+import FormByQuestion from '@app/entity/shared/entityForm/FormByQuestion';
+import FormByEntity from '@app/entityV2/shared/entityForm/FormByEntity';
 
 interface Props {
     formUrn: string;

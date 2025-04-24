@@ -1,7 +1,8 @@
-import { borders, Button, colors, radius, spacing, Text } from '@src/alchemy-components';
-import styled from 'styled-components';
 import { message } from 'antd';
 import React from 'react';
+import styled from 'styled-components';
+
+import { Button, Text, borders, colors, radius, spacing } from '@src/alchemy-components';
 
 interface SampleValueDetailedProps {
     sample: string;

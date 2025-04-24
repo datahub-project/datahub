@@ -1,25 +1,22 @@
 /* eslint-disable no-param-reassign */
-import React, { useState, useEffect, useMemo } from 'react';
-import { Form, Divider, Alert, message } from 'antd';
-import styled from 'styled-components';
-import _ from 'lodash';
-
 import { Button, Heading } from '@components';
+import { Alert, Divider, Form, message } from 'antd';
+import _ from 'lodash';
+import React, { useEffect, useMemo, useState } from 'react';
+import styled from 'styled-components';
 
+import { commonFields } from '@app/connections/constants';
+import {
+    useConnectionSecrets,
+    useCreateConnection,
+    useGetConnection,
+    useUpdateConnection,
+} from '@app/connections/hooks';
+import { mergeConfig } from '@app/connections/utils';
 import FormField from '@app/ingest/source/builder/RecipeForm/FormField';
 import TestConnectionButton from '@app/ingest/source/builder/RecipeForm/TestConnection/TestConnectionButton';
-import { getSourceConfigs, yamlToJson, jsonToYaml } from '@app/ingest/source/utils';
 import { SourceConfig } from '@app/ingest/source/builder/types';
-
-import {
-    useGetConnection,
-    useCreateConnection,
-    useUpdateConnection,
-    useConnectionSecrets,
-} from '@app/connections/hooks';
-
-import { mergeConfig } from '@app/connections/utils';
-import { commonFields } from '@app/connections/constants';
+import { getSourceConfigs, jsonToYaml, yamlToJson } from '@app/ingest/source/utils';
 
 function flattenToDotNotation(obj, parentKey, result = {}) {
     return _.transform(

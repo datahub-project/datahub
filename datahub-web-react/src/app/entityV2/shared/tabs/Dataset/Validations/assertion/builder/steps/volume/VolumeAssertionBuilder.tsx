@@ -1,25 +1,25 @@
-import React from 'react';
-
 import { Collapse } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
 
+import {
+    AI_INFERRED_ASSERTION_DEFAULT_SCHEDULE_CRON,
+    AI_INFERRED_ASSERTION_DEFAULT_SCHEDULE_TIMEZONE,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/constants';
+import { EvaluationScheduleBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/common/EvaluationScheduleBuilder';
+import { VolumeInferenceAdjuster } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/VolumeInferenceAdjuster';
+import { VolumeFilterBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/volume/VolumeFilterBuilder';
+import { VolumeParametersBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/volume/VolumeParametersBuilder';
+import { VolumeSourceTypeBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/volume/VolumeSourceTypeBuilder';
+import { VolumeTypeBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/volume/VolumeTypeBuilder';
 import {
     AssertionMonitorBuilderState,
     VolumeAssertionBuilderState,
     VolumeAssertionBuilderTypeOptions,
-} from '../../types';
-import { AssertionType, CronSchedule, DatasetVolumeSourceType } from '../../../../../../../../../../types.generated';
-import { EvaluationScheduleBuilder } from '../common/EvaluationScheduleBuilder';
-import { VolumeTypeBuilder } from './VolumeTypeBuilder';
-import { VolumeParametersBuilder } from './VolumeParametersBuilder';
-import { VolumeSourceTypeBuilder } from './VolumeSourceTypeBuilder';
-import { VolumeFilterBuilder } from './VolumeFilterBuilder';
-import {
-    AI_INFERRED_ASSERTION_DEFAULT_SCHEDULE_CRON,
-    AI_INFERRED_ASSERTION_DEFAULT_SCHEDULE_TIMEZONE,
-} from '../../constants';
-import { VolumeInferenceAdjuster } from '../inferred/VolumeInferenceAdjuster';
-import QualityTabRowCountGraph from '../../../../shared/QualityTabRowCountGraph';
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
+import QualityTabRowCountGraph from '@app/entityV2/shared/tabs/Dataset/Validations/shared/QualityTabRowCountGraph';
+
+import { AssertionType, CronSchedule, DatasetVolumeSourceType } from '@types';
 
 const Section = styled.div`
     display: flex;

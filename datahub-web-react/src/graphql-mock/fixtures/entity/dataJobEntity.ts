@@ -1,10 +1,12 @@
 import * as faker from 'faker';
-import kafkaLogo from '../../../images/kafkalogo.png';
-import s3Logo from '../../../images/s3.png';
-import snowflakeLogo from '../../../images/snowflakelogo.png';
-import bigqueryLogo from '../../../images/bigquerylogo.png';
-import { DataJob, DataPlatform, EntityType, OwnershipType, PlatformType } from '../../../types.generated';
-import { findUserByUsername } from '../searchResult/userSearchResult';
+
+import { findUserByUsername } from '@graphql-mock/fixtures/searchResult/userSearchResult';
+import { DataJob, DataPlatform, EntityType, OwnershipType, PlatformType } from '@types';
+
+import bigqueryLogo from '@images/bigquerylogo.png';
+import kafkaLogo from '@images/kafkalogo.png';
+import s3Logo from '@images/s3.png';
+import snowflakeLogo from '@images/snowflakelogo.png';
 
 export const platformLogo = {
     kafka: kafkaLogo,

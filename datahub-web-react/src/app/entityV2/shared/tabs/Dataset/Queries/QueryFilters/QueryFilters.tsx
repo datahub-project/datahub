@@ -1,14 +1,16 @@
 import React from 'react';
 import styled from 'styled-components';
-import { FilterPredicate } from '../../../../../../searchV2/filters/types';
-import { convertToAvailableFilterPredictes } from '../../../../../../searchV2/filters/utils';
-import { FacetFilterInput } from '../../../../../../../types.generated';
-import SearchFilter from '../../../../../../searchV2/filters/SearchFilter';
-import SelectedSearchFilters from '../../../../../../searchV2/filters/SelectedSearchFilters';
-import { UnionType } from '../../../../../../searchV2/utils/constants';
-import { ANTD_GRAY_V2, REDESIGN_COLORS } from '../../../../constants';
-import useUsersFilter from './useUsersFilter';
-import useColumnsFilter from './useColumnsFilter';
+
+import { ANTD_GRAY_V2, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import useColumnsFilter from '@app/entityV2/shared/tabs/Dataset/Queries/QueryFilters/useColumnsFilter';
+import useUsersFilter from '@app/entityV2/shared/tabs/Dataset/Queries/QueryFilters/useUsersFilter';
+import SearchFilter from '@app/searchV2/filters/SearchFilter';
+import SelectedSearchFilters from '@app/searchV2/filters/SelectedSearchFilters';
+import { FilterPredicate } from '@app/searchV2/filters/types';
+import { convertToAvailableFilterPredictes } from '@app/searchV2/filters/utils';
+import { UnionType } from '@app/searchV2/utils/constants';
+
+import { FacetFilterInput } from '@types';
 
 const ColumnsFilterWrapper = styled.div`
     align-items: flex-end;

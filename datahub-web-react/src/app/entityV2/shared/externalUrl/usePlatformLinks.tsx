@@ -1,12 +1,13 @@
-import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import { useCallback, useMemo } from 'react';
+
+import { LinkAttributes } from '@app/entityV2/shared/externalUrl/types';
+import { sendClickExternalLinkAnalytics } from '@app/entityV2/shared/externalUrl/utils';
+import { getSiblings } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
+import { getExternalUrlDisplayName } from '@app/entityV2/shared/utils';
 import { ExternalLinkType } from '@src/app/analytics';
+import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import { useAppConfig } from '@src/app/useAppConfig';
-import { useIsSeparateSiblingsMode } from '../useIsSeparateSiblingsMode';
-import { LinkAttributes } from './types';
-import { getExternalUrlDisplayName } from '../utils';
-import { getSiblings } from '../tabs/Dataset/Validations/acrylUtils';
-import { sendClickExternalLinkAnalytics } from './utils';
 
 const MAX_VISIBILE_ACTIONS = 2;
 

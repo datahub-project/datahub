@@ -1,12 +1,13 @@
+import { Drawer, Modal, Typography } from 'antd';
 import React from 'react';
+import styled from 'styled-components';
+
+import { AssertionMonitorBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/AssertionMonitorBuilder';
+import { AssertionMonitorBuilderState } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
 import ClickOutside from '@src/app/shared/ClickOutside';
 import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
 import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
 import { Assertion, AssertionType, DataPlatform, EntityType } from '@src/types.generated';
-import { Drawer, Modal, Typography } from 'antd';
-import styled from 'styled-components';
-import { AssertionMonitorBuilder } from './AssertionMonitorBuilder';
-import { AssertionMonitorBuilderState } from './types';
 
 const modalStyle = {};
 const modalBodyStyle = { paddingRight: 48, paddingLeft: 48, paddingBottom: 20 };

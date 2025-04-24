@@ -11,6 +11,7 @@ from datahub.metadata.schema_classes import (
     AssertionEvaluationParametersClass,
     AssertionEvaluationSpecClass,
     AssertionInfoClass,
+    AssertionMonitorMetricsCubeBootstrapStatusClass,
     AuditLogSpecClass,
     CronScheduleClass,
     DatasetFieldAssertionParametersClass,
@@ -236,6 +237,19 @@ class MonitorClient:
             f"Emitting patch {assertion_urn} monitor urn {monitor_urn} monitor context %s",
             new_assertion_evaluation_context,
         )
+        self.graph.emit_mcps(mcps)
+
+    def patch_assertion_monitor_metrics_cube_bootstrap_status(
+        self,
+        monitor_urn: str,
+        new_metrics_cube_bootstrap_status: AssertionMonitorMetricsCubeBootstrapStatusClass,
+    ) -> None:
+        """Patch the metrics cube bootstrap status for the assertion monitor"""
+        monitor_patch_builder = self._create_base_monitor_patch_builder(monitor_urn)
+        monitor_patch_builder.set_assertion_monitor_metrics_cube_bootstrap_status(
+            new_metrics_cube_bootstrap_status
+        )
+        mcps = monitor_patch_builder.build()
         self.graph.emit_mcps(mcps)
 
     def patch_monitor_state(

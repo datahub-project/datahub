@@ -1,14 +1,15 @@
 import Analytics, { PageData } from 'analytics';
 import Cookies from 'js-cookie';
-import { CLIENT_AUTH_COOKIE } from '../../conf/Global';
-import { getBrowserId } from '../browserId';
-import { loadUserPersonaFromLocalStorage } from '../homeV2/persona/useUserPersona';
-import { loadThemeV2FromLocalStorage } from '../useIsThemeV2';
-import { Event, EventType } from './event';
-import plugins from './plugin';
-import { loadUserTitleFromLocalStorage } from '../identity/user/useUserTitle';
-import { fetchTrackingSettings } from './fetchTrackingSettings';
-import { createPluginsFromSettings } from './plugin/utils';
+
+import { Event, EventType } from '@app/analytics/event';
+import { fetchTrackingSettings } from '@app/analytics/fetchTrackingSettings';
+import plugins from '@app/analytics/plugin';
+import { createPluginsFromSettings } from '@app/analytics/plugin/utils';
+import { getBrowserId } from '@app/browserId';
+import { loadUserPersonaFromLocalStorage } from '@app/homeV2/persona/useUserPersona';
+import { loadUserTitleFromLocalStorage } from '@app/identity/user/useUserTitle';
+import { loadThemeV2FromLocalStorage } from '@app/useIsThemeV2';
+import { CLIENT_AUTH_COOKIE } from '@conf/Global';
 
 const appName = 'datahub-react';
 

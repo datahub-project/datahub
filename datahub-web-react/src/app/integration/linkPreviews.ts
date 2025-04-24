@@ -1,4 +1,4 @@
-import { LinkPreviewType } from '../../types.generated';
+import { LinkPreviewType } from '@types';
 
 const SLACK_LINK_PATTERN = '.*.slack.com/archives/.*';
 

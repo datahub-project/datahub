@@ -1,8 +1,9 @@
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Typography } from 'antd';
-import { ANTD_GRAY } from '../../../../../entity/shared/constants';
-import { YamlEditor } from '../../../../../ingest/source/builder/YamlEditor';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { YamlEditor } from '@app/ingest/source/builder/YamlEditor';
 
 const Section = styled.div`
     display: flex;

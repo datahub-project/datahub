@@ -1,4 +1,4 @@
-import { RELEVANCE, SORT_OPTIONS } from '../context/constants';
+import { RELEVANCE, SORT_OPTIONS } from '@app/search/context/constants';
 
 export default function useSortInput(selectedSortOption: string | undefined) {
     // const selectedSortOption = useSelectedSortOption();

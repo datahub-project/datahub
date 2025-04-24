@@ -123,6 +123,12 @@ class OwnerInfo(BaseModel):
     owner_type: str
 
 
+class ViewInfo(BaseModel):
+    materialized: bool
+    view_logic: Optional[str] = None
+    view_language: Optional[str] = None
+
+
 class ExtractedTableInfo(BaseModel):
     column_names: Dict[str, str] = Field(default_factory=dict)
     column_metadata: Dict[str, SchemaFieldMetadata] = Field(default_factory=dict)
@@ -137,7 +143,7 @@ class ExtractedTableInfo(BaseModel):
     )
     table_tags: List[TagInfo] = Field(default_factory=list)
     table_glossary_terms: List[GlossaryTermInfo] = Field(default_factory=list)
-    table_view_properties: Optional[Any] = None
+    table_view_properties: Optional[ViewInfo] = None
     table_name: Optional[str] = None
     table_description: Optional[str] = None
     table_domains_info: Optional[List[DomainInfo]] = None
@@ -154,6 +160,7 @@ class EntityDescriptionResult:
     column_descriptions: Optional[Dict[str, str]]
     extracted_entity_info: "ExtractedTableInfo"
     raw_llm_output: Optional[str]
+    failure_reason: Optional[str] = None
 
 
 class ColumnMetadataInfo(BaseModel):
@@ -169,7 +176,7 @@ class ColumnMetadataInfo(BaseModel):
 class TableInfo(BaseModel):
     tags: Optional[List[TagInfo]] = None
     glossary_terms: Optional[List[GlossaryTermInfo]] = None
-    view_properties: Optional[Any] = None
+    view_properties: Optional[ViewInfo] = None
     name: Optional[str] = None
     description: Optional[str] = None
     domains_info: Optional[List[DomainInfo]] = None
@@ -622,7 +629,15 @@ def extract_metadata_for_urn(
     )
 
     # View Information:
-    table_view_properties = entity.get("viewProperties")
+    view_properties = entity.get("viewProperties")
+    if view_properties is not None:
+        table_view_properties = ViewInfo(
+            materialized=view_properties.materialized,
+            view_logic=view_properties.formattedViewLogic or view_properties.viewLogic,
+            view_language=view_properties.viewLanguage,
+        )
+    else:
+        table_view_properties = None
 
     # Table domain information:
     table_domains = entity.get("domains")
@@ -722,12 +737,15 @@ def generate_entity_descriptions_for_urn_eval(
         model=DESCRIPTION_GENERATION_MODEL,
     )
 
-    table_description, column_descriptions = parse_llm_output(entity_descriptions)
+    table_description, column_descriptions, failure_reason = parse_llm_output(
+        entity_descriptions
+    )
     return EntityDescriptionResult(
         table_description=table_description,
         column_descriptions=column_descriptions,
         extracted_entity_info=extracted_entity_info,
         raw_llm_output=entity_descriptions,
+        failure_reason=failure_reason,
     )
 
 
@@ -746,7 +764,9 @@ def generate_entity_descriptions_for_urn(
     )
 
 
-def parse_llm_output(text: str) -> tuple[str | None, Dict[str, str] | None]:
+def parse_llm_output(
+    text: str,
+) -> tuple[Optional[str], Optional[Dict[str, str]], Optional[str]]:
     match = re.search(r"\{[^}]*\}", text, re.DOTALL)
     if match:
         dict_str = match.group(0)
@@ -757,11 +777,11 @@ def parse_llm_output(text: str) -> tuple[str | None, Dict[str, str] | None]:
             extracted_dict: dict = ast.literal_eval(dict_str_cleaned)
             table_description: str = extracted_dict.pop("table_description")
             table_description = table_description.strip("'\"").strip()
-            return table_description, extracted_dict
+            return table_description, extracted_dict, None
 
         except (SyntaxError, ValueError) as e:
             logger.info(f"Error evaluating dictionary: {e}. Text: {text}")
-            return None, None
+            return None, None, f"Error evaluating dictionary: {e}."
     else:
         logger.info("No dictionary found in the text.")
-        return None, None
+        return None, None, "No dictionary found in the text."

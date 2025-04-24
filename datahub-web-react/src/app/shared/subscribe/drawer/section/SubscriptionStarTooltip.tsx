@@ -1,8 +1,9 @@
+import { CheckCircleFilled, TeamOutlined } from '@ant-design/icons';
+import { Divider, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Divider, Typography } from 'antd';
-import { CheckCircleFilled, TeamOutlined } from '@ant-design/icons';
-import { ANTD_GRAY } from '../../../../entity/shared/constants';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 const TextContainer = styled.div`
     border-radius: 2px;

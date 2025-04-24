@@ -2,12 +2,14 @@ import { MockedProvider } from '@apollo/client/testing';
 import { render } from '@testing-library/react';
 import DOMPurify from 'dompurify';
 import React from 'react';
-import { mocks } from '../../../../../../Mocks';
-import { EntityType } from '../../../../../../types.generated';
-import TestPageContainer from '../../../../../../utils/test-utils/TestPageContainer';
-import { EntityContext } from '../../../EntityContext';
-import { getShouldShowProposeButton } from '../components/DescriptionEditor';
-import { DocumentationTab } from '../DocumentationTab';
+
+import { EntityContext } from '@app/entity/shared/EntityContext';
+import { DocumentationTab } from '@app/entity/shared/tabs/Documentation/DocumentationTab';
+import { getShouldShowProposeButton } from '@app/entity/shared/tabs/Documentation/components/DescriptionEditor';
+import { mocks } from '@src/Mocks';
+import TestPageContainer from '@utils/test-utils/TestPageContainer';
+
+import { EntityType } from '@types';
 
 describe('SchemaDescriptionField', () => {
     it('renders original description', async () => {

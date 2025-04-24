@@ -1,7 +1,6 @@
 /* 
 	Docs Only Components that helps to display information in info guides.
 */
-
 import styled from 'styled-components';
 
 import theme from '@components/theme';

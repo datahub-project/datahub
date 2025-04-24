@@ -1,4 +1,3 @@
-import React from 'react';
 import Icon, {
     ApartmentOutlined,
     DatabaseOutlined,
@@ -7,10 +6,12 @@ import Icon, {
     LineChartOutlined,
 } from '@ant-design/icons';
 import ViewComfyOutlinedIcon from '@mui/icons-material/ViewComfyOutlined';
-import TableauWorkbookLogo from '../../../../images/tableau-workbook.svg?react';
-import TableauEmbeddedDataSourceLogo from '../../../../images/tableau-embedded-data-source.svg?react';
-import TableauPublishedDataSourceLogo from '../../../../images/tableau-published-data-source.svg?react';
-import VertexAIPipelineTaskLogo from '../../../../images/vertexai-pipeline-task.svg?react';
+import React from 'react';
+
+import TableauEmbeddedDataSourceLogo from '@images/tableau-embedded-data-source.svg?react';
+import TableauPublishedDataSourceLogo from '@images/tableau-published-data-source.svg?react';
+import TableauWorkbookLogo from '@images/tableau-workbook.svg?react';
+import VertexAIPipelineTaskLogo from '@images/vertexai-pipeline-task.svg?react';
 
 export enum SubType {
     Database = 'Database',

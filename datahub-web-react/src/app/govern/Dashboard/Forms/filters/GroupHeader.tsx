@@ -1,9 +1,15 @@
+import { Tooltip } from '@components';
+import { Button } from 'antd';
+import React, { useEffect, useState } from 'react';
+
+import {
+    ActionsContainer,
+    CardIcons,
+    OperationButton,
+    ToolbarContainer,
+} from '@app/govern/Dashboard/Forms/filters/styledComponents';
 import { Button as ButtonComponent, Icon } from '@src/alchemy-components';
 import { LogicalOperatorType } from '@src/app/tests/builder/steps/definition/builder/types';
-import { Button } from 'antd';
-import { Tooltip } from '@components';
-import React, { useEffect, useState } from 'react';
-import { ActionsContainer, CardIcons, OperationButton, ToolbarContainer } from './styledComponents';
 
 interface Props {
     onAddPropertyPredicate: () => void;

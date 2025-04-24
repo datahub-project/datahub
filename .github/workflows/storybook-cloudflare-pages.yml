@@ -4,17 +4,17 @@ on:
     branches:
       - master
       - acryl-main
-    paths: 
-      - 'datahub-web-react/acryl-components/**'
-      - 'datahub-web-react/.storybook/**'
-      - '.github/workflows/storybook-cloudflare-pages.yml'
+    paths:
+      - "datahub-web-react/acryl-components/**"
+      - "datahub-web-react/.storybook/**"
+      - ".github/workflows/storybook-cloudflare-pages.yml"
   pull_request:
     branches:
       - "**"
-    paths: 
-      - 'datahub-web-react/acryl-components/**'
-      - 'datahub-web-react/.storybook/**'
-      - '.github/workflows/storybook-cloudflare-pages.yml'
+    paths:
+      - "datahub-web-react/acryl-components/**"
+      - "datahub-web-react/.storybook/**"
+      - ".github/workflows/storybook-cloudflare-pages.yml"
   release:
     types: [published]
 

@@ -1,3 +1,6 @@
+import moment from 'moment';
+import { useEffect, useRef, useState } from 'react';
+
 import {
     GetOnDemandTestResultsQuery,
     GetResultsForOnDemandTestsQuery,
@@ -5,8 +8,6 @@ import {
     useGetResultsForOnDemandTestsLazyQuery,
 } from '@src/graphql/test.generated';
 import { AndFilterInput, Test } from '@src/types.generated';
-import moment from 'moment';
-import { useEffect, useRef, useState } from 'react';
 
 export const BULK_VERIFY_ID = 'bulkVerify';
 const TASK_TO_ID_MAP_KEY = 'taskToIdMap';

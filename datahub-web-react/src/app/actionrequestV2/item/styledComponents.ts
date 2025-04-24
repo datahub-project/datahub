@@ -1,6 +1,7 @@
-import { colors } from '@src/alchemy-components';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+
+import { colors } from '@src/alchemy-components';
 
 export const ContentWrapper = styled.div`
     font-size: 14px;

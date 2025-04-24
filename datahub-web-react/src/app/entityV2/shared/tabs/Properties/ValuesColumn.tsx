@@ -1,13 +1,16 @@
-import { Entity } from '@src/types.generated';
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
-import { StdDataType } from '../../../../../types.generated';
-import { TabRenderType } from '../../types';
-import StructuredPropertyValue from './StructuredPropertyValue';
-import { PropertyRow } from './types';
+
+import StructuredPropertyValue from '@app/entityV2/shared/tabs/Properties/StructuredPropertyValue';
+import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
+import { TabRenderType } from '@app/entityV2/shared/types';
+import ProposalModal from '@app/shared/tags/ProposalModal';
+import { ActionRequest, Entity } from '@src/types.generated';
+
+import { StdDataType } from '@types';
 
 interface Props {
-    propertyRow: PropertyRow;
+    propertyRow: PropertyRow & { request?: ActionRequest };
     filterText?: string;
     hydratedEntityMap?: Record<string, Entity>;
     renderType: TabRenderType;
@@ -33,23 +36,38 @@ export default function ValuesColumn({ propertyRow, filterText, hydratedEntityMa
     const { values } = propertyRow;
     const isRichText = propertyRow.dataType?.info?.type === StdDataType.RichText;
 
+    const [selectedActionRequest, setSelectedActionRequest] = useState<ActionRequest | undefined | null>(null);
+
     return (
-        <ValuesContainerFlex renderType={renderType}>
-            {values ? (
-                values.map((v) => (
-                    <ValueContainer>
-                        <StructuredPropertyValue
-                            value={v}
-                            isRichText={isRichText}
-                            filterText={filterText}
-                            hydratedEntityMap={hydratedEntityMap}
-                            isProposed={isProposed}
-                        />
-                    </ValueContainer>
-                ))
-            ) : (
-                <span />
+        <>
+            <ValuesContainerFlex renderType={renderType}>
+                {values ? (
+                    values.map((v) => (
+                        <ValueContainer
+                            onClick={() => {
+                                setSelectedActionRequest(propertyRow.request);
+                            }}
+                        >
+                            <StructuredPropertyValue
+                                value={v}
+                                isRichText={isRichText}
+                                filterText={filterText}
+                                hydratedEntityMap={hydratedEntityMap}
+                                isProposed={isProposed}
+                            />
+                        </ValueContainer>
+                    ))
+                ) : (
+                    <span />
+                )}
+            </ValuesContainerFlex>
+            {selectedActionRequest && (
+                <ProposalModal
+                    actionRequest={selectedActionRequest}
+                    selectedActionRequest={selectedActionRequest}
+                    setSelectedActionRequest={setSelectedActionRequest}
+                />
             )}
-        </ValuesContainerFlex>
+        </>
     );
 }

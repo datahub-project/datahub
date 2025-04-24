@@ -1,7 +1,7 @@
 package com.linkedin.metadata.search.features;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
@@ -12,6 +12,7 @@ import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.ConcurrencyUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
@@ -23,8 +24,8 @@ public class GraphBasedFeature implements FeatureExtractor {
 
   private final GraphService _graphService;
 
-  private static final List<String> RELEVANT_RELATIONSHIP_TYPES =
-      ImmutableList.of("DownstreamOf", "Consumes");
+  private static final Set<String> RELEVANT_RELATIONSHIP_TYPES =
+      ImmutableSet.of("DownstreamOf", "Consumes");
 
   @Override
   public List<Features> extractFeatures(

@@ -101,7 +101,7 @@ module.exports = {
         {
           label: "Automations",
           type: "category",
-          collapsed: false,
+          collapsed: true,
           items: [
             {
               label: "Documentation Propagation",
@@ -165,6 +165,11 @@ module.exports = {
             {
               type: "doc",
               id: "docs/features/feature-guides/compliance-forms/complete-a-form",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/compliance-forms/analytics",
+              className: "saasOnly",
             },
           ],
         },
@@ -805,6 +810,7 @@ module.exports = {
         },
         "datahub-integrations-service/src/datahub_integrations/propagation/term/README",
         // "datahub-integrations-service/experiments/term_suggestion_v2/term_suggestion_analysis_documentation"
+        // "datahub-integrations-service/experiments/docs_generation/README"
       ],
     },
     {

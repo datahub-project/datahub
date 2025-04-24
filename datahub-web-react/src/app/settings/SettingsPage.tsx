@@ -1,46 +1,46 @@
-import React from 'react';
-import { Menu, Typography, Divider, Button } from 'antd';
 import {
-    BankOutlined,
-    SafetyCertificateOutlined,
-    UsergroupAddOutlined,
     AppstoreOutlined,
+    BankOutlined,
     BellOutlined,
-    LoginOutlined,
-    ToolOutlined,
-    FilterOutlined,
-    TeamOutlined,
-    StarOutlined,
-    PushpinOutlined,
     ControlOutlined,
+    FilterOutlined,
+    LoginOutlined,
+    PushpinOutlined,
     QuestionCircleOutlined,
+    SafetyCertificateOutlined,
+    StarOutlined,
+    TeamOutlined,
+    ToolOutlined,
+    UsergroupAddOutlined,
 } from '@ant-design/icons';
-import { Redirect, Route, useHistory, useLocation, useRouteMatch, Switch } from 'react-router';
-import styled from 'styled-components';
+import { Button, Divider, Menu, Typography } from 'antd';
 import Cookies from 'js-cookie';
-import { ANTD_GRAY } from '../entity/shared/constants';
-import { ManageIdentities } from '../identity/ManageIdentities';
-import { ManagePermissions } from '../permissions/ManagePermissions';
-import { useAppConfig } from '../useAppConfig';
-import { AccessTokens } from './AccessTokens';
-import { PlatformIntegrations } from './platform/PlatformIntegrations';
-import { PlatformNotifications } from './platform/notifications/PlatformNotifications';
-import { PlatformSsoIntegrations } from './platform/PlatformSsoIntegrations';
-import { Preferences } from './Preferences';
-import { ManagePolicies } from '../permissions/policy/ManagePolicies';
-import { ManageViews } from '../entity/view/ManageViews';
-import { useUserContext } from '../context/useUserContext';
-import { ManageOwnership } from '../entity/ownership/ManageOwnership';
-import { ManageActorNotifications } from './personal/notifications/ManageActorNotifications';
-import { ManageActorSubscriptions } from './personal/subscriptions/ManageActorSubscriptions';
-import { useSubscriptionsEnabled } from './personal/notifications/utils';
-import ManagePosts from './posts/ManagePosts';
-import ManageHelpLink from './helpLink/ManageHelpLink';
+import React from 'react';
+import { Redirect, Route, Switch, useHistory, useLocation, useRouteMatch } from 'react-router';
+import styled from 'styled-components';
 
-import analytics, { EventType } from '../analytics';
-import { GlobalCfg } from '../../conf';
-import { isLoggedInVar } from '../auth/checkAuthStatus';
-import { useIsThemeV2 } from '../useIsThemeV2';
+import analytics, { EventType } from '@app/analytics';
+import { isLoggedInVar } from '@app/auth/checkAuthStatus';
+import { useUserContext } from '@app/context/useUserContext';
+import { ManageOwnership } from '@app/entity/ownership/ManageOwnership';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { ManageViews } from '@app/entity/view/ManageViews';
+import { ManageIdentities } from '@app/identity/ManageIdentities';
+import { ManagePermissions } from '@app/permissions/ManagePermissions';
+import { ManagePolicies } from '@app/permissions/policy/ManagePolicies';
+import { AccessTokens } from '@app/settings/AccessTokens';
+import { Preferences } from '@app/settings/Preferences';
+import ManageHelpLink from '@app/settings/helpLink/ManageHelpLink';
+import { ManageActorNotifications } from '@app/settings/personal/notifications/ManageActorNotifications';
+import { useSubscriptionsEnabled } from '@app/settings/personal/notifications/utils';
+import { ManageActorSubscriptions } from '@app/settings/personal/subscriptions/ManageActorSubscriptions';
+import { PlatformIntegrations } from '@app/settings/platform/PlatformIntegrations';
+import { PlatformSsoIntegrations } from '@app/settings/platform/PlatformSsoIntegrations';
+import { PlatformNotifications } from '@app/settings/platform/notifications/PlatformNotifications';
+import ManagePosts from '@app/settings/posts/ManagePosts';
+import { useAppConfig } from '@app/useAppConfig';
+import { useIsThemeV2 } from '@app/useIsThemeV2';
+import { GlobalCfg } from '@src/conf';
 
 const MenuItem = styled(Menu.Item)`
     display: flex;
@@ -260,7 +260,7 @@ export const SettingsPage = () => {
                         )
                     }
 
-                    {(showOwnershipTypes || showHomePagePosts || showCustomHelpLink) && (
+                    {(showViews || showOwnershipTypes || showHomePagePosts || showFeatures) && (
                         <Menu.ItemGroup title="Manage">
                             {showFeatures && (
                                 <MenuItem key="features">

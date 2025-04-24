@@ -1,9 +1,10 @@
-import { Form } from 'antd';
 import { Tooltip } from '@components';
+import { Form } from 'antd';
 import { CheckboxChangeEvent } from 'antd/lib/checkbox';
 import React, { useState } from 'react';
-import { AllowedItemsWrapper, StyledCheckbox, StyledLabel } from '../styledComponents';
-import DomainsSelector from './DomainsSelector';
+
+import DomainsSelector from '@app/govern/Dashboard/Forms/questionTypes/DomainsSelector';
+import { AllowedItemsWrapper, StyledCheckbox, StyledLabel } from '@app/govern/Dashboard/Forms/styledComponents';
 
 export default function DomainsQuestion() {
     const form = Form.useFormInstance();

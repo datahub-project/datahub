@@ -1,6 +1,6 @@
-import { NameStep } from './steps/name/NameStep';
-import { RulesStep } from './steps/rules/RulesStep';
-import { SelectStep } from './steps/select/SelectStep';
+import { NameStep } from '@app/tests/builder/steps/name/NameStep';
+import { RulesStep } from '@app/tests/builder/steps/rules/RulesStep';
+import { SelectStep } from '@app/tests/builder/steps/select/SelectStep';
 
 /**
  * Mapping from the step type to the component implementing that step.

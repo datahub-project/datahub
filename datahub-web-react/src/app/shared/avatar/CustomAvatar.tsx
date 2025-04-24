@@ -1,12 +1,13 @@
-import { Avatar } from 'antd';
 import { Tooltip } from '@components';
+import { Avatar } from 'antd';
 import { TooltipPlacement } from 'antd/lib/tooltip';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import defaultAvatar from '../../../images/default_avatar.png';
-import getAvatarColor from './getAvatarColor';
+import getAvatarColor from '@app/shared/avatar/getAvatarColor';
+
+import defaultAvatar from '@images/default_avatar.png';
 
 const AvatarStyled = styled(Avatar)<{ size?: number; $backgroundColor?: string }>`
     color: #fff;

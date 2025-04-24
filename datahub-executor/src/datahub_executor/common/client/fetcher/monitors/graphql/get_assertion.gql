@@ -195,6 +195,9 @@ fragment AssertionDetails on Assertion {
     }
     source {
       type
+      created {
+        time
+      }
     }
   }
   rawInfoAspect: aspects(

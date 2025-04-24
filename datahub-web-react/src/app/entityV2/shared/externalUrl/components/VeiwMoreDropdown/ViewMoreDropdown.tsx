@@ -1,10 +1,11 @@
+import { CaretDown } from '@phosphor-icons/react';
+import { Dropdown } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Dropdown } from 'antd';
-import { colors, Text } from '@src/alchemy-components';
-import { CaretDown } from '@phosphor-icons/react';
-import { LinkItem } from '../../types';
-import OptionLabel from './OptionLabel';
+
+import OptionLabel from '@app/entityV2/shared/externalUrl/components/VeiwMoreDropdown/OptionLabel';
+import { LinkItem } from '@app/entityV2/shared/externalUrl/types';
+import { Text, colors } from '@src/alchemy-components';
 
 const DropdownBase = styled.div`
     text-wrap: nowrap;

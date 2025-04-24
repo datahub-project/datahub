@@ -1,25 +1,31 @@
-import { colors } from '@src/alchemy-components/theme';
 import { Axis } from '@visx/axis';
 import { GridColumns } from '@visx/grid';
+import { Group } from '@visx/group';
 import { ParentSize } from '@visx/responsive';
 import { scaleLinear } from '@visx/scale';
 import { BoxPlot } from '@visx/stats';
 import { useTooltip } from '@visx/tooltip';
+import { Margin } from '@visx/xychart';
 import React, { useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
-import { Margin } from '@visx/xychart';
-import { Group } from '@visx/group';
+
+import DynamicMarginSetter from '@components/components/BarChart/components/DynamicMarginSetter';
 import {
     AXIS_LABEL_MARGIN_OFFSET,
     AXIS_LABEL_PROPS,
     DEFAULT_BOX_SIZE,
     DEFAULT_GAP_BETWEEN_WHISKERS,
-} from './constants';
-import { whiskerChartDefaults } from './defaults';
-import { InternalWhiskerChartProps, WhiskerChartProps, WhiskerTooltipDatum } from './types';
-import { computeWhiskerOffset } from './utils';
-import { abbreviateNumber } from '../dataviz/utils';
-import DynamicMarginSetter from '../BarChart/components/DynamicMarginSetter';
+} from '@components/components/WhiskerChart/constants';
+import { whiskerChartDefaults } from '@components/components/WhiskerChart/defaults';
+import {
+    InternalWhiskerChartProps,
+    WhiskerChartProps,
+    WhiskerTooltipDatum,
+} from '@components/components/WhiskerChart/types';
+import { computeWhiskerOffset } from '@components/components/WhiskerChart/utils';
+import { abbreviateNumber } from '@components/components/dataviz/utils';
+
+import { colors } from '@src/alchemy-components/theme';
 
 const ChartWrapper = styled.div`
     width: 100%;

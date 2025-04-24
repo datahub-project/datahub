@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useHistory } from 'react-router';
-import { SearchCfg } from '../../conf';
-import { FacetFilterInput, SearchResult } from '../../types.generated';
-import { useSelectedSortOption } from './context/SearchContext';
-import useGetSearchQueryInputs from './useGetSearchQueryInputs';
-import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
-import { DownloadSearchResults, DownloadSearchResultsInput } from './utils/types';
-import { useDownloadScrollAcrossEntitiesSearchResults } from './utils/useDownloadScrollAcrossEntitiesSearchResults';
-import { scrollToTop } from '../shared/searchUtils';
-import { UnionType } from './utils/constants';
-import { EntityAndType } from '../entity/shared/types';
-import { PageRoutes } from '../../conf/Global';
+
+import { EntityAndType } from '@app/entity/shared/types';
+import { useSelectedSortOption } from '@app/search/context/SearchContext';
+import useGetSearchQueryInputs from '@app/search/useGetSearchQueryInputs';
+import { UnionType } from '@app/search/utils/constants';
+import { navigateToSearchUrl } from '@app/search/utils/navigateToSearchUrl';
+import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/utils/types';
+import { useDownloadScrollAcrossEntitiesSearchResults } from '@app/search/utils/useDownloadScrollAcrossEntitiesSearchResults';
+import { scrollToTop } from '@app/shared/searchUtils';
+import { PageRoutes } from '@conf/Global';
+import { SearchCfg } from '@src/conf';
+
+import { FacetFilterInput, SearchResult } from '@types';
 
 interface Props {
     searchResults: SearchResult[];

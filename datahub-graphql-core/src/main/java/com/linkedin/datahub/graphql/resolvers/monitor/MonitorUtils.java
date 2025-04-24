@@ -338,7 +338,7 @@ public class MonitorUtils {
     final EntityRelationships relationships =
         graphClient.getRelatedEntities(
             assertionUrn.toString(),
-            ImmutableList.of(EVALUATES_RELATIONSHIP_NAME),
+            ImmutableSet.of(EVALUATES_RELATIONSHIP_NAME),
             RelationshipDirection.INCOMING,
             0,
             1,
@@ -358,7 +358,7 @@ public class MonitorUtils {
     final EntityRelationships relationships =
         graphClient.getRelatedEntities(
             monitorUrn.toString(),
-            ImmutableList.of(EVALUATES_RELATIONSHIP_NAME),
+            ImmutableSet.of(EVALUATES_RELATIONSHIP_NAME),
             RelationshipDirection.OUTGOING,
             0,
             1,
@@ -378,7 +378,7 @@ public class MonitorUtils {
     final EntityRelationships relationships =
         graphClient.getRelatedEntities(
             datasetUrn.toString(),
-            ImmutableList.of(MONITORS_RELATIONSHIP_NAME),
+            ImmutableSet.of(MONITORS_RELATIONSHIP_NAME),
             RelationshipDirection.INCOMING,
             0,
             MAX_MONITORS_TO_FETCH,

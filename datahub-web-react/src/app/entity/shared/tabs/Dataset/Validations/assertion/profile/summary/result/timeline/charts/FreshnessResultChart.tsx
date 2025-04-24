@@ -1,29 +1,33 @@
-import React, { useMemo, useState } from 'react';
-
 import { Popover } from '@components';
-import { Group } from '@visx/group';
 import { AxisBottom } from '@visx/axis';
+import { LinearGradient } from '@visx/gradient';
+import { GridColumns } from '@visx/grid';
+import { Group } from '@visx/group';
 import { scaleUtc } from '@visx/scale';
 import { AreaClosed } from '@visx/shape';
-import { GridColumns } from '@visx/grid';
-import { LinearGradient } from '@visx/gradient';
 import { scaleLinear } from 'd3-scale';
+import React, { useMemo, useState } from 'react';
 
-import { ANTD_GRAY } from '../../../../../../../../../constants';
-import { LinkWrapper } from '../../../../../../../../../../../shared/LinkWrapper';
+import { CandleStick } from '@app/dataviz/candle/CandleStick';
+import { calculateOverlapBetweenTwoMarkers } from '@app/dataviz/utils';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { AssertionResultPopoverContent } from '@app/entity/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopoverContent';
+import {
+    AssertionDataPoint,
+    AssertionResultChartData,
+    TimeRange,
+} from '@app/entity/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/types';
 import {
     ACCENT_COLOR_HEX,
     generateTimeScaleTickValues,
     getCustomTimeScaleTickValue,
     getFillColor,
     getWindowStartAndEndDatesForFreshnessAssertionRun,
-} from './utils';
-import { AssertionDataPoint, AssertionResultChartData, TimeRange } from './types';
-import { AssertionResultPopoverContent } from '../../../../shared/result/AssertionResultPopoverContent';
-import { tryGetActualUpdatedTimestampFromAssertionResult } from '../../../shared/resultExtractionUtils';
-import { AssertionResultType } from '../../../../../../../../../../../../types.generated';
-import { CandleStick } from '../../../../../../../../../../../dataviz/candle/CandleStick';
-import { calculateOverlapBetweenTwoMarkers } from '../../../../../../../../../../../dataviz/utils';
+} from '@app/entity/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/utils';
+import { tryGetActualUpdatedTimestampFromAssertionResult } from '@app/entity/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultExtractionUtils';
+import { LinkWrapper } from '@app/shared/LinkWrapper';
+
+import { AssertionResultType } from '@types';
 
 type Props = {
     data: AssertionResultChartData;

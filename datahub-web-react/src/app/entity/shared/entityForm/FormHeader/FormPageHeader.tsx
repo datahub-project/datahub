@@ -1,12 +1,13 @@
 import React from 'react';
 import styled from 'styled-components';
-import { colors, PageTitle } from '@src/alchemy-components';
-import AppLogoLink from '../../../../shared/AppLogoLink';
-import EntityNavigation from './EntityNavigation';
-import { FormView, useEntityFormContext } from '../EntityFormContext';
-import FormViewToggle from './FormViewToggle';
-import PromptNavigation from './PromptNavigation';
-import BulkVerifyHeader from '../BulkVerify/BulkVerifyHeader';
+
+import BulkVerifyHeader from '@app/entity/shared/entityForm/BulkVerify/BulkVerifyHeader';
+import { FormView, useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
+import EntityNavigation from '@app/entity/shared/entityForm/FormHeader/EntityNavigation';
+import FormViewToggle from '@app/entity/shared/entityForm/FormHeader/FormViewToggle';
+import PromptNavigation from '@app/entity/shared/entityForm/FormHeader/PromptNavigation';
+import AppLogoLink from '@app/shared/AppLogoLink';
+import { PageTitle, colors } from '@src/alchemy-components';
 
 const Header = styled.div`
     padding: 12px 24px;

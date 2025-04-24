@@ -6,6 +6,7 @@ import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationshipArray;
 import com.linkedin.common.EntityRelationships;
@@ -48,7 +49,7 @@ public class AssertionMonitorResolverTest {
     Mockito.when(
             graphClient.getRelatedEntities(
                 Mockito.eq(TEST_ASSERTION_URN.toString()),
-                Mockito.eq(ImmutableList.of(ASSERTION_MONITOR_RELATIONSHIP_NAME)),
+                Mockito.eq(ImmutableSet.of(ASSERTION_MONITOR_RELATIONSHIP_NAME)),
                 Mockito.eq(RelationshipDirection.INCOMING),
                 Mockito.eq(0),
                 Mockito.eq(1),
@@ -122,7 +123,7 @@ public class AssertionMonitorResolverTest {
     Mockito.when(
             graphClient.getRelatedEntities(
                 Mockito.eq(TEST_ASSERTION_URN.toString()),
-                Mockito.eq(ImmutableList.of(ASSERTION_MONITOR_RELATIONSHIP_NAME)),
+                Mockito.eq(ImmutableSet.of(ASSERTION_MONITOR_RELATIONSHIP_NAME)),
                 Mockito.eq(RelationshipDirection.INCOMING),
                 Mockito.eq(0),
                 Mockito.eq(1),
@@ -198,7 +199,7 @@ public class AssertionMonitorResolverTest {
     Mockito.when(
             graphClient.getRelatedEntities(
                 Mockito.eq(TEST_ASSERTION_URN.toString()),
-                Mockito.eq(ImmutableList.of(ASSERTION_MONITOR_RELATIONSHIP_NAME)),
+                Mockito.eq(ImmutableSet.of(ASSERTION_MONITOR_RELATIONSHIP_NAME)),
                 Mockito.eq(RelationshipDirection.INCOMING),
                 Mockito.eq(0),
                 Mockito.eq(1),

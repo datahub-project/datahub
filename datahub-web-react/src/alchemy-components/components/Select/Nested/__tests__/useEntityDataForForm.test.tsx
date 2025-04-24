@@ -1,12 +1,13 @@
-import React from 'react';
 import { MockedProvider } from '@apollo/client/testing';
-import EntityContext from '@src/app/entity/shared/EntityContext';
-import useEntityDataForForm from '@src/app/entity/shared/entityForm/useEntityDataForForm';
-import { container1, dataset3, mocks } from '@src/Mocks';
-import { EntityType } from '@src/types.generated';
-import TestPageContainer, { getTestEntityRegistry } from '@src/utils/test-utils/TestPageContainer';
 import { renderHook } from '@testing-library/react-hooks';
 import { fail } from 'assert';
+import React from 'react';
+
+import { container1, dataset3, mocks } from '@src/Mocks';
+import EntityContext from '@src/app/entity/shared/EntityContext';
+import useEntityDataForForm from '@src/app/entity/shared/entityForm/useEntityDataForForm';
+import { EntityType } from '@src/types.generated';
+import TestPageContainer, { getTestEntityRegistry } from '@src/utils/test-utils/TestPageContainer';
 
 describe('useEntityDataForForm', () => {
     const entityRegistry = getTestEntityRegistry();

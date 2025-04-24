@@ -1,25 +1,26 @@
-import { EditColumn } from '@src/app/entity/shared/tabs/Properties/Edit/EditColumn';
-import { Maybe, SchemaFieldEntity, StructuredProperties } from '@src/types.generated';
 import { Empty, Table } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { useEntityData } from '../../../../entity/shared/EntityContext';
-import TabHeader from '../../../../entity/shared/tabs/Properties/TabHeader';
-import { PropertyRow } from '../../../../entity/shared/tabs/Properties/types';
-import useUpdateExpandedRowsFromFilter from '../../../../entity/shared/tabs/Properties/useUpdateExpandedRowsFromFilter';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import TabHeader from '@app/entity/shared/tabs/Properties/TabHeader';
+import { PropertyRow } from '@app/entity/shared/tabs/Properties/types';
+import useUpdateExpandedRowsFromFilter from '@app/entity/shared/tabs/Properties/useUpdateExpandedRowsFromFilter';
 import {
     getFilteredCustomProperties,
     mapCustomPropertiesToPropertyRows,
-} from '../../../../entity/shared/tabs/Properties/utils';
-import { useEntityRegistryV2 } from '../../../../useEntityRegistry';
-import { TabRenderType } from '../../types';
-import ExpandIcon from '../Dataset/Schema/components/ExpandIcon';
-import NameColumn from './NameColumn';
-import ValuesColumn from './ValuesColumn';
-import { useHydratedEntityMap } from './useHydratedEntityMap';
-import useStructuredProperties from './useStructuredProperties';
-import { useGetProposedProperties } from './useGetProposedProperties';
-import { filterStructuredProperties } from './utils';
+} from '@app/entity/shared/tabs/Properties/utils';
+import ExpandIcon from '@app/entityV2/shared/tabs/Dataset/Schema/components/ExpandIcon';
+import NameColumn from '@app/entityV2/shared/tabs/Properties/NameColumn';
+import ValuesColumn from '@app/entityV2/shared/tabs/Properties/ValuesColumn';
+import { useGetProposedProperties } from '@app/entityV2/shared/tabs/Properties/useGetProposedProperties';
+import { useHydratedEntityMap } from '@app/entityV2/shared/tabs/Properties/useHydratedEntityMap';
+import useStructuredProperties from '@app/entityV2/shared/tabs/Properties/useStructuredProperties';
+import { filterStructuredProperties } from '@app/entityV2/shared/tabs/Properties/utils';
+import { TabRenderType } from '@app/entityV2/shared/types';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { EditColumn } from '@src/app/entity/shared/tabs/Properties/Edit/EditColumn';
+import { ActionRequest, Maybe, SchemaFieldEntity, StructuredProperties } from '@src/types.generated';
 
 const StyledTable = styled(Table)`
     &&& .ant-table-cell-with-append {
@@ -77,7 +78,7 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
         .concat(customPropertyRows)
         .filter((row) => !row.structuredProperty?.settings?.isHidden);
 
-    const finalDataSource = [...dataSource, ...filteredProposedRows];
+    const finalDataSource: (PropertyRow & { request?: ActionRequest })[] = [...dataSource, ...filteredProposedRows];
 
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
@@ -99,7 +100,7 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
         {
             title: 'Value',
             ellipsis: true,
-            render: (propertyRow: PropertyRow) => (
+            render: (propertyRow: PropertyRow & { request?: ActionRequest }) => (
                 <ValuesColumn
                     propertyRow={propertyRow}
                     filterText={filterText}

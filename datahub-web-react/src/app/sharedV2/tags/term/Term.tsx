@@ -2,11 +2,12 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { EntityType, GlossaryTermAssociation } from '../../../../types.generated';
-import { HoverEntityTooltip } from '../../../recommendations/renderer/component/HoverEntityTooltip';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import TermContent from './TermContent';
-import { useEmbeddedProfileLinkProps } from '../../../shared/useEmbeddedProfileLinkProps';
+import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
+import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
+import TermContent from '@app/sharedV2/tags/term/TermContent';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType, GlossaryTermAssociation } from '@types';
 
 const TermLink = styled(Link)<{ $showOneAndCount?: boolean }>`
     display: inline-block;

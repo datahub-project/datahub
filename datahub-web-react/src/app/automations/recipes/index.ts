@@ -1,11 +1,11 @@
 import _ from 'lodash';
 
-import * as SnowflakeTagPropagation from './snowflake/tagPropagation';
-import * as GlossaryTermPropagation from './glossaryTerm/termPropagation';
-import * as TagPropagation from './tag/tagPropagation';
-import * as AIGlossaryTermPropagation from './glossaryTerm/glossaryTermAI';
-import * as DocumentationColumnPropagation from './documentation/columnLevelPropagation';
-import * as BigQueryTagSync from './bigQuery/tagSync';
+import * as BigQueryTagSync from '@app/automations/recipes/bigQuery/tagSync';
+import * as DocumentationColumnPropagation from '@app/automations/recipes/documentation/columnLevelPropagation';
+import * as AIGlossaryTermPropagation from '@app/automations/recipes/glossaryTerm/glossaryTermAI';
+import * as GlossaryTermPropagation from '@app/automations/recipes/glossaryTerm/termPropagation';
+import * as SnowflakeTagPropagation from '@app/automations/recipes/snowflake/tagPropagation';
+import * as TagPropagation from '@app/automations/recipes/tag/tagPropagation';
 
 // Map of all templates available in the application (this needs to be in sync with the recipes)
 export const templates = [

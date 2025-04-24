@@ -2317,7 +2317,7 @@ public class ProposalNotificationGeneratorTest {
     when(mockActorContext.getActorUrn()).thenReturn(UrnUtils.getUrn("urn:li:corpuser:fake_actor"));
     when(mockGraphClient.getRelatedEntities(
             Mockito.eq(role1.toString()),
-            Mockito.eq(Collections.singletonList("IsMemberOfRole")),
+            Mockito.eq(ImmutableSet.of("IsMemberOfRole")),
             Mockito.eq(RelationshipDirection.INCOMING),
             Mockito.eq(0),
             Mockito.eq(1000), // Default page size.
@@ -2325,7 +2325,7 @@ public class ProposalNotificationGeneratorTest {
         .thenThrow(new RuntimeException());
     when(mockGraphClient.getRelatedEntities(
             Mockito.eq(role2.toString()),
-            Mockito.eq(Collections.singletonList("IsMemberOfRole")),
+            Mockito.eq(ImmutableSet.of("IsMemberOfRole")),
             Mockito.eq(RelationshipDirection.INCOMING),
             Mockito.eq(0),
             Mockito.eq(1000), // Default page size.
@@ -2349,7 +2349,7 @@ public class ProposalNotificationGeneratorTest {
     when(mockActorContext.getActorUrn()).thenReturn(UrnUtils.getUrn("urn:li:corpuser:fake_actor"));
     when(mockGraphClient.getRelatedEntities(
             Mockito.eq(role1.toString()),
-            Mockito.eq(Collections.singletonList("IsMemberOfRole")),
+            Mockito.eq(ImmutableSet.of("IsMemberOfRole")),
             Mockito.eq(RelationshipDirection.INCOMING),
             Mockito.eq(0),
             Mockito.eq(1000), // Default page size.
@@ -2365,7 +2365,7 @@ public class ProposalNotificationGeneratorTest {
                             new EntityRelationship().setEntity(actor2)))));
     when(mockGraphClient.getRelatedEntities(
             Mockito.eq(role2.toString()),
-            Mockito.eq(Collections.singletonList("IsMemberOfRole")),
+            Mockito.eq(ImmutableSet.of("IsMemberOfRole")),
             Mockito.eq(RelationshipDirection.INCOMING),
             Mockito.eq(0),
             Mockito.eq(1000), // Default page size.
@@ -2397,7 +2397,7 @@ public class ProposalNotificationGeneratorTest {
     when(mockActorContext.getActorUrn()).thenReturn(UrnUtils.getUrn("urn:li:corpuser:fake_actor"));
     when(mockGraphClient.getRelatedEntities(
             Mockito.eq(role1.toString()),
-            Mockito.eq(Collections.singletonList("IsMemberOfRole")),
+            Mockito.eq(ImmutableSet.of("IsMemberOfRole")),
             Mockito.eq(RelationshipDirection.INCOMING),
             Mockito.eq(0),
             Mockito.eq(1000), // Default page size.
@@ -2408,7 +2408,7 @@ public class ProposalNotificationGeneratorTest {
                 .setRelationships(new EntityRelationshipArray(Collections.emptyList())));
     when(mockGraphClient.getRelatedEntities(
             Mockito.eq(role2.toString()),
-            Mockito.eq(Collections.singletonList("IsMemberOfRole")),
+            Mockito.eq(ImmutableSet.of("IsMemberOfRole")),
             Mockito.eq(RelationshipDirection.INCOMING),
             Mockito.eq(0),
             Mockito.eq(1000), // Default page size.

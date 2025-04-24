@@ -1,10 +1,11 @@
-import React from 'react';
-
-import styled from 'styled-components';
 import { LaunchOutlined } from '@mui/icons-material';
-import analytics, { EntityActionType, EventType } from '../../../../../../../../analytics';
-import { ActionItem } from './ActionItem';
-import { Assertion, AssertionRunStatus, EntityType } from '../../../../../../../../../types.generated';
+import React from 'react';
+import styled from 'styled-components';
+
+import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { ActionItem } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/ActionItem';
+
+import { Assertion, AssertionRunStatus, EntityType } from '@types';
 
 const StyledLaunchOutlined = styled(LaunchOutlined)`
     && {

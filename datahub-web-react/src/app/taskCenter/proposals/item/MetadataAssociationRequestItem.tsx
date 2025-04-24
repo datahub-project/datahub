@@ -1,13 +1,15 @@
 import { CheckOutlined, CloseCircleOutlined } from '@ant-design/icons';
-import { Button, message, Modal, Typography } from 'antd';
+import { Button, Modal, Typography, message } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { useAcceptProposalsMutation, useRejectProposalsMutation } from '../../../../graphql/actionRequest.generated';
-import { ActionRequest, ActionRequestResult, ActionRequestStatus, EntityType } from '../../../../types.generated';
-import { CustomAvatar } from '../../../shared/avatar';
-import { capitalizeFirstLetter } from '../../../shared/textUtil';
-import { useEntityRegistry } from '../../../useEntityRegistry';
+
+import { CustomAvatar } from '@app/shared/avatar';
+import { capitalizeFirstLetter } from '@app/shared/textUtil';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useAcceptProposalsMutation, useRejectProposalsMutation } from '@graphql/actionRequest.generated';
+import { ActionRequest, ActionRequestResult, ActionRequestStatus, EntityType } from '@types';
 
 type Props = {
     actionRequest: ActionRequest;

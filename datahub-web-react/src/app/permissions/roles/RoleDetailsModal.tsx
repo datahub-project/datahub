@@ -1,10 +1,12 @@
-import React from 'react';
 import { Button, Divider, Modal, Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { CorpUser, DataHubPolicy, DataHubRole } from '../../../types.generated';
-import AvatarsGroup from '../AvatarsGroup';
-import { SpacedAvatarGroup } from '../../shared/avatar/SpaceAvatarGroup';
+
+import AvatarsGroup from '@app/permissions/AvatarsGroup';
+import { SpacedAvatarGroup } from '@app/shared/avatar/SpaceAvatarGroup';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { CorpUser, DataHubPolicy, DataHubRole } from '@types';
 
 type Props = {
     role: DataHubRole;

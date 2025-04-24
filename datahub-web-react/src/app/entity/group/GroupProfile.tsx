@@ -1,25 +1,27 @@
-import React from 'react';
 import { Col, Row } from 'antd';
+import React from 'react';
 import styled from 'styled-components/macro';
+
+import { GroupAssets } from '@app/entity/group/GroupAssets';
+import GroupInfoSidebar from '@app/entity/group/GroupInfoSideBar';
+import GroupMembers from '@app/entity/group/GroupMembers';
+import { EntityContext } from '@app/entity/shared/EntityContext';
+import NonExistentEntityPage from '@app/entity/shared/entity/NonExistentEntityPage';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { decodeUrn } from '@app/entity/shared/utils';
+import { ManageActorNotifications } from '@app/settings/personal/notifications/ManageActorNotifications';
+import { ManageActorSubscriptions } from '@app/settings/personal/subscriptions/ManageActorSubscriptions';
+import { EntityHead } from '@app/shared/EntityHead';
+import { Message } from '@app/shared/Message';
+import { RoutedTabs } from '@app/shared/RoutedTabs';
+import useUserParams from '@app/shared/entitySearch/routingUtils/useUserParams';
+import { ErrorSection } from '@app/shared/error/ErrorSection';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { useGetGrantedPrivilegesQuery } from '@src/graphql/policy.generated';
-import { useGetGroupQuery } from '../../../graphql/group.generated';
-import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
-import { OriginType, EntityRelationshipsResult, Ownership, EntityType } from '../../../types.generated';
-import { Message } from '../../shared/Message';
-import { EntityContext } from '../shared/EntityContext';
-import { EntityHead } from '../../shared/EntityHead';
-import { GenericEntityProperties } from '../shared/types';
-import GroupMembers from './GroupMembers';
-import { decodeUrn } from '../shared/utils';
-import { RoutedTabs } from '../../shared/RoutedTabs';
-import GroupInfoSidebar from './GroupInfoSideBar';
-import { GroupAssets } from './GroupAssets';
-import { ErrorSection } from '../../shared/error/ErrorSection';
-import { ManageActorNotifications } from '../../settings/personal/notifications/ManageActorNotifications';
-import { ManageActorSubscriptions } from '../../settings/personal/subscriptions/ManageActorSubscriptions';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import NonExistentEntityPage from '../shared/entity/NonExistentEntityPage';
+
+import { useGetGroupQuery } from '@graphql/group.generated';
+import { EntityRelationshipsResult, EntityType, OriginType, Ownership } from '@types';
 
 const messageStyle = { marginTop: '10%' };
 

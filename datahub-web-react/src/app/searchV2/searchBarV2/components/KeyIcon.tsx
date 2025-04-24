@@ -1,7 +1,8 @@
-import React from 'react';
 import { Icon } from '@phosphor-icons/react';
-import { colors } from '@src/alchemy-components';
+import React from 'react';
 import styled from 'styled-components';
+
+import { colors } from '@src/alchemy-components';
 
 const IconContainer = styled.div`
     height: 24px;

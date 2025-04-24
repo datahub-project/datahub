@@ -1,16 +1,17 @@
+import { ClockCircleOutlined, ConsoleSqlOutlined, HddOutlined, TableOutlined, TeamOutlined } from '@ant-design/icons';
+import { Popover } from '@components';
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Typography } from 'antd';
-import { Popover } from '@components';
-import { ClockCircleOutlined, ConsoleSqlOutlined, TableOutlined, TeamOutlined, HddOutlined } from '@ant-design/icons';
-import { formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
-import { ANTD_GRAY } from '../../shared/constants';
-import { toLocalDateTimeString, toRelativeTimeString } from '../../../shared/time/timeUtils';
-import { StatsSummary } from '../../shared/components/styled/StatsSummary';
-import { FormattedBytesStat } from './FormattedBytesStat';
-import { PercentileLabel } from '../../shared/stats/PercentileLabel';
-import { countFormatter, needsFormatting } from '../../../../utils/formatter';
-import ExpandingStat from './ExpandingStat';
+
+import ExpandingStat from '@app/entity/dataset/shared/ExpandingStat';
+import { FormattedBytesStat } from '@app/entity/dataset/shared/FormattedBytesStat';
+import { StatsSummary } from '@app/entity/shared/components/styled/StatsSummary';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { PercentileLabel } from '@app/entity/shared/stats/PercentileLabel';
+import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
+import { countFormatter, needsFormatting } from '@utils/formatter';
 
 const StatText = styled.span<{ color: string }>`
     color: ${(props) => props.color};
@@ -52,7 +53,7 @@ export const DatasetStatsSummary = ({
     shouldWrap,
 }: Props) => {
     const isTooltipMode = mode === 'tooltip-content';
-    const displayedColor = isTooltipMode ? '' : color ?? ANTD_GRAY[7];
+    const displayedColor = isTooltipMode ? '' : (color ?? ANTD_GRAY[7]);
 
     const statsViews = [
         !!rowCount && (

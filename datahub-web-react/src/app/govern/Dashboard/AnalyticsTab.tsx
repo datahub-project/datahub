@@ -1,23 +1,25 @@
+import { Tooltip } from '@components';
 import DownloadForOfflineOutlinedIcon from '@mui/icons-material/DownloadForOfflineOutlined';
 import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import { Tabs } from 'antd';
-import { Tooltip } from '@components';
 import dayjs from 'dayjs';
 import { json2csv } from 'json-2-csv';
 import React, { useEffect, useState } from 'react';
+
+import { ByAssigneeSelector } from '@app/govern/Dashboard/ByAssigneeSelector';
+import { ByDomainSelector } from '@app/govern/Dashboard/ByDomainSelector';
+import { ByFormSelector } from '@app/govern/Dashboard/ByFormSelector';
+import { useFormAnalyticsContext } from '@app/govern/Dashboard/FormAnalyticsContext';
+import { SeriesSelect } from '@app/govern/Dashboard/SeriesSelect';
+import { Assignees, Domains, Forms, OverallProgress, Questions, Stats } from '@app/govern/Dashboard/charts';
+import { IntegrationServiceOffline } from '@app/govern/Dashboard/charts/AuxViews';
+import { Body, BodyHeader, DataFreshness, Filters, TabBody, TabsContainer } from '@app/govern/Dashboard/components';
+import { freshnessColor, mergeRowAndHeaderData } from '@app/govern/Dashboard/utils';
+import { useAppConfig } from '@app/useAppConfig';
+import { useIsThemeV2 } from '@app/useIsThemeV2';
 import analytics, { EventType } from '@src/app/analytics';
-import { useFormAnalyticsQuery } from '../../../graphql/analytics.generated';
-import { useAppConfig } from '../../useAppConfig';
-import { useIsThemeV2 } from '../../useIsThemeV2';
-import { ByAssigneeSelector } from './ByAssigneeSelector';
-import { ByDomainSelector } from './ByDomainSelector';
-import { ByFormSelector } from './ByFormSelector';
-import { useFormAnalyticsContext } from './FormAnalyticsContext';
-import { SeriesSelect } from './SeriesSelect';
-import { Assignees, Domains, Forms, OverallProgress, Questions, Stats } from './charts';
-import { IntegrationServiceOffline } from './charts/AuxViews';
-import { Body, BodyHeader, DataFreshness, Filters, TabBody, TabsContainer } from './components';
-import { freshnessColor, mergeRowAndHeaderData } from './utils';
+
+import { useFormAnalyticsQuery } from '@graphql/analytics.generated';
 
 interface Tab {
     key: string;

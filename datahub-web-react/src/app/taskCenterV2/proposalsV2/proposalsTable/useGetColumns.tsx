@@ -1,11 +1,12 @@
-import { toLocalDateString } from '@src/app/shared/time/timeUtils';
+import { Typography } from 'antd';
 import React from 'react';
+import styled from 'styled-components';
+
+import ActionsColumn from '@app/taskCenterV2/proposalsV2/proposalsTable/ActionsColumn';
+import { colors } from '@src/alchemy-components';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import { ActionRequestListItem } from '@src/app/actionrequestV2/item/ActionRequestListItem';
-import { Typography } from 'antd';
-import styled from 'styled-components';
-import { colors } from '@src/alchemy-components';
-import ActionsColumn from './ActionsColumn';
+import { toLocalDateString } from '@src/app/shared/time/timeUtils';
 
 const OverflowText = styled(Typography.Text)`
     color: ${colors.gray[1700]};
