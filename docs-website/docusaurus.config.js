@@ -75,7 +75,7 @@ module.exports = {
     //   announcementBar: {
     //     id: "announcement",
     //     content:
-    //       '<div><img src="/img/acryl-logo-white-mark.svg" /><p><strong>DataHub Cloud</strong><span> &nbsp;DataHub delivers an easy to consume DataHub platform for the enterprise</span></p></div> <a href="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup" target="_blank" class="button button--primary">Sign Up for DataHub Cloud&nbsp;→</a>',
+    //       '<div><img src="/img/acryl-logo-white-mark.svg" /><p><strong>DataHub Cloud</strong><span> &nbsp;DataHub delivers an easy to consume DataHub platform for the enterprise</span></p></div> <a href="https://www.datahub.com#sign-up-form?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup" target="_blank" class="button button--primary">Sign Up for DataHub Cloud&nbsp;→</a>',
     //     backgroundColor: "#070707",
     //     textColor: "#ffffff",
     //     isCloseable: false,
@@ -116,57 +116,57 @@ module.exports = {
           label: "Integrations",
           position: "right",
         },
-        {
-          type: "dropdown",
-          activeBasePath: "learn",
-          label: "Learn",
-          position: "right",
-          items: [
-            {
-              to: "https://www.acryldata.io/webinars/weekly-live-demo",
-              label: "Weekly Demo",
-            },
-            {
-              to: "/learn",
-              label: "Use Cases",
-            },
-            {
-              to: "/adoption-stories",
-              label: "Adoption Stories",
-            },
-            {
-              href: "https://medium.com/datahub-project",
-              label: "Blog",
-            },
-            {
-              href: "https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w",
-              label: "YouTube",
-            },
-          ],
-        },
-        {
-          type: "dropdown",
-          label: "Community",
-          position: "right",
-          items: [
-            {
-              href: "https://datahub.com/slack?utm_source=docs&utm_medium=header&utm_campaign=docs_header",
-              label: "Join Slack",
-            },
-            {
-              to: "/events",
-              label: "Events",
-            },
-            {
-              to: "/champions",
-              label: "Champions",
-            },
-            {
-              label: "Share Your Journey",
-              href: "/customer-stories-survey",
-            },
-          ],
-        },
+        // {
+        //   type: "dropdown",
+        //   activeBasePath: "learn",
+        //   label: "Learn",
+        //   position: "right",
+        //   items: [
+        //     {
+        //       to: "https://pages.acryl.io/webinar-governance-ai-5",
+        //       label: "Weekly Demo",
+        //     },
+        //     {
+        //       to: "/learn",
+        //       label: "Use Cases",
+        //     },
+        //     {
+        //       to: "/adoption-stories",
+        //       label: "Adoption Stories",
+        //     },
+        //     {
+        //       href: "https://medium.com/datahub-project",
+        //       label: "Blog",
+        //     },
+        //     {
+        //       href: "https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w",
+        //       label: "YouTube",
+        //     },
+        //   ],
+        // },
+        // {
+        //   type: "dropdown",
+        //   label: "Community",
+        //   position: "right",
+        //   items: [
+        //     {
+        //       href: "https://datahub.com/slack?utm_source=docs&utm_medium=header&utm_campaign=docs_header",
+        //       label: "Join Slack",
+        //     },
+        //     {
+        //       to: "/events",
+        //       label: "Events",
+        //     },
+        //     {
+        //       to: "/champions",
+        //       label: "Champions",
+        //     },
+        //     {
+        //       label: "Share Your Journey",
+        //       href: "/customer-stories-survey",
+        //     },
+        //   ],
+        // },
         {
           href: "https://datahub.com/products/why-datahub-cloud/",
           html: `

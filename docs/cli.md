@@ -6,7 +6,7 @@ toc_max_heading_level: 4
 
 # DataHub CLI
 
-DataHub comes with a friendly cli called `datahub` that allows you to perform a lot of common operations using just the command line. [DataHub](https://acryldata.io) maintains the [pypi package](https://pypi.org/project/acryl-datahub/) for `datahub`.
+DataHub comes with a friendly cli called `datahub` that allows you to perform a lot of common operations using just the command line. [DataHub](https://datahub.com) maintains the [pypi package](https://pypi.org/project/acryl-datahub/) for `datahub`.
 
 ## Installation
 
