@@ -1,4 +1,4 @@
-package com.linkedin.datahub.upgrade.system.elasticsearch.steps;
+package com.linkedin.datahub.upgrade.system.cron.steps;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.upgrade.UpgradeContext;
@@ -25,11 +25,6 @@ public class TweakReplicasStep implements UpgradeStep {
   @Override
   public String id() {
     return "TweakReplicasStep";
-  }
-
-  @Override
-  public int retryCount() {
-    return 0;
   }
 
   @Override
