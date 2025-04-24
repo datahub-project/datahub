@@ -122,7 +122,7 @@ To refresh any of the running system stared by `./gradlew quickStartDebug`, run
 ```
 
 This will build any changed components and restart those containers that had changes.
-There are a few other quickStart* variants, like quickStartDebugMin, quickStartDebugConsumers
+There are a few other quickStart\* variants, like quickStartDebugMin, quickStartDebugConsumers
 
 For each of those variants, there is a corresponding reloadTask.
 
@@ -147,8 +147,8 @@ To change the env and reload containers, use the task `debugReloadEnv`
 ```shell
 DATAHUB_LOCAL_COMMON_ENV=my-other-settings.env ./gradlew debugReloadEnv
 ```
-This will build any container artifacts were changed and all reloadable containers are re-created to use the new env settings.
 
+This will build any container artifacts were changed and all reloadable containers are re-created to use the new env settings.
 
 ### Refreshing the CLI
 
