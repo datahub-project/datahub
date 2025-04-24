@@ -1231,7 +1231,7 @@ jobs:
       - id: set-runner
         run: |
           if [[ "${{ env.DOCKER_CACHE }}" == "DEPOT" && "${{ env.DEPOT_PROJECT_ID }}" != "" ]]; then
-            echo "runner_type=depot-ubuntu-24.04" >> "$GITHUB_OUTPUT"
+            echo "runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
           else
             echo "runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
           fi
@@ -1253,7 +1253,7 @@ jobs:
     if: ${{ always() && !failure() && !cancelled() && needs.smoke_test_matrix.outputs.matrix != '[]' }}
     steps:
       - name: Free up disk space
-        if: ${{ needs.determine_runner.outputs.runner_type != 'depot-ubuntu-24.04' }}
+        if: ${{ needs.determine_runner.outputs.runner_type == 'ubuntu-latest' }}
         run: |
           sudo apt-get remove 'dotnet-*' azure-cli || true
           sudo rm -rf /usr/local/lib/android/ || true
