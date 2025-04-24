@@ -24,8 +24,14 @@ public class SystemCronConfig {
         return new TweakReplicasStep(services, structuredProperties);
     }
 
+    @Bean(name = "AnotherStep")
+    public UpgradeStep anotherStep(List<ElasticSearchIndexed> services, Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
+        return new TweakReplicasStep(services, structuredProperties);
+    }
+
     @Bean(name = "systemUpdateCron")
     public SystemUpdateCron systemUpdateCron(@Qualifier("TweakReplicasStep") UpgradeStep tweakReplicasStep) {
+        // TODO  consider which step(s) to run via additional arg
         return new SystemUpdateCron(List.of(tweakReplicasStep));
     }
 }
