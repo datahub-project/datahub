@@ -54,20 +54,15 @@ x-datahub-otel-env: &x-datahub-otel-env
   ENABLE_PROMETHEUS: true
   DATAHUB_DEBUG: true
   ENABLE_OTEL: true
-  OTEL_LOG_LEVEL: debug
-  OTEL_METRICS_EXPORTER: console
-  OTEL_TRACES_EXPORTER: console
-  OTEL_LOGS_EXPORTER: console
   OTEL_SDK_DISABLED: false
   OTEL_INSTRUMENTATION_COMMON_DEFAULT_ENABLED: true
   OTEL_PROPAGATORS: tracecontext,baggage
   NAMESPACE: compose
   OTEL_EXPORTER_OTLP_ENDPOINT: http://opentelemetry-collector:4317
   OTEL_EXPORTER_OTLP_PROTOCOL: grpc
-  #LOGS_TARGET: http://loki:3100/loki/api/v1/push
-  # Emit traces in an ins
-  #OTEL_EXPORTER_OTLP_TRACES_INSECURE: true
-  #OTEL_RESOURCE_ATTRIBUTES=ip: 1.2.3.5
+  OTEL_METRICS_EXPORTER: none
+  OTEL_TRACES_EXPORTER: otlp
+  OTEL_LOGS_EXPORTER: otlp
 
 #################################
 # System Update
@@ -475,6 +470,9 @@ services:
       <<: [*datahub-mae-consumer-env, *x-datahub-otel-env]
       OTEL_SERVICE_NAME: datahub-mae-consumer
       OTEL_RESOURCE_ATTRIBUTES: service.name=datahub-mae-consumer
+    ports:
+      - 9091:9091
+      - "4318"
     depends_on:
       datahub-gms-quickstart-otel:
         condition: service_healthy
@@ -511,6 +509,9 @@ services:
       <<: [*datahub-mce-consumer-env, *x-datahub-otel-env]
       OTEL_SERVICE_NAME: datahub-mce-consumer
       OTEL_RESOURCE_ATTRIBUTES: service.name=datahub-mce-consumer
+    ports:
+      - 9090:9090
+      - "4318"
     depends_on:
       datahub-gms-quickstart-otel:
         condition: service_healthy

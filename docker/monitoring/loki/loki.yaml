@@ -11,8 +11,8 @@ server:
 # This is used by the Logs Explorer app in Grafana.
 limits_config:
   volume_enabled: true
-  ingestion_rate_mb: 8  # Increase from default 4MB to 8MB
-  ingestion_burst_size_mb: 16  # Usually set to 2x the ingestion_rate_mb
+  ingestion_rate_mb: 10  # Increase from default 4MB to 10MB
+  ingestion_burst_size_mb: 20  # Usually set to 2x the ingestion_rate_mb
 
 # The common block is used to set options for all of the components that make up Loki. These can be overridden using
 # the specific configuration blocks for each component.

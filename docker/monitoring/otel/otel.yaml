@@ -50,25 +50,25 @@ receivers:
                 group: 'infrastructure'
 
         # Scrape from the GMS, Consumers & Frontend services.
-        #- job_name: 'datahub'
+        - job_name: 'datahub'
         #  scrape_interval: 2s
-        #  static_configs:
-        #    - targets: ['datahub-gms:4317']
-        #      labels:
-        #        service: 'datahub-gms'
-        #        group: 'datahub'
-            #- targets: ['datahub-frontend:9092']
-            #  labels:
-            #    service: 'datahub-frontend'
-            #    group: 'datahub'
-            #- targets: ['datahub-mae-consumer:9090']
-            #  labels:
-            #    service: 'datahub-mae-consumer'
-            #    group: 'datahub'
-            #- targets: ['datahub-mce-consumer:9091']
-            #  labels:
-            #    service: 'datahub-mce-consumer'
-            #    group: 'datahub'
+          static_configs:
+            - targets: ['datahub-gms:4318']
+              labels:
+                service: 'datahub-gms'
+                group: 'datahub'
+            - targets: ['datahub-frontend:4318']
+              labels:
+                service: 'datahub-frontend'
+                group: 'datahub'
+            - targets: ['datahub-mae-consumer:4318']
+              labels:
+                service: 'datahub-mae-consumer'
+                group: 'datahub'
+            - targets: ['datahub-mce-consumer:4318']
+              labels:
+                service: 'datahub-mce-consumer'
+                group: 'datahub'
 
 
 # Define processors to process received data.
@@ -77,9 +77,9 @@ processors:
   # Use the in-built `batch` processor to batch up data before writing it for export.
   # Use the default values for it.
   batch:
-    send_batch_size: 10  # Smaller batches
-    timeout: 5s
-    send_batch_max_size: 2000000  # Around 2MB per batch to stay under limit
+    send_batch_size: 2  # Smaller batches
+    timeout: 2s
+    send_batch_max_size: 8000000  # Around 8MB per batch to stay under limit
 
   # The tail sampler processor will only keep traces where spans match the defined policies.
   tail_sampling:
