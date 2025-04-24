@@ -45,7 +45,7 @@ docker {
         ]
     // This task is intended to build the slim image
     //target 'ingestion-base-slim' //Review if this needs to be handled by bake
-    def dockerBuildArgs = [RELEASE_VERSION: python_docker_version, APP_ENV: docker_target]
+    def dockerBuildArgs = [RELEASE_VERSION: python_docker_version]
 
     // Add build args if they are defined (needed for some CI or enterprise environments)
     if (project.hasProperty('pipMirrorUrl')) {

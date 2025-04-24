@@ -39,6 +39,7 @@ jobs:
   setup:
     runs-on: depot-ubuntu-24.04-small
     outputs:
+      # TODO: Many of the vars below should not be required anymore. 
       tag: ${{ steps.tag.outputs.tag }}
       slim_tag: ${{ steps.tag.outputs.slim_tag }}
       full_tag: ${{ steps.tag.outputs.full_tag }}
@@ -67,6 +68,12 @@ jobs:
       smoke_test_change: ${{ steps.ci-optimize.outputs.smoke-test-change == 'true' }}
       integrations_service_change: "false"
       datahub_executor_change: "false"
+
+      run_publish_images: ${{ steps.run-publish-images.outputs.run_publish_images}}
+
+      build_runner_type: ${{ steps.set-runner.outputs.build_runner_type }}
+      test_runner_type: ${{ steps.set-runner.outputs.test_runner_type }}
+      use_depot_cache: ${{ steps.set-runner.outputs.use_depot_cache }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
@@ -118,21 +125,20 @@ jobs:
       - uses: ./.github/actions/ci-optimization
         id: ci-optimize
 
-  cache_strategy:
-    name: Cache Strategy
-    runs-on: depot-ubuntu-24.04-small
-    outputs:
-      build_runner_type: ${{ steps.set-runner.outputs.build_runner_type }}
-      test_runner_type: ${{ steps.set-runner.outputs.test_runner_type }}
-      use_depot_cache: ${{ steps.set-runner.outputs.use_depot_cache }}
-      publish_runner_type: ${{ steps.set-runner.outputs.publish_runner_type }}
-    steps:
-      - id: set-runner
+      - name: Determine runner type
+        id: set-runner
+        # This needs to handle two scenarios:
+        # 1. Running on a PR from a fork. There are some auth issues that prevent us from using depot in that case.
+        #    So, Its easier to just use the regular github actions cache and build all images for each parallel job running smoke test. 
+        #    Note, concurrency is lower when using github runners, queue times can be longer, test time is longer due to fewer parallel jobs.
+        # 2. Running on a PR from a branch in the datahub-project org and push/schedule events on master. 
+        #    Depot is used here for remote container builds in base_build and also for all runners. Depot runners support unlimited concurrency 
+        #    and hence short queue times and higher parallelism of smoke tests 
+        
         run: |
           if [[ "${{ env.DOCKER_CACHE }}" == "DEPOT" && "${{ env.DEPOT_PROJECT_ID }}" != "" ]]; then
             echo "build_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
             echo "test_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
-            echo "publish_runner_type=depot-ubuntu-24.04" >> "$GITHUB_OUTPUT"
             echo "use_depot_cache=true" >> "$GITHUB_OUTPUT"
           else
             echo "build_runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
@@ -140,12 +146,26 @@ jobs:
             echo "use_depot_cache=false" >> "$GITHUB_OUTPUT"
             # publishing is currently only supported via depot
           fi
+    
+      - name: Check whether to run publishing build
+        id: run-publish-images
+        run: | 
+          if [[ "${{ steps.set-runner.outputs.use_depot_cache }}" == 'true' &&
+                ( "${{ steps.publish.outputs.publish }}" == 'true' ||
+                  "${{ steps.pr-publish.outputs.pr-publish }}" == 'true' ||
+                  "${{ github.event_name }}" == 'workflow_dispatch' ||
+                  "${{ github.event_name }}" == 'schedule') ]]; then
+            echo "run_publish_images=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_publish_images=false" >> "$GITHUB_OUTPUT"
+          fi
+
 
   smoke_test_lint:
     name: Lint on smoke tests
     runs-on: depot-ubuntu-24.04
     needs: setup
-    if: ${{ needs.setup.outputs.smoke_test_change }}" == 'true' }}
+    if: ${{ needs.setup.outputs.smoke_test_change == 'true' }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
@@ -175,8 +195,9 @@ jobs:
 
   base_build:
     name: Build all images
-    runs-on: ${{ needs.cache_strategy.outputs.build_runner_type }}
-    needs: [setup, cache_strategy]
+    runs-on: ${{ needs.setup.outputs.build_runner_type }}
+    needs: setup
+    if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}   # On fork, smoke test job does the build since depot cache is not available
     outputs:
       build_id: ${{ steps.capture-build-id.outputs.build_id }}
       matrix: ${{ steps.capture-build-id.outputs.matrix }}
@@ -187,17 +208,21 @@ jobs:
           distribution: "zulu"
           java-version: 17
 
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v3
         with:
           path: |
             ~/.cache/uv
           key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
 
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v3
         with:
           path: |
             ~/.cache/yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
 
       - name: Set up Depot CLI
         if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
@@ -219,19 +244,18 @@ jobs:
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
 
       - name: Build all Images (For Smoke tests)
-        if: ${{ needs.cache_strategy.outputs.use_depot_cache == 'true' && needs.setup.outputs.publish == 'false' && needs.setup.outputs.pr-publish == 'false' && (github.event_name == 'pull_request' || github.event_name == 'push')}}
+        if: ${{ needs.setup.outputs.run_publish_images == 'false' }}
+        # If not publishing, just a subset of images required for smoke tests is sufficient.
         run: |
           ./gradlew :docker:buildImagesQuickStartDebugConsumers  -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
 
       - name: Build all Images (Publish)
-        if: ${{ needs.cache_strategy.outputs.use_depot_cache == 'true' && (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') }}
+        if: ${{ needs.setup.outputs.run_publish_images == 'true'}}
         run: |
           ./gradlew :docker:buildImagesAll -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=true
 
-
       - name: Capture build Id
         id: capture-build-id
-        if: ${{ needs.cache_strategy.outputs.use_depot_cache == 'true' }}
         run: |
           pip install jq
           DEPOT_BUILD_ID=$(jq -r '.["depot.build"]?.buildID' ${{ github.workspace }}/build/build-metadata.json)
@@ -239,19 +263,34 @@ jobs:
           echo "build_id=${DEPOT_BUILD_ID}" >> "$GITHUB_OUTPUT"
           echo "matrix=$(jq -c '{"target":.["depot.build"].targets}' ${{ github.workspace }}/build/build-metadata.json)" >> $GITHUB_OUTPUT
 
+      - uses: actions/cache/save@v4
+        if: ${{ github.ref == 'refs/heads/master' }}
+        with:
+          path: |
+            ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+
+      - uses: actions/cache/save@v4
+        if: ${{ github.ref == 'refs/heads/master' }}
+        with:
+          path: |
+            ~/.cache/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+
+
 
   scan_images:
     name: Scan images for vulnerabilities
     runs-on: depot-ubuntu-24.04
-    needs: [setup, base_build, cache_strategy]
-    if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true'  || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'}}
+    needs: [setup, base_build]
+    if: ${{ needs.setup.outputs.run_publish_images == 'true' }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.base_build.outputs.matrix) }}
     steps:
       - id: download_image
         name: Download images from depot
-        if: ${{ needs.cache_strategy.outputs.use_depot_cache == 'true' }}
+        if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
         run: |
           depot pull --project ${{ env.DEPOT_PROJECT_ID }} ${{ needs.base_build.outputs.build_id }} --target ${{ matrix.target}}
           docker images
@@ -277,8 +316,8 @@ jobs:
           sarif_file: "trivy-results.sarif"
 
   smoke_test_matrix:
-    runs-on: ${{ needs.cache_strategy.outputs.test_runner_type }}
-    needs: [setup, cache_strategy]
+    runs-on: ${{ needs.setup.outputs.test_runner_type }}
+    needs: setup
     if: ${{ (github.event_name == 'pull_request' || github.event_name == 'push') }}
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
@@ -291,7 +330,7 @@ jobs:
         # python_batch_count is used to split pytests in the smoke-test (batches of actual test functions)
         # cypress_batch_count is used to split the collection of cypress test specs into batches.
         run: |
-          if [[ "${{ needs.cache_strategy.outputs.test_runner_type }}" == "ubuntu-latest" ]]; then
+          if [[ "${{ needs.setup.outputs.test_runner_type }}" == "ubuntu-latest" ]]; then
             echo "cypress_batch_count=5" >> "$GITHUB_OUTPUT"
             echo "python_batch_count=3" >> "$GITHUB_OUTPUT"
           else
@@ -329,13 +368,12 @@ jobs:
 
   smoke_test:
     name: Run Smoke Tests (${{ matrix.test_strategy }}, Batch ${{ matrix.batch }}/${{ matrix.batch_count }})
-    runs-on: ${{ needs.cache_strategy.outputs.test_runner_type }}
+    runs-on: ${{ needs.setup.outputs.test_runner_type }}
     needs:
       [
         setup,
         smoke_test_matrix,
         base_build,
-        cache_strategy,
       ]
     strategy:
       fail-fast: false
@@ -343,31 +381,34 @@ jobs:
     if: ${{ always() && !failure() && !cancelled() && needs.smoke_test_matrix.outputs.matrix != '[]' }}
     steps:
       - name: Free up disk space
-        if: ${{ !contains(needs.cache_strategy.outputs.test_runner_type, 'depot') }}
+        if: ${{ !contains(needs.setup.outputs.test_runner_type, 'depot') }}
         run: |
           sudo apt-get remove 'dotnet-*' azure-cli || true
           sudo rm -rf /usr/local/lib/android/ || true
           sudo docker image prune -a -f || true
 
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v3
         with:
           path: |
             ~/.cache/uv
           key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
 
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v3
         with:
           path: |
             ~/.npm
             ~/.cache/Cypress
             ~/.cache/yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
-
+          restore-keys: |
+            ${{ runner.os }}-yarn-
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
 
       - name: Set up Depot CLI
-        if: ${{ needs.cache_strategy.outputs.use_depot_cache == 'true' }}
+        if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
         uses: depot/setup-action@v1
 
       - uses: actions/setup-python@v5
@@ -376,10 +417,17 @@ jobs:
           cache: "pip"
 
       - uses: gradle/actions/setup-gradle@v4
-        if: ${{ needs.cache_strategy.outputs.use_depot_cache != 'true' }}
+        if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        if: ${{ needs.setup.outputs.docker-login == 'true' }}
+        with:
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
 
       - name: build images
-        if: ${{ needs.cache_strategy.outputs.use_depot_cache != 'true' }}
+        if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
         run: |
           ./gradlew :docker:buildImagesQuickstartDebugConsumers -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
           docker images
@@ -387,7 +435,7 @@ jobs:
           DOCKER_CACHE: GITHUB
 
       - name: pull images from depot
-        if: ${{ needs.cache_strategy.outputs.use_depot_cache == 'true' }}
+        if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
         run: |
           depot pull --project ${{ env.DEPOT_PROJECT_ID }} ${{ needs.base_build.outputs.build_id }}
           docker images
@@ -475,6 +523,21 @@ jobs:
         uses: codecov/test-results-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+
+      - uses: actions/cache/save@v4
+        if: ${{ github.ref == 'refs/heads/master' }}
+        with:
+          path: |
+            ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+
+      - uses: actions/cache/save@v4
+        if: ${{ github.ref == 'refs/heads/master' }}
+        with:
+          path: |
+            ~/.cache/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+
 
   deploy_datahub_head:
     name: Deploy to Datahub HEAD
