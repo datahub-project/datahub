@@ -429,6 +429,7 @@ export const SearchBar = ({
                                 analytics.event({
                                     type: EventType.SelectAutoCompleteOption,
                                     optionType: option.type,
+                                    showSearchBarAutocompleteRedesign: false,
                                 } as Event);
                             } else {
                                 // Navigate directly to the entity profile.
@@ -439,6 +440,7 @@ export const SearchBar = ({
                                     optionType: option.type,
                                     entityType: option.type,
                                     entityUrn: value,
+                                    showSearchBarAutocompleteRedesign: false,
                                 } as Event);
                             }
                         }}
