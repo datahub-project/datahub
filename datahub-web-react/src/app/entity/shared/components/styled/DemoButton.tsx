@@ -12,7 +12,7 @@ export default function DemoButton() {
     return (
         <StyledButton
             type="primary"
-            href="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup"
+            href="https://datahub.com/demo/"
             target="_blank"
             rel="noopener noreferrer"
         >
