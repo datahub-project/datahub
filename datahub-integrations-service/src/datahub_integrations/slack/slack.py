@@ -112,7 +112,7 @@ def install_slack_app(request: Request) -> RedirectResponse:
         dict(request.query_params) if request.query_params is not None else None
     )
     is_minimal_slack_permissions = (
-        (query_params["requestMinimalSlackPermissions"] == "true")
+        (query_params.get("requestMinimalSlackPermissions", "false") == "true")
         if query_params is not None
         else False
     )
@@ -144,7 +144,7 @@ def refresh_slack_app(request: Request) -> RedirectResponse:
         dict(request.query_params) if request.query_params is not None else None
     )
     is_minimal_slack_permissions = (
-        (query_params["requestMinimalSlackPermissions"] == "true")
+        (query_params.get("requestMinimalSlackPermissions", "false") == "true")
         if query_params is not None
         else False
     )
