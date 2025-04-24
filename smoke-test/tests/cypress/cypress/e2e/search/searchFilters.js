@@ -1,4 +1,4 @@
-import { aliasQuery, hasOperationName } from "../utils";
+import { aliasQuery, hasOperationName } from "../support/utils";
 
 describe("search", () => {
   beforeEach(() => {
