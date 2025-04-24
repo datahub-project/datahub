@@ -9,6 +9,7 @@ const EmptyDomainContainer = styled.div`
     display: flex;
     justify-content: center;
     overflow-y: auto;
+    margin-top: 16px;
 `;
 
 const StyledEmpty = styled(Empty)`

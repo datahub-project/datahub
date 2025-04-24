@@ -14,7 +14,7 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.metadata._schema_classes import ShareConfigClass, ShareResultStateClass
+from datahub.metadata.schema_classes import ShareConfigClass, ShareResultStateClass
 from datahub.utilities.urns.urn import guess_entity_type
 from datahub.utilities.urns.urn_iter import list_urns
 from loguru import logger

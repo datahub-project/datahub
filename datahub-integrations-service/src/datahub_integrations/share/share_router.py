@@ -5,7 +5,7 @@ from typing import Optional
 
 import anyio
 import fastapi
-from datahub.metadata._schema_classes import ShareConfigClass, ShareResultStateClass
+from datahub.metadata.schema_classes import ShareConfigClass, ShareResultStateClass
 from fastapi import BackgroundTasks
 from loguru import logger
 
