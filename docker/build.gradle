@@ -83,6 +83,16 @@ ext {
             'quickstartStorage': [
                     profile: 'quickstart-storage',
                     preserveVolumes: true
+            ],
+            'allImages': [ //This is a special task just to include all images as dependencies - and is useful when CI needs to publish all images
+                    profile: 'quickstart-consumers',
+                    modules: python_services_modules + backend_profile_modules + [
+                        ':datahub-frontend',
+                        ':metadata-jobs:mce-consumer-job',
+                        ':metadata-jobs:mae-consumer-job',
+                        ':datahub-actions',
+                        ':docker:datahub-ingestion'
+                    ]
             ]
     ]
 
@@ -194,6 +204,9 @@ quickstart_configs.each { taskName, config ->
             buildCmd << "depot"
             buildCmd += bakeCmdArgs
             buildCmd += ['--save', '--metadata-file', "${rootProject.buildDir}/build-metadata.json"]
+            if (project.properties.getOrDefault("dockerPush", false)){
+                buildCmd << "--push"
+            }
         } else {
             buildCmd += ["docker",  "buildx" ]
             buildCmd +=bakeCmdArgs
@@ -220,64 +233,6 @@ quickstart_configs.each { taskName, config ->
         }
     }
 }
-
-//TODO This is a copy of buildImages* tasks but without the prepareAll dependency. Need to refactor to avoid code duplication.
-/*
-quickstart_configs.each { taskName, config ->
-    tasks.register("buildImagesFromCache${taskName}", Exec) {
-        ext{
-            bakeSpec = [:]
-        }
-        group = 'quickstart-ci'
-        dependsOn(config.modules.collect { it + ':generateBakeSnippet' })
-
-        def jsonFile = new File(rootProject.buildDir, "bake-spec-${taskName}.json")
-
-        bakeCmdArgs = ["bake", "-f",  "${jsonFile.absolutePath}"]
-        def buildCmd = []
-        if (System.getenv("DOCKER_CACHE") == "GITHUB") {
-            buildCmd += ["docker",  "buildx" ]
-            buildCmd += bakeCmdArgs
-            def githubToken = System.getenv("GITHUB_TOKEN")
-            if (githubToken) {
-                dockerCmd += ["--cache-from", "type=gha,token=${githubToken}"]
-                dockerCmd += ["--cache-to", "type=gha,mode=max,token=${githubToken}"]
-            } else {
-                dockerCmd += ["--cache-from", "type=gha"]
-                dockerCmd += ["--cache-to", "type=gha,mode=max"]
-            }
-        } else if (System.getenv("DOCKER_CACHE") == "DEPOT") {
-            buildCmd << "depot"
-            buildCmd += bakeCmdArgs
-            buildCmd += ['--save', '--metadata-file', "${rootProject.buildDir}/build-metadata.json"]
-        } else {
-            buildCmd += ["docker",  "buildx" ]
-            buildCmd +=bakeCmdArgs
-        }
-        println(buildCmd.join(" "))
-        commandLine buildCmd
-        workingDir rootProject.projectDir
-
-        doFirst {
-            def bakeSnippets = [:]
-            def targets = []
-
-            config.modules.each { module ->
-                def moduleProject = project.project(module)
-                def generateBakeSnippetsTask = moduleProject.tasks.getByName("generateBakeSnippet")
-                bakeSnippets.putAll(generateBakeSnippetsTask.bakeSpec.target)
-                targets.addAll(generateBakeSnippetsTask.bakeSpec.target.keySet())
-            }
-
-            ext.bakeSpec.group = [ "default": ["targets": targets] ]
-            ext.bakeSpec.target = bakeSnippets
-
-            jsonFile.parentFile.mkdirs()
-            jsonFile.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(ext.bakeSpec))
-        }
-    }
-}
-*/
 
 // Configure dependencies for ComposeUp tasks
 quickstart_configs.each { taskName, config ->
