@@ -1,13 +1,14 @@
-import { Pill, colors } from '@components';
+import { colors } from '@components';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import datahubCloudSvg from '@images/datahub_cloud.svg';
 
 import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import NavBarToggler from '@app/homeV2/layout/navBarRedesign/NavBarToggler';
 import analytics, { EventType } from '@src/app/analytics';
 import { useGlobalSettingsContext } from '@src/app/context/GlobalSettings/GlobalSettingsContext';
+
+import datahubCloudSvg from '@images/datahub_cloud.svg';
 
 const Container = styled.div`
     display: flex;
