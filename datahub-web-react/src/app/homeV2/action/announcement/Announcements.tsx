@@ -4,6 +4,7 @@ import { Button, Carousel } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType, HomePageModule } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { Announcement } from '@app/homeV2/action/announcement/Announcement';
@@ -88,6 +89,11 @@ export const Announcements = ({ setHasAnnouncements }: Props) => {
         if (!user?.urn) return;
         updateLastViewedAnnouncementTime(user?.urn);
         setHidden(true);
+        analytics.event({
+            type: EventType.HomePageClick,
+            module: HomePageModule.Announcements,
+            value: 'close',
+        });
     };
 
     useEffect(() => {
