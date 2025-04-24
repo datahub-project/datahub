@@ -1,6 +1,6 @@
-import { Dataset, DatasetUpdateInput } from '../../types.generated';
-import { findDatasetByURN } from '../fixtures/searchResult/datasetSearchResult';
-import { updateEntityLink, updateEntityOwners, updateEntityTag } from '../mutationHelper';
+import { findDatasetByURN } from '@graphql-mock/fixtures/searchResult/datasetSearchResult';
+import { updateEntityLink, updateEntityOwners, updateEntityTag } from '@graphql-mock/mutationHelper';
+import { Dataset, DatasetUpdateInput } from '@types';
 
 type UpdateDataset = {
     data: { updateDataset: Dataset };

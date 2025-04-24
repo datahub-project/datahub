@@ -1,15 +1,17 @@
+import { Pill, Popover } from '@components';
+import { capitalize } from 'lodash';
+import React from 'react';
+import styled from 'styled-components';
+
 import {
     formatDetailedDuration,
     formatDuration,
     toLocalDateTimeString,
     toRelativeTimeString,
 } from '@app/shared/time/timeUtils';
-import { Pill, Popover } from '@components';
-import { capitalize } from 'lodash';
-import React from 'react';
-import styled from 'styled-components';
 import colors from '@src/alchemy-components/theme/foundations/colors';
-import { DataProcessInstanceRunResultType, DataProcessRunEvent } from '../../types.generated';
+
+import { DataProcessInstanceRunResultType, DataProcessRunEvent } from '@types';
 
 const StatContainer = styled.div`
     display: flex;
@@ -50,7 +52,7 @@ export default function DataProcessInstanceInfo(lastRunEvent: DataProcessRunEven
 
     return (
         <>
-            {startTime && (
+            {!!startTime && (
                 <Popover
                     content={<PopoverContent>{toLocalDateTimeString(startTime)}</PopoverContent>}
                     title={<Title>Start Time</Title>}
@@ -61,7 +63,7 @@ export default function DataProcessInstanceInfo(lastRunEvent: DataProcessRunEven
                     <StatContainer>{toRelativeTimeString(startTime)}</StatContainer>
                 </Popover>
             )}
-            {duration && (
+            {!!duration && (
                 <Popover
                     content={<PopoverContent>{formatDetailedDuration(duration)}</PopoverContent>}
                     title={<Title>Duration</Title>}
@@ -72,7 +74,7 @@ export default function DataProcessInstanceInfo(lastRunEvent: DataProcessRunEven
                     <StatContainer>{formatDuration(duration)}</StatContainer>
                 </Popover>
             )}
-            {status && (
+            {!!status && (
                 <>
                     <StatContainer>
                         <Pill label={capitalize(status)} color={statusPillColor} clickable={false} />

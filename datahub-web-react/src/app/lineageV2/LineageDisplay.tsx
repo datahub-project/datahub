@@ -1,15 +1,16 @@
-import useComputeGraph from '@app/lineageV2/useComputeGraph/useComputeGraph';
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { useReactFlow } from 'reactflow';
-import { EntityType } from '@types';
 
-import { ColumnRef, LineageDisplayContext, LineageNodesContext } from './common';
-import LineageSidebar from './LineageSidebar';
-import LineageVisualization from './LineageVisualization';
-import useColumnHighlighting from './useColumnHighlighting';
-import useBulkEntityLineage from './useBulkEntityLineage';
-import { LINEAGE_FILTER_NODE_NAME } from './LineageFilterNode/LineageFilterNodeBasic';
-import useNodeHighlighting from './useNodeHighlighting';
+import { LINEAGE_FILTER_NODE_NAME } from '@app/lineageV2/LineageFilterNode/LineageFilterNodeBasic';
+import LineageSidebar from '@app/lineageV2/LineageSidebar';
+import LineageVisualization from '@app/lineageV2/LineageVisualization';
+import { ColumnRef, LineageDisplayContext, LineageNodesContext } from '@app/lineageV2/common';
+import useBulkEntityLineage from '@app/lineageV2/useBulkEntityLineage';
+import useColumnHighlighting from '@app/lineageV2/useColumnHighlighting';
+import useComputeGraph from '@app/lineageV2/useComputeGraph/useComputeGraph';
+import useNodeHighlighting from '@app/lineageV2/useNodeHighlighting';
+
+import { EntityType } from '@types';
 
 type Props = {
     urn: string;

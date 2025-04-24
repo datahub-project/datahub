@@ -1,21 +1,30 @@
 import React, { useContext, useMemo } from 'react';
 import styled from 'styled-components';
-import { useUserContext } from '../../../../../../context/useUserContext';
-import { HOME_PAGE_INSIGHTS_ID } from '../../../../../../onboarding/config/HomePageOnboardingConfig';
-import OnboardingContext from '../../../../../../onboarding/OnboardingContext';
-import HorizontalScroller from '../../../../../../sharedV2/carousel/HorizontalScroller';
 
-import { useUserPersona } from '../../../../../persona/useUserPersona';
-import { PersonaType } from '../../../../../shared/types';
-import { HorizontalListSkeletons } from '../../../../HorizontalListSkeletons';
-import { Section } from '../Section';
-import { INSIGHT_CARD_MIN_WIDTH } from './cards/SearchListInsightCard';
-import { InsightStatusProvider } from './InsightStatusProvider';
-import { MOST_ROWS_ID, MostRowsCard } from './cards/MostRowsCard';
-import { POPULAR_GLOSSARY_TERMS_ID, PopularGlossaryTerms } from './cards/PopularGlossaryTerms';
-import { RECENTLY_CREATED_DATASETS_ID, RecentlyCreatedDatasetsCard } from './cards/RecentlyCreatedDatasetsCard';
-import { RECENTLY_UPDATED_ID, RecentlyUpdatedDatasetsCard } from './cards/RecentlyUpdatedDatasetsCard';
-import InsightCardSkeleton from './shared/InsightCardSkeleton';
+import { useUserContext } from '@app/context/useUserContext';
+import { HorizontalListSkeletons } from '@app/homeV2/content/HorizontalListSkeletons';
+import { Section } from '@app/homeV2/content/tabs/discovery/sections/Section';
+import { InsightStatusProvider } from '@app/homeV2/content/tabs/discovery/sections/insight/InsightStatusProvider';
+import { MOST_ROWS_ID, MostRowsCard } from '@app/homeV2/content/tabs/discovery/sections/insight/cards/MostRowsCard';
+import {
+    POPULAR_GLOSSARY_TERMS_ID,
+    PopularGlossaryTerms,
+} from '@app/homeV2/content/tabs/discovery/sections/insight/cards/PopularGlossaryTerms';
+import {
+    RECENTLY_CREATED_DATASETS_ID,
+    RecentlyCreatedDatasetsCard,
+} from '@app/homeV2/content/tabs/discovery/sections/insight/cards/RecentlyCreatedDatasetsCard';
+import {
+    RECENTLY_UPDATED_ID,
+    RecentlyUpdatedDatasetsCard,
+} from '@app/homeV2/content/tabs/discovery/sections/insight/cards/RecentlyUpdatedDatasetsCard';
+import { INSIGHT_CARD_MIN_WIDTH } from '@app/homeV2/content/tabs/discovery/sections/insight/cards/SearchListInsightCard';
+import InsightCardSkeleton from '@app/homeV2/content/tabs/discovery/sections/insight/shared/InsightCardSkeleton';
+import { useUserPersona } from '@app/homeV2/persona/useUserPersona';
+import { PersonaType } from '@app/homeV2/shared/types';
+import OnboardingContext from '@app/onboarding/OnboardingContext';
+import { HOME_PAGE_INSIGHTS_ID } from '@app/onboarding/config/HomePageOnboardingConfig';
+import HorizontalScroller from '@app/sharedV2/carousel/HorizontalScroller';
 
 const GAP_PX = 12;
 

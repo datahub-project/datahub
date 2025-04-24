@@ -1,16 +1,18 @@
+import { Affix } from 'antd';
+import * as QueryString from 'query-string';
 import React from 'react';
 import { Redirect, useHistory, useLocation, useParams } from 'react-router';
-import * as QueryString from 'query-string';
-import { Affix } from 'antd';
-import { BrowseCfg } from '../../conf';
-import { BrowseResults } from './BrowseResults';
-import { useGetBrowseResultsQuery } from '../../graphql/browse.generated';
-import { LegacyBrowsePath } from './LegacyBrowsePath';
-import { PageRoutes } from '../../conf/Global';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { Message } from '../shared/Message';
-import { scrollToTop } from '../shared/searchUtils';
-import { ErrorSection } from '../shared/error/ErrorSection';
+
+import { BrowseResults } from '@app/browse/BrowseResults';
+import { LegacyBrowsePath } from '@app/browse/LegacyBrowsePath';
+import { Message } from '@app/shared/Message';
+import { ErrorSection } from '@app/shared/error/ErrorSection';
+import { scrollToTop } from '@app/shared/searchUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { PageRoutes } from '@conf/Global';
+import { BrowseCfg } from '@src/conf';
+
+import { useGetBrowseResultsQuery } from '@graphql/browse.generated';
 
 type BrowseResultsPageParams = {
     type: string;

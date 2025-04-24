@@ -38,7 +38,6 @@ env:
   DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
   DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
 
-
 permissions:
   contents: read
   id-token: write
@@ -105,10 +104,10 @@ jobs:
         id: publish
         env:
           ENABLE_PUBLISH: >-
-             ${{
-                github.event_name != 'pull_request'
-                && ( secrets.ACRYL_DOCKER_PASSWORD != '' )
-             }}
+            ${{
+               github.event_name != 'pull_request'
+               && ( secrets.ACRYL_DOCKER_PASSWORD != '' )
+            }}
         run: |
           echo "Enable publish: ${{ env.ENABLE_PUBLISH }}"
           echo "publish=${{ env.ENABLE_PUBLISH }}" >> "$GITHUB_OUTPUT"
@@ -116,10 +115,10 @@ jobs:
         id: pr-publish
         env:
           ENABLE_PUBLISH: >-
-             ${{
-                (github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'publish') || contains(github.event.pull_request.labels.*.name, 'publish-docker')))
-                && ( secrets.ACRYL_DOCKER_PASSWORD != '' )
-             }}
+            ${{
+               (github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'publish') || contains(github.event.pull_request.labels.*.name, 'publish-docker')))
+               && ( secrets.ACRYL_DOCKER_PASSWORD != '' )
+            }}
         run: |
           echo "Enable PR publish: ${{ env.ENABLE_PUBLISH }}"
           echo "publish=${{ env.ENABLE_PUBLISH }}" >> "$GITHUB_OUTPUT"
@@ -171,24 +170,23 @@ jobs:
           distribution: "zulu"
           java-version: 17
 
-
           #- uses: gradle/actions/setup-gradle@v4
       - uses: actions/cache@v4
         with:
           path: |
             ~/.cache/uv
           key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
-  
+
       - uses: actions/cache@v4
         with:
           path: |
             ~/.cache/yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
-  
+
       - name: Set up Depot CLI
         if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
         uses: depot/setup-action@v1
-  
+
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
 
@@ -196,7 +194,6 @@ jobs:
         with:
           python-version: "3.10"
           cache: "pip"
-
 
       - name: Build all Docker Contexts
         if: ${{ env.DOCKER_CACHE == 'DEPOT' && env.DEPOT_PROJECT_ID != '' }}
@@ -209,9 +206,8 @@ jobs:
         run: |
           pip install jq
           DEPOT_BUILD_ID=$(jq -r '.["depot.build"]?.buildID' ${{ github.workspace }}/build/build-metadata.json)
-          
-          echo "build_id=${DEPOT_BUILD_ID}" >> "$GITHUB_OUTPUT"
 
+          echo "build_id=${DEPOT_BUILD_ID}" >> "$GITHUB_OUTPUT"
 
   gms_build:
     name: Build and Push DataHub GMS Docker Image
@@ -266,7 +262,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_GMS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@0.30.0
         env:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
@@ -322,7 +318,7 @@ jobs:
   mae_consumer_scan:
     name: "[Monitoring] Scan MAE consumer images for vulnerabilities"
     runs-on: depot-ubuntu-24.04
-    needs: [setup, smoke_test_lint,mae_consumer_build]
+    needs: [setup, smoke_test_lint, mae_consumer_build]
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -337,7 +333,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@0.30.0
         env:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
@@ -388,7 +384,7 @@ jobs:
   mce_consumer_scan:
     name: "[Monitoring] Scan MCE consumer images for vulnerabilities"
     runs-on: depot-ubuntu-24.04
-    needs: [setup, smoke_test_lint,mce_consumer_build]
+    needs: [setup, smoke_test_lint, mce_consumer_build]
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -403,7 +399,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@0.30.0
         env:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
@@ -459,7 +455,7 @@ jobs:
   datahub_upgrade_scan:
     name: "[Monitoring] Scan DataHub Upgrade images for vulnerabilities"
     runs-on: ubuntu-latest
-    needs: [setup, smoke_test_lint,datahub_upgrade_build]
+    needs: [setup, smoke_test_lint, datahub_upgrade_build]
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -474,7 +470,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@0.30.0
         env:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
@@ -530,7 +526,7 @@ jobs:
   frontend_scan:
     name: "[Monitoring] Scan Frontend images for vulnerabilities"
     runs-on: ubuntu-24.04
-    needs: [setup, smoke_test_lint,frontend_build]
+    needs: [setup, smoke_test_lint, frontend_build]
     if: ${{ needs.setup.outputs.frontend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -545,7 +541,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_FRONTEND_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@0.30.0
         env:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
@@ -595,7 +591,7 @@ jobs:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: "[Monitoring] Scan Kafka Setup images for vulnerabilities"
     runs-on: ubuntu-latest
-    needs: [ setup, smoke_test_lint,kafka_setup_build]
+    needs: [setup, smoke_test_lint, kafka_setup_build]
     if: ${{ needs.setup.outputs.kafka_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true') }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
@@ -606,7 +602,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@0.30.0
         env:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
@@ -657,7 +653,7 @@ jobs:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: "[Monitoring] Scan MySQL Setup images for vulnerabilities"
     runs-on: ubuntu-latest
-    needs: [ setup, smoke_test_lint,mysql_setup_build ]
+    needs: [setup, smoke_test_lint, mysql_setup_build]
     if: ${{ needs.setup.outputs.mysql_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true') }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
@@ -668,7 +664,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@0.30.0
         env:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
@@ -719,7 +715,7 @@ jobs:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: "[Monitoring] Scan ElasticSearch setup images for vulnerabilities"
     runs-on: ubuntu-latest
-    needs: [ setup, elasticsearch_setup_build ]
+    needs: [setup, elasticsearch_setup_build]
     if: ${{ needs.setup.outputs.elasticsearch_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' ) }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
@@ -730,7 +726,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@0.30.0
         env:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
@@ -786,7 +782,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
-    needs: [setup, smoke_test_lint,datahub_ingestion_base_build]
+    needs: [setup, smoke_test_lint, datahub_ingestion_base_build]
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
       - name: Free up disk space
@@ -833,7 +829,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
-    needs: [setup, smoke_test_lint,datahub_ingestion_base_build]
+    needs: [setup, smoke_test_lint, datahub_ingestion_base_build]
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
       - name: Check out the repo
@@ -927,7 +923,7 @@ jobs:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: "[Monitoring] Scan Datahub Ingestion Slim images for vulnerabilities"
     runs-on: ubuntu-latest
-    needs: [setup, smoke_test_lint,datahub_ingestion_slim_build]
+    needs: [setup, smoke_test_lint, datahub_ingestion_slim_build]
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
@@ -938,7 +934,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.tag }}
       - name: Run Trivy vulnerability scanner Slim Image
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@0.30.0
         env:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
@@ -1014,7 +1010,7 @@ jobs:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: "[Monitoring] Scan Datahub Ingestion images for vulnerabilities"
     runs-on: depot-ubuntu-24.04
-    needs: [setup, smoke_test_lint,datahub_ingestion_full_build]
+    needs: [setup, smoke_test_lint, datahub_ingestion_full_build]
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
@@ -1025,7 +1021,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_full_build.outputs.tag }}
       - name: Run Trivy vulnerability scanner Full Image
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@0.30.0
         env:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
@@ -1047,7 +1043,7 @@ jobs:
   datahub_actions_build:
     name: Build and Push DataHub Actions Docker Image
     runs-on: depot-ubuntu-24.04
-    needs: [setup, base_build]
+    needs: [setup]
     if: ${{ needs.setup.outputs.actions_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true'}}
     steps:
       - name: Check out the repo
@@ -1065,6 +1061,8 @@ jobs:
           image_tag: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+          build-args: |
+            RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/datahub-actions/Dockerfile
@@ -1072,7 +1070,7 @@ jobs:
   datahub_actions_scan:
     name: "[Monitoring] Scan Datahub Actions images for vulnerabilities"
     runs-on: depot-ubuntu-24.04
-    needs: [setup, smoke_test_lint,datahub_actions_build]
+    needs: [setup, smoke_test_lint, datahub_actions_build]
     if: ${{ needs.setup.outputs.actions_change == 'true' || needs.setup.outputs.publish == 'true' }}
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -1087,7 +1085,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_ACTIONS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@0.30.0
         env:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
@@ -1107,7 +1105,7 @@ jobs:
   datahub_actions_slim_build:
     name: Build and Push DataHub Actions Slim Docker Image
     runs-on: depot-ubuntu-24.04
-    needs: [setup, base_build]
+    needs: [setup]
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
       needs_artifact_download: ${{ needs.setup.outputs.actions_change == 'true' && ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true') }}
@@ -1127,6 +1125,7 @@ jobs:
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           build-args: |
             APP_ENV=slim
+            RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/datahub-actions/Dockerfile
@@ -1139,7 +1138,7 @@ jobs:
   datahub_actions_slim_scan:
     name: "[Monitoring] Scan Datahub Actions Slim images for vulnerabilities"
     runs-on: depot-ubuntu-24.04
-    needs: [setup, smoke_test_lint,datahub_actions_slim_build]
+    needs: [setup, smoke_test_lint, datahub_actions_slim_build]
     if: ${{ needs.setup.outputs.actions_change == 'true' || needs.setup.outputs.publish == 'true' }}
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -1154,7 +1153,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_ACTIONS_IMAGE }}:${{ needs.setup.outputs.slim_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@0.30.0
         env:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
@@ -1205,13 +1204,13 @@ jobs:
           for ((i=1;i<python_batch_count;i++)); do
             python_matrix="$python_matrix"',{"test_strategy":"pytests","batch_count":"'"$python_batch_count"'","batch":"'"$i"'"}'
           done
-          
+
           cypress_batch_count=${{ steps.set-batch-count.outputs.cypress_batch_count }}
           cypress_matrix='{"test_strategy":"cypress","batch":"0","batch_count":"'"$cypress_batch_count"'"}'
           for ((i=1;i<cypress_batch_count;i++)); do
             cypress_matrix="$cypress_matrix"',{"test_strategy":"cypress","batch_count":"'"$cypress_batch_count"'","batch":"'"$i"'"}'
           done
-          
+
           includes=''
           if [[ "${{ needs.setup.outputs.backend_change }}" == 'true' || "${{ needs.setup.outputs.smoke_test_change }}" == 'true' || "${{ needs.setup.outputs.publish }}" == 'true' ]]; then
             includes="$python_matrix,$cypress_matrix"
@@ -1232,7 +1231,7 @@ jobs:
       - id: set-runner
         run: |
           if [[ "${{ env.DOCKER_CACHE }}" == "DEPOT" && "${{ env.DEPOT_PROJECT_ID }}" != "" ]]; then
-            echo "runner_type=depot-ubuntu-24.04" >> "$GITHUB_OUTPUT"
+            echo "runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
           else
             echo "runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
           fi
@@ -1246,7 +1245,7 @@ jobs:
         smoke_test_matrix,
         base_build,
         determine_runner,
-        datahub_actions_slim_build
+        datahub_actions_slim_build,
       ]
     strategy:
       fail-fast: false
@@ -1254,7 +1253,7 @@ jobs:
     if: ${{ always() && !failure() && !cancelled() && needs.smoke_test_matrix.outputs.matrix != '[]' }}
     steps:
       - name: Free up disk space
-        if: ${{ needs.determine_runner.outputs.runner_type != 'depot-ubuntu-24.04' }}
+        if: ${{ needs.determine_runner.outputs.runner_type == 'ubuntu-latest' }}
         run: |
           sudo apt-get remove 'dotnet-*' azure-cli || true
           sudo rm -rf /usr/local/lib/android/ || true
@@ -1277,11 +1276,10 @@ jobs:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
 
-
       - name: Set up Depot CLI
         if: ${{ env.DOCKER_CACHE == 'DEPOT' && env.DEPOT_PROJECT_ID != '' }}
         uses: depot/setup-action@v1
-  
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
@@ -1305,7 +1303,7 @@ jobs:
           DOCKER_CACHE: GITHUB
       - name: pull images from depot
         if: ${{ env.DOCKER_CACHE == 'DEPOT' && env.DEPOT_PROJECT_ID != '' }}
-        run: | 
+        run: |
           depot pull --project ${{ env.DEPOT_PROJECT_ID }} ${{ needs.base_build.outputs.build_id }}
           docker images
       - name: run quickstart
@@ -1340,7 +1338,6 @@ jobs:
       - name: Build datahub cli
         run: |
           ./gradlew :metadata-ingestion:install
-
 
       - name: Smoke test
         env:
@@ -1396,7 +1393,7 @@ jobs:
   deploy_datahub_head:
     name: Deploy to Datahub HEAD
     runs-on: ubuntu-latest
-    needs: [setup, smoke_test_lint,smoke_test]
+    needs: [setup, smoke_test_lint, smoke_test]
     steps:
       - uses: aws-actions/configure-aws-credentials@v4
         if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'datahub-project' && needs.setup.outputs.repository_name == 'datahub' }}

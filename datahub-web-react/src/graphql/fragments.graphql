@@ -153,6 +153,14 @@ fragment glossaryNode on GlossaryNode {
                 }
                 ... on GlossaryNode {
                     urn
+                    type
+                    properties {
+                        name
+                        description
+                    }
+                    displayProperties {
+                        ...displayPropertiesFields
+                    }
                 }
             }
         }

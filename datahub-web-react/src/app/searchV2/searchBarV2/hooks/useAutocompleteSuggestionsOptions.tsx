@@ -1,23 +1,27 @@
-import { Loader } from '@src/alchemy-components';
-import { AutoCompleteResultForEntity } from '@src/types.generated';
 import React, { useMemo } from 'react';
-import SectionHeader from '../components/SectionHeader';
-import { combineSiblingsInAutoComplete } from '../../utils/combineSiblingsInAutoComplete';
-import AutoCompleteEntityItem from '../../autoCompleteV2/AutoCompleteEntityItem';
 
-export default function useAutocompleteSuggestionsOptions(
-    suggestions: AutoCompleteResultForEntity[],
+import AutoCompleteEntityItem from '@app/searchV2/autoCompleteV2/AutoCompleteEntityItem';
+import SectionHeader from '@app/searchV2/searchBarV2/components/SectionHeader';
+import { SectionOption } from '@app/searchV2/searchBarV2/types';
+import {
+    EntityWithMatchedFields,
+    combineSiblingsInEntitiesWithMatchedFields,
+} from '@app/searchV2/utils/combineSiblingsInEntitiesWithMatchedFields';
+import { Loader } from '@src/alchemy-components';
+
+export default function useSearchResultsOptions(
+    entitiesWithMatchedFields: EntityWithMatchedFields[] | undefined,
     searchQuery: string,
     isLoading?: boolean,
     isInitialized?: boolean,
     shouldCombineSiblings?: boolean,
-) {
+): SectionOption[] {
     return useMemo(() => {
-        const hasSuggestions = suggestions.length > 0;
-        if (!isLoading && !hasSuggestions) return [];
+        const hasResults = (entitiesWithMatchedFields?.length ?? 0) > 0;
+        if (!isLoading && !hasResults) return [];
         if (!searchQuery) return [];
 
-        if (!isInitialized || !hasSuggestions)
+        if (!isInitialized || !hasResults)
             return [
                 {
                     label: <Loader size="sm" />,
@@ -26,30 +30,28 @@ export default function useAutocompleteSuggestionsOptions(
                 },
             ];
 
+        const combinedEntities = combineSiblingsInEntitiesWithMatchedFields(
+            entitiesWithMatchedFields,
+            !!shouldCombineSiblings,
+        );
+
         return [
             {
                 label: <SectionHeader text="Best Matches" />,
-                options: suggestions
-                    .map((suggestion: AutoCompleteResultForEntity) => {
-                        const combinedSuggestion = combineSiblingsInAutoComplete(suggestion, {
-                            combineSiblings: shouldCombineSiblings,
-                        });
-
-                        return combinedSuggestion.combinedEntities.map((combinedEntity) => ({
-                            value: combinedEntity.entity.urn,
-                            label: (
-                                <AutoCompleteEntityItem
-                                    entity={combinedEntity.entity}
-                                    query={searchQuery}
-                                    siblings={shouldCombineSiblings ? combinedEntity.matchedEntities : undefined}
-                                />
-                            ),
-                            type: combinedEntity.entity.type,
-                            style: { padding: '0 8px' },
-                        }));
-                    })
-                    .flat(),
+                options: combinedEntities.map((combinedEntity) => ({
+                    value: combinedEntity.entity.urn,
+                    label: (
+                        <AutoCompleteEntityItem
+                            entity={combinedEntity.entity}
+                            query={searchQuery}
+                            siblings={shouldCombineSiblings ? combinedEntity.matchedEntities : undefined}
+                            matchedFields={combinedEntity.matchedFields}
+                        />
+                    ),
+                    type: combinedEntity.entity.type,
+                    style: { padding: '0 8px' },
+                })),
             },
         ];
-    }, [shouldCombineSiblings, suggestions, searchQuery, isLoading, isInitialized]);
+    }, [shouldCombineSiblings, entitiesWithMatchedFields, searchQuery, isLoading, isInitialized]);
 }

@@ -1,9 +1,11 @@
 import React from 'react';
-import { Domain, EntityType, Owner, SearchInsight } from '../../../../types.generated';
-import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import DomainEntitiesSnippet from './DomainEntitiesSnippet';
-import DomainIcon from '../../../domain/DomainIcon';
+
+import DomainIcon from '@app/domain/DomainIcon';
+import DomainEntitiesSnippet from '@app/entity/domain/preview/DomainEntitiesSnippet';
+import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Domain, EntityType, Owner, SearchInsight } from '@types';
 
 export const Preview = ({
     domain,

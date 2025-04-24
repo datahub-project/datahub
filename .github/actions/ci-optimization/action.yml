@@ -49,7 +49,7 @@ runs:
   using: "composite"
   steps:
     - name: Check trigger type
-      id: trigger  # Add an ID to reference this step
+      id: trigger # Add an ID to reference this step
       shell: bash
       run: |
         if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
@@ -104,4 +104,3 @@ runs:
           actions:
             - "datahub-actions/**"
             - "docker/datahub-actions/**"
-          
