@@ -15,7 +15,7 @@ import { EntityType } from '@types';
 const DEFAULT_MAX_ENTITIES_TO_SHOW = 10;
 
 // TODO: Add group ownership into this.
-export const TagsYouOwn = ({ hideIfEmpty }: ReferenceSectionProps) => {
+export const TagsYouOwn = ({ hideIfEmpty, trackClickInSection }: ReferenceSectionProps) => {
     const userContext = useUserContext();
     const { user } = userContext;
     const [entityCount, setEntityCount] = useState(DEFAULT_MAX_ENTITIES_TO_SHOW);
@@ -47,6 +47,7 @@ export const TagsYouOwn = ({ hideIfEmpty }: ReferenceSectionProps) => {
                 }
                 empty={<EmptyTagsYouOwn />}
                 render={renderTag}
+                onClickEntity={trackClickInSection}
             />
             {showModal && (
                 <EmbeddedListSearchModal

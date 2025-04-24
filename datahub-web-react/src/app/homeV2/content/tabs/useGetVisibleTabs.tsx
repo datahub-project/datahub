@@ -1,3 +1,4 @@
+import analytics, { EventType, HomePageModule } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { TabType } from '@app/homeV2/content/tabs/tabs';
 import { useUpdateLastViewedAnnouncementTime } from '@app/homeV2/shared/updateLastViewedAnnouncementTime';
@@ -7,6 +8,13 @@ import { getHomePagePostsFilters } from '@app/utils/queryUtils';
 
 import { useListPostsQuery } from '@graphql/post.generated';
 import { PostContentType, PostType } from '@types';
+
+const handleTabClick = (module: HomePageModule) => {
+    analytics.event({
+        type: EventType.HomePageClick,
+        module,
+    });
+};
 
 const useGetAnnouncementsExists = (): ActiveTab | null => {
     const { user } = useUserContext();
@@ -29,6 +37,7 @@ const useGetAnnouncementsExists = (): ActiveTab | null => {
                 refetch();
             });
         }
+        handleTabClick(HomePageModule.Announcements);
     };
 
     const activePosts = data?.listPosts?.posts?.filter(
@@ -63,9 +72,10 @@ export type ActiveTab = {
 };
 
 export const useGetActiveTabs = (): ActiveTab[] => {
-    const activeTabs = [
+    const activeTabs: ActiveTab[] = [
         {
             type: TabType.Discover,
+            onSelectTab: () => handleTabClick(HomePageModule.Discover),
         },
     ];
 

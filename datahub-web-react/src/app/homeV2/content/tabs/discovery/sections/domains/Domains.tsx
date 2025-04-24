@@ -3,6 +3,7 @@ import React, { useContext } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
+import analytics, { EventType, HomePageModule } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { HorizontalListSkeletons } from '@app/homeV2/content/HorizontalListSkeletons';
 import { Section } from '@app/homeV2/content/tabs/discovery/sections/Section';
@@ -30,7 +31,22 @@ export const Domains = () => {
     useUpdateEducationStepsAllowList(!!domains.length, HOME_PAGE_DOMAINS_ID);
 
     const navigateToDomains = () => {
+        analytics.event({
+            type: EventType.HomePageClick,
+            module: HomePageModule.Discover,
+            section: 'Domains',
+            value: 'View all',
+        });
         history.push(PageRoutes.DOMAINS);
+    };
+
+    const handleDomainClick = (domainUrn: string) => {
+        analytics.event({
+            type: EventType.HomePageClick,
+            module: HomePageModule.Discover,
+            section: 'Domains',
+            value: domainUrn,
+        });
     };
 
     const showSkeleton = isUserInitializing || !user || loading;
@@ -41,7 +57,10 @@ export const Domains = () => {
                 <Section title="Domains" actionText="View all" onClickAction={navigateToDomains}>
                     <Carousel>
                         {domains.map((domain) => (
-                            <DomainCard key={domain.entity.urn} domain={domain.entity} assetCount={domain.assetCount} />
+                            // eslint-disable-next-line
+                            <span key={domain.entity.urn} onClick={() => handleDomainClick(domain.entity.urn)}>
+                                <DomainCard domain={domain.entity} assetCount={domain.assetCount} />
+                            </span>
                         ))}
                     </Carousel>
                 </Section>

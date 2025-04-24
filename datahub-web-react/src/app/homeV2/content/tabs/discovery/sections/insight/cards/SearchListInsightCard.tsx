@@ -2,6 +2,7 @@ import { Tooltip } from '@components';
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType, HomePageModule } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { EmbeddedListSearchModal } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchModal';
@@ -55,7 +56,7 @@ const ShowAll = styled.div`
 
 type Props = {
     id: string;
-    title: React.ReactNode;
+    title: string;
     icon?: React.ReactNode;
     tip?: React.ReactNode;
     types?: [EntityType];
@@ -91,6 +92,27 @@ export const SearchListInsightCard = ({ id, title, icon, tip, query, types, filt
         return null;
     }
 
+    const handleViewAll = () => {
+        setShowModal(true);
+        analytics.event({
+            type: EventType.HomePageClick,
+            module: HomePageModule.Discover,
+            section: 'For you',
+            subSection: title,
+            value: 'View all',
+        });
+    };
+
+    const handleClickEntity = (urn?: string) => {
+        analytics.event({
+            type: EventType.HomePageClick,
+            module: HomePageModule.Discover,
+            section: 'For you',
+            subSection: title,
+            value: urn,
+        });
+    };
+
     return (
         <>
             <InsightCard id={id} minWidth={INSIGHT_CARD_MIN_WIDTH} maxWidth={500}>
@@ -101,9 +123,14 @@ export const SearchListInsightCard = ({ id, title, icon, tip, query, types, filt
                             {title}
                         </Title>
                     </Tooltip>
-                    <ShowAll onClick={() => setShowModal(true)}>View all</ShowAll>
+                    <ShowAll onClick={handleViewAll}>View all</ShowAll>
                 </Header>
-                <EntityLinkList entities={assets} loading={false} empty={empty || 'No assets found'} />
+                <EntityLinkList
+                    entities={assets}
+                    loading={false}
+                    empty={empty || 'No assets found'}
+                    onClickEntity={handleClickEntity}
+                />
             </InsightCard>
             {showModal && (
                 <EmbeddedListSearchModal

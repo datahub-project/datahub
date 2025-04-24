@@ -13,7 +13,7 @@ import useGetUserGroupUrns from '@src/app/entityV2/user/useGetUserGroupUrns';
 const DEFAULT_MAX_ENTITIES_TO_SHOW = 5;
 
 // TODO: Add group ownership into this.
-export const AssetsYouOwn = ({ hideIfEmpty }: ReferenceSectionProps) => {
+export const AssetsYouOwn = ({ hideIfEmpty, trackClickInSection }: ReferenceSectionProps) => {
     const userContext = useUserContext();
     const { user } = userContext;
     const [entityCount, setEntityCount] = useState(DEFAULT_MAX_ENTITIES_TO_SHOW);
@@ -41,6 +41,7 @@ export const AssetsYouOwn = ({ hideIfEmpty }: ReferenceSectionProps) => {
                 onClickMore={() => setEntityCount(entityCount + DEFAULT_MAX_ENTITIES_TO_SHOW)}
                 onClickTitle={() => setShowModal(true)}
                 empty={<EmptyAssetsYouOwn />}
+                onClickEntity={trackClickInSection}
             />
             {showModal && (
                 <EmbeddedListSearchModal

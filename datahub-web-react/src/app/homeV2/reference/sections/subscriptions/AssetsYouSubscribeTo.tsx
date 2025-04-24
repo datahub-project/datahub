@@ -14,7 +14,7 @@ import { EntityType } from '@types';
 const DEFAULT_MAX_ENTITIES_TO_SHOW = 5;
 
 // TODO: Add group ownership into this.
-export const AssetsYouSubscribeTo = ({ hideIfEmpty }: ReferenceSectionProps) => {
+export const AssetsYouSubscribeTo = ({ hideIfEmpty, trackClickInSection }: ReferenceSectionProps) => {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const userContext = useUserContext();
@@ -46,6 +46,7 @@ export const AssetsYouSubscribeTo = ({ hideIfEmpty }: ReferenceSectionProps) => 
                 onClickMore={() => setEntityCount(entityCount + DEFAULT_MAX_ENTITIES_TO_SHOW)}
                 onClickTitle={navigateToUserSubscriptionsTab}
                 empty={<EmptyAssetsYouSubscribeTo />}
+                onClickEntity={trackClickInSection}
             />
         </ReferenceSection>
     );

@@ -149,7 +149,8 @@ public enum DataHubUsageEventType {
   ACCEPT_INFERRED_DOCS_EVENT("AcceptInferredDocsEvent"),
   DECLINE_INFERRED_DOCS_EVENT("DeclineInferredDocsEvent"),
   CLICK_VIEW_DOCUMENTATION_EVENT("ClickViewDocumentationEvent"),
-  SSO_CONFIGURATION_EVENT("SSOConfigurationEvent");
+  SSO_CONFIGURATION_EVENT("SSOConfigurationEvent"),
+  HOME_PAGE_CLICK_EVENT("HomePageClickEvent");
 
   private final String type;
 

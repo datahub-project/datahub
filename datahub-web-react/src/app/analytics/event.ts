@@ -177,6 +177,7 @@ export enum EventType {
     ClickCreateAssertion,
     ClickUserProfile,
     ClickViewDocumentation,
+    HomePageClick,
 }
 
 /**
@@ -199,6 +200,8 @@ interface BaseEvent {
     userPersona?: PersonaType;
     /** the selected title of this user ie. "Data Analyst" */
     userTitle?: string;
+    /** the current server version when this event happened */
+    serverVersion?: string;
 }
 
 /**
@@ -1276,6 +1279,22 @@ export interface ClickViewDocumentationEvent extends BaseEvent {
     location: 'statsTab'; // add more locations here
 }
 
+export enum HomePageModule {
+    YouRecentlyViewed = 'YouRecentlyViewed',
+    Discover = 'Discover',
+    Announcements = 'Announcements',
+    PersonalSidebar = 'PersonalSidebar',
+    SidebarAnnouncements = 'SidebarAnnouncements',
+}
+
+export interface HomePageClickEvent extends BaseEvent {
+    type: EventType.HomePageClick;
+    module: HomePageModule;
+    section?: string;
+    subSection?: string;
+    value?: string; // what was actually clicked ie. an entity urn to go to a page, or "View all" for a section
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -1428,4 +1447,5 @@ export type Event =
     | FilterStatsChartLookBackEvent
     | ClickCreateAssertionEvent
     | ClickUserProfileEvent
-    | ClickViewDocumentationEvent;
+    | ClickViewDocumentationEvent
+    | HomePageClickEvent;
