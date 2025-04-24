@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, Mock, patch
 import datahub.metadata.schema_classes as models
 import pytest
 from datahub.emitter.mce_builder import make_dataplatform_instance_urn
-from datahub.metadata._schema_classes import (
+from datahub.metadata.schema_classes import (
     ShareClass,
     ShareResultClass,
     ShareResultStateClass,
@@ -584,12 +584,10 @@ def test_unshare() -> None:
         share_connection_urn=destination_datahub_instance,
         destination_graph=destination_graph_mock,
     )
-    with (
-        patch.object(
-            share_agent,
-            "determine_entities_to_sync",
-            return_value={urn_to_unshare},
-        ),
+    with patch.object(
+        share_agent,
+        "determine_entities_to_sync",
+        return_value={urn_to_unshare},
     ):
         share_agent.unshare(
             urn_to_unshare,
@@ -948,12 +946,10 @@ def test_unshare_complex_explicit_share_should_force_unshare_the_entity() -> Non
         destination_graph=destination_graph_mock,
     )
 
-    with (
-        patch.object(
-            share_agent,
-            "determine_entities_to_sync",
-            return_value={urn_to_unshare},
-        ),
+    with patch.object(
+        share_agent,
+        "determine_entities_to_sync",
+        return_value={urn_to_unshare},
     ):
         share_agent.unshare(
             urn_to_unshare,

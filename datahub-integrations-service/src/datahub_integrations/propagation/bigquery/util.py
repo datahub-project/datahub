@@ -25,12 +25,11 @@ from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.source.bigquery_v2.bigquery_platform_resource_helper import (
     BigQueryLabel,
 )
-from datahub.metadata._schema_classes import GlossaryNodeInfoClass
 from datahub.metadata.com.linkedin.pegasus2avro.glossary import (
     GlossaryNodeInfo,
     GlossaryTermInfo,
 )
-from datahub.metadata.schema_classes import GlossaryTermInfoClass
+from datahub.metadata.schema_classes import GlossaryNodeInfoClass, GlossaryTermInfoClass
 from datahub.metadata.urns import (
     DatasetUrn,
     GlossaryNodeUrn,
