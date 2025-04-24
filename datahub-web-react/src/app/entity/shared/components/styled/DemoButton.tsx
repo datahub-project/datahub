@@ -10,12 +10,7 @@ const StyledButton = styled(Button)`
 
 export default function DemoButton() {
     return (
-        <StyledButton
-            type="primary"
-            href="https://datahub.com/demo/"
-            target="_blank"
-            rel="noopener noreferrer"
-        >
+        <StyledButton type="primary" href="https://datahub.com/demo/" target="_blank" rel="noopener noreferrer">
             Schedule a Demo
         </StyledButton>
     );
