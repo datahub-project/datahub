@@ -285,15 +285,11 @@ project.afterEvaluate {
         bake_spec_target.name = "${project.name}-\${variants.tagSuffix}"
         bake_spec_target.matrix = [variants: []]
 
-        extension.variants.get().each { variant, variant_args ->
+        extension.variants.get().each { variant, variantSpec ->
           if (matrixBuild || variant == extension.defaultVariant.get()) {
-              def tagSuffix = "-${variant}"
-              if (variant == extension.defaultVariant.get()) {
-                tagSuffix = ""
-              }
               // Its not easy to merge common buildArgs and variant buildArgs with json format. 
               // So, we just add common buildArgs to matrix.
-              bake_spec_target.matrix.variants.add([ 'tagSuffix': "${tagSuffix}", 'args': variant_args + bake_spec_target.args])
+              bake_spec_target.matrix.variants.add([ 'tagSuffix': "${variantSpec.suffix}", 'args': variantSpec.args + bake_spec_target.args])
             }
         }
         // When variants are present, fix up tags to include the variant suffix

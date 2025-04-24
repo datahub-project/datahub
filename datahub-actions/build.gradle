@@ -164,8 +164,8 @@ docker {
 
   defaultVariant = "slim"
   variants = [
-    "slim": [APP_ENV: "slim", RELEASE_VERSION: python_docker_version],
-    "full": [APP_ENV: "full", RELEASE_VERSION: python_docker_version]
+    "slim": [suffix: "-slim", args: [APP_ENV: "slim", RELEASE_VERSION: python_docker_version]],
+    "full": [suffix: "", args: [APP_ENV: "full", RELEASE_VERSION: python_docker_version]]
   ]
 
 }
