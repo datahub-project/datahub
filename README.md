@@ -36,7 +36,7 @@ HOSTED_DOCS_ONLY-->
   <a target="_blank" href="https://github.com/datahub-project/datahub/pulse">
     <img alt="GitHub commit activity" src="https://img.shields.io/github/commit-activity/m/datahub-project/datahub?label=commits&labelColor=133554&color=1890ff" /></a>
   <br />
-  <a target="_blank" href="https://pages.acryl.io/slack?utm_source=github&utm_medium=readme&utm_campaign=github_readme">
+  <a target="_blank" href="https://datahub.com/slack?utm_source=github&utm_medium=readme&utm_campaign=github_readme">
     <img alt="Slack" src="https://img.shields.io/badge/slack-join_community-red.svg?logo=slack&labelColor=133554&color=1890ff" /></a>
   <a href="https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w">
     <img alt="YouTube" src="https://img.shields.io/youtube/channel/subscribers/UC3qFQC5IiwR5fvWEqi_tJ5w?style=flat&logo=youtube&label=subscribers&labelColor=133554&color=1890ff"/></a>
@@ -119,7 +119,7 @@ We welcome contributions from the community. Please refer to our [Contributing G
 
 ## Community
 
-Join our [Slack workspace](https://pages.acryl.io/slack?utm_source=github&utm_medium=readme&utm_campaign=github_readme) for discussions and important announcements. You can also find out more about our upcoming [town hall meetings](docs/townhalls.md) and view past recordings.
+Join our [Slack workspace](https://datahub.com/slack?utm_source=github&utm_medium=readme&utm_campaign=github_readme) for discussions and important announcements. You can also find out more about our upcoming [town hall meetings](docs/townhalls.md) and view past recordings.
 
 ## Security
 

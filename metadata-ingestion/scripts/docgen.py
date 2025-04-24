@@ -468,7 +468,7 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
             # Using an h2 tag to prevent this from showing up in page's TOC sidebar.
             f.write("\n<h2>Questions</h2>\n\n")
             f.write(
-                f"If you've got any questions on configuring ingestion for {platform.name}, feel free to ping us on [our Slack](https://slack.datahubproject.io).\n"
+                f"If you've got any questions on configuring ingestion for {platform.name}, feel free to ping us on [our Slack](https://datahub.com/slack).\n"
             )
             platform_metrics.generated += 1
     print("Ingestion Documentation Generation Complete")

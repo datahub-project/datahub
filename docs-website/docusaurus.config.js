@@ -150,7 +150,7 @@ module.exports = {
           position: "right",
           items: [
             {
-              href: "https://pages.acryl.io/slack?utm_source=docs&utm_medium=header&utm_campaign=docs_header",
+              href: "https://datahub.com/slack?utm_source=docs&utm_medium=header&utm_campaign=docs_header",
               label: "Join Slack",
             },
             {
@@ -269,7 +269,7 @@ module.exports = {
             ],
         },
         {
-          href: "https://pages.acryl.io/slack?utm_source=docs&utm_medium=header&utm_campaign=docs_header",
+          href: "https://datahub.com/slack?utm_source=docs&utm_medium=header&utm_campaign=docs_header",
           html: `
             <style>
               .slack-logo:hover {
@@ -303,7 +303,7 @@ module.exports = {
           items: [
             {
               label: "Slack",
-              href: "https://slack.datahubproject.io",
+              href: "https://datahub.com/slack",
             },
             {
               label: "YouTube",
