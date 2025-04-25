@@ -73,6 +73,7 @@ jobs:
 
       build_runner_type: ${{ steps.set-runner.outputs.build_runner_type }}
       test_runner_type: ${{ steps.set-runner.outputs.test_runner_type }}
+      test_runner_type_small: ${{ steps.set-runner.outputs.test_runner_type_small }}
       use_depot_cache: ${{ steps.set-runner.outputs.use_depot_cache }}
     steps:
       - name: Check out the repo
@@ -139,10 +140,12 @@ jobs:
           if [[ "${{ env.DOCKER_CACHE }}" == "DEPOT" && "${{ env.DEPOT_PROJECT_ID }}" != "" ]]; then
             echo "build_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
             echo "test_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
+            echo "test_runner_type_small=depot-ubuntu-24.04-small" >> "$GITHUB_OUTPUT"
             echo "use_depot_cache=true" >> "$GITHUB_OUTPUT"
           else
             echo "build_runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
             echo "test_runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
+            echo "test_runner_type_small=ubuntu-latest" >> "$GITHUB_OUTPUT"
             echo "use_depot_cache=false" >> "$GITHUB_OUTPUT"
             # publishing is currently only supported via depot
           fi
@@ -163,7 +166,7 @@ jobs:
 
   smoke_test_lint:
     name: Lint on smoke tests
-    runs-on: depot-ubuntu-24.04
+    runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
     needs: setup
     if: ${{ needs.setup.outputs.smoke_test_change == 'true' }}
     steps:
@@ -316,7 +319,7 @@ jobs:
           sarif_file: "trivy-results.sarif"
 
   smoke_test_matrix:
-    runs-on: ${{ needs.setup.outputs.test_runner_type }}
+    runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
     needs: setup
     if: ${{ (github.event_name == 'pull_request' || github.event_name == 'push') }}
     outputs:
