@@ -76,7 +76,7 @@ class ClickHouseUsageConfig(ClickHouseConfig, BaseUsageConfig, EnvConfigMixin):
 
     def get_sql_alchemy_url(
         self,
-        uri_opts: Optional[dict[str, Any]] = None,
+        uri_opts: Optional[Dict[str, Any]] = None,
         current_db: Optional[str] = None,
     ) -> str:
         return super().get_sql_alchemy_url(uri_opts=uri_opts, current_db=current_db)

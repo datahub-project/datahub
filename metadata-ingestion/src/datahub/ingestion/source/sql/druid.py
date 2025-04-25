@@ -1,5 +1,5 @@
 # This import verifies that the dependencies are available.
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 import pydruid  # noqa: F401
 from pydantic.fields import Field
@@ -41,7 +41,7 @@ class DruidConfig(BasicSQLAlchemyConfig):
     )
 
     def get_sql_alchemy_url(
-        self, uri_opts: Optional[dict[str, Any]] = None, database: Optional[str] = None
+        self, uri_opts: Optional[Dict[str, Any]] = None, database: Optional[str] = None
     ) -> str:
         base_url = super().get_sql_alchemy_url(uri_opts=uri_opts, database=database)
         return f"{base_url}/druid/v2/sql/"
