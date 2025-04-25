@@ -1,3 +1,4 @@
+import { colors } from '@components';
 import DraftsOutlinedIcon from '@mui/icons-material/DraftsOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { Row } from 'antd';
@@ -46,7 +47,6 @@ export const SideBarSubSection = styled.div`
     }
     &::-webkit-scrollbar-thumb {
         background: #d6d6d6;
-        -webkit-border-radius: 1ex;
         -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
     }
 `;
@@ -233,8 +233,8 @@ export const Content = styled.div`
         padding-bottom: 12px;
         width: 100%;
         &:not(:last-child) {
-            border-bottom: 1px dashed;
-            border-color: rgba(0, 0, 0, 0.3);
+            border-bottom: 1px solid;
+            border-color: ${colors.gray[100]};
         }
     }
 `;
