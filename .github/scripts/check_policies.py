@@ -13,10 +13,16 @@ without_info = []
 
 metadata_privileges = set()
 platform_privileges = set()
+root_user_platform_policy_privileges = set()
+admin_role_platform_privileges = set()
 for policy in all_policies:
     urn = policy["urn"]
     if urn == "urn:li:dataHubPolicy:0":
         root_user_platform_policy_privileges = policy["info"]["privileges"]
+    elif urn == "urn:li:dataHubPolicy:1":
+        root_user_editor_policy_privileges = policy["info"]["privileges"]
+    elif urn == "urn:li:dataHubPolicy:admin-platform-policy":
+        admin_role_platform_privileges = policy["info"]["privileges"]
     elif urn == "urn:li:dataHubPolicy:editor-platform-policy":
         editor_platform_policy_privileges = policy["info"]["privileges"]
     elif urn == "urn:li:dataHubPolicy:7":
@@ -53,6 +59,11 @@ diff_policies = set(platform_privileges).difference(
     set(root_user_platform_policy_privileges)
 )
 assert len(diff_policies) == 0, f"Missing privileges for root user are {diff_policies}"
+
+diff_root_user_admin_role = set(
+    root_user_platform_policy_privileges
+).difference(set(admin_role_platform_privileges))
+assert len(diff_root_user_admin_role) == 0, f"Missing privileges for admin role are {diff_root_user_admin_role}"
 
 # All users privileges checks
 assert "MANAGE_POLICIES" not in all_user_platform_policy_privileges
