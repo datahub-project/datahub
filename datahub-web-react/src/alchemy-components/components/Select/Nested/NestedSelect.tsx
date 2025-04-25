@@ -49,6 +49,7 @@ export interface SelectProps<OptionType extends NestedSelectOption = NestedSelec
     shouldDisplayConfirmationFooter?: boolean;
     selectLabelProps?: SelectLabelProps;
     renderCustomOptionText?: CustomOptionRenderer<OptionType>;
+    dataTestId?: string;
 }
 
 export const selectDefaults: SelectProps = {
@@ -90,6 +91,7 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
     shouldDisplayConfirmationFooter = selectDefaults.shouldDisplayConfirmationFooter,
     selectLabelProps,
     renderCustomOptionText,
+    dataTestId,
     ...props
 }: SelectProps<OptionType>) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -242,7 +244,11 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
                     disabled={isDisabled}
                     placement="bottomRight"
                     dropdownRender={() => (
-                        <DropdownContainer ref={dropdownRef} style={{ maxHeight: height, overflow: 'auto' }}>
+                        <DropdownContainer
+                            ref={dropdownRef}
+                            style={{ maxHeight: height, overflow: 'auto' }}
+                            data-testid={dataTestId ? `${dataTestId}-dropdown` : undefined}
+                        >
                             {showSearch && (
                                 <DropdownSearchBar
                                     placeholder={searchPlaceholder}
@@ -295,7 +301,8 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
                         isOpen={isOpen}
                         onClick={handleSelectClick}
                         fontSize={size}
-                        data-testid="nested-options-dropdown-container"
+                        // data-testid="nested-options-dropdown-container"
+                        data-testid={dataTestId ? `${dataTestId}-base` : undefined}
                         width={props.width}
                         {...props}
                     >
