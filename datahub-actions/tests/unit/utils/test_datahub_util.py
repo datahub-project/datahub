@@ -112,5 +112,5 @@ def test_make_datahub_url():
             urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.ShelterDogs,PROD)",
             base_url="https://demo.datahub.com/",
         )
-        == "https://demo.datahub.com//dataset/urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.ShelterDogs,PROD)/"
+        == "https://demo.datahub.com/dataset/urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.ShelterDogs,PROD)/"
     )
