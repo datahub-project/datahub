@@ -127,11 +127,15 @@ class OracleConfig(BasicSQLAlchemyConfig):
             )
         return v
 
-    def get_sql_alchemy_url(self):
-        url = super().get_sql_alchemy_url()
+    def get_sql_alchemy_url(
+        self, uri_opts: Optional[Dict[str, Any]] = None, database: Optional[str] = None
+    ) -> str:
+        url = super().get_sql_alchemy_url(uri_opts=uri_opts, database=database)
+
         if self.service_name:
             assert not self.database
             url = f"{url}/?service_name={self.service_name}"
+
         return url
 
     def get_identifier(self, schema: str, table: str) -> str:
