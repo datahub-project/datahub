@@ -194,9 +194,9 @@ public class EntitySearchAggregationCandidateSourceTest {
     Urn testUrn1 = new TestEntityUrn("testUrn1", "testUrn1", "testUrn1");
     Urn testUrn2 = new TestEntityUrn("testUrn2", "testUrn2", "testUrn2");
     Urn testUrn3 = new TestEntityUrn("testUrn3", "testUrn3", "testUrn3");
-    Mockito.when(entityService.exists(any(), eq(testUrn1))).thenReturn(true);
-    Mockito.when(entityService.exists(any(), eq(testUrn2))).thenReturn(true);
-    Mockito.when(entityService.exists(any(), eq(testUrn3))).thenReturn(true);
+    Mockito.when(entityService.exists(any(), eq(testUrn1), eq(false))).thenReturn(true);
+    Mockito.when(entityService.exists(any(), eq(testUrn2), eq(false))).thenReturn(true);
+    Mockito.when(entityService.exists(any(), eq(testUrn3), eq(false))).thenReturn(true);
 
     Mockito.when(
             entitySearchService.aggregateByValue(
