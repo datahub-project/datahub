@@ -15,7 +15,7 @@ const colors = {
         700: '#2F3657', // should be deprecated
         800: '#272D48', // should be deprecated
         900: '#231A58', // should be deprecated
-        1000: '#F1F3FD', // grays violet 0
+        1000: '#F1F3FD', // violet 0
         1100: '#F1FBFE', // blue 0
         1200: '#FBF3EF', // red 0
         1300: '#F7FBF4', // green 0
@@ -66,7 +66,7 @@ const colors = {
         200: '#F2C1C1',
         300: '#ECA5A5',
         400: '#E99393',
-        500: '#E37878', // primary value
+        500: '#CD0D24', // primary value
         600: '#CF6D6D',
         700: '#A15555',
         800: '#7D4242',

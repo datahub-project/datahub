@@ -65,7 +65,7 @@ buildscript {
   ext.logbackClassicJava8 = '1.2.12'
   ext.awsSdk2Version = '2.30.33'
 
-  ext.docker_registry = 'acryldata'
+  ext.docker_registry = project.getProperties().getOrDefault("dockerRegistry", 'acryldata')
 
   apply from: './repositories.gradle'
   buildscript.repositories.addAll(project.repositories)
