@@ -2,29 +2,31 @@ import { CaretUpOutlined } from '@ant-design/icons';
 import { Button, Checkbox } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Entity, EntityType } from '../../../types.generated';
-import { generateColor } from '../../entityV2/shared/components/styled/StyledTag';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { SEARCH_COLORS } from '../../entityV2/shared/constants';
-import { formatNumber } from '../../shared/formatNumber';
-import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import {
-    DOMAINS_FILTER_NAME,
-    ENTITY_SUB_TYPE_FILTER_NAME,
-    MAX_COUNT_VAL,
-    TYPE_NAMES_FILTER_NAME,
-} from '../utils/constants';
-import ParentEntities from './ParentEntities';
-import { Label } from './styledComponents';
-import { FilterOptionType } from './types';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { generateColor } from '@app/entityV2/shared/components/styled/StyledTag';
+import { SEARCH_COLORS } from '@app/entityV2/shared/constants';
+import ParentEntities from '@app/searchV2/filters/ParentEntities';
+import { Label } from '@app/searchV2/filters/styledComponents';
+import { FilterOptionType } from '@app/searchV2/filters/types';
 import {
     FilterEntityIcon,
     getFilterIconAndLabel,
     getParentEntities,
     isAnyOptionSelected,
     isFilterOptionSelected,
-} from './utils';
+} from '@app/searchV2/filters/utils';
+import {
+    DOMAINS_FILTER_NAME,
+    ENTITY_SUB_TYPE_FILTER_NAME,
+    MAX_COUNT_VAL,
+    TYPE_NAMES_FILTER_NAME,
+} from '@app/searchV2/utils/constants';
+import { formatNumber } from '@app/shared/formatNumber';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Entity, EntityType } from '@types';
 
 const FilterOptionWrapper = styled.div<{ addPadding?: boolean }>`
     display: flex;

@@ -10,6 +10,9 @@ dependencies {
     implementation externalDependency.kafkaClients
     implementation externalDependency.kafkaAvroSerde
 
+    testImplementation externalDependency.mockito
+    testImplementation externalDependency.testng
+
     compileOnly externalDependency.lombok
     compileOnly externalDependency.swaggerAnnotations
 

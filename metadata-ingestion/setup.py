@@ -465,7 +465,11 @@ plugins: Dict[str, Set[str]] = {
     "lookml": looker_common,
     "metabase": {"requests"} | sqlglot_lib,
     "mlflow": {
-        "mlflow-skinny>=2.3.0",
+        "mlflow-skinny>=2.3.0,<2.21.0",
+        # Pinned to avoid the breaking change introduced in MLflow 2.21.0 where search_registered_models injects an implicit filter
+        # https://github.com/mlflow/mlflow/pull/14795
+        # Upper bound can be removed once the upstream issue is resolved,
+        # or we have a reliable and backward-compatible way to handle prompt filtering.
         # It's technically wrong for packages to depend on setuptools. However, it seems mlflow does it anyways.
         "setuptools",
     },
@@ -605,7 +609,7 @@ debug_requirements = {
 lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
-    "ruff==0.11.4",
+    "ruff==0.11.6",
     "mypy==1.10.1",
 }
 

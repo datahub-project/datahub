@@ -1,16 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
+
+import { useGetExpandedTableGroupsFromEntityUrnInUrl } from '@app/entityV2/shared/hooks';
+import { getSiblingWithUrn } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { IncidentDetailDrawer } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentDetailDrawer';
+import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
+import { useIncidentsTableColumns, useOpenIncidentDetailModal } from '@app/entityV2/shared/tabs/Incident/hooks';
+import { StyledTableContainer } from '@app/entityV2/shared/tabs/Incident/styledComponents';
+import { IncidentListFilter, IncidentTable } from '@app/entityV2/shared/tabs/Incident/types';
+import { getSortedIncidents } from '@app/entityV2/shared/tabs/Incident/utils';
 import { Table } from '@src/alchemy-components';
 import { SortingState } from '@src/alchemy-components/components/Table/types';
+import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { EntityPrivileges } from '@src/types.generated';
-import { IncidentDetailDrawer } from './AcrylComponents/IncidentDetailDrawer';
-import { IncidentListFilter, IncidentTable } from './types';
-import { useIncidentsTableColumns, useOpenIncidentDetailModal } from './hooks';
-import { getSiblingWithUrn } from '../Dataset/Validations/acrylUtils';
-import { StyledTableContainer } from './styledComponents';
-import { IncidentAction } from './constant';
-import { getSortedIncidents } from './utils';
-import { useGetExpandedTableGroupsFromEntityUrnInUrl } from '../../hooks';
 
 type Props = {
     incidentData: IncidentTable;
@@ -20,7 +21,7 @@ type Props = {
 };
 
 export const IncidentListTable = ({ incidentData, filter, refetch, privileges }: Props) => {
-    const { entityData } = useEntityData();
+    const { urn, entityData } = useEntityData();
     const { groupBy } = filter;
 
     const { expandedGroupIds, setExpandedGroupIds } = useGetExpandedTableGroupsFromEntityUrnInUrl(
@@ -124,15 +125,15 @@ export const IncidentListTable = ({ incidentData, filter, refetch, privileges }:
             </StyledTableContainer>
             {focusIncidentUrn && focusedIncidentEntity && (
                 <IncidentDetailDrawer
-                    urn={focusIncidentUrn}
+                    entity={{
+                        urn,
+                    }}
                     mode={IncidentAction.EDIT}
                     incident={focusedIncident}
                     privileges={privileges}
                     onCancel={() => setFocusIncidentUrn(null)}
                     onSubmit={() => {
-                        setTimeout(() => {
-                            refetch();
-                        }, 3000);
+                        refetch();
                     }}
                 />
             )}

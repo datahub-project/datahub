@@ -1,19 +1,21 @@
+import { Empty, Form, Modal, Select, message } from 'antd';
 import React, { useRef, useState } from 'react';
-import { Form, message, Modal, Select, Empty } from 'antd';
-import { getModalDomContainer } from '@src/utils/focus';
+
+import DomainNavigator from '@app/domain/nestedDomains/domainNavigator/DomainNavigator';
+import domainAutocompleteOptions from '@app/domainV2/DomainAutocompleteOptions';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { handleBatchError } from '@app/entityV2/shared/utils';
+import ClickOutside from '@app/shared/ClickOutside';
+import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button } from '@src/alchemy-components';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
-import { useGetAutoCompleteResultsLazyQuery } from '../../../../../../../graphql/search.generated';
-import { Domain, Entity, EntityType } from '../../../../../../../types.generated';
-import { useBatchSetDomainMutation } from '../../../../../../../graphql/mutations.generated';
-import domainAutocompleteOptions from '../../../../../../domainV2/DomainAutocompleteOptions';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
-import { handleBatchError } from '../../../../utils';
-import { BrowserWrapper } from '../../../../../../shared/tags/AddTagsTermsModal';
-import DomainNavigator from '../../../../../../domain/nestedDomains/domainNavigator/DomainNavigator';
-import ClickOutside from '../../../../../../shared/ClickOutside';
-import { ANTD_GRAY } from '../../../../constants';
+import { getModalDomContainer } from '@src/utils/focus';
+
+import { useBatchSetDomainMutation } from '@graphql/mutations.generated';
+import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
+import { Domain, Entity, EntityType } from '@types';
 
 type Props = {
     urns: string[];
