@@ -158,7 +158,9 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             ca_certificate_path=self.config.ca_certificate_path,
             client_certificate_path=self.config.client_certificate_path,
             disable_ssl_verification=self.config.disable_ssl_verification,
-            openapi_ingestion=DEFAULT_REST_EMITTER_ENDPOINT == RestSinkEndpoint.OPENAPI,
+            openapi_ingestion=self.config.openapi_ingestion
+            if self.config.openapi_ingestion is not None
+            else (DEFAULT_REST_EMITTER_ENDPOINT == RestSinkEndpoint.OPENAPI),
             default_trace_mode=DEFAULT_REST_TRACE_MODE == RestTraceMode.ENABLED,
         )
 
