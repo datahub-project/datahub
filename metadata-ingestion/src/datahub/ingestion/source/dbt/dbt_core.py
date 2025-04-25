@@ -516,6 +516,42 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             self.config.catalog_path, self.config.aws_connection
         )
 
+        self.report.info(
+            title="Manifest metadata",
+            message="Manifest metadata",
+            context=str(
+                dict(
+                    generated_at=dbt_manifest_json["metadata"].get(
+                        "generated_at", "unknown"
+                    ),
+                    dbt_version=dbt_manifest_json["metadata"].get(
+                        "dbt_version", "unknown"
+                    ),
+                    project_name=dbt_manifest_json["metadata"].get(
+                        "project_name", "unknown"
+                    ),
+                )
+            ),
+        )
+
+        self.report.info(
+            title="Catalog metadata",
+            message="Catalog metadata",
+            context=str(
+                dict(
+                    generated_at=dbt_catalog_json.get("metadata", {}).get(
+                        "generated_at", "unknown"
+                    ),
+                    dbt_version=dbt_catalog_json.get("metadata", {}).get(
+                        "dbt_version", "unknown"
+                    ),
+                    project_name=dbt_catalog_json.get("metadata", {}).get(
+                        "project_name", "unknown"
+                    ),
+                )
+            ),
+        )
+
         if self.config.sources_path is not None:
             dbt_sources_json = self.load_file_as_json(
                 self.config.sources_path, self.config.aws_connection
