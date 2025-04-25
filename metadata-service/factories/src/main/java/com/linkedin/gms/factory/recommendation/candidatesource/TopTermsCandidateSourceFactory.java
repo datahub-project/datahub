@@ -16,18 +16,14 @@ import org.springframework.context.annotation.Import;
 @Configuration
 @Import({EntitySearchServiceFactory.class, EntityServiceFactory.class})
 public class TopTermsCandidateSourceFactory {
-
-  @Autowired
-  @Qualifier("entityService")
-  private EntityService<?> entityService;
-
   @Autowired
   @Qualifier("entitySearchService")
   private EntitySearchService entitySearchService;
 
   @Bean(name = "topTermsCandidateSource")
   @Nonnull
-  protected TopTermsSource getInstance(final EntityRegistry entityRegistry) {
+  protected TopTermsSource getInstance(
+      final EntityService<?> entityService, final EntityRegistry entityRegistry) {
     return new TopTermsSource(entitySearchService, entityService, entityRegistry);
   }
 }

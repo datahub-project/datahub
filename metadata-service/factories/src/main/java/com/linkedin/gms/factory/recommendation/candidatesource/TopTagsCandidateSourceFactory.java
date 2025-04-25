@@ -18,16 +18,13 @@ import org.springframework.context.annotation.Import;
 public class TopTagsCandidateSourceFactory {
 
   @Autowired
-  @Qualifier("entityService")
-  private EntityService<?> entityService;
-
-  @Autowired
   @Qualifier("entitySearchService")
   private EntitySearchService entitySearchService;
 
   @Bean(name = "topTagsCandidateSource")
   @Nonnull
-  protected TopTagsSource getInstance(final EntityRegistry entityRegistry) {
+  protected TopTagsSource getInstance(
+      final EntityService<?> entityService, final EntityRegistry entityRegistry) {
     return new TopTagsSource(entitySearchService, entityService, entityRegistry);
   }
 }
