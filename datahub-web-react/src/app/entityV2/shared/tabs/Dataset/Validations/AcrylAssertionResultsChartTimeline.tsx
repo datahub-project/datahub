@@ -1,20 +1,23 @@
+import { ArrowRightOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Typography } from 'antd';
-import { Tooltip } from '@components';
-import { ArrowRightOutlined } from '@ant-design/icons';
+
 import {
-    AssertionResultType,
-    AssertionRunEventsResult,
-    AssertionRunStatus,
-    DataPlatform,
-    EntityType,
-} from '../../../../../../types.generated';
-import { getResultErrorMessage, getResultIcon, getResultText } from './assertionUtils';
-import { AssertionResultTimeline, TimeRange } from './AssertionResultTimeline';
-import { DatasetAssertionResultDetails } from './DatasetAssertionResultDetails';
-import { LinkWrapper } from '../../../../../shared/LinkWrapper';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
+    AssertionResultTimeline,
+    TimeRange,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionResultTimeline';
+import { DatasetAssertionResultDetails } from '@app/entityV2/shared/tabs/Dataset/Validations/DatasetAssertionResultDetails';
+import {
+    getResultErrorMessage,
+    getResultIcon,
+    getResultText,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
+import { LinkWrapper } from '@app/shared/LinkWrapper';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { AssertionResultType, AssertionRunEventsResult, AssertionRunStatus, DataPlatform, EntityType } from '@types';
 
 const RESULT_CHART_WIDTH_PX = 800;
 

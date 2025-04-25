@@ -253,6 +253,7 @@ public class LineageSearchService {
               lineageSearchResult.getEntities().get(0).toString());
         }
         numEntities = lineageSearchResult.getNumEntities();
+        lineageSearchResult.setLineageSearchPath(LineageSearchPath.LIGHTNING);
         return lineageSearchResult;
       } else {
         codePath = "tortoise";
@@ -272,6 +273,7 @@ public class LineageSearchService {
               lineageSearchResult.getEntities().get(0).toString());
         }
         numEntities = lineageSearchResult.getNumEntities();
+        lineageSearchResult.setLineageSearchPath(LineageSearchPath.TORTOISE);
         return lineageSearchResult;
       }
     } finally {

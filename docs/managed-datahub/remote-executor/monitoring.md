@@ -8,11 +8,13 @@ import TabItem from '@theme/TabItem';
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Monitoring Remote Executor
+
 <FeatureAvailability saasOnly />
 
 ## Overview
 
 This guide covers all aspects of monitoring your Remote Executor deployment:
+
 1. File-based health checks
 2. UI-based health monitoring
 3. Advanced Prometheus metrics configuration
@@ -22,6 +24,7 @@ This guide covers all aspects of monitoring your Remote Executor deployment:
 ### File-Based Health Checks
 
 The Remote Executor uses file-based health checks that can be monitored by your container platform:
+
 - Liveness: `/tmp/worker_liveness_heartbeat`
 - Readiness: `/tmp/worker_readiness_heartbeat`
 
@@ -49,6 +52,7 @@ The Remote Executor exposes metrics on port `9087/tcp` in Prometheus/OpenMetrics
 ### Metric Categories
 
 1. **Ingestion Metrics**
+
    - `datahub_executor_worker_ingestion_requests` - Total jobs received
    - `datahub_executor_worker_ingestion_errors` - Failed jobs (v0.3.9+)
 
@@ -70,7 +74,7 @@ metadata:
   name: datahub-remote-executor
 spec:
   endpoints:
-  - port: metrics
+    - port: metrics
   selector:
     matchLabels:
       app.kubernetes.io/name: datahub-remote-executor
@@ -79,6 +83,7 @@ spec:
 ### Discovering Available Metrics
 
 1. View metrics endpoint directly:
+
    ```bash
    curl http://your-executor:9087/metrics
    ```

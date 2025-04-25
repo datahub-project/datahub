@@ -1,13 +1,14 @@
 import React from 'react';
 import styled from 'styled-components';
-import colors from '@src/alchemy-components/theme/foundations/colors';
-import { Heading } from '@src/alchemy-components';
+
 import {
+    PERSONA_TYPES_TO_DISPLAY,
     PERSONA_TYPE_TO_DESCRIPTION,
     PERSONA_TYPE_TO_LABEL,
     PERSONA_TYPE_TO_VIEW_ICON,
-    PERSONA_TYPES_TO_DISPLAY,
-} from '../shared/types';
+} from '@app/homeV2/shared/types';
+import { Heading } from '@src/alchemy-components';
+import colors from '@src/alchemy-components/theme/foundations/colors';
 
 const PersonaCard = styled.div<{ selected: boolean }>`
     border: 1px rgb(217, 217, 217) solid;

@@ -10,7 +10,8 @@ describe("search", () => {
   const setSearchFiltersFeatureFlag = (isOn) => {
     cy.intercept("POST", "/api/v2/graphql", (req) => {
       if (hasOperationName(req, "appConfig")) {
-        req.reply((res) => {
+        req.alias = "gqlappConfigQuery";
+        req.on("response", (res) => {
           // Modify the response body directly
           res.body.data.appConfig.featureFlags.showSearchFiltersV2 = isOn;
         });

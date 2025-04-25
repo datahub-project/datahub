@@ -1,5 +1,6 @@
 import React from 'react';
-import { IconNames } from '../Icon';
+
+import { IconNames } from '@components/components/Icon';
 
 export type SelectSizeOptions = 'sm' | 'md' | 'lg';
 export interface SelectOption {
@@ -25,6 +26,7 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     values?: string[];
     initialValues?: string[];
     onCancel?: () => void;
+    onClear?: () => void;
     onUpdate?: (selectedValues: string[]) => void;
     size?: SelectSizeOptions;
     icon?: IconNames;
@@ -46,6 +48,7 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     onSearchChange?: (searchText: string) => void;
     combinedSelectedAndSearchOptions?: OptionType[];
     optionListStyle?: React.CSSProperties;
+    selectedOptionListStyle?: React.CSSProperties;
     optionListTestId?: string;
     optionSwitchable?: boolean;
     selectLabelProps?: SelectLabelProps;
@@ -65,7 +68,7 @@ export interface SelectStyleProps {
 }
 
 export interface ActionButtonsProps {
-    selectedValues: string[];
+    hasSelectedValues: boolean;
     isOpen: boolean;
     isDisabled: boolean;
     isReadOnly: boolean;
@@ -85,6 +88,7 @@ export interface SelectLabelDisplayProps<OptionType extends SelectOption> {
     renderCustomSelectedValue?: (selectedOptions: OptionType) => void;
     variant?: SelectLabelVariants;
     label?: string;
+    selectedOptionListStyle?: React.CSSProperties;
 }
 
 export interface SelectLabelVariantProps<OptionType extends SelectOption>

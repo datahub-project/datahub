@@ -1,11 +1,12 @@
-import { colors, Pill, Text, Tooltip } from '@src/alchemy-components';
+import React from 'react';
+import styled from 'styled-components';
+
+import { filterForAssetBadge } from '@app/entity/shared/containers/profile/header/utils';
+import { mapStructuredPropertyToPropertyRow } from '@app/entity/shared/tabs/Properties/useStructuredProperties';
+import { Pill, Text, Tooltip, colors } from '@src/alchemy-components';
 import { getStructuredPropertyValue } from '@src/app/entity/shared/utils';
 import { getDisplayName } from '@src/app/govern/structuredProperties/utils';
 import { StructuredProperties } from '@src/types.generated';
-import React from 'react';
-import styled from 'styled-components';
-import { mapStructuredPropertyToPropertyRow } from '../../../tabs/Properties/useStructuredProperties';
-import { filterForAssetBadge } from './utils';
 
 export const MAX_PROP_BADGE_WIDTH = 150;
 

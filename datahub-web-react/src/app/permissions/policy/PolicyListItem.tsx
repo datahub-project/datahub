@@ -1,9 +1,10 @@
+import { Button, List, Space, Tag, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { Button, List, Space, Tag, Typography } from 'antd';
-import { Policy, PolicyState } from '../../../types.generated';
-import { ANTD_GRAY } from '../../entity/shared/constants';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+
+import { Policy, PolicyState } from '@types';
 
 type Props = {
     policy: Policy;

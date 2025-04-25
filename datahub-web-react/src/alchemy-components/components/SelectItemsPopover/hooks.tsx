@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
-import { EntityType } from '@src/types.generated';
-import { useGetAutoCompleteResultsLazyQuery } from '@src/graphql/search.generated';
 import { debounce } from 'lodash';
+import { useEffect, useState } from 'react';
+
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { useGetAutoCompleteResultsLazyQuery } from '@src/graphql/search.generated';
+import { EntityType } from '@src/types.generated';
 
 interface UseUpdateEntityParams {
     selectedItems: any[];
@@ -149,6 +150,7 @@ export const useEntityOperations = ({
         const addedItems = isRemoveAll
             ? []
             : selectedOptions.filter((entity) => !olderSelectedEntities?.includes(entity));
+
         handleSelectionChange({ selectedItems: addedItems, removedItems });
         setSearchText('');
     };

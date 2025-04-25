@@ -1,6 +1,7 @@
 import { Dropdown, Text } from '@components';
 import { isEqual } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
 import {
     ActionButtonsContainer,
     Container,
@@ -13,37 +14,15 @@ import {
     SelectLabel,
     SelectLabelContainer,
     StyledCheckbox,
-    StyledClearButton,
     StyledIcon,
-} from './components';
-import SelectLabelRenderer from './private/SelectLabelRenderer/SelectLabelRenderer';
-import { ActionButtonsProps, SelectOption, SelectProps } from './types';
-import { getFooterButtonSize } from './utils';
-import DropdownSearchBar from './private/DropdownSearchBar';
-import DropdownFooterActions from './private/DropdownFooterActions';
-import DropdownSelectAllOption from './private/DropdownSelectAllOption';
-
-const SelectActionButtons = ({
-    selectedValues,
-    isOpen,
-    isDisabled,
-    isReadOnly,
-    showClear,
-    handleClearSelection,
-}: ActionButtonsProps) => {
-    return (
-        <ActionButtonsContainer>
-            {showClear && selectedValues.length > 0 && !isDisabled && !isReadOnly && (
-                <StyledClearButton
-                    icon={{ icon: 'Close', source: 'material', size: 'lg' }}
-                    isCircle
-                    onClick={handleClearSelection}
-                />
-            )}
-            <StyledIcon icon="CaretDown" source="phosphor" rotate={isOpen ? '180' : '0'} size="md" color="gray" />
-        </ActionButtonsContainer>
-    );
-};
+} from '@components/components/Select/components';
+import DropdownFooterActions from '@components/components/Select/private/DropdownFooterActions';
+import DropdownSearchBar from '@components/components/Select/private/DropdownSearchBar';
+import DropdownSelectAllOption from '@components/components/Select/private/DropdownSelectAllOption';
+import SelectActionButtons from '@components/components/Select/private/SelectActionButtons';
+import SelectLabelRenderer from '@components/components/Select/private/SelectLabelRenderer/SelectLabelRenderer';
+import { SelectOption, SelectProps } from '@components/components/Select/types';
+import { getFooterButtonSize } from '@components/components/Select/utils';
 
 // Updated main component
 export const selectDefaults: SelectProps = {
@@ -65,7 +44,7 @@ export const selectDefaults: SelectProps = {
 export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     options = [],
     label = selectDefaults.label,
-    values = [],
+    values,
     initialValues,
     onCancel,
     onUpdate,
@@ -89,14 +68,14 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
 }: SelectProps<OptionType>) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [isOpen, setIsOpen] = useState(false);
-    const [selectedValues, setSelectedValues] = useState<string[]>(initialValues || values);
-    const [tempValues, setTempValues] = useState<string[]>(values);
+    const [selectedValues, setSelectedValues] = useState<string[]>(initialValues || values || []);
+    const [tempValues, setTempValues] = useState<string[]>(values || []);
     const selectRef = useRef<HTMLDivElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const [areAllSelected, setAreAllSelected] = useState(false);
 
     useEffect(() => {
-        if (values?.length > 0 && !isEqual(selectedValues, values)) {
+        if (values !== undefined && !isEqual(selectedValues, values)) {
             setSelectedValues(values);
         }
     }, [values, selectedValues]);
@@ -298,7 +277,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                         />
                     </SelectLabelContainer>
                     <SelectActionButtons
-                        selectedValues={selectedValues}
+                        hasSelectedValues={selectedValues.length > 0}
                         isOpen={isOpen}
                         isDisabled={!!isDisabled}
                         isReadOnly={!!isReadOnly}

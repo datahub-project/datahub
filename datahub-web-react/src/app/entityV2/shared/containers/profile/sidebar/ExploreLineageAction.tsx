@@ -1,12 +1,13 @@
+import { Tooltip } from '@components';
 import React, { useContext } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { Tooltip } from '@components';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import CompactContext from '@src/app/shared/CompactContext';
-import { REDESIGN_COLORS } from '../../../constants';
-import { getEntityPath } from '../utils';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { useEntityData } from '../../../../../entity/shared/EntityContext';
 
 const ActionButton = styled(Link)`
     height: 22px;
