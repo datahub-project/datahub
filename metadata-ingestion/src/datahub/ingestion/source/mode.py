@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
 from json import JSONDecodeError
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Dict, Iterable, Iterator, List, Optional, Set, Tuple, Union
 
 import dateutil.parser as dp
 import pydantic
@@ -471,9 +471,10 @@ class ModeSource(StatefulIngestionSourceBase):
                 status_code = http_error.response.status_code
                 if status_code == 404:
                     self.report.report_warning(
-                        title="Missing Dataset",
-                        message="Can not get dataset by token",
-                        context=f"Report token: {report_token}",
+                        title="Report Not Found",
+                        message="Referenced report for reusable dataset was not found.",
+                        context=f"Report: {report_info.get('id')}, "
+                        f"Imported Dataset Report: {imported_dataset_name.get('token')}",
                     )
                     continue
                 else:
@@ -582,31 +583,34 @@ class ModeSource(StatefulIngestionSourceBase):
         space_info = {}
         try:
             logger.debug(f"Retrieving spaces for {self.workspace_uri}")
-            spaces = self._get_paged_request_json(
-                f"{self.workspace_uri}/spaces?filter=all", "spaces"
-            )
-            logger.debug(
-                f"Got {len(spaces)} spaces from workspace {self.workspace_uri}"
-            )
-            self.report.num_spaces_retrieved = len(spaces)
-            for s in spaces:
-                logger.debug(f"Space: {s.get('name')}")
-                space_name = s.get("name", "")
-                # Using both restricted and default_access_level because
-                # there is a current bug with restricted returning False everytime
-                # which has been reported to Mode team
-                if self.config.exclude_restricted and (
-                    s.get("restricted") or s.get("default_access_level") == "restricted"
-                ):
-                    logging.debug(
-                        f"Skipping space {space_name} due to exclude restricted"
-                    )
-                    continue
-                if not self.config.space_pattern.allowed(space_name):
-                    self.report.report_dropped_space(space_name)
-                    logging.debug(f"Skipping space {space_name} due to space pattern")
-                    continue
-                space_info[s.get("token", "")] = s.get("name", "")
+            for spaces_page in self._get_paged_request_json(
+                f"{self.workspace_uri}/spaces?filter=all", "spaces", 30
+            ):
+                logger.debug(
+                    f"Read {len(spaces_page)} spaces records from workspace {self.workspace_uri}"
+                )
+                self.report.num_spaces_retrieved += len(spaces_page)
+                for s in spaces_page:
+                    logger.debug(f"Space: {s.get('name')}")
+                    space_name = s.get("name", "")
+                    # Using both restricted and default_access_level because
+                    # there is a current bug with restricted returning False everytime
+                    # which has been reported to Mode team
+                    if self.config.exclude_restricted and (
+                        s.get("restricted")
+                        or s.get("default_access_level") == "restricted"
+                    ):
+                        logging.debug(
+                            f"Skipping space {space_name} due to exclude restricted"
+                        )
+                        continue
+                    if not self.config.space_pattern.allowed(space_name):
+                        self.report.report_dropped_space(space_name)
+                        logging.debug(
+                            f"Skipping space {space_name} due to space pattern"
+                        )
+                        continue
+                    space_info[s.get("token", "")] = s.get("name", "")
         except ModeRequestError as e:
             self.report.report_failure(
                 title="Failed to Retrieve Spaces",
@@ -1498,19 +1502,17 @@ class ModeSource(StatefulIngestionSourceBase):
         return charts
 
     def _get_paged_request_json(
-        self, url: str, key: str, per_page: int = 30
-    ) -> List[Dict]:
+        self, url: str, key: str, per_page: int
+    ) -> Iterator[List[Dict]]:
         page: int = 1
-        results: List[Dict] = []
         while True:
             page_url = f"{url}&per_page={per_page}&page={page}"
             response = self._get_request_json(page_url)
             data: List[Dict] = response.get("_embedded", {}).get(key, [])
-            if data:
-                results.extend(data)
-                page += 1
-            else:
-                return results
+            if not data:
+                break
+            yield data
+            page += 1
 
     def _get_request_json(self, url: str) -> Dict:
         r = tenacity.Retrying(
