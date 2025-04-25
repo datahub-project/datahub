@@ -21,6 +21,7 @@ export type MatchedFieldName =
 export type MatchedFieldConfig = {
     name: MatchedFieldName;
     groupInto?: MatchedFieldName;
+    priorityInGroup?: number;
     label: string;
     showInMatchedFieldList?: boolean;
 };
@@ -47,12 +48,15 @@ const DEFAULT_MATCHED_FIELD_CONFIG: Array<MatchedFieldConfig> = [
     {
         name: 'editedDescription',
         groupInto: 'description',
+        priorityInGroup: 1,
         label: 'description',
+        showInMatchedFieldList: true,
     },
     {
         name: 'description',
         groupInto: 'description',
         label: 'description',
+        showInMatchedFieldList: true,
     },
     {
         name: 'editedFieldDescriptions',
