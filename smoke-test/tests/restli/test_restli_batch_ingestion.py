@@ -7,11 +7,11 @@ import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import make_dashboard_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.serialization_helper import pre_json_transform
-from datahub.metadata._schema_classes import MetadataChangeProposalClass
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     ChangeAuditStampsClass,
     DashboardInfoClass,
+    MetadataChangeProposalClass,
 )
 from datahub.metadata.urns import MlModelUrn
 from tests.consistency_utils import wait_for_writes_to_sync

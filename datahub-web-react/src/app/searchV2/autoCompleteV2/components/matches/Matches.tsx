@@ -33,8 +33,8 @@ export default function Matches({ entity, query, displayName, matchedFields }: P
             shouldShowInMatchedFieldList(entity.type, field),
         );
 
-        return getMatchesPrioritized(entity.type, showableFields, 'fieldLabels');
-    }, [entity, matchedFields]);
+        return getMatchesPrioritized(entity.type, query ?? '', showableFields, 'fieldLabels');
+    }, [entity, matchedFields, query]);
 
     const items = useMemo(() => {
         return groupedMatchedFields.map((match) => ({
