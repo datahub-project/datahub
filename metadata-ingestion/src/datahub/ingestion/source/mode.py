@@ -575,8 +575,9 @@ class ModeSource(StatefulIngestionSourceBase):
         space_info = {}
         try:
             logger.debug(f"Retrieving spaces for {self.workspace_uri}")
-            payload = self._get_request_json(f"{self.workspace_uri}/spaces?filter=all")
-            spaces = payload.get("_embedded", {}).get("spaces", {})
+            spaces = self._get_paged_request_json(
+                f"{self.workspace_uri}/spaces?filter=all", "spaces"
+            )
             logger.debug(
                 f"Got {len(spaces)} spaces from workspace {self.workspace_uri}"
             )
@@ -1487,6 +1488,25 @@ class ModeSource(StatefulIngestionSourceBase):
                 f"Error: {str(e)}",
             )
         return charts
+
+    def _get_paged_request_json(
+        self, url: str, key: str, per_page: int = 100
+    ) -> List[Dict]:
+        page: int = 1
+        results: List[Dict] = []
+        while True:
+            page_url = f"{url}&per_page={per_page}&page={page}"
+            response = self._get_request_json(page_url)
+            data: List[Dict] = response.get("_embedded", {}).get(key, [])
+            if data:
+                results.extend(data)
+                page += 1
+                time.sleep(0.3)
+            else:
+                logger.debug(
+                    f"{url} fetched {len(results)} results in {page - 1} pages"
+                )
+                return results
 
     def _get_request_json(self, url: str) -> Dict:
         r = tenacity.Retrying(
