@@ -54,7 +54,7 @@ HOSTED_DOCS_ONLY-->
 [Features](https://datahubproject.io/docs/) |
 [Roadmap](https://feature-requests.datahubproject.io/roadmap) |
 [Adoption](#adoption) |
-[Demo](https://demo.datahubproject.io/) |
+[Demo](https://demo.datahub.com/) |
 [Town Hall](https://datahubproject.io/docs/townhalls)
 
 ---
@@ -82,7 +82,7 @@ Check out DataHub's [Features](docs/features.md) & [Roadmap](https://feature-req
 
 ## Demo and Screenshots
 
-There's a [hosted demo environment](https://demo.datahubproject.io/) courtesy of [Acryl Data](https://acryldata.io) where you can explore DataHub without installing it locally.
+There's a [hosted demo environment](https://demo.datahub.com/) courtesy of [Acryl Data](https://acryldata.io) where you can explore DataHub without installing it locally.
 
 ## Quickstart
 
@@ -93,7 +93,7 @@ Please follow the [DataHub Quickstart Guide](https://datahubproject.io/docs/quic
 If you're looking to build & modify datahub please take a look at our [Development Guide](https://datahubproject.io/docs/developers).
 
 <p align="center">
-<a href="https://demo.datahubproject.io/">
+<a href="https://demo.datahub.com/">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/entity.png"/>
 </a>
 </p>
