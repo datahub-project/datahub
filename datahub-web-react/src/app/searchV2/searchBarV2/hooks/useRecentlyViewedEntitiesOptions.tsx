@@ -15,7 +15,12 @@ export default function useRecentlyViewedEntitiesOptions(): SectionOption[] {
                       {
                           label: <SectionHeader text="You Recently Viewed" />,
                           options: recentlyViewedEntities.map((entity) => ({
-                              label: <AutoCompleteEntityItem entity={entity} />,
+                              label: (
+                                  <AutoCompleteEntityItem
+                                      entity={entity}
+                                      dataTestId={`recently-viewed-${entity.urn}`}
+                                  />
+                              ),
                               value: entity.urn,
                               type: entity.type,
                               style: { padding: '0 8px' },

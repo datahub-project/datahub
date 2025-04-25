@@ -56,6 +56,7 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     applyHoverWidth?: boolean;
     ignoreMaxHeight?: boolean;
     isLoading?: boolean;
+    dataTestId?: string;
 }
 
 export interface SelectStyleProps {
