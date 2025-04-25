@@ -696,6 +696,7 @@ featureFlags:
   displayExecutorPools: ${DISPLAY_EXECUTOR_POOLS:false} # If turned on, display executor pools across the UI
   onlineSmartAssertionsEnabled: ${ONLINE_SMART_ASSERTIONS_ENABLED:false} # If turned on, allow on-demand creation of smart assertions in the UI, and they will run online.
   showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true} # If turned on, show the default external links on the entity page
+  datasetHealthDashboardV2Enabled: ${DATASET_HEALTH_DASHBOARD_V2_ENABLED:false} # Enables the Dataset Health dashboard V2 in the application
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

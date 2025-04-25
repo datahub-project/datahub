@@ -65,4 +65,5 @@ public class FeatureFlags {
   private boolean displayExecutorPools = false;
   private boolean onlineSmartAssertionsEnabled = false;
   private boolean showDefaultExternalLinks = true;
+  private boolean datasetHealthDashboardV2Enabled = false;
 }

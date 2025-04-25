@@ -1401,6 +1401,11 @@ type FeatureFlagsConfig {
   If enabled, show the default external links on the entity page
   """
   showDefaultExternalLinks: Boolean!
+
+  """
+  SaaS only -- Whether the Dataset health dashboard v2 is enabled.
+  """
+  datasetHealthDashboardV2Enabled: Boolean!
 }
 
 """

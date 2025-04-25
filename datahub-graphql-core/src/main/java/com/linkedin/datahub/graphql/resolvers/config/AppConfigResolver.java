@@ -287,6 +287,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setShowManageTags(_featureFlags.isShowManageTags())
             .setOnlineSmartAssertionsEnabled(_featureFlags.isOnlineSmartAssertionsEnabled())
             .setShowDefaultExternalLinks(_featureFlags.isShowDefaultExternalLinks())
+            .setDatasetHealthDashboardV2Enabled(_featureFlags.isDatasetHealthDashboardV2Enabled())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

@@ -131,6 +131,7 @@ query appConfig {
             displayExecutorPools
             onlineSmartAssertionsEnabled
             showDefaultExternalLinks
+            datasetHealthDashboardV2Enabled
         }
         chromeExtensionConfig {
             enabled

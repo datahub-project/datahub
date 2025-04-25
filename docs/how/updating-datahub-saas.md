@@ -33,6 +33,8 @@ This is over and above updating-datahub.md file
 
 ### Environment variables
 
+- [datahub-gms] `DATASET_HEALTH_DASHBOARD_V2_ENABLED`: Flag to show the v2 version of the data health dashboard. `DATASET_HEALTH_DASHBOARD_ENABLED` is for v1 of the data health dashboard.
+
 ## v0.3.10.1
 
 ### Breaking Changes
