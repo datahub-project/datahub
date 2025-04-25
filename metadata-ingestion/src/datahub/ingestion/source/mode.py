@@ -203,6 +203,10 @@ class HTTPError429(HTTPError):
     pass
 
 
+class HTTPError504(HTTPError):
+    pass
+
+
 ModeRequestError = (HTTPError, JSONDecodeError)
 
 
@@ -218,6 +222,7 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
     num_query_template_render_failures: int = 0
     num_query_template_render_success: int = 0
     num_requests_exceeding_rate_limit: int = 0
+    num_requests_retried_on_timeout: int = 0
     num_spaces_retrieved: int = 0
 
     def report_dropped_space(self, ent_name: str) -> None:
@@ -1513,7 +1518,9 @@ class ModeSource(StatefulIngestionSourceBase):
                 multiplier=self.config.api_options.retry_backoff_multiplier,
                 max=self.config.api_options.max_retry_interval,
             ),
-            retry=retry_if_exception_type((HTTPError429, ConnectionError)),
+            retry=retry_if_exception_type(
+                (HTTPError429, HTTPError504, ConnectionError)
+            ),
             stop=stop_after_attempt(self.config.api_options.max_attempts),
         )
 
@@ -1540,6 +1547,10 @@ class ModeSource(StatefulIngestionSourceBase):
                     if sleep_time is not None:
                         time.sleep(float(sleep_time))
                     raise HTTPError429 from None
+                elif error_response.status_code == 504:
+                    self.report.num_requests_retried_on_timeout += 1
+                    time.sleep(0.1)
+                    raise HTTPError504 from None
 
                 logger.debug(
                     f"Error response ({error_response.status_code}): {error_response.text}"
