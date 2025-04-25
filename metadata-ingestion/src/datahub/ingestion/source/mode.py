@@ -1493,7 +1493,7 @@ class ModeSource(StatefulIngestionSourceBase):
         return charts
 
     def _get_paged_request_json(
-        self, url: str, key: str, per_page: int = 1000
+        self, url: str, key: str, per_page: int = 30
     ) -> List[Dict]:
         page: int = 1
         results: List[Dict] = []
@@ -1505,8 +1505,8 @@ class ModeSource(StatefulIngestionSourceBase):
                 results.extend(data)
                 page += 1
             else:
-                logger.debug(
-                    f"{url} fetched {len(results)} results in {page - 1} pages"
+                logger.info(
+                    f"Fetched {len(results)} records: type {key} page count {page - 1}"
                 )
                 return results
 
