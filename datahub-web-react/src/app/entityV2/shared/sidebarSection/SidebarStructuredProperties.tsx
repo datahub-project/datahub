@@ -1,6 +1,5 @@
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { useUserContext } from '@src/app/context/useUserContext';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import EditStructuredPropertyModal from '@src/app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
 import {
@@ -45,9 +44,8 @@ interface Props {
 
 const SidebarStructuredProperties = ({ properties }: Props) => {
     const { entityData, entityType } = useEntityData();
-    const me = useUserContext();
     const entityRegistry = useEntityRegistryV2();
-    const canEditProps = me.platformPrivileges?.manageStructuredProperties;
+    const canEditProps = entityData?.parent?.privileges?.canEditProperties || entityData?.privileges?.canEditProperties;
     const [isPropModalVisible, setIsPropModalVisible] = useState(false);
     const [selectedProperty, setSelectedProperty] = useState<SearchResult | undefined>();
     const isSchemaSidebar = properties?.isSchemaSidebar || false;
