@@ -137,7 +137,7 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                                             setIsPropModalVisible(true);
                                             event.stopPropagation();
                                         }}
-                                        actionPrivilege={canEditProps}
+                                        actionPrivilege={!!canEditProps}
                                         dataTestId={`${propertyName}-add-or-edit-button`}
                                     />
                                 </>
