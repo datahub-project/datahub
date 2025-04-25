@@ -485,7 +485,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         trace_timeout: Optional[timedelta] = timedelta(seconds=3600),
     ) -> int:
         """
-        1. Grouping MCPs by their entity URL and HTTP method
+        1. Grouping MCPs by their HTTP method and entity URL
         2. Breaking down large batches into smaller chunks based on both:
          * Total byte size (INGEST_MAX_PAYLOAD_BYTES)
          * Maximum number of items (BATCH_INGEST_MAX_PAYLOAD_LENGTH)
