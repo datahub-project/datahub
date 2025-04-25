@@ -10,9 +10,9 @@ import { ContextPathSeparator } from '@src/app/previewV2/ContextPathSeparator';
 
 import { Entity } from '@types';
 
-const ParentNodesWrapper = styled.div`
+const ParentNodesWrapper = styled.div<{ $color?: string }>`
     font-size: 12px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.$color ?? ANTD_GRAY[7]};
     display: flex;
     align-items: center;
     overflow: hidden;
@@ -31,9 +31,15 @@ interface Props {
     parentEntities: Entity[];
     numVisible?: number;
     linksDisabled?: boolean; // don't allow links to parent entities
+    color?: string;
 }
 
-export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NUM_VISIBLE, linksDisabled }: Props) {
+export default function ParentEntities({
+    parentEntities,
+    numVisible = DEFAULT_NUM_VISIBLE,
+    linksDisabled,
+    color,
+}: Props) {
     const entityRegistry = useEntityRegistry();
 
     // parent nodes/domains are returned with direct parent first
@@ -60,12 +66,12 @@ export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NU
                 </>
             }
         >
-            <ParentNodesWrapper>
+            <ParentNodesWrapper $color={color}>
                 {hasHiddenEntities &&
                     [...Array(numHiddenEntities)].map((index) => (
                         <React.Fragment key={`icons-${index || 0}`}>
                             <FolderOpenOutlined />
-                            <ContextPathSeparator />
+                            <ContextPathSeparator $color={color} />
                         </React.Fragment>
                     ))}
                 {visibleNodes.map((parentEntity, index) => {
@@ -77,6 +83,7 @@ export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NU
                                 entity={parentEntity}
                                 linkDisabled={linksDisabled}
                                 style={{ fontSize: '12px' }}
+                                color={color}
                             />
                             {index !== visibleNodes.length - 1 && <ContextPathSeparator />}
                         </React.Fragment>
