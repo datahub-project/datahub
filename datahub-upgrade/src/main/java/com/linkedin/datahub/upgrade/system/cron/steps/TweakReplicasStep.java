@@ -12,6 +12,7 @@ import com.linkedin.util.Pair;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -21,10 +22,11 @@ public class TweakReplicasStep implements UpgradeStep {
 
   private final List<ElasticSearchIndexed> services;
   private final Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties;
+  @Getter private final boolean dryRun;
 
   @Override
   public String id() {
-    return "TweakReplicasStep";
+    return TweakReplicasStep.class.getSimpleName();
   }
 
   @Override
@@ -32,7 +34,7 @@ public class TweakReplicasStep implements UpgradeStep {
     return (context) -> {
       try {
         for (ElasticSearchIndexed service : services) {
-          service.tweakReplicasAll(structuredProperties);
+          service.tweakReplicasAll(structuredProperties, dryRun);
         }
       } catch (Exception e) {
         log.error("TweakReplicasStep failed.", e);

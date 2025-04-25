@@ -29,10 +29,10 @@ public interface ElasticSearchIndexed {
       throws IOException;
 
   public default void tweakReplicasAll(
-      Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
+      Collection<Pair<Urn, StructuredPropertyDefinition>> properties, boolean dryRun) {
     try {
       for (ReindexConfig config : buildReindexConfigs(properties)) {
-        getIndexBuilder().tweakReplicas(config);
+        getIndexBuilder().tweakReplicas(config, dryRun);
       }
     } catch (IOException e) {
       throw new RuntimeException(e);

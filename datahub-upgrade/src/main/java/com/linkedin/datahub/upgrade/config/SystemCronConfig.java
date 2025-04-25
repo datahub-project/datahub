@@ -7,31 +7,41 @@ import com.linkedin.datahub.upgrade.system.cron.steps.TweakReplicasStep;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
+import java.util.List;
+import java.util.Set;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 
-import java.util.List;
-import java.util.Set;
-
 @Configuration
 @Conditional(SystemUpdateCronCondition.class)
 public class SystemCronConfig {
 
-    @Bean(name = "TweakReplicasStep")
-    public UpgradeStep tweakReplicasStep(List<ElasticSearchIndexed> services, Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
-        return new TweakReplicasStep(services, structuredProperties);
-    }
+  @Autowired private ConditionChecker conditionChecker;
 
-    @Bean(name = "AnotherStep")
-    public UpgradeStep anotherStep(List<ElasticSearchIndexed> services, Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
-        return new TweakReplicasStep(services, structuredProperties);
-    }
+  @Bean(name = "TweakReplicasStep")
+  @Conditional(SystemUpdateCronCondition.TweakReplicasStepCondition.class)
+  public UpgradeStep tweakReplicasStep(
+      List<ElasticSearchIndexed> services,
+      Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
+    return new TweakReplicasStep(services, structuredProperties, conditionChecker.isDryRun());
+  }
 
-    @Bean(name = "systemUpdateCron")
-    public SystemUpdateCron systemUpdateCron(@Qualifier("TweakReplicasStep") UpgradeStep tweakReplicasStep) {
-        // TODO  consider which step(s) to run via additional arg
-        return new SystemUpdateCron(List.of(tweakReplicasStep));
-    }
+  //    //we would have other steps here...
+  //    @Bean(name = "AnotherStep")
+  //    public UpgradeStep anotherStep(List<ElasticSearchIndexed> services, Set<Pair<Urn,
+  // StructuredPropertyDefinition>> structuredProperties) {
+  //        //return new TweakReplicasStep(services, structuredProperties);
+  //        throw new UnsupportedOperationException("not implemented");
+  //    }
+  //
+  // create another such method, with a different conditional, to invoke a diff step
+  @Bean(name = "systemUpdateCron")
+  @Conditional(SystemUpdateCronCondition.TweakReplicasStepCondition.class)
+  public SystemUpdateCron systemUpdateCron(
+      @Qualifier("TweakReplicasStep") UpgradeStep tweakReplicasStep) {
+    return new SystemUpdateCron(List.of(tweakReplicasStep));
+  }
 }

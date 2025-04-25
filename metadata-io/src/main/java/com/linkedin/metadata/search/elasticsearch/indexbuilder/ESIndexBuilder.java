@@ -455,8 +455,7 @@ public class ESIndexBuilder {
     return summary.toString();
   }
 
-  public void tweakReplicas(ReindexConfig indexState) throws IOException {
-    boolean dryRun = true;
+  public void tweakReplicas(ReindexConfig indexState, boolean dryRun) throws IOException {
     Map<String, Object> result = increaseReplicasForActiveIndices(indexState.name(), dryRun);
     Map<String, Object> resultb = reduceReplicasForEmptyIndices(indexState.name(), dryRun);
     log.info(

@@ -18,8 +18,8 @@ import org.testng.annotations.Test;
 @ActiveProfiles("test")
 @SpringBootTest(
     classes = {UpgradeCliApplication.class, UpgradeCliApplicationTestConfiguration.class},
-    args = {"-u", "SystemUpdateCron", "-j", "TweakReplicasStep"})
-public class SystemCronTest extends AbstractTestNGSpringContextTests {
+    args = {"-u", "SystemUpdateCron", "-j", "TweakReplicasStep", "--dryRun"})
+public class SystemCronDryRunTest extends AbstractTestNGSpringContextTests {
 
   @Autowired
   @Named("systemUpdateCron")
@@ -33,6 +33,6 @@ public class SystemCronTest extends AbstractTestNGSpringContextTests {
     assertTrue(step instanceof TweakReplicasStep);
     // TweakReplicasStep specific
     TweakReplicasStep trs = (TweakReplicasStep) step;
-    assertTrue(!trs.isDryRun());
+    assertTrue(trs.isDryRun());
   }
 }
