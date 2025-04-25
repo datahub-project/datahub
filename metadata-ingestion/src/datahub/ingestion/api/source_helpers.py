@@ -387,29 +387,37 @@ def auto_fix_duplicate_schema_field_paths(
     duplicated_field_paths = 0
 
     for wu in stream:
-        schema_metadata = wu.get_aspect_of_type(SchemaMetadataClass)
-        if schema_metadata:
-            total_schema_aspects += 1
+        try:
+            schema_metadata = wu.get_aspect_of_type(SchemaMetadataClass)
+            if schema_metadata:
+                total_schema_aspects += 1
 
-            seen_fields = set()
-            dropped_fields = []
-            updated_fields: List[SchemaFieldClass] = []
-            for field in schema_metadata.fields:
-                if field.fieldPath in seen_fields:
-                    dropped_fields.append(field.fieldPath)
-                else:
-                    seen_fields.add(field.fieldPath)
-                    updated_fields.append(field)
+                seen_fields = set()
+                dropped_fields = []
+                updated_fields: List[SchemaFieldClass] = []
+                for field in schema_metadata.fields:
+                    if field.fieldPath in seen_fields:
+                        dropped_fields.append(field.fieldPath)
+                    else:
+                        seen_fields.add(field.fieldPath)
+                        updated_fields.append(field)
 
-            if dropped_fields:
-                logger.info(
-                    f"Fixing duplicate field paths in schema aspect for {wu.get_urn()} by dropping fields: {dropped_fields}"
-                )
-                schema_metadata.fields = updated_fields
-                schemas_with_duplicates += 1
-                duplicated_field_paths += len(dropped_fields)
+                if dropped_fields:
+                    logger.info(
+                        f"Fixing duplicate field paths in schema aspect for {wu.get_urn()} by dropping fields: {dropped_fields}"
+                    )
+                    schema_metadata.fields = updated_fields
+                    schemas_with_duplicates += 1
+                    duplicated_field_paths += len(dropped_fields)
 
-        yield wu
+            yield wu
+        except Exception as e:
+            logger.error(
+                f"Error processing schema metadata for {wu.get_urn()}: {str(e)}"
+            )
+            raise Exception(
+                f"Error processing schema metadata for {wu.get_urn()}"
+            ) from e
 
     if schemas_with_duplicates:
         properties = {
