@@ -1,4 +1,4 @@
-const learCardDropdownContent = [
+const communityCardDropdownContent = [
         {
             title: "Join Slack",
             iconImage: "/img/icon-join-slack.png",
@@ -7,7 +7,7 @@ const learCardDropdownContent = [
         {
             title: "Events",
             iconImage: "/img/icon-events.png",
-            href: "/events",
+            href: "https://datahub.com/events",
         },
         {
             title: "Champions",
@@ -21,4 +21,4 @@ const learCardDropdownContent = [
         }
     ]
 
-export default learCardDropdownContent
+export default communityCardDropdownContent

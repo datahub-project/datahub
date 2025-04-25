@@ -319,7 +319,7 @@ module.exports = {
             },
             {
               label: "Adoption",
-              href: "/adoption-stories",
+              href: "https://datahub.com/adoption-stories/",
             },
           ],
         },

@@ -29,7 +29,7 @@ module.exports = {
         {
           type: "link",
           label: "Adoption Stories",
-          href: "/adoption-stories",
+          href: "https://datahub.com/adoption-stories/",
         },
       ],
     },

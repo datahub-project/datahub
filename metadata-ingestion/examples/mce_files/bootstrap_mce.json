@@ -3632,7 +3632,7 @@
               "content": {
                   "title": "Upcoming Events",
                   "type": "LINK",
-                  "link": "https://docs.datahub.com/events",
+                  "link": "https://datahub.com/events/",
                   "media": {
                       "type": "IMAGE",
                       "location": "https://docs.datahub.com/img/datahub-logo-color-mark.svg"

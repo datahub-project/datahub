@@ -7,7 +7,7 @@ const learCardDropdownContent = [
         {
             title: "Use Cases",
             iconImage: "/img/icon-forum.png",
-            href: "/learn",
+            href: "https://datahub.com/use-cases",
         },    
         {
             title: "Adoption Stories",
