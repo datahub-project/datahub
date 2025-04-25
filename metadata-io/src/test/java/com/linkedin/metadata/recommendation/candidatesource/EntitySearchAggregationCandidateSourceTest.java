@@ -12,6 +12,7 @@ import static org.testng.Assert.assertTrue;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Filter;
@@ -33,6 +34,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class EntitySearchAggregationCandidateSourceTest {
+  private final EntityService<?> entityService = mock(EntityService.class);
   private final EntitySearchService entitySearchService = mock(EntitySearchService.class);
   private final EntityRegistry entityRegistry = mock(EntityRegistry.class);
   private EntitySearchAggregationSource valueBasedCandidateSource;
@@ -55,7 +57,7 @@ public class EntitySearchAggregationCandidateSourceTest {
 
   private EntitySearchAggregationSource buildCandidateSource(
       String identifier, boolean isValueUrn) {
-    return new EntitySearchAggregationSource(entitySearchService, entityRegistry) {
+    return new EntitySearchAggregationSource(entityService, entitySearchService, entityRegistry) {
       @Override
       protected String getSearchFieldName() {
         return identifier;
@@ -192,6 +194,10 @@ public class EntitySearchAggregationCandidateSourceTest {
     Urn testUrn1 = new TestEntityUrn("testUrn1", "testUrn1", "testUrn1");
     Urn testUrn2 = new TestEntityUrn("testUrn2", "testUrn2", "testUrn2");
     Urn testUrn3 = new TestEntityUrn("testUrn3", "testUrn3", "testUrn3");
+    Mockito.when(entityService.exists(any(), eq(testUrn1))).thenReturn(true);
+    Mockito.when(entityService.exists(any(), eq(testUrn2))).thenReturn(true);
+    Mockito.when(entityService.exists(any(), eq(testUrn3))).thenReturn(true);
+
     Mockito.when(
             entitySearchService.aggregateByValue(
                 any(OperationContext.class), any(), eq("testUrn"), same(filter), anyInt()))
@@ -252,5 +258,17 @@ public class EntitySearchAggregationCandidateSourceTest {
     assertEquals(params.getContentParams().getCount().longValue(), 2L);
     assertTrue(
         urnBasedCandidateSource.getRecommendationModule(opContext, CONTEXT, filter).isPresent());
+
+    // Non existent entity is filtered out.
+    Urn nonExistentUrn = new TestEntityUrn("testUrn4", "testUrn4", "testUrn4");
+    Mockito.when(
+            entitySearchService.aggregateByValue(
+                any(OperationContext.class), any(), eq("testUrn"), same(filter), anyInt()))
+        .thenReturn(ImmutableMap.of(nonExistentUrn.toString(), 1L, testUrn2.toString(), 2L));
+    candidates = urnBasedCandidateSource.getRecommendations(opContext, CONTEXT, filter);
+    assertEquals(candidates.size(), 1);
+    content = candidates.get(0);
+    assertEquals(content.getValue(), testUrn2.toString());
+    assertEquals(content.getEntity(), testUrn2);
   }
 }
