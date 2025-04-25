@@ -17,8 +17,9 @@ export const PlatformText = styled.div<{
     $maxWidth?: number;
     $previewType?: Maybe<PreviewType>;
     $isCompactView?: boolean;
+    $color?: string;
 }>`
-    color: ${REDESIGN_COLORS.TEXT_GREY};
+    color: ${(props) => props.$color ?? REDESIGN_COLORS.TEXT_GREY};
     white-space: nowrap;
     font-family: Mulish;
     font-style: normal;
@@ -46,12 +47,12 @@ export function getParentBrowsePathNames(browsePaths?: Maybe<BrowsePathEntry>[] 
     return parentNames;
 }
 
-const PlatFormTitle = styled.span`
+const PlatFormTitle = styled.span<{ $color?: string }>`
     display: inline-block;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    color: ${REDESIGN_COLORS.TEXT_GREY};
+    color: ${(props) => props.$color ?? REDESIGN_COLORS.TEXT_GREY};
 `;
 
 const ParentNodesWrapper = styled.div`
@@ -70,11 +71,16 @@ interface Props {
     contentRef: React.RefObject<HTMLDivElement>;
     isContentTruncated: boolean;
     linksDisabled?: boolean;
+    color?: string;
 }
 
-const BrowsePathSection = ({ path, linksDisabled }: { path: BrowsePathEntry } & Pick<Props, 'linksDisabled'>) => {
+const BrowsePathSection = ({
+    path,
+    linksDisabled,
+    color,
+}: { path: BrowsePathEntry } & Pick<Props, 'linksDisabled' | 'color'>) => {
     if (!path.entity) {
-        return <PlatFormTitle>{path.name}</PlatFormTitle>;
+        return <PlatFormTitle $color={color}>{path.name}</PlatFormTitle>;
     }
 
     // Till we have a DataPlatform instance page
@@ -91,7 +97,7 @@ const BrowsePathSection = ({ path, linksDisabled }: { path: BrowsePathEntry } & 
 };
 
 function BrowsePaths(props: Props) {
-    const { previewType, browsePaths, contentRef, isContentTruncated, linksDisabled } = props;
+    const { previewType, browsePaths, contentRef, isContentTruncated, linksDisabled, color } = props;
 
     const parentPath = browsePaths?.path?.[0];
     const remainingParentPaths = browsePaths?.path && browsePaths.path.slice(1, browsePaths.path.length);
@@ -102,22 +108,24 @@ function BrowsePaths(props: Props) {
             overlayStyle={isContentTruncated ? {} : { display: 'none' }}
             maxWidth={previewType === PreviewType.HOVER_CARD ? 300 : 620}
         >
-            {isContentTruncated && <Ellipsis>...</Ellipsis>}
+            {isContentTruncated && <Ellipsis $color={color}>...</Ellipsis>}
             {/* To avoid rendering a empty div */}
             {(parentPath || remainingParentPaths) && (
                 <ParentNodesWrapper ref={contentRef}>
                     {parentPath && (
-                        <PlatformText>
-                            <BrowsePathSection path={parentPath} linksDisabled={linksDisabled} />
-                            {remainingParentPaths && remainingParentPaths?.length > 0 && <ContextPathSeparator />}
+                        <PlatformText $color={color}>
+                            <BrowsePathSection color={color} path={parentPath} linksDisabled={linksDisabled} />
+                            {remainingParentPaths && remainingParentPaths?.length > 0 && (
+                                <ContextPathSeparator $color={color} />
+                            )}
                         </PlatformText>
                     )}
                     {remainingParentPaths &&
                         remainingParentPaths.map((container, index) => {
                             return (
-                                <PlatformText>
-                                    <BrowsePathSection path={container} linksDisabled={linksDisabled} />
-                                    {index < remainingParentPaths.length - 1 && <ContextPathSeparator />}
+                                <PlatformText $color={color}>
+                                    <BrowsePathSection color={color} path={container} linksDisabled={linksDisabled} />
+                                    {index < remainingParentPaths.length - 1 && <ContextPathSeparator $color={color} />}
                                 </PlatformText>
                             );
                         })}
