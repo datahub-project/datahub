@@ -122,7 +122,7 @@ export const ProposalList = ({
             (filterFacets || ACTION_REQUEST_DISPLAY_FACETS).includes(facet?.field || ''),
         ) || [];
 
-    const { suggestions: entitySuggestions, loading: tempLoading } = useGetEntitySuggestions({
+    const { suggestions: entitySuggestions, loading: entitySuggestionsLoading } = useGetEntitySuggestions({
         activeFilters: filters,
         facets: data?.listActionRequests?.facets || [],
     });
@@ -158,7 +158,7 @@ export const ProposalList = ({
                 {showFiltersHeader && (
                     <ProposalsTableHeader>
                         <ProposalsEntitySelect
-                            defaultSuggestionsLoading={tempLoading}
+                            defaultSuggestionsLoading={entitySuggestionsLoading}
                             defaultSuggestions={entitySuggestions}
                             selected={entitiesSelected}
                             onUpdate={onSelectEntities}

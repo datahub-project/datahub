@@ -1,4 +1,4 @@
-import _ from 'lodash';
+import _, { debounce } from 'lodash';
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
@@ -33,7 +33,8 @@ export const ProposalsEntitySelect = ({
     const [selectedEntityOptions, setSelectedEntityOptions] = useState<NestedSelectOption[]>([]);
 
     // Autocomplete results
-    const [autoComplete, { data: autoCompleteData }] = useGetAutoCompleteMultipleResultsLazyQuery();
+    const [autoComplete, { data: autoCompleteData, loading: autoCompleteLoading }] =
+        useGetAutoCompleteMultipleResultsLazyQuery();
     const autoCompleteSuggestions: Array<Entity> =
         autoCompleteData?.autoCompleteForMultiple?.suggestions.flatMap((suggestion) => suggestion.entities) || [];
 
@@ -116,6 +117,7 @@ export const ProposalsEntitySelect = ({
         <Container>
             <SimpleSelect
                 options={defaultSuggestionsLoading ? [] : availableEntityOptions}
+                isLoading={defaultSuggestionsLoading || autoCompleteLoading}
                 size="sm"
                 isMultiSelect
                 placeholder="Select entity"
@@ -131,7 +133,7 @@ export const ProposalsEntitySelect = ({
                 }}
                 onUpdate={handleUpdate}
                 values={selectedEntityList}
-                onSearchChange={(value: string) => handleSearch(value)}
+                onSearchChange={debounce(handleSearch, 200)}
                 showSearch
                 showClear
                 onClear={() => setUseSearch(false)}

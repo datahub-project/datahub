@@ -1,6 +1,11 @@
 import { useEffect, useMemo } from 'react';
 
-import { filterEmptyAggregations, getNewFilters, getNumActiveFiltersForFilter } from '@app/searchV2/filters/utils';
+import {
+    deduplicateAggregations,
+    filterEmptyAggregations,
+    getNewFilters,
+    getNumActiveFiltersForFilter,
+} from '@app/searchV2/filters/utils';
 import useGetSearchQueryInputs from '@app/searchV2/useGetSearchQueryInputs';
 import { ENTITY_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { useAggregateAcrossEntitiesLazyQuery } from '@src/graphql/search.generated';
@@ -58,9 +63,16 @@ export default function useSearchFilterDropdown({
         aggregationsEntityTypes,
     ]);
 
+    const fetchedAggregations =
+        data?.aggregateAcrossEntities?.facets?.find((f) => f.field === filter.field)?.aggregations || [];
+    const searchAggregations = filter.aggregations;
+    const activeAggregations = searchAggregations.filter((agg) =>
+        activeFilters.find((f) => f.values?.includes(agg.value) || f.value === agg.value),
+    );
+
     const aggregations = shouldFetchAggregations
-        ? data?.aggregateAcrossEntities?.facets?.[0]?.aggregations
-        : filter.aggregations;
+        ? [...fetchedAggregations, ...deduplicateAggregations(fetchedAggregations, activeAggregations)]
+        : searchAggregations;
 
     const finalAggregations = filterEmptyAggregations(aggregations || [], activeFilters);
 
