@@ -47,7 +47,7 @@ export default function SelectActionButtons({
         <ActionButtonsContainer>
             {showClear && hasSelectedValues && !isDisabled && !isReadOnly && (
                 <StyledClearButton
-                    icon={{ icon: 'Close', source: 'material', size: 'lg' }}
+                    icon={{ icon: 'X', source: 'phosphor', size: 'md' }}
                     isCircle
                     onClick={onClearClickHandler}
                 />
