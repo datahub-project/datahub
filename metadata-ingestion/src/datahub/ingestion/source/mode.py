@@ -217,6 +217,8 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
     num_query_template_render: int = 0
     num_query_template_render_failures: int = 0
     num_query_template_render_success: int = 0
+    num_requests_exceeding_rate_limit: int = 0
+    num_spaces_retrieved: int = 0
 
     def report_dropped_space(self, ent_name: str) -> None:
         self.filtered_spaces.append(ent_name)
@@ -581,6 +583,7 @@ class ModeSource(StatefulIngestionSourceBase):
             logger.debug(
                 f"Got {len(spaces)} spaces from workspace {self.workspace_uri}"
             )
+            self.report.num_spaces_retrieved = len(spaces)
             for s in spaces:
                 logger.debug(f"Space: {s.get('name')}")
                 space_name = s.get("name", "")
@@ -1490,7 +1493,7 @@ class ModeSource(StatefulIngestionSourceBase):
         return charts
 
     def _get_paged_request_json(
-        self, url: str, key: str, per_page: int = 100
+        self, url: str, key: str, per_page: int = 1000
     ) -> List[Dict]:
         page: int = 1
         results: List[Dict] = []
@@ -1501,7 +1504,6 @@ class ModeSource(StatefulIngestionSourceBase):
             if data:
                 results.extend(data)
                 page += 1
-                time.sleep(0.3)
             else:
                 logger.debug(
                     f"{url} fetched {len(results)} results in {page - 1} pages"
@@ -1535,6 +1537,7 @@ class ModeSource(StatefulIngestionSourceBase):
             except HTTPError as http_error:
                 error_response = http_error.response
                 if error_response.status_code == 429:
+                    self.report.num_requests_exceeding_rate_limit += 1
                     # respect Retry-After
                     sleep_time = error_response.headers.get("retry-after")
                     if sleep_time is not None:
