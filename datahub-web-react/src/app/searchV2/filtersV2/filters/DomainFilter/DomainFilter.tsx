@@ -55,6 +55,7 @@ export default function DomainFilter({ fieldName, facetState, appliedFilters, on
             renderCustomOptionText={(option) => <EntityIconWithName entity={option.entity} />}
             isMultiSelect
             width="fit-content"
+            dataTestId="filter-domain"
             size="sm"
             showSearch
             showClear
