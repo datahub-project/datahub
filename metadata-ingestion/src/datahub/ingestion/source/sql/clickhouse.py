@@ -147,7 +147,7 @@ class ClickHouseConfig(
 
     def get_sql_alchemy_url(
         self,
-        uri_opts: Optional[dict[str, Any]] = None,
+        uri_opts: Optional[Dict[str, Any]] = None,
         current_db: Optional[str] = None,
     ) -> str:
         url = make_url(

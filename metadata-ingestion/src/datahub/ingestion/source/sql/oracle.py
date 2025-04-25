@@ -128,7 +128,7 @@ class OracleConfig(BasicSQLAlchemyConfig):
         return v
 
     def get_sql_alchemy_url(
-        self, uri_opts: dict[str, Any] | None = None, database: str | None = None
+        self, uri_opts: Optional[dict[str, Any]] = None, database: Optional[str] = None
     ) -> str:
         url = super().get_sql_alchemy_url(uri_opts=uri_opts, database=database)
 
