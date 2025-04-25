@@ -1,10 +1,9 @@
 import React from 'react';
 
 import CopyLinkMenuItem from '@app/shared/share/v2/items/CopyLinkMenuItem';
+import CopyNameMenuItem from '@app/shared/share/v2/items/CopyNameMenuItem';
 import CopyUrnMenuItem from '@app/shared/share/v2/items/CopyUrnMenuItem';
 import EmailMenuItem from '@app/shared/share/v2/items/EmailMenuItem';
-import CopyNameMenuItem from '@app/shared/share/v2/items/CopyNameMenuItem';
-
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';
