@@ -9622,7 +9622,8 @@ input GetGrantedPrivilegesInput {
   resourceSpec: ResourceSpec
 
   """
-  Whether to include policy evaluation details
+  Whether to include policy evaluation details. 
+  This will only return result if user has Manage Policies Privilege.
   """
   includeEvaluationDetails: Boolean = false
 }
