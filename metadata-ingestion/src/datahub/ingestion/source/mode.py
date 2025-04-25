@@ -1505,9 +1505,6 @@ class ModeSource(StatefulIngestionSourceBase):
                 results.extend(data)
                 page += 1
             else:
-                logger.info(
-                    f"Fetched {len(results)} records: type {key} page count {page - 1}"
-                )
                 return results
 
     def _get_request_json(self, url: str) -> Dict:
