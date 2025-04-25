@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import cast
 from unittest import mock
 
 import pytest
@@ -9,8 +10,10 @@ from datahub.configuration.common import AllowDenyPattern, DynamicTypedConfig
 from datahub.ingestion.run.pipeline import Pipeline, PipelineInitError
 from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
 from datahub.ingestion.source.snowflake import snowflake_query
+from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
+from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
 from tests.integration.snowflake.common import FROZEN_TIME, default_query_results
 
 
@@ -51,8 +54,9 @@ def snowflake_pipeline_config(tmp_path):
                 schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
                 include_usage_stats=False,
                 start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(
-                    tzinfo=timezone.utc
+                    tzinfo=timezone.utc,
                 ),
+                known_snowflake_edition=None,
                 end_time=datetime(2022, 6, 7, 7, 17, 0, 0).replace(tzinfo=timezone.utc),
             ),
         ),
@@ -372,3 +376,84 @@ def test_snowflake_failed_secure_view_definitions_query_raises_pipeline_warning(
                 ],
             }
         ]
+
+
+# Tests for known_snowflake_edition config option
+@freeze_time(FROZEN_TIME)
+def test_snowflake_is_standard_explicit_true(pytestconfig, snowflake_pipeline_config):
+    snowflake_pipeline_config.source.config.known_snowflake_edition = (
+        SnowflakeEdition.STANDARD
+    )
+
+    with mock.patch("snowflake.connector.connect") as mock_connect:
+        sf_connection = mock.MagicMock()
+        sf_cursor = mock.MagicMock()
+        mock_connect.return_value = sf_connection
+        sf_connection.cursor.return_value = sf_cursor
+
+        sf_cursor.execute.side_effect = query_permission_response_override(
+            default_query_results,
+            [SnowflakeQuery.current_region()],
+            [{"CURRENT_REGION()": "AWS_AP_SOUTH_1"}],
+        )
+
+        pipeline = Pipeline(snowflake_pipeline_config)
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        source = cast(SnowflakeV2Source, pipeline.source)
+        assert source.is_standard_edition() is True
+
+        sf_cursor.execute.assert_any_call(SnowflakeQuery.current_region())
+
+
+@freeze_time(FROZEN_TIME)
+def test_snowflake_is_standard_explicit_false(pytestconfig, snowflake_pipeline_config):
+    snowflake_pipeline_config.source.config.known_snowflake_edition = (
+        SnowflakeEdition.ENTERPRISE
+    )
+
+    with mock.patch("snowflake.connector.connect") as mock_connect:
+        sf_connection = mock.MagicMock()
+        sf_cursor = mock.MagicMock()
+        mock_connect.return_value = sf_connection
+        sf_connection.cursor.return_value = sf_cursor
+
+        sf_cursor.execute.side_effect = query_permission_response_override(
+            default_query_results,
+            [SnowflakeQuery.current_region()],
+            [{"CURRENT_REGION()": "AWS_AP_SOUTH_1"}],
+        )
+
+        pipeline = Pipeline(snowflake_pipeline_config)
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        source = cast(SnowflakeV2Source, pipeline.source)
+        assert source.is_standard_edition() is False
+
+        sf_cursor.execute.assert_any_call(SnowflakeQuery.current_region())
+
+
+@freeze_time(FROZEN_TIME)
+def test_snowflake_is_standard_autodetect(pytestconfig, snowflake_pipeline_config):
+    with mock.patch("snowflake.connector.connect") as mock_connect:
+        sf_connection = mock.MagicMock()
+        sf_cursor = mock.MagicMock()
+        mock_connect.return_value = sf_connection
+        sf_connection.cursor.return_value = sf_cursor
+
+        sf_cursor.execute.side_effect = query_permission_response_override(
+            default_query_results,
+            [SnowflakeQuery.current_region()],
+            [{"CURRENT_REGION()": "AWS_AP_SOUTH_1"}],
+        )
+
+        pipeline = Pipeline(snowflake_pipeline_config)
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        source = cast(SnowflakeV2Source, pipeline.source)
+        assert source.is_standard_edition() is False
+
+        sf_cursor.execute.assert_any_call(SnowflakeQuery.current_region())

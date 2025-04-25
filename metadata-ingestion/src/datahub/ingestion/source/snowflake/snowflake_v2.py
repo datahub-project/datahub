@@ -736,8 +736,8 @@ class SnowflakeV2Source(
             return None
 
     def is_standard_edition(self) -> bool:
-        if self.config.skip_standard_edition_check:
-            return False
+        if self.config.known_snowflake_edition is not None:
+            return self.config.known_snowflake_edition == SnowflakeEdition.STANDARD
         try:
             self.connection.query(SnowflakeQuery.show_tags())
             return False
