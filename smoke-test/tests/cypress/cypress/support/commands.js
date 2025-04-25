@@ -38,13 +38,10 @@ Cypress.Commands.add("login", () => {
 
 Cypress.Commands.add("loginWithCredentials", (username, password) => {
   cy.visit("/login");
-  if ((username, password)) {
-    cy.get("input[data-testid=username]").type(username);
-    cy.get("input[data-testid=password]").type(password);
-  } else {
-    cy.get("input[data-testid=username]").type(Cypress.env("ADMIN_USERNAME"));
-    cy.get("input[data-testid=password]").type(Cypress.env("ADMIN_PASSWORD"));
-  }
+  username = username || Cypress.env("ADMIN_USERNAME");
+  password = password || Cypress.env("ADMIN_PASSWORD");
+  cy.get("input[data-testid=username]").type(username, { delay: 0 });
+  cy.get("input[data-testid=password]").type(password, { delay: 0 });
   cy.contains("Sign In").click();
   cy.get(".ant-avatar-circle").should("be.visible");
   localStorage.setItem(SKIP_ONBOARDING_TOUR_KEY, "true");

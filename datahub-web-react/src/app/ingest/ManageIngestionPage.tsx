@@ -15,6 +15,7 @@ import { IngestionSourceList } from '@app/ingest/source/IngestionSourceList';
 import { TabType } from '@app/ingest/types';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { INGESTION_CREATE_SOURCE_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
+import { NoPageFound } from '@app/shared/NoPageFound';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
@@ -79,19 +80,18 @@ export const ManageIngestionPage = () => {
     /**
      * Determines which view should be visible: ingestion sources or secrets.
      */
-    const me = useUserContext();
-    const { config, loaded } = useAppConfig();
+    const { platformPrivileges, loaded: loadedPlatformPrivileges } = useUserContext();
+    const { config, loaded: loadedAppConfig } = useAppConfig();
     const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
-    const showIngestionTab = isIngestionEnabled && me && me.platformPrivileges?.manageIngestion;
-    const showSecretsTab = isIngestionEnabled && me && me.platformPrivileges?.manageSecrets;
-
-    const canManagePools = me.platformPrivileges?.manageIngestion;
-
+    const showIngestionTab = isIngestionEnabled && platformPrivileges?.manageIngestion;
+    const showSecretsTab = isIngestionEnabled && platformPrivileges?.manageSecrets;
+    const canManagePools = platformPrivileges?.manageIngestion;
     // TODO: For now remote executors privilege is tied to manage ingestion
-    const showRemoteExecutorsTab =
-        isIngestionEnabled && me && me.platformPrivileges?.manageIngestion && config.featureFlags.displayExecutorPools; // Saas only
+    const showRemoteExecutorsTab = showIngestionTab && config.featureFlags.displayExecutorPools; // Saas only
 
-    const [selectedTab, setSelectedTab] = useState<TabType>(TabType.Sources);
+    // undefined == not loaded, null == no permissions
+    const [selectedTab, setSelectedTab] = useState<TabType | undefined | null>();
+
     const [showCreateSourceModal, setShowCreateSourceModal] = useState<boolean>(false);
     const [showCreateSecretModal, setShowCreateSecretModal] = useState<boolean>(false);
     const [showCreatePoolModal, setShowCreatePoolModal] = useState(false);
@@ -99,10 +99,25 @@ export const ManageIngestionPage = () => {
 
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
     useEffect(() => {
-        if (loaded && me.loaded && !showIngestionTab && selectedTab === TabType.Sources) {
-            setSelectedTab(TabType.Secrets);
+        if (loadedAppConfig && loadedPlatformPrivileges && selectedTab === undefined) {
+            if (showIngestionTab) {
+                setSelectedTab(TabType.Sources);
+            } else if (showSecretsTab) {
+                setSelectedTab(TabType.Secrets);
+            } else if (showRemoteExecutorsTab) {
+                setSelectedTab(TabType.RemoteExecutors);
+            } else {
+                setSelectedTab(null);
+            }
         }
-    }, [loaded, me.loaded, showIngestionTab, selectedTab]);
+    }, [
+        loadedAppConfig,
+        loadedPlatformPrivileges,
+        showIngestionTab,
+        showSecretsTab,
+        showRemoteExecutorsTab,
+        selectedTab,
+    ]);
 
     const history = useHistory();
     const onSwitchTab = (newTab: string, options?: { clearQueryParams: boolean }) => {
@@ -145,6 +160,13 @@ export const ManageIngestionPage = () => {
             />
         ),
     };
+
+    if (selectedTab === undefined) {
+        return <></>; // loading
+    }
+    if (selectedTab === null) {
+        return <NoPageFound />;
+    }
 
     return (
         <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>

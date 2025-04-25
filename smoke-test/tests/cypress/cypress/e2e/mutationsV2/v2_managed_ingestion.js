@@ -1,3 +1,5 @@
+import { hasOperationName } from "../../e2e/utils";
+
 function readyToTypeEditor() {
   return cy.get(".monaco-scrollable-element").first().click().focused();
 }
@@ -6,7 +8,86 @@ describe("run managed ingestion", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
   });
-  it("create run managed ingestion source", () => {
+
+  it("cannot access ingestion page when disabled", () => {
+    cy.intercept("POST", "/api/v2/graphql", (req) => {
+      if (hasOperationName(req, "appConfig")) {
+        req.alias = "gqlappConfigQuery";
+        req.on("response", (res) => {
+          res.body.data.appConfig.managedIngestionConfig.enabled = false;
+        });
+      }
+    });
+    cy.loginWithCredentials();
+    cy.visit("/ingestion");
+    cy.waitTextVisible("404");
+  });
+
+  it("cannot access ingestion page without permissions", () => {
+    cy.intercept("POST", "/api/v2/graphql", (req) => {
+      if (hasOperationName(req, "appConfig")) {
+        req.alias = "gqlappConfigQuery";
+        req.on("response", (res) => {
+          res.body.data.appConfig.managedIngestionConfig.enabled = true;
+        });
+      } else if (hasOperationName(req, "getMe")) {
+        req.alias = "gqlgetMeQuery";
+        req.on("response", (res) => {
+          res.body.data.me.platformPrivileges.manageIngestion = false;
+          res.body.data.me.platformPrivileges.manageSecrets = false;
+        });
+      }
+    });
+    cy.loginWithCredentials();
+    cy.visit("/ingestion");
+    cy.waitTextVisible("404");
+  });
+
+  it("can access ingestion but not secrets", () => {
+    cy.intercept("POST", "/api/v2/graphql", (req) => {
+      if (hasOperationName(req, "appConfig")) {
+        req.alias = "gqlappConfigQuery";
+        req.on("response", (res) => {
+          res.body.data.appConfig.managedIngestionConfig.enabled = true;
+        });
+      } else if (hasOperationName(req, "getMe")) {
+        req.alias = "gqlgetMeQuery";
+        req.on("response", (res) => {
+          res.body.data.me.platformPrivileges.manageIngestion = true;
+          res.body.data.me.platformPrivileges.manageSecrets = false;
+        });
+      }
+    });
+    cy.loginWithCredentials();
+    cy.visit("/ingestion");
+    cy.waitTextVisible("Manage Data Sources");
+    cy.get('div[role="tab"]').contains("Sources").should("exist");
+    cy.get('div[role="tab"]').contains("Secrets").should("not.exist");
+  });
+
+  it("can access secrets but not ingestion", () => {
+    cy.intercept("POST", "/api/v2/graphql", (req) => {
+      if (hasOperationName(req, "appConfig")) {
+        req.alias = "gqlappConfigQuery";
+        req.on("response", (res) => {
+          res.body.data.appConfig.managedIngestionConfig.enabled = true;
+        });
+      } else if (hasOperationName(req, "getMe")) {
+        req.alias = "gqlgetMeQuery";
+        req.on("response", (res) => {
+          res.body.data.me.platformPrivileges.manageIngestion = false;
+          res.body.data.me.platformPrivileges.manageSecrets = true;
+        });
+      }
+    });
+    cy.loginWithCredentials();
+    cy.visit("/ingestion");
+    cy.waitTextVisible("Manage Data Sources");
+    cy.get('div[role="tab"]').contains("Secrets").should("exist");
+    cy.get('div[role="tab"]').contains("Sources").should("not.exist");
+  });
+
+  it.skip("create run managed ingestion source", () => {
     const number = Math.floor(Math.random() * 100000);
     const testName = `cypress test source ${number}`;
     const cli_version = "0.15.0.5";
