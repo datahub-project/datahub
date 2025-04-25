@@ -1,7 +1,9 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { ExclamationCircleFilled, LoadingOutlined } from '@ant-design/icons';
+import { Text, colors } from '@components';
 import { Button, Input, Modal, Spin, notification } from 'antd';
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import { useLocation } from 'react-router';
+import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -9,11 +11,29 @@ import {
     getSearchCsvDownloadHeader,
     transformResultsToCsvRow,
 } from '@app/entityV2/shared/components/styled/search/downloadAsCsvUtil';
+import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
 import { downloadRowsAsCsv } from '@app/search/utils/csvUtils';
 import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/utils/types';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { AndFilterInput } from '@types';
+import { AndFilterInput, LineageSearchPath } from '@types';
+
+const ImpactAnalysisWarning = styled.div`
+    gap: 8px;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    color: ${colors.yellow[1000]};
+    background-color: ${colors.yellow[0]};
+    margin-bottom: 16px;
+    border-radius: 8px;
+`;
+
+const SubText = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+`;
 
 type Props = {
     downloadSearchResults: (input: DownloadSearchResultsInput) => Promise<DownloadSearchResults | null | undefined>;
@@ -45,6 +65,7 @@ export default function DownloadAsCsvModal({
     showDownloadAsCsvModal,
     setShowDownloadAsCsvModal,
 }: Props) {
+    const { lineageSearchPath } = useContext(LineageTabContext);
     const { entityData: entitySearchIsEmbeddedWithin } = useEntityData();
     const location = useLocation();
 
@@ -188,6 +209,20 @@ export default function DownloadAsCsvModal({
                 </>
             }
         >
+            {lineageSearchPath === LineageSearchPath.Lightning && (
+                <ImpactAnalysisWarning data-testid="lightning-cache-warning">
+                    <ExclamationCircleFilled style={{ color: colors.yellow[1000], fontSize: 16 }} />
+                    <div>
+                        <Text weight="bold" style={{ lineHeight: 'normal' }}>
+                            Results may vary
+                        </Text>
+                        <SubText>
+                            Search results include referenced assets even if they don&apos;t exist. We&apos;ll only
+                            download the assets that exist in DataHub.
+                        </SubText>
+                    </div>
+                </ImpactAnalysisWarning>
+            )}
             <Input
                 data-testid="download-as-csv-input"
                 placeholder="datahub.csv"

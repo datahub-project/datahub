@@ -204,6 +204,7 @@ services:
     - MYSQL_USER=datahub
     - MYSQL_PASSWORD=datahub
     - MYSQL_ROOT_PASSWORD=datahub
+    - MYSQL_ROOT_HOST=%
     healthcheck:
       interval: 1s
       retries: 5
