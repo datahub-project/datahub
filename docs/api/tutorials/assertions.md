@@ -1147,7 +1147,7 @@ If you see the following response, the operation was successful:
 
 ## (Advanced) Create and Report Results for Custom Assertions
 
-If you'd like to create and report results for your own custom assertions, e.g. those which are run and 
+If you'd like to create and report results for your own custom assertions, e.g. those which are run and
 evaluated outside of DataHub Cloud, you need to generate 2 important Assertion Entity aspects, and give the assertion a unique
 URN of the following format:
 

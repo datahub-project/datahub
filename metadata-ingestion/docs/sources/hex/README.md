@@ -2,8 +2,8 @@ This connector ingests [Hex](https://hex.tech/) assets into DataHub.
 
 ### Concept Mapping
 
-| Hex Concept | DataHub Concept                                                                            | Notes               |
-| ----------- | ------------------------------------------------------------------------------------------ | ------------------- |
+| Hex Concept | DataHub Concept                                                                           | Notes               |
+| ----------- | ----------------------------------------------------------------------------------------- | ------------------- |
 | `"hex"`     | [Data Platform](https://docs.datahub.com/docs/generated/metamodel/entities/dataplatform/) |                     |
 | Workspace   | [Container](https://docs.datahub.com/docs/generated/metamodel/entities/container/)        |                     |
 | Project     | [Dashboard](https://docs.datahub.com/docs/generated/metamodel/entities/dashboard/)        | Subtype `Project`   |

@@ -18,9 +18,9 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 As are all AWS EventBridge events, the payload itself will be wrapped by a set of standard fields, outlined [here](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-events.html). The most notable include
 
-* **source:** A unique identifier for the source of the event. We tend to use \`acryl.events\` by default.
-* **account**: The account in which the event originated. This will be the DataHub Cloud AWS Account ID provided by your DataHub Cloud customersuccess rep.
-* **detail**: The place where the Entity Event payload will appear.
+- **source:** A unique identifier for the source of the event. We tend to use \`acryl.events\` by default.
+- **account**: The account in which the event originated. This will be the DataHub Cloud AWS Account ID provided by your DataHub Cloud customersuccess rep.
+- **detail**: The place where the Entity Event payload will appear.
 
 #### Sample Event
 

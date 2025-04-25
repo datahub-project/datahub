@@ -6,7 +6,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 If you require a private connection between the provisioned DataHub instance and your own existing AWS account, DataHub Cloud supports using AWS PrivateLink in order to complete this private connection.
 
-In order to complete this connection, the DataHub integrations team will require the AWS ARN for a user or role that can accept and complete the connection to your AWS account. 
+In order to complete this connection, the DataHub integrations team will require the AWS ARN for a user or role that can accept and complete the connection to your AWS account.
 
 Once that team reports the PrivateLink has been created, the team will give you a VPC Endpoint Service Name to use.
 

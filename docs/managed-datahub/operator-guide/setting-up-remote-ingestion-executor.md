@@ -98,10 +98,10 @@ This step is required to grant your AWS account access to pull the Remote Execut
 
 The DataHub Team will provide a [Cloudformation Template](https://raw.githubusercontent.com/acryldata/datahub-cloudformation/master/remote-executor/datahub-executor.ecs.template.yaml) that you can run to provision an ECS cluster with a single remote ingestion task. It will also provision an AWS role for the task which grants the permissions necessary to read and delete from the private queue created for you, along with reading the secrets you've specified. At minimum, the template requires the following parameters:
 
-   - Deployment Location (VPC and subnet)
-   - DataHub Personal Access Token
-   - DataHub Cloud URL (e.g., `<your-company>.acryl.io/gms`)
-   - Optional: DataHub Cloud Remote Executor Version; defaults to latest
+- Deployment Location (VPC and subnet)
+- DataHub Personal Access Token
+- DataHub Cloud URL (e.g., `<your-company>.acryl.io/gms`)
+- Optional: DataHub Cloud Remote Executor Version; defaults to latest
 
 Optional parameters:
 
@@ -180,7 +180,8 @@ The [datahub-executor-worker](https://executor-helm.acryl.io/index.yaml) Helm ch
 
 To access the private DataHub Cloud container registry, you'll need to work with your DataHub Cloud representative to set up the necessary permissions:
 
- For AWS EKS: Provide the IAM principal that will pull from the ECR repository
+For AWS EKS: Provide the IAM principal that will pull from the ECR repository
+
 - For Google Cloud: Provide the cluster's IAM service account
 - For other platforms: Contact DataHub team for specific requirements
 
@@ -217,11 +218,11 @@ helm install \
   acryl datahub-executor-worker
 ```
 
-   Required parameters:
+Required parameters:
 
-   - `global.datahub.executor.pool_id`: Your Executor Pool ID
-   - `global.datahub.gms.url`: Your DataHub Cloud URL (must include `/gms`)
-   - `image.tag`: DataHub Cloud Remote Executor version
+- `global.datahub.executor.pool_id`: Your Executor Pool ID
+- `global.datahub.gms.url`: Your DataHub Cloud URL (must include `/gms`)
+- `image.tag`: DataHub Cloud Remote Executor version
 
 4. **Configure Secret Mounting (Optional)**
 

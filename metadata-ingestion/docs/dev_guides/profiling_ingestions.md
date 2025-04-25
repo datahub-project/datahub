@@ -7,6 +7,7 @@ import TabItem from '@theme/TabItem';
 <FeatureAvailability/>
 
 **🤝 Version compatibility**
+
 > DataHub Core (Open Source): **0.11.1** | DataHub Cloud: **0.2.12**
 
 This page documents how to perform memory profiles of ingestion runs.

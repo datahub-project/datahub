@@ -7,8 +7,8 @@ section [Path Specs](https://docs.datahub.com/docs/generated/ingestion/sources/s
 
 This ingestion source maps the following Source System Concepts to DataHub Concepts:
 
-| Source Concept                         | DataHub Concept                                                                            | Notes            |
-| -------------------------------------- | ------------------------------------------------------------------------------------------ | ---------------- |
+| Source Concept                         | DataHub Concept                                                                           | Notes            |
+| -------------------------------------- | ----------------------------------------------------------------------------------------- | ---------------- |
 | `"abs"`                                | [Data Platform](https://docs.datahub.com/docs/generated/metamodel/entities/dataplatform/) |                  |
 | abs blob / Folder containing abs blobs | [Dataset](https://docs.datahub.com/docs/generated/metamodel/entities/dataset/)            |                  |
 | abs container                          | [Container](https://docs.datahub.com/docs/generated/metamodel/entities/container/)        | Subtype `Folder` |

@@ -6,7 +6,7 @@ import TabItem from '@theme/TabItem';
 
 <FeatureAvailability/>
 
-> Note that this feature is currently in open **Beta**. With any questions or issues, please reach out to your DataHub 
+> Note that this feature is currently in open **Beta**. With any questions or issues, please reach out to your DataHub
 > representative.
 
 > Open Source DataHub: 1.0.0
@@ -134,7 +134,7 @@ You can create Iceberg tables using PyIceberg with a defined schema. Here's an e
 
 Connect to the DataHub Iceberg Catalog using Spark SQL by defining `$GMS_HOST`, `$GMS_PORT`, `$WAREHOUSE` to connect to and `$USER_PAT` - the DataHub Personal Access Token used to connect to the catalog.  
 When using DataHub Cloud, the Iceberg Catalog URL is `https://<your-instance>.acryl.io/gms/iceberg/`
-If you're running DataHub locally, set `GMS_HOST` to `localhost` and `GMS_PORT` to `8080`.  
+If you're running DataHub locally, set `GMS_HOST` to `localhost` and `GMS_PORT` to `8080`.
 
 For this example, set `WAREHOUSE` to `arctic_warehouse`
 

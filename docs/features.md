@@ -11,7 +11,6 @@ import QuickstartCTA from '@site/src/pages/docs/\_components/QuickstartCTA';
 DataHub is a modern data catalog designed to streamline metadata management, data discovery, and data governance. It enables users to efficiently explore and understand their data, track data lineage, profile datasets, and establish data contracts.
 This extensible metadata management platform is built for developers to tame the complexity of their rapidly evolving data ecosystems and for data practitioners to leverage the total value of data within their organization.
 
-
 <p align="center">
     <img 
         alt="DataHub Integrations" 

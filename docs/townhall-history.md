@@ -11,7 +11,7 @@ For the Town Hall meetings after June 2023, please refer to our [LinkedIn Live e
 - Community & Project Updates - Maggie Hays & Shirshanka Das (DataHub)
 - Community Case Study: Dataset Joins - Raj Tekal & Bobbie-Jean Nowak (Optum)
 - DataHub 201: Column-Level Data Lineage - Hyejin Yoon (DataHub)
-- Sneak Peek:  BigQuery Column-Level Lineage with SQL Parsing - Harshal Sheth (DataHub)
+- Sneak Peek: BigQuery Column-Level Lineage with SQL Parsing - Harshal Sheth (DataHub)
 - DataHub Performance Tuning – Indy Prentice (DataHub)
 
 ### May 2023
@@ -19,6 +19,7 @@ For the Town Hall meetings after June 2023, please refer to our [LinkedIn Live e
 [Full YouTube video](https://www.youtube.com/watch?v=KHNPjSbbZR8)
 
 **Agenda**
+
 - Community - Maggie Hays & Shirshanka Das (DataHub)
 - Community Case Study: Jira + DataHub for Access Requests - Joshua Garza (Sharp Healthcare)
 - Sneak Peek: Use your own ownership types - Pedro Silva (DataHub)
@@ -30,6 +31,7 @@ For the Town Hall meetings after June 2023, please refer to our [LinkedIn Live e
 [Full YouTube video](https://www.youtube.com/watch?v=D5YYGu-ZIBo)
 
 **Agenda**
+
 - Community & Roadmap Updates - Maggie Hays & Shirshanka Das (DataHub)
 - DataHub 201: Python SDK - Hyejin Yoon (DataHub)
 - Streamlined Search & Browse Experience - Chris Collins (DataHub)
@@ -220,9 +222,8 @@ November Town Hall (in December!)
 
 **Agenda**
 
-
 - Community & Roadmap Updates by Maggie Hays (DataHub)
-- Project Updates by Shirshanka Das  (DataHub)
+- Project Updates by Shirshanka Das (DataHub)
 - Community Case Study: Adding Dataset Transformers by Eric Cooklin (Stash)
 - Demo: Data Domains & Containers by John Joyce (DataHub)
 - DataHub Basics — Data Profiling & Usage Stats 101 by Maggie Hays & Tamás Németh (DataHub)
@@ -265,7 +266,7 @@ November Town Hall (in December!)
 - DataHub Community & Roadmap Update - Maggie Hays (DataHub)
 - October Project Updates - Shirshanka Das (DataHub)
 - Introducing Recommendations - John Joyce & Dexter Lee (DataHub)
-- Case Study: DataHub @ hipages - Chris Coulson (hipages) 
+- Case Study: DataHub @ hipages - Chris Coulson (hipages)
 - Data Profiling Improvements - Surya Lanka & Harshal Sheth (DataHub)
 - Lineage Improvements & BigQuery Dataset Lineage by Gabe Lyons & Varun Bharill (DataHub)
 
@@ -276,13 +277,13 @@ November Town Hall (in December!)
 **Agenda**
 
 - Project Updates and Callouts by Shirshanka
-   - GraphQL Public API Annoucement
+  - GraphQL Public API Annoucement
 - Demo: Faceted Search by Gabe Lyons (DataHub)
 - Stateful Ingestion by Shirshanka Das & Surya Lanka (DataHub)
-- Case-Study: DataHub @ Adevinta by Martinez de Apellaniz   
+- Case-Study: DataHub @ Adevinta by Martinez de Apellaniz
 - Recent Improvements to the Looker Connector by Shirshanka Das & Maggie Hays (DataHub)
 - Offline
-   - Foreign Key and Related Term Mapping by Gabe Lyons (Acryl Data) [video](https://www.loom.com/share/79f27c2d9f6c4a3b8aacbc48c19add18)
+  - Foreign Key and Related Term Mapping by Gabe Lyons (Acryl Data) [video](https://www.loom.com/share/79f27c2d9f6c4a3b8aacbc48c19add18)
 
 ### Aug 2021
 
@@ -291,14 +292,14 @@ November Town Hall (in December!)
 **Agenda**
 
 - Project Updates and Callouts by Shirshanka
-   - Business Glossary Demo
-   - 0.8.12 Upcoming Release Highlights 
-   - Users and Groups Management (Okta, Azure AD)
+  - Business Glossary Demo
+  - 0.8.12 Upcoming Release Highlights
+  - Users and Groups Management (Okta, Azure AD)
 - Demo: Fine Grained Access Control by John Joyce (DataHub)
-- Community Case-Study: DataHub @ Warung Pintar and Redash integration by Taufiq Ibrahim (Bizzy Group) 
+- Community Case-Study: DataHub @ Warung Pintar and Redash integration by Taufiq Ibrahim (Bizzy Group)
 - New User Experience by John Joyce (DataHub)
 - Offline
-   - Performance Monitoring by Dexter Lee (DataHub) [video](https://youtu.be/6Xfr_Y9abZo)
+  - Performance Monitoring by Dexter Lee (DataHub) [video](https://youtu.be/6Xfr_Y9abZo)
 
 ### Jul 2021
 
@@ -309,7 +310,7 @@ November Town Hall (in December!)
 **Agenda**
 
 - Project Updates by Shirshanka
-   - Release highlights
+  - Release highlights
 - Deep Dive: Data Observability: Phase 1 by Harshal Sheth, Dexter Lee (DataHub)
 - Case Study: Building User Feedback into DataHub by Melinda Cardenas (NY Times)
 - Demo: AWS SageMaker integration for Models and Features by Kevin Hu (DataHub)
@@ -323,10 +324,10 @@ November Town Hall (in December!)
 **Agenda**
 
 - Project Updates by Shirshanka
-    - Release notes
-    - RBAC update
-    - Roadmap for H2 2021
--  Demo: Table Popularity powered by Query Activity by Harshal Sheth (DataHub)
+  - Release notes
+  - RBAC update
+  - Roadmap for H2 2021
+- Demo: Table Popularity powered by Query Activity by Harshal Sheth (DataHub)
 - Case Study: Business Glossary in production at Saxo Bank by Sheetal Pratik (Saxo Bank), Madhu Podila (ThoughtWorks)
 - Developer Session: Simplified Deployment for DataHub by John Joyce, Gabe Lyons (DataHub)
 
@@ -339,8 +340,8 @@ November Town Hall (in December!)
 **Agenda**
 
 - Project Updates by Shirshanka - 10 mins
-   - 0.8.0 Release
-   - AWS Recipe by Dexter Lee (DataHub)
+  - 0.8.0 Release
+  - AWS Recipe by Dexter Lee (DataHub)
 - Demo: Product Analytics design sprint (Maggie Hays (SpotHero), Dexter Lee (DataHub)) - 10 mins
 - Use-Case: DataHub on GCP by Sharath Chandra (Confluent) - 10 mins
 - Deep Dive: No Code Metadata Engine by John Joyce (DataHub) - 20 mins

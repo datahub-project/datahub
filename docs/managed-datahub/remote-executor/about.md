@@ -58,9 +58,11 @@ To get started with Remote Executor:
 ## FAQ
 
 ### Is Remote Executor required for DataHub Cloud?
+
 No, DataHub Cloud comes with an managed executor by default. Remote Executor is an optional feature for cases where you need to ingest from private sources or maintain stricter control over credentials and network access.
 
 ### Can I use multiple Remote Executors?
+
 Yes, you can deploy multiple Remote Executors for high availability or to handle different security zones. Contact your DataHub Cloud representative for details.
 
 ### What platforms are supported?

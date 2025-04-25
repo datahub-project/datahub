@@ -15,8 +15,8 @@ This source extracts the following:
 
 ## Concept mapping
 
-| Fivetran        | Datahub                                                                                                |
-| --------------- | ------------------------------------------------------------------------------------------------------ |
+| Fivetran        | Datahub                                                                                               |
+| --------------- | ----------------------------------------------------------------------------------------------------- |
 | `Connector`     | [DataJob](https://docs.datahub.com/docs/generated/metamodel/entities/datajob/)                        |
 | `Source`        | [Dataset](https://docs.datahub.com/docs/generated/metamodel/entities/dataset/)                        |
 | `Destination`   | [Dataset](https://docs.datahub.com/docs/generated/metamodel/entities/dataset/)                        |

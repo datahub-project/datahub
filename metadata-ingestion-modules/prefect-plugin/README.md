@@ -68,9 +68,9 @@ datahub_emitter.save("datahub-emitter-test")
 
 Configuration options:
 
-| Config            | Type  | Default                 | Description                                                                                                 |
-| ----------------- | ----- | ----------------------- | ----------------------------------------------------------------------------------------------------------- |
-| datahub_rest_url  | `str` | `http://localhost:8080` | DataHub GMS REST URL                                                                                        |
+| Config            | Type  | Default                 | Description                                                                                                |
+| ----------------- | ----- | ----------------------- | ---------------------------------------------------------------------------------------------------------- |
+| datahub_rest_url  | `str` | `http://localhost:8080` | DataHub GMS REST URL                                                                                       |
 | env               | `str` | `PROD`                  | Environment for assets (see [FabricType](https://docs.datahub.com/docs/graphql/enums/#fabrictype))         |
 | platform_instance | `str` | `None`                  | Platform instance for assets (see [Platform Instances](https://docs.datahub.com/docs/platform-instances/)) |
 

@@ -27,8 +27,8 @@ We are working on using iterator-based JSON parsers to avoid reading in the enti
 
 This ingestion source maps the following Source System Concepts to DataHub Concepts:
 
-| Source Concept                           | DataHub Concept                                                                            | Notes               |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------- |
+| Source Concept                           | DataHub Concept                                                                           | Notes               |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------- |
 | `"s3"`                                   | [Data Platform](https://docs.datahub.com/docs/generated/metamodel/entities/dataplatform/) |                     |
 | s3 object / Folder containing s3 objects | [Dataset](https://docs.datahub.com/docs/generated/metamodel/entities/dataset/)            |                     |
 | s3 bucket                                | [Container](https://docs.datahub.com/docs/generated/metamodel/entities/container/)        | Subtype `S3 bucket` |

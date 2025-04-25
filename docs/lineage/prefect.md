@@ -59,9 +59,9 @@ DatahubEmitter(
 
 Configuration options:
 
-| Config            | Type  | Default                 | Description                                                                                                 |
-| ----------------- | ----- | ----------------------- | ----------------------------------------------------------------------------------------------------------- |
-| datahub_rest_url  | `str` | `http://localhost:8080` | DataHub GMS REST URL                                                                                        |
+| Config            | Type  | Default                 | Description                                                                                                |
+| ----------------- | ----- | ----------------------- | ---------------------------------------------------------------------------------------------------------- |
+| datahub_rest_url  | `str` | `http://localhost:8080` | DataHub GMS REST URL                                                                                       |
 | env               | `str` | `PROD`                  | Environment for assets (see [FabricType](https://docs.datahub.com/docs/graphql/enums/#fabrictype))         |
 | platform_instance | `str` | `None`                  | Platform instance for assets (see [Platform Instances](https://docs.datahub.com/docs/platform-instances/)) |
 
@@ -95,8 +95,8 @@ def etl():
 
 ## Concept Mapping
 
-| Prefect Concept                                                      | DataHub Concept                                                                                        |
-| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Prefect Concept                                                      | DataHub Concept                                                                                       |
+| -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | [Flow](https://docs.prefect.io/latest/concepts/flows/)               | [DataFlow](https://docs.datahub.com/docs/generated/metamodel/entities/dataflow/)                      |
 | [Flow Run](https://docs.prefect.io/latest/concepts/flows/#flow-runs) | [DataProcessInstance](https://docs.datahub.com/docs/generated/metamodel/entities/dataprocessinstance) |
 | [Task](https://docs.prefect.io/latest/concepts/tasks/)               | [DataJob](https://docs.datahub.com/docs/generated/metamodel/entities/datajob/)                        |
