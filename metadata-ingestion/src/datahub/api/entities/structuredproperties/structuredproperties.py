@@ -43,7 +43,7 @@ class AllowedValue(ConfigModel):
 
 
 VALID_ENTITY_TYPE_URNS = [
-    Urn.make_entity_type_urn(entity_type) for entity_type in URN_TYPES.keys()
+    Urn.make_entity_type_urn(entity_type) for entity_type in URN_TYPES
 ]
 _VALID_ENTITY_TYPES_STRING = f"Valid entity type urns are {', '.join(VALID_ENTITY_TYPE_URNS)}, etc... Ensure that the entity type is valid."
 

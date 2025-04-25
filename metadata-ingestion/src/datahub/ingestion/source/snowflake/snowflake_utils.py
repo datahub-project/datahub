@@ -77,7 +77,7 @@ class SnowsightUrlBuilder:
         region: str,
     ) -> Tuple[str, str]:
         cloud: str
-        if region in SNOWFLAKE_REGION_CLOUD_REGION_MAPPING.keys():
+        if region in SNOWFLAKE_REGION_CLOUD_REGION_MAPPING:
             cloud, cloud_region_id = SNOWFLAKE_REGION_CLOUD_REGION_MAPPING[region]
         elif region.startswith(("aws_", "gcp_", "azure_")):
             # e.g. aws_us_west_2, gcp_us_central1, azure_northeurope

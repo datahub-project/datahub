@@ -1,29 +1,34 @@
-import React, { useEffect, useState } from 'react';
 import { Empty } from 'antd';
+import React, { useEffect, useState } from 'react';
 
-import { useGetEntityIncidentsQuery } from '../../../../../graphql/incident.generated';
-import { useEntityData } from '../../../../entity/shared/EntityContext';
-import { PAGE_SIZE } from './incidentUtils';
-import { EntityPrivileges, Incident } from '../../../../../types.generated';
-import { combineEntityDataWithSiblings } from '../../../../entity/shared/siblingUtils';
-import { useIsSeparateSiblingsMode } from '../../useIsSeparateSiblingsMode';
-import { IncidentTitleContainer } from './IncidentTitleContainer';
-import { EntityStagedForIncident, IncidentListFilter, IncidentTable } from './types';
-import { INCIDENT_DEFAULT_FILTERS, IncidentAction } from './constant';
-import { IncidentFilterContainer } from './IncidentFilterContainer';
-import { IncidentListTable } from './IncidentListTable';
-import { getFilteredTransformedIncidentData } from './utils';
-import { IncidentDetailDrawer } from './AcrylComponents/IncidentDetailDrawer';
-import { IncidentListLoading } from './IncidentListLoading';
-import { getQueryParams } from '../Dataset/Validations/assertionUtils';
+import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { combineEntityDataWithSiblings } from '@app/entity/shared/siblingUtils';
+import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
+import { IncidentDetailDrawer } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentDetailDrawer';
+import { IncidentFilterContainer } from '@app/entityV2/shared/tabs/Incident/IncidentFilterContainer';
+import { IncidentListLoading } from '@app/entityV2/shared/tabs/Incident/IncidentListLoading';
+import { IncidentListTable } from '@app/entityV2/shared/tabs/Incident/IncidentListTable';
+import { IncidentTitleContainer } from '@app/entityV2/shared/tabs/Incident/IncidentTitleContainer';
+import { INCIDENT_DEFAULT_FILTERS, IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
+import { PAGE_SIZE } from '@app/entityV2/shared/tabs/Incident/incidentUtils';
+import { EntityStagedForIncident, IncidentListFilter, IncidentTable } from '@app/entityV2/shared/tabs/Incident/types';
+import { getFilteredTransformedIncidentData } from '@app/entityV2/shared/tabs/Incident/utils';
+import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
+
+import { useGetEntityIncidentsQuery } from '@graphql/incident.generated';
+import { EntityPrivileges, Incident } from '@types';
 
 export const IncidentList = () => {
-    const { urn } = useEntityData();
+    const { urn, entityType } = useEntityData();
+    const refetchEntity = useRefetch();
     const [showIncidentBuilder, setShowIncidentBuilder] = useState(false);
-    const [entity, setEntity] = useState<EntityStagedForIncident>();
+    const [entity, setEntity] = useState<EntityStagedForIncident>({
+        urn,
+        entityType,
+    });
     const [visibleIncidents, setVisibleIncidents] = useState<IncidentTable>({
         incidents: [],
-        groupBy: { type: [], priority: [], stage: [], state: [] },
+        groupBy: { category: [], priority: [], stage: [], state: [] },
     });
     const [allIncidentData, setAllIncidentData] = useState<Incident[]>([]);
 
@@ -36,7 +41,11 @@ export const IncidentList = () => {
 
     const [selectedFilters, setSelectedFilters] = useState<IncidentListFilter>(incidentDefaultFilters);
     // Fetch filtered incidents.
-    const { loading, data, refetch } = useGetEntityIncidentsQuery({
+    const {
+        loading,
+        data,
+        refetch: refetchIncidents,
+    } = useGetEntityIncidentsQuery({
         variables: {
             urn,
             start: 0,
@@ -74,6 +83,11 @@ export const IncidentList = () => {
         setSelectedFilters(filter);
     };
 
+    const refetch = () => {
+        refetchEntity();
+        refetchIncidents();
+    };
+
     const privileges = (data?.entity as any)?.privileges as EntityPrivileges;
 
     const renderListTable = () => {
@@ -94,6 +108,7 @@ export const IncidentList = () => {
         }
         return <Empty description="No incidents yet" image={Empty.PRESENTED_IMAGE_SIMPLE} />;
     };
+
     return (
         <>
             <IncidentTitleContainer
@@ -112,16 +127,15 @@ export const IncidentList = () => {
             {renderListTable()}
             {showIncidentBuilder && (
                 <IncidentDetailDrawer
-                    urn={urn}
+                    entity={entity}
                     mode={IncidentAction.CREATE}
                     onSubmit={() => {
+                        setShowIncidentBuilder(false);
                         setTimeout(() => {
                             refetch();
-                        }, 2000);
-                        setShowIncidentBuilder(false);
+                        }, 3000);
                     }}
                     onCancel={() => setShowIncidentBuilder(false)}
-                    entity={entity}
                 />
             )}
         </>

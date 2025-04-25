@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
-import { useCustomTheme } from '../customThemeContext';
-import { useAppConfig } from './useAppConfig';
-import { useUserContext } from './context/useUserContext';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { useAppConfig } from '@app/useAppConfig';
+import { useCustomTheme } from '@src/customThemeContext';
 
 /**
  * Returns true if theme v2 should be enabled.

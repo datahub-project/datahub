@@ -1,3 +1,6 @@
+import java.nio.file.FileSystems
+import java.nio.file.Paths
+
 plugins {
   id 'java'
   id 'distribution'
@@ -80,6 +83,19 @@ task yarnServe(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
 task yarnTest(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   // Explicitly runs in non-watch mode.
   args = ['run', project.hasProperty('withCoverage') ? 'test-coverage' : 'test', 'run']
+  def test_sentinel = "${buildDir}/.yarn-test-sentinel"
+  outputs.file(test_sentinel)
+  inputs.files(project.fileTree(dir: 'src', include: ['**/*.ts', '**/*.tsx']))
+  doLast {
+    // touch a file with name yarn-lint.txt in the build directory
+    def file = file(test_sentinel)
+    if (!file.exists()) {
+      file.createNewFile()
+    } else {
+      file.setLastModified(System.currentTimeMillis())
+    }
+  }
+  outputs.cacheIf { true }
 }
 
 task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
@@ -90,6 +106,19 @@ test.dependsOn([yarnInstall, yarnTest, yarnLint])
 
 task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   args = ['run', 'lint-fix']
+  def lint_sentinel = "${buildDir}/.yarn-lint-sentinel"
+  outputs.file(lint_sentinel)
+  inputs.files(project.fileTree(dir: 'src', include: ['**/*.ts', '**/*.tsx']))
+  doLast {
+    // touch a file with name yarn-lint.txt in the build directory
+    def file = file(lint_sentinel)
+    if (!file.exists()) {
+      file.createNewFile()
+    } else {
+      file.setLastModified(System.currentTimeMillis())
+    }
+  }
+  outputs.cacheIf { true }
 }
 
 task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
@@ -111,6 +140,55 @@ task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   outputs.dir('dist')
 }
 
+// Define a list of configurations for prettier tasks
+def externalPrettierConfigs = [
+    [
+        name: 'graphql',
+        pattern: 'datahub-graphql-core/src/main/resources/**/*.graphql'
+    ],
+    [
+        name: 'githubActions',
+        pattern: '.github/**/*.{yml,yaml}'
+    ],
+    [
+        name: 'md',
+        pattern: '**/*.md'
+    ]
+]
+
+// Iterate through the configurations to create check and write tasks
+externalPrettierConfigs.each { config ->
+  tasks.register("${config.name}PrettierCheck", YarnTask) {
+    dependsOn(tasks.named('yarnInstall'))
+    args = ['run', 'prettier', '--check', "../${config.pattern}"]
+  }
+
+  tasks.register("${config.name}PrettierWrite", YarnTask) {
+    dependsOn(tasks.named('yarnInstall'))
+    args = ['run', 'prettier', '--write', "../${config.pattern}"]
+  }
+
+  tasks.register("${config.name}PrettierWriteChanged", YarnTask) {
+    // Get the list of changed Markdown files using Git
+    def changedFiles = new ByteArrayOutputStream()
+    exec {
+      commandLine 'git', 'diff', '--name-only', '--diff-filter=ACMRT', 'HEAD'
+      standardOutput = changedFiles
+    }
+    def allChangedFiles = changedFiles.toString().trim().split('\n').findAll { it != '' }
+    def matcher = FileSystems.getDefault().getPathMatcher("glob:${config.pattern}")
+    def matchingFiles = allChangedFiles.findAll { file -> matcher.matches(Paths.get(file)) }
+
+    if (matchingFiles.isEmpty()) {
+      logger.lifecycle("No changed files found matching ${config.pattern}.")
+      return
+    }
+
+    logger.lifecycle("Running Prettier on ${matchingFiles.size()} changed ${config.name} files")
+    args = ['run', 'prettier', '--write'] + matchingFiles.collect { "../${it}" }
+  }
+}
+
 clean {
   delete 'node_modules/.yarn-integrity'
   delete 'dist'
@@ -130,9 +208,9 @@ distZip {
 }
 
 jar {
-  dependsOn distZip
+  dependsOn yarnBuild
   into('public') {
-    from zipTree(distZip.outputs.files.first())
+    from 'dist'
   }
   archiveClassifier = 'assets'
 }

@@ -13,16 +13,14 @@ def test_timeout_no_timeout():
 
 def test_timeout_raises():
     # Should raise TimeoutException
-    with pytest.raises(TimeoutException):
-        with threading_timeout(0.1):
-            time.sleep(0.5)
+    with pytest.raises(TimeoutException), threading_timeout(0.1):
+        time.sleep(0.5)
 
 
 def test_timeout_early_exit():
     # Test that context manager handles other exceptions properly
-    with pytest.raises(ValueError):
-        with threading_timeout(1.0):
-            raise ValueError("Early exit")
+    with pytest.raises(ValueError), threading_timeout(1.0):
+        raise ValueError("Early exit")
 
 
 def test_timeout_zero():

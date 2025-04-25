@@ -1,18 +1,21 @@
-import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
 import Icon from '@ant-design/icons';
 import { Button, Typography } from 'antd';
 import moment from 'moment';
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
-import NoStatsAvailble from '../../../../../../../../images/no-stats-available.svg?react';
-import { useBaseEntity, useRouteToTab } from '../../../../../../../entity/shared/EntityContext';
-import { ANTD_GRAY } from '../../../../../constants';
-import Query from '../../../Queries/Query';
-import { PopularityColumn, QueryCreatedBy } from '../../../Queries/queryColumns';
-import { usePopularQueries } from '../../../Queries/usePopularQueries';
-import { GetDatasetQuery } from '../../../../../../../../graphql/dataset.generated';
-import Loading from '../../../../../../../shared/Loading';
-import { generateSchemaFieldUrn } from '../../../../Lineage/utils';
+
+import { useBaseEntity, useRouteToTab } from '@app/entity/shared/EntityContext';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import Query from '@app/entityV2/shared/tabs/Dataset/Queries/Query';
+import { QueryCreatedBy } from '@app/entityV2/shared/tabs/Dataset/Queries/queryColumns';
+import { usePopularQueries } from '@app/entityV2/shared/tabs/Dataset/Queries/usePopularQueries';
+import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
+import Loading from '@app/shared/Loading';
+import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
+
+import { GetDatasetQuery } from '@graphql/dataset.generated';
+
+import NoStatsAvailble from '@images/no-stats-available.svg?react';
 
 interface Props {
     properties: {
@@ -55,15 +58,6 @@ const QuerySubtitleContainer = styled.div`
 const SubtitleSection = styled.div`
     display: flex;
     flex-direction: row;
-`;
-
-const PopularityLabel = styled.span`
-    line-height: 26px;
-    margin-right: 8px;
-`;
-
-const PopularityColumnContainer = styled.div`
-    margin-bottom: 5px;
 `;
 
 const QUERIES_TO_SHOW = 6;
@@ -172,12 +166,6 @@ export default function SchemaFieldQueriesSidebarTab({ properties: { fieldPath }
                                         </StyledCreatedBy>
                                     )}
                                     on {moment(query.lastRun).format('MM/DD/YYYY')}
-                                </SubtitleSection>
-                                <SubtitleSection>
-                                    <PopularityLabel>Popularity</PopularityLabel>
-                                    <PopularityColumnContainer>
-                                        <PopularityColumn query={query} />
-                                    </PopularityColumnContainer>
                                 </SubtitleSection>
                             </QuerySubtitleContainer>
                         </StyledQueryCard>

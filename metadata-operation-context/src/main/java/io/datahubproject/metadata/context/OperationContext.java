@@ -13,6 +13,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.utils.AuditStampUtils;
@@ -260,6 +261,11 @@ public class OperationContext implements AuthorizationSession {
   @Nonnull
   public EntityRegistry getEntityRegistry() {
     return entityRegistryContext.getEntityRegistry();
+  }
+
+  @Nonnull
+  public LineageRegistry getLineageRegistry() {
+    return entityRegistryContext.getLineageRegistry();
   }
 
   @Nonnull

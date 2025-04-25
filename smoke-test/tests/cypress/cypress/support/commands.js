@@ -271,7 +271,9 @@ Cypress.Commands.add("addViaFormModal", (text, modelHeader) => {
 
 Cypress.Commands.add("addViaModal", (text, modelHeader, value, dataTestId) => {
   cy.waitTextVisible(modelHeader);
-  cy.get(".ant-input-affix-wrapper > input[type='text']").first().type(text);
+  cy.get(".ant-modal-content .ant-input-affix-wrapper > input[type='text']")
+    .first()
+    .type(text);
   cy.get(`[data-testid="${dataTestId}"]`).click();
   cy.contains(value).should("be.visible");
 });
@@ -529,17 +531,22 @@ Cypress.Commands.add("setIsThemeV2Enabled", (isEnabled) => {
         res.body.data.appConfig.featureFlags.themeV2Default = isEnabled;
         res.body.data.appConfig.featureFlags.showNavBarRedesign = isEnabled;
       });
+    } else if (hasOperationName(req, "getMe")) {
+      req.alias = "gqlgetMeQuery";
+      req.on("response", (res) => {
+        res.body.data.me.corpUser.settings.appearance.showThemeV2 = isEnabled;
+      });
     }
   });
 });
 
-Cypress.Commands.add("ignoreResizeObserverLoop", () => {
-  const resizeObserverLoopErrRe = "ResizeObserver loop limit exceeded";
-  cy.on("uncaught:exception", (err) => {
-    if (err.message.includes(resizeObserverLoopErrRe)) {
-      return false;
-    }
-  });
+Cypress.on("uncaught:exception", (err) => {
+  const resizeObserverLoopErrMessage = "ResizeObserver loop limit exceeded";
+
+  /* returning false here prevents Cypress from failing the test */
+  if (err.message.includes(resizeObserverLoopErrMessage)) {
+    return false;
+  }
 });
 
 //

@@ -1,16 +1,18 @@
 import * as Muicon from '@mui/icons-material';
 import React from 'react';
 import styled from 'styled-components';
+
+import { generateColor } from '@app/entityV2/shared/components/styled/StyledTag';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { hexToRgba } from '@app/sharedV2/colors/colorUtils';
-import { Domain } from '../../../../types.generated';
-import { generateColor } from '../components/styled/StyledTag';
-import { REDESIGN_COLORS } from '../constants';
+
+import { Domain } from '@types';
 
 const DomainIconContainer = styled.div<{ color: string; size: number }>`
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 8px;
+    border-radius: ${(props) => props.size / 4}px;
     height: ${(props) => props.size}px;
     width: ${(props) => props.size}px;
     min-width: ${(props) => props.size}px;

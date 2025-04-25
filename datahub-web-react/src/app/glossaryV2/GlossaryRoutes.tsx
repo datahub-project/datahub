@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
+import { Redirect, Route, Switch, matchPath, useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
-import { Switch, Route, Redirect, useLocation, matchPath } from 'react-router-dom';
-import { PageRoutes } from '../../conf/Global';
-import { GlossaryEntityContext } from '../entityV2/shared/GlossaryEntityContext';
-import { GenericEntityProperties } from '../entity/shared/types';
-import BusinessGlossaryPage from './BusinessGlossaryPage';
-import { EntityPage as EntityPageV2 } from '../entityV2/EntityPage';
-import GlossarySidebar from './GlossarySidebar';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { useAppConfig } from '../useAppConfig';
-import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
-import { shouldShowGlossary } from '../identity/user/UserUtils';
-import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { EntityPage as EntityPageV2 } from '@app/entityV2/EntityPage';
+import { GlossaryEntityContext } from '@app/entityV2/shared/GlossaryEntityContext';
+import BusinessGlossaryPage from '@app/glossaryV2/BusinessGlossaryPage';
+import GlossarySidebar from '@app/glossaryV2/GlossarySidebar';
+import { shouldShowGlossary } from '@app/identity/user/UserUtils';
+import { useAppConfig } from '@app/useAppConfig';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useGetAuthenticatedUser } from '@app/useGetAuthenticatedUser';
+import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+import { PageRoutes } from '@conf/Global';
 
 const ContentWrapper = styled.div<{ $isShowNavBarRedesign?: boolean; $isEntityProfile?: boolean }>`
     display: flex;

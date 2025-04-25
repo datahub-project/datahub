@@ -1,9 +1,10 @@
-import React from 'react';
 import { Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { RoutedTabs } from '../shared/RoutedTabs';
-import { ManagePolicies } from './policy/ManagePolicies';
-import { ManageRoles } from './roles/ManageRoles';
+
+import { ManagePolicies } from '@app/permissions/policy/ManagePolicies';
+import { ManageRoles } from '@app/permissions/roles/ManageRoles';
+import { RoutedTabs } from '@app/shared/RoutedTabs';
 
 const PageContainer = styled.div`
     padding-top: 20px;

@@ -1,24 +1,21 @@
+import { Form, Input, Modal, message } from 'antd';
 import React from 'react';
-import { Modal, Form, Input, message } from 'antd';
-import { IncidentStage, IncidentState } from '@src/types.generated';
-import { Button, colors } from '@src/alchemy-components';
-import { useUpdateIncidentStatusMutation } from '@src/graphql/mutations.generated';
-import { useApolloClient } from '@apollo/client';
-import { useUserContext } from '@src/app/context/useUserContext';
 
-import handleGraphQLError from '@src/app/shared/handleGraphQLError';
+import { IncidentSelectField } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentSelectedField';
+import { INCIDENT_OPTION_LABEL_MAPPING, INCIDENT_RESOLUTION_STAGES } from '@app/entityV2/shared/tabs/Incident/constant';
+import { FormItem, ModalHeading, ModalTitleContainer } from '@app/entityV2/shared/tabs/Incident/styledComponents';
+import { IncidentTableRow } from '@app/entityV2/shared/tabs/Incident/types';
+import { Button, colors } from '@src/alchemy-components';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
-import { IncidentTableRow } from './types';
-import { IncidentSelectField } from './AcrylComponents/IncidentSelectedField';
-import { INCIDENT_OPTION_LABEL_MAPPING, INCIDENT_RESOLUTION_STAGES } from './constant';
-import { FormItem, ModalHeading, ModalTitleContainer } from './styledComponents';
-import { getCacheIncident } from './AcrylComponents/hooks/useIncidentHandler';
-import { PAGE_SIZE, updateActiveIncidentInCache } from './incidentUtils';
+import handleGraphQLError from '@src/app/shared/handleGraphQLError';
+import { useUpdateIncidentStatusMutation } from '@src/graphql/mutations.generated';
+import { IncidentStage, IncidentState } from '@src/types.generated';
 
 type IncidentResolutionPopupProps = {
     incident: IncidentTableRow;
+    refetch: () => void;
     handleClose: () => void;
 };
 
@@ -32,12 +29,11 @@ const ModalTitle = () => (
     </ModalTitleContainer>
 );
 
-export const IncidentResolutionPopup = ({ incident, handleClose }: IncidentResolutionPopupProps) => {
-    const client = useApolloClient();
-    const { user } = useUserContext();
+export const IncidentResolutionPopup = ({ incident, refetch, handleClose }: IncidentResolutionPopupProps) => {
     const { urn, entityType } = useEntityData();
     const [updateIncidentStatusMutation] = useUpdateIncidentStatusMutation();
     const [form] = Form.useForm();
+    const formValues = Form.useWatch([], form);
 
     const handleValuesChange = (changedValues: any) => {
         Object.keys(changedValues).forEach((fieldName) => form.setFields([{ name: fieldName, errors: [] }]));
@@ -57,34 +53,15 @@ export const IncidentResolutionPopup = ({ incident, handleClose }: IncidentResol
                 analytics.event({
                     type: EventType.EntityActionEvent,
                     entityType,
-                    entityUrn: incident.urn,
+                    entityUrn: urn,
                     actionType: EntityActionType.ResolvedIncident,
                 });
-
-                const values = {
-                    title: incident.title,
-                    description: incident.description,
-                    type: incident.type,
-                    priority: incident.priority,
-                    state: IncidentState.Resolved,
-                    customType: incident.customType,
-                    stage: formData?.status || IncidentStage.Fixed,
-                    message: formData?.note,
-                    linkedAssets: incident.linkedAssets,
-                    assignees: incident.assignees,
-                };
-
-                const updatedIncident = getCacheIncident({
-                    values,
-                    incidentUrn: incident.urn,
-                    user,
-                });
-
-                updateActiveIncidentInCache(client, urn, updatedIncident, PAGE_SIZE);
                 message.success({ content: 'Incident updated!', duration: 2 });
+                refetch();
                 handleClose?.();
             })
             .catch((error) => {
+                console.log(error);
                 handleGraphQLError({
                     error,
                     defaultMessage: 'Failed to update incident! An unexpected error occurred',
@@ -130,7 +107,7 @@ export const IncidentResolutionPopup = ({ incident, handleClose }: IncidentResol
                     showClear={false}
                     width="100%"
                     customStyle={{ flexDirection: 'column', alignItems: 'normal' }}
-                    value={form.getFieldValue(INCIDENT_OPTION_LABEL_MAPPING.stage.fieldName)}
+                    value={formValues?.[INCIDENT_OPTION_LABEL_MAPPING.stage.fieldName]}
                 />
                 <FormItem
                     name="note"

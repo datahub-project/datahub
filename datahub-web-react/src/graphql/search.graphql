@@ -107,6 +107,7 @@ fragment autoCompleteFields on Entity {
         }
         editableProperties {
             displayName
+            pictureLink
         }
     }
     ... on CorpGroup {
@@ -261,11 +262,33 @@ fragment autoCompleteFields on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
+        featureTables: relationships(input: { types: ["Contains"], direction: INCOMING, start: 0, count: 1 }) {
+            relationships {
+                entity {
+                    ... on MLFeatureTable {
+                        platform {
+                            ...platformFields
+                        }
+                    }
+                }
+            }
+        }
     }
     ... on MLPrimaryKey {
         name
         dataPlatformInstance {
             ...dataPlatformInstanceFields
+        }
+        featureTables: relationships(input: { types: ["KeyedBy"], direction: INCOMING, start: 0, count: 1 }) {
+            relationships {
+                entity {
+                    ... on MLFeatureTable {
+                        platform {
+                            ...platformFields
+                        }
+                    }
+                }
+            }
         }
     }
     ... on MLModel {
@@ -1275,6 +1298,7 @@ fragment searchAcrossRelationshipResults on SearchAcrossLineageResults {
     facets {
         ...facetFields
     }
+    lineageSearchPath
 }
 
 query getSearchResults($input: SearchInput!) {
@@ -1286,6 +1310,27 @@ query getSearchResults($input: SearchInput!) {
 query getSearchResultsForMultiple($input: SearchAcrossEntitiesInput!) {
     searchAcrossEntities(input: $input) {
         ...searchResults
+    }
+}
+
+query getSearchResultsForMultipleTrimmed($input: SearchAcrossEntitiesInput!) {
+    searchAcrossEntities(input: $input) {
+        searchResults {
+            entity {
+                ...autoCompleteFields
+            }
+            matchedFields {
+                name
+                value
+                entity {
+                    urn
+                    type
+                }
+            }
+        }
+        facets {
+            ...facetFields
+        }
     }
 }
 

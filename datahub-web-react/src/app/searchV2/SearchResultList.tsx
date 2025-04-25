@@ -1,21 +1,23 @@
 import { Checkbox, Divider, List, ListProps } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
-import { SearchResult, SearchSuggestion } from '../../types.generated';
-import analytics, { EventType } from '../analytics';
-import { ANTD_GRAY } from '../entity/shared/constants';
-import { EntityAndType } from '../entity/shared/types';
-import { SEARCH_COLORS } from '../entityV2/shared/constants';
-import { PreviewSection } from '../shared/MatchesContext';
-import { useEntityRegistry } from '../useEntityRegistry';
-import EmptySearchResults from './EmptySearchResults';
-import { MatchContextContainer } from './matches/MatchContextContainer';
-import { useIsSearchV2 } from './useSearchAndBrowseVersion';
-import { CombinedSearchResult } from './utils/combineSiblingsInSearchResults';
-import { PreviewType } from '../entity/Entity';
-import { useInitializeSearchResultCards } from '../entityV2/shared/components/styled/search/useInitializeSearchResultCards';
-import { useSearchContext } from '../search/context/SearchContext';
-import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
+
+import analytics, { EventType } from '@app/analytics';
+import { PreviewType } from '@app/entity/Entity';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { EntityAndType } from '@app/entity/shared/types';
+import { useInitializeSearchResultCards } from '@app/entityV2/shared/components/styled/search/useInitializeSearchResultCards';
+import { SEARCH_COLORS } from '@app/entityV2/shared/constants';
+import { useSearchContext } from '@app/search/context/SearchContext';
+import EmptySearchResults from '@app/searchV2/EmptySearchResults';
+import { MatchContextContainer } from '@app/searchV2/matches/MatchContextContainer';
+import { useIsSearchV2 } from '@app/searchV2/useSearchAndBrowseVersion';
+import { CombinedSearchResult } from '@app/searchV2/utils/combineSiblingsInSearchResults';
+import { PreviewSection } from '@app/shared/MatchesContext';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+
+import { SearchResult, SearchSuggestion } from '@types';
 
 export const MATCHES_CONTAINER_HEIGHT = 52;
 

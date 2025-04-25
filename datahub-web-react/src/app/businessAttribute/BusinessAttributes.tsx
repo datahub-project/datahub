@@ -1,22 +1,24 @@
-import React, { useState, useMemo } from 'react';
-import styled from 'styled-components';
-import { Button, Empty, message, Pagination, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
+import { Button, Empty, Pagination, Typography, message } from 'antd';
 import { AlignType } from 'rc-table/lib/interface';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useListBusinessAttributesQuery } from '../../graphql/businessAttribute.generated';
-import { Message } from '../shared/Message';
-import TabToolbar from '../entity/shared/components/styled/TabToolbar';
-import { StyledTable } from '../entity/shared/components/styled/StyledTable';
-import CreateBusinessAttributeModal from './CreateBusinessAttributeModal';
-import { scrollToTop } from '../shared/searchUtils';
-import { useUserContext } from '../context/useUserContext';
-import { BusinessAttribute } from '../../types.generated';
-import { SearchBar } from '../search/SearchBar';
-import { useEntityRegistry } from '../useEntityRegistry';
-import useTagsAndTermsRenderer from './utils/useTagsAndTermsRenderer';
-import useDescriptionRenderer from './utils/useDescriptionRenderer';
-import BusinessAttributeItemMenu from './BusinessAttributeItemMenu';
+import styled from 'styled-components';
+
+import BusinessAttributeItemMenu from '@app/businessAttribute/BusinessAttributeItemMenu';
+import CreateBusinessAttributeModal from '@app/businessAttribute/CreateBusinessAttributeModal';
+import useDescriptionRenderer from '@app/businessAttribute/utils/useDescriptionRenderer';
+import useTagsAndTermsRenderer from '@app/businessAttribute/utils/useTagsAndTermsRenderer';
+import { useUserContext } from '@app/context/useUserContext';
+import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
+import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import { SearchBar } from '@app/search/SearchBar';
+import { Message } from '@app/shared/Message';
+import { scrollToTop } from '@app/shared/searchUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useListBusinessAttributesQuery } from '@graphql/businessAttribute.generated';
+import { BusinessAttribute } from '@types';
 
 function BusinessAttributeListMenuColumn(handleDelete: () => void) {
     return (record: BusinessAttribute) => (

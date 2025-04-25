@@ -14,10 +14,15 @@ from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
-from tests.integration.snowflake.common import FROZEN_TIME, default_query_results
+from tests.integration.snowflake.common import (
+    FROZEN_TIME,
+    default_query_results,
+    inject_rowcount,
+)
 
 
 def query_permission_error_override(fn, override_for_query, error_msg):
+    @inject_rowcount
     def my_function(query):
         if query in override_for_query:
             raise Exception(error_msg)
@@ -28,6 +33,7 @@ def query_permission_error_override(fn, override_for_query, error_msg):
 
 
 def query_permission_response_override(fn, override_for_query, response):
+    @inject_rowcount
     def my_function(query):
         if query in override_for_query:
             return response

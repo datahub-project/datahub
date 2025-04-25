@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -115,7 +116,7 @@ public class UpsertDataContractResolver implements DataFetcher<CompletableFuture
                       null);
 
               // Package and return result
-              return DataContractMapper.mapContract(entityResponse);
+              return DataContractMapper.mapContract(context, entityResponse);
             } catch (Exception e) {
               throw new RuntimeException(
                   String.format("Failed to perform update against input %s", input.toString()), e);
@@ -196,7 +197,7 @@ public class UpsertDataContractResolver implements DataFetcher<CompletableFuture
     EntityRelationships relationships =
         _graphClient.getRelatedEntities(
             entityUrn.toString(),
-            ImmutableList.of(CONTRACT_RELATIONSHIP_TYPE),
+            ImmutableSet.of(CONTRACT_RELATIONSHIP_TYPE),
             RelationshipDirection.INCOMING,
             0,
             1,
