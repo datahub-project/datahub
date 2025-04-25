@@ -44,6 +44,11 @@ ext {
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
                     isDebug: true
             ],
+            'quickstartDebugMin': [
+                    profile: 'debug-min',
+                    modules: backend_profile_modules + [':datahub-frontend'],
+                    isDebug: true
+            ],
             'quickstartDebugConsumers': [
                     profile: 'debug-consumers',
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend',
@@ -96,15 +101,14 @@ ext {
             ]
     ]
 
-    //  only for debug variants of quickstart to enable <variant>Reload tasks. 
+    // only for debug variants of quickstart to enable <variant>Reload tasks. 
     // The actual service name needs the profile to be appended,  <container-name>-<profile>
+    // This list only contains modules that can be reloaded via the reloadTask. If other modules need to be reloaded, quickstart* needs to be used.
     moduleToContainer = [
         ':metadata-service:war': 'datahub-gms',
         ':datahub-frontend': 'frontend',
-        ':datahub-upgrade': 'system-update',
         ':metadata-jobs:mce-consumer-job': 'datahub-mce-consumer',
         ':metadata-jobs:mae-consumer-job': 'datahub-mae-consumer',
-        ':datahub-actions': 'datahub-actions',
     ]
 }
 
@@ -299,6 +303,23 @@ quickstart_configs.each { taskName, config ->
                     // If no containers need restart, make this a no-op
                     commandLine 'bash', '-c', 'echo "No containers need restarting - all modules are up to date"'
                 }    
+            }
+        }
+        tasks.register("${reloadTaskName}ReloadEnv", Exec) {
+            dependsOn tasks.named("prepareAll${taskName}")
+            group = 'quickstart'
+            description = "Build changed containers but recreate all services for the ${taskName} task"
+            doFirst {
+                def containersToRestart = []
+                moduleToContainer.each { modulePath, containerName ->
+                    // Find which of of the reloadable modules are in used in this task
+                    if (config.modules.contains(modulePath)) {
+                        containersToRestart << "${containerName}-${config.profile}"
+                    }
+                }
+                def cmd = ["docker compose -p datahub --profile ${config.profile}"] + ['-f', compose_base] + ['up', '-d', '--no-deps'] + containersToRestart
+                println(cmd.join(" "))
+                commandLine 'bash', '-c', cmd.join(" ")
             }
         }
     }
