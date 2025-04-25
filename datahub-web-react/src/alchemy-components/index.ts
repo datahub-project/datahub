@@ -28,6 +28,7 @@ export * from './components/Popover';
 export * from './components/SearchBar';
 export * from './components/Select';
 export * from './components/Switch';
+export * from './components/Tabs';
 export * from './components/Table';
 export * from './components/Text';
 export * from './components/TextArea';
