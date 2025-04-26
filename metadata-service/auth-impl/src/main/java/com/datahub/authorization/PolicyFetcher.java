@@ -81,7 +81,7 @@ public class PolicyFetcher {
   public PolicyFetchResult fetchPolicies(
       OperationContext opContext, String query, int count, @Nullable String scrollId, Filter filter)
       throws RemoteInvocationException, URISyntaxException {
-    log.debug(String.format("Batch fetching policies. count: %s, scroll: %s", count, scrollId));
+    log.debug("Batch fetching policies. count: {}, scroll: {}", count, scrollId);
 
     // First fetch all policy urns
     ScrollResult result =
@@ -98,6 +98,7 @@ public class PolicyFetcher {
             filter,
             scrollId,
             null,
+            List.of(),
             count);
     List<Urn> policyUrns =
         result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());

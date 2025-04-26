@@ -17,7 +17,7 @@ const learCardDropdownContent = [
         {
             title: "Blog",
             iconImage: "/img/icon-champions.png",
-            href: "https://blog.datahubproject.io/",
+            href: "https://medium.com/datahub-project",
         },
         {
             title: "Youtube",

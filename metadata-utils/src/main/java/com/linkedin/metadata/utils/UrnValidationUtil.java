@@ -1,7 +1,6 @@
 package com.linkedin.metadata.utils;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataList;
 import com.linkedin.data.DataMap;
 import com.linkedin.metadata.Constants;
@@ -11,9 +10,7 @@ import com.linkedin.metadata.models.UrnValidationFieldSpec;
 import com.linkedin.metadata.models.annotation.UrnValidationAnnotation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import java.net.URISyntaxException;
-import java.net.URLDecoder;
 import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -32,8 +29,9 @@ public class UrnValidationUtil {
   // Related to BrowsePathv2
   public static final String URN_DELIMITER_SEPARATOR = "␟";
   // https://datahubproject.io/docs/what/urn/#restrictions
-  public static final Set<String> ILLEGAL_URN_COMPONENT_CHARACTERS = Set.of("(", ")");
-  public static final Set<String> ILLEGAL_URN_TUPLE_CHARACTERS = Set.of(",");
+  public static final Set<String> ILLEGAL_URN_CHARACTERS_PARENTHESES = Set.of("(", ")");
+  // Commas are used as delimiters in tuple URNs, but not allowed in URN components
+  public static final Set<String> ILLEGAL_URN_COMPONENT_DELIMITER = Set.of(",");
 
   private UrnValidationUtil() {}
 
@@ -66,17 +64,29 @@ public class UrnValidationUtil {
           "Error: URN cannot contain " + URN_DELIMITER_SEPARATOR + " character");
     }
 
-    int totalParts = urn.getEntityKey().getParts().size();
-    List<String> illegalComponents =
-        urn.getEntityKey().getParts().stream()
-            .flatMap(part -> processUrnPartRecursively(part, totalParts))
-            .collect(Collectors.toList());
+    // Check if this is a simple (non-tuple) URN containing commas
+    if (urn.getEntityKey().getParts().size() == 1) {
+      String part = urn.getEntityKey().getParts().get(0);
+      if (part.contains(",")) {
+        if (strict) {
+          throw new IllegalArgumentException(
+              String.format(
+                  "Simple URN %s contains comma character which is not allowed in non-tuple URNs",
+                  urn));
+        } else {
+          log.error(
+              "Simple URN {} contains comma character which is not allowed in non-tuple URNs", urn);
+        }
+      }
+    }
+
+    // Validate all the URN parts
+    List<String> illegalComponents = validateUrnComponents(urn);
 
     if (!illegalComponents.isEmpty()) {
       String message =
           String.format(
-              "Illegal `%s` characters detected in URN %s component(s): %s",
-              ILLEGAL_URN_COMPONENT_CHARACTERS, urn, illegalComponents);
+              "Illegal characters detected in URN %s component(s): %s", urn, illegalComponents);
 
       if (strict) {
         throw new IllegalArgumentException(message);
@@ -92,25 +102,40 @@ public class UrnValidationUtil {
     }
   }
 
-  /** Recursively process URN parts with URL decoding */
+  /** Validates all components of a URN and returns a list of any illegal components. */
+  private static List<String> validateUrnComponents(Urn urn) {
+    int totalParts = urn.getEntityKey().getParts().size();
+
+    return urn.getEntityKey().getParts().stream()
+        .flatMap(part -> processUrnPartRecursively(part, totalParts))
+        .collect(Collectors.toList());
+  }
+
+  /** Recursively process URN parts with URL decoding and check for illegal characters */
   private static Stream<String> processUrnPartRecursively(String urnPart, int totalParts) {
-    String decodedPart =
-        URLDecoder.decode(URLEncodingFixer.fixURLEncoding(urnPart), StandardCharsets.UTF_8);
-    if (decodedPart.startsWith("urn:li:")) {
-      // Recursively process nested URN after decoding
-      int nestedParts = UrnUtils.getUrn(decodedPart).getEntityKey().getParts().size();
-      return UrnUtils.getUrn(decodedPart).getEntityKey().getParts().stream()
-          .flatMap(part -> processUrnPartRecursively(part, nestedParts));
+    // If this part is a nested URN, don't check it directly for illegal characters
+    if (urnPart.startsWith("urn:li:")) {
+      return Stream.empty();
     }
-    if (totalParts > 1) {
-      if (ILLEGAL_URN_TUPLE_CHARACTERS.stream().anyMatch(c -> urnPart.contains(c))) {
-        return Stream.of(urnPart);
-      }
+
+    // If this part has encoded parentheses, consider it valid
+    if (urnPart.contains("%28") || urnPart.contains("%29")) {
+      return Stream.empty();
     }
-    if (ILLEGAL_URN_COMPONENT_CHARACTERS.stream().anyMatch(c -> urnPart.contains(c))) {
+
+    // Check for unencoded parentheses in any part
+    if (ILLEGAL_URN_CHARACTERS_PARENTHESES.stream().anyMatch(c -> urnPart.contains(c))) {
       return Stream.of(urnPart);
     }
 
+    // For tuple parts (URNs with multiple components), check for illegal commas within components
+    if (totalParts > 1) {
+      if (ILLEGAL_URN_COMPONENT_DELIMITER.stream().anyMatch(c -> urnPart.contains(c))) {
+        return Stream.of(urnPart);
+      }
+    }
+
+    // If we reach here, the part is valid
     return Stream.empty();
   }
 
@@ -206,54 +231,5 @@ public class UrnValidationUtil {
     String fieldPath;
     String urn;
     UrnValidationAnnotation annotation;
-  }
-
-  /**
-   * Fixes malformed URL encoding by escaping unescaped % characters while preserving valid
-   * percent-encoded sequences.
-   */
-  private static class URLEncodingFixer {
-    /**
-     * @param input The potentially malformed URL-encoded string
-     * @return A string with proper URL encoding that can be safely decoded
-     */
-    public static String fixURLEncoding(String input) {
-      if (input == null) {
-        return null;
-      }
-
-      StringBuilder result = new StringBuilder(input.length() * 2);
-      int i = 0;
-
-      while (i < input.length()) {
-        char currentChar = input.charAt(i);
-
-        if (currentChar == '%') {
-          if (i + 2 < input.length()) {
-            // Check if the next two characters form a valid hex pair
-            String hexPair = input.substring(i + 1, i + 3);
-            if (isValidHexPair(hexPair)) {
-              // This is a valid percent-encoded sequence, keep it as is
-              result.append(currentChar);
-            } else {
-              // Invalid sequence, escape the % character
-              result.append("%25");
-            }
-          } else {
-            // % at the end of string, escape it
-            result.append("%25");
-          }
-        } else {
-          result.append(currentChar);
-        }
-        i++;
-      }
-
-      return result.toString();
-    }
-
-    private static boolean isValidHexPair(String pair) {
-      return pair.matches("[0-9A-Fa-f]{2}");
-    }
   }
 }

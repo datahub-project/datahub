@@ -9,6 +9,7 @@ from datahub.metadata.urns import (
     DomainUrn,
     GlossaryTermUrn,
 )
+from datahub.sdk.search_filters import Filter, FilterDsl as F
 
 if TYPE_CHECKING:
     from datahub.sdk.main_client import DataHubClient
@@ -38,37 +39,28 @@ class ResolverClient:
         self, *, name: Optional[str] = None, email: Optional[str] = None
     ) -> CorpUserUrn:
         filter_explanation: str
-        filters = []
+        filter: Filter
         if name is not None:
             if email is not None:
                 raise SdkUsageError("Cannot specify both name and email for auto_user")
-            # TODO: do we filter on displayName or fullName?
+            # We're filtering on both fullName and displayName. It's not clear
+            # what the right behavior is here.
             filter_explanation = f"with name {name}"
-            filters.append(
-                {
-                    "field": "fullName",
-                    "values": [name],
-                    "condition": "EQUAL",
-                }
+            filter = F.or_(
+                F.custom_filter("fullName", "EQUAL", [name]),
+                F.custom_filter("displayName", "EQUAL", [name]),
             )
         elif email is not None:
             filter_explanation = f"with email {email}"
-            filters.append(
-                {
-                    "field": "email",
-                    "values": [email],
-                    "condition": "EQUAL",
-                }
-            )
+            filter = F.custom_filter("email", "EQUAL", [email])
         else:
             raise SdkUsageError("Must specify either name or email for auto_user")
 
-        users = list(
-            self._graph.get_urns_by_filter(
-                entity_types=[CorpUserUrn.ENTITY_TYPE],
-                extraFilters=filters,
-            )
+        filter = F.and_(
+            F.entity_type(CorpUserUrn.ENTITY_TYPE),
+            filter,
         )
+        users = list(self._client.search.get_urns(filter=filter))
         if len(users) == 0:
             # TODO: In auto methods, should we just create the user/domain/etc if it doesn't exist?
             raise ItemNotFoundError(f"User {filter_explanation} not found")
@@ -82,15 +74,11 @@ class ResolverClient:
     def term(self, *, name: str) -> GlossaryTermUrn:
         # TODO: Add some limits on the graph fetch
         terms = list(
-            self._graph.get_urns_by_filter(
-                entity_types=[GlossaryTermUrn.ENTITY_TYPE],
-                extraFilters=[
-                    {
-                        "field": "id",
-                        "values": [name],
-                        "condition": "EQUAL",
-                    }
-                ],
+            self._client.search.get_urns(
+                filter=F.and_(
+                    F.entity_type(GlossaryTermUrn.ENTITY_TYPE),
+                    F.custom_filter("name", "EQUAL", [name]),
+                ),
             )
         )
         if len(terms) == 0:

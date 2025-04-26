@@ -1,19 +1,23 @@
-import { Button, DatePicker, Form, message, Modal, Select, Skeleton } from 'antd';
+import { DatePicker, Form, Modal, Select, Skeleton, message } from 'antd';
 import TextArea from 'antd/lib/input/TextArea';
 import dayjs from 'dayjs';
 import React from 'react';
-import { useGetEntitiesQuery } from '../../../../graphql/entity.generated';
-import { useBatchUpdateDeprecationMutation } from '../../../../graphql/mutations.generated';
-import { ResourceRefInput, SubResourceType } from '../../../../types.generated';
-import { EntityLink } from '../../../homeV2/reference/sections/EntityLink';
-import { getV1FieldPathFromSchemaFieldUrn } from '../../../lineageV2/lineageUtils';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { downgradeV2FieldPath } from '../../dataset/profile/schema/utils/utils';
-import { EntityCapabilityType } from '../../Entity';
-import { SearchSelectModal } from '../components/styled/search/SearchSelectModal';
-import { useGetEntityWithSchema } from '../tabs/Dataset/Schema/useGetEntitySchema';
-import { generateSchemaFieldUrn } from '../tabs/Lineage/utils';
-import { handleBatchError } from '../utils';
+
+import { EntityCapabilityType } from '@app/entityV2/Entity';
+import { downgradeV2FieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import { SearchSelectModal } from '@app/entityV2/shared/components/styled/search/SearchSelectModal';
+import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
+import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
+import { handleBatchError } from '@app/entityV2/shared/utils';
+import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
+import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Button } from '@src/alchemy-components';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+
+import { useGetEntitiesQuery } from '@graphql/entity.generated';
+import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated';
+import { ResourceRefInput, SubResourceType } from '@types';
 
 type Props = {
     urns: string[];
@@ -92,14 +96,14 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, z
             onCancel={handleClose}
             keyboard
             footer={
-                <>
-                    <Button onClick={handleClose} type="text">
+                <ModalButtonContainer>
+                    <Button onClick={handleClose} variant="text">
                         Cancel
                     </Button>
-                    <Button type="primary" data-testid="add" form="addDeprecationForm" key="submit" htmlType="submit">
+                    <Button data-testid="add" form="addDeprecationForm" key="submit">
                         Save
                     </Button>
-                </>
+                </ModalButtonContainer>
             }
         >
             <Form form={form} name="addDeprecationForm" onFinish={handleOk} layout="vertical">
@@ -164,7 +168,7 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, z
                     )}
                     {replacementUrn && isDeprecatingFields && (
                         <Button
-                            type="text"
+                            variant="text"
                             style={{
                                 padding: 5,
                                 marginLeft: -5,
@@ -177,7 +181,12 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, z
                         </Button>
                     )}
                     {!replacementUrn && (
-                        <Button size="small" onClick={() => setIsReplacementModalVisible(true)}>
+                        <Button
+                            variant="outline"
+                            type="button"
+                            size="sm"
+                            onClick={() => setIsReplacementModalVisible(true)}
+                        >
                             Select Replacement
                         </Button>
                     )}

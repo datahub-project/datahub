@@ -694,6 +694,11 @@ fragment entityLineageV2 on Entity {
             ...lineageV2Result
         }
     }
+    ... on SupportsVersions {
+        versionProperties {
+            ...versionProperties
+        }
+    }
     ... on SchemaFieldEntity {
         fieldPath
         parent {

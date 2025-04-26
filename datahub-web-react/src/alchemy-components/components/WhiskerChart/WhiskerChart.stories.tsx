@@ -1,10 +1,9 @@
+import { BADGE } from '@geometricpanda/storybook-addon-badges';
+import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 
-import type { Meta, StoryObj } from '@storybook/react';
-import { BADGE } from '@geometricpanda/storybook-addon-badges';
-
-import WhiskerChart from './WhiskerChart';
-import { DEFAULT_BOX_SIZE, DEFAULT_GAP_BETWEEN_WHISKERS } from './constants';
+import WhiskerChart from '@components/components/WhiskerChart/WhiskerChart';
+import { DEFAULT_BOX_SIZE, DEFAULT_GAP_BETWEEN_WHISKERS } from '@components/components/WhiskerChart/constants';
 
 // Auto Docs
 const meta = {

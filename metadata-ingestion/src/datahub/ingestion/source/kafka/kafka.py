@@ -272,7 +272,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             return schema_registry_class.create(config, report)
         except Exception as e:
             logger.debug(e, exc_info=e)
-            raise ImportError(config.schema_registry_class)
+            raise ImportError(config.schema_registry_class) from e
 
     def __init__(self, config: KafkaSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
@@ -568,10 +568,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         for config_key in KafkaTopicConfigKeys:
             try:
-                if (
-                    config_key in topic_config.keys()
-                    and topic_config[config_key] is not None
-                ):
+                if config_key in topic_config and topic_config[config_key] is not None:
                     config_value = topic_config[config_key].value
                     custom_props[config_key] = (
                         config_value

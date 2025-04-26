@@ -11,20 +11,35 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.urns import (
     ContainerUrn,
     DatasetUrn,
+    MlModelGroupUrn,
+    MlModelUrn,
     Urn,
 )
 from datahub.sdk._all_entities import ENTITY_CLASSES
-from datahub.sdk._entity import Entity
 from datahub.sdk._shared import UrnOrStr
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
+from datahub.sdk.entity import Entity
+from datahub.sdk.mlmodel import MLModel
+from datahub.sdk.mlmodelgroup import MLModelGroup
 
 if TYPE_CHECKING:
     from datahub.sdk.main_client import DataHubClient
 
 
 class EntityClient:
+    """Client for managing DataHub entities.
+
+    This class provides methods for retrieving and managing DataHub entities
+    such as datasets, containers, and other metadata objects.
+    """
+
     def __init__(self, client: DataHubClient):
+        """Private constructor - use :py:attr:`DataHubClient.entities` instead.
+
+        Args:
+            client: The parent DataHubClient instance.
+        """
         self._client = client
 
     # TODO: Make all of these methods sync by default.
@@ -38,8 +53,25 @@ class EntityClient:
     @overload
     def get(self, urn: DatasetUrn) -> Dataset: ...
     @overload
+    def get(self, urn: MlModelUrn) -> MLModel: ...
+    @overload
+    def get(self, urn: MlModelGroupUrn) -> MLModelGroup: ...
+    @overload
     def get(self, urn: Union[Urn, str]) -> Entity: ...
     def get(self, urn: UrnOrStr) -> Entity:
+        """Retrieve an entity by its urn.
+
+        Args:
+            urn: The urn of the entity to retrieve. Can be a string or :py:class:`Urn` object.
+
+        Returns:
+            The retrieved entity instance.
+
+        Raises:
+            ItemNotFoundError: If the entity does not exist.
+            SdkUsageError: If the entity type is not yet supported.
+            InvalidUrnError: If the URN is invalid.
+        """
         if not isinstance(urn, Urn):
             urn = Urn.from_string(urn)
 
@@ -71,7 +103,7 @@ class EntityClient:
                 changeType=models.ChangeTypeClass.CREATE_ENTITY,
             )
         )
-        mcps.extend(entity._as_mcps(models.ChangeTypeClass.CREATE))
+        mcps.extend(entity.as_mcps(models.ChangeTypeClass.CREATE))
 
         self._graph.emit_mcps(mcps)
 
@@ -84,7 +116,7 @@ class EntityClient:
             )
             # TODO: If there are no previous aspects but the entity exists, should we delete aspects that are not present here?
 
-        mcps = entity._as_mcps(models.ChangeTypeClass.UPSERT)
+        mcps = entity.as_mcps(models.ChangeTypeClass.UPSERT)
         self._graph.emit_mcps(mcps)
 
     def update(self, entity: Union[Entity, MetadataPatchProposal]) -> None:
@@ -99,7 +131,7 @@ class EntityClient:
         # TODO: respect If-Unmodified-Since?
         # -> probably add a "mode" parameter that can be "update" (e.g. if not modified) or "update_force"
 
-        mcps = entity._as_mcps(models.ChangeTypeClass.UPSERT)
+        mcps = entity.as_mcps(models.ChangeTypeClass.UPSERT)
         self._graph.emit_mcps(mcps)
 
     def _update_patch(

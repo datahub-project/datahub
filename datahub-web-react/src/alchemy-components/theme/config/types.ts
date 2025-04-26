@@ -5,6 +5,7 @@ export enum SizeValues {
     md = 'md',
     lg = 'lg',
     xl = 'xl',
+    inherit = 'inherit',
 }
 export type SizeOptions = keyof typeof SizeValues;
 export function getSizeName(size: SizeOptions): string {
@@ -73,10 +74,12 @@ export enum FontSizeValues {
     '2xl' = '2xl',
     '3xl' = '3xl',
     '4xl' = '4xl',
+    inherit = 'inherit',
 }
-export type FontSizeOptions = keyof typeof FontSizeValues;
+export type FontSizeOptions = keyof typeof SizeValues | keyof typeof FontSizeValues;
 export type FontWeightOptions = 'normal' | 'medium' | 'semiBold' | 'bold';
 export type FontColorOptions = MiscColorOptions | ColorOptions;
+export type FontColorLevelOptions = keyof Color;
 
 export type BorderRadiusOptions = 'none' | 'sm' | 'md' | 'lg' | 'xl' | 'full';
 

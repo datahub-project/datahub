@@ -13,7 +13,7 @@ describe("create and manage group", () => {
 
   it("add test user", () => {
     cy.visitWithLogin("/settings/identities/users");
-    cy.waitTextVisible("Settings");
+    cy.get('[data-testid="manage-users-groups-v2"]');
     cy.wait(3000);
     cy.clickOptionWithText("Invite Users");
     cy.waitTextVisible(/signup\?invite_token=\w{32}/).then(($elem) => {
@@ -37,7 +37,7 @@ describe("create and manage group", () => {
 
   it("create a group", () => {
     cy.visitWithLogin("/settings/identities/groups");
-    cy.waitTextVisible("Settings");
+    cy.get('[data-testid="manage-users-groups-v2"]');
     cy.wait(1000);
     cy.clickOptionWithText("Create group");
     cy.waitTextVisible("Create new group");
@@ -53,7 +53,7 @@ describe("create and manage group", () => {
 
   it("add test user to a group", () => {
     cy.visitWithLogin("/settings/identities/users");
-    cy.waitTextVisible("Settings");
+    cy.get('[data-testid="manage-users-groups-v2"]');
     cy.wait(1000);
     cy.get(".ant-tabs-tab-btn").contains("Groups").click();
     cy.clickOptionWithText(group_name);
@@ -78,7 +78,7 @@ describe("create and manage group", () => {
 
   it("update group info", () => {
     cy.visitWithLogin("/settings/identities/groups");
-    cy.waitTextVisible("Settings");
+    cy.get('[data-testid="manage-users-groups-v2"]');
     cy.wait(1000);
     cy.clickOptionWithText(group_name);
     cy.clickOptionWithSpecificClass(".ant-typography", 0);
@@ -97,7 +97,7 @@ describe("create and manage group", () => {
 
   it("user verify to edit the discription", () => {
     cy.visitWithLogin("/settings/identities/groups");
-    cy.waitTextVisible("Settings");
+    cy.get('[data-testid="manage-users-groups-v2"]');
     cy.wait(1000);
     cy.contains(`Test group EDITED ${test_id}`).should("be.visible").click();
     cy.get('[data-testid="EditOutlinedIcon"]').eq(1).click();
@@ -111,7 +111,7 @@ describe("create and manage group", () => {
 
   it("user verify to add the owner", () => {
     cy.visitWithLogin("/settings/identities/groups");
-    cy.waitTextVisible("Settings");
+    cy.get('[data-testid="manage-users-groups-v2"]');
     cy.wait(1000);
     cy.contains(`Test group EDITED ${test_id}`).should("be.visible").click();
     cy.get(".anticon.anticon-plus").click();
@@ -130,7 +130,7 @@ describe("create and manage group", () => {
 
   it("test User verify group participation", () => {
     cy.visitWithLogin("/settings/identities/groups");
-    cy.waitTextVisible("Settings");
+    cy.get('[data-testid="manage-users-groups-v2"]');
     cy.wait(1000);
     cy.hideOnboardingTour();
     cy.clickOptionWithText(`Test group EDITED ${test_id}`);
@@ -140,7 +140,7 @@ describe("create and manage group", () => {
 
   it("remove group", () => {
     cy.visitWithLogin("/settings/identities/groups");
-    cy.waitTextVisible("Settings");
+    cy.get('[data-testid="manage-users-groups-v2"]');
     cy.wait(1000);
     cy.get(
       `[href="/group/urn:li:corpGroup:${test_id}"]`,

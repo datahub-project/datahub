@@ -2581,5 +2581,168 @@
       "contentType": "application/json"
     },
     "systemMetadata": null
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:airline_forecast_experiment",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+      "json": {
+        "customProperties": {
+          "team": "forecasting"
+        },
+        "name": "Airline Forecast Experiment",
+        "description": "Experiment to forecast airline passenger numbers",
+        "created": {
+          "time": 1628580000000,
+          "actor": "urn:li:corpuser:datahub"
+        },
+        "lastModified": {
+          "time": 1628580000000,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:simple_training_run",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+      "json": {
+        "customProperties": {
+          "team": "forecasting"
+        },
+        "name": "Simple Training Run",
+        "created": {
+          "time": 1628580000000,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:simple_training_run",
+    "changeType": "UPSERT",
+    "aspectName": "mlTrainingRunProperties",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "externalUrl": "https:localhost:5000",
+        "id": "simple_training_run",
+        "outputUrls": ["s3://my-bucket/output"],
+        "hyperParams": [
+          {
+            "name": "learning_rate",
+            "value": "0.01"
+          }
+        ],
+        "trainingMetrics": [
+          {
+            "name": "accuracy",
+            "value": "0.9"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:simple_training_run",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+      "json": {
+        "timestampMillis": 1628580001000,
+        "partitionSpec": {
+          "partition": "FULL_TABLE_SNAPSHOT",
+          "type": "FULL_TABLE"
+        },
+        "status": "COMPLETE",
+        "result": {
+          "type": "FAILURE",
+          "nativeResultType": "mlflow"
+        },
+        "durationMillis": 1000
+      }
+    }
+  },
+  {
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:simple_training_run",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "json": {
+        "container": "urn:li:container:airline_forecast_experiment"
+      }
+    }
+  },
+  {
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,sample_ml_model_group,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "mlModelGroupProperties",
+    "aspect": {
+      "json": {
+        "customProperties": {
+          "team": "data_science"
+        },
+        "trainingJobs": ["urn:li:dataProcessInstance:simple_training_run"],
+        "name": "SAMPLE ML MODEL GROUP",
+        "description": "A sample ML model group",
+        "created": {
+          "time": 1741096069000,
+          "actor": "urn:li:corpuser:datahub"
+        },
+        "lastModified": {
+          "time": 1741000000000,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,sample_ml_model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "mlModelProperties",
+    "aspect": {
+      "json": {
+        "customProperties": {
+          "team": "data_science"
+        },
+        "trainingJobs": ["urn:li:dataProcessInstance:simple_training_run"],
+        "name": "SAMPLE ML MODEL",
+        "description": "A sample ML model",
+        "created": {
+          "time": 1741096069000,
+          "actor": "urn:li:corpuser:datahub"
+        },
+        "lastModified": {
+          "time": 1741000000000,
+          "actor": "urn:li:corpuser:datahub"
+        },
+        "hyperParams": [
+          {
+            "name": "max_depth",
+            "value": "3"
+          }
+        ],
+        "trainingMetrics": [
+          {
+            "name": "val_loss",
+            "value": "0.1"
+          }
+        ],
+        "tags": [],
+        "groups": [
+          "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,sample_ml_model_group,PROD)"
+        ]
+      }
+    }
   }
 ]

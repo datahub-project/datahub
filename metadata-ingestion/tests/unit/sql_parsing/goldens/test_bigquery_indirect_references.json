@@ -1,0 +1,42 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "ae34734ab10b97a7b1582126638f3da9be06193d914c311a3a3b85867fea126d",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,playground-1.my_schema.external_users,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,playground-1.my_schema.main_users,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "constant1",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "INT64"
+            },
+            "upstreams": []
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "constant2",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "INT64"
+            },
+            "upstreams": []
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT ? AS constant1, IF(NOT main.id IS NULL, main, extras).* REPLACE (least(main.created_at, extras.created_at) AS created_at), ? AS constant2 FROM my_schema.main_users AS main FULL JOIN my_schema.external_users AS extras USING (id)"
+    }
+}

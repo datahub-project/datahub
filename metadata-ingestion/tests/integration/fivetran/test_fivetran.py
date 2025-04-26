@@ -9,7 +9,7 @@ from freezegun import freeze_time
 from datahub.configuration.common import ConfigurationWarning
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryCredential
+from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
 from datahub.ingestion.source.fivetran.config import (
     BigQueryDestinationConfig,
     FivetranSourceConfig,
@@ -48,7 +48,7 @@ def default_query_results(
     query, connector_query_results=default_connector_query_results
 ):
     fivetran_log_query = FivetranLogQuery()
-    fivetran_log_query.set_db("test")
+    fivetran_log_query.set_schema("test")
     if query == fivetran_log_query.use_database("test_database"):
         return []
     elif query == fivetran_log_query.get_connectors_query():
@@ -293,6 +293,7 @@ def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_
                 "source": {
                     "type": "fivetran",
                     "config": {
+                        "platform_instance": "my-fivetran",
                         "fivetran_log_config": {
                             "destination_platform": "snowflake",
                             "snowflake_destination_config": {
@@ -398,7 +399,7 @@ def test_fivetran_snowflake_destination_config():
 @freeze_time(FROZEN_TIME)
 def test_fivetran_bigquery_destination_config():
     bigquery_dest = BigQueryDestinationConfig(
-        credential=BigQueryCredential(
+        credential=GCPCredential(
             private_key_id="testprivatekey",
             project_id="test-project",
             client_email="fivetran-connector@test-project.iam.gserviceaccount.com",

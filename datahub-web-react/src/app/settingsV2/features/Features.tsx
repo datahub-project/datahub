@@ -1,34 +1,28 @@
 import React from 'react';
-
 import styled from 'styled-components';
-
-import { Divider, Typography } from 'antd';
 import { v4 as uuidv4 } from 'uuid';
 
-import { Feature, FeatureType } from './Feature';
-
-import { useGetDocPropagationSettings, useUpdateDocPropagationSettings } from './useDocPropagationSettings';
+import { Feature, FeatureType } from '@app/settingsV2/features/Feature';
+import {
+    useGetDocPropagationSettings,
+    useUpdateDocPropagationSettings,
+} from '@app/settingsV2/features/useDocPropagationSettings';
+import { PageTitle } from '@src/alchemy-components';
 
 const Page = styled.div`
-    width: 100%;
     display: flex;
-    justify-content: center;
+    padding: 16px 20px 16px 20px;
+    width: 100%;
 `;
 
 const SourceContainer = styled.div`
-    width: 80%;
-    padding-top: 20px;
-    padding-right: 40px;
-    padding-left: 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    width: 100%;
 `;
 const Container = styled.div`
-    padding-top: 0px;
-`;
-
-const Title = styled(Typography.Title)`
-    && {
-        margin-bottom: 8px;
-    }
+    width: 100%;
 `;
 
 export const Features = () => {
@@ -99,14 +93,8 @@ export const Features = () => {
         <Page>
             <SourceContainer>
                 <Container>
-                    <div>
-                        <Title level={2}>Features</Title>
-                        <Typography.Paragraph type="secondary">
-                            Explore and configure specific features
-                        </Typography.Paragraph>
-                    </div>
+                    <PageTitle title="Features" subTitle="Explore and configure specific features" />
                 </Container>
-                <Divider />
                 {features.map((feature) => (
                     <Feature {...feature} />
                 ))}

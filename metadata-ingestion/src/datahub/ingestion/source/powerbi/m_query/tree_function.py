@@ -70,13 +70,14 @@ def get_first_rule(tree: Tree, rule: str) -> Optional[Tree]:
     return expression_tree
 
 
-def token_values(tree: Tree, parameters: Dict[str, str] = {}) -> List[str]:
+def token_values(tree: Tree, parameters: Optional[Dict[str, str]] = None) -> List[str]:
     """
     :param tree: Tree to traverse
     :param parameters: If parameters is not an empty dict, it will try to resolve identifier variable references
                        using the values in 'parameters'.
     :return: List of leaf token data
     """
+    parameters = parameters or {}
     values: List[str] = []
 
     def internal(node: Union[Tree, Token]) -> None:

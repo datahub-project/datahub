@@ -1,9 +1,8 @@
-import useShouldHideTransformations from '@app/lineageV2/useShouldHideTransformations';
 import React, { useContext, useEffect, useState } from 'react';
 import { ReactFlowProvider } from 'reactflow';
-import { EntityType, LineageDirection } from '../../types.generated';
-import { useGetLineageTimeParams } from '../lineage/utils/useGetLineageTimeParams';
-import TabFullsizedContext from '../shared/TabFullsizedContext';
+
+import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
+import LineageDisplay from '@app/lineageV2/LineageDisplay';
 import {
     EdgeId,
     FetchStatus,
@@ -13,9 +12,13 @@ import {
     LineageNodesContext,
     NodeContext,
     useIgnoreSchemaFieldStatus,
-} from './common';
-import LineageDisplay from './LineageDisplay';
-import useSearchAcrossLineage from './useSearchAcrossLineage';
+} from '@app/lineageV2/common';
+import useSearchAcrossLineage from '@app/lineageV2/useSearchAcrossLineage';
+import useShouldHideTransformations from '@app/lineageV2/useShouldHideTransformations';
+import useShouldShowDataProcessInstances from '@app/lineageV2/useShouldShowDataProcessInstances';
+import TabFullsizedContext from '@app/shared/TabFullsizedContext';
+
+import { EntityType, LineageDirection } from '@types';
 
 type Props = {
     urn: string;
@@ -36,7 +39,7 @@ export default function LineageExplorer(props: Props) {
     const [columnEdgeVersion, setColumnEdgeVersion] = useState(0);
     const [displayVersion, setDisplayVersion] = useState<[number, string[]]>([0, []]);
     const [hideTransformations, setHideTransformations] = useShouldHideTransformations();
-    const [showDataProcessInstances, setShowDataProcessInstances] = useState(false);
+    const [showDataProcessInstances, setShowDataProcessInstances] = useShouldShowDataProcessInstances();
 
     const [showGhostEntities, setShowGhostEntities] = useState(false);
 

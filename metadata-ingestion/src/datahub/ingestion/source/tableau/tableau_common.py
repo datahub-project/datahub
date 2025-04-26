@@ -514,7 +514,8 @@ FIELD_TYPE_MAPPING = {
 }
 
 
-def get_tags_from_params(params: List[str] = []) -> GlobalTagsClass:
+def get_tags_from_params(params: Optional[List[str]] = None) -> GlobalTagsClass:
+    params = params or []
     tags = [
         TagAssociationClass(tag=builder.make_tag_urn(tag.upper()))
         for tag in params
@@ -773,7 +774,7 @@ def get_overridden_info(
     if (
         lineage_overrides is not None
         and lineage_overrides.platform_override_map is not None
-        and original_platform in lineage_overrides.platform_override_map.keys()
+        and original_platform in lineage_overrides.platform_override_map
     ):
         platform = lineage_overrides.platform_override_map[original_platform]
 
@@ -781,7 +782,7 @@ def get_overridden_info(
         lineage_overrides is not None
         and lineage_overrides.database_override_map is not None
         and upstream_db is not None
-        and upstream_db in lineage_overrides.database_override_map.keys()
+        and upstream_db in lineage_overrides.database_override_map
     ):
         upstream_db = lineage_overrides.database_override_map[upstream_db]
 
@@ -901,7 +902,7 @@ def get_unique_custom_sql(custom_sql_list: List[dict]) -> List[dict]:
             "name": custom_sql.get("name"),
             # We assume that this is unsupported custom sql if "actual tables that this query references"
             # are missing from api result.
-            "isUnsupportedCustomSql": True if not custom_sql.get("tables") else False,
+            "isUnsupportedCustomSql": not custom_sql.get("tables"),
             "query": custom_sql.get("query"),
             "connectionType": custom_sql.get("connectionType"),
             "columns": custom_sql.get("columns"),

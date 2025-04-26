@@ -125,7 +125,7 @@
                 "downstream_task_ids": "[]",
                 "inlets": "[]",
                 "outlets": "[]",
-                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.22.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        CREATE OR REPLACE TABLE processed_costs AS\\n        SELECT\\n            id,\\n            month,\\n            total_cost,\\n            area,\\n            total_cost / area as cost_per_area\\n        FROM costs\\n        \"}"
+                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        CREATE OR REPLACE TABLE processed_costs AS\\n        SELECT\\n            id,\\n            month,\\n            total_cost,\\n            area,\\n            total_cost / area as cost_per_area\\n        FROM costs\\n        \"}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=athena_operator&_flt_3_task_id=transform_cost_table",
             "name": "transform_cost_table",
@@ -302,16 +302,16 @@
                 "state": "running",
                 "operator": "AthenaOperator",
                 "priority_weight": "1",
-                "log_url": "http://airflow.example.com/dags/athena_operator/grid?dag_run_id=manual_run_test&task_id=transform_cost_table&map_index=-1&tab=logs",
+                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=transform_cost_table&dag_id=athena_operator&map_index=-1",
                 "orchestrator": "airflow",
                 "dag_id": "athena_operator",
                 "task_id": "transform_cost_table"
             },
-            "externalUrl": "http://airflow.example.com/dags/athena_operator/grid?dag_run_id=manual_run_test&task_id=transform_cost_table&map_index=-1&tab=logs",
+            "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=transform_cost_table&dag_id=athena_operator&map_index=-1",
             "name": "athena_operator_transform_cost_table_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1732719433576,
+                "time": 1743622480123,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -388,7 +388,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1732719433576,
+            "timestampMillis": 1743622480123,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -405,14 +405,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1732719433736,
+            "timestampMillis": 1743622480414,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1732719433736
+            "lastUpdatedTimestamp": 1743622480414
         }
     }
 },
@@ -435,7 +435,7 @@
                 "downstream_task_ids": "[]",
                 "inlets": "[]",
                 "outlets": "[]",
-                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.22.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        CREATE OR REPLACE TABLE processed_costs AS\\n        SELECT\\n            id,\\n            month,\\n            total_cost,\\n            area,\\n            total_cost / area as cost_per_area\\n        FROM costs\\n        \"}"
+                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        CREATE OR REPLACE TABLE processed_costs AS\\n        SELECT\\n            id,\\n            month,\\n            total_cost,\\n            area,\\n            total_cost / area as cost_per_area\\n        FROM costs\\n        \"}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=athena_operator&_flt_3_task_id=transform_cost_table",
             "name": "transform_cost_table",
@@ -656,7 +656,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1732719433747,
+            "timestampMillis": 1743622480491,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"

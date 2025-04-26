@@ -308,7 +308,7 @@ public interface EntityClient {
    * @throws RemoteInvocationException when unable to execute request
    */
   @Nonnull
-  SearchResult searchAcrossEntities(
+  default SearchResult searchAcrossEntities(
       @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nonnull String input,
@@ -316,7 +316,10 @@ public interface EntityClient {
       int start,
       int count,
       List<SortCriterion> sortCriteria)
-      throws RemoteInvocationException;
+      throws RemoteInvocationException {
+    return searchAcrossEntities(
+        opContext, entities, input, filter, start, count, sortCriteria, List.of());
+  }
 
   /**
    * Searches for entities matching to a given query and filters across multiple entity types
@@ -338,7 +341,7 @@ public interface EntityClient {
       int start,
       int count,
       List<SortCriterion> sortCriteria,
-      List<String> facets)
+      @Nonnull List<String> facets)
       throws RemoteInvocationException;
 
   /**
@@ -349,11 +352,38 @@ public interface EntityClient {
    * @param filter search filters
    * @param scrollId opaque scroll ID indicating offset
    * @param keepAlive string representation of time to keep point in time alive, ex: 5m
+   * @param sortCriteria sort criteria
    * @param count max number of search results requested
    * @return Snapshot key
    * @throws RemoteInvocationException when unable to execute request
    */
   @Nonnull
+  default ScrollResult scrollAcrossEntities(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entities,
+      @Nonnull String input,
+      @Nullable Filter filter,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      List<SortCriterion> sortCriteria,
+      int count)
+      throws RemoteInvocationException {
+    return scrollAcrossEntities(
+        opContext, entities, input, filter, scrollId, keepAlive, sortCriteria, count, List.of());
+  }
+
+  /**
+   * Searches for entities matching to a given query and filters across multiple entity types
+   *
+   * @param entities entity types to search (if empty, searches all entities)
+   * @param input search query
+   * @param filter search filters
+   * @param scrollId opaque scroll ID indicating offset
+   * @param keepAlive string representation of time to keep point in time alive, ex: 5m
+   * @param facets list of facets we want aggregations for
+   * @return Snapshot key
+   * @throws RemoteInvocationException when unable to execute request
+   */
   ScrollResult scrollAcrossEntities(
       @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
@@ -361,7 +391,9 @@ public interface EntityClient {
       @Nullable Filter filter,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int count)
+      List<SortCriterion> sortCriteria,
+      int count,
+      List<String> facets)
       throws RemoteInvocationException;
 
   /**

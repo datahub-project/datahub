@@ -17,7 +17,8 @@ FROZEN_TIME = "2021-12-07 07:00:00"
 JSON_RESPONSE_MAP = {
     "https://app.mode.com/api/verify": "verify.json",
     "https://app.mode.com/api/account": "user.json",
-    "https://app.mode.com/api/acryl/spaces?filter=all": "spaces.json",
+    "https://app.mode.com/api/acryl/spaces?filter=all&per_page=30&page=1": "spaces.json",
+    "https://app.mode.com/api/acryl/spaces?filter=all&per_page=30&page=2": "spaces_empty.json",
     "https://app.mode.com/api/acryl/spaces/157933cc1168/reports": "reports_157933cc1168.json",
     "https://app.mode.com/api/acryl/spaces/75737b70402e/reports": "reports_75737b70402e.json",
     "https://app.mode.com/api/modeuser": "user.json",
@@ -67,6 +68,17 @@ class MockResponse:
             data = json.loads(file.read())
             self.json_data = data
         return self
+
+    @property
+    def text(self) -> str:
+        return json.dumps(self.json_data)
+
+    def raise_for_status(self) -> None:
+        if self.status_code >= 400:
+            raise HTTPError(
+                f"MockResponse for {self.url} has status code {self.status_code}",
+                response=self,
+            )
 
 
 class MockResponseJson(MockResponse):
@@ -173,9 +185,9 @@ def test_mode_ingest_failure(pytestconfig, tmp_path):
         with pytest.raises(PipelineExecutionError) as exec_error:
             pipeline.raise_from_status()
         assert exec_error.value.args[0] == "Source reported errors"
-        assert len(exec_error.value.args[1].failures) == 1
+        assert len(exec_error.value.args[1]) == 1
         error_dict: StructuredLogEntry
-        _level, error_dict = exec_error.value.args[1].failures[0]
+        _level, error_dict = exec_error.value.args[1][0]
         error = next(iter(error_dict.context))
         assert "Simulate error" in error
         assert ERROR_URL in error
@@ -251,8 +263,8 @@ def test_mode_ingest_json_failure(pytestconfig, tmp_path):
         pipeline.raise_from_status(raise_warnings=False)
         with pytest.raises(PipelineExecutionError) as exec_error:
             pipeline.raise_from_status(raise_warnings=True)
-        assert len(exec_error.value.args[1].warnings) > 0
+        assert len(exec_error.value.args[1]) > 0
         error_dict: StructuredLogEntry
-        _level, error_dict = exec_error.value.args[1].warnings[0]
+        _level, error_dict = exec_error.value.args[1][0]
         error = next(iter(error_dict.context))
         assert "Expecting property name enclosed in double quotes" in error

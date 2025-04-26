@@ -294,7 +294,7 @@ class DremioContainer:
         )
 
 
-class DremioSource(DremioContainer):
+class DremioSourceContainer(DremioContainer):
     subclass: str = "Dremio Source"
     dremio_source_type: str
     root_path: Optional[str]
@@ -337,7 +337,7 @@ class DremioCatalog:
         self.dremio_api = dremio_api
         self.edition = dremio_api.edition
         self.datasets: Deque[DremioDataset] = deque()
-        self.sources: Deque[DremioSource] = deque()
+        self.sources: Deque[DremioSourceContainer] = deque()
         self.spaces: Deque[DremioSpace] = deque()
         self.folders: Deque[DremioFolder] = deque()
         self.glossary_terms: Deque[DremioGlossaryTerm] = deque()
@@ -380,12 +380,13 @@ class DremioCatalog:
                 container_type = container.get("container_type")
                 if container_type == DremioEntityContainerType.SOURCE:
                     self.sources.append(
-                        DremioSource(
+                        DremioSourceContainer(
                             container_name=container.get("name"),
                             location_id=container.get("id"),
                             path=[],
                             api_operations=self.dremio_api,
-                            dremio_source_type=container.get("source_type"),
+                            dremio_source_type=container.get("source_type")
+                            or "unknown",
                             root_path=container.get("root_path"),
                             database_name=container.get("database_name"),
                         )
@@ -426,7 +427,7 @@ class DremioCatalog:
         self.set_containers()
         return deque(itertools.chain(self.sources, self.spaces, self.folders))
 
-    def get_sources(self) -> Deque[DremioSource]:
+    def get_sources(self) -> Deque[DremioSourceContainer]:
         self.set_containers()
         return self.sources
 

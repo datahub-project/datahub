@@ -1,19 +1,20 @@
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import {
     ColumnRef,
-    createColumnRef,
-    createEdgeId,
-    createFineGrainedOperationRef,
     FineGrainedLineage,
     FineGrainedLineageMap,
     FineGrainedOperationRef,
-    isUrnTransformational,
     NodeContext,
+    createColumnRef,
+    createEdgeId,
+    createFineGrainedOperationRef,
+    isUrnTransformational,
     parseColumnRef,
     setDefault,
 } from '@app/lineageV2/common';
-import { getFieldPathFromSchemaFieldUrn, getSourceUrnFromSchemaFieldUrn } from '@src/app/entityV2/schemaField/utils';
 import { FineGrainedOperation } from '@app/sharedV2/EntitySidebarContext';
+import { getFieldPathFromSchemaFieldUrn, getSourceUrnFromSchemaFieldUrn } from '@src/app/entityV2/schemaField/utils';
+
 import { EntityType } from '@types';
 
 export interface FineGrainedLineageData {

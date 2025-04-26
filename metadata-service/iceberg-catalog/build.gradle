@@ -13,6 +13,7 @@ dependencies {
     implementation project(':metadata-models')
     implementation project(':metadata-utils')
     implementation project(':metadata-operation-context')
+    implementation project(':metadata-io')
     implementation project(':metadata-integration:java:datahub-schematron:lib')
     implementation 'org.apache.iceberg:iceberg-core:1.6.1'
     implementation 'org.apache.iceberg:iceberg-aws:1.6.1'

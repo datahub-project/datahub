@@ -1,8 +1,10 @@
 import { useContext, useMemo, useRef } from 'react';
+
+import { FineGrainedLineage, LineageDisplayContext, createColumnRef } from '@app/lineageV2/common';
+import { NUM_COLUMNS_PER_PAGE } from '@app/lineageV2/constants';
+import { ColumnAsset, FetchedEntityV2, LineageAssetType } from '@app/lineageV2/types';
+
 import { SchemaFieldDataType } from '@types';
-import { createColumnRef, FineGrainedLineage, LineageDisplayContext } from '../common';
-import { NUM_COLUMNS_PER_PAGE } from '../constants';
-import { ColumnAsset, FetchedEntityV2, LineageAssetType } from '../types';
 
 export const LINEAGE_NODE_WIDTH = 240;
 export const LINEAGE_NODE_HEIGHT = 80;

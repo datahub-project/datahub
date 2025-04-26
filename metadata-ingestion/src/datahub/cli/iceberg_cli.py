@@ -645,7 +645,7 @@ def get_all_warehouses(client: DataHubGraph) -> Iterator[str]:
     graph_query = """
         query getIcebergWarehouses($start: Int, $count: Int) {
           search(
-            input: {type: DATA_PLATFORM_INSTANCE, query: "*", start: $start, count: $count}
+            input: {type: DATA_PLATFORM_INSTANCE, query: "dataPlatform:iceberg", start: $start, count: $count}
           ) {
             start
             total

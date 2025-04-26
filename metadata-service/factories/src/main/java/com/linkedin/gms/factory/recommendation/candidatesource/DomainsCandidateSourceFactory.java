@@ -1,6 +1,7 @@
 package com.linkedin.gms.factory.recommendation.candidatesource;
 
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.candidatesource.DomainsCandidateSource;
 import com.linkedin.metadata.search.EntitySearchService;
@@ -17,6 +18,10 @@ import org.springframework.context.annotation.Import;
 public class DomainsCandidateSourceFactory {
 
   @Autowired
+  @Qualifier("entityService")
+  private EntityService<?> entityService;
+
+  @Autowired
   @Qualifier("entitySearchService")
   private EntitySearchService entitySearchService;
 
@@ -24,6 +29,6 @@ public class DomainsCandidateSourceFactory {
   @Nonnull
   protected DomainsCandidateSource getInstance(
       final OperationContext opContext, final EntityRegistry entityRegistry) {
-    return new DomainsCandidateSource(entitySearchService, entityRegistry);
+    return new DomainsCandidateSource(entityService, entitySearchService, entityRegistry);
   }
 }

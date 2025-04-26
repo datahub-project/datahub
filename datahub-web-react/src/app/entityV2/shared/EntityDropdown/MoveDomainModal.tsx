@@ -1,13 +1,17 @@
+import { Form, Modal, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { message, Button, Modal, Typography, Form } from 'antd';
-import { useRefetch } from '../../../entity/shared/EntityContext';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useMoveDomainMutation } from '../../../../graphql/domain.generated';
-import DomainParentSelect from './DomainParentSelect';
-import { useHandleMoveDomainComplete } from './useHandleMoveDomainComplete';
-import { EntityType } from '../../../../types.generated';
-import { useDomainsContext } from '../../../domainV2/DomainsContext';
+
+import { useDomainsContext } from '@app/domainV2/DomainsContext';
+import { useRefetch } from '@app/entity/shared/EntityContext';
+import DomainParentSelect from '@app/entityV2/shared/EntityDropdown/DomainParentSelect';
+import { useHandleMoveDomainComplete } from '@app/entityV2/shared/EntityDropdown/useHandleMoveDomainComplete';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Button } from '@src/alchemy-components';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+
+import { useMoveDomainMutation } from '@graphql/domain.generated';
+import { EntityType } from '@types';
 
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;
@@ -71,14 +75,14 @@ function MoveDomainModal(props: Props) {
             visible
             onCancel={onClose}
             footer={
-                <>
-                    <Button onClick={onClose} type="text">
+                <ModalButtonContainer>
+                    <Button variant="text" onClick={onClose}>
                         Cancel
                     </Button>
-                    <Button type="primary" onClick={moveDomain} data-testid="move-domain-modal-move-button">
+                    <Button onClick={moveDomain} data-testid="move-domain-modal-move-button">
                         Move
                     </Button>
-                </>
+                </ModalButtonContainer>
             }
         >
             <Form form={form} initialValues={{}} layout="vertical">

@@ -12,17 +12,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import nl.basjes.parse.useragent.UserAgent;
-import nl.basjes.parse.useragent.UserAgentAnalyzer;
 
 public class APIThrottle {
   private static final Set<String> AGENT_EXEMPTIONS = Set.of("Browser");
-  private static final UserAgentAnalyzer UAA =
-      UserAgentAnalyzer.newBuilder()
-          .hideMatcherLoadStats()
-          .withField(UserAgent.AGENT_CLASS)
-          .withCache(1000)
-          .build();
 
   private APIThrottle() {}
 
@@ -56,13 +48,11 @@ public class APIThrottle {
   private static boolean isExempt(@Nullable RequestContext requestContext) {
     // Exclude internal calls
     if (requestContext == null
-        || requestContext.getUserAgent() == null
+        || requestContext.getAgentClass() == null
         || requestContext.getUserAgent().isEmpty()) {
       return true;
     }
-
-    UserAgent ua = UAA.parse(requestContext.getUserAgent());
-    return AGENT_EXEMPTIONS.contains(ua.get(UserAgent.AGENT_CLASS).getValue());
+    return AGENT_EXEMPTIONS.contains(requestContext.getAgentClass());
   }
 
   private static Set<Long> eventMatchMaxWaitMs(

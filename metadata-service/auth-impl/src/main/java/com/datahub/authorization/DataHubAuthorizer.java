@@ -367,7 +367,7 @@ public class DataHubAuthorizer implements Authorizer {
           writeLock.unlock();
         }
 
-        log.debug(String.format("Successfully fetched %s policies.", total));
+        log.debug("Successfully fetched {} policies.", total);
       } catch (Exception e) {
         log.error(
             "Caught exception while loading Policy cache. Will retry on next scheduled attempt.",

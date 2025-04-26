@@ -43,9 +43,7 @@ class GitReference(ConfigModel):
 
     @validator("repo", pre=True)
     def simplify_repo_url(cls, repo: str) -> str:
-        if repo.startswith("github.com/"):
-            repo = f"https://{repo}"
-        elif repo.startswith("gitlab.com"):
+        if repo.startswith("github.com/") or repo.startswith("gitlab.com"):
             repo = f"https://{repo}"
         elif repo.count("/") == 1:
             repo = f"https://github.com/{repo}"

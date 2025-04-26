@@ -3578,7 +3578,7 @@
               "content": {
                   "title": "Join DataHub Slack",
                   "type": "LINK",
-                  "link": "https://datahubproject.io/slack?utm_source=quickstart&utm_medium=annoucement&utm_campaign=quickstart_annoucement",
+                  "link": "https://pages.acryl.io/slack?utm_source=quickstart&utm_medium=annoucement&utm_campaign=quickstart_annoucement",
                   "media": {
                       "type": "IMAGE",
                       "location": "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-logo-color-mark.svg"

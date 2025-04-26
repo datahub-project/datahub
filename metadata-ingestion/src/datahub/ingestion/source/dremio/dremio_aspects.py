@@ -116,10 +116,7 @@ class SchemaFieldTypeMapper:
             data_type = data_type.lower()
             type_class = cls.FIELD_TYPE_MAPPING.get(data_type, NullTypeClass)
 
-            if data_size:
-                native_data_type = f"{data_type}({data_size})"
-            else:
-                native_data_type = data_type
+            native_data_type = f"{data_type}({data_size})" if data_size else data_type
 
         try:
             schema_field_type = SchemaFieldDataTypeClass(type=type_class())
@@ -168,8 +165,9 @@ class DremioAspects:
         )
 
     def get_container_urn(
-        self, name: Optional[str] = None, path: Optional[List[str]] = []
+        self, name: Optional[str] = None, path: Optional[List[str]] = None
     ) -> str:
+        path = path or []
         container_key = self.get_container_key(name, path)
         return container_key.as_urn()
 

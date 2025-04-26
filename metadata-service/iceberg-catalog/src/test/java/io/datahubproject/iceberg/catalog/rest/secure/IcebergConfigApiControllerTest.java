@@ -21,7 +21,7 @@ public class IcebergConfigApiControllerTest
     try (MockedStatic<DataHubIcebergWarehouse> warehouseMock =
         Mockito.mockStatic(DataHubIcebergWarehouse.class)) {
       warehouseMock
-          .when(() -> DataHubIcebergWarehouse.of(eq(warehouseName), any(), any(), any()))
+          .when(() -> DataHubIcebergWarehouse.of(eq(warehouseName), any(), any(), any(), any()))
           .thenThrow(new NotFoundException(""));
       controller.getConfig(request, warehouseName);
     }
@@ -34,7 +34,7 @@ public class IcebergConfigApiControllerTest
     try (MockedStatic<DataHubIcebergWarehouse> warehouseMock =
         Mockito.mockStatic(DataHubIcebergWarehouse.class)) {
       warehouseMock
-          .when(() -> DataHubIcebergWarehouse.of(eq(warehouseName), any(), any(), any()))
+          .when(() -> DataHubIcebergWarehouse.of(eq(warehouseName), any(), any(), any(), any()))
           .thenReturn(null);
       ConfigResponse response = controller.getConfig(request, warehouseName);
 
