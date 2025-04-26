@@ -169,7 +169,12 @@ export default function AutoCompleteEntityItem({
     );
 
     return (
-        <Container $navigateOnlyOnNameClick={navigateOnlyOnNameClick} $padding={padding} onClick={onClick} data-testid={dataTestId}>
+        <Container
+            $navigateOnlyOnNameClick={navigateOnlyOnNameClick}
+            $padding={padding}
+            onClick={onClick}
+            data-testid={dataTestId}
+        >
             <ContentContainer>
                 {dragIconRenderer ? (
                     <Icons>

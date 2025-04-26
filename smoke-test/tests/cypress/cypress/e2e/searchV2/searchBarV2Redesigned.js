@@ -23,6 +23,7 @@ describe("searchBarV2", () => {
     ]);
 
     cy.loginWithCredentials();
+    cy.skipIntroducePage();
   };
 
   it("can handle all entities search", () => {
