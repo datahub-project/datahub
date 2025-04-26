@@ -101,6 +101,47 @@ class DataHubDatabaseReader:
         """
 
     @property
+    def structured_props_query(self) -> str:
+        return f"""
+        SELECT *
+        FROM (
+            SELECT
+                mav.urn,
+                mav.aspect,
+                mav.metadata,
+                mav.systemmetadata,
+                mav.createdon,
+                mav.version,
+                removed
+            FROM {self.engine.dialect.identifier_preparer.quote(self.config.database_table_name)} as mav
+            LEFT JOIN (
+                SELECT
+                    *,
+                    JSON_EXTRACT(metadata, '$.removed') as removed
+                FROM {self.engine.dialect.identifier_preparer.quote(self.config.database_table_name)}
+                WHERE aspect = 'status'
+                AND version = 0
+            ) as sd ON sd.urn = mav.urn
+            WHERE 1 = 1
+                {"" if self.config.include_all_versions else "AND mav.version = 0"}
+                {"" if not self.config.exclude_aspects else "AND mav.aspect NOT IN %(exclude_aspects)s"}
+                AND mav.createdon >= %(since_createdon)s
+            ORDER BY
+                createdon,
+                urn,
+                aspect,
+                version
+        ) as t
+        WHERE urn like urn:li:structuredProperty:%
+            {"" if self.config.include_soft_deleted_entities else "AND (removed = false or removed is NULL)"}
+        ORDER BY
+            createdon,
+            urn,
+            aspect,
+            version
+        """
+
+    @property
     def query(self) -> str:
         # May repeat rows for the same date
         # Offset is generally 0, unless we repeat the same createdon twice
@@ -174,6 +215,8 @@ class DataHubDatabaseReader:
             "exclude_aspects": list(self.config.exclude_aspects),
             "since_createdon": from_createdon.strftime(DATETIME_FORMAT),
         }
+        # Emit structured properties first
+        yield from self.execute_server_cursor(self.structured_props_query, params)
         yield from self.execute_server_cursor(self.query, params)
 
     def get_aspects(
