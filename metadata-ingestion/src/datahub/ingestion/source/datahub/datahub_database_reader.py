@@ -132,7 +132,7 @@ class DataHubDatabaseReader:
                 aspect,
                 version
         ) as t
-        WHERE urn like urn:li:structuredProperty:%
+        WHERE urn like 'urn:li:structuredProperty:%'
             {"" if self.config.include_soft_deleted_entities else "AND (removed = false or removed is NULL)"}
         ORDER BY
             createdon,
