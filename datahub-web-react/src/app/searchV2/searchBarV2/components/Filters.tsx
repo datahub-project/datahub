@@ -28,7 +28,13 @@ const FILTER_FIELDS = [
 ];
 
 const Container = styled.div`
-    padding: 16px 8px;
+    padding: 16px 0;
+    margin: 0 8px;
+    overflow-x: auto;
+    /* Hide scrollbar for Chrome, Safari, and Opera */
+    &::-webkit-scrollbar {
+        display: none;
+    }
 `;
 
 function FiltersRenderer({ filters }: FiltersRendererProps) {
