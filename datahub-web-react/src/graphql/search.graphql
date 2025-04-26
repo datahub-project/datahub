@@ -107,6 +107,7 @@ fragment autoCompleteFields on Entity {
         }
         editableProperties {
             displayName
+            pictureLink
         }
     }
     ... on CorpGroup {
@@ -261,11 +262,33 @@ fragment autoCompleteFields on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
+        featureTables: relationships(input: { types: ["Contains"], direction: INCOMING, start: 0, count: 1 }) {
+            relationships {
+                entity {
+                    ... on MLFeatureTable {
+                        platform {
+                            ...platformFields
+                        }
+                    }
+                }
+            }
+        }
     }
     ... on MLPrimaryKey {
         name
         dataPlatformInstance {
             ...dataPlatformInstanceFields
+        }
+        featureTables: relationships(input: { types: ["KeyedBy"], direction: INCOMING, start: 0, count: 1 }) {
+            relationships {
+                entity {
+                    ... on MLFeatureTable {
+                        platform {
+                            ...platformFields
+                        }
+                    }
+                }
+            }
         }
     }
     ... on MLModel {
@@ -535,6 +558,7 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
     }
     ... on Dashboard {
+        tool
         dashboardId
         properties {
             name
@@ -685,6 +709,7 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
     }
     ... on DataFlow {
+        orchestrator
         flowId
         cluster
         properties {
@@ -844,6 +869,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         parentDomains {
             ...parentDomainsFields
+        }
+        displayProperties {
+            ...displayPropertiesFields
         }
         ...domainEntitiesFields
         structuredProperties {
@@ -1053,11 +1081,17 @@ fragment searchResultFieldsNoLineage on Entity {
 fragment searchResultFields on Entity {
     ...searchResultFieldsNoLineage
     ... on EntityWithRelationships {
-        upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 0 }) {
+        upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
             total
+            filtered
+            # avoid fetching data about results, this query is meant to give a count upstream and downstream
+            # count is 100 in order to allow us to filter out ghost entities and show a more accurate count in the UI
         }
-        downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 0 }) {
+        downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
             total
+            filtered
+            # avoid fetching data about results, this query is meant to give a count upstream and downstream
+            # count is 100 in order to allow us to filter out ghost entities and show a more accurate count in the UI
         }
     }
 }
@@ -1264,6 +1298,7 @@ fragment searchAcrossRelationshipResults on SearchAcrossLineageResults {
     facets {
         ...facetFields
     }
+    lineageSearchPath
 }
 
 query getSearchResults($input: SearchInput!) {
@@ -1275,6 +1310,27 @@ query getSearchResults($input: SearchInput!) {
 query getSearchResultsForMultiple($input: SearchAcrossEntitiesInput!) {
     searchAcrossEntities(input: $input) {
         ...searchResults
+    }
+}
+
+query getSearchResultsForMultipleTrimmed($input: SearchAcrossEntitiesInput!) {
+    searchAcrossEntities(input: $input) {
+        searchResults {
+            entity {
+                ...autoCompleteFields
+            }
+            matchedFields {
+                name
+                value
+                entity {
+                    urn
+                    type
+                }
+            }
+        }
+        facets {
+            ...facetFields
+        }
     }
 }
 

@@ -335,7 +335,7 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
         graphService.removeEdgesFromNode(
             opContext,
             entry.getKey(),
-            new ArrayList<>(entry.getValue()),
+            entry.getValue(),
             newRelationshipFilter(
                 new Filter().setOr(new ConjunctiveCriterionArray()),
                 RelationshipDirection.OUTGOING));
@@ -446,7 +446,7 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
           graphService.removeEdgesFromNode(
               opContext,
               entry.getKey(),
-              new ArrayList<>(entry.getValue()),
+              entry.getValue(),
               createRelationshipFilter(
                   new Filter().setOr(new ConjunctiveCriterionArray()),
                   RelationshipDirection.OUTGOING));

@@ -1,5 +1,15 @@
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import React, { useState } from 'react';
+
+import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
+import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
+import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
+import StructuredPropertyValue from '@app/entityV2/shared/tabs/Properties/StructuredPropertyValue';
+import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
+import { useHydratedEntityMap } from '@app/entityV2/shared/tabs/Properties/useHydratedEntityMap';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import EditStructuredPropertyModal from '@src/app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
@@ -23,14 +33,6 @@ import {
     StdDataType,
     StructuredPropertyEntity,
 } from '@src/types.generated';
-import React, { useState } from 'react';
-import { EMPTY_MESSAGES } from '../constants';
-import EmptySectionText from '../containers/profile/sidebar/EmptySectionText';
-import SectionActionButton from '../containers/profile/sidebar/SectionActionButton';
-import { SidebarSection } from '../containers/profile/sidebar/SidebarSection';
-import { StyledDivider } from '../tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
-import StructuredPropertyValue from '../tabs/Properties/StructuredPropertyValue';
-import { PropertyRow } from '../tabs/Properties/types';
 
 interface FieldProperties {
     isSchemaSidebar?: boolean;
@@ -91,6 +93,14 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
         ? getPropertyRowFromSearchResult(selectedProperty, allProperties)?.values
         : undefined;
 
+    const uniqueEntityUrnsToHydrate = entityTypeProperties?.flatMap((property) => {
+        const propertyRow: PropertyRow | undefined = getPropertyRowFromSearchResult(property, allProperties);
+        const values = propertyRow?.values;
+        return values?.map((value) => value?.entity?.urn);
+    });
+
+    const hydratedEntityMap = useHydratedEntityMap(uniqueEntityUrnsToHydrate);
+
     return (
         <>
             {entityTypeProperties?.map((property) => {
@@ -109,7 +119,11 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                                     {values ? (
                                         <>
                                             {values.map((val) => (
-                                                <StructuredPropertyValue value={val} isRichText={isRichText} />
+                                                <StructuredPropertyValue
+                                                    value={val}
+                                                    isRichText={isRichText}
+                                                    hydratedEntityMap={hydratedEntityMap}
+                                                />
                                             ))}
                                         </>
                                     ) : (

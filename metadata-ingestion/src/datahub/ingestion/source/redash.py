@@ -12,7 +12,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
@@ -22,8 +22,20 @@ from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
+from datahub.ingestion.api.source import (
+    MetadataWorkUnitProcessor,
+    SourceCapability,
+    SourceReport,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
@@ -235,7 +247,9 @@ def get_full_qualified_name(platform: str, database_name: str, table_name: str) 
         return f"{database_name}.{table_name}"
 
 
-class RedashConfig(ConfigModel):
+class RedashConfig(
+    StatefulIngestionConfigBase,
+):
     # See the Redash API for details
     # https://redash.io/help/user-guide/integrations-and-api/api
     connect_uri: str = Field(
@@ -277,7 +291,7 @@ class RedashConfig(ConfigModel):
 
 
 @dataclass
-class RedashSourceReport(SourceReport):
+class RedashSourceReport(StaleEntityRemovalSourceReport):
     items_scanned: int = 0
     filtered: LossyList[str] = field(default_factory=LossyList)
     queries_problem_parsing: LossySet[str] = field(default_factory=LossySet)
@@ -305,7 +319,7 @@ class RedashSourceReport(SourceReport):
 @config_class(RedashConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
-class RedashSource(Source):
+class RedashSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
 
@@ -316,8 +330,9 @@ class RedashSource(Source):
     platform = "redash"
 
     def __init__(self, ctx: PipelineContext, config: RedashConfig):
-        super().__init__(ctx)
+        super().__init__(config, ctx)
         self.config: RedashConfig = config
+        self.ctx = ctx
         self.report: RedashSourceReport = RedashSourceReport()
 
         # Handle trailing slash removal
@@ -406,8 +421,9 @@ class RedashSource(Source):
         return database_name
 
     def _get_datasource_urns(
-        self, data_source: Dict, sql_query_data: Dict = {}
+        self, data_source: Dict, sql_query_data: Optional[Dict] = None
     ) -> Optional[List[str]]:
+        sql_query_data = sql_query_data or {}
         platform = self._get_platform_based_on_datasource(data_source)
         database_name = self._get_database_name_based_on_datasource(data_source)
         data_source_syntax = data_source.get("syntax")
@@ -723,6 +739,14 @@ class RedashSource(Source):
 
     def add_config_to_report(self) -> None:
         self.report.api_page_limit = self.config.api_page_limit
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.validate_connection()

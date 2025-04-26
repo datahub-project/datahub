@@ -1,16 +1,19 @@
 import { Tabs, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { useHistory } from 'react-router';
 import styled from 'styled-components';
-import { IngestionSourceList } from './source/IngestionSourceList';
-import { useAppConfig } from '../useAppConfig';
-import { useUserContext } from '../context/useUserContext';
-import { SecretsList } from './secret/SecretsList';
-import { OnboardingTour } from '../onboarding/OnboardingTour';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { SecretsList } from '@app/ingest/secret/SecretsList';
+import { IngestionSourceList } from '@app/ingest/source/IngestionSourceList';
+import { TabType } from '@app/ingest/types';
+import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import {
     INGESTION_CREATE_SOURCE_ID,
     INGESTION_REFRESH_SOURCES_ID,
-} from '../onboarding/config/IngestionOnboardingConfig';
-import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
+} from '@app/onboarding/config/IngestionOnboardingConfig';
+import { useAppConfig } from '@app/useAppConfig';
+import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
@@ -53,11 +56,6 @@ const Tab = styled(Tabs.TabPane)`
 
 const ListContainer = styled.div``;
 
-enum TabType {
-    Sources = 'Sources',
-    Secrets = 'Secrets',
-}
-
 export const ManageIngestionPage = () => {
     /**
      * Determines which view should be visible: ingestion sources or secrets.
@@ -77,8 +75,18 @@ export const ManageIngestionPage = () => {
         }
     }, [loaded, me.loaded, showIngestionTab, selectedTab]);
 
-    const onClickTab = (newTab: string) => {
-        setSelectedTab(TabType[newTab]);
+    const history = useHistory();
+    const onSwitchTab = (newTab: string, options?: { clearQueryParams: boolean }) => {
+        const matchingTab = Object.values(TabType).find((tab) => tab === newTab);
+        setSelectedTab(matchingTab || selectedTab);
+        if (options?.clearQueryParams) {
+            history.push({ search: '' });
+        }
+    };
+
+    const TabTypeToListComponent = {
+        [TabType.Sources]: <IngestionSourceList />,
+        [TabType.Secrets]: <SecretsList />,
     };
 
     return (
@@ -90,11 +98,15 @@ export const ManageIngestionPage = () => {
                     Configure and schedule syncs to import data from your data sources
                 </Typography.Paragraph>
             </PageHeaderContainer>
-            <StyledTabs activeKey={selectedTab} size="large" onTabClick={(tab: string) => onClickTab(tab)}>
+            <StyledTabs
+                activeKey={selectedTab}
+                size="large"
+                onTabClick={(tab) => onSwitchTab(tab, { clearQueryParams: true })}
+            >
                 {showIngestionTab && <Tab key={TabType.Sources} tab={TabType.Sources} />}
                 {showSecretsTab && <Tab key={TabType.Secrets} tab={TabType.Secrets} />}
             </StyledTabs>
-            <ListContainer>{selectedTab === TabType.Sources ? <IngestionSourceList /> : <SecretsList />}</ListContainer>
+            <ListContainer>{TabTypeToListComponent[selectedTab]}</ListContainer>
         </PageContainer>
     );
 };

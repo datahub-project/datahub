@@ -1,8 +1,10 @@
+import { CSSObject } from 'styled-components';
+
 import { PillStyleProps } from '@components/components/Pills/types';
 import { ColorOptions, PillVariantOptions, SizeOptions } from '@components/theme/config';
+
 import { typography } from '@src/alchemy-components/theme';
 import { getColor, getFontSize } from '@src/alchemy-components/theme/utils';
-import { CSSObject } from 'styled-components';
 
 interface ColorStyles {
     primaryColor: string;
@@ -25,7 +27,7 @@ function getPillColorStyles(variant: PillVariantOptions, color: ColorOptions): C
         primaryColor: getColor(color, 500),
         bgColor: color === 'gray' ? getColor(color, 100) : getColor(color, 0),
         hoverColor: color === 'gray' ? getColor(color, 100) : getColor(color, 1100),
-        borderColor: getColor('gray', 1400),
+        borderColor: getColor('gray', 1800),
     };
 }
 
@@ -64,7 +66,7 @@ const getPillVariantStyles = (variant: PillVariantOptions, colorStyles: ColorSty
             },
             borderRadius: '4px',
         },
-    }[variant]);
+    })[variant];
 
 const getPillFontStyles = (variant: PillVariantOptions, size: SizeOptions): CSSObject => {
     const baseFontStyles = {
@@ -79,6 +81,7 @@ const getPillFontStyles = (variant: PillVariantOptions, size: SizeOptions): CSSO
         md: { fontSize: getFontSize(size), lineHeight: '24px' },
         lg: { fontSize: getFontSize(size), lineHeight: '30px' },
         xl: { fontSize: getFontSize(size), lineHeight: '34px' },
+        inherit: { fontSize: 'inherit', lineHeight: 'inherit' },
     };
 
     const variantOverrides: Partial<Record<PillVariantOptions, CSSObject>> = {

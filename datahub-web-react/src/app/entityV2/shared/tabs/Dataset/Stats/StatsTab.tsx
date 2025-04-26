@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { GetDatasetQuery, useGetLastMonthUsageAggregationsQuery } from '../../../../../../graphql/dataset.generated';
-import { Operation, UsageQueryResult } from '../../../../../../types.generated';
-import { useBaseEntity } from '../../../../../entity/shared/EntityContext';
-import { toLocalDateString, toLocalDateTimeString, toLocalTimeString } from '../../../../../shared/time/timeUtils';
-import StatsHeader from './StatsHeader';
-import HistoricalStats from './historical/HistoricalStats';
-import { LOOKBACK_WINDOWS } from './lookbackWindows';
-import ColumnStats from './snapshot/ColumnStats';
-import TableStats from './snapshot/TableStats';
-import { ViewType } from './viewType';
+
+import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import StatsHeader from '@app/entityV2/shared/tabs/Dataset/Stats/StatsHeader';
+import HistoricalStats from '@app/entityV2/shared/tabs/Dataset/Stats/historical/HistoricalStats';
+import { LOOKBACK_WINDOWS } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
+import ColumnStats from '@app/entityV2/shared/tabs/Dataset/Stats/snapshot/ColumnStats';
+import TableStats from '@app/entityV2/shared/tabs/Dataset/Stats/snapshot/TableStats';
+import { ViewType } from '@app/entityV2/shared/tabs/Dataset/Stats/viewType';
+import { toLocalDateString, toLocalDateTimeString, toLocalTimeString } from '@app/shared/time/timeUtils';
+
+import { GetDatasetQuery, useGetLastMonthUsageAggregationsQuery } from '@graphql/dataset.generated';
+import { Operation, UsageQueryResult } from '@types';
 
 const SectionWrapper = styled.div`
     overflow-y: auto;

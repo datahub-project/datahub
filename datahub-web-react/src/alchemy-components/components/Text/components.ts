@@ -1,8 +1,8 @@
 import styled from 'styled-components';
 
-import { typography, colors } from '@components/theme';
+import { TextProps } from '@components/components/Text/types';
+import { colors, typography } from '@components/theme';
 import { getColor, getFontSize } from '@components/theme/utils';
-import { TextProps } from './types';
 
 // Text Styles
 const textStyles = {
@@ -46,5 +46,9 @@ export const Span = styled.span({ ...baseStyles, ...textStyles }, (props: TextPr
 }));
 
 export const Div = styled.div({ ...baseStyles, ...textStyles }, (props: TextProps) => ({
+    ...propStyles(props as TextProps, true),
+}));
+
+export const Pre = styled.pre({ ...baseStyles, ...textStyles }, (props: TextProps) => ({
     ...propStyles(props as TextProps, true),
 }));

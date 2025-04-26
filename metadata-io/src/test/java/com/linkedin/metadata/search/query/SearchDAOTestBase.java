@@ -59,7 +59,7 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
   @Test
   public void testTransformFilterForEntitiesNoChange() {
     Criterion c =
-        buildCriterion("tags.keyword", Condition.EQUAL, "urn:ki:tag:abc", "urn:li:tag:def");
+        buildCriterion("tags.keyword", Condition.EQUAL, "urn:li:tag:abc", "urn:li:tag:def");
 
     Filter f =
         new Filter()
@@ -436,7 +436,7 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
                 null,
                 null,
                 10,
-                null);
+                List.of());
 
     assertNotNull(explainResponse);
     assertEquals(explainResponse.getIndex(), "smpldat_datasetindex_v2");

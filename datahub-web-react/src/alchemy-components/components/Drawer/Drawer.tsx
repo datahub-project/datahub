@@ -1,21 +1,18 @@
 import React from 'react';
-import { Button } from '../Button';
-import { Text } from '../Text';
-import { StyledDrawer, TitleContainer } from './components';
-import { maskTransparentStyle } from './constants';
-import { DrawerProps } from './types';
 
-export const drawerDefault: Omit<DrawerProps, 'title'> = {
-    width: 600,
-    closable: true,
-    maskTransparent: false,
-};
+import { Button } from '@components/components/Button';
+import { StyledDrawer, TitleContainer, TitleLeftContainer } from '@components/components/Drawer/components';
+import { maskTransparentStyle } from '@components/components/Drawer/constants';
+import { drawerDefault } from '@components/components/Drawer/defaults';
+import { DrawerProps } from '@components/components/Drawer/types';
+import { Text } from '@components/components/Text';
 
 export const Drawer = ({
     title,
     children,
     open,
     onClose,
+    onBack,
     width = drawerDefault.width,
     closable = drawerDefault.closable,
     maskTransparent = drawerDefault.maskTransparent,
@@ -26,13 +23,26 @@ export const Drawer = ({
             destroyOnClose
             title={
                 <TitleContainer>
-                    <Text weight="bold" size="xl">
-                        {title}
-                    </Text>
+                    <TitleLeftContainer>
+                        {onBack && (
+                            <Button
+                                color="gray"
+                                icon={{ icon: 'ArrowBack', source: 'material' }}
+                                iconPosition="left"
+                                isCircle
+                                onClick={() => onBack?.()}
+                                size="xl"
+                                variant="text"
+                            />
+                        )}
+                        <Text weight="bold" size="xl">
+                            {title}
+                        </Text>
+                    </TitleLeftContainer>
                     {closable && (
                         <Button
                             color="gray"
-                            icon="Close"
+                            icon={{ icon: 'Close', source: 'material' }}
                             iconPosition="left"
                             isCircle
                             onClick={() => onClose?.()}

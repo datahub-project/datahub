@@ -262,9 +262,11 @@ def assert_for_each_entity(
     aspect_name: str,
     aspect_field_matcher: Dict[str, Any],
     file: str,
-    exception_urns: List[str] = [],
+    exception_urns: Optional[List[str]] = None,
 ) -> int:
     """Assert that an aspect name with the desired fields exists for each entity urn"""
+    if exception_urns is None:
+        exception_urns = []
     test_output = load_json_file(file)
     assert isinstance(test_output, list)
     # mce urns
@@ -322,7 +324,7 @@ def assert_entity_mce_aspect(
 ) -> int:
     # TODO: Replace with read_metadata_file()
     test_output = load_json_file(file)
-    entity_type = Urn.from_string(entity_urn).get_type()
+    entity_type = Urn.from_string(entity_urn).entity_type
     assert isinstance(test_output, list)
     # mce urns
     mces: List[MetadataChangeEventClass] = [
@@ -345,7 +347,7 @@ def assert_entity_mcp_aspect(
 ) -> int:
     # TODO: Replace with read_metadata_file()
     test_output = load_json_file(file)
-    entity_type = Urn.from_string(entity_urn).get_type()
+    entity_type = Urn.from_string(entity_urn).entity_type
     assert isinstance(test_output, list)
     # mcps that match entity_urn
     mcps: List[MetadataChangeProposalWrapper] = [

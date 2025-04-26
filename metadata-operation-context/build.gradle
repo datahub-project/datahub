@@ -7,11 +7,15 @@ dependencies {
   api project(':metadata-utils')
   api project(':metadata-auth:auth-api')
 
+  // https://mvnrepository.com/artifact/nl.basjes.parse.useragent/yauaa
+  api 'nl.basjes.parse.useragent:yauaa:7.30.0'
+
   implementation externalDependency.slf4jApi
   implementation externalDependency.servletApi
   implementation spec.product.pegasus.restliServer
   implementation externalDependency.opentelemetryApi
   implementation externalDependency.opentelemetrySdkTrace
+  implementation externalDependency.opentelemetrySdkMetrics
   compileOnly externalDependency.lombok
 
   annotationProcessor externalDependency.lombok

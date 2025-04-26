@@ -246,6 +246,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             platform=self.platform,
             platform_instance=platform_instance,
             name=dataset_name,
+            env=self.config.env,
         )
         dataset_properties = DatasetPropertiesClass(
             name=table_name,
@@ -361,7 +362,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         if self.config.include_table_item is None:
             return
         dataset_name = f"{region}.{table_name}"
-        if dataset_name not in self.config.include_table_item.keys():
+        if dataset_name not in self.config.include_table_item:
             return
         primary_key_list = self.config.include_table_item.get(dataset_name)
         assert isinstance(primary_key_list, List)

@@ -56,6 +56,14 @@ Follow these simple steps to understand the full dependency chain of your data e
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/impact-analysis-view-export-results.png"/>
 </p>
 
+### Known Issues
+
+Impact Analysis is a powerful feature that can place significant demands on the system. To maintain high performance when handling large result sets, we've implemented "Lightning Cache" - an alternate processing path that delivers results more quickly. By default, this cache activates with simple queries when there are more than 300 assets in the result set. You can customize this threshold by setting the environment variable `CACHE_SEARCH_LINEAGE_LIGHTNING_THRESHOLD` in your GMS pod.
+
+However, the Lightning Cache has a limitation: it may include assets that are soft-deleted or no longer exist in the DataHub database. This occurs because lineage references may contain "ghost entities" (URNs without associated data).
+
+Note that when you download Impact Analysis results, our system properly filters out these soft-deleted and non-existent assets. As a result, you might notice differences between what appears in the UI and what appears in your downloaded results.
+
 ## Additional Resources
 
 ### Videos
@@ -68,15 +76,14 @@ Follow these simple steps to understand the full dependency chain of your data e
 
 ### GraphQL
 
-* [searchAcrossLineage](../../graphql/queries.md#searchacrosslineage)
-* [searchAcrossLineageInput](../../graphql/inputObjects.md#searchacrosslineageinput)
+- [searchAcrossLineage](../../graphql/queries.md#searchacrosslineage)
+- [searchAcrossLineageInput](../../graphql/inputObjects.md#searchacrosslineageinput)
 
 Looking for an example of how to use `searchAcrossLineage` to read data lineage? Look [here](../api/tutorials/lineage.md#read-lineage)
 
 ### DataHub Blog
 
-* [Dependency Impact Analysis, Data Validation Outcomes, and MORE! - Highlights from DataHub v0.8.27 & v.0.8.28](https://blog.datahubproject.io/dependency-impact-analysis-data-validation-outcomes-and-more-1302604da233)
-
+- [Dependency Impact Analysis, Data Validation Outcomes, and MORE! - Highlights from DataHub v0.8.27 & v.0.8.28](https://blog.datahubproject.io/dependency-impact-analysis-data-validation-outcomes-and-more-1302604da233)
 
 ### FAQ and Troubleshooting
 
@@ -88,8 +95,6 @@ This means you have not yet ingested Lineage metadata for that entity. Please se
 
 We currently limit the list of dependencies to 10,000 records; we suggest applying filters to narrow the result set if you hit that limit.
 
-
-
 ### Related Features
 
-* [DataHub Lineage](../generated/lineage/lineage-feature-guide.md)
+- [DataHub Lineage](../generated/lineage/lineage-feature-guide.md)

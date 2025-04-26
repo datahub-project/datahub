@@ -1,14 +1,16 @@
 import Icon from '@ant-design/icons/lib/components/Icon';
+import { Typography } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
-import { Typography } from 'antd';
 import styled from 'styled-components';
-import { ValueColumnData } from './types';
-import { ANTD_GRAY } from '../../constants';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
-import ExternalLink from '../../../../../images/link-out.svg?react';
-import CompactMarkdownViewer from '../Documentation/components/CompactMarkdownViewer';
-import EntityIcon from '../../components/styled/EntityIcon';
+
+import EntityIcon from '@app/entity/shared/components/styled/EntityIcon';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import CompactMarkdownViewer from '@app/entity/shared/tabs/Documentation/components/CompactMarkdownViewer';
+import { ValueColumnData } from '@app/entity/shared/tabs/Properties/types';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import ExternalLink from '@images/link-out.svg?react';
 
 const ValueText = styled(Typography.Text)`
     font-family: 'Manrope';

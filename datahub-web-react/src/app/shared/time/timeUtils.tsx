@@ -1,7 +1,8 @@
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import moment from 'moment';
-import { DateInterval } from '../../../types.generated';
+
+import { DateInterval } from '@types';
 
 dayjs.extend(relativeTime);
 
@@ -25,7 +26,7 @@ export const INTERVAL_TO_MS = {
     [DateInterval.Year]: 31536000000,
 };
 
-export const INTERVAL_TO_MOMENT_INTERVAL = {
+export const INTERVAL_TO_MOMENT_INTERVAL: { [key: string]: moment.DurationInputArg2 } = {
     [DateInterval.Second]: 'seconds',
     [DateInterval.Minute]: 'minutes',
     [DateInterval.Hour]: 'hours',
@@ -83,9 +84,13 @@ export const getTimeWindowStart = (endTimeMillis: number, interval: DateInterval
  * @param windowSize the
  */
 export const getFixedLookbackWindow = (windowSize: TimeWindowSize): TimeWindow => {
-    const endTime = Date.now();
+    const endTime = moment().valueOf();
+    const startTime = moment(endTime)
+        .subtract(windowSize.count, INTERVAL_TO_MOMENT_INTERVAL[windowSize.interval])
+        .valueOf();
+
     return {
-        startTime: endTime - getTimeWindowSizeMs(windowSize),
+        startTime,
         endTime,
     };
 };

@@ -2,7 +2,7 @@
 
 The DataHub Slack is a thriving and rapidly growing community - we can't wait for you to join us!
 
-_[Sign up here](https://datahubproject.io/slack?utm_source=docs&utm_medium=page_link&utm_campaign=docs_page_link) to join us on Slack and to subscribe to the DataHub Community newsletter. Already a member? [Log in here](https://datahubproject.io/slack?utm_source=docs&utm_medium=docs&utm_campaign=docs_page_link)._
+_[Sign up here](https://pages.acryl.io/slack?utm_source=docs&utm_medium=page_link&utm_campaign=docs_page_link) to join us on Slack and to subscribe to the DataHub Community newsletter. Already a member? [Log in here](https://pages.acryl.io/slack?utm_source=docs&utm_medium=docs&utm_campaign=docs_page_link)._
 
 ## Slack Guidelines
 

@@ -1,14 +1,16 @@
-import React, { useEffect, useState } from 'react';
-import { useDebounce } from 'react-use';
+import { LoadingOutlined } from '@ant-design/icons';
 import { FloatingWrapper } from '@remirror/react';
 import { Empty, Spin } from 'antd';
-import styled from 'styled-components';
-import { LoadingOutlined } from '@ant-design/icons';
+import React, { useEffect, useState } from 'react';
+import { useDebounce } from 'react-use';
 import { Positioner, selectionPositioner } from 'remirror/extensions';
-import { useGetAutoCompleteMultipleResultsLazyQuery } from '../../../../../../../../../graphql/search.generated';
-import { MentionsDropdown } from './MentionsDropdown';
-import { useDataHubMentions } from './useDataHubMentions';
-import { useUserContext } from '../../../../../../../../context/useUserContext';
+import styled from 'styled-components';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { MentionsDropdown } from '@app/entityV2/shared/tabs/Documentation/components/editor/extensions/mentions/MentionsDropdown';
+import { useDataHubMentions } from '@app/entityV2/shared/tabs/Documentation/components/editor/extensions/mentions/useDataHubMentions';
+
+import { useGetAutoCompleteMultipleResultsLazyQuery } from '@graphql/search.generated';
 
 const Container = styled.div`
     position: relative;

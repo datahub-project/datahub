@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import OptionsDropdownMenu from '../OptionsDropdownMenu';
-import { mapFilterOption } from '../mapFilterOption';
-import { EntityFilterField, FilterValue, FilterValueOption } from '../types';
-import { OptionMenu } from './styledComponents';
-import { deduplicateOptions, useFilterOptionsBySearchQuery, useLoadSearchOptions } from './utils';
+
+import OptionsDropdownMenu from '@app/searchV2/filters/OptionsDropdownMenu';
+import { mapFilterOption } from '@app/searchV2/filters/mapFilterOption';
+import { EntityFilterField, FilterValue, FilterValueOption } from '@app/searchV2/filters/types';
+import { OptionMenu } from '@app/searchV2/filters/value/styledComponents';
+import {
+    deduplicateOptions,
+    useFilterOptionsBySearchQuery,
+    useLoadSearchOptions,
+} from '@app/searchV2/filters/value/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 interface Props {
     field: EntityFilterField;
@@ -28,8 +33,7 @@ export default function EntityValueMenu({
     className,
 }: Props) {
     const entityRegistry = useEntityRegistry();
-    const isSearchable =
-        field.entityTypes?.length && field.entityTypes.every((t) => entityRegistry.getEntity(t).isSearchEnabled());
+    const isSearchable = !!field.entityTypes?.length;
     const { displayName } = field;
 
     // Ideally we would not have staged values, and filters would update automatically.
@@ -43,7 +47,8 @@ export default function EntityValueMenu({
     const finalSearchOptions = [...localSearchOptions, ...deduplicateOptions(localSearchOptions, searchOptions)];
 
     // Compute the final options to show to the user.
-    const finalOptions = searchQuery ? finalSearchOptions : defaultOptions;
+    const finalDefaultOptions = defaultOptions.length ? defaultOptions : searchOptions;
+    const finalOptions = searchQuery ? finalSearchOptions : finalDefaultOptions;
 
     // Finally, create the option set.
     // TODO: Add an option set for "no x".

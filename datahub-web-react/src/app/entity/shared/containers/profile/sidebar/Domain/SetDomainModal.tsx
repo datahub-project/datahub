@@ -1,23 +1,24 @@
-import React, { useRef, useState } from 'react';
-import { Button, Form, message, Modal, Select, Empty } from 'antd';
 import { LoadingOutlined } from '@ant-design/icons';
-
+import { Button, Empty, Form, Modal, Select, message } from 'antd';
+import React, { useRef, useState } from 'react';
 import styled from 'styled-components/macro';
-import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
-import { Domain, Entity, EntityType } from '../../../../../../../types.generated';
-import { useBatchSetDomainMutation } from '../../../../../../../graphql/mutations.generated';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
-import { DomainLabel } from '../../../../../../shared/DomainLabel';
-import { handleBatchError } from '../../../../utils';
-import { tagRender } from '../tagRenderer';
-import { BrowserWrapper } from '../../../../../../shared/tags/AddTagsTermsModal';
-import DomainNavigator from '../../../../../../domain/nestedDomains/domainNavigator/DomainNavigator';
-import ClickOutside from '../../../../../../shared/ClickOutside';
-import { ANTD_GRAY } from '../../../../constants';
-import { getModalDomContainer } from '../../../../../../../utils/focus';
-import ParentEntities from '../../../../../../search/filters/ParentEntities';
-import { getParentDomains } from '../../../../../../domain/utils';
+
+import DomainNavigator from '@app/domain/nestedDomains/domainNavigator/DomainNavigator';
+import { getParentDomains } from '@app/domain/utils';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { tagRender } from '@app/entity/shared/containers/profile/sidebar/tagRenderer';
+import { handleBatchError } from '@app/entity/shared/utils';
+import ParentEntities from '@app/search/filters/ParentEntities';
+import ClickOutside from '@app/shared/ClickOutside';
+import { DomainLabel } from '@app/shared/DomainLabel';
+import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { getModalDomContainer } from '@utils/focus';
+
+import { useBatchSetDomainMutation } from '@graphql/mutations.generated';
+import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
+import { Domain, Entity, EntityType } from '@types';
 
 type Props = {
     urns: string[];

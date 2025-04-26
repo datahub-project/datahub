@@ -5,6 +5,7 @@ title: Overview
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # About DataHub Compliance Forms
+
 <FeatureAvailability/>
 
 **DataHub Compliance Forms** streamline the process of documenting, annotating, and classifying your most critical Data Assets through a collaborative, crowdsourced approach.
@@ -27,10 +28,11 @@ Once a Compliance Form is defined, it can be published. When a form is published
 
 ### Why Use Compliance Forms?
 
-Compliance Forms enable organizations to:  
-- Standardize documentation and metadata across critical Data Assets.  
-- Crowdsource compliance-related tasks to domain experts who are best equipped to provide accurate information.  
-- Scale governance initiatives efficiently while maintaining accuracy and accountability.  
+Compliance Forms enable organizations to:
+
+- Standardize documentation and metadata across critical Data Assets.
+- Crowdsource compliance-related tasks to domain experts who are best equipped to provide accurate information.
+- Scale governance initiatives efficiently while maintaining accuracy and accountability.
 
 By leveraging Compliance Forms, organizations can ensure consistent metadata quality and foster collaboration between data experts and governance teams.
 

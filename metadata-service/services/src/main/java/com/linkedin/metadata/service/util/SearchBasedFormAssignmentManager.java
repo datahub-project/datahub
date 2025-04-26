@@ -62,6 +62,7 @@ public class SearchBasedFormAssignmentManager {
                 formFilters.getFilter(),
                 scrollId,
                 "5m",
+                List.of(),
                 batchFormEntityCount);
 
         if (!results.hasEntities()

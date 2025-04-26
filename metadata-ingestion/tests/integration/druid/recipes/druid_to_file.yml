@@ -1,0 +1,11 @@
+source:
+  type: druid
+  config:
+    host_port: "localhost:8082"
+    platform_instance: "my_druid"
+    username: druid
+    password: FoolishPassword
+sink:
+  type: file
+  config:
+    filename: "./druid_mces.json"

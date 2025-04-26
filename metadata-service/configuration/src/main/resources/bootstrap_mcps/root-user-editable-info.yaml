@@ -1,0 +1,8 @@
+- entityUrn: urn:li:corpuser:datahub
+  entityType: corpuser
+  aspectName: corpUserEditableInfo
+  changeType: CREATE
+  aspect:
+    teams: []
+    skills: []
+    pictureLink: "https://media.licdn.com/dms/image/v2/D4E10AQHWZxgp69mYEg/image-shrink_800/B4EZS8_IkWHoAk-/0/1738337455407?e=2147483647&v=beta&t=GNcym7ZKnu5tPO4n4gV6XaGPPU0JfNvjH3QoNKR2sro"

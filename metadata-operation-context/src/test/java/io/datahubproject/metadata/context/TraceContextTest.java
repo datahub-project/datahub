@@ -83,7 +83,7 @@ public class TraceContextTest {
 
     try (var mockedStatic = mockStatic(Span.class)) {
       mockedStatic.when(Span::current).thenReturn(span);
-      SystemMetadata result = traceContext.withTraceId(systemMetadata);
+      SystemMetadata result = traceContext.withTraceId(systemMetadata, false);
       assertNotNull(result.getProperties());
       assertEquals(result.getProperties().get(TraceContext.TELEMETRY_TRACE_KEY), "test-trace-id");
     }
@@ -97,7 +97,7 @@ public class TraceContextTest {
 
     try (var mockedStatic = mockStatic(Span.class)) {
       mockedStatic.when(Span::current).thenReturn(span);
-      SystemMetadata result = traceContext.withTraceId(systemMetadata);
+      SystemMetadata result = traceContext.withTraceId(systemMetadata, false);
       assertSame(result, systemMetadata);
     }
   }

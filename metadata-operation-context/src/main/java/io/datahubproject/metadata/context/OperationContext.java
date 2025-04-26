@@ -13,6 +13,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.utils.AuditStampUtils;
@@ -263,6 +264,11 @@ public class OperationContext implements AuthorizationSession {
   }
 
   @Nonnull
+  public LineageRegistry getLineageRegistry() {
+    return entityRegistryContext.getLineageRegistry();
+  }
+
+  @Nonnull
   public Set<String> getEntityAspectNames(String entityType) {
     return getEntityRegistryContext().getEntityAspectNames(entityType);
   }
@@ -358,8 +364,13 @@ public class OperationContext implements AuthorizationSession {
 
   @Nullable
   public SystemMetadata withTraceId(@Nullable SystemMetadata systemMetadata) {
+    return withTraceId(systemMetadata, false);
+  }
+
+  @Nullable
+  public SystemMetadata withTraceId(@Nullable SystemMetadata systemMetadata, boolean force) {
     if (systemMetadata != null && traceContext != null) {
-      return traceContext.withTraceId(systemMetadata);
+      return traceContext.withTraceId(systemMetadata, force);
     }
     return systemMetadata;
   }

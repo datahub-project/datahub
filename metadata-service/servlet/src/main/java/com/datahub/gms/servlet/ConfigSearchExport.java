@@ -16,6 +16,7 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.PrintWriter;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
@@ -105,7 +106,7 @@ public class ConfigSearchExport extends HttpServlet {
                           null,
                           0,
                           0,
-                          null);
+                          List.of());
 
               FunctionScoreQueryBuilder rankingQuery =
                   ((FunctionScoreQueryBuilder)

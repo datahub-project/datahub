@@ -29,6 +29,9 @@ public class DataHubAppConfiguration {
   /** Views feature related configs */
   private ViewsConfiguration views;
 
+  /** Search bar related configs */
+  private SearchBarConfiguration searchBar;
+
   /** Feature flags indicating what is turned on vs turned off */
   private FeatureFlags featureFlags;
 

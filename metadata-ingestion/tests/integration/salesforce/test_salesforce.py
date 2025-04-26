@@ -33,7 +33,19 @@ class MockResponse:
 def side_effect_call_salesforce(type, url):
     if url.endswith("/services/data/"):
         return MockResponse(_read_response("versions_response.json"), 200)
-    if url.endswith("FROM EntityDefinition WHERE IsCustomizable = true"):
+    if url.endswith("/describe/"):
+        # extract object name from url
+        object_name = url.split("/")[-2]
+        return MockResponse(
+            {
+                "name": object_name,
+                "fields": [
+                    {"name": "SLA__c", "calculatedFormula": "IF(TIER=='GOLD', 60, 300)"}
+                ],
+            },
+            200,
+        )
+    elif url.endswith("FROM EntityDefinition WHERE IsCustomizable = true"):
         return MockResponse(_read_response("entity_definition_soql_response.json"), 200)
     elif url.endswith("FROM EntityParticle WHERE EntityDefinitionId='Account'"):
         return MockResponse(_read_response("account_fields_soql_response.json"), 200)
@@ -87,12 +99,14 @@ def test_latest_version(mock_sdk):
             },
         }
     )
-    SalesforceSource(config=config, ctx=Mock())
+    source = SalesforceSource(config=config, ctx=Mock())
+    list(source.get_workunits())  # to ensure salesforce client is initialised
     calls = mock_sf._call_salesforce.mock_calls
-    assert len(calls) == 1, (
+    assert len(calls) > 1, (
         "We didn't specify version but source didn't call SF API to get the latest one"
     )
-    assert calls[0].ends_with("/services/data"), (
+
+    assert calls[0].args[-1].endswith("/services/data/"), (
         "Source didn't call proper SF API endpoint to get all versions"
     )
     assert mock_sf.sf_version == "54.0", (
@@ -130,12 +144,15 @@ def test_custom_version(mock_sdk):
             },
         }
     )
-    SalesforceSource(config=config, ctx=Mock())
+    source = SalesforceSource(config=config, ctx=Mock())
+    list(source.get_workunits())  # to ensure salesforce client is initialised
 
     calls = mock_sf._call_salesforce.mock_calls
-    assert len(calls) == 0, (
+
+    assert not calls[0].args[-1].endswith("/services/data/"), (
         "Source called API to get all versions even though we specified proper version"
     )
+
     assert mock_sdk.call_args.kwargs["version"] == "46.0", (
         "API client object was not correctly initialized with the custom version"
     )
@@ -173,6 +190,7 @@ def test_salesforce_ingest(pytestconfig, tmp_path):
                                 "^Property__c$",
                             ]
                         },
+                        "use_referenced_entities_as_upstreams": False,
                     },
                 },
                 "sink": {
@@ -190,5 +208,59 @@ def test_salesforce_ingest(pytestconfig, tmp_path):
             pytestconfig,
             output_path=f"{tmp_path}/salesforce_mces.json",
             golden_path=test_resources_dir / "salesforce_mces_golden.json",
+            ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
+        )
+
+
+@freeze_time(FROZEN_TIME)
+def test_salesforce_ingest_with_lineage(pytestconfig, tmp_path):
+    with mock.patch("datahub.ingestion.source.salesforce.Salesforce") as mock_sdk:
+        mock_sf = mock.Mock()
+        mocked_call = mock.Mock()
+        mocked_call.side_effect = side_effect_call_salesforce
+        mock_sf._call_salesforce = mocked_call
+        mock_sdk.return_value = mock_sf
+
+        pipeline = Pipeline.create(
+            {
+                "run_id": "salesforce-test",
+                "source": {
+                    "type": "salesforce",
+                    "config": {
+                        "auth": "DIRECT_ACCESS_TOKEN",
+                        "instance_url": "https://mydomain.my.salesforce.com/",
+                        "access_token": "access_token`",
+                        "ingest_tags": True,
+                        "object_pattern": {
+                            "allow": [
+                                "^Account$",
+                                "^Property__c$",
+                            ],
+                        },
+                        "domain": {"sales": {"allow": {"^Property__c$"}}},
+                        "profiling": {"enabled": True},
+                        "profile_pattern": {
+                            "allow": [
+                                "^Property__c$",
+                            ]
+                        },
+                        "use_referenced_entities_as_upstreams": True,
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/salesforce_mces_with_lineage.json",
+                    },
+                },
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=f"{tmp_path}/salesforce_mces_with_lineage.json",
+            golden_path=test_resources_dir / "salesforce_mces_with_lineage_golden.json",
             ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
         )

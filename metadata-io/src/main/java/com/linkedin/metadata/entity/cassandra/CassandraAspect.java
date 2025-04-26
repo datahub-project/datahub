@@ -1,7 +1,7 @@
 package com.linkedin.metadata.entity.cassandra;
 
 import com.datastax.oss.driver.api.core.cql.Row;
-import com.linkedin.metadata.entity.EntityAspect;
+import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import java.sql.Timestamp;
 import javax.annotation.Nonnull;

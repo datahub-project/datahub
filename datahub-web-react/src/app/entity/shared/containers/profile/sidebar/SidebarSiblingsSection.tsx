@@ -1,13 +1,18 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { useDataNotCombinedWithSiblings, useEntityData } from '../../../EntityContext';
-import { SidebarHeader } from './SidebarHeader';
-import { CompactEntityNameList } from '../../../../../recommendations/renderer/component/CompactEntityNameList';
-import { Dataset, Entity } from '../../../../../../types.generated';
-import { SEPARATE_SIBLINGS_URL_PARAM, stripSiblingsFromEntity, useIsSeparateSiblingsMode } from '../../../siblingUtils';
-import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
-import { useIsShowSeparateSiblingsEnabled } from '../../../../../useAppConfig';
+import { useDataNotCombinedWithSiblings, useEntityData } from '@app/entity/shared/EntityContext';
+import { SidebarHeader } from '@app/entity/shared/containers/profile/sidebar/SidebarHeader';
+import {
+    SEPARATE_SIBLINGS_URL_PARAM,
+    stripSiblingsFromEntity,
+    useIsSeparateSiblingsMode,
+} from '@app/entity/shared/siblingUtils';
+import { CompactEntityNameList } from '@app/recommendations/renderer/component/CompactEntityNameList';
+import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
+
+import { GetDatasetQuery } from '@graphql/dataset.generated';
+import { Dataset, Entity } from '@types';
 
 const EntityListContainer = styled.div`
     margin-left: -8px;
@@ -30,7 +35,7 @@ export const SidebarSiblingsSection = () => {
             <div>
                 <SidebarHeader title="Part Of" />
                 <EntityListContainer>
-                    <CompactEntityNameList entities={[entityData as Entity]} showTooltips />
+                    <CompactEntityNameList entities={[entityData as Entity]} />
                 </EntityListContainer>
             </div>
         );
@@ -58,11 +63,10 @@ export const SidebarSiblingsSection = () => {
     return (
         <div>
             <SidebarHeader title="Composed Of" />
-            <EntityListContainer>
+            <EntityListContainer data-testid="siblings-list">
                 <CompactEntityNameList
                     entities={allSiblingsInGroupThatExist}
                     linkUrlParams={{ [SEPARATE_SIBLINGS_URL_PARAM]: true }}
-                    showTooltips
                 />
             </EntityListContainer>
         </div>

@@ -2,7 +2,7 @@ const learCardDropdownContent = [
         {
             title: "Join Slack",
             iconImage: "/img/icon-join-slack.png",
-            href: "/slack",
+            href: "https://pages.acryl.io/slack?utm_source=docs&utm_medium=learn&utm_campaign=docs_learn",
         },
         {
             title: "Forum",

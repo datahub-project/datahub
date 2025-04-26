@@ -501,7 +501,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             raise ValueError(
                 f"Could not locate a project name for model {model_name}. Consider configuring a static project name "
                 f"in your config file"
-            )
+            ) from None
 
     def get_manifest_if_present(self, folder: pathlib.Path) -> Optional[LookerManifest]:
         manifest_file = folder / "manifest.lkml"
@@ -1006,8 +1006,9 @@ class LookMLSource(StatefulIngestionSourceBase):
     def report_skipped_unreachable_views(
         self,
         viewfile_loader: LookerViewFileLoader,
-        processed_view_map: Dict[str, Set[str]] = {},
+        processed_view_map: Optional[Dict[str, Set[str]]] = None,
     ) -> None:
+        processed_view_map = processed_view_map or {}
         view_files: Dict[str, List[pathlib.Path]] = {}
         for project, folder_path in self.base_projects_folder.items():
             folder = pathlib.Path(folder_path)

@@ -130,8 +130,9 @@ class DatahubExecutionRequestCleanup:
         )
 
     def _scroll_execution_requests(
-        self, overrides: Dict[str, Any] = {}
+        self, overrides: Optional[Dict[str, Any]] = None
     ) -> Iterator[CleanupRecord]:
+        overrides = overrides or {}
         headers: Dict[str, Any] = {
             "Accept": "application/json",
             "Content-Type": "application/json",

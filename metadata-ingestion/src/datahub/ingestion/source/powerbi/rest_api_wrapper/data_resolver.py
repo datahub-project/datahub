@@ -63,10 +63,10 @@ class SessionWithTimeout(requests.Session):
         super().__init__(*args, **kwargs)
         self.timeout = timeout
 
-    def request(self, method, url, **kwargs):
+    def request(self, method, url, *args, **kwargs):
         # Set the default timeout if none is provided
         kwargs.setdefault("timeout", self.timeout)
-        return super().request(method, url, **kwargs)
+        return super().request(method, url, *args, **kwargs)
 
 
 class DataResolverBase(ABC):
@@ -380,8 +380,9 @@ class DataResolverBase(ABC):
     def itr_pages(
         self,
         endpoint: str,
-        parameter_override: Dict = {},
+        parameter_override: Optional[Dict] = None,
     ) -> Iterator[List[Dict]]:
+        parameter_override = parameter_override or {}
         params: dict = {
             "$skip": 0,
             "$top": self.TOP,

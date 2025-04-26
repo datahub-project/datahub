@@ -1,14 +1,18 @@
+import { Form, Modal, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { message, Button, Modal, Typography, Form } from 'antd';
-import { useRefetch } from '../../../entity/shared/EntityContext';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useUpdateParentNodeMutation } from '../../../../graphql/glossary.generated';
-import NodeParentSelect from './NodeParentSelect';
-import { useGlossaryEntityData } from '../GlossaryEntityContext';
-import { getGlossaryRootToUpdate, getParentNodeToUpdate, updateGlossarySidebar } from '../../../glossary/utils';
-import { GenericEntityProperties } from '../../../entity/shared/types';
-import { EntityType } from '../../../../types.generated';
+
+import { useRefetch } from '@app/entity/shared/EntityContext';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import NodeParentSelect from '@app/entityV2/shared/EntityDropdown/NodeParentSelect';
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
+import { getGlossaryRootToUpdate, getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Button } from '@src/alchemy-components';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+
+import { useUpdateParentNodeMutation } from '@graphql/glossary.generated';
+import { EntityType } from '@types';
 
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;
@@ -72,14 +76,14 @@ function MoveGlossaryEntityModal({ onClose, urn, entityData, entityType }: Props
             visible
             onCancel={onClose}
             footer={
-                <>
-                    <Button onClick={onClose} type="text">
+                <ModalButtonContainer>
+                    <Button onClick={onClose} variant="outline">
                         Cancel
                     </Button>
-                    <Button type="primary" onClick={moveGlossaryEntity} data-testid="glossary-entity-modal-move-button">
+                    <Button onClick={moveGlossaryEntity} data-testid="glossary-entity-modal-move-button">
                         Move
                     </Button>
-                </>
+                </ModalButtonContainer>
             }
         >
             <Form form={form} initialValues={{}} layout="vertical">

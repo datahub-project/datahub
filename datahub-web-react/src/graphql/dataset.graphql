@@ -27,6 +27,14 @@ query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Lo
                 median
                 stdev
                 sampleValues
+                quantiles {
+                    quantile
+                    value
+                }
+                distinctValueFrequencies {
+                    value
+                    frequency
+                }
             }
         }
     }
@@ -119,14 +127,25 @@ fragment nonSiblingDatasetFields on Dataset {
     }
     latestFullTableProfile: datasetProfiles(
         limit: 1
-        filter: { and: [{ field: "partitionSpec.partition", values: ["FULL_TABLE_SNAPSHOT", "SAMPLE"] }] }
+        filter: {
+            and: [
+                { field: "partitionSpec.partition", values: ["FULL_TABLE_SNAPSHOT", "SAMPLE"], condition: START_WITH }
+            ]
+        }
     ) {
         ...datasetProfileFields
     }
     latestPartitionProfile: datasetProfiles(
         limit: 1
         filter: {
-            and: [{ field: "partitionSpec.partition", values: ["SAMPLE", "FULL_TABLE_SNAPSHOT"], negated: true }]
+            and: [
+                {
+                    field: "partitionSpec.partition"
+                    values: ["SAMPLE", "FULL_TABLE_SNAPSHOT"]
+                    negated: true
+                    condition: START_WITH
+                }
+            ]
         }
     ) {
         ...datasetProfileFields

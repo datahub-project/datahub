@@ -99,7 +99,6 @@ public class EntityVersioningServiceTest {
 
   @Test
   public void testLinkLatestVersionNewVersionSet() throws Exception {
-
     VersionPropertiesInput input =
         new VersionPropertiesInput("Test comment", "Test label", 123456789L, "testCreator");
     // Mock version set doesn't exist
@@ -134,21 +133,31 @@ public class EntityVersioningServiceTest {
     assertEquals(versionProps.getSortId(), INITIAL_VERSION_SORT_ID);
     assertEquals(versionProps.getComment(), "Test comment");
     assertEquals(versionProps.getVersionSet(), TEST_VERSION_SET_URN);
+  }
 
-    MetadataChangeProposal versionSetPropertiesProposal =
-        capturedAspects.stream()
-            .filter(mcpItem -> VERSION_SET_PROPERTIES_ASPECT_NAME.equals(mcpItem.getAspectName()))
-            .collect(Collectors.toList())
-            .get(0);
-    VersionSetProperties versionSetProperties =
-        GenericRecordUtils.deserializeAspect(
-            versionSetPropertiesProposal.getAspect().getValue(),
-            versionSetPropertiesProposal.getAspect().getContentType(),
-            VersionSetProperties.class);
-    assertEquals(versionSetProperties.getLatest(), TEST_DATASET_URN);
-    assertEquals(
-        versionSetProperties.getVersioningScheme(),
-        VersioningScheme.ALPHANUMERIC_GENERATED_BY_DATAHUB);
+  @Test
+  public void testLinkInvalidVersioningScheme() throws Exception {
+    VersionPropertiesInput input =
+        new VersionPropertiesInput("Test comment", "Test label", 123456789L, "testCreator");
+    // Mock version set exists with invalid versioning scheme
+    when(mockAspectRetriever.entityExists(anySet())).thenReturn(Map.of(TEST_VERSION_SET_URN, true));
+    VersionSetProperties existingVersionSetProps =
+        new VersionSetProperties()
+            .setVersioningScheme(VersioningScheme.LEXICOGRAPHIC_STRING)
+            .setLatest(TEST_DATASET_URN);
+    SystemAspect mockVersionSetPropertiesAspect = mock(SystemAspect.class);
+    when(mockVersionSetPropertiesAspect.getRecordTemplate()).thenReturn(existingVersionSetProps);
+    when(mockVersionSetPropertiesAspect.getSystemMetadataVersion()).thenReturn(Optional.of(1L));
+    when(mockAspectRetriever.getLatestSystemAspect(eq(TEST_VERSION_SET_URN), anyString()))
+        .thenReturn(mockVersionSetPropertiesAspect);
+
+    // Execute
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> {
+          versioningService.linkLatestVersion(
+              mockOpContext, TEST_VERSION_SET_URN, TEST_DATASET_URN, input);
+        });
   }
 
   @Test
@@ -174,6 +183,7 @@ public class EntityVersioningServiceTest {
     // Mock existing version properties with a sort ID
     VersionProperties existingVersionProps =
         new VersionProperties()
+            .setVersioningScheme(VersioningScheme.ALPHANUMERIC_GENERATED_BY_DATAHUB)
             .setSortId("AAAAAAAA")
             .setVersion(new VersionTag().setVersionTag("Label1"))
             .setVersionSet(TEST_VERSION_SET_URN);

@@ -1,4 +1,5 @@
 import { GenericEntityProperties } from '@app/entity/shared/types';
+
 import {
     DataPlatform,
     Deprecation,
@@ -11,6 +12,7 @@ import {
     SchemaMetadata,
     Status,
     StructuredProperties,
+    VersionProperties,
 } from '@types';
 
 export enum LineageAssetType {
@@ -67,6 +69,7 @@ export interface FetchedEntityV2 {
     inputFields?: InputFields;
     canEditLineage?: boolean;
     health?: Health[];
+    versionProperties?: VersionProperties;
     lineageAssets?: Map<string, LineageAsset>;
     lineageSiblingIcon?: string;
     containers?: GenericEntityProperties[];

@@ -1,12 +1,12 @@
 /*
  * Button Style Utilities
  */
+import { CSSObject } from 'styled-components';
 
-import { typography, colors, shadows, radius, spacing } from '@components/theme';
+import { ButtonStyleProps, ButtonVariant } from '@components/components/Button/types';
+import { colors, radius, shadows, spacing, typography } from '@components/theme';
 import { ColorOptions, SizeOptions } from '@components/theme/config';
 import { getColor, getFontSize } from '@components/theme/utils';
-import { CSSObject } from 'styled-components';
-import { ButtonStyleProps, ButtonVariant } from './types';
 
 interface ColorStyles {
     bgColor: string;
@@ -81,10 +81,24 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions): Colo
 
             bgColor: colors.transparent,
             borderColor: colors.transparent,
-            hoverBgColor: colors.transparent,
+            hoverBgColor: colors.gray[1500],
             activeBgColor: colors.transparent,
             disabledBgColor: colors.transparent,
             disabledBorderColor: colors.transparent,
+        };
+    }
+
+    // Override styles for secondary variant
+    if (variant === 'secondary') {
+        return {
+            ...base,
+            bgColor: getColor('violet', 0),
+            hoverBgColor: getColor('violet', 100),
+            activeBgColor: getColor('violet', 200),
+            textColor: color500,
+            borderColor: 'transparent',
+            disabledBgColor: 'transparent',
+            disabledBorderColor: 'transparent',
         };
     }
 
@@ -93,19 +107,23 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions): Colo
 };
 
 // Generate color styles for button
-const getButtonVariantStyles = (variant: ButtonVariant, colorStyles: ColorStyles): CSSObject => {
+const getButtonVariantStyles = (variant: ButtonVariant, colorStyles: ColorStyles, color: ColorOptions): CSSObject => {
+    const isViolet = color === 'violet';
+    const violetGradient = `radial-gradient(115.48% 144.44% at 50% -44.44%, var(--buttons-bg-2-for-gradient, #705EE4) 38.97%, var(--buttons-bg, #533FD1) 100%)`;
+
     const variantStyles = {
         filled: {
-            backgroundColor: colorStyles.bgColor,
+            background: isViolet ? violetGradient : colorStyles.bgColor,
             border: `1px solid ${colorStyles.borderColor}`,
             color: colorStyles.textColor,
             '&:hover': {
-                backgroundColor: colorStyles.hoverBgColor,
+                background: isViolet ? violetGradient : colorStyles.hoverBgColor,
                 border: `1px solid ${colorStyles.hoverBgColor}`,
                 boxShadow: shadows.sm,
             },
             '&:disabled': {
                 backgroundColor: colorStyles.disabledBgColor,
+                background: 'none',
                 border: `1px solid ${colorStyles.disabledBorderColor}`,
                 color: colorStyles.disabledTextColor,
                 boxShadow: shadows.xs,
@@ -138,6 +156,19 @@ const getButtonVariantStyles = (variant: ButtonVariant, colorStyles: ColorStyles
                 color: colorStyles.disabledTextColor,
             },
         },
+        secondary: {
+            backgroundColor: colorStyles.bgColor,
+            border: 'none',
+            color: colorStyles.textColor,
+            '&:hover': {
+                backgroundColor: colorStyles.hoverBgColor,
+                boxShadow: 'none',
+            },
+            '&:disabled': {
+                backgroundColor: colorStyles.disabledBgColor,
+                color: colorStyles.disabledTextColor,
+            },
+        },
     };
 
     return variantStyles[variant];
@@ -147,30 +178,11 @@ const getButtonVariantStyles = (variant: ButtonVariant, colorStyles: ColorStyles
 const getButtonFontStyles = (size: SizeOptions) => {
     const baseFontStyles = {
         fontFamily: typography.fonts.body,
-        fontWeight: typography.fontWeights.normal,
+        fontWeight: typography.fontWeights.semiBold,
         lineHeight: typography.lineHeights.none,
     };
 
-    const sizeStyles = {
-        sm: {
-            ...baseFontStyles,
-            fontSize: getFontSize(size), // 12px
-        },
-        md: {
-            ...baseFontStyles,
-            fontSize: getFontSize(size), // 14px
-        },
-        lg: {
-            ...baseFontStyles,
-            fontSize: getFontSize(size), // 16px
-        },
-        xl: {
-            ...baseFontStyles,
-            fontSize: getFontSize(size), // 18px
-        },
-    };
-
-    return sizeStyles[size];
+    return { ...baseFontStyles, fontSize: getFontSize(size) };
 };
 
 // Generate radii styles for button
@@ -180,10 +192,15 @@ const getButtonRadiiStyles = (isCircle: boolean) => {
 };
 
 // Generate padding styles for button
-const getButtonPadding = (size: SizeOptions, variant: ButtonVariant, isCircle: boolean) => {
+const getButtonPadding = (size: SizeOptions, hasChildren: boolean, isCircle: boolean) => {
     if (isCircle) return { padding: spacing.xsm };
+    if (!hasChildren) return { padding: spacing.xsm };
 
     const paddingStyles = {
+        xs: {
+            vertical: 6,
+            horizontal: 6,
+        },
         sm: {
             vertical: 8,
             horizontal: 12,
@@ -204,7 +221,7 @@ const getButtonPadding = (size: SizeOptions, variant: ButtonVariant, isCircle: b
 
     const selectedStyle = paddingStyles[size];
     const verticalPadding = selectedStyle.vertical;
-    const horizontalPadding = variant === 'text' ? 0 : selectedStyle.horizontal;
+    const horizontalPadding = selectedStyle.horizontal;
     return { padding: `${verticalPadding}px ${horizontalPadding}px` };
 };
 
@@ -217,7 +234,7 @@ const getButtonActiveStyles = (colorStyles: ColorStyles) => ({
 });
 
 // Generate loading styles for button
-const getButtonLoadingStyles = () => ({
+const getButtonLoadingStyles = (): CSSObject => ({
     pointerEvents: 'none',
     opacity: 0.75,
 });
@@ -225,20 +242,20 @@ const getButtonLoadingStyles = () => ({
 /*
  * Main function to generate styles for button
  */
-export const getButtonStyle = (props: ButtonStyleProps) => {
-    const { variant, color, size, isCircle, isActive, isLoading, isDisabled } = props;
+export const getButtonStyle = (props: ButtonStyleProps): CSSObject => {
+    const { variant, color, size, isCircle, isActive, isLoading, isDisabled, hasChildren } = props;
 
     // Get map of colors
     const colorStyles = getButtonColorStyles(variant, color);
 
     // Define styles for button
-    const variantStyles = getButtonVariantStyles(variant, colorStyles);
+    const variantStyles = getButtonVariantStyles(variant, colorStyles, color);
     const fontStyles = getButtonFontStyles(size);
     const radiiStyles = getButtonRadiiStyles(isCircle);
-    const paddingStyles = getButtonPadding(size, variant, isCircle);
+    const paddingStyles = getButtonPadding(size, hasChildren, isCircle);
 
     // Base of all generated styles
-    let styles = {
+    let styles: CSSObject = {
         ...variantStyles,
         ...fontStyles,
         ...radiiStyles,

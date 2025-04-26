@@ -1,32 +1,33 @@
-import CopyQuery from '@src/app/entity/shared/tabs/Dataset/Queries/CopyQuery';
-import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { Button, Modal } from 'antd';
+import { Modal } from 'antd';
 import React, { useContext, useMemo, useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import styled from 'styled-components/macro';
-import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
-import { EntityType, QueryEntity } from '../../../../../../types.generated';
-import { useBaseEntity } from '../../../../../entity/shared/EntityContext';
-import { DBT_URN } from '../../../../../ingest/source/builder/constants';
-import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
-import { ViewTab } from '../../../tabs/Dataset/View/ViewDefinitionTab';
-import { SidebarSection } from './SidebarSection';
+
+import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { ViewTab } from '@app/entityV2/shared/tabs/Dataset/View/ViewDefinitionTab';
+import { DBT_URN } from '@app/ingest/source/builder/constants';
+import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import { Button } from '@src/alchemy-components';
+import CopyQuery from '@src/app/entity/shared/tabs/Dataset/Queries/CopyQuery';
+import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { GetDataJobQuery } from '@src/graphql/dataJob.generated';
+
+import { GetDatasetQuery } from '@graphql/dataset.generated';
+import { EntityType, QueryEntity } from '@types';
 
 const PreviewSyntax = styled(SyntaxHighlighter)`
     max-width: 100%;
-    max-height: 150px;
+    max-height: 600px;
     overflow: hidden;
-    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) 80%, rgba(255, 0, 0, 0.5) 85%, rgba(255, 0, 0, 0) 90%);
-
+    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) 85%, rgba(0, 0, 0, 0) 100%);
     span {
         font-family: 'Roboto Mono', monospace;
     }
 `;
 
-const ModalSyntaxContainer = styled.div`
-    margin: 20px;
-`;
+const ModalSyntaxContainer = styled.div``;
 
 export const ViewHeader = styled.div`
     display: flex;
@@ -43,6 +44,16 @@ export function SidebarDatasetViewDefinitionSection() {
     if (!statement) return null;
 
     return <SidebarLogicSection title="View Definition" statement={statement} externalUrl={externalUrl} />;
+}
+
+export function SidebarDataJobTransformationLogicSection() {
+    const baseEntity = useBaseEntity<GetDataJobQuery>();
+    const statement = baseEntity?.dataJob?.dataTransformLogic?.transforms?.[0]?.queryStatement?.value;
+    const entityRegistry = useEntityRegistry();
+    const externalUrl = entityRegistry.getEntityUrl(EntityType.DataJob, baseEntity?.dataJob?.urn || '');
+    if (!statement) return null;
+
+    return <SidebarLogicSection title="Logic" statement={statement} externalUrl={externalUrl} />;
 }
 
 export function SidebarQueryLogicSection() {
@@ -107,8 +118,8 @@ export function SidebarLogicSection({ title, statement, highlightedStrings, exte
                         closeIcon={null}
                         width="1000px"
                         footer={
-                            <Button key="back" onClick={() => setShowFullContentModal(false)}>
-                                Dismiss
+                            <Button variant="text" key="back" onClick={() => setShowFullContentModal(false)}>
+                                Close
                             </Button>
                         }
                         open={showFullContentModal}
@@ -147,7 +158,8 @@ export function SidebarLogicSection({ title, statement, highlightedStrings, exte
                         {showFormatted ? formattedLogic : statement}
                     </PreviewSyntax>
                     <Button
-                        type="text"
+                        style={{ paddingTop: 0 }}
+                        variant="text"
                         onClick={() => {
                             if (isEmbeddedProfile) {
                                 window.open(`${externalUrl}/View Definition`, '_blank');

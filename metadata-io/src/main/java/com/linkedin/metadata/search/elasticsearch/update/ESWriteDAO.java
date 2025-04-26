@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.elasticsearch.update;
 
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
+import java.util.Map;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -61,13 +62,15 @@ public class ESWriteDAO {
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull String docId,
-      @Nonnull String script) {
+      @Nonnull String script,
+      Map<String, Object> upsert) {
     UpdateRequest updateRequest =
         new UpdateRequest(toIndexName(opContext, entityName), docId)
             .detectNoop(false)
             .scriptedUpsert(true)
             .retryOnConflict(numRetries)
-            .script(new Script(script));
+            .script(new Script(script))
+            .upsert(upsert);
     bulkProcessor.add(updateRequest);
   }
 

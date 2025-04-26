@@ -1,12 +1,13 @@
 import React from 'react';
-import { DAYS_IN_WEEK } from '../constants';
-import { AxisLeftWeekdaysProps } from '../../types';
-import { useCalendarState } from '../context';
-import { TickLabel } from './TickLabel';
+
+import { TickLabel } from '@components/components/CalendarChart/private/components/TickLabel';
+import { DAYS_IN_WEEK } from '@components/components/CalendarChart/private/constants';
+import { useCalendarState } from '@components/components/CalendarChart/private/context';
+import { AxisLeftWeekdaysProps } from '@components/components/CalendarChart/types';
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thur', 'Fri', 'Sat', 'Sun'];
 
-export function AxisLeftWeekdays<ValueType>({ labelProps }: AxisLeftWeekdaysProps) {
+export function AxisLeftWeekdays<ValueType>({ labelProps, showLeftAxisLine }: AxisLeftWeekdaysProps) {
     const { margin, squareSize, squareGap } = useCalendarState<ValueType>();
 
     const yLineOffset = 5;
@@ -29,7 +30,7 @@ export function AxisLeftWeekdays<ValueType>({ labelProps }: AxisLeftWeekdaysProp
     return (
         <>
             {WEEKDAYS.map((weekday, index) => renderTickLabel(index, weekday))}
-            <line x1={x} x2={x} y1={0} y2={y} stroke="#EBECF0" width={1} />
+            {showLeftAxisLine && <line x1={x} x2={x} y1={0} y2={y} stroke="#EBECF0" width={1} />}
         </>
     );
 }

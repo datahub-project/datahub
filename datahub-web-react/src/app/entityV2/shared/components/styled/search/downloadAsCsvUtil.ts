@@ -1,8 +1,9 @@
-import { CorpGroup, CorpUser, EntityType } from '../../../../../../types.generated';
-import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
-import { EntityRegistry } from '../../../../../../entityRegistryContext';
-import { GenericEntityProperties } from '../../../../../entity/shared/types';
-import { SearchResultInterface } from './types';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { SearchResultInterface } from '@app/entityV2/shared/components/styled/search/types';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { EntityRegistry } from '@src/entityRegistryContext';
+
+import { CorpGroup, CorpUser, EntityType } from '@types';
 
 const searchCsvDownloadHeader = [
     'urn',
@@ -33,6 +34,7 @@ export const getSearchCsvDownloadHeader = (sampleResult?: SearchResultInterface)
 };
 
 export const transformGenericEntityPropertiesToCsvRow = (
+    entityRegistry: EntityRegistry,
     properties: GenericEntityProperties | null,
     entityUrl: string,
     result: SearchResultInterface,
@@ -41,7 +43,7 @@ export const transformGenericEntityPropertiesToCsvRow = (
         // urn
         properties?.urn || '',
         // name
-        properties?.name || '',
+        entityRegistry.getDisplayName(result.entity.type, result.entity) || properties?.name || '',
         // type
         result.entity.type || '',
         // description
@@ -98,6 +100,6 @@ export const transformResultsToCsvRow = (results: SearchResultInterface[], entit
     return results.map((result) => {
         const genericEntityProperties = entityRegistry.getGenericEntityProperties(result.entity.type, result.entity);
         const entityUrl = entityRegistry.getEntityUrl(result.entity.type, result.entity.urn);
-        return transformGenericEntityPropertiesToCsvRow(genericEntityProperties, entityUrl, result);
+        return transformGenericEntityPropertiesToCsvRow(entityRegistry, genericEntityProperties, entityUrl, result);
     });
 };

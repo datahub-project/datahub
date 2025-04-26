@@ -1,8 +1,7 @@
 /*
 	Theme Utils that can be used anywhere in the app
 */
-
-import { FontSizeOptions, ColorOptions, MiscColorOptions, RotationOptions, DEFAULT_VALUE } from './config';
+import { ColorOptions, DEFAULT_VALUE, FontSizeOptions, MiscColorOptions, RotationOptions } from './config';
 import { foundations } from './foundations';
 import { semanticTokens } from './semantic-tokens';
 
@@ -27,9 +26,8 @@ export const getColor = (color?: MiscColorOptions | ColorOptions, value: number 
 	@param size - the size of the font
 */
 export const getFontSize = (size?: FontSizeOptions) => {
-    let sizeValue = size || '';
-    if (!size) sizeValue = 'md';
-    return typography.fontSizes[sizeValue];
+    if (size === 'inherit') return 'inherit';
+    return typography.fontSizes[size || 'md'];
 };
 
 /*

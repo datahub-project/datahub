@@ -1,10 +1,12 @@
 import React, { useContext } from 'react';
 import styled from 'styled-components';
-import { Message } from '../../shared/Message';
-import TagStyleEntity from '../../shared/TagStyleEntity';
-import { useGetTagQuery } from '../../../graphql/tag.generated';
-import CompactContext from '../../shared/CompactContext';
-import CompactTagProfile from './CompactTagProfile';
+
+import CompactTagProfile from '@app/entityV2/tag/CompactTagProfile';
+import CompactContext from '@app/shared/CompactContext';
+import { Message } from '@app/shared/Message';
+import TagStyleEntity from '@app/shared/TagStyleEntity';
+
+import { useGetTagQuery } from '@graphql/tag.generated';
 
 const PageContainer = styled.div`
     padding: 32px 100px;

@@ -1,9 +1,10 @@
-import React from 'react';
+import { CopyOutlined, DeleteOutlined, EditOutlined, MoreOutlined } from '@ant-design/icons';
 import { Dropdown, MenuProps, Popconfirm, Typography, message, notification } from 'antd';
-import { DeleteOutlined, EditOutlined, MoreOutlined } from '@ant-design/icons';
+import React from 'react';
 import styled from 'styled-components/macro';
-import { OwnershipTypeEntity } from '../../../../types.generated';
-import { useDeleteOwnershipTypeMutation } from '../../../../graphql/ownership.generated';
+
+import { useDeleteOwnershipTypeMutation } from '@graphql/ownership.generated';
+import { OwnershipTypeEntity } from '@types';
 
 const DROPDOWN_TEST_ID = 'ownership-table-dropdown';
 const EDIT_OWNERSHIP_TYPE_TEST_ID = 'edit-ownership-type';
@@ -46,6 +47,10 @@ export const ActionsColumn = ({ ownershipType, setIsOpen, setOwnershipType, refe
     const editOnClick = () => {
         setIsOpen(true);
         setOwnershipType(ownershipType);
+    };
+
+    const onCopy = () => {
+        navigator.clipboard.writeText(ownershipType.urn);
     };
 
     const [deleteOwnershipTypeMutation] = useDeleteOwnershipTypeMutation();
@@ -106,12 +111,23 @@ export const ActionsColumn = ({ ownershipType, setIsOpen, setOwnershipType, refe
                 </Popconfirm>
             ),
         },
+        {
+            key: 'copy',
+            icon: (
+                <MenuButtonContainer>
+                    <CopyOutlined />
+                    <MenuButtonText>Copy Urn</MenuButtonText>
+                </MenuButtonContainer>
+            ),
+        },
     ];
 
     const onClick: MenuProps['onClick'] = (e) => {
         const key = e.key as string;
         if (key === 'edit') {
             editOnClick();
+        } else if (key === 'copy') {
+            onCopy();
         }
     };
 
@@ -122,7 +138,7 @@ export const ActionsColumn = ({ ownershipType, setIsOpen, setOwnershipType, refe
 
     return (
         <StyledDropdown menu={menuProps}>
-            <StyledMoreOutlined date-testid={DROPDOWN_TEST_ID} style={{ display: undefined }} />
+            <StyledMoreOutlined data-testid={DROPDOWN_TEST_ID} style={{ display: undefined }} />
         </StyledDropdown>
     );
 };
