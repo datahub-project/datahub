@@ -41,10 +41,9 @@ from datahub.configuration.common import (
     TraceTimeoutError,
     TraceValidationError,
 )
-from datahub.emitter.aspect import JSON_CONTENT_TYPE, JSON_PATCH_CONTENT_TYPE
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.request_helper import make_curl_command
+from datahub.emitter.request_helper import OpenApiRequest, make_curl_command
 from datahub.emitter.response_helper import (
     TraceData,
     extract_trace_data,
@@ -348,43 +347,24 @@ class DataHubRestEmitter(Closeable, Emitter):
         mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
         async_flag: Optional[bool] = None,
         async_default: bool = False,
-    ) -> Optional[Tuple[str, List[Dict[str, Any]]]]:
-        if mcp.aspect and mcp.aspectName:
-            resolved_async_flag = (
-                async_flag if async_flag is not None else async_default
-            )
-            url = f"{self._gms_server}/openapi/v3/entity/{mcp.entityType}?async={'true' if resolved_async_flag else 'false'}"
+    ) -> Optional[OpenApiRequest]:
+        """
+        Convert a MetadataChangeProposal to an OpenAPI request format.
 
-            if isinstance(mcp, MetadataChangeProposalWrapper):
-                aspect_value = pre_json_transform(
-                    mcp.to_obj(simplified_structure=True)
-                )["aspect"]["json"]
-            else:
-                obj = mcp.aspect.to_obj()
-                content_type = obj.get("contentType")
-                if obj.get("value") and content_type == JSON_CONTENT_TYPE:
-                    # Undo double serialization.
-                    obj = json.loads(obj["value"])
-                elif content_type == JSON_PATCH_CONTENT_TYPE:
-                    raise NotImplementedError(
-                        "Patches are not supported for OpenAPI ingestion. Set the endpoint to RESTLI."
-                    )
-                aspect_value = pre_json_transform(obj)
-            return (
-                url,
-                [
-                    {
-                        "urn": mcp.entityUrn,
-                        mcp.aspectName: {
-                            "value": aspect_value,
-                            "systemMetadata": mcp.systemMetadata.to_obj()
-                            if mcp.systemMetadata
-                            else None,
-                        },
-                    }
-                ],
-            )
-        return None
+        Args:
+            mcp: The metadata change proposal
+            async_flag: Optional flag to override async behavior
+            async_default: Default async behavior if not specified
+
+        Returns:
+            An OpenApiRequest object or None if the MCP doesn't have required fields
+        """
+        return OpenApiRequest.from_mcp(
+            mcp=mcp,
+            gms_server=self._gms_server,
+            async_flag=async_flag,
+            async_default=async_default,
+        )
 
     def emit(
         self,
@@ -448,7 +428,9 @@ class DataHubRestEmitter(Closeable, Emitter):
         if self._openapi_ingestion:
             request = self._to_openapi_request(mcp, async_flag, async_default=False)
             if request:
-                response = self._emit_generic(request[0], payload=request[1])
+                response = self._emit_generic(
+                    request.url, payload=request.payload, method=request.method
+                )
 
                 if self._should_trace(async_flag, trace_flag):
                     trace_data = extract_trace_data(response) if response else None
@@ -503,31 +485,36 @@ class DataHubRestEmitter(Closeable, Emitter):
         trace_timeout: Optional[timedelta] = timedelta(seconds=3600),
     ) -> int:
         """
-        1. Grouping MCPs by their entity URL
+        1. Grouping MCPs by their HTTP method and entity URL
         2. Breaking down large batches into smaller chunks based on both:
          * Total byte size (INGEST_MAX_PAYLOAD_BYTES)
          * Maximum number of items (BATCH_INGEST_MAX_PAYLOAD_LENGTH)
 
         The Chunk class encapsulates both the items and their byte size tracking
-        Serializing the items only once with json.dumps(request[1]) and reusing that
+        Serializing the items only once with json.dumps(request.payload) and reusing that
         The chunking logic handles edge cases (always accepting at least one item per chunk)
         The joining logic is efficient with a simple string concatenation
 
         :param mcps: metadata change proposals to transmit
         :param async_flag: the mode
+        :param trace_flag: whether to trace the requests
+        :param trace_timeout: timeout for tracing
         :return: number of requests
         """
-        # group by entity url
-        batches: Dict[str, List[_Chunk]] = defaultdict(
+        # Group by entity URL and HTTP method
+        batches: Dict[Tuple[str, str], List[_Chunk]] = defaultdict(
             lambda: [_Chunk(items=[])]
         )  # Initialize with one empty Chunk
 
         for mcp in mcps:
             request = self._to_openapi_request(mcp, async_flag, async_default=True)
             if request:
-                current_chunk = batches[request[0]][-1]  # Get the last chunk
-                # Only serialize once
-                serialized_item = json.dumps(request[1][0])
+                # Create a composite key with both method and URL
+                key = (request.method, request.url)
+                current_chunk = batches[key][-1]  # Get the last chunk
+
+                # Only serialize once - we're serializing a single payload item
+                serialized_item = json.dumps(request.payload[0])
                 item_bytes = len(serialized_item.encode())
 
                 # If adding this item would exceed max_bytes, create a new chunk
@@ -537,15 +524,17 @@ class DataHubRestEmitter(Closeable, Emitter):
                     or len(current_chunk.items) >= BATCH_INGEST_MAX_PAYLOAD_LENGTH
                 ):
                     new_chunk = _Chunk(items=[])
-                    batches[request[0]].append(new_chunk)
+                    batches[key].append(new_chunk)
                     current_chunk = new_chunk
 
                 current_chunk.add_item(serialized_item)
 
         responses = []
-        for url, chunks in batches.items():
+        for (method, url), chunks in batches.items():
             for chunk in chunks:
-                response = self._emit_generic(url, payload=_Chunk.join(chunk))
+                response = self._emit_generic(
+                    url, payload=_Chunk.join(chunk), method=method
+                )
                 responses.append(response)
 
         if self._should_trace(async_flag, trace_flag, async_default=True):
@@ -618,11 +607,13 @@ class DataHubRestEmitter(Closeable, Emitter):
         payload = json.dumps(snapshot)
         self._emit_generic(url, payload)
 
-    def _emit_generic(self, url: str, payload: Union[str, Any]) -> requests.Response:
+    def _emit_generic(
+        self, url: str, payload: Union[str, Any], method: str = "POST"
+    ) -> requests.Response:
         if not isinstance(payload, str):
             payload = json.dumps(payload)
 
-        curl_command = make_curl_command(self._session, "POST", url, payload)
+        curl_command = make_curl_command(self._session, method, url, payload)
         payload_size = len(payload)
         if payload_size > INGEST_MAX_PAYLOAD_BYTES:
             # since we know total payload size here, we could simply avoid sending such payload at all and report a warning, with current approach we are going to cause whole ingestion to fail
@@ -635,7 +626,8 @@ class DataHubRestEmitter(Closeable, Emitter):
             curl_command,
         )
         try:
-            response = self._session.post(url, data=payload)
+            method_func = getattr(self._session, method.lower())
+            response = method_func(url, data=payload) if payload else method_func(url)
             response.raise_for_status()
             return response
         except HTTPError as e:
