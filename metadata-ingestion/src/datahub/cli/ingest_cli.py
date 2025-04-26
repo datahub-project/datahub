@@ -216,9 +216,9 @@ def run(
 @click.option(
     "--executor-id",
     type=str,
-    default="default",
     help="Executor id to route execution requests to. Do not use this unless you have configured a custom executor.",
     required=False,
+    default=None,
 )
 @click.option(
     "--cli-version",
@@ -239,7 +239,7 @@ def run(
     type=str,
     help="Timezone for the schedule in 'America/New_York' format. Uses UTC by default.",
     required=False,
-    default="UTC",
+    default=None,
 )
 @click.option(
     "--debug", type=bool, help="Should we debug.", required=False, default=False
@@ -255,10 +255,10 @@ def deploy(
     name: Optional[str],
     config: str,
     urn: Optional[str],
-    executor_id: str,
+    executor_id: Optional[str],
     cli_version: Optional[str],
     schedule: Optional[str],
-    time_zone: str,
+    time_zone: Optional[str],
     extra_pip: Optional[str],
     debug: bool = False,
 ) -> None:

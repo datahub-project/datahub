@@ -23,6 +23,7 @@ class EnsureAspectSizeProcessor:
     ):
         self.report = report
         self.payload_constraint = payload_constraint
+        self.schema_size_constraint = int(self.payload_constraint * 0.985)
 
     def ensure_dataset_profile_size(
         self, dataset_urn: str, profile: DatasetProfileClass
@@ -68,7 +69,7 @@ class EnsureAspectSizeProcessor:
         for field in schema.fields:
             field_size = len(json.dumps(pre_json_transform(field.to_obj())))
             logger.debug(f"Field {field.fieldPath} takes total {field_size}")
-            if total_fields_size + field_size < self.payload_constraint:
+            if total_fields_size + field_size < self.schema_size_constraint:
                 accepted_fields.append(field)
                 total_fields_size += field_size
             else:

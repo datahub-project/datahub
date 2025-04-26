@@ -1,4 +1,5 @@
 import { GenericEntityProperties } from '@app/entity/shared/types';
+
 import {
     DataPlatform,
     Deprecation,

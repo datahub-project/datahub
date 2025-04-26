@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from 'react';
 import { Form, Input, Modal, Typography, message, notification } from 'antd';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
+
+import { OwnershipTypeBuilderState } from '@app/entityV2/ownership/table/types';
 import { Button } from '@src/alchemy-components';
-import { useCreateOwnershipTypeMutation, useUpdateOwnershipTypeMutation } from '../../../graphql/ownership.generated';
-import { OwnershipTypeEntity } from '../../../types.generated';
-import { OwnershipTypeBuilderState } from './table/types';
+
+import { useCreateOwnershipTypeMutation, useUpdateOwnershipTypeMutation } from '@graphql/ownership.generated';
+import { OwnershipTypeEntity } from '@types';
 
 const NAME_INPUT_TEST_ID = 'ownership-type-name-input';
 const DESCRIPTION_INPUT_TEST_ID = 'ownership-type-description-input';

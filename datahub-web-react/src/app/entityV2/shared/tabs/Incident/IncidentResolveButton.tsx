@@ -1,17 +1,19 @@
-import React, { useEffect, useState } from 'react';
-import { CorpUser, IncidentState } from '@src/types.generated';
-import { Button, colors, Pill, Popover } from '@src/alchemy-components';
-import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
-import { Check } from '@phosphor-icons/react';
 import { LoadingOutlined } from '@ant-design/icons';
-import { useUserContext } from '@src/app/context/useUserContext';
+import { Check } from '@phosphor-icons/react';
+import { Tooltip } from 'antd';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
-import { ResolverNameContainer } from './styledComponents';
-import { IncidentTableRow } from './types';
-import { IncidentResolutionPopup } from './IncidentResolutionPopup';
-import { LoadingWrapper } from './AcrylComponents/styledComponents';
-import { ResolvedSection } from './ResolvedSection';
+import { LoadingWrapper } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
+import { IncidentResolutionPopup } from '@app/entityV2/shared/tabs/Incident/IncidentResolutionPopup';
+import { ResolvedSection } from '@app/entityV2/shared/tabs/Incident/ResolvedSection';
+import { noPermissionsMessage } from '@app/entityV2/shared/tabs/Incident/constant';
+import { ResolverNameContainer } from '@app/entityV2/shared/tabs/Incident/styledComponents';
+import { IncidentTableRow } from '@app/entityV2/shared/tabs/Incident/types';
+import { Button, Pill, Popover, colors } from '@src/alchemy-components';
+import { useUserContext } from '@src/app/context/useUserContext';
+import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
+import { CorpUser, EntityPrivileges, IncidentState } from '@src/types.generated';
 
 const ME = 'Me';
 
@@ -26,7 +28,16 @@ const ResolveButton = styled(Button)`
     padding: 0px;
 `;
 
-export const IncidentResolveButton = ({ incident }: { incident: IncidentTableRow }) => {
+export const IncidentResolveButton = ({
+    incident,
+    refetch,
+    privileges,
+}: {
+    incident: IncidentTableRow;
+    refetch: () => void;
+    privileges?: EntityPrivileges;
+}) => {
+    const canEditIncidents = privileges?.canEditIncidents || false;
     const me = useUserContext();
     const [showResolvePopup, setShowResolvePopup] = useState(false);
     const [incidentResolver, setIncidentResolver] = useState<CorpUser | any>(null);
@@ -35,6 +46,7 @@ export const IncidentResolveButton = ({ incident }: { incident: IncidentTableRow
         me?.urn === incidentResolver?.urn
             ? ME
             : incidentResolver?.properties?.displayName || incidentResolver?.username;
+
     useEffect(() => {
         if (incident?.lastUpdated?.actor) {
             getAssigneeEntities({
@@ -113,14 +125,18 @@ export const IncidentResolveButton = ({ incident }: { incident: IncidentTableRow
             data-testid="incident-resolve-button-container"
         >
             {incident?.state === IncidentState.Active ? (
-                <ResolveButton variant="text" onClick={handleShowPopup}>
-                    Resolve
-                </ResolveButton>
+                <Tooltip showArrow={false} title={!canEditIncidents ? noPermissionsMessage : null}>
+                    <ResolveButton disabled={!canEditIncidents} variant="text" onClick={handleShowPopup}>
+                        Resolve
+                    </ResolveButton>
+                </Tooltip>
             ) : (
                 showPopoverWithResolver
             )}
 
-            {showResolvePopup && <IncidentResolutionPopup incident={incident} handleClose={handleShowPopup} />}
+            {showResolvePopup && (
+                <IncidentResolutionPopup incident={incident} refetch={refetch} handleClose={handleShowPopup} />
+            )}
         </Container>
     );
 };

@@ -1,20 +1,26 @@
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Typography } from 'antd';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { IconStyleType } from '../../entity/Entity';
-import { formatNumber } from '../../shared/formatNumber';
-import ExpandableNode from './ExpandableNode';
-import EnvironmentNode from './EnvironmentNode';
-import useAggregationsQuery from './useAggregationsQuery';
-import { MAX_COUNT_VAL, ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
-import PlatformNode from './PlatformNode';
-import SidebarLoadingError from './SidebarLoadingError';
-import useToggle from '../../shared/useToggle';
-import { BrowseProvider, useEntityAggregation, useEntityType, useIsEntitySelected } from './BrowseContext';
-import useSidebarAnalytics from './useSidebarAnalytics';
-import { useHasFilterField } from './SidebarContext';
+
+import { IconStyleType } from '@app/entity/Entity';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import {
+    BrowseProvider,
+    useEntityAggregation,
+    useEntityType,
+    useIsEntitySelected,
+} from '@app/searchV2/sidebar/BrowseContext';
+import EnvironmentNode from '@app/searchV2/sidebar/EnvironmentNode';
+import ExpandableNode from '@app/searchV2/sidebar/ExpandableNode';
+import PlatformNode from '@app/searchV2/sidebar/PlatformNode';
+import { useHasFilterField } from '@app/searchV2/sidebar/SidebarContext';
+import SidebarLoadingError from '@app/searchV2/sidebar/SidebarLoadingError';
+import useAggregationsQuery from '@app/searchV2/sidebar/useAggregationsQuery';
+import useSidebarAnalytics from '@app/searchV2/sidebar/useSidebarAnalytics';
+import { MAX_COUNT_VAL, ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
+import { formatNumber } from '@app/shared/formatNumber';
+import useToggle from '@app/shared/useToggle';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const Count = styled(Typography.Text)`
     font-size: 12px;

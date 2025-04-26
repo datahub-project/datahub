@@ -1,11 +1,15 @@
 import React from 'react';
-import { Timeline } from '@src/alchemy-components';
 
-import IncidentActivityContent from './IncidentActivityContent';
-import { ActivityLabelSection, ActivitySection, TimelineWrapper } from './styledComponents';
-import { TimelineContentDetails } from '../types';
-import IncidentActivityAvatar from './IncidentActivityAvatar';
-import TimelineSkeleton from '../../../TimelineSkeleton';
+import TimelineSkeleton from '@app/entityV2/shared/TimelineSkeleton';
+import IncidentActivityAvatar from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentActivityAvatar';
+import IncidentActivityContent from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentActivityContent';
+import {
+    ActivityLabelSection,
+    ActivitySection,
+    TimelineWrapper,
+} from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
+import { TimelineContentDetails } from '@app/entityV2/shared/tabs/Incident/types';
+import { Timeline } from '@src/alchemy-components';
 
 type IncidentActivitySectionProps = {
     loading: boolean;

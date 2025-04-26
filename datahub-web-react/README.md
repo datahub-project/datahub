@@ -14,9 +14,9 @@ Feel free to take a look around, deploy, and contribute.
 
 The initial milestone for the app was to achieve functional parity with the previous Ember app. This meant supporting
 
--   Dataset Profiles, Search, Browse Experience
--   User Profiles, Search
--   LDAP Authentication Flow
+- Dataset Profiles, Search, Browse Experience
+- User Profiles, Search
+- LDAP Authentication Flow
 
 This has since been achieved. The new set of functional goals are reflected in the latest version of the [DataHub Roadmap](../docs/roadmap.md).
 
@@ -58,8 +58,8 @@ Optionally you could also start the app with the mock server without running the
 
 There is two options to test your customizations:
 
--   **Option 1**: Initialize the docker containers with the `quickstart.sh` script (or if any custom docker-compose file) and then run `yarn start` in this directory. This will start a forwarding server at `localhost:3000` that will use the `datahub-frontend` server at `http://localhost:9002` to fetch real data.
--   **Option 2**: Change the environment variable `REACT_APP_PROXY_TARGET` in the `.env` file to point to your `datahub-frontend` server (ex: https://my_datahub_host.com) and then run `yarn start` in this directory. This will start a forwarding server at `localhost:3000` that will use the `datahub-frontend` server at some domain to fetch real data.
+- **Option 1**: Initialize the docker containers with the `quickstart.sh` script (or if any custom docker-compose file) and then run `yarn start` in this directory. This will start a forwarding server at `localhost:3000` that will use the `datahub-frontend` server at `http://localhost:9002` to fetch real data.
+- **Option 2**: Change the environment variable `REACT_APP_PROXY_TARGET` in the `.env` file to point to your `datahub-frontend` server (ex: https://my_datahub_host.com) and then run `yarn start` in this directory. This will start a forwarding server at `localhost:3000` that will use the `datahub-frontend` server at some domain to fetch real data.
 
 The option 2 is useful if you want to test your React customizations without having to run the hole DataHub stack locally. However, if you changed other components of the DataHub stack, you will need to run the hole stack locally (building the docker images) and use the option 1.
 
@@ -118,25 +118,25 @@ for functional configurability should reside.
 
 **app** - Contains all important components of the app. It has a few sub-modules:
 
--   `auth`: Components used to render the user authentication experience.
--   `browse`: Shared components used to render the 'browse-by-path' experience. The experience is akin to navigating a filesystem hierarchy.
--   `preview`: Shared components used to render Entity 'preview' views. These can appear in search results, browse results,
-    and within entity profile pages.
--   `search`: Shared components used to render the full-text search experience.
--   `shared`: Misc. shared components
--   `entity`: Contains Entity definitions, where entity-specific functionality resides.
-    Configuration is provided by implementing the 'Entity' interface. (See DatasetEntity.tsx for example)
-    There are 2 visual components each entity should supply:
+- `auth`: Components used to render the user authentication experience.
+- `browse`: Shared components used to render the 'browse-by-path' experience. The experience is akin to navigating a filesystem hierarchy.
+- `preview`: Shared components used to render Entity 'preview' views. These can appear in search results, browse results,
+  and within entity profile pages.
+- `search`: Shared components used to render the full-text search experience.
+- `shared`: Misc. shared components
+- `entity`: Contains Entity definitions, where entity-specific functionality resides.
+  Configuration is provided by implementing the 'Entity' interface. (See DatasetEntity.tsx for example)
+  There are 2 visual components each entity should supply:
 
-    -   `profiles`: display relevant details about an individual entity. This serves as the entity's 'profile'.
-    -   `previews`: provide a 'preview', or a smaller details card, containing the most important information about an entity instance.
+    - `profiles`: display relevant details about an individual entity. This serves as the entity's 'profile'.
+    - `previews`: provide a 'preview', or a smaller details card, containing the most important information about an entity instance.
 
         When rendering a preview, the entity's data and the type of preview (SEARCH, BROWSE, PREVIEW) are provided. This
         allows you to optionally customize the way an entities preview is rendered in different views.
 
-    -   `entity registry`: There's another very important piece of code living within this module: the **EntityRegistry**. This is a layer
-        of abstraction over the intimate details of rendering a particular entity. It is used
-        to render a view associated with a particular entity type (user, dataset, etc.).
+    - `entity registry`: There's another very important piece of code living within this module: the **EntityRegistry**. This is a layer
+      of abstraction over the intimate details of rendering a particular entity. It is used
+      to render a view associated with a particular entity type (user, dataset, etc.).
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/entity-registry.png"/>

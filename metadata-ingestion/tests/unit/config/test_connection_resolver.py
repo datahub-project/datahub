@@ -34,23 +34,23 @@ def test_auto_connection_resolver():
     # Missing connection -> should raise an error.
     fake_graph = MagicMock()
     fake_graph.get_connection_json.return_value = None
-    with set_graph_context(fake_graph):
-        with pytest.raises(pydantic.ValidationError, match=r"not found"):
-            config = MyConnectionType.parse_obj(
-                {
-                    "connection": "urn:li:dataHubConnection:missing-connection",
-                }
-            )
+    with set_graph_context(fake_graph), pytest.raises(
+        pydantic.ValidationError, match=r"not found"
+    ):
+        config = MyConnectionType.parse_obj(
+            {
+                "connection": "urn:li:dataHubConnection:missing-connection",
+            }
+        )
 
     # Bad connection config -> should raise an error.
     fake_graph.get_connection_json.return_value = {"bad_key": "bad_value"}
-    with set_graph_context(fake_graph):
-        with pytest.raises(pydantic.ValidationError):
-            config = MyConnectionType.parse_obj(
-                {
-                    "connection": "urn:li:dataHubConnection:bad-connection",
-                }
-            )
+    with set_graph_context(fake_graph), pytest.raises(pydantic.ValidationError):
+        config = MyConnectionType.parse_obj(
+            {
+                "connection": "urn:li:dataHubConnection:bad-connection",
+            }
+        )
 
     # Good connection config.
     fake_graph.get_connection_json.return_value = {

@@ -1,4 +1,5 @@
 import json
+import os
 import time
 from dataclasses import dataclass
 from typing import Any, Callable, Iterable, List, Optional, Tuple, TypeVar, Union
@@ -6,6 +7,7 @@ from typing import Any, Callable, Iterable, List, Optional, Tuple, TypeVar, Unio
 from mlflow import MlflowClient
 from mlflow.entities import Dataset as MlflowDataset, Experiment, Run
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
+from mlflow.exceptions import MlflowException
 from mlflow.store.entities import PagedList
 from pydantic.fields import Field
 
@@ -15,7 +17,7 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
 )
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import ContainerKey
+from datahub.emitter.mcp_builder import ExperimentKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -35,6 +37,7 @@ from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
+    StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
@@ -76,10 +79,6 @@ from datahub.sdk.dataset import Dataset
 T = TypeVar("T")
 
 
-class ContainerKeyWithId(ContainerKey):
-    id: str
-
-
 class MLflowConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     tracking_uri: Optional[str] = Field(
         default=None,
@@ -114,6 +113,15 @@ class MLflowConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     source_mapping_to_platform: Optional[dict] = Field(
         default=None, description="Mapping of source type to datahub platform"
     )
+
+    username: Optional[str] = Field(
+        default=None, description="Username for MLflow authentication"
+    )
+    password: Optional[str] = Field(
+        default=None, description="Password for MLflow authentication"
+    )
+
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
 
 @dataclass
@@ -161,7 +169,17 @@ class MLflowSource(StatefulIngestionSourceBase):
         self.ctx = ctx
         self.config = config
         self.report = StaleEntityRemovalSourceReport()
-        self.client = MlflowClient(
+        self.client = self._configure_client()
+
+    def _configure_client(self) -> MlflowClient:
+        if bool(self.config.username) != bool(self.config.password):
+            raise ValueError("Both username and password must be set together")
+
+        if self.config.username and self.config.password:
+            os.environ["MLFLOW_TRACKING_USERNAME"] = self.config.username
+            os.environ["MLFLOW_TRACKING_PASSWORD"] = self.config.password
+
+        return MlflowClient(
             tracking_uri=self.config.tracking_uri,
             registry_uri=self.config.registry_uri,
         )
@@ -234,7 +252,7 @@ class MLflowSource(StatefulIngestionSourceBase):
         self, experiment: Experiment
     ) -> Iterable[MetadataWorkUnit]:
         experiment_container = Container(
-            container_key=ContainerKeyWithId(
+            container_key=ExperimentKey(
                 platform=str(DataPlatformUrn(platform_name=self.platform)),
                 id=experiment.name,
             ),
@@ -452,7 +470,7 @@ class MLflowSource(StatefulIngestionSourceBase):
     def _get_run_workunits(
         self, experiment: Experiment, run: Run
     ) -> Iterable[MetadataWorkUnit]:
-        experiment_key = ContainerKeyWithId(
+        experiment_key = ExperimentKey(
             platform=str(DataPlatformUrn(self.platform)), id=experiment.name
         )
 
@@ -572,8 +590,8 @@ class MLflowSource(StatefulIngestionSourceBase):
         )
         return runs
 
-    @staticmethod
     def _traverse_mlflow_search_func(
+        self,
         search_func: Callable[..., PagedList[T]],
         **kwargs: Any,
     ) -> Iterable[T]:
@@ -581,12 +599,24 @@ class MLflowSource(StatefulIngestionSourceBase):
         Utility to traverse an MLflow search_* functions which return PagedList.
         """
         next_page_token = None
-        while True:
-            paged_list = search_func(page_token=next_page_token, **kwargs)
-            yield from paged_list.to_list()
-            next_page_token = paged_list.token
-            if not next_page_token:
+        try:
+            while True:
+                paged_list = search_func(page_token=next_page_token, **kwargs)
+                yield from paged_list.to_list()
+                next_page_token = paged_list.token
+                if not next_page_token:
+                    return
+        except MlflowException as e:
+            if e.error_code == "ENDPOINT_NOT_FOUND":
+                self.report.warning(
+                    title="MLflow API Endpoint Not Found for Experiments.",
+                    message="Please upgrade to version 1.28.0 or higher to ensure compatibility. Skipping ingestion for experiments and runs.",
+                    context=None,
+                    exc=e,
+                )
                 return
+            else:
+                raise  # Only re-raise other exceptions
 
     def _get_latest_version(self, registered_model: RegisteredModel) -> Optional[str]:
         return (

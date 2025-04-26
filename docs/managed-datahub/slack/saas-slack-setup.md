@@ -5,13 +5,17 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 <FeatureAvailability saasOnly />
 
 ## Install the DataHub Slack App into your Slack workspace
+
 You can see the permissions required by the DataHub Slack bot [below](#datahub-slack-bot-permissions).
 
 ### Video Walkthrough
+
 <div align="center"><iframe width="560" height="315" src="https://www.loom.com/embed/af6fcfd435cf4993b79a0c8e13aecaaa?sid=93f2a66b-1362-4809-996b-5abb399f82dd" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe></div>
 
 ### Step-by-step guide
-The following steps should be performed by a Slack Workspace Admin. 
+
+The following steps should be performed by a Slack Workspace Admin.
+
 1. Navigate to [https://api.slack.com/reference/manifests#config-tokens](https://api.slack.com/reference/manifests#config-tokens)
 2. Under **Managing configuration tokens**, select **'Generate Token'**
 <p align="center">
@@ -21,7 +25,7 @@ The following steps should be performed by a Slack Workspace Admin.
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/setup_2.png"/>
 </p>
-4. Now you will see two tokens available for you to copy, an *Access Token* and a *Refresh Token*
+4. Now you will see two tokens available for you to copy, an _Access Token_ and a _Refresh Token_
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/setup_3.png"/>
 </p>
@@ -34,6 +38,7 @@ The following steps should be performed by a Slack Workspace Admin.
 :::note
 You may need approval from a workspace admin to do this step. Learn about [what to do in this scenario here](#workspace-admin-approval-guide).
 :::
+
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/setup_5.png"/>
 </p>
@@ -49,7 +54,9 @@ You may need approval from a workspace admin to do this step. Learn about [what 
 Now proceed to the [Subscriptions and Notifications page](https://datahubproject.io/docs/managed-datahub/subscription-and-notification) to see how you can subscribe to be notified about events on the platform, or visit the [Slack App page](saas-slack-app.md) to see how you can use DataHub's powerful capabilities directly within Slack.
 
 ### DataHub Slack bot permissions
+
 The DataHub Slack bot requires a certain set of scopes (permissions) to function. We've listed them below with thier explanations.
+
 ```
 # Required for slash commands / shortcuts.
 commands
@@ -85,10 +92,12 @@ reactions:write
 ```
 
 ### Workspace admin approval guide
+
 In some workspaces, you will find at step 6 above you will need approval from your workspace admin. In this case, you will want to:
+
 1. On step #6 above, continue by clicking the button to request their approval.
 2. Once approved, you will get a notification from the **Slack bot** that your request has been approved. Follow the link it provides to complete the process.
-**If you do not get the message:** visit [api.slack.com/apps](https://api.slack.com/apps), open your DataHub app and complete the installation from there.
+   **If you do not get the message:** visit [api.slack.com/apps](https://api.slack.com/apps), open your DataHub app and complete the installation from there.
 3. Once it is done, you can visit `<your-datahub-instance-url>/settings/notifications`, and send a test notification to verify everything's working.
 4. **Making Slack commands work:** when running Slack commands such as `/datahub search my dataset` you may get a `dispatch_failed` error. To resolve this, see [the steps here](https://datahubproject.io/docs/managed-datahub/slack/saas-slack-troubleshoot#slack-bot-issues).
 
@@ -141,19 +150,19 @@ Confirm you see the Basic Information Tab
 
 ![](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/integrations/slack/slack_oauth_and_permissions.png)
 
-Here you'll find a “Bot User OAuth Token” which DataHub will need to communicate with your slack through the bot. 
+Here you'll find a “Bot User OAuth Token” which DataHub will need to communicate with your slack through the bot.
 In the next steps, we'll show you how to configure the Slack Integration inside of DataHub Cloud.
 
 ## Configuring Notifications
 
-> In order to set up the Slack integration, the user must have the `Manage Platform Settings` privilege. 
+> In order to set up the Slack integration, the user must have the `Manage Platform Settings` privilege.
 
 To enable the integration with slack
 - Navigate to **Settings > Integrations**
 - Click **Slack**
-- Enable the Integration 
+- Enable the Integration
 - Enter the **Bot Token** obtained in the previous steps
-- Enter a **Default Slack Channel** - this is where all notifications will be routed unless 
+- Enter a **Default Slack Channel** - this is where all notifications will be routed unless
 - Click **Update** to save your settings
 
 <img width="60%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/integrations/slack/slack_add_token.png"/>
@@ -164,24 +173,27 @@ To customize the channel where notifications are send, click the button to the r
 
 <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/integrations/slack/slack_channel.png"/>
 
-If provided, a custom channel will be used to route notifications of the given type. If not provided, the default channel will be used. 
+If provided, a custom channel will be used to route notifications of the given type. If not provided, the default channel will be used.
 That's it! You should begin to receive notifications on Slack. Note that it may take up to 1 minute for notification settings to take effect after saving.  -->
 
 ## Sending Notifications
 
 For now, we support sending notifications to
+
 - Slack Channel Name (e.g. `#troubleshoot`)
 - Slack Channel ID (e.g. `C029A3M079U`)
-- Specific Users (aka Direct Messages or DMs) via user ID 
+- Specific Users (aka Direct Messages or DMs) via user ID
 
 By default, the Slack app will be able to send notifications to public channels. If you want to send notifications to private channels or DMs, you will need to invite the Slack app to those channels.
 
 ## How to find Team ID and Channel ID in Slack
+
 :::note
 We recommend just using the Slack channel name for simplicity (e.g. `#troubleshoot`).
 :::
 
 **Via Slack App:**
+
 1. Go to the Slack channel for which you want to get a channel ID
 2. Click the channel name at the top
 <p align="center">
@@ -193,17 +205,20 @@ We recommend just using the Slack channel name for simplicity (e.g. `#troublesho
 </p>
 
 **Via Web:**
+
 1. Go to the Slack channel for which you want to get a channel ID
 2. Check the URL e.g. for the troubleshoot channel in OSS DataHub Slack
-![](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/integrations/slack/slack_channel_url.png)
+   ![](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/integrations/slack/slack_channel_url.png)
 
 3. Notice `TUMKD5EGJ/C029A3M079U` in the URL
-  - Team ID = `TUMKD5EGJ` from above
-  - Channel ID = `C029A3M079U` from above
+
+- Team ID = `TUMKD5EGJ` from above
+- Channel ID = `C029A3M079U` from above
 
 ## How to find User ID in Slack
 
 **Your User ID**
+
 1. Click your profile picture, then select **'Profile'**
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/member_id_1.png"/>
@@ -214,6 +229,7 @@ We recommend just using the Slack channel name for simplicity (e.g. `#troublesho
 </p>
 
 **Someone else's User ID**
+
 1. Click their profile picture in the Slack message
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/member_id_3.png"/>

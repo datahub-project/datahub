@@ -95,6 +95,8 @@ dependencies {
   compileOnly externalDependency.lombok
   runtimeOnly externalDependency.guicePlay
   runtimeOnly externalDependency.opentelemetryExporter
+  runtimeOnly externalDependency.openTelemetryExporterLogging
+  runtimeOnly externalDependency.openTelemetryExporterCommon
   runtimeOnly (externalDependency.playDocs) {
     exclude group: 'com.typesafe.akka', module: "akka-http-core_$playScalaVersion"
   }

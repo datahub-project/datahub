@@ -1,8 +1,7 @@
 /*
 	Theme Utils that can be used anywhere in the app
 */
-
-import { FontSizeOptions, ColorOptions, MiscColorOptions, RotationOptions, DEFAULT_VALUE } from './config';
+import { ColorOptions, DEFAULT_VALUE, FontSizeOptions, MiscColorOptions, RotationOptions } from './config';
 import { foundations } from './foundations';
 import { semanticTokens } from './semantic-tokens';
 

@@ -1,28 +1,32 @@
 import { FolderFilled } from '@ant-design/icons';
-import { DATE_TYPE_URN } from '@src/app/shared/constants';
 import React from 'react';
-import { dataPlatform, dataPlatformInstance, dataset1, glossaryTerm1, user1 } from '../../../../Mocks';
-import { EntityType } from '../../../../types.generated';
-import { getTestEntityRegistry } from '../../../../utils/test-utils/TestPageContainer';
-import { IconStyleType } from '../../../entity/Entity';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
+
+import { IconStyleType } from '@app/entity/Entity';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { FieldType, FilterField } from '@app/searchV2/filters/types';
 import {
-    getFilterEntity,
-    getNewFilters,
-    isFilterOptionSelected,
-    getFilterIconAndLabel,
     PlatformIcon,
-    getNumActiveFiltersForFilter,
-    getNumActiveFiltersForGroupOfFilters,
+    canCreateViewFromFilters,
     combineAggregations,
     filterEmptyAggregations,
-    getFilterOptions,
     filterOptionsWithSearch,
-    canCreateViewFromFilters,
-    isAnyOptionSelected,
+    getFilterDisplayName,
+    getFilterEntity,
+    getFilterIconAndLabel,
+    getFilterOptions,
+    getNewFilters,
+    getNumActiveFiltersForFilter,
+    getNumActiveFiltersForGroupOfFilters,
     getStructuredPropFilterDisplayName,
-} from '../utils';
-import { ENTITY_SUB_TYPE_FILTER_NAME } from '../../utils/constants';
+    isAnyOptionSelected,
+    isFilterOptionSelected,
+} from '@app/searchV2/filters/utils';
+import { ENTITY_SUB_TYPE_FILTER_NAME } from '@app/searchV2/utils/constants';
+import { dataPlatform, dataPlatformInstance, dataset1, glossaryTerm1, user1 } from '@src/Mocks';
+import { DATE_TYPE_URN } from '@src/app/shared/constants';
+import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
+
+import { EntityType } from '@types';
 
 describe('filter utils - getNewFilters', () => {
     it('should get the correct list of filters when adding filters where the filter field did not already exist', () => {
@@ -465,5 +469,25 @@ describe('filter utils - getStructuredPropFilterDisplayName', () => {
                 '`test` _value_ for a [rich](www.google.com) text **situation** right here!',
             ),
         ).toBe('test value for a rich text situation right here!');
+    });
+});
+
+describe('filter utils - getFilterDisplayName', () => {
+    it('should return the displayName for an option if it exists', () => {
+        const option = { value: 'testValue', displayName: 'test name' };
+        const field: FilterField = { type: FieldType.ENUM, field: 'test', displayName: 'test' };
+        expect(getFilterDisplayName(option, field)).toBe('test name');
+    });
+
+    it('should return undefined if no display name and field is not a structured property filter', () => {
+        const option = { value: 'testValue' };
+        const field: FilterField = { type: FieldType.ENUM, field: 'structuredProperties.test', displayName: 'test' };
+        expect(getFilterDisplayName(option, field)).toBe('testValue');
+    });
+
+    it('should return the structured property value properly if this is a structured property filter (structured prop value is tested above)', () => {
+        const option = { value: 'testValue' };
+        const field: FilterField = { type: FieldType.ENUM, field: 'test', displayName: 'test' };
+        expect(getFilterDisplayName(option, field)).toBe(undefined);
     });
 });

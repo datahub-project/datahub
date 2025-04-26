@@ -33,10 +33,15 @@ REDACT_KEYS = {
 }
 REDACT_SUFFIXES = {
     "_password",
+    "-password",
     "_secret",
+    "-secret",
     "_token",
+    "-token",
     "_key",
+    "-key",
     "_key_id",
+    "-key-id",
 }
 
 
@@ -317,7 +322,7 @@ class KeyValuePattern(ConfigModel):
         return KeyValuePattern()
 
     def value(self, string: str) -> List[str]:
-        matching_keys = [key for key in self.rules.keys() if re.match(key, string)]
+        matching_keys = [key for key in self.rules if re.match(key, string)]
         if not matching_keys:
             return []
         elif self.first_match_only:

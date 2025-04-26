@@ -1,23 +1,26 @@
 import { FilterOutlined } from '@ant-design/icons';
-import { Button, message, Typography } from 'antd';
+import { Button, Typography, message } from 'antd';
+import { debounce } from 'lodash';
 import React, { useState } from 'react';
-import styled from 'styled-components';
 import { useDebounce } from 'react-use';
+import styled from 'styled-components';
 
-import useSortInput from '@src/app/searchV2/sorting/useSortInput';
+import { EntityAndType } from '@app/entity/shared/types';
+import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
+import { EmbeddedListSearchResults } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchResults';
+import { SearchSelectBar } from '@app/entityV2/shared/components/styled/search/SearchSelectBar';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { isListSubset } from '@app/entityV2/shared/utils';
+import { SearchBar } from '@app/search/SearchBar';
+import { ENTITY_FILTER_NAME, UnionType } from '@app/search/utils/constants';
+import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import SearchSortSelect from '@src/app/searchV2/sorting/SearchSortSelect';
-import { SearchCfg } from '../../../../../../conf';
-import { useGetSearchResultsForMultipleQuery } from '../../../../../../graphql/search.generated';
-import { EntityType, FacetFilterInput, FilterOperator } from '../../../../../../types.generated';
-import { EntityAndType } from '../../../../../entity/shared/types';
-import { SearchBar } from '../../../../../search/SearchBar';
-import { ENTITY_FILTER_NAME, UnionType } from '../../../../../search/utils/constants';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { ANTD_GRAY } from '../../../constants';
-import { isListSubset } from '../../../utils';
-import TabToolbar from '../TabToolbar';
-import { EmbeddedListSearchResults } from './EmbeddedListSearchResults';
-import { SearchSelectBar } from './SearchSelectBar';
+import useSortInput from '@src/app/searchV2/sorting/useSortInput';
+import { SearchCfg } from '@src/conf';
+
+import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
+import { Entity, EntityType, FacetFilterInput, FilterOperator } from '@types';
 
 const Container = styled.span`
     display: flex;
@@ -47,7 +50,7 @@ type Props = {
     fixedEntityTypes?: Array<EntityType> | null;
     placeholderText?: string | null;
     selectedEntities: EntityAndType[];
-    setSelectedEntities: (Entities: EntityAndType[]) => void;
+    setSelectedEntities: (Entities: Entity[]) => void;
     limit?: number;
 };
 
@@ -118,9 +121,9 @@ export const SearchSelect = ({
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
     const facets = searchAcrossEntities?.facets || [];
 
-    const onSearch = (q: string) => {
+    const onSearch = debounce((q: string) => {
         setQuery(q);
-    };
+    }, DEBOUNCE_SEARCH_MS);
 
     const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {
         setPage(1);
@@ -174,6 +177,7 @@ export const SearchSelect = ({
                     onSearch={onSearch}
                     onQueryChange={onSearch}
                     entityRegistry={entityRegistry}
+                    hideRecommendations
                 />
                 <SearchSortSelect selectedSortOption={sortOption} setSelectedSortOption={setSortOption} />
             </SearchBarContainer>

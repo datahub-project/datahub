@@ -3,6 +3,7 @@ import types
 import datahub.metadata.schema_classes as models
 from datahub.errors import SdkUsageError
 from datahub.ingestion.graph.config import DatahubClientConfig
+from datahub.ingestion.graph.filters import FilterOperator
 from datahub.metadata.urns import (
     ChartUrn,
     ContainerUrn,

@@ -19,6 +19,8 @@ import com.linkedin.datahub.graphql.generated.PoliciesConfig;
 import com.linkedin.datahub.graphql.generated.Privilege;
 import com.linkedin.datahub.graphql.generated.QueriesTabConfig;
 import com.linkedin.datahub.graphql.generated.ResourcePrivileges;
+import com.linkedin.datahub.graphql.generated.SearchBarAPI;
+import com.linkedin.datahub.graphql.generated.SearchBarConfig;
 import com.linkedin.datahub.graphql.generated.SearchResultsVisualConfig;
 import com.linkedin.datahub.graphql.generated.TelemetryConfig;
 import com.linkedin.datahub.graphql.generated.TestsConfig;
@@ -27,6 +29,7 @@ import com.linkedin.datahub.graphql.generated.VisualConfig;
 import com.linkedin.metadata.config.ChromeExtensionConfiguration;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
+import com.linkedin.metadata.config.SearchBarConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.config.ViewsConfiguration;
 import com.linkedin.metadata.config.VisualConfiguration;
@@ -51,6 +54,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final TestsConfiguration _testsConfiguration;
   private final DataHubConfiguration _datahubConfiguration;
   private final ViewsConfiguration _viewsConfiguration;
+  private final SearchBarConfiguration _searchBarConfig;
   private final FeatureFlags _featureFlags;
   private final ChromeExtensionConfiguration _chromeExtensionConfiguration;
 
@@ -66,6 +70,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       final TestsConfiguration testsConfiguration,
       final DataHubConfiguration datahubConfiguration,
       final ViewsConfiguration viewsConfiguration,
+      final SearchBarConfiguration searchBarConfig,
       final FeatureFlags featureFlags,
       final ChromeExtensionConfiguration chromeExtensionConfiguration) {
     _gitVersion = gitVersion;
@@ -79,6 +84,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     _testsConfiguration = testsConfiguration;
     _datahubConfiguration = datahubConfiguration;
     _viewsConfiguration = viewsConfiguration;
+    _searchBarConfig = searchBarConfig;
     _featureFlags = featureFlags;
     _chromeExtensionConfiguration = chromeExtensionConfiguration;
   }
@@ -179,6 +185,14 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     viewsConfig.setEnabled(_viewsConfiguration.isEnabled());
     appConfig.setViewsConfig(viewsConfig);
 
+    final SearchBarConfig searchBarConfig = new SearchBarConfig();
+    try {
+      searchBarConfig.setApiVariant(SearchBarAPI.valueOf(_searchBarConfig.getApiVariant()));
+    } catch (IllegalArgumentException e) {
+      searchBarConfig.setApiVariant(SearchBarAPI.AUTOCOMPLETE_FOR_MULTIPLE);
+    }
+    appConfig.setSearchBarConfig(searchBarConfig);
+
     final FeatureFlagsConfig featureFlagsConfig =
         FeatureFlagsConfig.builder()
             .setShowSearchFiltersV2(_featureFlags.isShowSearchFiltersV2())
@@ -205,8 +219,10 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setShowNavBarRedesign(_featureFlags.isShowNavBarRedesign())
             .setShowAutoCompleteResults(_featureFlags.isShowAutoCompleteResults())
             .setEntityVersioningEnabled(_featureFlags.isEntityVersioning())
+            .setShowHasSiblingsFilter(_featureFlags.isShowHasSiblingsFilter())
             .setShowSearchBarAutocompleteRedesign(
                 _featureFlags.isShowSearchBarAutocompleteRedesign())
+            .setShowManageTags(_featureFlags.isShowManageTags())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);
