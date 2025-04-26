@@ -1,6 +1,7 @@
-import { Input } from 'antd';
 import styled from 'styled-components';
-import { REDESIGN_COLORS } from '../../constants';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { Input } from '@src/alchemy-components';
 
 export const StyledInput = styled(Input)`
     width: auto;
@@ -15,6 +16,7 @@ export const MatchLabelText = styled.span`
     font-size: 12px;
     font-weight: 400;
     color: ${REDESIGN_COLORS.DARK_GREY};
+    padding: 4px 4px;
 `;
 
 export const SearchContainer = styled.div`

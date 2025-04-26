@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
 import { Button, Modal } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components';
-import { FacetFilterInput } from '../../../../../../types.generated';
-import { EmbeddedListSearch } from './EmbeddedListSearch';
-import { UnionType } from '../../../../../search/utils/constants';
-import { FilterSet } from './types';
-import { EntityActionProps } from './EntitySearchResults';
+
+import { EmbeddedListSearch } from '@app/entity/shared/components/styled/search/EmbeddedListSearch';
+import { EntityActionProps } from '@app/entity/shared/components/styled/search/EntitySearchResults';
+import { FilterSet } from '@app/entity/shared/components/styled/search/types';
+import { UnionType } from '@app/search/utils/constants';
+
+import { FacetFilterInput } from '@types';
 
 const SearchContainer = styled.div`
     height: 500px;

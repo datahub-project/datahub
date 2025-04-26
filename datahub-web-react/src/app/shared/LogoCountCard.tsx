@@ -1,9 +1,10 @@
-import React from 'react';
 import { Image, Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../entity/shared/constants';
-import { formatNumber } from './formatNumber';
-import { HomePageButton } from './components';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { HomePageButton } from '@app/shared/components';
+import { formatNumber } from '@app/shared/formatNumber';
 
 const PlatformLogo = styled(Image)`
     max-height: 32px;

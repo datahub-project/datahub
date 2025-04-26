@@ -1,15 +1,16 @@
 import { Skeleton } from 'antd';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
-import { Section } from '../Section';
-import { PlatformCard } from './PlatformCard';
-import { useGetPlatforms } from './useGetPlatforms';
-import { useUserContext } from '../../../../../../context/useUserContext';
-import { HOME_PAGE_PLATFORMS_ID } from '../../../../../../onboarding/config/HomePageOnboardingConfig';
-import { useUpdateEducationStepsAllowList } from '../../../../../../onboarding/useUpdateEducationStepsAllowList';
-import { Carousel } from '../../../../../../sharedV2/carousel/Carousel';
-import { HorizontalListSkeletons } from '../../../../HorizontalListSkeletons';
-import OnboardingContext from '../../../../../../onboarding/OnboardingContext';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { HorizontalListSkeletons } from '@app/homeV2/content/HorizontalListSkeletons';
+import { Section } from '@app/homeV2/content/tabs/discovery/sections/Section';
+import { PlatformCard } from '@app/homeV2/content/tabs/discovery/sections/platform/PlatformCard';
+import { useGetPlatforms } from '@app/homeV2/content/tabs/discovery/sections/platform/useGetPlatforms';
+import OnboardingContext from '@app/onboarding/OnboardingContext';
+import { HOME_PAGE_PLATFORMS_ID } from '@app/onboarding/config/HomePageOnboardingConfig';
+import { useUpdateEducationStepsAllowList } from '@app/onboarding/useUpdateEducationStepsAllowList';
+import { Carousel } from '@app/sharedV2/carousel/Carousel';
 
 const SkeletonCard = styled(Skeleton.Button)<{ width: string }>`
     &&& {

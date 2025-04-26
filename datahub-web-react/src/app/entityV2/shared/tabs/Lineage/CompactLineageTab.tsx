@@ -1,16 +1,18 @@
-import { ArrowDownOutlined, ArrowUpOutlined, SearchOutlined } from '@ant-design/icons';
-import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
+import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
+import { Icon, Tooltip } from '@components';
 import { Button, Divider } from 'antd';
-import { Tooltip } from '@components';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
-import { LineageDirection } from '../../../../../types.generated';
-import { UnionType } from '../../../../search/utils/constants';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
-import { useEntityData } from '../../../../entity/shared/EntityContext';
-import { ANTD_GRAY, SEARCH_COLORS } from '../../constants';
-import { ImpactAnalysis } from './ImpactAnalysis';
-import { LineageTabContext } from './LineageTabContext';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
+import { ANTD_GRAY, SEARCH_COLORS } from '@app/entityV2/shared/constants';
+import { ImpactAnalysis } from '@app/entityV2/shared/tabs/Lineage/ImpactAnalysis';
+import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
+import { UnionType } from '@app/search/utils/constants';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { LineageDirection, LineageSearchPath } from '@types';
 
 // Unfortunately, we have to artificially bound the height.
 // Accounts for search bar, controls header, and padding.
@@ -117,6 +119,7 @@ export const CompactLineageTab = ({ defaultDirection }: { defaultDirection: Line
     const [selectedDirection, setDirection] = useState<LineageDirection>(defaultDirection);
     const [selectedLevels, setSelectedLevels] = useState<Set<LevelFilterType>>(DEFAULT_SELECTED_LEVELS);
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+    const [lineageSearchPath, setLineageSearchPath] = useState<LineageSearchPath | null>(null);
     const entityName = (entityData && entityRegistry.getDisplayName(entityType, entityData)) || '-';
 
     const toggleLevelFilter = (level: LevelFilterType) => {
@@ -227,14 +230,19 @@ export const CompactLineageTab = ({ defaultDirection }: { defaultDirection: Line
                         $isSelected={showAdvancedFilters}
                         onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                     >
-                        <SearchOutlined />
+                        <Icon icon="MagnifyingGlass" source="phosphor" />
                     </AdvancedFiltersButton>
                 </Tooltip>
             </Filters>
             <ThinDivider />
             <Results>
                 <LineageTabContext.Provider
-                    value={{ isColumnLevelLineage: false, lineageDirection: selectedDirection }}
+                    value={{
+                        isColumnLevelLineage: false,
+                        lineageDirection: selectedDirection,
+                        lineageSearchPath,
+                        setLineageSearchPath,
+                    }}
                 >
                     <ImpactAnalysis
                         type="compact"

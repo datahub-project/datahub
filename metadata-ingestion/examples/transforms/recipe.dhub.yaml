@@ -1,0 +1,11 @@
+source:
+  type: demo-data
+  config: {}
+
+transformers:
+  - type: "custom_transform_example_alias"
+    config:
+       owners_json: /datahub-executor/custom_transformer/owners.json
+
+sink:
+  type: "console"

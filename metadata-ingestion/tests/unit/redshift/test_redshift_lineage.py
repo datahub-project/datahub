@@ -15,7 +15,10 @@ from datahub.ingestion.source.redshift.lineage import (
     RedshiftLineageExtractor,
     parse_alter_table_rename,
 )
-from datahub.ingestion.source.redshift.redshift_schema import TempTableRow
+from datahub.ingestion.source.redshift.redshift_schema import (
+    RedshiftSchema,
+    TempTableRow,
+)
 from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.metadata.schema_classes import NumberTypeClass, SchemaFieldDataTypeClass
 from datahub.sql_parsing.schema_resolver import SchemaResolver
@@ -794,3 +797,39 @@ def test_collapse_temp_recursive_cll_lineage_with_circular_reference():
 
     assert len(datasets) == 1
     # Here we only interested if it fails or not
+
+
+def test_external_schema_get_upstream_schema_success():
+    schema = RedshiftSchema(
+        name="schema",
+        database="XXXXXXXX",
+        type="external",
+        option='{"SCHEMA":"sales_schema"}',
+        external_platform="redshift",
+    )
+
+    assert schema.get_upstream_schema_name() == "sales_schema"
+
+
+def test_external_schema_no_upstream_schema():
+    schema = RedshiftSchema(
+        name="schema",
+        database="XXXXXXXX",
+        type="external",
+        option=None,
+        external_platform="redshift",
+    )
+
+    assert schema.get_upstream_schema_name() is None
+
+
+def test_local_schema_no_upstream_schema():
+    schema = RedshiftSchema(
+        name="schema",
+        database="XXXXXXXX",
+        type="local",
+        option='{"some_other_option":"x"}',
+        external_platform=None,
+    )
+
+    assert schema.get_upstream_schema_name() is None

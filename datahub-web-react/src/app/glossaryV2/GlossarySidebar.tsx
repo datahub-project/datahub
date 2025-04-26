@@ -1,18 +1,18 @@
+import { Button, Tooltip } from '@components';
 import React, { useState } from 'react';
-import { Button } from 'antd';
-import { Tooltip } from '@components';
-import { PlusCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
-import { REDESIGN_COLORS } from '../entityV2/shared/constants';
-import useSidebarWidth from '../sharedV2/sidebar/useSidebarWidth';
-import GlossarySearch from './GlossarySearch';
-import GlossaryBrowser from './GlossaryBrowser/GlossaryBrowser';
-import { SidebarWrapper } from '../sharedV2/sidebar/components';
-import CreateGlossaryEntityModal from '../entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
-import { EntityType } from '../../types.generated';
-import { useUserContext } from '../context/useUserContext';
-import { useGetRootGlossaryNodesQuery } from '../../graphql/glossary.generated';
-import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
+
+import { useUserContext } from '@app/context/useUserContext';
+import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import GlossaryBrowser from '@app/glossaryV2/GlossaryBrowser/GlossaryBrowser';
+import GlossarySearch from '@app/glossaryV2/GlossarySearch';
+import { SidebarWrapper } from '@app/sharedV2/sidebar/components';
+import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
+import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+
+import { useGetRootGlossaryNodesQuery } from '@graphql/glossary.generated';
+import { EntityType } from '@types';
 
 const StyledSidebarWrapper = styled(SidebarWrapper)<{ $isEntityProfile?: boolean }>`
     ${(props) =>
@@ -26,26 +26,24 @@ const SidebarTitleWrapper = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px 12px 10px 12px;
+    padding: 12px;
     border-bottom: 1px solid ${REDESIGN_COLORS.BORDER_3};
     height: 50px;
-
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
     font-size: 20px;
-`;
-
-const StyledButton = styled(Button)`
-    padding: 0;
-    border: none;
-    box-shadow: none;
-    color: inherit;
-    font-size: inherit;
 `;
 
 const GlossaryTitle = styled.div`
     font-size: 16px;
     font-weight: bold;
     color: #374066;
+`;
+
+const StyledButton = styled(Button)`
+    padding: 2px;
+    svg {
+        width: 20px;
+        height: 20px;
+    }
 `;
 
 type Props = {
@@ -74,9 +72,13 @@ export default function GlossarySidebar({ isEntityProfile }: Props) {
                 <SidebarTitleWrapper>
                     <GlossaryTitle>Business Glossary</GlossaryTitle>
                     <Tooltip title="Create Glossary" placement="left" showArrow={false}>
-                        <StyledButton onClick={() => setIsCreateNodeModalVisible(true)}>
-                            <PlusCircleOutlined style={{ fontSize: 'inherit' }} />
-                        </StyledButton>
+                        <StyledButton
+                            variant="filled"
+                            color="violet"
+                            isCircle
+                            icon={{ icon: 'Plus', source: 'phosphor' }}
+                            onClick={() => setIsCreateNodeModalVisible(true)}
+                        />
                     </Tooltip>
                 </SidebarTitleWrapper>
                 <GlossarySearch />

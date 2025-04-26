@@ -490,7 +490,9 @@ public class ElasticsearchController {
       @RequestParam(required = false, name = "limit", defaultValue = "0") @Nullable Integer limit,
       @RequestParam(required = false, name = "gePitEpochMs", defaultValue = "0") @Nullable
           Long gePitEpochMs,
-      @RequestParam(required = false, name = "lePitEpochMs") @Nullable Long lePitEpochMs) {
+      @RequestParam(required = false, name = "lePitEpochMs") @Nullable Long lePitEpochMs,
+      @RequestParam(value = "createDefaultAspects", defaultValue = "false")
+          Boolean createDefaultAspects) {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
     OperationContext opContext =
@@ -519,7 +521,8 @@ public class ElasticsearchController {
             .batchSize(batchSize)
             .limit(limit)
             .gePitEpochMs(gePitEpochMs)
-            .lePitEpochMs(lePitEpochMs);
+            .lePitEpochMs(lePitEpochMs)
+            .createDefaultAspects(createDefaultAspects);
 
     return ResponseEntity.of(Optional.of(entityService.restoreIndices(opContext, args, log::info)));
   }
@@ -532,6 +535,8 @@ public class ElasticsearchController {
       @RequestParam(required = false, name = "aspectNames") @Nullable Set<String> aspectNames,
       @RequestParam(required = false, name = "batchSize", defaultValue = "100") @Nullable
           Integer batchSize,
+      @RequestParam(value = "createDefaultAspects", defaultValue = "false")
+          Boolean createDefaultAspects,
       @RequestBody @Nonnull Set<String> urns)
       throws RemoteInvocationException, URISyntaxException {
 
@@ -556,6 +561,7 @@ public class ElasticsearchController {
                 opContext,
                 urns.stream().map(UrnUtils::getUrn).collect(Collectors.toSet()),
                 aspectNames,
-                batchSize)));
+                batchSize,
+                createDefaultAspects)));
   }
 }

@@ -683,11 +683,7 @@ class DremioAPIOperations:
                 # Add end anchor for exact matching
                 regex_pattern = regex_pattern + "$"
 
-        for path in paths:
-            if re.match(regex_pattern, path, re.IGNORECASE):
-                return True
-
-        return False
+        return any(re.match(regex_pattern, path, re.IGNORECASE) for path in paths)
 
     def should_include_container(self, path: List[str], name: str) -> bool:
         """

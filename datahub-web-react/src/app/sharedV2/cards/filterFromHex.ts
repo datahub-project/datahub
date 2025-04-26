@@ -1,5 +1,5 @@
 // eslint-disable-next-line max-classes-per-file
-import { hexToRgb } from '../colors/colorUtils';
+import { hexToRgb } from '@app/sharedV2/colors/colorUtils';
 
 // Taken from https://stackoverflow.com/questions/42966641/how-to-transform-black-into-any-given-color-using-only-css-filters/43960991#43960991
 export default function getFilterFromHex(hex): string {

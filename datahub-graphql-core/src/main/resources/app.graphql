@@ -1,27 +1,27 @@
 # DataHub UI Application-Specific GraphQL Types
 
 extend type Query {
-    """
-    Fetch details associated with the authenticated user, provided via an auth cookie or header
-    """
-    me: AuthenticatedUser
+  """
+  Fetch details associated with the authenticated user, provided via an auth cookie or header
+  """
+  me: AuthenticatedUser
 
-    """
-    Fetch configurations
-    Used by DataHub UI
-    """
-    appConfig: AppConfig
+  """
+  Fetch configurations
+  Used by DataHub UI
+  """
+  appConfig: AppConfig
 
-    """
-    Fetch the Global Settings related to the Views feature.
-    Requires the 'Manage Global Views' Platform Privilege.
-    """
-    globalViewsSettings: GlobalViewsSettings
+  """
+  Fetch the Global Settings related to the Views feature.
+  Requires the 'Manage Global Views' Platform Privilege.
+  """
+  globalViewsSettings: GlobalViewsSettings
 
-    """
-    Fetch the global settings related to the docs propagation feature.
-    """
-    docPropagationSettings: DocPropagationSettings
+  """
+  Fetch the global settings related to the docs propagation feature.
+  """
+  docPropagationSettings: DocPropagationSettings
 }
 
 extend type Mutation {
@@ -34,7 +34,9 @@ extend type Mutation {
   """
   Update the doc propagation settings.
   """
-  updateDocPropagationSettings(input: UpdateDocPropagationSettingsInput!): Boolean!
+  updateDocPropagationSettings(
+    input: UpdateDocPropagationSettingsInput!
+  ): Boolean!
 }
 
 """
@@ -132,6 +134,11 @@ type PlatformPrivileges {
   manageTags: Boolean!
 
   """
+  Whether the user should be able to view the tags management page.
+  """
+  viewManageTags: Boolean!
+
+  """
   Whether the user should be able to create, update, and delete global views.
   """
   manageGlobalViews: Boolean!
@@ -140,7 +147,7 @@ type PlatformPrivileges {
   Whether the user should be able to create, update, and delete ownership types.
   """
   manageOwnershipTypes: Boolean!
-  
+
   """
   Whether the user can create and delete posts pinned to the home page.
   """
@@ -165,6 +172,24 @@ type PlatformPrivileges {
   Whether the user can view the manage structured properties page.
   """
   viewStructuredPropertiesPage: Boolean!
+}
+
+"""
+Variants of APIs used in the Search bar to get data
+"""
+enum SearchBarAPI {
+  AUTOCOMPLETE_FOR_MULTIPLE
+  SEARCH_ACROSS_ENTITIES
+}
+
+"""
+Configurations related to the Search bar
+"""
+type SearchBarConfig {
+  """
+  API variant
+  """
+  apiVariant: SearchBarAPI!
 }
 
 """
@@ -228,6 +253,11 @@ type AppConfig {
   viewsConfig: ViewsConfig!
 
   """
+  Configurations related to the Search bar
+  """
+  searchBarConfig: SearchBarConfig!
+
+  """
   Feature flags telling the UI whether a feature is enabled or not
   """
   featureFlags: FeatureFlagsConfig!
@@ -276,6 +306,11 @@ type VisualConfig {
   Configuration for search results
   """
   searchResult: SearchResultsVisualConfig
+
+  """
+  Show full title in lineage view by default
+  """
+  showFullTitleInLineage: Boolean
 }
 
 """
@@ -287,7 +322,6 @@ type QueriesTabConfig {
   """
   queriesTabResultSize: Int
 }
-
 
 """
 Configuration for different entity profiles
@@ -314,10 +348,10 @@ type EntityProfileConfig {
 Configuration for a search result
 """
 type SearchResultsVisualConfig {
-    """
-    Whether a search result should highlight the name/description if it was matched on those fields.
-    """
-    enableNameHighlight: Boolean
+  """
+  Whether a search result should highlight the name/description if it was matched on those fields.
+  """
+  enableNameHighlight: Boolean
 }
 
 """
@@ -359,7 +393,6 @@ type AuthConfig {
   """
   tokenAuthEnabled: Boolean!
 }
-
 
 """
 Configurations related to the Policies Feature
@@ -593,6 +626,21 @@ type FeatureFlagsConfig {
   If turned on, exposes the versioning feature by allowing users to link entities in the UI.
   """
   entityVersioningEnabled: Boolean!
+
+  """
+  If turned on, show the "has siblings" filter in search
+  """
+  showHasSiblingsFilter: Boolean!
+
+  """
+  If turned on, show the redesigned search bar's autocomplete
+  """
+  showSearchBarAutocompleteRedesign: Boolean!
+
+  """
+  If enabled, users will be able to view the tags management experience
+  """
+  showManageTags: Boolean!
 }
 
 """
@@ -650,4 +698,3 @@ type ChromeExtensionConfig {
   """
   lineageEnabled: Boolean!
 }
-

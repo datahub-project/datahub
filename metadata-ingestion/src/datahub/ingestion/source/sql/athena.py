@@ -540,19 +540,13 @@ class AthenaSource(SQLAlchemySource):
             inspector=inspector,
             description=column.get("comment"),
             nullable=column.get("nullable", True),
-            is_part_of_key=(
-                True
-                if (
-                    pk_constraints is not None
-                    and isinstance(pk_constraints, dict)
-                    and column["name"] in pk_constraints.get("constrained_columns", [])
-                )
-                else False
+            is_part_of_key=bool(
+                pk_constraints is not None
+                and isinstance(pk_constraints, dict)
+                and column["name"] in pk_constraints.get("constrained_columns", [])
             ),
-            is_partitioning_key=(
-                True
-                if (partition_keys is not None and column["name"] in partition_keys)
-                else False
+            is_partitioning_key=bool(
+                partition_keys is not None and column["name"] in partition_keys
             ),
         )
 

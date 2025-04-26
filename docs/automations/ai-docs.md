@@ -18,7 +18,9 @@ With AI-powered documentation, you can automatically generate documentation for 
 
 ## Configuring
 
-No configuration is required - just hit "Generate" on any table or column in the UI.
+Ensure you have edit dataset description privileges.
+
+Once permissions are obtained, no configuration is required - just hit "Generate" on any table or column in the UI.
 
 ## How it works
 

@@ -219,6 +219,7 @@ class DatahubEmitter(Block):
                 id=task_run_ctx.task.task_key,
                 flow_urn=dataflow_urn,
                 name=task_run_ctx.task.name,
+                platform_instance=self.platform_instance,
             )
 
             datajob.description = task_run_ctx.task.description
@@ -247,7 +248,10 @@ class DatahubEmitter(Block):
             return datajob
         elif task_key is not None:
             datajob = DataJob(
-                id=task_key, flow_urn=dataflow_urn, name=task_key.split(".")[-1]
+                id=task_key,
+                flow_urn=dataflow_urn,
+                name=task_key.split(".")[-1],
+                platform_instance=self.platform_instance,
             )
             return datajob
         return None

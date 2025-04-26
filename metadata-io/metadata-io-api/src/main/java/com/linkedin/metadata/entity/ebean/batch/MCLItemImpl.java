@@ -95,7 +95,8 @@ public class MCLItemImpl implements MCLItem {
       log.debug("entity spec = {}", this.entitySpec);
 
       aspectSpec(
-          ValidationApiUtils.validate(this.entitySpec, this.metadataChangeLog.getAspectName()));
+          ValidationApiUtils.validateAspect(
+              this.entitySpec, this.metadataChangeLog.getAspectName()));
       log.debug("aspect spec = {}", this.aspectSpec);
 
       Pair<RecordTemplate, RecordTemplate> aspects =

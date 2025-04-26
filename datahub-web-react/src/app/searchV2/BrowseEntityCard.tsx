@@ -1,16 +1,18 @@
-import styled from 'styled-components';
 import React from 'react';
 import { useHistory } from 'react-router-dom';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { PageRoutes } from '../../conf/Global';
-import { IconStyleType } from '../entity/Entity';
-import { EntityType } from '../../types.generated';
-import { LogoCountCard } from '../shared/LogoCountCard';
-import { EventType } from '../analytics/event';
-import analytics from '../analytics';
-import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
-import { ENTITY_SUB_TYPE_FILTER_NAME } from './utils/constants';
-import { useIsBrowseV2 } from './useSearchAndBrowseVersion';
+import styled from 'styled-components';
+
+import analytics from '@app/analytics';
+import { EventType } from '@app/analytics/event';
+import { IconStyleType } from '@app/entity/Entity';
+import { useIsBrowseV2 } from '@app/searchV2/useSearchAndBrowseVersion';
+import { ENTITY_SUB_TYPE_FILTER_NAME } from '@app/searchV2/utils/constants';
+import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
+import { LogoCountCard } from '@app/shared/LogoCountCard';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { PageRoutes } from '@conf/Global';
+
+import { EntityType } from '@types';
 
 const BrowseEntityCardWrapper = styled.div``;
 

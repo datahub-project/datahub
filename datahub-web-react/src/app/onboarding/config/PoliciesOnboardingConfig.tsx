@@ -1,6 +1,7 @@
-import React from 'react';
 import { Typography } from 'antd';
-import { OnboardingStep } from '../OnboardingStep';
+import React from 'react';
+
+import { OnboardingStep } from '@app/onboarding/OnboardingStep';
 
 export const POLICIES_INTRO_ID = 'policies-intro';
 export const POLICIES_CREATE_POLICY_ID = 'policies-create-policy';

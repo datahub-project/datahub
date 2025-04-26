@@ -1,5 +1,6 @@
-import { FormType, FormVerificationAssociation } from '../../../../../types.generated';
-import { shouldShowVerificationPrompt } from '../useShouldShowVerificationPrompt';
+import { shouldShowVerificationPrompt } from '@app/entity/shared/entityForm/useShouldShowVerificationPrompt';
+
+import { FormType, FormVerificationAssociation } from '@types';
 
 describe('shouldShowVerificationPrompt', () => {
     const formVerification = {

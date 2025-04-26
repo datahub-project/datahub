@@ -11,7 +11,7 @@ FROM golang:1-alpine3.21 AS binary
 # Re-declaring arg from above to make it available in this stage (will inherit default value)
 ARG ALPINE_REPO_URL
 
-ENV DOCKERIZE_VERSION=v0.9.1
+ENV DOCKERIZE_VERSION=v0.9.3
 WORKDIR /go/src/github.com/jwilder
 
 # Optionally set corporate mirror for apk
@@ -38,10 +38,12 @@ RUN if [ "${ALPINE_REPO_URL}" != "http://dl-cdn.alpinelinux.org/alpine" ] ; then
 
 # PFP-260: Upgrade Sqlite to >=3.28.0-r0 to fix https://security.snyk.io/vuln/SNYK-ALPINE39-SQLITE-449762
 RUN apk --no-cache --update-cache --available upgrade \
-    && apk --no-cache add curl bash coreutils gcompat sqlite libc6-compat snappy \
+    && apk --no-cache add 'c-ares>1.34.5'  --repository=${ALPINE_REPO_URL}/edge/main \
+    && apk --no-cache add curl bash coreutils gcompat sqlite libc6-compat \
+    && apk --no-cache add snappy=~1.2 --repository=${ALPINE_REPO_URL}/edge/main \
     && apk --no-cache add openjdk17-jre-headless --repository=${ALPINE_REPO_URL}/edge/community \
     && apk --no-cache add jattach --repository ${ALPINE_REPO_URL}/edge/community/ \
-    && wget --no-verbose ${GITHUB_REPO_URL}/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.24.0/opentelemetry-javaagent.jar \
+    && wget --no-verbose ${GITHUB_REPO_URL}/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.15.0/opentelemetry-javaagent.jar \
     && wget --no-verbose ${MAVEN_CENTRAL_REPO_URL}/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_VERSION}/jmx_prometheus_javaagent-${JMX_VERSION}.jar -O jmx_prometheus_javaagent.jar \
     && cp /usr/lib/jvm/java-17-openjdk/jre/lib/security/cacerts /tmp/kafka.client.truststore.jks
 COPY --from=binary /go/bin/dockerize /usr/local/bin
@@ -61,14 +63,18 @@ FROM base AS dev-install
 
 FROM ${APP_ENV}-install AS final
 
-RUN mkdir -p /etc/datahub/plugins/auth/resources
+RUN mkdir -p /etc/datahub/plugins/auth/resources /datahub
 
-RUN addgroup -S datahub && adduser -S datahub -G datahub
+RUN addgroup -S datahub && adduser -S datahub -G datahub && chmod g-s /home/datahub
 RUN chown -R datahub:datahub /etc/datahub /datahub
 USER datahub
 
 ENV JMX_OPTS=""
 ENV JAVA_OPTS=""
+ENV OTEL_EXPORTER_OTLP_MAX_PAYLOAD_SIZE=4194304 \
+    OTEL_EXPORTER_OTLP_HTTP_HTTP2_MAX_FRAME_SIZE=8388608 \
+    OTEL_EXPORTER_OTLP_HTTP_COMPRESSION=gzip \
+    OTEL_EXPORTER_OTLP_TRACES_COMPRESSION=gzip
 
 EXPOSE 8080
 

@@ -1,19 +1,20 @@
 import { blue } from '@ant-design/colors';
 import { CodeOutlined, CopyOutlined, DeleteOutlined } from '@ant-design/icons';
-import { Button, Image, Typography } from 'antd';
 import { Tooltip } from '@components';
+import { Button, Image, Typography } from 'antd';
 import cronstrue from 'cronstrue';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { capitalizeFirstLetter } from '../../shared/textUtil';
-import useGetSourceLogoUrl from './builder/useGetSourceLogoUrl';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import useGetSourceLogoUrl from '@app/ingest/source/builder/useGetSourceLogoUrl';
 import {
+    RUNNING,
     getExecutionRequestStatusDisplayColor,
     getExecutionRequestStatusDisplayText,
     getExecutionRequestStatusIcon,
-    RUNNING,
-} from './utils';
+} from '@app/ingest/source/utils';
+import { capitalizeFirstLetter } from '@app/shared/textUtil';
 
 const PreviewImage = styled(Image)`
     max-height: 28px;
@@ -27,6 +28,11 @@ const StatusContainer = styled.div`
     display: flex;
     justify-content: left;
     align-items: center;
+`;
+
+const AllStatusWrapper = styled.div`
+    display: flex;
+    flex-direction: column;
 `;
 
 const StatusButton = styled(Button)`
@@ -100,10 +106,10 @@ export function TypeColumn({ type, record }: TypeColumnProps) {
     );
 }
 
-export function LastExecutionColumn(time: any) {
+export function LastExecutionColumn({ time }: { time: number }) {
     const executionDate = time && new Date(time);
     const localTime = executionDate && `${executionDate.toLocaleDateString()} at ${executionDate.toLocaleTimeString()}`;
-    return <Typography.Text>{localTime || 'None'}</Typography.Text>;
+    return <Typography.Text type="secondary">{localTime ? `Last run ${localTime}` : 'Never run'}</Typography.Text>;
 }
 
 export function ScheduleColumn(schedule: any, record: any) {
@@ -131,17 +137,21 @@ export function LastStatusColumn({ status, record, setFocusExecutionUrn }: LastS
     const Icon = getExecutionRequestStatusIcon(status);
     const text = getExecutionRequestStatusDisplayText(status);
     const color = getExecutionRequestStatusDisplayColor(status);
+    const { lastExecTime, lastExecUrn } = record;
     return (
-        <StatusContainer>
-            {Icon && <Icon style={{ color, fontSize: 14 }} />}
-            <StatusButton
-                data-testid="ingestion-source-table-status"
-                type="link"
-                onClick={() => setFocusExecutionUrn(record.lastExecUrn)}
-            >
-                <StatusText color={color}>{text || 'Pending...'}</StatusText>
-            </StatusButton>
-        </StatusContainer>
+        <AllStatusWrapper>
+            <StatusContainer>
+                {Icon && <Icon style={{ color, fontSize: 14 }} />}
+                <StatusButton
+                    data-testid="ingestion-source-table-status"
+                    type="link"
+                    onClick={() => setFocusExecutionUrn(lastExecUrn)}
+                >
+                    <StatusText color={color}>{text || 'Pending...'}</StatusText>
+                </StatusButton>
+            </StatusContainer>
+            <LastExecutionColumn time={lastExecTime} />
+        </AllStatusWrapper>
     );
 }
 

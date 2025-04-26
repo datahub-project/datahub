@@ -11,12 +11,18 @@ from datahub.emitter.mcp_builder import (
     DatabaseKey,
     SchemaKey,
 )
+from datahub.ingestion.source.common.subtypes import (
+    FlowContainerSubTypes,
+    JobContainerSubTypes,
+)
+from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
 from datahub.metadata.schema_classes import (
     ContainerClass,
     DataFlowInfoClass,
     DataJobInfoClass,
     DataJobInputOutputClass,
     DataPlatformInstanceClass,
+    SubTypesClass,
 )
 
 
@@ -130,6 +136,19 @@ class StoredProcedure:
     def escape_full_name(self) -> str:
         return f"[{self.db}].[{self.schema}].[{self.formatted_name}]"
 
+    def to_base_procedure(self) -> BaseProcedure:
+        return BaseProcedure(
+            name=self.formatted_name,
+            procedure_definition=self.code,
+            created=None,
+            last_altered=None,
+            comment=None,
+            argument_signature=None,
+            return_type=None,
+            language="SQL",
+            extra_properties=None,
+        )
+
 
 @dataclass
 class JobStep:
@@ -212,6 +231,18 @@ class MSSQLDataJob:
         )
 
     @property
+    def as_subtypes_aspect(self) -> SubTypesClass:
+        assert isinstance(self.entity, (JobStep, StoredProcedure))
+        type = (
+            JobContainerSubTypes.MSSQL_JOBSTEP
+            if isinstance(self.entity, JobStep)
+            else JobContainerSubTypes.STORED_PROCEDURE
+        )
+        return SubTypesClass(
+            typeNames=[type],
+        )
+
+    @property
     def as_maybe_platform_instance_aspect(self) -> Optional[DataPlatformInstanceClass]:
         if self.entity.flow.platform_instance:
             return DataPlatformInstanceClass(
@@ -274,6 +305,18 @@ class MSSQLDataFlow:
             name=self.entity.formatted_name,
             customProperties=self.flow_properties,
             externalUrl=self.external_url,
+        )
+
+    @property
+    def as_subtypes_aspect(self) -> SubTypesClass:
+        assert isinstance(self.entity, (MSSQLJob, MSSQLProceduresContainer))
+        type = (
+            FlowContainerSubTypes.MSSQL_JOB
+            if isinstance(self.entity, MSSQLJob)
+            else FlowContainerSubTypes.MSSQL_PROCEDURE_CONTAINER
+        )
+        return SubTypesClass(
+            typeNames=[type],
         )
 
     @property

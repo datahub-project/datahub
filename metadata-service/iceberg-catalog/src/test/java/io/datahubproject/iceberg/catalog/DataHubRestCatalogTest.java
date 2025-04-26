@@ -24,6 +24,7 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.client.CacheEvictionService;
 import io.datahubproject.iceberg.catalog.credentials.CredentialProvider;
 import io.datahubproject.metadata.context.ActorContext;
 import io.datahubproject.metadata.context.OperationContext;
@@ -46,6 +47,8 @@ public class DataHubRestCatalogTest {
   @Mock private EntityService entityService;
 
   @Mock private EntitySearchService searchService;
+
+  @Mock private CacheEvictionService cacheEvictionService;
 
   @Mock private OperationContext operationContext;
 

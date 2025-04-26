@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-import DomainIcon from '../DomainIcon';
+
+import DomainIcon from '@app/domain/DomainIcon';
 
 const IconWrapper = styled.span`
     margin-right: 10px;

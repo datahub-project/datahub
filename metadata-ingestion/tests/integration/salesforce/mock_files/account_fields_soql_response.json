@@ -37,7 +37,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": false
+            "IsNillable": false,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -71,7 +72,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": false
+            "IsNillable": false,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -107,7 +109,8 @@
                 ]
             },
             "RelationshipName": "MasterRecord",
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -141,7 +144,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": false
+            "IsNillable": false,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -175,7 +179,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -209,7 +214,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -245,7 +251,8 @@
                 ]
             },
             "RelationshipName": "Parent",
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -279,7 +286,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -313,7 +321,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -347,7 +356,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -381,7 +391,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -415,7 +426,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -449,7 +461,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -483,7 +496,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -517,7 +531,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -551,7 +566,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -585,7 +601,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -619,7 +636,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -653,7 +671,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -687,7 +706,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -721,7 +741,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -755,7 +776,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -789,7 +811,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -823,7 +846,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -857,7 +881,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -891,7 +916,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -925,7 +951,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -959,7 +986,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -993,7 +1021,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -1027,7 +1056,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -1061,7 +1091,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -1095,7 +1126,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -1129,7 +1161,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -1163,7 +1196,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -1197,7 +1231,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -1231,7 +1266,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -1265,7 +1301,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -1299,7 +1336,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -1333,7 +1371,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -1367,7 +1406,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -1403,7 +1443,8 @@
                 ]
             },
             "RelationshipName": "Owner",
-            "IsNillable": false
+            "IsNillable": false,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -1437,7 +1478,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -1471,7 +1513,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": false
+            "IsNillable": false,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -1507,7 +1550,8 @@
                 ]
             },
             "RelationshipName": "CreatedBy",
-            "IsNillable": false
+            "IsNillable": false,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -1541,7 +1585,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": false
+            "IsNillable": false,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -1577,7 +1622,8 @@
                 ]
             },
             "RelationshipName": "LastModifiedBy",
-            "IsNillable": false
+            "IsNillable": false,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -1611,7 +1657,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": false
+            "IsNillable": false,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -1645,7 +1692,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -1679,7 +1727,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -1713,7 +1762,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -1747,7 +1797,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -1781,7 +1832,8 @@
                 "referenceTo": null
             },
             "RelationshipName": "JigsawCompany",
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -1815,7 +1867,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -1849,7 +1902,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -1883,7 +1937,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -1917,7 +1972,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -1951,7 +2007,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -1985,7 +2042,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -2019,7 +2077,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -2053,7 +2112,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -2089,7 +2149,8 @@
                 ]
             },
             "RelationshipName": "DandbCompany",
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -2125,7 +2186,8 @@
                 ]
             },
             "RelationshipName": "OperatingHours",
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -2159,7 +2221,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -2193,7 +2256,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -2227,7 +2291,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -2267,7 +2332,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -2307,7 +2373,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": true
         },
         {
             "attributes": {
@@ -2347,7 +2414,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -2387,7 +2455,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -2427,7 +2496,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -2467,7 +2537,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -2507,7 +2578,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -2543,7 +2615,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -2579,7 +2652,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         },
         {
             "attributes": {
@@ -2613,7 +2687,8 @@
                 "referenceTo": null
             },
             "RelationshipName": null,
-            "IsNillable": true
+            "IsNillable": true,
+            "IsCalculated": false
         }
     ]
 }

@@ -39,9 +39,6 @@ from datahub.ingestion.run.sink_callback import DeadLetterQueueCallback, Logging
 from datahub.ingestion.sink.datahub_rest import DatahubRestSink
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
-from datahub.ingestion.transformer.system_metadata_transformer import (
-    SystemMetadataTransformer,
-)
 from datahub.ingestion.transformer.transform_registry import transform_registry
 from datahub.sdk._attribution import KnownAttribution, change_default_attribution
 from datahub.telemetry import stats
@@ -286,9 +283,6 @@ class Pipeline:
                     f"Transformer type:{transformer_type},{transformer_class} configured"
                 )
 
-        # Add the system metadata transformer at the end of the list.
-        self.transformers.append(SystemMetadataTransformer(self.ctx))
-
     def _configure_reporting(self, report_to: Optional[str]) -> None:
         if self.dry_run:
             # In dry run mode, we don't want to report anything.
@@ -526,10 +520,8 @@ class Pipeline:
         Evaluates the commit_policy for each committable in the context and triggers the commit operation
         on the committable if its required commit policies are satisfied.
         """
-        has_errors: bool = (
-            True
-            if self.source.get_report().failures or self.sink.get_report().failures
-            else False
+        has_errors: bool = bool(
+            self.source.get_report().failures or self.sink.get_report().failures
         )
         has_warnings: bool = bool(
             self.source.get_report().warnings or self.sink.get_report().warnings
@@ -563,18 +555,20 @@ class Pipeline:
     def raise_from_status(self, raise_warnings: bool = False) -> None:
         if self.source.get_report().failures:
             raise PipelineExecutionError(
-                "Source reported errors", self.source.get_report()
+                "Source reported errors", self.source.get_report().failures
             )
         if self.sink.get_report().failures:
-            raise PipelineExecutionError("Sink reported errors", self.sink.get_report())
+            raise PipelineExecutionError(
+                "Sink reported errors", self.sink.get_report().failures
+            )
         if raise_warnings:
             if self.source.get_report().warnings:
                 raise PipelineExecutionError(
-                    "Source reported warnings", self.source.get_report()
+                    "Source reported warnings", self.source.get_report().warnings
                 )
             if self.sink.get_report().warnings:
                 raise PipelineExecutionError(
-                    "Sink reported warnings", self.sink.get_report()
+                    "Sink reported warnings", self.sink.get_report().warnings
                 )
 
     def log_ingestion_stats(self) -> None:
